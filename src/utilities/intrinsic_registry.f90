@@ -33,7 +33,7 @@ contains
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
-        if (allocated(signature)) deallocate(signature)
+        if (allocated(signature)) deallocate (signature)
         if (.not. allocated(intrinsic_functions)) return
 
         do i = 1, size(intrinsic_functions)
@@ -41,7 +41,7 @@ contains
                 trim(to_lower(name))) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
-                           intrinsic_functions(i)%arg_types // ")"
+                            intrinsic_functions(i)%arg_types // ")"
                 return
             end if
         end do
@@ -74,174 +74,174 @@ contains
         if (registry_initialized) return
 
         ! Allocate exact space for intrinsic functions
-        allocate(intrinsic_functions(NUM_INTRINSICS))
+        allocate (intrinsic_functions(NUM_INTRINSICS))
         i = 0
 
         ! Mathematical functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="sin", return_type="real", arg_types="real", &
-            description="Sine function")
+                                 name="sin", return_type="real", arg_types="real", &
+                                 description="Sine function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="cos", return_type="real", arg_types="real", &
-            description="Cosine function")
+                                 name="cos", return_type="real", arg_types="real", &
+                                 description="Cosine function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="tan", return_type="real", arg_types="real", &
-            description="Tangent function")
+                                 name="tan", return_type="real", arg_types="real", &
+                                 description="Tangent function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="sqrt", return_type="real", arg_types="real", &
-            description="Square root function")
+                                 name="sqrt", return_type="real", arg_types="real", &
+                                 description="Square root function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="exp", return_type="real", arg_types="real", &
-            description="Exponential function")
+                                 name="exp", return_type="real", arg_types="real", &
+                                 description="Exponential function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="log", return_type="real", arg_types="real", &
-            description="Natural logarithm function")
+                                 name="log", return_type="real", arg_types="real", &
+                                 description="Natural logarithm function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="abs", return_type="real", arg_types="real", &
-            description="Absolute value function")
+                                 name="abs", return_type="real", arg_types="real", &
+                                 description="Absolute value function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="asin", return_type="real", arg_types="real", &
-            description="Arc sine function")
+                                 name="asin", return_type="real", arg_types="real", &
+                                 description="Arc sine function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="acos", return_type="real", arg_types="real", &
-            description="Arc cosine function")
+                                 name="acos", return_type="real", arg_types="real", &
+                                 description="Arc cosine function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="atan", return_type="real", arg_types="real", &
-            description="Arc tangent function")
+                                 name="atan", return_type="real", arg_types="real", &
+                                 description="Arc tangent function")
 
         ! Type conversion functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="int", return_type="integer", arg_types="real", &
-            description="Convert to integer")
+                                 name="int", return_type="integer", arg_types="real", &
+                                 description="Convert to integer")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="real", return_type="real", arg_types="integer", &
-            description="Convert to real")
+                                 name="real", return_type="real", arg_types="integer", &
+                                 description="Convert to real")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="nint", return_type="integer", arg_types="real", &
-            description="Nearest integer")
+                                 name="nint", return_type="integer", arg_types="real", &
+                                 description="Nearest integer")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="floor", return_type="integer", arg_types="real", &
-            description="Floor function")
+                                 name="floor", return_type="integer", arg_types="real", &
+                                 description="Floor function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="ceiling", return_type="integer", arg_types="real", &
-            description="Ceiling function")
+                                 name="ceiling", return_type="integer", arg_types="real", &
+                                 description="Ceiling function")
 
         ! Array functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="size", return_type="integer", arg_types="array", &
-            description="Array size")
+                                 name="size", return_type="integer", arg_types="array", &
+                                 description="Array size")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="sum", return_type="numeric", arg_types="array", &
-            description="Array sum")
+                                 name="sum", return_type="numeric", arg_types="array", &
+                                 description="Array sum")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="shape", return_type="integer_array", arg_types="array", &
-            description="Array shape")
+                                 name="shape", return_type="integer_array", arg_types="array", &
+                                 description="Array shape")
 
         ! String functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="len", return_type="integer", arg_types="character", &
-            description="String length")
+                                 name="len", return_type="integer", arg_types="character", &
+                                 description="String length")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="len_trim", return_type="integer", arg_types="character", &
-            description="Trimmed string length")
+                                 name="len_trim", return_type="integer", arg_types="character", &
+                                 description="Trimmed string length")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="trim", return_type="character", arg_types="character", &
-            description="Remove trailing blanks")
+                                 name="trim", return_type="character", arg_types="character", &
+                                 description="Remove trailing blanks")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="adjustl", return_type="character", arg_types="character", &
-            description="Adjust left")
+                                 name="adjustl", return_type="character", arg_types="character", &
+                                 description="Adjust left")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="adjustr", return_type="character", arg_types="character", &
-            description="Adjust right")
+                                 name="adjustr", return_type="character", arg_types="character", &
+                                 description="Adjust right")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="index", return_type="integer", arg_types="character,character", &
-            description="Substring position")
+                                 name="index", return_type="integer", arg_types="character,character", &
+                                 description="Substring position")
 
         ! Variadic functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="min", return_type="numeric", arg_types="numeric,numeric,...", &
-            description="Minimum value")
+                                 name="min", return_type="numeric", arg_types="numeric,numeric,...", &
+                                 description="Minimum value")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="max", return_type="numeric", arg_types="numeric,numeric,...", &
-            description="Maximum value")
+                                 name="max", return_type="numeric", arg_types="numeric,numeric,...", &
+                                 description="Maximum value")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="mod", return_type="numeric", arg_types="numeric,numeric", &
-            description="Modulo function")
+                                 name="mod", return_type="numeric", arg_types="numeric,numeric", &
+                                 description="Modulo function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="modulo", return_type="numeric", arg_types="numeric,numeric", &
-            description="Modulo function")
+                                 name="modulo", return_type="numeric", arg_types="numeric,numeric", &
+                                 description="Modulo function")
 
         ! Inquiry functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="present", return_type="logical", arg_types="any", &
-            description="Check if optional argument is present")
+                                 name="present", return_type="logical", arg_types="any", &
+                                 description="Check if optional argument is present")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="precision", return_type="integer", arg_types="real", &
-            description="Decimal precision")
+                                 name="precision", return_type="integer", arg_types="real", &
+                                 description="Decimal precision")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="allocated", return_type="logical", arg_types="allocatable", &
-            description="Check if allocatable variable is allocated")
+                                 name="allocated", return_type="logical", arg_types="allocatable", &
+                                 description="Check if allocatable variable is allocated")
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
-            write(error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
-            write(error_unit, '(A)') "in initialization - registry may be incomplete"
+            write (error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
+            write (error_unit, '(A)') "in initialization - registry may be incomplete"
             ! Continue with partial registry rather than crashing
         end if
 
@@ -253,7 +253,7 @@ contains
         character(len=*), intent(in) :: str
         character(len=len(str)) :: lower_str
         integer :: i, ascii_val
-        
+
         lower_str = str
         do i = 1, len(str)
             ascii_val = iachar(str(i:i))

@@ -36,19 +36,19 @@ contains
         if (present(parent_index)) then
             if (present(consumed_count)) then
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                    parent_index=parent_index, callbacks=local_callbacks, &
-                    consumed_count=consumed_count)
+                                                          parent_index=parent_index, callbacks=local_callbacks, &
+                                                          consumed_count=consumed_count)
             else
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                    parent_index=parent_index, callbacks=local_callbacks)
+                                                          parent_index=parent_index, callbacks=local_callbacks)
             end if
         else
             if (present(consumed_count)) then
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                    callbacks=local_callbacks, consumed_count=consumed_count)
+                                                          callbacks=local_callbacks, consumed_count=consumed_count)
             else
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
-                    callbacks=local_callbacks)
+                                                          callbacks=local_callbacks)
             end if
         end if
     end function parse_basic_statement_multi
@@ -56,7 +56,7 @@ contains
     ! Unified function for parsing statement bodies (used by if blocks, &
     ! do while loops, etc.)
     function parse_statement_body(parser, arena, end_keywords, callbacks, &
-                                   parent_index) result(body_indices)
+                                  parent_index) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: end_keywords(:)
@@ -144,7 +144,7 @@ contains
                     end select
 
                     if (j > stmt_start .and. parser%tokens(j)%line > &
-                            parser%tokens(stmt_start)%line) then
+                        parser%tokens(stmt_start)%line) then
                         stmt_end = j - 1
                         exit
                     end if
@@ -187,10 +187,10 @@ contains
                         integer :: k
                         if (present(parent_index)) then
                             stmt_indices = parse_basic_statement_multi( &
-                                stmt_tokens, arena, parent_index, local_callbacks)
+                                           stmt_tokens, arena, parent_index, local_callbacks)
                         else
                             stmt_indices = parse_basic_statement_multi( &
-                                stmt_tokens, arena, callbacks=local_callbacks)
+                                           stmt_tokens, arena, callbacks=local_callbacks)
                         end if
 
                         ! Add all parsed statements to body
@@ -223,7 +223,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: length
         integer :: start_pos, expr_index
-        
+
         start_pos = parser%current_token
         expr_index = parse_range(parser, arena)
         length = parser%current_token - start_pos

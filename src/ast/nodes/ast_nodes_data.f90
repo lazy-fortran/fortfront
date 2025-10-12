@@ -2,7 +2,7 @@ module ast_nodes_data
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_visitor_base_t
+                        ast_visitor_base_t
     implicit none
     private
 
@@ -17,7 +17,7 @@ module ast_nodes_data
     public :: create_declaration, create_derived_type, create_mixed_construct_container
     ! Constructors migrated from ast_core
     public :: create_module
-    
+
     ! Public utility functions
     public :: intent_type_to_string
 
@@ -25,34 +25,34 @@ module ast_nodes_data
 
     ! Declaration node
     type, extends(ast_node), public :: declaration_node
-        character(len=:), allocatable :: type_name     ! real, integer, etc.
-        character(len=:), allocatable :: var_name      ! Variable name
+        character(len=:), allocatable :: type_name  ! real, integer, etc.
+        character(len=:), allocatable :: var_name  ! Variable name
         ! (for single declarations)
         character(len=:), allocatable :: var_names(:)  ! Variable names
         ! (for multi declarations)
-        logical :: is_multi_declaration = .false.      ! Whether this
+        logical :: is_multi_declaration = .false.  ! Whether this
         ! declares multiple variables
-        integer :: kind_value = 0                      ! Kind parameter (default none)
+        integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind = .false.                  ! Whether kind was specified
-        character(len=:), allocatable :: intent        ! in, out, inout (for parameters)
-        logical :: has_intent = .false.                ! Whether intent was specified
-        logical :: is_optional = .false.               ! Whether optional attribute is present
-        integer :: initializer_index = 0              ! Initializer index (stack-based)
-        logical :: has_initializer = .false.          ! Whether initializer is present
+        logical :: has_kind = .false.  ! Whether kind was specified
+        character(len=:), allocatable :: intent  ! in, out, inout (for parameters)
+        logical :: has_intent = .false.  ! Whether intent was specified
+        logical :: is_optional = .false.  ! Whether optional attribute is present
+        integer :: initializer_index = 0  ! Initializer index (stack-based)
+        logical :: has_initializer = .false.  ! Whether initializer is present
         ! Array dimension support
-        logical :: is_array = .false.                  ! Whether this is
+        logical :: is_array = .false.  ! Whether this is
         ! an array declaration
         integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
-        logical :: is_allocatable = .false.           ! Whether allocatable
+        logical :: is_allocatable = .false.  ! Whether allocatable
         ! attribute is present
-        logical :: is_pointer = .false.                ! Whether pointer
+        logical :: is_pointer = .false.  ! Whether pointer
         ! attribute is present
-        logical :: is_target = .false.                 ! Whether target
+        logical :: is_target = .false.  ! Whether target
         ! attribute is present
-        logical :: is_external = .false.              ! Whether external
+        logical :: is_external = .false.  ! Whether external
         ! attribute is present
-        logical :: is_parameter = .false.              ! Whether parameter
+        logical :: is_parameter = .false.  ! Whether parameter
         ! attribute is present (for constants)
     contains
         procedure :: accept => declaration_accept
@@ -63,17 +63,17 @@ module ast_nodes_data
 
     ! Parameter declaration node (for function/subroutine parameters)
     type, extends(ast_node), public :: parameter_declaration_node
-        character(len=:), allocatable :: name          ! Parameter name
-        character(len=:), allocatable :: type_name     ! real, integer, etc.
-        integer :: kind_value = 0                      ! Kind parameter (default none)
+        character(len=:), allocatable :: name  ! Parameter name
+        character(len=:), allocatable :: type_name  ! real, integer, etc.
+        integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind = .false.                  ! Whether kind was specified
-        integer :: intent_type = INTENT_NONE          ! INTENT_IN/OUT/INOUT
-        logical :: is_optional = .false.              ! Whether parameter is optional
+        logical :: has_kind = .false.  ! Whether kind was specified
+        integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
+        logical :: is_optional = .false.  ! Whether parameter is optional
         ! Array dimension support
-        logical :: is_array = .false.                  ! Whether this is
+        logical :: is_array = .false.  ! Whether this is
         ! an array parameter
-        integer, allocatable :: dimension_indices(:)   ! Dimension indices (stack-based)
+        integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
     contains
         procedure :: accept => parameter_declaration_accept
         procedure :: to_json => parameter_declaration_to_json
@@ -83,12 +83,12 @@ module ast_nodes_data
 
     ! Module node
     type, extends(ast_node), public :: module_node
-        character(len=:), allocatable :: name         ! Module name
-        integer, allocatable :: declaration_indices(:) ! Module declaration
+        character(len=:), allocatable :: name  ! Module name
+        integer, allocatable :: declaration_indices(:)  ! Module declaration
         ! arena indices
-        integer, allocatable :: procedure_indices(:)   ! Module procedure
+        integer, allocatable :: procedure_indices(:)  ! Module procedure
         ! arena indices (after contains)
-        logical :: has_contains = .false.             ! Whether module has
+        logical :: has_contains = .false.  ! Whether module has
         ! a contains section
     contains
         procedure :: accept => module_accept
@@ -99,10 +99,10 @@ module ast_nodes_data
 
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
-        character(len=:), allocatable :: name          ! Type name
-        integer, allocatable :: component_indices(:)   ! Component indices (stack-based)
-        logical :: has_parameters = .false.            ! Whether it has parameters
-        integer, allocatable :: param_indices(:)       ! Parameter indices (stack-based)
+        character(len=:), allocatable :: name  ! Type name
+        integer, allocatable :: component_indices(:)  ! Component indices (stack-based)
+        logical :: has_parameters = .false.  ! Whether it has parameters
+        integer, allocatable :: param_indices(:)  ! Parameter indices (stack-based)
     contains
         procedure :: accept => derived_type_accept
         procedure :: to_json => derived_type_to_json
@@ -112,9 +112,9 @@ module ast_nodes_data
 
     ! Mixed construct container node (for Issue #511 mixed construct support)
     type, extends(ast_node), public :: mixed_construct_container_node
-        character(len=:), allocatable :: module_name           ! Generated module name
+        character(len=:), allocatable :: module_name  ! Generated module name
         integer, allocatable :: implicit_declaration_indices(:)  ! Declarations for module
-        integer, allocatable :: explicit_program_indices(:)    ! Explicit program units
+        integer, allocatable :: explicit_program_indices(:)  ! Explicit program units
     contains
         procedure :: accept => mixed_construct_container_accept
         procedure :: to_json => mixed_construct_container_to_json
@@ -187,10 +187,10 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: node, intent_str
         character(len=:), allocatable :: intent_name
-        
+
         call json%create_object(node, '')
         call json%add(parent, node)
-        
+
         call json%add(node, 'type', 'parameter_declaration')
         call json%add(node, 'name', this%name)
         call json%add(node, 'type_name', this%type_name)
@@ -198,7 +198,7 @@ contains
         call json%add(node, 'has_kind', this%has_kind)
         call json%add(node, 'is_optional', this%is_optional)
         call json%add(node, 'is_array', this%is_array)
-        
+
         ! Add intent as a readable string (single field for clarity)
         select case (this%intent_type)
         case (INTENT_NONE)
@@ -213,7 +213,7 @@ contains
             intent_name = 'unknown'
         end select
         call json%add(node, 'intent', intent_name)
-        
+
         call json%add(node, 'line', this%line)
         call json%add(node, 'column', this%column)
     end subroutine parameter_declaration_to_json
@@ -277,7 +277,7 @@ contains
         if (allocated(rhs%declaration_indices)) then
             lhs%declaration_indices = rhs%declaration_indices
         end if
-        
+
         ! Handle procedure_indices array
         if (allocated(rhs%procedure_indices)) then
             lhs%procedure_indices = rhs%procedure_indices
@@ -318,9 +318,9 @@ contains
         if (allocated(rhs%component_indices)) then
             lhs%component_indices = rhs%component_indices
         end if
-        
+
         lhs%has_parameters = rhs%has_parameters
-        
+
         ! Handle param_indices array
         if (allocated(rhs%param_indices)) then
             lhs%param_indices = rhs%param_indices
@@ -329,7 +329,7 @@ contains
 
     ! Constructor for module node (migrated from ast_core)
     function create_module(name, declaration_indices, procedure_indices, &
-            has_contains, line, column) result(node)
+                           has_contains, line, column) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
@@ -359,9 +359,9 @@ contains
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, &
-                               initializer_index, dimension_indices, &
-                               is_allocatable, is_pointer, is_target, &
-                               is_external, line, column) result(node)
+                                initializer_index, dimension_indices, &
+                                is_allocatable, is_pointer, is_target, &
+                                is_external, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -410,7 +410,7 @@ contains
     end function create_declaration
 
     function create_derived_type(name, component_indices, param_indices, &
-                                line, column) result(node)
+                                 line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
         integer, intent(in), optional :: param_indices(:)
@@ -440,7 +440,7 @@ contains
     function intent_type_to_string(intent_type) result(intent_str)
         integer, intent(in) :: intent_type
         character(len=:), allocatable :: intent_str
-        
+
         select case (intent_type)
         case (INTENT_NONE)
             intent_str = ""
@@ -494,8 +494,8 @@ contains
 
     ! Factory function for mixed construct container
     function create_mixed_construct_container(module_name, implicit_indices, &
-                                            explicit_indices, line, column) &
-                                            result(node)
+                                              explicit_indices, line, column) &
+        result(node)
         character(len=*), intent(in) :: module_name
         integer, intent(in), optional :: implicit_indices(:)
         integer, intent(in), optional :: explicit_indices(:)
@@ -504,19 +504,19 @@ contains
 
         node%uid = generate_uid()
         node%module_name = module_name
-        
+
         if (present(implicit_indices)) then
             if (size(implicit_indices) > 0) then
                 node%implicit_declaration_indices = implicit_indices
             end if
         end if
-        
+
         if (present(explicit_indices)) then
             if (size(explicit_indices) > 0) then
                 node%explicit_program_indices = explicit_indices
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_mixed_construct_container

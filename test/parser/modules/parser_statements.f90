@@ -7,7 +7,7 @@ module parser_statements_module
     use parser_import_statements_module
     use parser_definition_statements_module, only: parse_statement_in_if_block
     use parser_declarations, only: parse_declaration
-    
+
     ! For backward compatibility, re-export all the parsing functions
     use parser_io_statements_module, only: &
         parse_print_statement, parse_write_statement, parse_read_statement
@@ -22,7 +22,7 @@ module parser_statements_module
     use parser_import_statements_module, only: &
         parse_use_statement, parse_implicit_statement, parse_include_statement, &
         parse_module
-    
+
     ! Additional dependencies for remaining utility functions
     use iso_fortran_env, only: error_unit
     use lexer_core
@@ -66,8 +66,8 @@ contains
 
         ! Initialize
         count = 0
-        allocate(character(len=0) :: temp_only(0))
-        allocate(character(len=0) :: temp_rename(0))
+        allocate (character(len=0) :: temp_only(0))
+        allocate (character(len=0) :: temp_rename(0))
 
         ! Parse items separated by commas
         do
@@ -113,8 +113,8 @@ contains
         end do
 
         ! Copy to output arrays
-        allocate(character(len=0) :: only_list(count))
-        allocate(character(len=0) :: rename_list(count))
+        allocate (character(len=0) :: only_list(count))
+        allocate (character(len=0) :: rename_list(count))
         if (count > 0) then
             only_list = temp_only
             rename_list = temp_rename
@@ -128,7 +128,7 @@ contains
         integer, allocatable :: stmt_indices(:)
 
         ! Simplified implementation for refactoring
-        allocate(stmt_indices(0))
+        allocate (stmt_indices(0))
     end function parse_basic_statement_multi
 
     ! Simple if statement parser (utility function)
@@ -148,7 +148,7 @@ contains
         condition_index = parse_if_condition_simple(parser, arena)
 
         ! Simplified if parsing
-        allocate(then_body_indices(0))
+        allocate (then_body_indices(0))
 
         ! Create if node
         if_index = push_if(arena, condition_index, then_body_indices, &
@@ -196,6 +196,5 @@ contains
             condition_index = parse_comparison(parser, arena)
         end if
     end function parse_if_condition_simple
-
 
 end module parser_statements_module

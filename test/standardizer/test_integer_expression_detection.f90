@@ -12,16 +12,16 @@ program test_integer_expression_detection
     print *, '=== Integer Expression Detection Tests ==='
 
     call run_case('deep integer operations', &
-                  'program case1'//nl// &
-                  'integer :: a'//nl// &
-                  'a = ((1 + 2) * (3 + 4)) - (5 - 6)'//nl// &
+                  'program case1' // nl // &
+                  'integer :: a' // nl // &
+                  'a = ((1 + 2) * (3 + 4)) - (5 - 6)' // nl // &
                   'end program case1', &
                   'a', 'integer')
 
     call run_case('division downgrade', &
-                  'program case2'//nl// &
-                  'integer :: b'//nl// &
-                  'b = ((1 + 2) * (3 - 4)) / (5 + 6)'//nl// &
+                  'program case2' // nl // &
+                  'integer :: b' // nl // &
+                  'b = ((1 + 2) * (3 - 4)) / (5 + 6)' // nl // &
                   'end program case2', &
                   'b', 'real')
 
@@ -77,7 +77,7 @@ contains
         var_types = ''
         var_declared = .false.
         var_count = 0
-        allocate(function_names(0))
+        allocate (function_names(0))
 
         call collect_assignment_vars(arena, assignment_index, var_names, var_types, &
                                      var_declared, var_count, function_names, 0)
@@ -89,13 +89,13 @@ contains
 
         if (trim(var_names(1)) /= trim(expected_name)) then
             print *, 'FAIL:', trim(test_name), 'expected variable', trim(expected_name), &
-                     'got', trim(var_names(1))
+                'got', trim(var_names(1))
             error stop 1
         end if
 
         if (trim(var_types(1)) /= trim(expected_type)) then
             print *, 'FAIL:', trim(test_name), 'expected type', trim(expected_type), &
-                     'got', trim(var_types(1))
+                'got', trim(var_types(1))
             error stop 1
         end if
 

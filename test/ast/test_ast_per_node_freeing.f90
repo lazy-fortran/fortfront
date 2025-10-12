@@ -25,7 +25,7 @@ program test_ast_per_node_freeing
     print *, "Tests passed:", tests_passed
     print *, "Tests failed:", tests_failed
     print *, "==============================="
-    
+
     if (tests_failed > 0) then
         print *, "VERDICT: Per-node freeing has issues"
         stop 1
@@ -44,23 +44,23 @@ contains
         logical :: was_active, is_active_after
 
         print *, "Testing basic node freeing..."
-        
+
         arena = create_ast_arena(10)
-        
+
         ! Create a test node
         node%node_type_name = "TEST_NODE"
         node%node_kind = 1
         handle = store_ast_node(arena, node)
-        
+
         ! Verify node is initially active
         was_active = is_node_active(arena, handle)
-        
+
         ! Free the node
         free_result = free_ast_node(arena, handle)
-        
+
         ! Verify node is no longer active
         is_active_after = is_node_active(arena, handle)
-        
+
         if (.not. was_active) then
             print *, "  FAILED: Node was not initially active"
             tests_failed = tests_failed + 1
@@ -80,7 +80,7 @@ contains
             print *, "  PASSED: Basic node freeing works correctly"
             tests_passed = tests_passed + 1
         end if
-        
+
         call destroy_ast_arena(arena)
     end subroutine test_basic_node_freeing
 
@@ -93,18 +93,18 @@ contains
         type(ast_arena_stats_t) :: stats
 
         print *, "Testing generation safety after freeing..."
-        
+
         arena = create_ast_arena(10)
-        
+
         ! Create and free first node
         node1%node_type_name = "NODE_1"
         handle1 = store_ast_node(arena, node1)
         free_result = free_ast_node(arena, handle1)
-        
+
         ! Create second node (might reuse freed slot)
         node2%node_type_name = "NODE_2"
         handle2 = store_ast_node(arena, node2)
-        
+
         ! Old handle should still be invalid even if slot was reused
         if (is_node_active(arena, handle1)) then
             print *, "  FAILED: Freed handle became valid again"
@@ -116,7 +116,7 @@ contains
             print *, "  PASSED: Generation safety maintained after freeing"
             tests_passed = tests_passed + 1
         end if
-        
+
         call destroy_ast_arena(arena)
     end subroutine test_generation_safety_after_freeing
 
@@ -130,23 +130,23 @@ contains
         integer :: i
 
         print *, "Testing slot reuse after freeing..."
-        
+
         arena = create_ast_arena(10)
-        
+
         ! Create several nodes
         do i = 1, 5
-            write(node%node_type_name, '(A,I0)') "NODE_", i
+            write (node%node_type_name, '(A,I0)') "NODE_", i
             handles(i) = store_ast_node(arena, node)
         end do
-        
+
         stats_before = get_free_statistics(arena)
-        
+
         ! Free every other node
         free_result = free_ast_node(arena, handles(2))
         free_result = free_ast_node(arena, handles(4))
-        
+
         stats_after = get_free_statistics(arena)
-        
+
         ! Check statistics
         if (stats_after%active_nodes /= stats_before%active_nodes - 2) then
             print *, "  FAILED: Active node count not decremented correctly"
@@ -164,7 +164,7 @@ contains
             print *, "    Fragmentation:", int(stats_after%fragmentation * 100), "%"
             tests_passed = tests_passed + 1
         end if
-        
+
         call destroy_ast_arena(arena)
     end subroutine test_slot_reuse_after_freeing
 
@@ -178,25 +178,25 @@ contains
         integer :: i
 
         print *, "Testing free statistics..."
-        
+
         arena = create_ast_arena(10)
-        
+
         ! Create 3 nodes
         do i = 1, 3
-            write(node%node_type_name, '(A,I0)') "STAT_NODE_", i
+            write (node%node_type_name, '(A,I0)') "STAT_NODE_", i
             handles(i) = store_ast_node(arena, node)
         end do
-        
+
         ! Free 1 node
         free_result = free_ast_node(arena, handles(2))
-        
+
         stats = get_free_statistics(arena)
-        
+
         if (stats%active_nodes /= 2) then
             print *, "  FAILED: Wrong active node count:", stats%active_nodes
             tests_failed = tests_failed + 1
         else if (stats%freed_nodes /= 1) then
-            print *, "  FAILED: Wrong freed node count:", stats%freed_nodes  
+            print *, "  FAILED: Wrong freed node count:", stats%freed_nodes
             tests_failed = tests_failed + 1
         else if (stats%node_count /= 2) then
             print *, "  FAILED: Wrong total node count:", stats%node_count
@@ -208,7 +208,7 @@ contains
             print *, "    Freed nodes:", stats%freed_nodes
             tests_passed = tests_passed + 1
         end if
-        
+
         call destroy_ast_arena(arena)
     end subroutine test_free_statistics
 
@@ -219,33 +219,33 @@ contains
         type(ast_free_result_t) :: free_result
 
         print *, "Testing error cases..."
-        
+
         arena = create_ast_arena(10)
-        
+
         ! Test freeing null handle
         null_handle = null_ast_handle()
         free_result = free_ast_node(arena, null_handle)
-        
+
         if (free_result%success) then
             print *, "  FAILED: Freeing null handle should fail"
             tests_failed = tests_failed + 1
             return
         end if
-        
+
         ! Test freeing invalid handle
         invalid_handle%node_id = 999
         invalid_handle%generation = 1
         free_result = free_ast_node(arena, invalid_handle)
-        
+
         if (free_result%success) then
             print *, "  FAILED: Freeing invalid handle should fail"
             tests_failed = tests_failed + 1
             return
         end if
-        
+
         print *, "  PASSED: Error cases handled correctly"
         tests_passed = tests_passed + 1
-        
+
         call destroy_ast_arena(arena)
     end subroutine test_error_cases
 

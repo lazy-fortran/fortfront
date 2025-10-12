@@ -35,7 +35,7 @@ contains
         arena = create_ast_arena()
 
         ! Build mask: a > 0
-        a_id    = push_identifier(arena, 'a')
+        a_id = push_identifier(arena, 'a')
         zero_id = push_literal(arena, '0', LITERAL_INTEGER)
         mask_idx = push_binary_op(arena, a_id, zero_id, '>')
 
@@ -49,8 +49,8 @@ contains
 
         ! WHERE with ELSEWHERE
         where_idx = push_where_construct_with_elsewhere(arena, mask_idx, &
-                        where_body_indices=[assign_then_idx], &
-                        elsewhere_body_indices=[assign_else_idx])
+                                                        where_body_indices=[assign_then_idx], &
+                                                        elsewhere_body_indices=[assign_else_idx])
 
         prog_idx = push_program(arena, 'main', [where_idx])
 
@@ -106,9 +106,9 @@ contains
         arena = create_ast_arena()
 
         ! Triplet: i = 1:n (no stride)
-        i_id   = push_identifier(arena, 'i')
+        i_id = push_identifier(arena, 'i')
         one_id = push_literal(arena, '1', LITERAL_INTEGER)
-        n_id   = push_identifier(arena, 'n')
+        n_id = push_identifier(arena, 'n')
 
         ! Body: i = 1 (arbitrary simple assignment for codegen presence)
         assign_idx = push_assignment(arena, i_id, one_id)

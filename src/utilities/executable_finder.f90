@@ -26,24 +26,24 @@ contains
             block
                 character(len=64), allocatable :: roots(:)
                 integer :: r
-                allocate(roots(5))
-                roots = [ character(len=16) :: '.', '..', '..\\..', '..\\..\\..', &
-                          '..\\..\\..\\..' ]
+                allocate (roots(5))
+                roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', &
+                         '..\\..\\..\\..']
                 do r = 1, size(roots)
                     call execute_command_line('cmd /C where /R ' // trim(roots(r)) // &
-                        ' fortfront.exe > fortfront_search_win.txt', exitstat=exit_code)
+                                              ' fortfront.exe > fortfront_search_win.txt', exitstat=exit_code)
                     if (exit_code == 0) then
-                        open(newunit=unit_num, file='fortfront_search_win.txt', &
-                             status='old', action='read', iostat=exit_code)
+                        open (newunit=unit_num, file='fortfront_search_win.txt', &
+                              status='old', action='read', iostat=exit_code)
                         if (exit_code == 0) then
                             do
-                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code /= 0) exit
                                 if (len_trim(search_output) > 0) then
                                     ! Prefer app\fortfront.exe path if present
                                     if (index(adjustl(search_output), &
-                                        'app\\fortfront.exe') > 0) then
-                                        inquire(file=trim(search_output), exist=file_exists)
+                                              'app\\fortfront.exe') > 0) then
+                                        inquire (file=trim(search_output), exist=file_exists)
                                         if (file_exists) then
                                             executable_path = trim(search_output)
                                             exit
@@ -51,16 +51,16 @@ contains
                                     end if
                                 end if
                             end do
-                            rewind(unit_num)
+                            rewind (unit_num)
                             if (len(executable_path) == 0) then
                                 ! Fallback: take first found fortfront.exe
-                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
-                                    inquire(file=trim(search_output), exist=file_exists)
+                                    inquire (file=trim(search_output), exist=file_exists)
                                     if (file_exists) executable_path = trim(search_output)
                                 end if
                             end if
-                            close(unit_num)
+                            close (unit_num)
                         end if
                         call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
                                                   exitstat=exit_code)
@@ -71,7 +71,7 @@ contains
 
             ! Fallback candidates
             candidate_path = 'app\\fortfront.exe'
-            inquire(file=candidate_path, exist=file_exists)
+            inquire (file=candidate_path, exist=file_exists)
             if (file_exists) then
                 executable_path = trim(candidate_path)
                 return
@@ -85,14 +85,14 @@ contains
             'find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
             exitstat=exit_code)
         if (exit_code == 0) then
-            open(newunit=unit_num, file='fortfront_search.txt', status='old', &
-                 action='read', iostat=exit_code)
+            open (newunit=unit_num, file='fortfront_search.txt', status='old', &
+                  action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(unit_num, '(A)', iostat=exit_code) search_output
-                close(unit_num)
+                read (unit_num, '(A)', iostat=exit_code) search_output
+                close (unit_num)
                 call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
-                    inquire(file=trim(search_output), exist=file_exists)
+                    inquire (file=trim(search_output), exist=file_exists)
                     if (file_exists) then
                         executable_path = trim(search_output)
                         return
@@ -103,31 +103,31 @@ contains
 
         ! Fallback: Check hardcoded patterns as last resort
         build_patterns = [ &
-            "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
-            "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
-            "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
-            "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
-            "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
-            "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
-            "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
-            "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
-            "build/gfortran_A56298966DD7666C/app/fortfront   ", &
-            "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
-            "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
-            "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
-            "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
-            "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
-            "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
-            "fortfront                                       ", &
-            "./fortfront                                     ", &
-            "app/fortfront                                   ", &
-            "./app/fortfront                                 ", &
-            "../fortfront                                    " ]
+                         "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
+                         "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
+                         "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
+                         "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
+                         "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
+                         "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
+                         "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
+                         "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
+                         "build/gfortran_A56298966DD7666C/app/fortfront   ", &
+                         "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
+                         "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
+                         "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
+                         "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
+                         "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
+                         "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
+                         "fortfront                                       ", &
+                         "./fortfront                                     ", &
+                         "app/fortfront                                   ", &
+                         "./app/fortfront                                 ", &
+                         "../fortfront                                    "]
 
         ! Check each candidate path
         do i = 1, size(build_patterns)
             candidate_path = trim(build_patterns(i))
-            inquire(file=candidate_path, exist=file_exists)
+            inquire (file=candidate_path, exist=file_exists)
 
             if (file_exists) then
                 executable_path = trim(candidate_path)

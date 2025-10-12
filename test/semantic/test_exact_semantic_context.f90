@@ -49,7 +49,7 @@ contains
         write (*, '(A)') "Step 5: Function type created"
 
         ! Create polymorphic type scheme (no type variables to generalize)
-        builtin_scheme = create_poly_type(forall_vars=[type_var_t::], mono=real_to_real)
+        builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=real_to_real)
         write (*, '(A)') "Step 6: Polymorphic scheme created"
 
         ! Add builtin functions to environment (this might be missing in the original)

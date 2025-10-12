@@ -101,7 +101,7 @@ contains
         call compile_source(input_file, options, error_msg)
 
         if (error_msg /= '') then
-      print *, '  EXPECTED FAIL: Implied do codegen not implemented - ', trim(error_msg)
+            print *, '  EXPECTED FAIL: Implied do codegen not implemented - ', trim(error_msg)
         else
             print *, '  Check if output contains: (/ (i*i, i=1,5) /)'
             ! Could verify the output here
@@ -182,7 +182,7 @@ contains
         call compile_source(input_file, options, error_msg)
 
         if (error_msg /= '') then
-     print *, '  EXPECTED FAIL: Complex expressions with intrinsics - ', trim(error_msg)
+            print *, '  EXPECTED FAIL: Complex expressions with intrinsics - ', trim(error_msg)
         else
             print *, '  Complex expression might have compiled'
         end if

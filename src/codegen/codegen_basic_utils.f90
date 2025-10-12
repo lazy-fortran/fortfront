@@ -2,7 +2,7 @@ module codegen_basic_utils
     use codegen_indent, only: get_line_length_config
     implicit none
     private
-    
+
     public :: add_line_continuations
 
 contains
@@ -17,16 +17,16 @@ contains
         character(len=:), allocatable :: current_line
         logical :: in_string, in_comment
         character :: quote_char
-        
+
         len_input = len(input_code)
         if (len_input == 0) then
             output_code = ""
             return
         end if
-        
+
         output_code = ""
         pos = 1
-        
+
         call get_line_length_config(max_len)
 
         do while (pos <= len_input)
@@ -38,26 +38,26 @@ contains
                     input_code(line_end:line_end) == char(13)) exit
                 line_end = line_end + 1
             end do
-            
+
             ! Extract current line (without newline)
             if (line_end > line_start) then
-                current_line = input_code(line_start:line_end-1)
+                current_line = input_code(line_start:line_end - 1)
             else
                 current_line = ""
             end if
-            
+
             ! Check if line needs continuation
             if (len(current_line) > max_len) then
                 call add_line_with_continuation(current_line, output_code, max_len)
             else
                 output_code = output_code // current_line // new_line('A')
             end if
-            
+
             ! Skip newline character(s)
             if (line_end <= len_input) then
                 if (input_code(line_end:line_end) == char(13) .and. &
                     line_end + 1 <= len_input .and. &
-                    input_code(line_end+1:line_end+1) == char(10)) then
+                    input_code(line_end + 1:line_end + 1) == char(10)) then
                     pos = line_end + 2  ! CRLF
                 else
                     pos = line_end + 1  ! LF or CR
@@ -77,21 +77,21 @@ contains
         integer :: pos, last_break, len_line
         character(len=:), allocatable :: current_line, continuation_str
         logical :: found_break
-        
+
         len_line = len(input_line)
         if (len_line <= max_len) then
             output_code = output_code // input_line // new_line('A')
             return
         end if
-        
+
         ! Create continuation indent
         continuation_str = repeat(' ', CONTINUATION_INDENT) // '& '
-        
+
         pos = 1
         do while (pos <= len_line)
             last_break = pos
             found_break = .false.
-            
+
             ! Find a good break point within MAX_LINE_LENGTH
             do while (last_break - pos + 1 <= max_len .and. last_break <= len_line)
                 if (input_line(last_break:last_break) == ' ' .or. &
@@ -102,14 +102,14 @@ contains
                 end if
                 last_break = last_break + 1
             end do
-            
+
             if (.not. found_break .or. last_break > len_line) then
                 ! No good break point found, just break at MAX_LINE_LENGTH
                 last_break = min(pos + max_len - 1, len_line)
             else
                 last_break = last_break - 1  ! Step back to the break character
             end if
-            
+
             ! Extract the line segment
             if (last_break >= pos) then
                 current_line = input_line(pos:last_break)
@@ -120,7 +120,7 @@ contains
                 end if
                 ! Write the remainder of the line as-is and exit (single continuation is enough)
                 if (last_break + 1 <= len_line) then
-                    output_code = output_code // input_line(last_break+1:len_line) // new_line('A')
+                    output_code = output_code // input_line(last_break + 1:len_line) // new_line('A')
                 end if
                 exit
             else
@@ -129,6 +129,5 @@ contains
             end if
         end do
     end subroutine add_line_with_continuation
-
 
 end module codegen_basic_utils

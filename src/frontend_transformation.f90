@@ -4,22 +4,25 @@ module frontend_transformation
     ! Contains string-based transformation functionality
 
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                           TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
+                          TK_NUMBER, TK_STRING, TK_UNKNOWN
     use compiler_arena, only: compiler_arena_t, create_compiler_arena
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                   analyze_program, has_semantic_errors
+                                 analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
-                           get_standardizer_type_standardization
+                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_indent, only: set_indent_config, get_indent_config, &
-                               set_line_length_config, get_line_length_config
+                              set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
     use ast_nodes_core, only: program_node
+    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_misc, only: contains_node
+    use ast_nodes_data, only: declaration_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave
@@ -57,9 +60,8 @@ contains
         ! Use shared module-level arena for performance
         integer :: prog_index
 
-        allocate(character(len=0) :: error_msg)
+        allocate (character(len=0) :: error_msg)
         error_msg = ""
-
 
         call trace_init()
 
@@ -172,9 +174,9 @@ contains
         integer :: saved_size, saved_line_length
         character(len=1) :: saved_char
         logical :: saved_standardize_types, saved_standardizer_types
-        
+
         call save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                      saved_standardize_types, saved_standardizer_types)
+                                        saved_standardize_types, saved_standardizer_types)
 
         ! Set new configuration
         call apply_format_options(format_opts)
@@ -184,21 +186,21 @@ contains
 
         ! Restore original configuration
         call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                  saved_standardize_types, saved_standardizer_types)
+                                   saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
         character(len=*), intent(in) :: input
         logical :: is_empty
-        
+
         is_empty = (len_trim(input) == 0 .or. is_whitespace_only(input))
     end function is_empty_or_whitespace_only
 
     ! Create minimal program
     subroutine create_minimal_program(output)
         character(len=:), allocatable, intent(out) :: output
-        
+
         output = "program main" // new_line('A') // &
                  "    implicit none" // new_line('A') // &
                  "end program main" // new_line('A')
@@ -225,9 +227,9 @@ contains
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main" // new_line('A') // &
-                "    implicit none" // new_line('A') // &
-                "    ! Original code could not be parsed" // new_line('A') // &
-                "end program main" // new_line('A')
+                 "    implicit none" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
@@ -245,10 +247,10 @@ contains
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
             ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
             output = "program main" // new_line('A') // &
-                    "    implicit none" // new_line('A') // &
-                    "    ! COMPILATION FAILED" // new_line('A') // &
-                    "    ! Original code could not be parsed" // new_line('A') // &
-                    "end program main" // new_line('A')
+                     "    implicit none" // new_line('A') // &
+                     "    ! COMPILATION FAILED" // new_line('A') // &
+                     "    ! Original code could not be parsed" // new_line('A') // &
+                     "end program main" // new_line('A')
             ! error_msg already contains the error details for stderr
             ! Reuse shared arena: do not destroy here
         end if
@@ -270,7 +272,7 @@ contains
         end do
 
         not_meaningful = (meaningful_tokens == 0 .or. size(tokens) == 0 .or. &
-                         has_only_meaningless_tokens(tokens))
+                          has_only_meaningless_tokens(tokens))
     end function not_meaningful_for_parsing
 
     ! Run parsing phase
@@ -284,14 +286,14 @@ contains
         ! Phase 2: Parsing with enhanced error recovery
         call compiler_arena%next_phase("parser")
         call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
-        
+
         ! Enhanced error handling - don't stop at first parsing issue
         if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
             ! Try to continue parsing with partial results if we have a valid program
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 ! We have a partial parse - continue with what we have
                 ! Log the parsing warning but don't fail completely
-                write(error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
+                write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
                 error_msg = ""  ! Clear error to continue processing
             else
                 call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
@@ -330,11 +332,11 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-            output = "program main" // new_line('A') // &
-                    "    implicit none" // new_line('A') // &
-                    "    ! COMPILATION FAILED" // new_line('A') // &
-                    "    ! Original code could not be parsed" // new_line('A') // &
-                    "end program main" // new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -348,10 +350,10 @@ contains
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main" // new_line('A') // &
-                "    implicit none" // new_line('A') // &
-                "    ! COMPILATION FAILED" // new_line('A') // &
-                "    ! Original code could not be structured as a program" // new_line('A') // &
-                "end program main" // new_line('A')
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+                 "    ! Original code could not be structured as a program" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
@@ -376,7 +378,6 @@ contains
             return  ! Error message already set, output generated
         end if
 
-
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
 
@@ -393,24 +394,24 @@ contains
         call compiler_arena%next_phase("semantic")
         block
             type(semantic_context_t), allocatable :: ctx
-            allocate(ctx)
+            allocate (ctx)
             call create_semantic_context(ctx)
-            
+
             ! Keep pre-standardization semantics permissive in string transform path
             ctx%strict_mode = .false.
             ctx%respect_implicit_none = .false.
-            
+
             call trace_enter('semantic:analyze_program')
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             call trace_leave('semantic:analyze_program')
-            
+
             ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
                 error_msg = get_detailed_semantic_errors(ctx)
                 return
             end if
         end block
-        
+
         error_msg = ""
     end subroutine run_semantic_analysis_phase
 
@@ -420,32 +421,32 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
         character(len=256) :: buffer
-        
+
         total_errors = ctx%errors%count
         if (total_errors == 0) then
             error_msg = "No semantic errors found"
             return
         end if
-        
+
         ! Build comprehensive error message
-        write(buffer, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
+        write (buffer, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
         error_msg = trim(buffer)
-        
+
         ! Add first few error messages for details
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
                     error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+ error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
                     end if
                 end if
             end if
         end do
-        
+
         ! Add summary if there are more errors
         if (total_errors > 3) then
-            write(buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            write (buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
             error_msg = error_msg // new_line('a') // trim(buffer)
         end if
     end function get_detailed_semantic_errors
@@ -456,6 +457,7 @@ contains
         integer, intent(inout) :: prog_index
 
         call compiler_arena%next_phase("standardization")
+        call normalize_multi_unit_container(compiler_arena%ast, prog_index)
         ! Skip standardization for multi-unit containers
         if (should_skip_standardization(compiler_arena, prog_index)) then
             return
@@ -483,6 +485,188 @@ contains
         end if
     end function should_skip_standardization
 
+    subroutine normalize_multi_unit_container(arena, root_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+
+        integer :: i, j, target_prog_idx, contains_pos
+        integer, allocatable :: functions(:)
+        integer, allocatable :: new_body(:)
+        class(program_node), pointer :: root_prog => null()
+
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        select type (root => arena%entries(root_index)%node)
+        type is (program_node)
+            if (trim(root%name) /= "__MULTI_UNIT__") return
+            root_prog => root
+        class default
+            return
+        end select
+        if (.not. associated(root_prog)) return
+
+        allocate (functions(0))
+        target_prog_idx = 0
+
+        if (allocated(root_prog%body_indices)) then
+            do i = 1, size(root_prog%body_indices)
+                if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > arena%size) cycle
+                if (.not. allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
+                select type (child => arena%entries(root_prog%body_indices(i))%node)
+                type is (program_node)
+                    if (trim(child%name) /= "__MULTI_UNIT__") then
+                        if (trim(child%name) /= "" .and. child%name /= "main" .and. child%name /= "MAIN") then
+                            target_prog_idx = root_prog%body_indices(i)
+                        end if
+                    end if
+                type is (function_def_node)
+                    functions = [functions, root_prog%body_indices(i)]
+                end select
+            end do
+        end if
+
+        if (target_prog_idx == 0) return
+        if (size(functions) == 0) return
+
+        ! Remove function indices from multi-unit body
+        allocate (new_body(0))
+        if (allocated(root_prog%body_indices)) then
+            do i = 1, size(root_prog%body_indices)
+                if (any(root_prog%body_indices(i) == functions)) cycle
+                new_body = [new_body, root_prog%body_indices(i)]
+            end do
+        end if
+        root_prog%body_indices = new_body
+
+        ! Access target program
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            ! Ensure contains node exists
+            contains_pos = 0
+            if (allocated(target%body_indices)) then
+                do i = 1, size(target%body_indices)
+                    if (target%body_indices(i) > 0 .and. target%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(target%body_indices(i))%node)) then
+                            select type (stmt => arena%entries(target%body_indices(i))%node)
+                            type is (contains_node)
+                                contains_pos = i
+                                exit
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+
+            if (contains_pos == 0) then
+                block
+                    type(contains_node) :: contains_stmt
+                    integer :: contains_idx
+                    contains_stmt%line = 1
+                    contains_stmt%column = 1
+                    call arena%push(contains_stmt, "contains", target_prog_idx)
+                    contains_idx = arena%size
+                    if (.not. allocated(target%body_indices)) then
+                        allocate (target%body_indices(1))
+                        target%body_indices(1) = contains_idx
+                    else
+                        target%body_indices = [target%body_indices, contains_idx]
+                    end if
+                    contains_pos = size(target%body_indices)
+                end block
+            end if
+
+            ! Insert function indices after contains
+            block
+                integer, allocatable :: original(:)
+                integer :: orig_size, insert_size
+                if (allocated(target%body_indices)) then
+                    original = target%body_indices
+                    deallocate (target%body_indices)
+                else
+                    allocate (original(0))
+                end if
+                orig_size = size(original)
+                insert_size = size(functions)
+                allocate (target%body_indices(orig_size + insert_size))
+                if (contains_pos >= 1) then
+                    target%body_indices(1:contains_pos) = original(1:contains_pos)
+                end if
+                target%body_indices(contains_pos + 1:contains_pos + insert_size) = functions
+                if (contains_pos < orig_size) then
+                    target%body_indices(contains_pos + insert_size + 1:) = &
+                        original(contains_pos + 1:orig_size)
+                end if
+            end block
+
+            ! Update parent indices and remove external declarations
+            do i = 1, size(functions)
+                if (functions(i) > 0 .and. functions(i) <= arena%size) then
+                    arena%entries(functions(i))%parent_index = target_prog_idx
+                end if
+            end do
+
+            if (allocated(target%body_indices)) then
+                do i = 1, size(target%body_indices)
+                    if (target%body_indices(i) <= 0 .or. target%body_indices(i) > arena%size) cycle
+                    if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
+                    select type (stmt => arena%entries(target%body_indices(i))%node)
+                    type is (declaration_node)
+                        block
+                            logical :: declares_function
+                            declares_function = stmt%is_external
+                            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                do j = 1, size(stmt%var_names)
+                                    if (is_function_name(trim(stmt%var_names(j)), arena, functions)) then
+                                        declares_function = .true.
+                                        exit
+                                    end if
+                                end do
+                            else
+                                if (is_function_name(trim(stmt%var_name), arena, functions)) then
+                                    declares_function = .true.
+                                end if
+                            end if
+                            if (declares_function) target%body_indices(i) = 0
+                        end block
+                    end select
+                end do
+                ! Compress body indices to remove zeros
+                block
+                    integer, allocatable :: compressed(:)
+                    allocate (compressed(0))
+                    do i = 1, size(target%body_indices)
+                        if (target%body_indices(i) /= 0) then
+                            compressed = [compressed, target%body_indices(i)]
+                        end if
+                    end do
+                    target%body_indices = compressed
+                end block
+            end if
+        end select
+    end subroutine normalize_multi_unit_container
+
+    logical function is_function_name(name, arena, func_indices) result(match)
+        character(len=*), intent(in) :: name
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: func_indices(:)
+        integer :: k
+
+        match = .false.
+        do k = 1, size(func_indices)
+            if (func_indices(k) <= 0 .or. func_indices(k) > arena%size) cycle
+            if (.not. allocated(arena%entries(func_indices(k))%node)) cycle
+            select type (fn => arena%entries(func_indices(k))%node)
+            type is (function_def_node)
+                if (trim(fn%name) == trim(name)) then
+                    match = .true.
+                    return
+                end if
+            end select
+        end do
+    end function is_function_name
+
     ! Run code generation phase
     subroutine run_code_generation_phase(compiler_arena, prog_index, output)
         type(compiler_arena_t), intent(inout) :: compiler_arena
@@ -497,6 +681,7 @@ contains
 
     subroutine maybe_dump_program_overview(arena, prog_index)
         use, intrinsic :: iso_fortran_env, only: error_unit
+        use ast_nodes_procedure, only: function_def_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         character(len=8) :: flag
@@ -507,26 +692,28 @@ contains
         if (status /= 0) return
         if (len_trim(flag) == 0) return
 
-        write(error_unit, '(A)') 'DEBUG AST: program overview'
-        write(error_unit, '(A,I0)') '  root index: ', prog_index
+        write (error_unit, '(A)') 'DEBUG AST: program overview'
+        write (error_unit, '(A,I0)') '  root index: ', prog_index
         do i = 1, min(arena%size, size(arena%entries))
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
             type is (program_node)
                 if (allocated(node%body_indices)) then
-                    write(error_unit, '(A,I0,2X,A,2X,I0)') &
+                    write (error_unit, '(A,I0,2X,A,2X,I0)') &
                         '  program idx', i, trim(node%name), size(node%body_indices)
                 else
-                    write(error_unit, '(A,I0,2X,A,2X,A)') &
+                    write (error_unit, '(A,I0,2X,A,2X,A)') &
                         '  program idx', i, trim(node%name), 'no body'
                 end if
+            type is (function_def_node)
+                write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
             end select
         end do
     end subroutine maybe_dump_program_overview
 
     ! Save current configuration
     subroutine save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                        saved_standardize_types, saved_standardizer_types)
+                                          saved_standardize_types, saved_standardizer_types)
         integer, intent(out) :: saved_size, saved_line_length
         character(len=1), intent(out) :: saved_char
         logical, intent(out) :: saved_standardize_types, saved_standardizer_types
@@ -549,7 +736,7 @@ contains
 
     ! Restore configuration
     subroutine restore_configuration(saved_size, saved_char, saved_line_length, &
-                                   saved_standardize_types, saved_standardizer_types)
+                                     saved_standardize_types, saved_standardizer_types)
         integer, intent(in) :: saved_size, saved_line_length
         character(len=1), intent(in) :: saved_char
         logical, intent(in) :: saved_standardize_types, saved_standardizer_types
@@ -593,7 +780,7 @@ contains
         is_whitespace = .true.
         do i = 1, len(input)
             if (input(i:i) /= ' ' .and. input(i:i) /= char(9) .and. &  ! space and tab
-                input(i:i) /= new_line('A')) then                      ! newline
+                input(i:i) /= new_line('A')) then  ! newline
                 is_whitespace = .false.
                 exit
             end if
@@ -640,11 +827,11 @@ contains
             end if
         end do
         if (i > n) then
-            deallocate(block_text)
+            deallocate (block_text)
             return
         end if
         if (src(i:i) /= '!') then
-            deallocate(block_text)
+            deallocate (block_text)
             return
         end if
 
@@ -689,7 +876,7 @@ contains
         end do
 
         if (len(block_text) == 0) then
-            deallocate(block_text)
+            deallocate (block_text)
         end if
     end function extract_leading_comment_block
 

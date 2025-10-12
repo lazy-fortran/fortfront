@@ -116,8 +116,8 @@ contains
         ! Create derived type node
         if (has_parameters .and. allocated(param_indices)) then
             type_index = push_derived_type(arena, type_name, &
-                                            param_indices=param_indices, &
-                                            line=line, column=column)
+                                           param_indices=param_indices, &
+                                           line=line, column=column)
         else
             type_index = push_derived_type(arena, type_name, line=line, column=column)
         end if

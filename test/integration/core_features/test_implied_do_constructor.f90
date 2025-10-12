@@ -4,9 +4,9 @@ program test_implied_do_constructor
     integer :: squares(5)
     integer :: evens(10)
     integer :: matrix(9)
-    
+
     ! Test basic implied DO
-    squares = [(i*i, i=1,5)]
+    squares = [(i * i, i=1, 5)]
     if (squares(1) /= 1) then
         print *, "squares(1) should be 1"
         stop 1
@@ -27,9 +27,9 @@ program test_implied_do_constructor
         print *, "squares(5) should be 25"
         stop 1
     end if
-    
+
     ! Test another implied DO
-    evens = [(2*i, i=1,10)]
+    evens = [(2 * i, i=1, 10)]
     if (evens(1) /= 2) then
         print *, "evens(1) should be 2"
         stop 1
@@ -42,9 +42,9 @@ program test_implied_do_constructor
         print *, "evens(10) should be 20"
         stop 1
     end if
-    
+
     ! Test nested implied DO
-    matrix = [((i+j, i=1,3), j=1,3)]
+    matrix = [((i + j, i=1, 3), j=1, 3)]
     if (matrix(1) /= 2) then
         print *, "matrix(1) should be 2"
         stop 1
@@ -81,6 +81,6 @@ program test_implied_do_constructor
         print *, "matrix(9) should be 6"
         stop 1
     end if
-    
+
     print *, "All tests passed!"
 end program test_implied_do_constructor

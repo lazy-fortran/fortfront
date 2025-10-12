@@ -1,6 +1,6 @@
 program test_path_validation
     use path_validation, only: validate_input_path, path_validation_result_t, &
-        PATH_VALID, PATH_INVALID_CHARACTERS, PATH_INVALID_TRAVERSAL
+                               PATH_VALID, PATH_INVALID_CHARACTERS, PATH_INVALID_TRAVERSAL
     implicit none
 
     call test_posix_glob_chars_allowed()
@@ -50,7 +50,7 @@ contains
             stop 1
         end if
     end subroutine test_angle_brackets_rejected
-    
+
     subroutine test_square_brackets_rejected()
         type(path_validation_result_t) :: res
         res = validate_input_path('data[1].txt')

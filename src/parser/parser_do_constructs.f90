@@ -190,7 +190,7 @@ contains
 
         ! Parse start expression (now handles full expressions)
         start_index = parse_range(parser, arena)
-        
+
         if (start_index <= 0) then
             ! Failed to parse start expression
             loop_index = 0
@@ -207,7 +207,7 @@ contains
 
         ! Parse end expression
         end_index = parse_range(parser, arena)
-        
+
         if (end_index <= 0) then
             ! Failed to parse end expression
             loop_index = 0
@@ -237,11 +237,11 @@ contains
             if (step_index > 0) then
                 loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                           step_index=step_index, &
-                                          body_indices=[integer::], &
+                                          body_indices=[integer ::], &
                                           line=line, column=column)
             else
                 loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                          body_indices=[integer::], &
+                                          body_indices=[integer ::], &
                                           line=line, column=column)
             end if
 
@@ -322,7 +322,7 @@ contains
                                 exit
                             end if
                             if (j > stmt_start .and. parser%tokens(j)%line > &
-                                    parser%tokens(stmt_start)%line) then
+                                parser%tokens(stmt_start)%line) then
                                 stmt_end = j - 1
                                 exit
                             end if
@@ -408,7 +408,7 @@ contains
             end do
 
             if (allocated(arena%entries(loop_index)%node)) then
-                select type(node => arena%entries(loop_index)%node)
+                select type (node => arena%entries(loop_index)%node)
                 type is (do_loop_node)
                     if (allocated(body_indices)) then
                         node%body_indices = body_indices
@@ -474,7 +474,7 @@ contains
 
         callbacks = build_do_body_callbacks()
 
-        loop_index = push_do_while(arena, condition_index, body_indices=[integer::], &
+        loop_index = push_do_while(arena, condition_index, body_indices=[integer ::], &
                                    line=line, column=column)
 
         ! Parse body statements until 'end' (same logic as if blocks)
@@ -528,7 +528,7 @@ contains
                         exit
                     end if
                     if (j > stmt_start .and. parser%tokens(j)%line > &
-                            parser%tokens(stmt_start)%line) then
+                        parser%tokens(stmt_start)%line) then
                         stmt_end = j - 1
                         exit
                     end if
@@ -550,7 +550,7 @@ contains
                         integer :: n
 
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                            loop_index, callbacks)
+                                                                  loop_index, callbacks)
 
                         do n = 1, size(stmt_indices)
                             if (stmt_indices(n) > 0) then
@@ -583,7 +583,7 @@ contains
 
         if (loop_index > 0) then
             if (allocated(arena%entries(loop_index)%node)) then
-                select type(node => arena%entries(loop_index)%node)
+                select type (node => arena%entries(loop_index)%node)
                 type is (do_while_node)
                     if (allocated(body_indices)) then
                         node%body_indices = body_indices

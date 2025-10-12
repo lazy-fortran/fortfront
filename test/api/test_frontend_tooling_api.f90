@@ -37,11 +37,11 @@ contains
         integer :: clock_rate
         real(dp) :: elapsed_seconds
         character(len=*), parameter :: source = &
-            'program sample' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            '  integer :: x' // new_line('a') // &
-            '  x = 3' // new_line('a') // &
-            'end program sample'
+                                       'program sample' // new_line('a') // &
+                                       '  implicit none' // new_line('a') // &
+                                       '  integer :: x' // new_line('a') // &
+                                       '  x = 3' // new_line('a') // &
+                                       'end program sample'
 
         test_parse_string = .true.
         print *, 'Testing tooling_load_ast_from_string...'
@@ -51,7 +51,7 @@ contains
 
         call system_clock(start_clock, clock_rate)
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
-            options, tokens)
+                                          options, tokens)
         call system_clock(end_clock)
 
         if (has_error(error_msg)) then
@@ -85,7 +85,7 @@ contains
 
         if (clock_rate > 0) then
             elapsed_seconds = real(end_clock - start_clock, dp) / &
-                real(clock_rate, dp)
+                              real(clock_rate, dp)
             print *, '  INFO: string parse time (s) =', elapsed_seconds
         end if
 
@@ -114,28 +114,28 @@ contains
         test_parse_file = .true.
         print *, 'Testing tooling_load_ast_from_file...'
 
-        open(newunit=unit, file=file_path, status='replace', action='write', &
-            iostat=io_stat)
+        open (newunit=unit, file=file_path, status='replace', action='write', &
+              iostat=io_stat)
         if (io_stat /= 0) then
             print *, '  FAIL: unable to create sample file'
             test_parse_file = .false.
             return
         end if
-        write(unit, '(A)') 'program tooling_sample'
-        write(unit, '(A)') '  implicit none'
-        write(unit, '(A)') '  print *, 7'
-        write(unit, '(A)') 'end program tooling_sample'
-        close(unit)
+        write (unit, '(A)') 'program tooling_sample'
+        write (unit, '(A)') '  implicit none'
+        write (unit, '(A)') '  print *, 7'
+        write (unit, '(A)') 'end program tooling_sample'
+        close (unit)
 
         options = tooling_parse_options_t()
         call system_clock(start_clock, clock_rate)
         call tooling_load_ast_from_file(file_path, arena, root_index, error_msg, &
-            options)
+                                        options)
         call system_clock(end_clock)
 
         if (clock_rate > 0) then
             elapsed_seconds = real(end_clock - start_clock, dp) / &
-                real(clock_rate, dp)
+                              real(clock_rate, dp)
             print *, '  INFO: file parse time (s) =', elapsed_seconds
         end if
 
@@ -170,12 +170,12 @@ contains
         integer :: stat
         logical :: exists
 
-        inquire(file=path, exist=exists)
+        inquire (file=path, exist=exists)
         if (.not. exists) return
 
-        open(newunit=unit, file=path, status='old', action='write', iostat=stat)
+        open (newunit=unit, file=path, status='old', action='write', iostat=stat)
         if (stat == 0) then
-            close(unit, status='delete')
+            close (unit, status='delete')
         end if
     end subroutine cleanup_temp_file
 

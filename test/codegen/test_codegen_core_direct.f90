@@ -17,7 +17,7 @@ program test_codegen_core_direct
 
     print *, "=== Codegen Core Direct Function Tests ==="
     print *, ""
-    
+
     ! Initialize codegen system for arena operations
     call initialize_codegen()
 
@@ -69,7 +69,7 @@ program test_codegen_core_direct
     ! Test 4: Generate code for empty program
     call test_start("Generate empty program code")
     arena = create_ast_arena()
-    call arena%push(create_program("test_prog", [integer::]), "program")
+    call arena%push(create_program("test_prog", [integer ::]), "program")
     node_index = arena%size
     code = codegen_core_generate_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "program") > 0) then
@@ -109,7 +109,7 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     call arena%push(create_identifier("x"), "identifier")
     call arena%push(create_literal("5", LITERAL_INTEGER), "literal")
-    
+
     ! Generate code for first node
     code = codegen_core_generate_arena(arena, 1)
     if (len_trim(code) > 0 .and. index(code, "x") > 0) then
@@ -133,7 +133,7 @@ program test_codegen_core_direct
 
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
+    write (*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
 
     if (passed_tests == total_tests) then
         print *, "All codegen core direct tests passed!"
@@ -147,7 +147,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         total_tests = total_tests + 1
-        write(*, '(A,A)', advance='no') "Testing: ", test_name
+        write (*, '(A,A)', advance='no') "Testing: ", test_name
     end subroutine test_start
 
     subroutine test_pass()

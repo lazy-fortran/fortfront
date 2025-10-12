@@ -13,13 +13,13 @@ module analyzer_results
         ! Each analyzer stores its results here
         type(call_graph_t), allocatable :: call_graph
         type(variable_usage_info_t), allocatable :: usage_info
-        
+
         ! Simple results that don't need complex types
         character(:), allocatable :: unused_variables(:)
         character(:), allocatable :: undefined_variables(:)
         character(:), allocatable :: unused_procedures(:)
         integer, allocatable :: unreachable_nodes(:)
-        
+
         ! Which results are valid
         logical :: has_call_graph = .false.
         logical :: has_usage_info = .false.
@@ -29,15 +29,15 @@ contains
 
     subroutine clear_results(results)
         type(analyzer_results_t), intent(inout) :: results
-        
-        if (allocated(results%call_graph)) deallocate(results%call_graph)
-        if (allocated(results%usage_info)) deallocate(results%usage_info)
-        if (allocated(results%unused_variables)) deallocate(results%unused_variables)
+
+        if (allocated(results%call_graph)) deallocate (results%call_graph)
+        if (allocated(results%usage_info)) deallocate (results%usage_info)
+        if (allocated(results%unused_variables)) deallocate (results%unused_variables)
         if (allocated(results%undefined_variables)) &
-            deallocate(results%undefined_variables)
-        if (allocated(results%unused_procedures)) deallocate(results%unused_procedures)
-        if (allocated(results%unreachable_nodes)) deallocate(results%unreachable_nodes)
-        
+            deallocate (results%undefined_variables)
+        if (allocated(results%unused_procedures)) deallocate (results%unused_procedures)
+        if (allocated(results%unreachable_nodes)) deallocate (results%unreachable_nodes)
+
         results%has_call_graph = .false.
         results%has_usage_info = .false.
     end subroutine

@@ -7,8 +7,8 @@ module parser_statement_utilities_module
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, parse_write_statement, parse_read_statement
     use parser_control_statements_module, only: parse_stop_statement, parse_return_statement, &
-                                               parse_goto_statement, parse_error_stop_statement, &
-                                               parse_cycle_statement, parse_exit_statement
+                                                parse_goto_statement, parse_error_stop_statement, &
+                                                parse_cycle_statement, parse_exit_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_execution_statements_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
@@ -111,24 +111,24 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: if_index
-        
+
         type(token_t) :: if_token, then_token, token
         integer :: condition_index
         integer, allocatable :: then_body_indices(:), else_body_indices(:)
-        
+
         ! Consume 'if' keyword
         if_token = parser%consume()
-        
+
         ! Parse condition (parentheses)
         condition_index = parse_comparison(parser, arena)
-        
+
         ! Look for 'then' keyword
         then_token = parser%peek()
         if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
             token = parser%consume()
-            
+
             ! Parse then body
-            allocate(then_body_indices(0))
+            allocate (then_body_indices(0))
             do while (.not. parser%is_at_end())
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD) then
@@ -136,7 +136,7 @@ contains
                         exit
                     end if
                 end if
-                
+
                 ! Parse a statement
                 block
                     integer :: stmt_index
@@ -148,20 +148,20 @@ contains
                     end if
                 end block
             end do
-            
+
             ! Check for else
-            allocate(else_body_indices(0))
+            allocate (else_body_indices(0))
             token = parser%peek()
             if (token%kind == TK_KEYWORD .and. token%text == "else") then
                 token = parser%consume()
-                
+
                 ! Parse else body
                 do while (.not. parser%is_at_end())
                     token = parser%peek()
                     if (token%kind == TK_KEYWORD .and. token%text == "end") then
                         exit
                     end if
-                    
+
                     ! Parse a statement
                     block
                         integer :: stmt_index
@@ -174,7 +174,7 @@ contains
                     end block
                 end do
             end if
-            
+
             ! Consume "end if"
             token = parser%peek()
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
@@ -184,17 +184,17 @@ contains
                     token = parser%consume()
                 end if
             end if
-            
+
             ! Create if node
             if_index = push_if(arena, condition_index, then_body_indices, &
-                              else_body_indices=else_body_indices, &
-                              line=if_token%line, column=if_token%column)
+                               else_body_indices=else_body_indices, &
+                               line=if_token%line, column=if_token%column)
         else
             ! Single-line if statement
             if_index = push_literal(arena, "! Single-line if not yet supported", &
-                                   LITERAL_STRING, if_token%line, if_token%column)
+                                    LITERAL_STRING, if_token%line, if_token%column)
         end if
-        
+
     end function parse_if_from_definition
 
     ! Simple associate statement parser for function/subroutine bodies
@@ -203,26 +203,26 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assoc_index
-        
+
         type(token_t) :: token, first_token
         type(association_t), allocatable :: associations(:)
         integer, allocatable :: body_indices(:)
         integer :: i, assoc_count, line, column
-        
+
         ! Consume 'associate' keyword
         first_token = parser%consume()
         line = first_token%line
         column = first_token%column
-        
+
         ! Parse associations (simplified)
-        allocate(associations(0))
-        allocate(body_indices(0))
-        
+        allocate (associations(0))
+        allocate (body_indices(0))
+
         ! Look for opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()
-            
+
             ! Parse associations
             assoc_count = 0
             do while (.not. parser%is_at_end())
@@ -231,36 +231,36 @@ contains
                     token = parser%consume()
                     exit
                 end if
-                
+
                 ! Parse association: name => expr
                 if (token%kind == TK_IDENTIFIER) then
                     block
                         character(len=:), allocatable :: assoc_name
                         integer :: target_index
                         type(association_t) :: new_assoc
-                        
+
                         assoc_name = token%text
                         token = parser%consume()
-                        
+
                         ! Look for =>
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == "=>") then
                             token = parser%consume()
-                            
+
                             ! Parse target expression
                             target_index = parse_comparison(parser, arena)
-                            
+
                             ! Create association
                             new_assoc%name = assoc_name
                             new_assoc%expr_index = target_index
-                            
+
                             ! Add to associations array
                             associations = [associations, new_assoc]
                             assoc_count = assoc_count + 1
                         end if
                     end block
                 end if
-                
+
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -271,7 +271,7 @@ contains
                 end if
             end do
         end if
-        
+
         ! Parse body statements until 'end associate'
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -290,7 +290,7 @@ contains
                     end if
                 end block
             end if
-            
+
             ! Parse a statement
             block
                 integer :: stmt_index
@@ -302,10 +302,10 @@ contains
                 end if
             end block
         end do
-        
+
         ! Create associate node
         assoc_index = push_associate(arena, associations, body_indices, line, column)
-        
+
     end function parse_associate_from_definition
 
 end module parser_statement_utilities_module

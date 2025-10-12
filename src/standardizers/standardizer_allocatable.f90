@@ -1,7 +1,7 @@
 module standardizer_allocatable
     ! Allocatable marking logic module
     ! Handles array reassignment detection and string length change tracking
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_loops
@@ -34,39 +34,39 @@ contains
         character(len=64), allocatable :: assigned_vars(:)
         integer, allocatable :: assignment_counts(:)
         integer :: var_count, i, j
-        
+
         ! Skip if program has no body
         if (.not. allocated(prog%body_indices)) return
-        
-        allocate(assigned_vars(100))
-        allocate(assignment_counts(100))
+
+        allocate (assigned_vars(100))
+        allocate (assignment_counts(100))
         var_count = 0
-        
+
         ! First pass: count assignments to each variable
         do i = 1, size(prog%body_indices)
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     call count_variable_assignments(arena, prog%body_indices(i), &
-                                                   assigned_vars, assignment_counts, var_count)
+                                                    assigned_vars, assignment_counts, var_count)
                 end if
             end if
         end do
-        
+
         ! Second pass: mark declarations for variables with multiple array assignments
         do i = 1, size(prog%body_indices)
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     call mark_declarations_allocatable(arena, prog%body_indices(i), &
-                                                      assigned_vars, assignment_counts, &
-                                                      var_count, prog_index)
+                                                       assigned_vars, assignment_counts, &
+                                                       var_count, prog_index)
                 end if
             end if
         end do
-        
-        deallocate(assigned_vars)
-        deallocate(assignment_counts)
+
+        deallocate (assigned_vars)
+        deallocate (assignment_counts)
     end subroutine mark_allocatable_for_array_reassignments
-    
+
     ! Count assignments to variables (helper for array reassignment detection)
     subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
                                           assignment_counts, var_count)
@@ -86,7 +86,7 @@ contains
         integer :: i, var_idx
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(stmt_index)
@@ -146,7 +146,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate(tmp(capacity*2))
+                allocate (tmp(capacity * 2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -173,10 +173,10 @@ contains
         end function pop
 
     end subroutine count_variable_assignments
-    
+
     ! Mark declarations as allocatable for variables with multiple array assignments
     subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
-                                            assignment_counts, var_count, prog_index)
+                                             assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -195,7 +195,7 @@ contains
         logical :: needs_split
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(stmt_index)
@@ -210,11 +210,11 @@ contains
             type is (declaration_node)
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     call handle_multi_variable_declaration_allocatable(arena, current_index, &
-                        assigned_vars, assignment_counts, var_count, prog_index, needs_split)
+                                                                       assigned_vars, assignment_counts, var_count, prog_index, needs_split)
 
                     if (needs_split) then
                         call split_multi_variable_declaration(arena, current_index, &
-                            assigned_vars, assignment_counts, var_count, prog_index)
+                                                              assigned_vars, assignment_counts, var_count, prog_index)
                     end if
                 else
                     do i = 1, var_count
@@ -223,8 +223,8 @@ contains
                                 if (stmt%is_array) then
                                     stmt%is_allocatable = .true.
                                     if (allocated(stmt%dimension_indices)) then
-                                        deallocate(stmt%dimension_indices)
-                                        allocate(stmt%dimension_indices(1))
+                                        deallocate (stmt%dimension_indices)
+                                        allocate (stmt%dimension_indices(1))
                                         stmt%dimension_indices(1) = 0
                                     end if
                                     arena%entries(current_index)%node = stmt
@@ -261,7 +261,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate(tmp(capacity*2))
+                allocate (tmp(capacity * 2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -288,10 +288,10 @@ contains
         end function pop
 
     end subroutine mark_declarations_allocatable
-    
+
     ! Handle multi-variable declarations for allocatable marking
     subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
-        assigned_vars, assignment_counts, var_count, prog_index, needs_split)
+                                                             assigned_vars, assignment_counts, var_count, prog_index, needs_split)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -301,14 +301,14 @@ contains
         logical, intent(out) :: needs_split
         integer :: i, j
         logical :: found_allocatable, found_non_allocatable
-        
+
         needs_split = .false.
         found_allocatable = .false.
         found_non_allocatable = .false.
-        
+
         if (decl_index <= 0 .or. decl_index > arena%size) return
         if (.not. allocated(arena%entries(decl_index)%node)) return
-        
+
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
             if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
@@ -329,7 +329,7 @@ contains
                         found_non_allocatable = .true.
                     end if
                 end do
-                
+
                 ! If some variables need allocatable and others don't, we need to split
                 needs_split = (found_allocatable .and. found_non_allocatable)
 
@@ -345,8 +345,8 @@ contains
                             (allocated(tmp%type_name) .and. trim(tmp%type_name) == "character")) then
                             tmp%is_allocatable = .true.
                             if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
-                                deallocate(tmp%dimension_indices)
-                                allocate(tmp%dimension_indices(1))
+                                deallocate (tmp%dimension_indices)
+                                allocate (tmp%dimension_indices(1))
                                 tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
                             end if
                             arena%entries(decl_index)%node = tmp
@@ -356,10 +356,10 @@ contains
             end if
         end select
     end subroutine handle_multi_variable_declaration_allocatable
-    
+
     ! Split multi-variable declaration when some variables need allocatable
     subroutine split_multi_variable_declaration(arena, decl_index, &
-        assigned_vars, assignment_counts, var_count, prog_index)
+                                                assigned_vars, assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
@@ -372,20 +372,20 @@ contains
         integer :: alloc_count, non_alloc_count
         logical :: needs_allocatable
         integer :: idx_alloc, idx_non
-        
+
         if (decl_index <= 0 .or. decl_index > arena%size) return
         if (.not. allocated(arena%entries(decl_index)%node)) return
-        
+
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
             if (.not. (decl%is_multi_declaration .and. allocated(decl%var_names))) return
-            
+
             ! Allocate working arrays
-            allocate(alloc_vars(size(decl%var_names)))
-            allocate(non_alloc_vars(size(decl%var_names)))
+            allocate (alloc_vars(size(decl%var_names)))
+            allocate (non_alloc_vars(size(decl%var_names)))
             alloc_count = 0
             non_alloc_count = 0
-            
+
             ! Categorize variables
             do i = 1, size(decl%var_names)
                 needs_allocatable = .false.
@@ -397,7 +397,7 @@ contains
                         exit
                     end if
                 end do
-                
+
                 if (needs_allocatable) then
                     alloc_count = alloc_count + 1
                     alloc_vars(alloc_count) = decl%var_names(i)
@@ -406,7 +406,7 @@ contains
                     non_alloc_vars(non_alloc_count) = decl%var_names(i)
                 end if
             end do
-            
+
             ! Create per-variable declarations to preserve names and attributes precisely
             block
                 integer, allocatable :: new_indices(:)
@@ -415,7 +415,7 @@ contains
                 type(declaration_node) :: single_decl
 
                 new_count = 0
-                allocate(new_indices(size(decl%var_names)))
+                allocate (new_indices(size(decl%var_names)))
 
                 do i = 1, size(decl%var_names)
                     needs_allocatable = .false.
@@ -451,9 +451,9 @@ contains
                         end do
                         if (pos > 0) then
                             nbm = size(prog%body_indices) - 1 + new_count
-                            allocate(replaced(nbm))
+                            allocate (replaced(nbm))
                             ! Copy before
-                            do k = 1, pos-1
+                            do k = 1, pos - 1
                                 replaced(k) = prog%body_indices(k)
                             end do
                             ! Insert new ones
@@ -463,7 +463,7 @@ contains
                                 mm = mm + 1
                             end do
                             ! Copy after
-                            do k = pos+1, size(prog%body_indices)
+                            do k = pos + 1, size(prog%body_indices)
                                 replaced(mm) = prog%body_indices(k)
                                 mm = mm + 1
                             end do
@@ -473,11 +473,11 @@ contains
                     end if
                 end select
 
-                deallocate(new_indices)
+                deallocate (new_indices)
             end block
         end select
     end subroutine split_multi_variable_declaration
-    
+
     ! Create a split declaration from original with specified variables
     subroutine create_split_declaration(orig_decl, var_names, var_count, is_allocatable, new_decl)
         type(declaration_node), intent(in) :: orig_decl
@@ -485,49 +485,49 @@ contains
         integer, intent(in) :: var_count
         logical, intent(in) :: is_allocatable
         type(declaration_node), intent(out) :: new_decl
-        
+
         ! Copy base properties
         new_decl = orig_decl
-        
+
         ! Set variable-specific properties
         if (var_count == 1) then
             new_decl%is_multi_declaration = .false.
             new_decl%var_name = var_names(1)
-            if (allocated(new_decl%var_names)) deallocate(new_decl%var_names)
+            if (allocated(new_decl%var_names)) deallocate (new_decl%var_names)
         else
             new_decl%is_multi_declaration = .true.
             new_decl%var_name = var_names(1)  ! First variable as primary
-            if (allocated(new_decl%var_names)) deallocate(new_decl%var_names)
-            allocate(character(len=64) :: new_decl%var_names(var_count))
+            if (allocated(new_decl%var_names)) deallocate (new_decl%var_names)
+            allocate (character(len=64) :: new_decl%var_names(var_count))
             new_decl%var_names(1:var_count) = var_names(1:var_count)
         end if
-        
+
         new_decl%is_allocatable = is_allocatable
-        
+
         ! Adjust dimensions for allocatable arrays
         if (is_allocatable .and. new_decl%is_array .and. allocated(new_decl%dimension_indices)) then
-            deallocate(new_decl%dimension_indices)
-            allocate(new_decl%dimension_indices(1))
+            deallocate (new_decl%dimension_indices)
+            allocate (new_decl%dimension_indices(1))
             new_decl%dimension_indices(1) = 0  ! Deferred shape
         end if
     end subroutine create_split_declaration
-    
+
     ! Update program body indices to replace old declaration with new ones
     subroutine update_program_body_indices(arena, prog_index, old_decl_index, &
-        new_alloc_index, new_non_alloc_index)
+                                           new_alloc_index, new_non_alloc_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index, old_decl_index
         integer, intent(in) :: new_alloc_index, new_non_alloc_index
         integer :: i, old_pos, new_size, j
         integer, allocatable :: new_body_indices(:)
-        
+
         if (prog_index <= 0 .or. prog_index > arena%size) return
         if (.not. allocated(arena%entries(prog_index)%node)) return
-        
+
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
-            
+
             ! Find position of old declaration
             old_pos = 0
             do i = 1, size(prog%body_indices)
@@ -536,21 +536,21 @@ contains
                     exit
                 end if
             end do
-            
+
             if (old_pos == 0) return  ! Old declaration not found
-            
+
             ! Calculate new size
             new_size = size(prog%body_indices) - 1  ! Remove old
             if (new_alloc_index > 0) new_size = new_size + 1
             if (new_non_alloc_index > 0) new_size = new_size + 1
-            
-            allocate(new_body_indices(new_size))
-            
+
+            allocate (new_body_indices(new_size))
+
             ! Copy indices before old position
             do i = 1, old_pos - 1
                 new_body_indices(i) = prog%body_indices(i)
             end do
-            
+
             j = old_pos
             ! Insert new declarations
             if (new_alloc_index > 0) then
@@ -561,29 +561,29 @@ contains
                 new_body_indices(j) = new_non_alloc_index
                 j = j + 1
             end if
-            
+
             ! Copy remaining indices
             do i = old_pos + 1, size(prog%body_indices)
                 new_body_indices(j) = prog%body_indices(i)
                 j = j + 1
             end do
-            
+
             prog%body_indices = new_body_indices
             arena%entries(prog_index)%node = prog
         end select
     end subroutine update_program_body_indices
-    
+
     ! Check if assignment value is an array expression
     function is_array_assignment(arena, value_index) result(is_array)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: value_index
         logical :: is_array
-        
+
         is_array = .false.
-        
+
         if (value_index <= 0 .or. value_index > arena%size) return
         if (.not. allocated(arena%entries(value_index)%node)) return
-        
+
         select type (value => arena%entries(value_index)%node)
         type is (array_literal_node)
             is_array = .true.
@@ -592,22 +592,22 @@ contains
             is_array = has_array_slice_args(arena, value)
         end select
     end function is_array_assignment
-    
+
     ! Check if declaration is for a procedure parameter
     function is_procedure_parameter(arena, decl_index) result(is_param)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: decl_index
         logical :: is_param
         integer :: parent_index
-        
+
         is_param = .false.
-        
+
         if (decl_index <= 0 .or. decl_index > arena%size) return
-        
+
         parent_index = arena%entries(decl_index)%parent_index
         if (parent_index <= 0 .or. parent_index > arena%size) return
         if (.not. allocated(arena%entries(parent_index)%node)) return
-        
+
         select type (parent => arena%entries(parent_index)%node)
         type is (function_def_node)
             is_param = .true.
@@ -615,27 +615,27 @@ contains
             is_param = .true.
         end select
     end function is_procedure_parameter
-    
+
     ! Mark variables that need allocatable due to string length changes (Issue 218)
     subroutine mark_allocatable_for_string_length_changes(arena, prog)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         character(len=64), allocatable :: string_vars_needing_allocatable(:)
         integer :: var_count, i, j
-        
+
         ! First pass: collect variables that need allocatable strings
-        allocate(string_vars_needing_allocatable(100))
+        allocate (string_vars_needing_allocatable(100))
         var_count = 0
-        
+
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
                 if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                     call collect_string_vars_needing_allocatable(arena, prog%body_indices(i), &
-                        string_vars_needing_allocatable, var_count)
+                                                                 string_vars_needing_allocatable, var_count)
                 end if
             end do
         end if
-        
+
         ! Second pass: mark the corresponding declarations
         if (var_count > 0 .and. allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
@@ -670,10 +670,10 @@ contains
                 end if
             end do
         end if
-        
-        deallocate(string_vars_needing_allocatable)
+
+        deallocate (string_vars_needing_allocatable)
     end subroutine mark_allocatable_for_string_length_changes
-    
+
     ! Recursively collect variables that need allocatable strings
     subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
                                                        var_list, var_count)
@@ -693,7 +693,7 @@ contains
         logical :: exists
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(stmt_index)
@@ -753,7 +753,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate(tmp(capacity*2))
+                allocate (tmp(capacity * 2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)

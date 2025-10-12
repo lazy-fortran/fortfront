@@ -30,7 +30,7 @@ contains
     function test_nested_parentheses_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "x = (a + b) * (c + d * (e + f * (g + h)))" // new_line('a')
+                                       "x = (a + b) * (c + d * (e + f * (g + h)))" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "nested_parentheses_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -38,7 +38,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -57,20 +57,20 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Generated result:"
         print *, result
-        
-        ! Check that parentheses are preserved - should NOT be simplified 
+
+        ! Check that parentheses are preserved - should NOT be simplified
         ! The buggy behavior is: x = a + b*c + d*e + f*g + h
         if (index(result, "a + b*c + d*e + f*g + h") > 0) then
             print *, "ERROR in ", test_name, ": Expression incorrectly simplified - parentheses lost!"
@@ -78,7 +78,7 @@ contains
             print *, result
             return
         end if
-        
+
         ! Check that parentheses are preserved in some form
         ! We should see either the original form or at least proper precedence
         if (index(result, "(a + b)") == 0 .or. &
@@ -96,7 +96,7 @@ contains
     function test_simple_parentheses_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "y = (a + b) * c" // new_line('a')
+                                       "y = (a + b) * c" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "simple_parentheses_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -104,7 +104,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -123,19 +123,19 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Generated result:"
         print *, result
-        
+
         ! Should preserve parentheses or maintain correct precedence
         ! Should NOT become: y = a + b * c (which changes the meaning)
         if (index(result, "y = a + b * c") > 0) then
@@ -152,7 +152,7 @@ contains
     function test_operator_precedence_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "z = a * (b + c) * d" // new_line('a')
+                                       "z = a * (b + c) * d" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "operator_precedence_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -160,7 +160,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -179,19 +179,19 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Generated result:"
         print *, result
-        
+
         ! Should preserve parentheses or maintain correct precedence
         ! Should NOT become: z = a * b + c * d (which changes the meaning)
         if (index(result, "z = a * b + c * d") > 0) then

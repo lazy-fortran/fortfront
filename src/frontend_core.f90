@@ -4,11 +4,11 @@ module frontend_core
 
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                           TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
+                          TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                           get_additional_indices, clear_additional_indices
+                                        get_additional_indices, clear_additional_indices
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
@@ -19,15 +19,15 @@ module frontend_core
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                   analyze_program, has_semantic_errors
+                                 analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
-                           get_standardizer_type_standardization
+                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
-                               set_line_length_config, get_line_length_config
+                              set_line_length_config, get_line_length_config
     use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
@@ -71,11 +71,10 @@ contains
         type(path_validation_result_t) :: validation_result
 
         ! Log compilation start with proper logging
-        write(error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
+        write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
 
         error_msg = ""
 
-        
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
         if (.not. validation_result%is_valid()) then
@@ -141,7 +140,7 @@ contains
         character(len=*), intent(in) :: source
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=*), intent(out) :: error_msg
-        
+
         error_msg = ""
         call tokenize_core(source, tokens)
     end subroutine lex_file
@@ -151,13 +150,13 @@ contains
         character(len=*), intent(in) :: source_code
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
-        
+
         call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
-            allocate(character(len=22) :: error_msg)
+            allocate (character(len=22) :: error_msg)
             error_msg = "Failed to tokenize source"
         else
-            allocate(character(len=0) :: error_msg)
+            allocate (character(len=0) :: error_msg)
             error_msg = ""
         end if
     end subroutine lex_source
@@ -196,7 +195,7 @@ contains
         ! Read source file
         open (newunit=unit, file=input_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
-            error_msg = "Cannot open input file: "//input_file
+            error_msg = "Cannot open input file: " // input_file
             return
         end if
 
@@ -208,7 +207,7 @@ contains
             do
                 read (unit, '(A)', iostat=iostat) line
                 if (iostat /= 0) exit
-                source = source//trim(line)//new_line('a')
+                source = source // trim(line) // new_line('a')
             end do
         end block
         close (unit)
@@ -222,15 +221,15 @@ contains
 
         block
             type(semantic_context_t), allocatable :: ctx
-            allocate(ctx)
+            allocate (ctx)
             call create_semantic_context(ctx)
-            
+
             ! Use permissive mode here; strictness is decided in semantic analyzer
             ! based on presence of 'implicit none' within the program unit.
             ctx%strict_mode = .false.
-            
+
             call analyze_program(ctx, arena, prog_index)
-            
+
             ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
                 error_msg = get_detailed_semantic_errors(ctx)
@@ -238,7 +237,7 @@ contains
             end if
 
         end block
-        
+
         error_msg = ""
     end subroutine run_semantic_analysis
 
@@ -248,18 +247,18 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
         character(len=128) :: temp_msg
-        
+
         total_errors = ctx%errors%count
         if (total_errors == 0) then
             error_msg = "No semantic errors found"
             return
         end if
-        
+
         ! Build comprehensive error message
         temp_msg = ""
-        write(temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
+        write (temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
         error_msg = trim(temp_msg)
-        
+
         ! Add first few error messages for details
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
@@ -271,10 +270,10 @@ contains
                 end if
             end if
         end do
-        
+
         ! Add summary if there are more errors
         if (total_errors > 3) then
-            write(temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
             error_msg = error_msg // new_line('a') // trim(temp_msg)
         end if
     end function get_detailed_semantic_errors

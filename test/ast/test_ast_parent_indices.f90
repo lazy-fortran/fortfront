@@ -35,9 +35,9 @@ contains
         logical :: test_passed
 
         test_count = test_count + 1
-        
+
         ! Create test tokens for: if (x < 0) then \n valid = .false. \n return \n end if
-        allocate(tokens(13))
+        allocate (tokens(13))
         tokens(1) = token_t(TK_KEYWORD, "if", 1, 1)
         tokens(2) = token_t(TK_OPERATOR, "(", 1, 4)
         tokens(3) = token_t(TK_IDENTIFIER, "x", 1, 5)
@@ -57,9 +57,9 @@ contains
 
         ! Parse the if statement
         if_index = parse_if(parser, arena)
-        
+
         test_passed = .true.
-        
+
         ! Check that the if node exists
         if (if_index <= 0 .or. if_index > arena%size) then
             print *, "ERROR: Invalid if_index returned"
@@ -67,20 +67,20 @@ contains
         else
             ! Get children of the if node
             children = arena%get_children(if_index)
-            
+
             ! Check that children have proper parent indices
             do i = 1, size(children)
                 if (arena%entries(children(i))%parent_index /= if_index) then
                     print *, "ERROR: Child ", i, " has parent_index = ", &
-                            arena%entries(children(i))%parent_index, &
-                            " but should be ", if_index
+                        arena%entries(children(i))%parent_index, &
+                        " but should be ", if_index
                     test_passed = .false.
                 end if
             end do
-            
+
             ! Check body statements specifically
             if (allocated(arena%entries(if_index)%node)) then
-                select type(node => arena%entries(if_index)%node)
+                select type (node => arena%entries(if_index)%node)
                 type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
@@ -95,7 +95,7 @@ contains
                 end select
             end if
         end if
-        
+
         if (test_passed) then
             pass_count = pass_count + 1
             print *, "PASS: if block parent indices"
@@ -114,9 +114,9 @@ contains
         logical :: test_passed
 
         test_count = test_count + 1
-        
+
         ! Create test tokens for: do i = 1, 10 \n x = x + 1 \n end do
-        allocate(tokens(14))
+        allocate (tokens(14))
         tokens(1) = token_t(TK_KEYWORD, "do", 1, 1)
         tokens(2) = token_t(TK_IDENTIFIER, "i", 1, 4)
         tokens(3) = token_t(TK_OPERATOR, "=", 1, 6)
@@ -137,9 +137,9 @@ contains
 
         ! Parse the do loop
         loop_index = parse_do_loop(parser, arena)
-        
+
         test_passed = .true.
-        
+
         ! Check that the loop node exists
         if (loop_index <= 0 .or. loop_index > arena%size) then
             print *, "ERROR: Invalid loop_index returned"
@@ -147,20 +147,20 @@ contains
         else
             ! Get children of the loop node
             children = arena%get_children(loop_index)
-            
+
             ! Check that children have proper parent indices
             do i = 1, size(children)
                 if (arena%entries(children(i))%parent_index /= loop_index) then
                     print *, "ERROR: Child ", i, " has parent_index = ", &
-                            arena%entries(children(i))%parent_index, &
-                            " but should be ", loop_index
+                        arena%entries(children(i))%parent_index, &
+                        " but should be ", loop_index
                     test_passed = .false.
                 end if
             end do
-            
+
             ! Check body statements specifically
             if (allocated(arena%entries(loop_index)%node)) then
-                select type(node => arena%entries(loop_index)%node)
+                select type (node => arena%entries(loop_index)%node)
                 type is (do_loop_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
@@ -175,7 +175,7 @@ contains
                 end select
             end if
         end if
-        
+
         if (test_passed) then
             pass_count = pass_count + 1
             print *, "PASS: do loop parent indices"
@@ -194,14 +194,14 @@ contains
         logical :: test_passed
 
         test_count = test_count + 1
-        
+
         ! Create test tokens for nested if blocks
         ! if (x > 0) then
         !   if (y > 0) then
         !     z = 1
         !   end if
         ! end if
-        allocate(tokens(20))
+        allocate (tokens(20))
         tokens(1) = token_t(TK_KEYWORD, "if", 1, 1)
         tokens(2) = token_t(TK_OPERATOR, "(", 1, 4)
         tokens(3) = token_t(TK_IDENTIFIER, "x", 1, 5)
@@ -228,9 +228,9 @@ contains
 
         ! Parse the outer if statement
         outer_if_index = parse_if(parser, arena)
-        
+
         test_passed = .true.
-        
+
         ! Check that all nodes have proper parent relationships
         if (outer_if_index <= 0 .or. outer_if_index > arena%size) then
             print *, "ERROR: Invalid outer_if_index returned"
@@ -239,14 +239,14 @@ contains
             ! The outer if should have parent_index = 0 (root)
             if (arena%entries(outer_if_index)%parent_index /= 0) then
                 print *, "ERROR: Outer if has parent_index = ", &
-                        arena%entries(outer_if_index)%parent_index, &
-                        " but should be 0"
+                    arena%entries(outer_if_index)%parent_index, &
+                    " but should be 0"
                 test_passed = .false.
             end if
-            
+
             ! Check the nested structure
             if (allocated(arena%entries(outer_if_index)%node)) then
-                select type(node => arena%entries(outer_if_index)%node)
+                select type (node => arena%entries(outer_if_index)%node)
                 type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
@@ -267,7 +267,7 @@ contains
                 end select
             end if
         end if
-        
+
         if (test_passed) then
             pass_count = pass_count + 1
             print *, "PASS: nested blocks parent indices"

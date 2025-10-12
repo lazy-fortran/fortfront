@@ -15,7 +15,7 @@ module type_utils_safe
         character(len=64) :: name = ""  ! Fixed size to avoid allocatable
     end type safe_type_var_t
 
-    ! Safe monomorphic type - uses interface access patterns to avoid 
+    ! Safe monomorphic type - uses interface access patterns to avoid
     ! direct self-referential allocatables
     type :: safe_mono_type_t
         integer :: kind = TINT
@@ -23,7 +23,7 @@ module type_utils_safe
         integer :: size = 0
         logical :: has_args = .false.
         integer :: args_count = 0
-        
+
         ! Allocation info fields directly embedded
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
@@ -44,7 +44,7 @@ contains
         integer, intent(in) :: id
         character(len=*), intent(in), optional :: name
         type(safe_type_var_t) :: var
-        
+
         var%id = id
         if (present(name)) then
             var%name = name
@@ -57,7 +57,7 @@ contains
     function create_safe_mono_type(kind) result(mono)
         integer, intent(in) :: kind
         type(safe_mono_type_t) :: mono
-        
+
         mono%kind = kind
         mono%has_args = .false.
         mono%args_count = 0

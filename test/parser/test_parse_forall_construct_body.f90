@@ -27,7 +27,7 @@ program test_parse_forall_construct_body
 
     forall_index = parse_forall(parser, arena)
     if (forall_index <= 0) then
-        write(error_unit, '(a)') 'ERROR: parse_forall returned invalid index'
+        write (error_unit, '(a)') 'ERROR: parse_forall returned invalid index'
         stop 1
     end if
 
@@ -35,14 +35,14 @@ program test_parse_forall_construct_body
     has_unparsed = .false.
 
     if (.not. arena%has_node_at(forall_index)) then
-        write(error_unit, '(a)') 'ERROR: Forall node missing from arena'
+        write (error_unit, '(a)') 'ERROR: Forall node missing from arena'
         stop 1
     end if
 
     select type (node => arena%entries(forall_index)%node)
     type is (forall_node)
         if (.not. allocated(node%body_indices)) then
-            write(error_unit, '(a)') 'ERROR: Forall body indices not allocated'
+            write (error_unit, '(a)') 'ERROR: Forall body indices not allocated'
             stop 1
         end if
 
@@ -61,17 +61,17 @@ program test_parse_forall_construct_body
             end select
         end do
     class default
-        write(error_unit, '(a)') 'ERROR: Node returned is not a forall_node'
+        write (error_unit, '(a)') 'ERROR: Node returned is not a forall_node'
         stop 1
     end select
 
     if (.not. has_assignment) then
-        write(error_unit, '(a)') 'ERROR: Forall body missing assignment node'
+        write (error_unit, '(a)') 'ERROR: Forall body missing assignment node'
         stop 1
     end if
 
     if (has_unparsed) then
-        write(error_unit, '(a)') 'ERROR: Forall body still contains ! Unparsed placeholder'
+        write (error_unit, '(a)') 'ERROR: Forall body still contains ! Unparsed placeholder'
         stop 1
     end if
 

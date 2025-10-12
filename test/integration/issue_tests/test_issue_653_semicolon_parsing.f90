@@ -6,23 +6,23 @@ program test_issue_653_semicolon_parsing
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     implicit none
-    
+
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
     character(len=:), allocatable :: error_msg, code, source
     integer :: prog_index
     logical :: test_passed
-    
+
     print *, "=== Testing Issue #653: Semicolon If/Else Parsing ==="
-    
+
     test_passed = .true.
-    
+
     ! Test 1: Exact case from GitHub issue
     source = 'if (x > 0) then; print *, "pos"; else; print *, "neg"; end if'
-    
+
     print *, "Test 1 - GitHub Issue Exact Case:"
     print *, "INPUT: ", source
-    
+
     call lex_source(source, tokens, error_msg)
     if (error_msg /= "") then
         print *, "LEXING ERROR: ", error_msg
@@ -46,14 +46,14 @@ program test_issue_653_semicolon_parsing
             end if
         end if
     end if
-    
+
     ! Test 2: Assignment statements with semicolons
     source = 'if (flag) then; x = 1; y = 2; else; x = 3; y = 4; end if'
-    
+
     print *, ""
     print *, "Test 2 - Assignment Statements:"
     print *, "INPUT: ", source
-    
+
     call lex_source(source, tokens, error_msg)
     if (error_msg /= "") then
         print *, "LEXING ERROR: ", error_msg
@@ -72,19 +72,19 @@ program test_issue_653_semicolon_parsing
                 print *, "✅ PASS: Multiple assignment statements correctly parsed"
             else
                 print *, "❌ FAIL: Generated code missing assignments:"
-                print *, code  
+                print *, code
                 test_passed = .false.
             end if
         end if
     end if
-    
+
     ! Test 3: Nested if with semicolons
     source = 'if (a > 0) then; if (b > 0) then; print *, "both"; end if; else; print *, "not a"; end if'
-    
+
     print *, ""
     print *, "Test 3 - Nested If Statements:"
     print *, "INPUT: ", source
-    
+
     call lex_source(source, tokens, error_msg)
     if (error_msg /= "") then
         print *, "LEXING ERROR: ", error_msg
@@ -106,7 +106,7 @@ program test_issue_653_semicolon_parsing
             end if
         end if
     end if
-    
+
     ! Final result
     print *, ""
     if (test_passed) then
@@ -116,5 +116,5 @@ program test_issue_653_semicolon_parsing
         print *, "💥 FAILURE: Issue #653 not fully resolved"
         stop 1
     end if
-    
+
 end program test_issue_653_semicolon_parsing

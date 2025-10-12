@@ -2,15 +2,16 @@ module ast_nodes_procedure
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_visitor_base_t
+                        ast_visitor_base_t
     implicit none
     private
 
     ! Public factory functions
     public :: create_function_def, create_subroutine_def
-    
+
     ! Public interface helpers
-    public :: is_procedure_node, get_procedure_name, get_procedure_params, get_procedure_body
+    public :: is_procedure_node, get_procedure_name, get_procedure_params, &
+              get_procedure_body
     public :: procedure_has_return_type, get_procedure_return_type
 
     ! Procedure-related AST nodes
@@ -21,6 +22,7 @@ module ast_nodes_procedure
         integer, allocatable :: param_indices(:)
         character(len=:), allocatable :: return_type
         character(len=:), allocatable :: result_variable
+        character(len=16), allocatable :: prefix_keywords(:)
         integer, allocatable :: body_indices(:)
         logical :: is_recursive = .false.
     contains
@@ -67,7 +69,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'function_def')
         call json%add(obj, 'line', this%line)
@@ -107,6 +109,7 @@ contains
         lhs%return_type = rhs%return_type
         lhs%is_recursive = rhs%is_recursive
         if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
+        if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine function_def_assign
@@ -123,7 +126,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'subroutine_def')
         call json%add(obj, 'line', this%line)
@@ -169,7 +172,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'subroutine_call')
         call json%add(obj, 'line', this%line)
@@ -201,13 +204,15 @@ contains
 
     ! Factory functions
     function create_function_def(name, param_indices, return_type, &
-                                body_indices, line, column, result_variable) result(node)
+                                 body_indices, line, column, result_variable, &
+                                 prefix_keywords) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in) :: return_type
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column
         character(len=*), intent(in), optional :: result_variable
+        character(len=16), intent(in), optional :: prefix_keywords(:)
         type(function_def_node) :: node
 
         node%uid = generate_uid()
@@ -221,6 +226,11 @@ contains
         if (present(result_variable)) then
             node%result_variable = result_variable
         end if
+        if (present(prefix_keywords)) then
+            if (size(prefix_keywords) > 0) then
+                node%prefix_keywords = prefix_keywords
+            end if
+        end if
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
                 node%body_indices = body_indices
@@ -231,7 +241,7 @@ contains
     end function create_function_def
 
     function create_subroutine_def(name, param_indices, body_indices, &
-                                  line, column) result(node)
+                                   line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
@@ -260,7 +270,7 @@ contains
     function is_procedure_node(node) result(is_proc)
         class(ast_node), intent(in) :: node
         logical :: is_proc
-        
+
         is_proc = .false.
         select type (n => node)
         type is (function_def_node)
@@ -271,11 +281,11 @@ contains
     end function is_procedure_node
 
     ! Get procedure name (works for both functions and subroutines)
-    ! Memory ownership: Caller owns the returned string and is responsible for deallocation
+    ! Memory ownership: caller owns the returned string and releases it
     function get_procedure_name(node) result(name)
         class(ast_node), intent(in) :: node
         character(len=:), allocatable :: name
-        
+
         select type (n => node)
         type is (function_def_node)
             if (allocated(n%name)) then
@@ -295,50 +305,50 @@ contains
     end function get_procedure_name
 
     ! Get procedure parameters (works for both functions and subroutines)
-    ! Memory ownership: Caller owns the returned array and is responsible for deallocation
+    ! Memory ownership: caller releases the returned array
     function get_procedure_params(node) result(param_indices)
         class(ast_node), intent(in) :: node
         integer, allocatable :: param_indices(:)
-        
+
         select type (n => node)
         type is (function_def_node)
             if (allocated(n%param_indices)) then
                 param_indices = n%param_indices
             else
-                allocate(param_indices(0))
+                allocate (param_indices(0))
             end if
         type is (subroutine_def_node)
             if (allocated(n%param_indices)) then
                 param_indices = n%param_indices
             else
-                allocate(param_indices(0))
+                allocate (param_indices(0))
             end if
         class default
-            allocate(param_indices(0))
+            allocate (param_indices(0))
         end select
     end function get_procedure_params
 
     ! Get procedure body (works for both functions and subroutines)
-    ! Memory ownership: Caller owns the returned array and is responsible for deallocation
+    ! Memory ownership: caller releases the returned array
     function get_procedure_body(node) result(body_indices)
         class(ast_node), intent(in) :: node
         integer, allocatable :: body_indices(:)
-        
+
         select type (n => node)
         type is (function_def_node)
             if (allocated(n%body_indices)) then
                 body_indices = n%body_indices
             else
-                allocate(body_indices(0))
+                allocate (body_indices(0))
             end if
         type is (subroutine_def_node)
             if (allocated(n%body_indices)) then
                 body_indices = n%body_indices
             else
-                allocate(body_indices(0))
+                allocate (body_indices(0))
             end if
         class default
-            allocate(body_indices(0))
+            allocate (body_indices(0))
         end select
     end function get_procedure_body
 
@@ -346,7 +356,7 @@ contains
     function procedure_has_return_type(node) result(has_return)
         class(ast_node), intent(in) :: node
         logical :: has_return
-        
+
         has_return = .false.
         select type (n => node)
         type is (function_def_node)
@@ -355,11 +365,11 @@ contains
     end function procedure_has_return_type
 
     ! Get procedure return type (only for functions)
-    ! Memory ownership: Caller owns the returned string and is responsible for deallocation
+    ! Memory ownership: caller releases the returned string
     function get_procedure_return_type(node) result(return_type)
         class(ast_node), intent(in) :: node
         character(len=:), allocatable :: return_type
-        
+
         select type (n => node)
         type is (function_def_node)
             if (allocated(n%return_type)) then

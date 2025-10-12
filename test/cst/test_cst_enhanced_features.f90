@@ -17,9 +17,9 @@ program test_cst_enhanced_features
     call test_start("Create CST node with text content")
     block
         type(cst_node_t) :: node
-        
+
         node = create_cst_node(CST_IDENTIFIER, 5, 15, "variable_name")
-        
+
         if (node%kind == CST_IDENTIFIER .and. &
             node%start_pos == 5 .and. &
             node%end_pos == 15 .and. &
@@ -44,24 +44,24 @@ program test_cst_enhanced_features
         type(cst_node_t) :: parent_node, child1, child2
         type(cst_arena_t) :: arena
         type(cst_handle_t) :: parent_handle, child1_handle, child2_handle
-        
+
         arena = create_cst_arena(10)
-        
+
         ! Create parent and children
         parent_node = create_cst_node(CST_ASSIGNMENT, 1, 20)
         child1 = create_cst_node(CST_IDENTIFIER, 1, 10, "x")
         child2 = create_cst_node(CST_LITERAL, 15, 20, "42")
-        
+
         ! Add to arena
         parent_handle = arena%push(parent_node)
         child1_handle = arena%push(child1)
         child2_handle = arena%push(child2)
-        
+
         ! Add children to parent (modify the node in arena)
         parent_node = arena%get(parent_handle)
         call add_child_to_cst_node(parent_node, child1_handle%index)
         call add_child_to_cst_node(parent_node, child2_handle%index)
-        
+
         if (allocated(parent_node%children) .and. &
             size(parent_node%children) == 2 .and. &
             parent_node%children(1) == child1_handle%index .and. &
@@ -83,16 +83,16 @@ program test_cst_enhanced_features
     block
         type(cst_node_t) :: node
         type(trivia_t) :: leading_comment, trailing_comment, whitespace
-        
+
         node = create_cst_node(CST_DECLARATION, 10, 30)
         leading_comment = create_trivia(CST_COMMENT, "! Variable declaration", 1, 21)
         whitespace = create_trivia(CST_WHITESPACE, "    ", 22, 25)
         trailing_comment = create_trivia(CST_COMMENT, "! End of line", 31, 43)
-        
+
         call add_leading_trivia(node, leading_comment)
         call add_leading_trivia(node, whitespace)
         call add_trailing_trivia(node, trailing_comment)
-        
+
         if (allocated(node%leading_trivia) .and. &
             allocated(node%trailing_trivia) .and. &
             size(node%leading_trivia) == 2 .and. &
@@ -117,10 +117,10 @@ program test_cst_enhanced_features
     call test_start("Set text content for existing node")
     block
         type(cst_node_t) :: node
-        
+
         node = create_cst_node(CST_LITERAL, 5, 10)
         call set_cst_node_text(node, "hello")
-        
+
         if (allocated(node%text) .and. node%text == "hello") then
             call test_pass()
         else
@@ -139,20 +139,20 @@ program test_cst_enhanced_features
     block
         type(cst_node_t) :: original, copy
         type(trivia_t) :: comment
-        
+
         ! Create original node with all features
         original = create_cst_node(CST_FUNCTION, 1, 50, "my_function")
         original%ast_link = 42
-        
+
         call add_child_to_cst_node(original, 10)
         call add_child_to_cst_node(original, 20)
-        
+
         comment = create_trivia(CST_COMMENT, "! Function comment", 1, 18)
         call add_leading_trivia(original, comment)
-        
+
         ! Test assignment
         copy = original
-        
+
         if (copy%kind == CST_FUNCTION .and. &
             copy%ast_link == 42 .and. &
             allocated(copy%text) .and. copy%text == "my_function" .and. &
@@ -169,7 +169,7 @@ program test_cst_enhanced_features
 
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
+    write (*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
 
     if (passed_tests == total_tests) then
         print *, "All CST enhanced features tests passed!"
@@ -183,7 +183,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         total_tests = total_tests + 1
-        write(*, '(A,A)', advance='no') "Testing: ", test_name
+        write (*, '(A,A)', advance='no') "Testing: ", test_name
     end subroutine test_start
 
     subroutine test_pass()

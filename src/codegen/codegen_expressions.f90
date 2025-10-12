@@ -124,7 +124,7 @@ contains
             ! Determine child operators to decide on parentheses
             left_op = get_node_operator(arena, node%left_index)
             right_op = get_node_operator(arena, node%right_index)
-            
+
             left_paren = .false.
             right_paren = .false.
             if (len_trim(left_op) > 0) left_paren = needs_parentheses(trim(fortran_operator), trim(left_op), .true.)
@@ -143,7 +143,7 @@ contains
             end if
 
             select case (trim(fortran_operator))
-            case ('*','/','**')
+            case ('*', '/', '**')
                 ! Maintain compact form for high-precedence arithmetic
                 code = left_code // fortran_operator // right_code
             case default
@@ -255,7 +255,7 @@ contains
         character(len=:), allocatable :: elements_code
         character(len=:), allocatable :: element_code
         integer :: i
-        
+
         elements_code = ""
         do i = 1, size(element_indices)
             if (i > 1) elements_code = elements_code // ", "
@@ -265,7 +265,7 @@ contains
             end if
         end do
     end function generate_elements_code_from_indices
-    
+
     ! Generate code for real array elements, converting integers as needed
     function generate_real_elements_code(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
@@ -274,7 +274,7 @@ contains
         type(mono_type_t) :: elem_type
         integer :: i
         logical :: is_integer_literal
-        
+
         elements_code = ""
         do i = 1, size(element_indices)
             if (i > 1) elements_code = elements_code // ", "
@@ -282,15 +282,15 @@ contains
                 elem_code = generate_code_from_arena(arena, element_indices(i))
                 elem_code = trim(elem_code)
                 is_integer_literal = .false.
-                
+
                 ! Check if element is an integer literal that needs conversion
-                select type(node => arena%entries(element_indices(i))%node)
+                select type (node => arena%entries(element_indices(i))%node)
                 type is (literal_node)
                     if (node%literal_kind == LITERAL_INTEGER) then
                         is_integer_literal = .true.
                     end if
                 end select
-                
+
                 if (is_integer_literal) then
                     ! Convert integer to real - use simple conversion
                     ! Check if it's just a simple integer
@@ -319,7 +319,7 @@ contains
         character(len=:), allocatable :: elements_code
         type(mono_type_t) :: array_type
         logical :: is_real_array
-        
+
         ! Check if this is a real array to handle type conversion
         is_real_array = .false.
         if (node%inferred_type%kind == TARRAY) then
@@ -333,7 +333,7 @@ contains
                         integer :: j
                         do j = 1, size(node%element_indices)
                             if (node%element_indices(j) > 0) then
-                                select type(elem_node => arena%entries(node%element_indices(j))%node)
+                                select type (elem_node => arena%entries(node%element_indices(j))%node)
                                 type is (literal_node)
                                     if (elem_node%literal_kind == LITERAL_REAL) then
                                         is_real_array = .true.
@@ -346,14 +346,14 @@ contains
                 end if
             end if
         end if
-        
+
         ! Generate elements code based on array type (for type conversion)
         if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
             elements_code = generate_elements_code_from_indices(arena, node%element_indices)
         else
             elements_code = ""
         end if
-        
+
         ! Handle different syntax styles
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
@@ -399,27 +399,27 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: real_part, imag_part
-        
+
         ! Initialize to empty complex literal if indices are invalid
         code = "(0.0, 0.0)"
-        
+
         ! Generate real part
         if (node%real_index > 0 .and. node%real_index <= arena%size) then
             real_part = generate_code_from_arena(arena, node%real_index)
         else
             real_part = "0.0"
         end if
-        
+
         ! Generate imaginary part
         if (node%imag_index > 0 .and. node%imag_index <= arena%size) then
             imag_part = generate_code_from_arena(arena, node%imag_index)
         else
             imag_part = "0.0"
         end if
-        
+
         ! Construct complex literal
         code = "(" // real_part // ", " // imag_part // ")"
-        
+
     end function generate_code_complex_literal
 
     ! CRITICAL FIX: Generate proper range expression code (e.g. 1:3, :5, 2:, ::2)
@@ -429,7 +429,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: start_code, end_code, stride_code
-        
+
         select type (range_node => node)
         type is (range_expression_node)
             ! Generate start expression
@@ -439,15 +439,15 @@ contains
             else
                 start_code = ""  ! Implicit start (e.g., :5)
             end if
-            
-            ! Generate end expression  
+
+            ! Generate end expression
             if (range_node%end_index > 0 .and. range_node%end_index <= arena%size) then
                 end_code = generate_code_from_arena(arena, range_node%end_index)
                 end_code = trim(adjustl(end_code))
             else
                 end_code = ""  ! Implicit end (e.g., 2:)
             end if
-            
+
             ! Generate stride expression (optional)
             if (range_node%stride_index > 0 .and. range_node%stride_index <= arena%size) then
                 stride_code = generate_code_from_arena(arena, range_node%stride_index)
@@ -455,7 +455,7 @@ contains
             else
                 stride_code = ""  ! No stride
             end if
-            
+
             ! Combine into range expression: start:end or start:end:stride
             code = start_code // ":" // end_code
             if (len_trim(stride_code) > 0) then
@@ -483,7 +483,7 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: array_code, bounds_code
         integer :: i
-        
+
         ! CRITICAL FIX: Implement proper array slice code generation
         select type (slice_node => node)
         type is (array_slice_node)
@@ -494,7 +494,7 @@ contains
             else
                 array_code = "unknown_array"
             end if
-            
+
             ! Generate the bounds part (e.g., '1:3' in name(1:3))
             bounds_code = ""
             do i = 1, slice_node%num_dimensions
@@ -506,7 +506,7 @@ contains
                     bounds_code = bounds_code // ":"  ! Default to full range if bounds missing
                 end if
             end do
-            
+
             ! Combine array and bounds: array(bounds)
             code = array_code // "(" // bounds_code // ")"
         class default
@@ -532,14 +532,14 @@ contains
         ! Generate implied do code (e.g., (expr, var=start,end))
         code = "(expr, i=1,n)"  ! Basic implied do - needs variable and bounds extraction
     end function generate_code_implied_do
-    
+
     ! Generate implied do array constructor from do loop node
     function generate_implied_do_array(arena, do_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: do_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: expr_code, start_code, end_code, step_code
-        
+
         ! Get the do loop node
         select type (node => arena%entries(do_index)%node)
         type is (do_loop_node)
@@ -550,7 +550,7 @@ contains
             else
                 expr_code = "0"  ! Fallback
             end if
-            
+
             ! Generate start expression
             if (node%start_expr_index > 0) then
                 start_code = generate_code_from_arena(arena, node%start_expr_index)
@@ -558,7 +558,7 @@ contains
             else
                 start_code = "1"
             end if
-            
+
             ! Generate end expression
             if (node%end_expr_index > 0) then
                 end_code = generate_code_from_arena(arena, node%end_expr_index)
@@ -566,8 +566,8 @@ contains
             else
                 end_code = "n"
             end if
-            
-            ! Generate step expression if present  
+
+            ! Generate step expression if present
             ! Use legacy (/ /) syntax for compatibility
             if (node%step_expr_index > 0) then
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
@@ -590,7 +590,7 @@ contains
             end if
         class default
             ! Not a do loop node - fallback
-            ! Empty array needs type specification  
+            ! Empty array needs type specification
             code = "[integer ::]"
         end select
     end function generate_implied_do_array
@@ -603,16 +603,16 @@ contains
         select case (trim(op))
         case ('**')
             precedence = 10
-        case ('*','/')
+        case ('*', '/')
             precedence = 8
-        case ('+','-')
+        case ('+', '-')
             precedence = 7
         case ('//')
             precedence = 6
-        ! Relational operators (map syntactic variants to same precedence)
+            ! Relational operators (map syntactic variants to same precedence)
         case ('.lt.', '.le.', '.gt.', '.ge.', '.eq.', '.ne.', '<', '<=', '>', '>=', '==', '/=')
             precedence = 5
-        ! Logical NOT (unary) binds tighter than AND/OR
+            ! Logical NOT (unary) binds tighter than AND/OR
         case ('.not.')
             precedence = 4
         case ('.and.')
@@ -696,7 +696,7 @@ contains
         character(len=:), allocatable :: str
         character(len=32) :: buffer
 
-        write(buffer, '(I0)') n
+        write (buffer, '(I0)') n
         str = trim(buffer)
     end function int_to_string
 
@@ -704,7 +704,7 @@ contains
     function is_string_concatenation(left_code, right_code) result(is_string)
         character(len=*), intent(in) :: left_code, right_code
         logical :: is_string
-        
+
         ! Check if both operands are string literals (enclosed in single or double quotes)
         is_string = is_string_literal(left_code) .and. is_string_literal(right_code)
     end function is_string_concatenation
@@ -714,17 +714,17 @@ contains
         character(len=*), intent(in) :: code
         logical :: is_string
         character(len=:), allocatable :: trimmed_code
-        
+
         ! Trim whitespace
         trimmed_code = trim(adjustl(code))
-        
+
         ! Check if it starts and ends with quotes
         is_string = .false.
         if (len(trimmed_code) >= 2) then
             ! Check for single quotes
             if (trimmed_code(1:1) == "'" .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == "'") then
                 is_string = .true.
-            ! Check for double quotes
+                ! Check for double quotes
             else if (trimmed_code(1:1) == '"' .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == '"') then
                 is_string = .true.
             end if

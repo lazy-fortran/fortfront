@@ -25,7 +25,7 @@ contains
     ! Get current indentation string
     function get_indent() result(indent)
         character(len=:), allocatable :: indent
-        indent = repeat(active_indent_char, current_indent_level*active_indent_size)
+        indent = repeat(active_indent_char, current_indent_level * active_indent_size)
     end function get_indent
 
     ! Increase indentation level
@@ -49,7 +49,7 @@ contains
     function with_indent(str) result(indented)
         character(len=*), intent(in) :: str
         character(len=:), allocatable :: indented
-        indented = get_indent()//str
+        indented = get_indent() // str
     end function with_indent
 
     ! Indent all lines in a multi-line string
@@ -64,7 +64,7 @@ contains
         if (present(extra_indent)) extra = extra_indent
 
         indent_str = repeat(active_indent_char, &
-                           (current_indent_level + extra)*active_indent_size)
+                            (current_indent_level + extra) * active_indent_size)
         indented = ""
         start_pos = 1
 
@@ -74,12 +74,12 @@ contains
                 if (end_pos >= start_pos) then
                     line = text(start_pos:end_pos)
                     if (len_trim(line) > 0) then
-                        indented = indented//indent_str//line//new_line('a')
+                        indented = indented // indent_str // line // new_line('a')
                     else
-                        indented = indented//new_line('a')
+                        indented = indented // new_line('a')
                     end if
                 else
-                    indented = indented//new_line('a')
+                    indented = indented // new_line('a')
                 end if
                 start_pos = i + 1
             end if
@@ -89,7 +89,7 @@ contains
         if (start_pos <= len(text)) then
             line = text(start_pos:)
             if (len_trim(line) > 0) then
-                indented = indented//indent_str//line
+                indented = indented // indent_str // line
             end if
         end if
     end function indent_lines

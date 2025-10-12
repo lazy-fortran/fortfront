@@ -32,7 +32,7 @@ program test_associate_nested_select_case
 
     assoc_index = parse_associate(parser, arena)
     if (assoc_index <= 0) then
-        write(error_unit, '(a)') 'ERROR: parse_associate returned invalid index'
+        write (error_unit, '(a)') 'ERROR: parse_associate returned invalid index'
         stop 1
     end if
 
@@ -56,12 +56,12 @@ program test_associate_nested_select_case
     end do
 
     if (.not. has_select_case) then
-        write(error_unit, '(a)') 'ERROR: nested SELECT CASE node missing'
+        write (error_unit, '(a)') 'ERROR: nested SELECT CASE node missing'
         stop 1
     end if
 
     if (has_unparsed) then
-        write(error_unit, '(a)') 'ERROR: unexpected ! Unparsed literal emitted'
+        write (error_unit, '(a)') 'ERROR: unexpected ! Unparsed literal emitted'
         stop 1
     end if
 

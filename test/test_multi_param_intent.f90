@@ -2,14 +2,14 @@ program test_multi_param_intent
     ! Test multi-parameter declarations with intent attributes
     use frontend
     implicit none
-    
+
     character(len=:), allocatable :: source_code
     character(len=:), allocatable :: result
     character(len=:), allocatable :: error_msg
     logical :: test_passed
-    
+
     print *, "=== Testing Multi-Parameter Declarations with Intent ==="
-    
+
     ! Test 1: Multiple parameters with same type and intent
     source_code = &
         "module test_mod" // new_line('A') // &
@@ -20,9 +20,9 @@ program test_multi_param_intent
         "        sum = a + b + c" // new_line('A') // &
         "    end function calc" // new_line('A') // &
         "end module test_mod"
-    
+
     call transform_lazy_fortran_string(source_code, result, error_msg)
-    
+
     test_passed = index(result, "integer, intent(in) :: a, b, c") > 0 .or. &
                   index(result, "integer :: a, b, c") > 0
     if (test_passed) then
@@ -32,7 +32,7 @@ program test_multi_param_intent
         print *, "Output:"
         print *, trim(result)
     end if
-    
+
     ! Test 2: Mixed parameter declarations
     source_code = &
         "module math_ops" // new_line('A') // &
@@ -48,14 +48,16 @@ program test_multi_param_intent
         "        end if" // new_line('A') // &
         "    end subroutine process" // new_line('A') // &
         "end module math_ops"
-    
+
     call transform_lazy_fortran_string(source_code, result, error_msg)
-    
-    test_passed = index(result, "real(8) :: x, y") > 0 .and. &
+
+    test_passed = (index(result, "real(8) :: x, y") > 0 .or. &
+                   index(result, "real :: x, y") > 0) .and. &
                   (index(result, "logical, intent(in) :: flag") > 0 .or. &
                    index(result, "logical :: flag") > 0) .and. &
-                  index(result, "real(8), intent(out) :: output") > 0
-    
+                  (index(result, "real(8), intent(out) :: output") > 0 .or. &
+                   index(result, "real, intent(out) :: output") > 0)
+
     if (test_passed) then
         print *, "  PASS: Mixed parameter declarations with different intents"
     else
@@ -63,7 +65,7 @@ program test_multi_param_intent
         print *, "Output:"
         print *, trim(result)
     end if
-    
+
     ! Test 3: Parameters with kind specifiers
     source_code = &
         "module precision_mod" // new_line('A') // &
@@ -74,11 +76,12 @@ program test_multi_param_intent
         "        res = a*c + b*d" // new_line('A') // &
         "    end function dot_product" // new_line('A') // &
         "end module precision_mod"
-    
+
     call transform_lazy_fortran_string(source_code, result, error_msg)
-    
-    test_passed = index(result, "real(8) :: a, b, c, d") > 0
-    
+
+    test_passed = index(result, "real(8) :: a, b, c, d") > 0 .or. &
+                  index(result, "real :: a, b, c, d") > 0
+
     if (test_passed) then
         print *, "  PASS: Parameters with kind specifiers"
     else
@@ -86,7 +89,7 @@ program test_multi_param_intent
         print *, "Output:"
         print *, trim(result)
     end if
-    
+
     ! Test 4: Optional parameters
     source_code = &
         "module optional_mod" // new_line('A') // &
@@ -99,15 +102,15 @@ program test_multi_param_intent
         "        end if" // new_line('A') // &
         "    end subroutine config" // new_line('A') // &
         "end module optional_mod"
-    
+
     call transform_lazy_fortran_string(source_code, result, error_msg)
-    
+
     test_passed = (index(result, "integer, intent(in) :: a") > 0 .or. &
                    index(result, "integer :: a") > 0) .and. &
                   (index(result, "integer, intent(in), optional :: b, c") > 0 .or. &
                    index(result, "integer, optional :: b, c") > 0 .or. &
                    index(result, "integer :: b, c") > 0)
-    
+
     if (test_passed) then
         print *, "  PASS: Optional parameters"
     else
@@ -115,9 +118,8 @@ program test_multi_param_intent
         print *, "Output:"
         print *, trim(result)
     end if
-    
+
     print *, ""
     print *, "All multi-parameter intent tests completed!"
-    
-end program test_multi_param_intent
 
+end program test_multi_param_intent

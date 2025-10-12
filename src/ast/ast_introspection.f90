@@ -1,7 +1,7 @@
 module ast_introspection
     ! AST Node Introspection APIs for Static Analysis
     ! Provides comprehensive API for examining AST nodes and their properties
-    
+
     use ast_arena_modern, only: ast_arena_t, has_node_at, get_node_line, &
                                 get_node_column, get_inferred_kind_at, &
                                 get_inferred_details_at
@@ -22,11 +22,11 @@ module ast_introspection
     public :: get_node_source_location
     public :: has_semantic_info
     ! get_node_type_info_from_arena is now PRIVATE to prevent misuse
-    
+
     ! New safe read-only type access functions
     public :: get_node_type_kind
     public :: get_node_type_details
-    
+
     ! Additional safe introspection functions that work with indices
     public :: get_node_type_id_from_arena
     public :: get_node_source_location_from_arena
@@ -34,7 +34,7 @@ module ast_introspection
 contains
 
     ! Safe node access using visitor pattern (issue #12 requirement)
-    ! 
+    !
     ! CRITICAL: Node Copying is FORBIDDEN
     ! ===================================
     ! AST nodes contain complex allocatable components (particularly recursive
@@ -62,10 +62,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         class(ast_visitor_t), intent(inout) :: visitor
-        
+
         ! Bounds checking via arena helper
         if (.not. arena%has_node_at(index)) return
-        
+
         ! Use the visitor pattern to safely access the node
         select type (node => arena%entries(index)%node)
         class is (ast_node)
@@ -83,23 +83,23 @@ contains
         ! These constants match those defined in fortfront.f90
         select type (node)
         type is (program_node)
-            type_id = 1   ! NODE_PROGRAM
+            type_id = 1  ! NODE_PROGRAM
         type is (function_def_node)
-            type_id = 2   ! NODE_FUNCTION_DEF
+            type_id = 2  ! NODE_FUNCTION_DEF
         type is (assignment_node)
-            type_id = 3   ! NODE_ASSIGNMENT
+            type_id = 3  ! NODE_ASSIGNMENT
         type is (binary_op_node)
-            type_id = 4   ! NODE_BINARY_OP
+            type_id = 4  ! NODE_BINARY_OP
         type is (identifier_node)
-            type_id = 5   ! NODE_IDENTIFIER
+            type_id = 5  ! NODE_IDENTIFIER
         type is (literal_node)
-            type_id = 6   ! NODE_LITERAL
+            type_id = 6  ! NODE_LITERAL
         type is (array_literal_node)
-            type_id = 7   ! NODE_ARRAY_LITERAL
+            type_id = 7  ! NODE_ARRAY_LITERAL
         type is (call_or_subscript_node)
-            type_id = 8   ! NODE_CALL_OR_SUBSCRIPT
+            type_id = 8  ! NODE_CALL_OR_SUBSCRIPT
         type is (subroutine_def_node)
-            type_id = 9   ! NODE_SUBROUTINE_DEF
+            type_id = 9  ! NODE_SUBROUTINE_DEF
         type is (subroutine_call_node)
             type_id = 10  ! NODE_SUBROUTINE_CALL
         type is (declaration_node)
@@ -170,7 +170,7 @@ contains
             type_id = 43  ! NODE_IMPLICIT_STATEMENT
         class default
             ! Log warning for debugging purposes
-            write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
+            write (error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
             type_id = 99  ! NODE_UNKNOWN
         end select
     end function get_node_type_id
@@ -203,14 +203,14 @@ contains
         integer :: type_kind
 
         type_kind = 0  ! Unknown/no type
-        
+
         ! Delegate to arena helper
         type_kind = arena%get_inferred_kind_at(index)
     end function get_node_type_kind
 
     ! Get type details without dangerous deep copy (safe read-only access)
     subroutine get_node_type_details(arena, index, kind, type_size, is_allocatable, &
-                                   is_pointer, found)
+                                     is_pointer, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         integer, intent(out) :: kind, type_size
@@ -218,7 +218,7 @@ contains
 
         ! Delegate to arena helper
         call arena%get_inferred_details_at(index, kind, type_size, &
-             is_allocatable, is_pointer, found)
+                                           is_allocatable, is_pointer, found)
     end subroutine get_node_type_details
 
     ! PRIVATE: Legacy function - always returns unallocated
@@ -229,7 +229,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(mono_type_t), allocatable :: type_info
-        
+
         ! Always return unallocated to prevent segfaults
         ! Use get_node_type_kind() or get_node_type_details() instead
     end function get_node_type_info_from_arena
@@ -239,12 +239,12 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         integer :: type_id
-        
+
         type_id = 99  ! Unknown by default
-        
+
         ! Bounds checking via arena helper
         if (.not. arena%has_node_at(index)) return
-        
+
         ! Use existing function with the node reference
         type_id = get_node_type_id(arena%entries(index)%node)
     end function get_node_type_id_from_arena
@@ -254,12 +254,12 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         integer, intent(out) :: line, column
-        
+
         line = 0
         column = 0
-        
+
         if (.not. arena%has_node_at(index)) return
-        
+
         ! Use arena helpers to avoid compat field access
         line = arena%get_node_line(index)
         column = arena%get_node_column(index)

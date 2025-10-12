@@ -27,17 +27,17 @@ contains
         character(len=*), intent(in) :: var_name
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
-        
+
         ! Enhanced type inference based on variable name patterns and context
         ! This improves user experience by making reasonable type guesses
-        
+
         ! Pattern-based type inference for common variable names
-        select case(var_name)
+        select case (var_name)
         case ('i', 'j', 'k', 'n', 'count', 'index', 'num', 'size')
             ! Common integer variable patterns
             typ = create_mono_type(TINT)
         case ('x', 'y', 'z', 'result', 'value', 'temp')
-            ! Common real variable patterns  
+            ! Common real variable patterns
             typ = create_mono_type(TREAL)
         case ('flag', 'found', 'done', 'success', 'valid')
             ! Common logical variable patterns
@@ -76,8 +76,8 @@ contains
         integer :: idx
 
         if (allocated(func_node%param_indices)) then
-            allocate(param_types(size(func_node%param_indices)))
-            allocate(stored_names(size(func_node%param_indices)))
+            allocate (param_types(size(func_node%param_indices)))
+            allocate (stored_names(size(func_node%param_indices)))
             do i = 1, size(func_node%param_indices)
                 param_name = ''
                 temp_type%kind = 0
@@ -101,7 +101,7 @@ contains
 
                 trimmed_name = trim(param_name)
                 if (len_trim(trimmed_name) == 0) then
-                    trimmed_name = 'arg'//trim(int_to_str(i))
+                    trimmed_name = 'arg' // trim(int_to_str(i))
                 end if
 
                 if (temp_type%kind == 0) then
@@ -111,7 +111,7 @@ contains
                 if (temp_type%kind == TVAR) then
                     if (len_trim(trimmed_name) > 0) then
                         select case (trimmed_name(1:1))
-                        case ('i','j','k','l','m','n')
+                        case ('i', 'j', 'k', 'l', 'm', 'n')
                             temp_type = create_mono_type(TINT)
                         case default
                             temp_type = create_mono_type(TREAL)
@@ -152,12 +152,12 @@ contains
 
             do i = 1, size(param_types)
                 if (len_trim(stored_names(i)) == 0) cycle
-                scheme = create_poly_type(forall_vars=[type_var_t::], mono=param_types(i))
+                scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
                 call scopes%define(trim(stored_names(i)), scheme)
                 call update_identifier_type_in_arena(arena, trim(stored_names(i)), param_types(i))
             end do
         else
-            allocate(param_types(0))
+            allocate (param_types(0))
         end if
     end subroutine analyze_function_parameters
 
@@ -207,7 +207,7 @@ contains
         if (return_type%kind == TVAR) then
             if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
                 select case (func_node%name(1:1))
-                case ('i','j','k','l','m','n')
+                case ('i', 'j', 'k', 'l', 'm', 'n')
                     return_type = create_mono_type(TINT)
                 case default
                     return_type = create_mono_type(TREAL)
@@ -251,7 +251,7 @@ contains
             end if
         end if
 
-        result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
+        result_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=return_type)
         call scopes%define(result_name, result_scheme)
         if (result_name /= func_name) then
             call scopes%define(func_name, result_scheme)
@@ -290,7 +290,7 @@ contains
 
         paren_pos = index(trimmed, '(')
         if (paren_pos > 0) then
-            trimmed = trim(trimmed(1:paren_pos-1))
+            trimmed = trim(trimmed(1:paren_pos - 1))
         else
             trimmed = trim(trimmed)
         end if
@@ -323,8 +323,8 @@ contains
             name = 'logical'
         case (TCHAR)
             if (typ%size > 0) then
-                write(size_buf, '(I0)') typ%size
-                name = 'character(len='//trim(size_buf)//')'
+                write (size_buf, '(I0)') typ%size
+                name = 'character(len=' // trim(size_buf) // ')'
             else
                 name = 'character(len=:), allocatable'
             end if

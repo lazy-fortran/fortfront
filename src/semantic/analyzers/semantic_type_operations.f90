@@ -23,7 +23,7 @@ contains
         integer, intent(inout) :: next_var_id
         type(type_var_t) :: tv
 
-        tv = create_type_var(next_var_id, "v"//int_to_str(next_var_id))
+        tv = create_type_var(next_var_id, "v" // int_to_str(next_var_id))
         next_var_id = next_var_id + 1
     end function generate_fresh_type_var_op
 
@@ -44,7 +44,7 @@ contains
         type(type_var_t), allocatable :: free_vars(:)
 
         ! Simplified generalization
-        allocate(free_vars(0))
+        allocate (free_vars(0))
         scheme = create_poly_type(free_vars, typ)
     end function generalize_type_op
 
@@ -67,7 +67,7 @@ contains
     function get_common_type(left_typ, right_typ) result(typ)
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
-        
+
         ! Type promotion rules: real > integer > other
         if (left_typ%kind == TREAL .or. right_typ%kind == TREAL) then
             typ = create_mono_type(TREAL)

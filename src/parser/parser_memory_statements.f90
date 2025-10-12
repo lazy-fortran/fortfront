@@ -20,25 +20,25 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: var_indices(:)
         integer, allocatable, intent(inout) :: shape_indices(:)
-        
+
         type(token_t) :: token
         integer :: var_index
-        
+
         ! Parse variable identifier
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             var_index = parse_comparison(parser, arena)
             var_indices = [var_indices, var_index]
-            
+
             ! Check for array dimensions: var(size1, size2, ...)
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 token = parser%consume()  ! consume '('
-                
+
                 ! Parse dimension expressions
                 do
                     shape_indices = [shape_indices, parse_comparison(parser, arena)]
-                    
+
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == ",") then
                         token = parser%consume()  ! consume ','
@@ -46,7 +46,7 @@ contains
                         exit
                     end if
                 end do
-                
+
                 ! Expect closing parenthesis
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ")") then
@@ -88,14 +88,14 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: allocate_index
-        
+
         type(token_t) :: token
         integer, allocatable :: var_indices(:)
         integer, allocatable :: shape_indices(:)
         integer :: stat_var_index, errmsg_var_index, source_expr_index, mold_expr_index
         integer :: line, column
         logical :: in_variable_list
-        
+
         ! Initialize
         stat_var_index = 0
         errmsg_var_index = 0
@@ -105,26 +105,26 @@ contains
         column = 0
         in_variable_list = .true.
         ! Initialize with proper empty arrays that can grow
-        allocate(var_indices(0))
-        allocate(shape_indices(0))
-        
+        allocate (var_indices(0))
+        allocate (shape_indices(0))
+
         ! Consume 'allocate' keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Expect opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
+
             ! Parse variable list and optional parameters
             do
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ")") then
                     exit
                 end if
-                
+
                 ! Check for allocate parameters
                 if (token%kind == TK_IDENTIFIER) then
                     select case (token%text)
@@ -149,7 +149,7 @@ contains
                     ! Skip unexpected token
                     token = parser%consume()
                 end if
-                
+
                 ! Check for comma to continue
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -158,14 +158,14 @@ contains
                     exit
                 end if
             end do
-            
+
             ! Expect closing parenthesis
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()  ! consume ')'
             end if
         end if
-        
+
         ! Create allocate statement node
         allocate_index = push_allocate(arena, var_indices, shape_indices, stat_var_index, &
                                        errmsg_var_index, source_expr_index, mold_expr_index, &
@@ -176,37 +176,37 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: deallocate_index
-        
+
         type(token_t) :: token
         integer, allocatable :: var_indices(:)
         integer :: stat_var_index, errmsg_var_index, line, column
         logical :: in_variable_list
-        
+
         ! Initialize
         stat_var_index = 0
         errmsg_var_index = 0
         line = 0
         column = 0
         in_variable_list = .true.
-        allocate(var_indices(0))
-        
+        allocate (var_indices(0))
+
         ! Consume 'deallocate' keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Expect opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
+
             ! Parse variable list and optional parameters
             do
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ")") then
                     exit
                 end if
-                
+
                 ! Check for deallocate parameters
                 if (token%kind == TK_IDENTIFIER) then
                     select case (token%text)
@@ -242,7 +242,7 @@ contains
                     ! Skip unexpected token
                     token = parser%consume()
                 end if
-                
+
                 ! Check for comma to continue
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -251,17 +251,17 @@ contains
                     exit
                 end if
             end do
-            
+
             ! Expect closing parenthesis
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()  ! consume ')'
             end if
         end if
-        
+
         ! Create deallocate statement node
         deallocate_index = push_deallocate(arena, var_indices, stat_var_index, errmsg_var_index, &
-                                          line, column)
+                                           line, column)
     end function parse_deallocate_statement
 
 end module parser_memory_statements_module

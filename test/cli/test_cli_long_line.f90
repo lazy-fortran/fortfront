@@ -11,32 +11,32 @@ program test_cli_long_line
     call make_tmpfile(tmpfile)
 
     line = repeat('x', N)
-    open(newunit=unit, file=tmpfile, status='replace', action='write', iostat=ios)
+    open (newunit=unit, file=tmpfile, status='replace', action='write', iostat=ios)
     if (ios /= 0) then
-        write(error_unit, '(A)') 'Failed to open temp file for writing'
+        write (error_unit, '(A)') 'Failed to open temp file for writing'
         stop 1
     end if
-    write(unit, '(A)') line
-    close(unit)
+    write (unit, '(A)') line
+    close (unit)
 
     call read_all_stdin_or_file(.true., tmpfile, text, status)
     if (status /= 0) then
-        write(error_unit, '(A)') 'Failed to read temp file via CLI reader'
+        write (error_unit, '(A)') 'Failed to read temp file via CLI reader'
         stop 1
     end if
 
     if (len(text) /= N + 1) then
-        write(error_unit, '(A,I0,A,I0)') 'Length mismatch: got ', len(text), ' expected ', N+1
+        write (error_unit, '(A,I0,A,I0)') 'Length mismatch: got ', len(text), ' expected ', N + 1
         stop 1
     end if
 
     if (text(1:N) /= line) then
-        write(error_unit, '(A)') 'Content mismatch in first N characters'
+        write (error_unit, '(A)') 'Content mismatch in first N characters'
         stop 1
     end if
 
-    if (text(N+1:N+1) /= new_line('A')) then
-        write(error_unit, '(A)') 'Missing trailing newline'
+    if (text(N + 1:N + 1) /= new_line('A')) then
+        write (error_unit, '(A)') 'Missing trailing newline'
         stop 1
     end if
 
@@ -63,16 +63,16 @@ contains
             envtmp = '.'
         end if
 
-        path = trim(envtmp)//'/ff_long_line_test_'//to_str(int(1000000*rand()))//'.txt'
+        path = trim(envtmp) // '/ff_long_line_test_' // to_str(int(1000000 * rand())) // '.txt'
     end subroutine make_tmpfile
 
     subroutine cleanup_tmpfile(path)
         character(len=*), intent(in) :: path
         integer :: unit, ios
         ! Best-effort delete; ignore failures
-        open(newunit=unit, file=path, status='old', action='readwrite', iostat=ios)
+        open (newunit=unit, file=path, status='old', action='readwrite', iostat=ios)
         if (ios == 0) then
-            close(unit, status='delete')
+            close (unit, status='delete')
         end if
     end subroutine cleanup_tmpfile
 
@@ -80,13 +80,13 @@ contains
         integer, intent(in) :: i
         character(len=:), allocatable :: s
         character(len=64) :: buf
-        write(buf, '(I0)') i
+        write (buf, '(I0)') i
         s = trim(buf)
     end function to_str
 
     real function rand()
         integer, save :: seed = 1234567
-        seed = mod(seed*1103515245 + 12345, huge(1))
+        seed = mod(seed * 1103515245 + 12345, huge(1))
         rand = real(seed) / real(huge(1))
     end function rand
 

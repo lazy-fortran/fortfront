@@ -3,7 +3,7 @@ module parser_state_module
     use lexer_core, only: token_t, TK_EOF
     use error_reporting, only: error_collection_t
     use arena_memory, only: arena_t, arena_handle_t, arena_stats_t, &
-                           create_arena, destroy_arena, null_handle
+                            create_arena, destroy_arena, null_handle
     implicit none
     private
 
@@ -18,7 +18,7 @@ module parser_state_module
         type(arena_handle_t) :: tokens_handle  ! Single handle for entire token array
         logical :: use_arena = .false.
         logical :: owns_tokens = .false.
-        
+
         ! Parser position and error tracking
         integer :: current_token = 1
         integer :: generation = 1  ! Generation for lifecycle tracking
@@ -32,14 +32,14 @@ module parser_state_module
         procedure :: error => parser_add_error
         procedure :: has_errors => parser_has_errors
         procedure :: get_error_messages => parser_get_error_messages
-        
+
         ! Arena-specific methods
         procedure :: uses_arena_storage => parser_uses_arena_storage
         procedure :: get_memory_stats => parser_get_memory_stats
         procedure :: cleanup => parser_cleanup
         procedure :: get_token_at_index => parser_get_token_at_index
         procedure :: get_token_count => parser_get_token_count
-        
+
         ! Assignment operator
         procedure :: assign => parser_state_assign
         generic :: assignment(=) => assign
@@ -60,7 +60,7 @@ contains
         if (size(tokens) > 0) then
             state%tokens => tokens
         else
-            nullify(state%tokens)
+            nullify (state%tokens)
         end if
         state%current_token = 1
         state%use_arena = .false.
@@ -93,35 +93,35 @@ contains
         if (size(tokens) > 0) then
             ! Calculate total size for entire token array
             total_size = size(tokens) * (storage_size(tokens(1)) / 8)
-            
+
             ! Allocate single arena handle for entire token array
             state%tokens_handle = state%token_arena%allocate(total_size)
-            
+
             ! Store token array data in arena
-            allocate(token_buffer(total_size))
+            allocate (token_buffer(total_size))
             token_buffer = transfer(tokens, token_buffer)
             call state%token_arena%set_data(state%tokens_handle, &
-                                           token_buffer, status)
-            deallocate(token_buffer)
-            
+                                            token_buffer, status)
+            deallocate (token_buffer)
+
             ! Also keep a copy in allocatable array for now
             ! (transitional approach for compatibility)
             if (associated(state%tokens)) then
                 if (state%owns_tokens) then
-                    deallocate(state%tokens)
+                    deallocate (state%tokens)
                 else
-                    nullify(state%tokens)
+                    nullify (state%tokens)
                 end if
             end if
-            allocate(state%tokens(size(tokens)))
+            allocate (state%tokens(size(tokens)))
             state%tokens = tokens
             state%owns_tokens = .true.
         else
             state%tokens_handle = null_handle()
-            nullify(state%tokens)
+            nullify (state%tokens)
             state%owns_tokens = .false.
         end if
-        
+
         state%current_token = 1
         state%generation = 1
     end function create_parser_state_with_arena
@@ -224,7 +224,6 @@ contains
         messages = this%errors%format_messages()
     end function parser_get_error_messages
 
-
     ! Check if parser state uses arena storage
     logical function parser_uses_arena_storage(this)
         class(parser_state_t), intent(in) :: this
@@ -235,7 +234,7 @@ contains
     function parser_get_memory_stats(this) result(stats)
         class(parser_state_t), intent(in) :: this
         type(arena_stats_t) :: stats
-        
+
         if (this%use_arena) then
             stats = this%token_arena%get_stats()
         else
@@ -244,7 +243,7 @@ contains
             stats%total_capacity = 0
             if (associated(this%tokens)) then
                 stats%total_allocated = size(this%tokens) * &
-                                       (storage_size(this%tokens(1)) / 8)
+                                        (storage_size(this%tokens(1)) / 8)
                 stats%total_capacity = stats%total_allocated
             end if
             stats%chunk_count = 0
@@ -256,23 +255,23 @@ contains
     ! Clean up parser state and advance generation
     subroutine parser_cleanup(this)
         class(parser_state_t), intent(inout) :: this
-        
+
         ! Advance generation to invalidate references
         this%generation = this%generation + 1
-        
+
         if (this%use_arena) then
             ! Reset arena to reclaim all memory
             call this%token_arena%reset()
             ! Invalidate the handle
             this%tokens_handle = null_handle()
         end if
-        
+
         ! Clear tokens
         if (associated(this%tokens)) then
             if (this%owns_tokens) then
-                deallocate(this%tokens)
+                deallocate (this%tokens)
             else
-                nullify(this%tokens)
+                nullify (this%tokens)
             end if
         end if
         this%owns_tokens = .false.
@@ -286,7 +285,7 @@ contains
         class(parser_state_t), intent(in) :: this
         integer, intent(in) :: index
         type(token_t) :: token
-        
+
         if (associated(this%tokens) .and. index >= 1 .and. &
             index <= size(this%tokens)) then
             token = this%tokens(index)
@@ -303,7 +302,7 @@ contains
     function parser_get_token_count(this) result(count)
         class(parser_state_t), intent(in) :: this
         integer :: count
-        
+
         if (associated(this%tokens)) then
             count = size(this%tokens)
         else
@@ -321,7 +320,7 @@ contains
         lhs%generation = rhs%generation
         lhs%use_arena = rhs%use_arena
         lhs%errors = rhs%errors
-        
+
         ! Copy arena if used
         lhs%token_arena = rhs%token_arena
         if (rhs%use_arena) then
@@ -333,18 +332,18 @@ contains
         ! Copy tokens array
         if (associated(lhs%tokens)) then
             if (lhs%owns_tokens) then
-                deallocate(lhs%tokens)
+                deallocate (lhs%tokens)
             else
-                nullify(lhs%tokens)
+                nullify (lhs%tokens)
             end if
         end if
 
         if (associated(rhs%tokens)) then
-            allocate(lhs%tokens(size(rhs%tokens)))
+            allocate (lhs%tokens(size(rhs%tokens)))
             lhs%tokens = rhs%tokens
             lhs%owns_tokens = .true.
         else
-            nullify(lhs%tokens)
+            nullify (lhs%tokens)
             lhs%owns_tokens = .false.
         end if
     end subroutine parser_state_assign

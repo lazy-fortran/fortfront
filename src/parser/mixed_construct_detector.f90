@@ -1,7 +1,7 @@
 module mixed_construct_detector
     ! Mixed construct detection for Issue #511 support
     ! Analyzes token stream to identify mixed constructs requiring module generation
-    
+
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, TK_NEWLINE
     implicit none
     private
@@ -10,7 +10,7 @@ module mixed_construct_detector
     type, public :: mixed_construct_result_t
         logical :: has_mixed_constructs = .false.
         integer, allocatable :: implicit_ranges(:, :)  ! [start, end] pairs
-        integer, allocatable :: explicit_ranges(:, :)   ! [start, end] pairs
+        integer, allocatable :: explicit_ranges(:, :)  ! [start, end] pairs
         integer :: num_implicit_ranges = 0
         integer :: num_explicit_ranges = 0
     end type mixed_construct_result_t
@@ -25,17 +25,17 @@ contains
     subroutine detect_mixed_constructs(tokens, result)
         type(token_t), intent(in) :: tokens(:)
         type(mixed_construct_result_t), intent(out) :: result
-        
+
         integer :: i, range_start, range_end
         logical :: in_implicit_construct, in_explicit_construct
-        
+
         ! Initialize result
         result%has_mixed_constructs = .false.
         result%num_implicit_ranges = 0
         result%num_explicit_ranges = 0
-        allocate(result%implicit_ranges(100, 2))  ! Max 100 ranges
-        allocate(result%explicit_ranges(100, 2))
-        
+        allocate (result%implicit_ranges(100, 2))  ! Max 100 ranges
+        allocate (result%explicit_ranges(100, 2))
+
         i = 1
         do while (i <= size(tokens))
             ! Skip EOF tokens between lines
@@ -43,55 +43,55 @@ contains
                 i = i + 1
                 cycle
             end if
-            
+
             ! Detect construct type
             if (is_top_level_declaration(tokens, i)) then
                 ! Found implicit declaration - find its range
                 range_start = i
                 call find_declaration_range(tokens, i, range_end)
-                
+
                 ! Add to implicit ranges
                 result%num_implicit_ranges = result%num_implicit_ranges + 1
                 result%implicit_ranges(result%num_implicit_ranges, 1) = range_start
                 result%implicit_ranges(result%num_implicit_ranges, 2) = range_end
-                
+
                 i = range_end + 1
-                
+
             else if (is_explicit_program_unit(tokens, i)) then
-                ! Found explicit program unit - find its range  
+                ! Found explicit program unit - find its range
                 range_start = i
                 call find_program_unit_range(tokens, i, range_end)
-                
+
                 ! Add to explicit ranges
                 result%num_explicit_ranges = result%num_explicit_ranges + 1
                 result%explicit_ranges(result%num_explicit_ranges, 1) = range_start
                 result%explicit_ranges(result%num_explicit_ranges, 2) = range_end
-                
+
                 i = range_end + 1
-                
+
             else
                 ! Unknown construct - skip
                 i = i + 1
             end if
         end do
-        
+
         ! Check if we have mixed constructs
         result%has_mixed_constructs = (result%num_implicit_ranges > 0 .and. &
-                                     result%num_explicit_ranges > 0)
-        
+                                       result%num_explicit_ranges > 0)
+
         ! Resize arrays to actual size
         if (result%num_implicit_ranges > 0) then
             result%implicit_ranges = result%implicit_ranges(1:result%num_implicit_ranges, :)
         else
-            deallocate(result%implicit_ranges)
-            allocate(result%implicit_ranges(0, 2))
+            deallocate (result%implicit_ranges)
+            allocate (result%implicit_ranges(0, 2))
         end if
-        
+
         if (result%num_explicit_ranges > 0) then
             result%explicit_ranges = result%explicit_ranges(1:result%num_explicit_ranges, :)
         else
-            deallocate(result%explicit_ranges)
-            allocate(result%explicit_ranges(0, 2))
+            deallocate (result%explicit_ranges)
+            allocate (result%explicit_ranges(0, 2))
         end if
     end subroutine detect_mixed_constructs
 
@@ -100,11 +100,11 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         logical :: is_declaration
-        
+
         is_declaration = .false.
-        
+
         if (start_pos > size(tokens)) return
-        
+
         ! Check for type declarations: type, integer, real, character, etc.
         if (tokens(start_pos)%kind == TK_KEYWORD) then
             select case (trim(tokens(start_pos)%text))
@@ -126,11 +126,11 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         logical :: is_program_unit
-        
+
         is_program_unit = .false.
-        
+
         if (start_pos > size(tokens)) return
-        
+
         ! Check for explicit program unit starters
         if (tokens(start_pos)%kind == TK_KEYWORD) then
             select case (trim(tokens(start_pos)%text))
@@ -145,16 +145,16 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos
-        
+
         integer :: i, depth
-        
+
         i = start_pos
         depth = 0
-        
+
         ! For type declarations, find "end type"
         if (i <= size(tokens) .and. tokens(i)%kind == TK_KEYWORD .and. &
             trim(tokens(i)%text) == "type") then
-            
+
             ! Find matching "end type"
             do i = start_pos + 1, size(tokens)
                 if (tokens(i)%kind == TK_KEYWORD) then
@@ -189,7 +189,7 @@ contains
                 end if
             end do
         end if
-        
+
         ! Default to end of tokens
         end_pos = size(tokens)
     end subroutine find_declaration_range
@@ -199,23 +199,23 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos
-        
+
         integer :: i
         character(len=:), allocatable :: start_keyword, end_keyword
-        
+
         if (start_pos > size(tokens)) then
             end_pos = start_pos
             return
         end if
-        
+
         start_keyword = trim(tokens(start_pos)%text)
-        
+
         ! Determine expected end keyword
         select case (start_keyword)
         case ("program")
             end_keyword = "program"
         case ("module")
-            end_keyword = "module" 
+            end_keyword = "module"
         case ("subroutine")
             end_keyword = "subroutine"
         case ("function")
@@ -224,7 +224,7 @@ contains
             end_pos = start_pos
             return
         end select
-        
+
         ! Find matching end statement
         do i = start_pos + 1, size(tokens)
             if (tokens(i)%kind == TK_KEYWORD .and. trim(tokens(i)%text) == "end") then
@@ -236,7 +236,7 @@ contains
                 end if
             end if
         end do
-        
+
         ! Default to end of tokens if no matching end found
         end_pos = size(tokens)
     end subroutine find_program_unit_range

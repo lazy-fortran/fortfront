@@ -11,11 +11,11 @@ program test_cli_io_large_input
 
     line = repeat('a', len(line))
 
-    open(newunit=u, file=fname, status='replace', action='write')
+    open (newunit=u, file=fname, status='replace', action='write')
     do i = 1, 1024
-        write(u, '(A)') line
+        write (u, '(A)') line
     end do
-    close(u)
+    close (u)
 
     call read_all_stdin_or_file(.true., fname, text, status)
 
@@ -30,7 +30,7 @@ program test_cli_io_large_input
     end if
 
     ! Cleanup
-    open(newunit=u, file=fname, status='old', action='read')
-    close(u, status='delete')
+    open (newunit=u, file=fname, status='old', action='read')
+    close (u, status='delete')
 end program test_cli_io_large_input
 

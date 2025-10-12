@@ -1,7 +1,7 @@
 module ast_core
     ! DEPRECATED: This module implements an anti-pattern of re-exporting everything
     ! ============================================================================
-    ! 
+    !
     ! WARNING: This module creates hidden dependencies and tight coupling.
     ! Please migrate to explicit imports from specific AST modules:
     !
@@ -18,22 +18,22 @@ module ast_core
     ! =====================================================================
     ! AST nodes can be safely copied using proper assignment operators that
     ! implement depth-limited copying for mono_type_t structures.
-    
+
     use type_system_unified, only: mono_type_t
     use iso_fortran_env, only: error_unit
     use intrinsic_registry, only: get_intrinsic_info
     use uid_generator, only: generate_uid
     use error_handling, only: result_t, success_result, create_error_result, ERROR_VALIDATION
-    
+
     ! Re-export base types and interfaces
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
                         ast_node_wrapper, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
-    
+
     ! Re-export arena functionality (modern generational arena)
     use ast_arena_modern, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, destroy_ast_arena
-    
+
     ! Re-export all node types
     use ast_nodes_core, only: program_node, assignment_node, &
                               pointer_assignment_node, identifier_node, literal_node, &
@@ -55,13 +55,13 @@ module ast_core
                                    get_procedure_body, procedure_has_return_type, &
                                    get_procedure_return_type
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                               module_node, derived_type_node, &
-                               mixed_construct_container_node, &
-                               create_declaration, create_derived_type, &
-                               create_mixed_construct_container
+                              module_node, derived_type_node, &
+                              mixed_construct_container_node, &
+                              create_declaration, create_derived_type, &
+                              create_mixed_construct_container
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
-                             read_statement_node, format_descriptor_node, &
-                             create_print_statement
+                            read_statement_node, format_descriptor_node, &
+                            create_print_statement
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
                               deallocate_statement_node, &
                               use_statement_node, include_statement_node, &
@@ -77,9 +77,9 @@ module ast_core
                                 NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, &
                                 NODE_RANGE_EXPRESSION, &
                                 NODE_ARRAY_OPERATION
-    
+
     implicit none
-    
+
     ! Re-export everything as public
     public :: ast_node, visit_interface, to_json_interface, string_t, &
               ast_node_wrapper
@@ -131,11 +131,11 @@ module ast_core
               create_cycle, create_exit, create_where, &
               create_comment, create_blank_line, create_array_bounds, create_array_slice, &
               create_range_expression, create_array_operation
-    
+
 contains
 
     ! Factory functions for backward compatibility
-    
+
     function create_identifier(name, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: line, column
@@ -169,7 +169,7 @@ contains
     end function create_literal
 
     function create_binary_op(left_index, right_index, operator, line, column) &
-            result(node)
+        result(node)
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
         integer, intent(in), optional :: line, column
@@ -198,13 +198,13 @@ contains
         end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
-        
+
         ! Check if this is an intrinsic function
         call get_intrinsic_info(name, node%is_intrinsic, node%intrinsic_signature)
     end function create_call_or_subscript
 
     function create_assignment(target_index, value_index, line, column, &
-            inferred_type, inferred_type_name) result(node)
+                               inferred_type, inferred_type_name) result(node)
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column
         type(mono_type_t), intent(in), optional :: inferred_type
@@ -261,7 +261,7 @@ contains
     end function create_subroutine_call
 
     function create_use_statement(module_name, only_list, rename_list, &
-            has_only, line, column, url_spec) result(node)
+                                  has_only, line, column, url_spec) result(node)
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
@@ -274,25 +274,25 @@ contains
         node%uid = generate_uid()
         if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
-        
+
         if (present(only_list)) then
             if (size(only_list) > 0) then
-                allocate(node%only_list(size(only_list)))
+                allocate (node%only_list(size(only_list)))
                 do i = 1, size(only_list)
                     node%only_list(i)%s = only_list(i)
                 end do
             end if
         end if
-        
+
         if (present(rename_list)) then
             if (size(rename_list) > 0) then
-                allocate(node%rename_list(size(rename_list)))
+                allocate (node%rename_list(size(rename_list)))
                 do i = 1, size(rename_list)
                     node%rename_list(i)%s = rename_list(i)
                 end do
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_use_statement
@@ -313,31 +313,31 @@ contains
 
         node%is_none = is_none
         node%uid = generate_uid()
-        
+
         if (.not. is_none) then
             if (present(type_name)) node%type_spec%type_name = type_name
             if (present(has_kind)) node%type_spec%has_kind = has_kind
             if (present(kind_value)) node%type_spec%kind_value = kind_value
             if (present(has_length)) node%type_spec%has_length = has_length
             if (present(length_value)) node%type_spec%length_value = length_value
-            
+
             if (present(letter_ranges)) then
-                allocate(node%letter_specs(size(letter_ranges)))
+                allocate (node%letter_specs(size(letter_ranges)))
                 do i = 1, size(letter_ranges)
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
                         ! Range like "a-h"
-                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                        node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
                     else
                         ! Single letter like "a"
-                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) (1:1)
                     end if
                 end do
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_implicit_statement
@@ -354,7 +354,7 @@ contains
     end function create_include_statement
 
     function create_interface_block(name, kind, operator, procedure_indices, &
-            line, column) result(node)
+                                    line, column) result(node)
         character(len=*), intent(in), optional :: name, kind, operator
         integer, intent(in), optional :: procedure_indices(:)
         integer, intent(in), optional :: line, column
@@ -364,19 +364,19 @@ contains
         if (present(name)) node%name = name
         if (present(kind)) node%kind = kind
         if (present(operator)) node%operator = operator
-        
+
         if (present(procedure_indices)) then
             if (size(procedure_indices) > 0) then
                 node%procedure_indices = procedure_indices
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_interface_block
 
     function create_module(name, declaration_indices, procedure_indices, &
-            has_contains, line, column) result(node)
+                           has_contains, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
         logical, intent(in), optional :: has_contains
@@ -386,19 +386,19 @@ contains
         node%uid = generate_uid()
         node%name = name
         if (present(has_contains)) node%has_contains = has_contains
-        
+
         if (present(declaration_indices)) then
             if (size(declaration_indices) > 0) then
                 node%declaration_indices = declaration_indices
             end if
         end if
-        
+
         if (present(procedure_indices)) then
             if (size(procedure_indices) > 0) then
                 node%procedure_indices = procedure_indices
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_module
@@ -472,10 +472,10 @@ contains
     end function create_exit
 
     function create_where(mask_expr_index, where_body_indices, &
-            elsewhere_body_indices, line, column) result(node)
+                          elsewhere_body_indices, line, column) result(node)
         integer, intent(in) :: mask_expr_index
         integer, intent(in), optional :: where_body_indices(:), &
-                                          elsewhere_body_indices(:)
+                                         elsewhere_body_indices(:)
         integer, intent(in), optional :: line, column
         type(where_node) :: node
 
@@ -484,7 +484,7 @@ contains
         node%mask_expr_index = mask_expr_index
         node%mask_is_simple = .false.
         node%can_vectorize = .false.
-        
+
         ! Validate mask index - return default node on failure to avoid crash
         if (mask_expr_index <= 0) then
             write(error_unit, '(A)') "ERROR [ast_core]: Invalid mask expression index in create_where - returning default node"
@@ -493,26 +493,26 @@ contains
             if (present(column)) node%column = column
             return
         end if
-        
+
         if (present(where_body_indices)) then
             if (size(where_body_indices) > 0) then
-                allocate(node%where_body_indices(size(where_body_indices)))
+                allocate (node%where_body_indices(size(where_body_indices)))
                 node%where_body_indices = where_body_indices
             end if
         end if
-        
+
         ! For backward compatibility, treat simple elsewhere as final elsewhere
         if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
                 ! Create a single elsewhere clause without mask
-                allocate(node%elsewhere_clauses(1))
+                allocate (node%elsewhere_clauses(1))
                 node%elsewhere_clauses(1)%mask_index = 0
-                allocate(node%elsewhere_clauses(1)%body_indices(&
-                    size(elsewhere_body_indices)))
+                allocate (node%elsewhere_clauses(1)%body_indices( &
+                          size(elsewhere_body_indices)))
                 node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_where
@@ -552,7 +552,7 @@ contains
                 node%line = line
             end if
         end if
-        
+
         if (present(column)) then
             if (column < 1) then
                 node%column = 1  ! Default to column 1 for invalid input
@@ -564,8 +564,8 @@ contains
 
     ! Backward compatibility wrapper for create_declaration
     function create_declaration_wrapper(type_name, var_name, kind_value, &
-            initializer, dimensions, &
-                               is_allocatable, is_pointer, line, column) result(node)
+                                        initializer, dimensions, &
+                                        is_allocatable, is_pointer, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -580,14 +580,14 @@ contains
         integer :: i
 
         node%uid = generate_uid()
-        
+
         ! Convert initializer to index (assuming it would be in arena)
         initializer_index = 0
-        
+
         ! Convert dimensions wrappers to indices
         if (present(dimensions)) then
             if (size(dimensions) > 0) then
-                allocate(dim_indices(size(dimensions)))
+                allocate (dim_indices(size(dimensions)))
                 do i = 1, size(dimensions)
                     dim_indices(i) = dimensions(i)%stack_index
                 end do
@@ -597,8 +597,8 @@ contains
         ! Call the real create_declaration
         node = create_declaration(type_name, var_name, kind_value, &
                                   initializer_index, dim_indices, &
-                                 is_allocatable, is_pointer, .false., .false., &
-                                 line, column)
+                                  is_allocatable, is_pointer, .false., .false., &
+                                  line, column)
     end function create_declaration_wrapper
 
     function create_array_bounds(lower_index, upper_index, stride_index) result(node)
@@ -631,7 +631,7 @@ contains
         else
             node%num_dimensions = min(num_dims, 10)  ! Max 10 dimensions
         end if
-        
+
         do i = 1, node%num_dimensions
             if (i <= size(bounds_indices)) then
                 node%bounds_indices(i) = bounds_indices(i)
@@ -667,15 +667,15 @@ contains
         node%operation = operation
         node%left_operand_index = left_index
         node%right_operand_index = right_index
-        
+
         if (present(array_spec)) then
             node%array_spec = array_spec
         end if
-        
+
         if (present(result_spec)) then
             node%result_spec = result_spec
         end if
-        
+
         ! These will be set by semantic analysis
         node%bounds_checked = .false.
         node%shape_conformant = .false.

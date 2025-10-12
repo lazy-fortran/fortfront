@@ -15,19 +15,19 @@ program test_poor_error_messages
 
     ! Test 1: Invalid syntax produces no error
     call run_test('Invalid syntax produces no error', test_invalid_syntax_no_error())
-    
+
     ! Test 2: Unsupported features fail silently
     call run_test('Unsupported features fail silently', test_unsupported_features_silent())
-    
+
     ! Test 3: No line/column information in errors
     call run_test('Missing line/column information', test_missing_location_info())
-    
+
     ! Test 4: Silent fallback to empty output
     call run_test('Silent fallback to empty output', test_silent_empty_fallback())
-    
+
     ! Test 5: Vague error messages
     call run_test('Vague error messages', test_vague_error_messages())
-    
+
     ! Test 6: No guidance on fix suggestions
     call run_test('No fix suggestions provided', test_no_fix_suggestions())
 
@@ -38,7 +38,7 @@ program test_poor_error_messages
     print *, '  Tests now passing (error reporting improved):', passed_count
     print *, '  Tests still failing (may need further work):', test_count - passed_count
     print *
-    
+
     if (passed_count >= 4) then
         print *, 'SUCCESS: Error reporting has been significantly improved!'
         print *, 'Most tests now pass, demonstrating Issue #256 fixes are working'
@@ -58,7 +58,7 @@ contains
     subroutine run_test(test_name, result)
         character(len=*), intent(in) :: test_name
         logical, intent(in) :: result
-        
+
         test_count = test_count + 1
         if (result) then
             passed_count = passed_count + 1
@@ -71,51 +71,51 @@ contains
     function test_invalid_syntax_no_error() result(has_error_reporting)
         logical :: has_error_reporting
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Invalid syntax: missing 'then' in if statement
         source = 'program test' // new_line('a') // &
-                'if x > 0' // new_line('a') // &
-                '  print *, x' // new_line('a') // &
-                'end if' // new_line('a') // &
-                'end program'
-        
+                 'if x > 0' // new_line('a') // &
+                 '  print *, x' // new_line('a') // &
+                 'end if' // new_line('a') // &
+                 'end program'
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should have clear error about missing 'then'
         has_error_reporting = (len_trim(error_msg) > 0) .and. &
-                             (index(error_msg, 'then') > 0)
+                              (index(error_msg, 'then') > 0)
     end function
 
     function test_unsupported_features_silent() result(has_error_reporting)
         logical :: has_error_reporting
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Complex parameter declaration (known to cause issues per #254)
         source = 'program test' // new_line('a') // &
-                'integer, parameter :: n = 10' // new_line('a') // &
-                'print *, n' // new_line('a') // &
-                'end program'
-        
+                 'integer, parameter :: n = 10' // new_line('a') // &
+                 'print *, n' // new_line('a') // &
+                 'end program'
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should provide clear error or handle gracefully
         has_error_reporting = (len_trim(error_msg) > 0) .or. &
-                             (index(output, 'parameter') > 0)
+                              (index(output, 'parameter') > 0)
     end function
 
     function test_missing_location_info() result(has_location_info)
         logical :: has_location_info
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Syntax error on specific line
         source = 'program test' // new_line('a') // &
-                'integer :: x' // new_line('a') // &
-                'x = 42 +' // new_line('a') // &  ! Error on line 3
-                'print *, x' // new_line('a') // &
-                'end program'
-        
+                 'integer :: x' // new_line('a') // &
+                 'x = 42 +' // new_line('a') // &  ! Error on line 3
+                 'print *, x' // new_line('a') // &
+                 'end program'
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should specify "line 3, column X" where error occurred
         has_location_info = index(error_msg, 'line') > 0 .or. index(error_msg, 'column') > 0
     end function
@@ -123,12 +123,12 @@ contains
     function test_silent_empty_fallback() result(has_error_reporting)
         logical :: has_error_reporting
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Complete garbage input
         source = 'this is not fortran at all 123 *** %%% invalid'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should fail with clear explanation of what went wrong
         has_error_reporting = len_trim(error_msg) > 0
     end function
@@ -136,43 +136,43 @@ contains
     function test_vague_error_messages() result(has_clear_errors)
         logical :: has_clear_errors
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Missing end statement
         source = 'program test' // new_line('a') // &
-                'integer :: x' // new_line('a') // &
-                'x = 42'
+                 'integer :: x' // new_line('a') // &
+                 'x = 42'
         ! Missing "end program"
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should clearly state specific problem
         has_clear_errors = index(error_msg, 'missing') > 0 .or. &
-                          index(error_msg, 'end program') > 0 .or. &
-                          index(error_msg, 'expected') > 0 .or. &
-                          len_trim(error_msg) > 0
+                           index(error_msg, 'end program') > 0 .or. &
+                           index(error_msg, 'expected') > 0 .or. &
+                           len_trim(error_msg) > 0
     end function
 
     function test_no_fix_suggestions() result(has_suggestions)
         logical :: has_suggestions
         character(len=:), allocatable :: source, output, error_msg
-        
+
         ! Common mistake: using = instead of ==
         source = 'program test' // new_line('a') // &
-                'integer :: x' // new_line('a') // &
-                'if (x = 5) then' // new_line('a') // &
-                '  print *, "five"' // new_line('a') // &
-                'end if' // new_line('a') // &
-                'end program'
-        
+                 'integer :: x' // new_line('a') // &
+                 'if (x = 5) then' // new_line('a') // &
+                 '  print *, "five"' // new_line('a') // &
+                 'end if' // new_line('a') // &
+                 'end program'
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! After Issue #256 fix: Should provide helpful suggestions or clear error
         has_suggestions = index(error_msg, 'did you mean') > 0 .or. &
-                         index(error_msg, 'suggest') > 0 .or. &
-                         index(error_msg, 'Suggestion') > 0 .or. &
-                         index(error_msg, 'try') > 0 .or. &
-                         index(error_msg, '==') > 0 .or. &
-                         len_trim(error_msg) > 0
+                          index(error_msg, 'suggest') > 0 .or. &
+                          index(error_msg, 'Suggestion') > 0 .or. &
+                          index(error_msg, 'try') > 0 .or. &
+                          index(error_msg, '==') > 0 .or. &
+                          len_trim(error_msg) > 0
     end function
 
 end program test_poor_error_messages

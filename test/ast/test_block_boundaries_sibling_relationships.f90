@@ -38,20 +38,20 @@ contains
 
         ! Create a simple program with three statements
         arena = create_ast_arena()
-        
+
         ! Create program node with empty body initially
-        allocate(empty_body(0))
+        allocate (empty_body(0))
         prog_idx = push_program(arena, "test_prog", empty_body, 1, 1)
-        
+
         ! Create three assignment statements as children of the program
         var_idx = push_identifier(arena, "a", 1, 1)
         val_idx = push_literal(arena, "1", LITERAL_INTEGER, 1, 1)
         stmt1_idx = push_assignment(arena, var_idx, val_idx, 1, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "b", 2, 1)
         val_idx = push_literal(arena, "2", LITERAL_INTEGER, 2, 1)
         stmt2_idx = push_assignment(arena, var_idx, val_idx, 2, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "c", 3, 1)
         val_idx = push_literal(arena, "3", LITERAL_INTEGER, 3, 1)
         stmt3_idx = push_assignment(arena, var_idx, val_idx, 3, 1, prog_idx)
@@ -117,15 +117,15 @@ contains
         print *, "Testing block detection..."
 
         arena = create_ast_arena()
-        
+
         ! Create program and if nodes for testing
-        allocate(empty_body(0))
+        allocate (empty_body(0))
         prog_idx = push_program(arena, "test_prog", empty_body, 1, 1)
-        
+
         ! Create an if statement with a condition and body
         cond_idx = push_literal(arena, ".true.", LITERAL_INTEGER, 1, 1)  ! Simple condition
         if_idx = push_if(arena, cond_idx, empty_body, empty_body, empty_body, 1, 1, prog_idx)
-        
+
         ! Create assignment in if body
         var_idx = push_identifier(arena, "x", 2, 1)
         val_idx = push_literal(arena, "42", LITERAL_INTEGER, 2, 1)
@@ -163,20 +163,20 @@ contains
         print *, "Testing last-in-block detection..."
 
         arena = create_ast_arena()
-        
+
         ! Create program with statements
-        allocate(empty_body(0))
+        allocate (empty_body(0))
         prog_idx = push_program(arena, "test_prog", empty_body, 1, 1)
-        
+
         ! Create three assignment statements
         var_idx = push_identifier(arena, "a", 1, 1)
         val_idx = push_literal(arena, "1", LITERAL_INTEGER, 1, 1)
         stmt1_idx = push_assignment(arena, var_idx, val_idx, 1, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "b", 2, 1)
         val_idx = push_literal(arena, "2", LITERAL_INTEGER, 2, 1)
         stmt2_idx = push_assignment(arena, var_idx, val_idx, 2, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "c", 3, 1)
         val_idx = push_literal(arena, "3", LITERAL_INTEGER, 3, 1)
         stmt3_idx = push_assignment(arena, var_idx, val_idx, 3, 1, prog_idx)
@@ -213,27 +213,27 @@ contains
         print *, "Testing block statements retrieval..."
 
         arena = create_ast_arena()
-        
+
         ! Create program with statements
-        allocate(empty_body(0))
+        allocate (empty_body(0))
         prog_idx = push_program(arena, "test_prog", empty_body, 1, 1)
-        
+
         ! Create three assignment statements
         var_idx = push_identifier(arena, "a", 1, 1)
         val_idx = push_literal(arena, "1", LITERAL_INTEGER, 1, 1)
         stmt1_idx = push_assignment(arena, var_idx, val_idx, 1, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "b", 2, 1)
         val_idx = push_literal(arena, "2", LITERAL_INTEGER, 2, 1)
         stmt2_idx = push_assignment(arena, var_idx, val_idx, 2, 1, prog_idx)
-        
+
         var_idx = push_identifier(arena, "c", 3, 1)
         val_idx = push_literal(arena, "3", LITERAL_INTEGER, 3, 1)
         stmt3_idx = push_assignment(arena, var_idx, val_idx, 3, 1, prog_idx)
 
         ! Test get_block_statements
         statements = get_block_statements(arena, prog_idx)
-        
+
         if (size(statements) == 3) then
             print *, "  ✓ get_block_statements: Correct number of statements"
         else

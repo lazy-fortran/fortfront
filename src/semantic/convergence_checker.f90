@@ -26,7 +26,7 @@ contains
         type(analysis_results_t), intent(in) :: results
 
         if (.not. allocated(this%previous_state)) then
-            allocate(this%previous_state)
+            allocate (this%previous_state)
         end if
         this%previous_state = results
         this%iteration_count = this%iteration_count + 1
@@ -69,7 +69,7 @@ contains
     subroutine checker_reset(this)
         class(convergence_checker_t), intent(inout) :: this
         if (allocated(this%previous_state)) then
-            deallocate(this%previous_state)
+            deallocate (this%previous_state)
         end if
         this%iteration_count = 0
     end subroutine checker_reset

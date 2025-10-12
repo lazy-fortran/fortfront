@@ -10,8 +10,8 @@ module parser_execution_statements_module
     use parser_io_statements_module, only: parse_print_statement, parse_write_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
-                                               parse_error_stop_statement, parse_return_statement, &
-                                               parse_cycle_statement, parse_exit_statement
+                                                parse_error_stop_statement, parse_return_statement, &
+                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
                                           parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
@@ -53,7 +53,7 @@ contains
             prog_index = 0
             return
         end if
-        
+
         line = token%line
         column = token%column
 
@@ -91,7 +91,7 @@ contains
             ! Check for 'end program'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                  if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "program") then
                         ! Found 'end program', consume both tokens
                         token = parser%consume()  ! end
@@ -109,7 +109,7 @@ contains
 
             ! Parse statements directly without complex boundary detection
             stmt_index = 0
-            
+
             select case (token%kind)
             case (TK_KEYWORD)
                 select case (token%text)
@@ -192,16 +192,16 @@ contains
                 token = parser%consume()
                 stmt_index = 0
             end select
-            
+
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
-                
+
                 ! Handle additional indices from multi-declaration parsing
                 if (allocated(additional_execution_indices)) then
                     if (size(additional_execution_indices) > 0) then
                         body_indices = [body_indices, additional_execution_indices]
                     end if
-                    deallocate(additional_execution_indices)
+                    deallocate (additional_execution_indices)
                 end if
             end if
         end do
@@ -216,15 +216,15 @@ contains
         type(token_t) :: token
         integer :: condition_index, line, column
         integer, allocatable :: then_body_indices(:)
-        
+
         if_index = 0
-        allocate(then_body_indices(0))
-        
+        allocate (then_body_indices(0))
+
         ! Consume 'if' keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Parse condition in parentheses
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
@@ -233,11 +233,11 @@ contains
             block
                 type(token_t), allocatable, target :: expr_tokens(:)
                 integer :: start_pos, end_pos, paren_depth
-                
+
                 start_pos = parser%current_token
                 end_pos = start_pos
                 paren_depth = 1
-                
+
                 ! Find the matching closing parenthesis
                 do while (end_pos <= size(parser%tokens) .and. paren_depth > 0)
                     if (parser%tokens(end_pos)%text == "(") then
@@ -247,18 +247,18 @@ contains
                     end if
                     if (paren_depth > 0) end_pos = end_pos + 1
                 end do
-                
+
                 ! Extract tokens for expression
                 if (end_pos > start_pos) then
-                    allocate(expr_tokens(end_pos - start_pos))
-                    expr_tokens = parser%tokens(start_pos:end_pos-1)
+                    allocate (expr_tokens(end_pos - start_pos))
+                    expr_tokens = parser%tokens(start_pos:end_pos - 1)
                     condition_index = parse_expression(expr_tokens, arena)
                     parser%current_token = end_pos
                 else
                     condition_index = 0
                 end if
             end block
-            
+
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()  ! consume ')'
@@ -266,17 +266,17 @@ contains
         else
             condition_index = 0
         end if
-        
+
         ! Expect 'then'
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "then") then
             token = parser%consume()
         end if
-        
+
         ! Parse body until 'end if' or 'else' or 'elseif'
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            
+
             ! Check for end of if
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -288,7 +288,7 @@ contains
                     end if
                 end if
             else if (token%kind == TK_KEYWORD .and. &
-                    (token%text == "else" .or. token%text == "elseif")) then
+                     (token%text == "else" .or. token%text == "elseif")) then
                 ! For simplicity, skip else/elseif blocks for now
                 do while (.not. parser%is_at_end())
                     token = parser%peek()
@@ -306,16 +306,16 @@ contains
                 end do
                 exit
             end if
-            
+
             ! Parse statement in if body
             call parse_if_body_statement(parser, arena, then_body_indices)
         end do
-        
+
         ! Create if node
         if_index = push_if(arena, condition_index, then_body_indices, &
-                          line=line, column=column)
+                           line=line, column=column)
     end function parse_simple_if
-    
+
     ! Parse a statement in an if body
     subroutine parse_if_body_statement(parser, arena, body_indices)
         type(parser_state_t), intent(inout) :: parser
@@ -323,10 +323,10 @@ contains
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t) :: token
         integer :: stmt_index
-        
+
         token = parser%peek()
         stmt_index = 0
-        
+
         select case (token%kind)
         case (TK_KEYWORD)
             select case (token%text)
@@ -345,7 +345,7 @@ contains
         case default
             token = parser%consume()
         end select
-        
+
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
@@ -362,10 +362,10 @@ contains
         logical :: is_multi_assignment
 
         stmt_index = 0
-        
+
         ! Check if this is a multi-variable assignment (has commas before =)
         is_multi_assignment = is_multi_var_assignment(parser)
-        
+
         if (is_multi_assignment) then
             call parse_multi_variable_assignment(parser, arena, stmt_index)
         else
@@ -373,7 +373,7 @@ contains
             id_token = parser%consume()
             op_token = parser%peek()
 
-            if (allocated(assignment_op)) deallocate(assignment_op)
+            if (allocated(assignment_op)) deallocate (assignment_op)
 
             if (op_token%kind == TK_OPERATOR) then
                 select case (op_token%text)
@@ -384,7 +384,7 @@ contains
                     value_index = parse_range(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                   id_token%line, id_token%column)
+                                                     id_token%line, id_token%column)
                     end if
                 case ("=>")
                     ! Pointer assignment: ptr => target
@@ -393,7 +393,7 @@ contains
                     value_index = parse_range(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                   id_token%line, id_token%column, operator_text=op_token%text)
+                                                     id_token%line, id_token%column, operator_text=op_token%text)
                     end if
                 case ("(", "%")
                     ! Complex LHS (array or component access): parse expression up to '='
@@ -424,7 +424,7 @@ contains
 
                         ! Construct LHS token array: id_token + following tokens up to left_end
                         lhs_len = (left_end - start_pos + 1) + 1  ! plus EOF
-                        allocate(lhs_tokens(lhs_len))
+                        allocate (lhs_tokens(lhs_len))
                         lhs_tokens(1) = id_token
                         if (left_end >= parser%current_token) then
                             lhs_tokens(2:1 + (left_end - parser%current_token + 1)) = &
@@ -457,8 +457,8 @@ contains
                     if (value_index > 0 .and. target_index > 0) then
                         if (.not. allocated(assignment_op)) assignment_op = "="
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                   id_token%line, id_token%column, &
-                                                   operator_text=assignment_op)
+                                                     id_token%line, id_token%column, &
+                                                     operator_text=assignment_op)
                     end if
                 end select
             end if
@@ -474,30 +474,30 @@ contains
         character(len=:), allocatable :: type_name, var_name
 
         stmt_index = 0
-        
+
         ! Get type
         type_token = parser%consume()
         type_name = type_token%text
-        
+
         ! Check for ::
         colon_token = parser%peek()
         if (colon_token%kind == TK_OPERATOR .and. colon_token%text == "::") then
             colon_token = parser%consume()
         end if
-        
+
         ! Get variable name
         name_token = parser%peek()
         if (name_token%kind == TK_IDENTIFIER) then
             name_token = parser%consume()
             var_name = name_token%text
-            
+
             ! Create simple declaration node
             block
                 integer, allocatable :: empty_dim_indices(:)
-                allocate(empty_dim_indices(0))
+                allocate (empty_dim_indices(0))
                 stmt_index = push_declaration(arena, type_name, var_name, &
-                                            dimension_indices=empty_dim_indices, &
-                                            line=type_token%line, column=type_token%column)
+                                              dimension_indices=empty_dim_indices, &
+                                              line=type_token%line, column=type_token%column)
             end block
         end if
     end subroutine parse_simple_declaration
@@ -511,10 +511,10 @@ contains
         character(len=:), allocatable :: implicit_type
 
         stmt_index = 0
-        
+
         ! Get implicit keyword
         implicit_token = parser%consume()
-        
+
         ! Check for 'none'
         none_token = parser%peek()
         if (none_token%kind == TK_KEYWORD .and. none_token%text == "none") then
@@ -523,14 +523,14 @@ contains
         else
             implicit_type = "default"
         end if
-        
+
         ! Create implicit statement node
         if (implicit_type == "none") then
             stmt_index = push_implicit_statement(arena, .true., &
-                                               line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, column=implicit_token%column)
         else
             stmt_index = push_implicit_statement(arena, .false., &
-                                               line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit
 
@@ -541,22 +541,22 @@ contains
         integer, intent(out) :: stmt_index
         logical :: has_initializer, has_comma
         integer, allocatable :: decl_indices(:)
-        
+
         ! Analyze the declaration structure
         call analyze_declaration_structure(parser, has_initializer, has_comma)
-        
+
         if (has_initializer .and. .not. has_comma) then
             ! Single variable with initializer - use parse_declaration
             stmt_index = parse_declaration(parser, arena)
         else if (has_comma) then
-            ! Multi-variable declaration - use parse_multi_declaration  
+            ! Multi-variable declaration - use parse_multi_declaration
             decl_indices = parse_multi_declaration(parser, arena)
             if (allocated(decl_indices) .and. size(decl_indices) > 0) then
                 stmt_index = decl_indices(1)  ! Return first declaration index
-                
+
                 ! Store additional indices if any
                 if (size(decl_indices) > 1) then
-                    allocate(additional_execution_indices(size(decl_indices) - 1))
+                    allocate (additional_execution_indices(size(decl_indices) - 1))
                     additional_execution_indices = decl_indices(2:)
                 end if
             else
@@ -576,16 +576,16 @@ contains
         integer, intent(out) :: stmt_index
         type(token_t) :: first_token, second_token
         logical :: is_derived_type_def
-        
+
         stmt_index = 0
         first_token = parser%peek()
         is_derived_type_def = .false.
-        
+
         if (first_token%text == "type") then
             ! Check if this is a derived type definition or variable declaration
             if (parser%current_token + 1 <= size(parser%tokens)) then
                 second_token = parser%tokens(parser%current_token + 1)
-                
+
                 ! If second token is :: or identifier, it's a derived type definition
                 if (second_token%kind == TK_OPERATOR .and. second_token%text == "::") then
                     is_derived_type_def = .true.
@@ -593,7 +593,7 @@ contains
                     is_derived_type_def = .true.
                 end if
             end if
-            
+
             if (is_derived_type_def) then
                 stmt_index = parse_derived_type_def(parser, arena)
             else
@@ -611,18 +611,18 @@ contains
         type(parser_state_t), intent(in) :: parser
         integer :: pos
         type(token_t) :: token
-        
+
         is_multi_var_assignment = .false.
         pos = parser%current_token
-        
+
         ! Look ahead for pattern: identifier, comma, identifier, ..., =
         do while (pos <= size(parser%tokens))
             token = parser%tokens(pos)
-            
+
             if (token%kind == TK_IDENTIFIER) then
                 pos = pos + 1
                 if (pos > size(parser%tokens)) exit
-                
+
                 token = parser%tokens(pos)
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
                     ! Found comma after identifier, continue looking
@@ -646,7 +646,7 @@ contains
                 exit
             end if
         end do
-        
+
         is_multi_var_assignment = .false.
     end function is_multi_var_assignment
 
@@ -661,12 +661,12 @@ contains
         type(token_t) :: token
         integer :: target_index, value_index, literal_type
         integer, allocatable :: assignment_indices(:)
-        
+
         stmt_index = 0
-        allocate(var_indices(0))
-        allocate(value_indices(0))
-        allocate(assignment_indices(0))
-        
+        allocate (var_indices(0))
+        allocate (value_indices(0))
+        allocate (assignment_indices(0))
+
         ! Parse left-hand side variables (a, b, c)
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -675,7 +675,7 @@ contains
                 ! Create identifier node immediately
                 target_index = push_identifier(arena, token%text, token%line, token%column)
                 var_indices = [var_indices, target_index]
-                
+
                 ! Check for comma or equals
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -692,10 +692,10 @@ contains
                 return
             end if
         end do
-        
+
         num_vars = size(var_indices)
         if (num_vars == 0) return
-        
+
         ! Parse right-hand side values (1, 2, 3)
         do while (.not. parser%is_at_end())
             ! Parse a value expression (could be literal, variable, etc.)
@@ -709,7 +709,7 @@ contains
                 ! Create literal node immediately
                 value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
                 value_indices = [value_indices, value_index]
-                
+
                 ! Check for comma or end
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -727,9 +727,9 @@ contains
                 exit
             end if
         end do
-        
+
         num_values = size(value_indices)
-        
+
         ! Create individual assignment statements
         ! For each variable, assign corresponding value (or last value if fewer values)
         do i = 1, num_vars
@@ -742,26 +742,26 @@ contains
                 target_index = var_indices(i)
                 value_index = value_indices(num_values)
             end if
-            
+
             if (target_index > 0 .and. value_index > 0) then
                 assignment_indices = [assignment_indices, &
-                    push_assignment(arena, target_index, value_index, &
-                                  parser%tokens(parser%current_token-1)%line, &
-                                  parser%tokens(parser%current_token-1)%column)]
+                                      push_assignment(arena, target_index, value_index, &
+                                                      parser%tokens(parser%current_token - 1)%line, &
+                                                      parser%tokens(parser%current_token - 1)%column)]
             end if
         end do
-        
+
         ! Return first assignment index and store rest in additional_execution_indices
         if (size(assignment_indices) > 0) then
             stmt_index = assignment_indices(1)
-            
+
             if (size(assignment_indices) > 1) then
-                if (allocated(additional_execution_indices)) deallocate(additional_execution_indices)
-                allocate(additional_execution_indices(size(assignment_indices) - 1))
+                if (allocated(additional_execution_indices)) deallocate (additional_execution_indices)
+                allocate (additional_execution_indices(size(assignment_indices) - 1))
                 additional_execution_indices = assignment_indices(2:)
             end if
         end if
-        
+
     end subroutine parse_multi_variable_assignment
 
     ! Helper function to determine literal type from token kind
@@ -769,7 +769,7 @@ contains
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type
-        
+
         select case (token_kind)
         case (TK_NUMBER)
             ! Check if it contains a decimal point or exponent

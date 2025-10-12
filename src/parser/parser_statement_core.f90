@@ -22,7 +22,7 @@ module parser_statement_core_module
 
     abstract interface
         function parse_with_parent_interface(parser, arena, parent_index) &
-                result(node_index)
+            result(node_index)
             import :: parser_state_t, ast_arena_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
@@ -86,13 +86,13 @@ contains
     end function is_block_if
 
     pure logical function at_top_level(if_depth, select_depth, do_depth, &
-            where_depth, assoc_depth, forall_depth) result(is_top_level)
+                                       where_depth, assoc_depth, forall_depth) result(is_top_level)
         integer, intent(in) :: if_depth, select_depth, do_depth
         integer, intent(in) :: where_depth, assoc_depth, forall_depth
 
         is_top_level = (if_depth == 0 .and. select_depth == 0 .and. &
-            do_depth == 0 .and. where_depth == 0 .and. &
-            assoc_depth == 0 .and. forall_depth == 0)
+                        do_depth == 0 .and. where_depth == 0 .and. &
+                        assoc_depth == 0 .and. forall_depth == 0)
     end function at_top_level
 
     integer function find_statement_end(tokens, start_index) result(end_index)
@@ -128,17 +128,17 @@ contains
                 end_index = idx - 1
                 exit
             case (TK_NEWLINE)
-                        if (at_top_level( &
-                            if_depth, select_depth, do_depth, where_depth, &
-                            assoc_depth, forall_depth)) then
+                if (at_top_level( &
+                    if_depth, select_depth, do_depth, where_depth, &
+                    assoc_depth, forall_depth)) then
                     end_index = idx - 1
                     exit
                 end if
             case (TK_OPERATOR)
                 if (token%text == ";") then
-                        if (at_top_level( &
-                            if_depth, select_depth, do_depth, where_depth, &
-                            assoc_depth, forall_depth)) then
+                    if (at_top_level( &
+                        if_depth, select_depth, do_depth, where_depth, &
+                        assoc_depth, forall_depth)) then
                         end_index = idx - 1
                         exit
                     end if
@@ -188,27 +188,27 @@ contains
                         first_keyword = "associate"
                     end if
                     assoc_depth = assoc_depth + 1
-               case ("else")
-                   if (block_if) then
-                       if (idx + 1 <= size(tokens)) then
-                           if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
-                               tokens(idx + 1)%text == "if") then
-                               if (if_depth == 1) then
-                                   end_index = idx - 1
-                                   exit
-                               end if
-                           else
-                               if (if_depth == 1) then
-                                   end_index = idx - 1
-                                   exit
-                               end if
-                           end if
-                       else
-                           if (if_depth == 1) then
-                               end_index = idx - 1
-                               exit
-                           end if
-                       end if
+                case ("else")
+                    if (block_if) then
+                        if (idx + 1 <= size(tokens)) then
+                            if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
+                                tokens(idx + 1)%text == "if") then
+                                if (if_depth == 1) then
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                            else
+                                if (if_depth == 1) then
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                            end if
+                        else
+                            if (if_depth == 1) then
+                                end_index = idx - 1
+                                exit
+                            end if
+                        end if
                     else if (at_top_level( &
                              if_depth, select_depth, do_depth, where_depth, &
                              assoc_depth, forall_depth)) then
@@ -420,7 +420,7 @@ contains
     end function find_statement_end
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
-            result(end_index)
+        result(end_index)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
         integer, intent(in) :: initial_end
@@ -549,7 +549,7 @@ contains
     end function parse_basic_statement_core
 
     logical function try_handle_declaration(parser, arena, first_token, stmt_indices) &
-            result(handled)
+        result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
@@ -646,7 +646,7 @@ contains
     end function parse_keyword_statement
 
     integer function parse_identifier_statement(parser, arena, parent_index, tokens) &
-            result(stmt_index)
+        result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -783,7 +783,7 @@ contains
     end function parse_complex_assignment
 
     integer function build_placeholder_or_zero(tokens, first_token, arena) &
-            result(stmt_index)
+        result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(token_t), intent(in) :: first_token
         type(ast_arena_t), intent(inout) :: arena
@@ -822,7 +822,7 @@ contains
             if (len_trim(tokens(i)%text) > 0) then
                 token_text = trim(tokens(i)%text)
                 if (debug_len + len_trim(token_text) + 1 < 250) then
-                    debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
+                    debug_msg = debug_msg(1:debug_len) // " " // trim(token_text)
                     debug_len = len_trim(debug_msg)
                 end if
             end if

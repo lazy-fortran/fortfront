@@ -21,15 +21,15 @@ contains
         character(len=*), parameter :: c1 = '! First top comment line'
         character(len=*), parameter :: c2 = '! Second top comment line'
         character(len=*), parameter :: input = &
-            c1 // new_line('a') // &
-            c2 // new_line('a') // &
-            ''  // new_line('a') // &
-            'module mm' // new_line('a') // &
-            'contains' // new_line('a') // &
-            '  subroutine main()' // new_line('a') // &
-            "    print *, 'ok'" // new_line('a') // &
-            '  end subroutine main' // new_line('a') // &
-            'end module mm'
+                                       c1 // new_line('a') // &
+                                       c2 // new_line('a') // &
+                                       '' // new_line('a') // &
+                                       'module mm' // new_line('a') // &
+                                       'contains' // new_line('a') // &
+                                       '  subroutine main()' // new_line('a') // &
+                                       "    print *, 'ok'" // new_line('a') // &
+                                       '  end subroutine main' // new_line('a') // &
+                                       'end module mm'
 
         character(len=:), allocatable :: output, error_msg
         integer :: p1, p2
@@ -45,8 +45,8 @@ contains
         ! Output should start with a comment line
         p1 = 1
         do while (p1 <= len(output) .and. &
-                (output(p1:p1) == ' ' .or. output(p1:p1) == new_line('a') .or. &
-                 iachar(output(p1:p1)) == 9))
+                  (output(p1:p1) == ' ' .or. output(p1:p1) == new_line('a') .or. &
+                   iachar(output(p1:p1)) == 9))
             p1 = p1 + 1
         end do
         if (p1 > len(output) .or. output(p1:p1) /= '!') then
@@ -62,7 +62,7 @@ contains
             print *, trim(output)
             passed = .false.
         else
-            p2 = index(output(p1+len(c1):), c1)
+            p2 = index(output(p1 + len(c1):), c1)
             if (p2 > 0) then
                 print *, '  FAIL: first comment duplicated'
                 print *, trim(output)
@@ -76,7 +76,7 @@ contains
             print *, trim(output)
             passed = .false.
         else
-            p2 = index(output(p1+len(c2):), c2)
+            p2 = index(output(p1 + len(c2):), c2)
             if (p2 > 0) then
                 print *, '  FAIL: second comment duplicated'
                 print *, trim(output)
