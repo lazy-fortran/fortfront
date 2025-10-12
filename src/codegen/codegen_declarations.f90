@@ -14,7 +14,9 @@ module codegen_declarations
     use codegen_indent
     use codegen_utilities, only: parameter_info_t, int_to_string, &
                                  generate_grouped_body, generate_grouped_body_with_params, &
-                                 generate_grouped_body_context, find_parameter_info
+                                 generate_grouped_body_context, find_parameter_info, &
+                                 is_character_type_string, normalize_character_type, &
+                                 normalize_character_type_param
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
     implicit none
@@ -415,15 +417,19 @@ contains
             type_str = "real"  ! Default fallback
         end if
 
+        ! Normalize character type representations to preserve length specifiers
+        if (is_character_type_string(type_str) .or. node%inferred_type%kind == TCHAR) then
+            type_str = normalize_character_type(node, type_str)
+        end if
+
         ! Generate basic declaration
         code = type_str
 
-        ! Add kind if present and valid (>0) (but not for character which uses len)
-        if (node%has_kind .and. node%kind_value > 0 .and. node%type_name /= "character") then
-            code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
-            ! For character, kind_value is actually the length
-            code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+        ! Add kind if present and valid (>0) for non-character types
+        if (node%has_kind .and. node%kind_value > 0) then
+            if (.not. is_character_type_string(code)) then
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+            end if
         end if
 
         ! Add intent if present
@@ -535,7 +541,9 @@ contains
             ! Generate full declaration (when in body)
             code = node%type_name
 
-            if (node%has_kind) then
+            if (is_character_type_string(code)) then
+                code = normalize_character_type_param(code, node%has_kind, node%kind_value)
+            else if (node%has_kind .and. node%kind_value > 0) then
                 code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
             end if
 
