@@ -447,25 +447,25 @@ contains
                     if (tokens(i)%text == "end") then
                     if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
                 if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
-                                    stmt_end = i + 1
-                                    exit
-                                end if
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                stmt_end = i + 1
+                                exit
+                            end if
    else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
-                                    stmt_end = i + 1
-                                    exit
-                                end if
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                stmt_end = i + 1
+                                exit
+                            end if
      else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
-                                    stmt_end = i + 1
-                                    exit
-                                end if
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                stmt_end = i + 1
+                                exit
                             end if
                         end if
+                    end if
                     end if
                 end if
 

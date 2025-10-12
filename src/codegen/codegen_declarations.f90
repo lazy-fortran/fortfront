@@ -421,7 +421,7 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
 else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
             ! For character, kind_value is actually the length
-            code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+           code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
         end if
 
         ! Add intent if present
@@ -498,7 +498,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                     if (node%dimension_indices(i) > 0 .and. &
                         node%dimension_indices(i) <= arena%size) then
                         ! Valid arena index
-                   code = code // generate_code_from_arena(arena, node%dimension_indices(i))
+                 code = code // generate_code_from_arena(arena, node%dimension_indices(i))
                     else if (node%dimension_indices(i) > arena%size) then
                         ! Direct integer value (for inferred dimensions)
                         code = code // int_to_string(node%dimension_indices(i))
@@ -555,7 +555,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                 code = code // "("
                 do j = 1, size(node%dimension_indices)
                     if (j > 1) code = code // ", "
-                   code = code // generate_code_from_arena(arena, node%dimension_indices(j))
+                 code = code // generate_code_from_arena(arena, node%dimension_indices(j))
                 end do
                 code = code // ")"
             end if
@@ -726,7 +726,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                         character(len=:), allocatable :: trivia_code
                  trivia_code = collect_trivial_program_trivia(arena, node%body_indices(i))
                                         if (len_trim(trivia_code) > 0) then
-                              if (len(code) > 0) code = code // new_line('A') // new_line('A')
+                          if (len(code) > 0) code = code // new_line('A') // new_line('A')
                                             code = code // trivia_code
                                         end if
                                     end block
@@ -763,7 +763,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                         if (len(code) > 0) then
                             code = code // new_line('A') // new_line('A')
                         end if
-                        code = code // generate_code_from_arena(arena, node%body_indices(i))
+                      code = code // generate_code_from_arena(arena, node%body_indices(i))
                     end if
                 end do
             end if
@@ -800,7 +800,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                 ! Generate use statement code
                                 is_use_stmt = .true.
                                 use_statements_code = use_statements_code // "    " // &
-                      generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
+                    generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
 
                             type is (implicit_statement_node)
                                 if (ib%is_none) has_implicit = .true.
@@ -925,12 +925,12 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                 do i = 1, n_vars
                                     ! Skip if already declared
                                     already_declared = .false.
-                         if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                       if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
 
                                     if (.not. already_declared) then
-                                        before_code = before_code // "    integer :: " // &
+                                       before_code = before_code // "    integer :: " // &
                                                       trim(loop_vars(i)) // new_line('A')
                                     end if
                                 end do
@@ -938,7 +938,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                 ! Check for implied do with default i
                      if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
                                     if (index(body_code, "integer :: i") == 0) then
-                              before_code = before_code // "    integer :: i" // new_line('A')
+                          before_code = before_code // "    integer :: i" // new_line('A')
                                     end if
                                 end if
                             end if
@@ -949,15 +949,15 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                             if (n_vars > 0) then
                                 do i = 1, n_vars
                                     already_declared = .false.
-                         if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                       if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
-                              if (index(code, "integer :: " // trim(loop_vars(i))) > 0) then
+                            if (index(code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
 
                                     if (.not. already_declared) then
-                         code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
+                   code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
                                     end if
                                 end do
                             else
@@ -1280,7 +1280,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
             type_name = "real"
         case (TCHAR)
             if (mono%size > 0) then
-                type_name = "character(len=" // trim(adjustl(int_to_string(mono%size))) // ")"
+            type_name = "character(len=" // trim(adjustl(int_to_string(mono%size))) // ")"
             else
                 type_name = "character(len=:)"
             end if

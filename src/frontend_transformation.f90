@@ -352,7 +352,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         output = "program main" // new_line('A') // &
                  "    implicit none" // new_line('A') // &
                  "    ! COMPILATION FAILED" // new_line('A') // &
-             "    ! Original code could not be structured as a program" // new_line('A') // &
+          "    ! Original code could not be structured as a program" // new_line('A') // &
                  "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
@@ -436,7 +436,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-          error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
  error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
                     end if

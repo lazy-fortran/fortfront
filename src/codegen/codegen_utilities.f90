@@ -309,7 +309,7 @@ contains
                call process_grouped_declarations(arena, body_indices, i, indent_str, code)
                         else
                             stmt_code = generate_code_from_arena(arena, body_indices(i))
-                            code = code // indent_lines(stmt_code, indent) // new_line('A')
+                           code = code // indent_lines(stmt_code, indent) // new_line('A')
                             i = i + 1
                         end if
 
@@ -438,15 +438,15 @@ contains
                                         code = code // indent_str // type_name
 
                                         if (append_kind) then
-                      code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                         end if
 
                                         ! Use attributes from the declaration node
                                         if (node%has_intent) then
-                                            code = code // ", intent(" // node%intent // ")"
+                                          code = code // ", intent(" // node%intent // ")"
                          else if (allocated(param_map(first_param_idx)%intent_str) .and. &
                                  len_trim(param_map(first_param_idx)%intent_str) > 0) then
-                      code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
+                code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
                                         end if
 
                                         if (node%is_optional) then
@@ -481,7 +481,7 @@ contains
                                             do j = 1, size(node%var_names)
                                                 if (.not. is_param(j)) then
                                                     if (have_nonparam) then
-                              nonparam_list = nonparam_list // ", " // trim(node%var_names(j))
+                          nonparam_list = nonparam_list // ", " // trim(node%var_names(j))
                                                     else
                                                    nonparam_list = trim(node%var_names(j))
                                                     end if
@@ -497,10 +497,10 @@ contains
                                                 end if
                                                 code = code // indent_str // local_type
                                                 if (local_append_kind) then
-                      code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                                 end if
                                                 ! Intentionally do NOT add intent/optional for non-parameters
-                                         code = code // " :: " // nonparam_list // new_line('A')
+                                   code = code // " :: " // nonparam_list // new_line('A')
                                             end if
                                         end block
                                     end if
@@ -517,7 +517,7 @@ contains
                                     code = code // indent_str // type_name
 
                                     if (append_kind_single) then
-                      code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                     end if
 
                                     ! Use attributes from the declaration node itself
@@ -525,7 +525,7 @@ contains
                                         code = code // ", intent(" // node%intent // ")"
                                else if (allocated(param_map(param_idx)%intent_str) .and. &
                                        len_trim(param_map(param_idx)%intent_str) > 0) then
-                            code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                      code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
                                     end if
 
                                     if (node%is_optional) then
@@ -565,12 +565,12 @@ contains
                                 code = code // indent_str // type_name
 
                                 if (append_kind_param) then
-                      code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                 end if
 
                                 ! Use attributes from the parameter_declaration_node itself
                                 if (len_trim(param_map(param_idx)%intent_str) > 0) then
-                            code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                      code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
                                 end if
 
                                 if (param_map(param_idx)%is_optional) then
@@ -667,7 +667,7 @@ contains
 
         ! Generate the rest of the body with filtered indices
         if (filtered_count > 0) then
-     code = code // generate_grouped_body(arena, filtered_indices(1:filtered_count), indent)
+   code = code // generate_grouped_body(arena, filtered_indices(1:filtered_count), indent)
         end if
 
         deallocate (filtered_indices)
