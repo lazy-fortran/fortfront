@@ -19,7 +19,7 @@
 
 ## Coding Style & Naming Conventions
 - Fortran free-form, no implicit typing/externals (enforced in `fpm.toml`).
-- Indentation: 4 spaces; line width target 88 columns.
+- Indentation: 4 spaces; line width target 90 columns. Look in .fprettify
 - Prefer small procedures (<50 lines); avoid commented-out code and stubs.
 - Derived types: `typename_t`; modules/files use clear, domain-based names (e.g., `frontend_parsing.f90`).
 
