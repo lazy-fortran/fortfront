@@ -115,10 +115,14 @@ contains
         mod_node%uid = generate_uid()
         mod_node%name = name
         if (present(declaration_indices)) then
-     if (size(declaration_indices) > 0) mod_node%declaration_indices = declaration_indices
+            if (size(declaration_indices) > 0) then
+                mod_node%declaration_indices = declaration_indices
+            end if
         end if
         if (present(procedure_indices)) then
-           if (size(procedure_indices) > 0) mod_node%procedure_indices = procedure_indices
+            if (size(procedure_indices) > 0) then
+                mod_node%procedure_indices = procedure_indices
+            end if
         end if
         if (present(has_contains)) mod_node%has_contains = has_contains
         mod_node%line = line
