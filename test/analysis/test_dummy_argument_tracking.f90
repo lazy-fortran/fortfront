@@ -25,6 +25,9 @@ contains
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
         use parser_definition_statements_module, only: parse_subroutine_definition
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -33,6 +36,7 @@ contains
         integer :: sub_index, i
         character(len=:), allocatable :: identifiers(:)
         logical :: arg_found
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing simple dummy argument tracking..."
 
@@ -47,7 +51,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             print *, "FAILED: Could not parse subroutine"
@@ -90,6 +94,8 @@ contains
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
         use parser_definition_statements_module, only: parse_subroutine_definition
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -98,6 +104,7 @@ contains
         integer :: sub_index, i
         character(len=:), allocatable :: identifiers(:)
         logical :: a_found, b_found, c_found
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing multiple dummy arguments..."
 
@@ -109,7 +116,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             print *, "FAILED: Could not parse subroutine"
@@ -149,6 +156,7 @@ contains
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
         use parser_definition_statements_module, only: parse_function_definition
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -157,6 +165,7 @@ contains
         integer :: func_index, i
         character(len=:), allocatable :: identifiers(:)
         logical :: x_found, y_found
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing dummy arguments in expressions..."
 
@@ -169,7 +178,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        func_index = parse_function_definition(parser, arena)
+        func_index = parse_function_definition(parser, arena, prefix_buffer)
 
         if (func_index <= 0) then
             print *, "FAILED: Could not parse function"
@@ -207,6 +216,7 @@ contains
         use parser_state_module, only: parser_state_t, create_parser_state
         use parser_definition_statements_module, only: parse_subroutine_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
@@ -214,6 +224,7 @@ contains
         integer :: sub_index, i
         character(len=:), allocatable :: identifiers(:)
         logical :: input_found, output_found
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing dummy arguments with intent..."
 
@@ -226,7 +237,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             print *, "FAILED: Could not parse subroutine"
@@ -263,6 +274,7 @@ contains
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
         use parser_definition_statements_module, only: parse_subroutine_definition
+        use parser_prefix_buffer_module, only: parser_prefix_buffer_t
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -271,6 +283,7 @@ contains
         integer :: sub_index, i
         character(len=:), allocatable :: identifiers(:)
         logical :: param_found
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing dummy argument in nested context..."
 
@@ -285,7 +298,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             print *, "FAILED: Could not parse subroutine"

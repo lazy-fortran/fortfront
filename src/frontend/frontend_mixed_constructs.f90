@@ -5,6 +5,7 @@ module frontend_mixed_constructs
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_dispatcher_module, only: parse_statement_dispatcher
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: mixed_construct_container_node, create_mixed_construct_container
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
@@ -95,6 +96,7 @@ contains
         character(len=*), intent(out) :: error_msg
 
         type(token_t), allocatable, target :: stmt_tokens(:)
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         error_msg = ""
 
@@ -117,7 +119,7 @@ contains
         end if
 
         ! Parse the declaration using statement dispatcher
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
 
         deallocate (stmt_tokens)
     end subroutine parse_declaration_range
@@ -130,6 +132,7 @@ contains
         character(len=*), intent(out) :: error_msg
 
         type(token_t), allocatable, target :: stmt_tokens(:)
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         error_msg = ""
 
@@ -152,7 +155,7 @@ contains
         end if
 
         ! Parse the program using statement dispatcher
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
 
         deallocate (stmt_tokens)
     end subroutine parse_program_range

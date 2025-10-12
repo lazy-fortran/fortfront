@@ -3,6 +3,7 @@ program test_function_parameters_parsing
     use lexer_core, only: tokenize_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use fortfront, only: ast_arena_t, create_ast_arena, token_t, ast_node, function_def_node
     use ast_nodes_data, only: parameter_declaration_node
     implicit none
@@ -36,6 +37,7 @@ contains
             integer :: idx
             type(parser_state_t) :: parser
             class(ast_node), allocatable :: node
+            type(parser_prefix_buffer_t) :: prefix_buffer
 
             source = 'real function foo(x, n)' // new_line('A') // &
                      '  real, intent(in) :: x' // new_line('A') // &
@@ -46,7 +48,7 @@ contains
             call tokenize_core(source, tokens)
             arena = create_ast_arena()
             parser = create_parser_state(tokens)
-            idx = parse_function_definition(parser, arena)
+            idx = parse_function_definition(parser, arena, prefix_buffer)
 
             if (idx <= 0 .or. idx > arena%size) then
                 print *, '  FAIL: Invalid node index returned'

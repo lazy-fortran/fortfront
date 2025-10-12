@@ -6,6 +6,7 @@ module frontend_program_units
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use frontend_statement_processing, only: parse_all_statements => parse_all_statements
     use parser_declarations, only: parse_derived_type_def
@@ -33,6 +34,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
         integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Check for meaningful content first
         if (not_meaningful_program_unit(tokens)) then
@@ -52,7 +54,7 @@ contains
             unit_index = parse_explicit_program_unit(tokens, arena)
         else if (is_type_start(tokens, 1)) then
             ! Type definitions should be parsed as structured constructs
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
         else
             ! For mixed module/main program files, we always need to check for implicit main
             unit_index = parse_implicit_main_program(tokens, arena, has_explicit_program)
@@ -64,10 +66,11 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the complete module including its content
         ! Module should be parsed with all its statements
-        unit_index = parse_statement_dispatcher(tokens, arena)
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_module_unit
 
     ! Check if program unit has meaningful content
@@ -101,8 +104,9 @@ contains
         ! Multi-line function definition
         block
             type(parser_state_t) :: parser
+            type(parser_prefix_buffer_t) :: prefix_buffer
             parser = create_parser_state(tokens)
-            unit_index = parse_function_definition(parser, arena)
+            unit_index = parse_function_definition(parser, arena, prefix_buffer)
         end block
     end function parse_function_unit
 
@@ -111,9 +115,10 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the subroutine using the dispatcher
-        unit_index = parse_statement_dispatcher(tokens, arena)
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_subroutine_unit
 
     ! Parse type unit
@@ -121,9 +126,10 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse type definition using statement dispatcher (which handles parser creation)
-        unit_index = parse_statement_dispatcher(tokens, arena)
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_type_unit
 
     ! Parse implicit main program
@@ -200,9 +206,10 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: prog_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse explicit program statement
-        prog_index = parse_statement_dispatcher(tokens, arena)
+        prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_explicit_program_unit
 
     ! Unit type detection functions

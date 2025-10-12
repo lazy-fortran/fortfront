@@ -7,6 +7,7 @@ module frontend_statement_processing
                           TK_WHITESPACE, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
@@ -34,8 +35,9 @@ contains
         integer :: prog_index
 
         integer, allocatable :: body_indices(:)
+        type(parser_prefix_buffer_t) :: prefix_buffer
         integer :: i, stmt_start, stmt_end, stmt_index, stmt_count
-        integer :: merged_start, merged_end
+        integer :: merged_start, merged_end, look_ahead
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -48,9 +50,18 @@ contains
             call find_statement_boundary(tokens, i, stmt_start, stmt_end)
 
             if (is_prefix_only_statement(tokens, stmt_start, stmt_end)) then
-                if (stmt_end + 1 <= size(tokens)) then
-                    call find_statement_boundary(tokens, stmt_end + 1, merged_start, merged_end)
-                    if (merged_start == stmt_end + 1) then
+                look_ahead = stmt_end + 1
+                do while (look_ahead <= size(tokens))
+                    if (tokens(look_ahead)%kind == TK_WHITESPACE .or. &
+                        tokens(look_ahead)%kind == TK_NEWLINE) then
+                        look_ahead = look_ahead + 1
+                    else
+                        exit
+                    end if
+                end do
+                if (look_ahead <= size(tokens)) then
+                call find_statement_boundary(tokens, look_ahead, merged_start, merged_end)
+                    if (merged_start == look_ahead) then
                         if (tokens(merged_start)%kind == TK_KEYWORD .and. &
                             (tokens(merged_start)%text == "function" .or. &
                              tokens(merged_start)%text == "subroutine")) then
@@ -61,10 +72,10 @@ contains
             end if
 
             if (tokens(stmt_start)%kind == TK_COMMENT) then
-                call process_comment_statement(tokens, stmt_start, arena, stmt_index, body_indices)
+                call process_comment_statement(tokens, stmt_start, arena, prefix_buffer, stmt_index, body_indices)
             else
                 call process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-                                               stmt_index, body_indices)
+                                               prefix_buffer, stmt_index, body_indices)
             end if
 
             if (stmt_index > 0) stmt_count = stmt_count + 1
@@ -76,10 +87,11 @@ contains
     end function parse_all_statements
 
     ! Process comment statement
-    subroutine process_comment_statement(tokens, i, arena, stmt_index, body_indices)
+    subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: i
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t), allocatable, target :: stmt_tokens(:)
@@ -94,7 +106,7 @@ contains
         stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
 
         ! Parse the comment
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
@@ -104,10 +116,11 @@ contains
 
     ! Process regular statement
     subroutine process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-                                         stmt_index, body_indices)
+                                         prefix_buffer, stmt_index, body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t), allocatable, target :: stmt_tokens(:)
@@ -178,7 +191,7 @@ contains
         ! Note: stmt_tokens already allocated and filled in the block above
 
         ! Parse the statement
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
 
@@ -262,7 +275,7 @@ contains
             end if
         else
             ! Multiple units - create container
-            prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
+      prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
         end if
 
         deallocate (valid_units)
@@ -297,7 +310,7 @@ contains
 
         select type (prog_node => node)
         type is (program_node)
-            if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
+         if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
                 size(prog_node%body_indices) == 0) then
                 is_empty = .true.
             end if
@@ -309,9 +322,10 @@ contains
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: prog_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse explicit program statement
-        prog_index = parse_statement_dispatcher(tokens, arena)
+        prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_explicit_program_unit
 
     ! Find statement boundary (control-flow aware)
@@ -332,7 +346,7 @@ contains
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
                   (tokens(stmt_start)%kind == TK_NEWLINE .or. &
-                   (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
+           (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do
 
@@ -370,7 +384,7 @@ contains
                         nesting_level = 1
                         exit
                     else if (tokens(i)%kind == TK_KEYWORD .and. &
-                             (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
+                        (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
@@ -397,7 +411,7 @@ contains
                             block
                                 integer :: j
                                 do j = i + 1, min(i + 20, size(tokens))
-                                    if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                     if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
                                         nesting_level = nesting_level + 1
                                         exit
                                     else if (tokens(j)%kind == TK_NEWLINE) then
@@ -424,8 +438,8 @@ contains
                                     stmt_end = i
                                     exit
                                 end if
-                            else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
-                                     tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
+                      else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
+                   tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
@@ -446,19 +460,19 @@ contains
                     ! Check for two-word end constructs
                     if (tokens(i)%text == "end") then
                     if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
-                        if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
+                if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
                                 exit
                             end if
-                        else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
+   else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
                                 exit
                             end if
-                        else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
+     else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
@@ -492,7 +506,7 @@ contains
         if (stmt_end < stmt_start) stmt_end = stmt_start
     end subroutine find_statement_boundary
 
-    logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
+   logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
         integer :: idx

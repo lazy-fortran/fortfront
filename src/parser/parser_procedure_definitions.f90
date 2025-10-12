@@ -8,24 +8,26 @@ module parser_procedure_definitions_module
                                                 merge_parameter_attributes
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use parser_expressions_module, only: parse_comparison
-    use parser_prefix_state, only: consume_pending_prefixes
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block
     use ast_factory
     implicit none
     private
 
-    public :: parse_function_definition, parse_subroutine_definition, parse_interface_block
+   public :: parse_function_definition, parse_subroutine_definition, parse_interface_block
 
 contains
 
-    function parse_function_definition(parser, arena) result(func_index)
+    function parse_function_definition(parser, arena, prefix_buffer, prefix_list) result(func_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), intent(in), optional :: prefix_list(:)
         integer :: func_index
 
         type(token_t) :: token
-        character(len=:), allocatable :: function_name, return_type_str, result_variable_name
+     character(len=:), allocatable :: function_name, return_type_str, result_variable_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword
@@ -41,16 +43,27 @@ contains
         infer_recursive_from_body = .false.
 
         allocate (character(len=16) :: prefix_keywords(0))
-        call consume_pending_prefixes(pending_prefixes)
-        if (allocated(pending_prefixes)) then
-            if (size(pending_prefixes) > 0) then
-                do i = 1, size(pending_prefixes)
-                    call append_prefix_keyword(prefix_keywords, pending_prefixes(i))
-                    if (trim(pending_prefixes(i)) == "recursive") then
-                        has_recursive_keyword = .true.
-                    end if
-                end do
+        if (present(prefix_list)) then
+            if (size(prefix_list) > 0) then
+                allocate (character(len=16) :: pending_prefixes(size(prefix_list)))
+                pending_prefixes = prefix_list
+            else
+                allocate (character(len=16) :: pending_prefixes(0))
             end if
+            call prefix_buffer%clear()
+        else
+            call prefix_buffer%consume(pending_prefixes)
+        end if
+        if (.not. allocated(pending_prefixes)) then
+            allocate (character(len=16) :: pending_prefixes(0))
+        end if
+        if (size(pending_prefixes) > 0) then
+            do i = 1, size(pending_prefixes)
+                call append_prefix_keyword(prefix_keywords, pending_prefixes(i))
+                if (trim(pending_prefixes(i)) == "recursive") then
+                    has_recursive_keyword = .true.
+                end if
+            end do
         end if
 
         ! Optional prefix keywords before "function"
@@ -218,11 +231,11 @@ contains
                                     preceded_by_else = .false.
                                     if (pos > 1) then
                                         if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                                            if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                                            if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
+                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
                                         end if
                                     end if
-                                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
@@ -277,15 +290,15 @@ contains
                     end if
 
                     ! Parse the statement (handle multi-line IF blocks)
-                    if (token%kind == TK_KEYWORD .and. (token%text == "if" .or. token%text == "IF")) then
+     if (token%kind == TK_KEYWORD .and. (token%text == "if" .or. token%text == "IF")) then
                         stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
                         if (stmt_index <= 0) then
                             block_parser = create_parser_state(stmt_tokens)
-                            stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                         end if
                     else
                         block_parser = create_parser_state(stmt_tokens)
-                        stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                     end if
 
                     ! Add to body
@@ -314,7 +327,7 @@ contains
 
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
-                                       line, column, result_variable=result_variable_name, &
+                                     line, column, result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
                                        prefix_keywords=prefix_keywords)
     end function parse_function_definition
@@ -353,7 +366,7 @@ contains
                 case ("end", "END")
                     if (i < token_count) then
                         if (stmt_tokens(i + 1)%kind == TK_KEYWORD .and. &
-                            (stmt_tokens(i + 1)%text == "if" .or. stmt_tokens(i + 1)%text == "IF")) then
+              (stmt_tokens(i + 1)%text == "if" .or. stmt_tokens(i + 1)%text == "IF")) then
                             end_pos = i
                             exit
                         end if
@@ -394,7 +407,7 @@ contains
         if (else_pos > 0) then
             else_start = else_pos + 1
             else_end = end_pos - 1
-            else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, else_end, arena)
+        else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, else_end, arena)
         else
             allocate (else_body_indices(0))
         end if
@@ -463,7 +476,7 @@ contains
                 line_tokens(stmt_size + 1)%column = token%column
 
                 line_parser = create_parser_state(line_tokens)
-                stmt_index = parse_statement_in_if_block(line_parser, arena, line_tokens(1))
+              stmt_index = parse_statement_in_if_block(line_parser, arena, line_tokens(1))
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 end if
@@ -505,9 +518,10 @@ contains
         call move_alloc(temp, prefixes)
     end subroutine append_prefix_keyword
 
-    function parse_subroutine_definition(parser, arena) result(sub_index)
+    function parse_subroutine_definition(parser, arena, prefix_buffer) result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: sub_index
 
         type(token_t) :: token
@@ -617,11 +631,11 @@ contains
                                     preceded_by_else = .false.
                                     if (pos > 1) then
                                         if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                                            if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                                            if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
+                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
                                         end if
                                     end if
-                                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
@@ -661,7 +675,7 @@ contains
 
                     ! Parse the statement
                     block_parser = create_parser_state(stmt_tokens)
-                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
 
                     ! Add to body
                     if (stmt_index > 0) then
@@ -682,13 +696,14 @@ contains
         end if
 
         ! Create subroutine node
-        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+    sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
                                         line, column)
     end function parse_subroutine_definition
 
-    function parse_interface_block(parser, arena) result(interface_index)
+    function parse_interface_block(parser, arena, prefix_buffer) result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: interface_index
 
         type(token_t) :: token

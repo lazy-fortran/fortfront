@@ -1,9 +1,8 @@
 module parser_dispatcher_module
     ! Statement dispatcher that delegates to appropriate parsing modules
     ! This implements the SRP by separating the switch logic from the implementations
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+                  TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module
@@ -15,10 +14,10 @@ module parser_dispatcher_module
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
     use parser_definition_statements_module, only: parse_function_definition, &
-                                                   parse_subroutine_definition, parse_interface_block
+                                        parse_subroutine_definition, parse_interface_block
     use parser_control_statements_module, only: parse_stop_statement, &
-                                                parse_return_statement, parse_goto_statement, parse_error_stop_statement, &
-                                                parse_cycle_statement, parse_exit_statement, parse_end_statement
+               parse_return_statement, parse_goto_statement, parse_error_stop_statement, &
+                          parse_cycle_statement, parse_exit_statement, parse_end_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
@@ -33,9 +32,7 @@ module parser_dispatcher_module
     use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
     use parser_expressions_module, only: parse_expression, parse_range
-    use parser_prefix_state, only: set_pending_prefixes, get_pending_prefixes, &
-                                   consume_pending_prefixes, has_pending_prefixes, clear_pending_prefixes, &
-                                   append_prefix_token
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     implicit none
     private
 
@@ -47,9 +44,10 @@ module parser_dispatcher_module
 contains
 
     ! Parse a statement by dispatching to appropriate parsing module
-    function parse_statement_dispatcher(tokens, arena) result(stmt_index)
+    function parse_statement_dispatcher(tokens, arena, prefix_buffer) result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
         type(parser_state_t) :: parser
         type(token_t) :: first_token
@@ -85,19 +83,19 @@ contains
             case ("select")
                 stmt_index = parse_select_case(parser, arena)
             case ("function")
-                stmt_index = parse_function_definition(parser, arena)
+                stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             case ("subroutine")
-                stmt_index = parse_subroutine_definition(parser, arena)
+                stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
             case ("interface")
-                stmt_index = parse_interface_block(parser, arena)
+                stmt_index = parse_interface_block(parser, arena, prefix_buffer)
             case ("module")
                 stmt_index = parse_module(parser, arena)
             case ("program")
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
-                stmt_index = parse_type_or_declaration(parser, arena)
+                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("real", "integer", "logical", "character", "complex", "double")
-                stmt_index = parse_type_or_declaration(parser, arena)
+                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
             case ("stop")
@@ -119,57 +117,14 @@ contains
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
             case default
-                stmt_index = parse_as_expression(tokens, arena)
+      if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                    stmt_index = parse_as_expression(tokens, arena)
+                end if
             end select
         case (TK_IDENTIFIER)
-            block
-                character(len=16), allocatable :: local_prefixes(:)
-                character(len=16), allocatable :: combined_prefixes(:)
-                character(len=16), allocatable :: stored_prefixes(:)
-                integer :: start_position, i
-                type(token_t) :: token_after_prefix
-
-                start_position = parser%current_token
-                allocate (character(len=16) :: local_prefixes(0))
-                call collect_prefix_keywords(parser, local_prefixes)
-                allocate (character(len=16) :: combined_prefixes(0))
-                call get_pending_prefixes(stored_prefixes)
-                if (allocated(stored_prefixes)) then
-                    do i = 1, size(stored_prefixes)
-                        call append_prefix_token(combined_prefixes, stored_prefixes(i))
-                    end do
-                end if
-                if (allocated(local_prefixes)) then
-                    do i = 1, size(local_prefixes)
-                        call append_prefix_token(combined_prefixes, local_prefixes(i))
-                    end do
-                end if
-
-                if (size(combined_prefixes) > 0) then
-                    do
-                        token_after_prefix = parser%peek()
-                        if (token_after_prefix%kind == TK_WHITESPACE .or. &
-                            token_after_prefix%kind == TK_NEWLINE) then
-                            token_after_prefix = parser%consume()
-                            cycle
-                        end if
-                        exit
-                    end do
-
-                    if (token_after_prefix%kind == TK_KEYWORD .and. &
-                        trim(to_lower(token_after_prefix%text)) == "function") then
-                        call set_pending_prefixes(combined_prefixes)
-                        stmt_index = parse_function_definition(parser, arena)
-                        call clear_pending_prefixes()
-                    else
-                        parser%current_token = start_position
-                        call set_pending_prefixes(combined_prefixes)
-                        stmt_index = 0
-                    end if
-                else
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                end if
-            end block
+      if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            end if
         case (TK_COMMENT)
             ! Parse comment
             stmt_index = parse_comment(parser, arena)
@@ -184,9 +139,10 @@ contains
     end function parse_statement_dispatcher
 
     ! Parse type declaration or derived type definition
-    function parse_type_or_declaration(parser, arena) result(stmt_index)
+    function parse_type_or_declaration(parser, arena, prefix_buffer) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
         type(token_t) :: first_token, second_token
         logical :: is_derived_type_def
@@ -249,7 +205,7 @@ contains
             else
                 ! Check if this looks like a function definition
                 if (looks_like_function_definition(parser)) then
-                    stmt_index = parse_function_or_expression(parser, arena)
+                   stmt_index = parse_function_or_expression(parser, arena, prefix_buffer)
                 else
                     ! Default to declaration parsing for type keywords
                     ! This handles "real(kind=real64) :: x" where :: detection fails
@@ -283,7 +239,7 @@ contains
                 op_token = parser%consume()
 
                 ! Create target identifier
-                target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+      target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
 
                 ! Parse value expression
                 value_index = parse_range(parser, arena)
@@ -307,9 +263,10 @@ contains
     end function parse_assignment_or_expression
 
     ! Parse function definition or expression
-    function parse_function_or_expression(parser, arena) result(stmt_index)
+    function parse_function_or_expression(parser, arena, prefix_buffer) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
         type(token_t) :: first_token, second_token
 
@@ -318,8 +275,8 @@ contains
         ! Look ahead to see if next token is "function"
         if (parser%current_token + 1 <= size(parser%tokens)) then
             second_token = parser%tokens(parser%current_token + 1)
-            if (second_token%kind == TK_KEYWORD .and. second_token%text == "function") then
-                stmt_index = parse_function_definition(parser, arena)
+           if (second_token%kind == TK_KEYWORD .and. second_token%text == "function") then
+                stmt_index = parse_function_definition(parser, arena, prefix_buffer)
                 return
             end if
         end if
@@ -346,7 +303,7 @@ contains
         has_double_colon = .false.
         paren_depth = 0
 
-        do i = parser%current_token + 1, min(parser%current_token + 50, size(parser%tokens))
+      do i = parser%current_token + 1, min(parser%current_token + 50, size(parser%tokens))
             if (parser%tokens(i)%kind == TK_OPERATOR) then
                 if (parser%tokens(i)%text == "(") then
                     paren_depth = paren_depth + 1
@@ -387,11 +344,11 @@ contains
         looks_like_function_definition = .false.
 
         ! Look for "function" keyword within the next few tokens
-        do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
-            if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
+      do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
+   if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
                 looks_like_function_definition = .true.
                 exit
-            else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
+   else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
                 ! Found :: before function - this is a declaration
                 exit
             else if (parser%tokens(i)%kind == TK_EOF) then
@@ -511,7 +468,7 @@ contains
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -533,7 +490,7 @@ contains
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
                 ! Create identifier node immediately
-                target_index = push_identifier(arena, token%text, token%line, token%column)
+               target_index = push_identifier(arena, token%text, token%line, token%column)
                 var_indices = [var_indices, target_index]
 
                 ! Check for comma or equals
@@ -565,9 +522,9 @@ contains
              (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
                 token = parser%consume()
                 ! Determine literal type based on token kind
-                literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, token%text)
+        literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, token%text)
                 ! Create literal node immediately
-                value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
+     value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
                 value_indices = [value_indices, value_index]
 
                 ! Check for comma or end
@@ -606,8 +563,8 @@ contains
             if (target_index > 0 .and. value_index > 0) then
                 assignment_indices = [assignment_indices, &
                                       push_assignment(arena, target_index, value_index, &
-                                                      parser%tokens(parser%current_token - 1)%line, &
-                                                      parser%tokens(parser%current_token - 1)%column)]
+                                           parser%tokens(parser%current_token - 1)%line, &
+                                          parser%tokens(parser%current_token - 1)%column)]
             end if
         end do
 
@@ -627,7 +584,7 @@ contains
     ! Helper function to determine literal type from token kind (dispatcher version)
     function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type
@@ -668,6 +625,63 @@ contains
             end if
         end select
     end function get_literal_type_from_token_kind_dispatcher
+
+    logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, intent(out) :: stmt_index
+        character(len=16), allocatable :: local_prefixes(:)
+        character(len=16), allocatable :: combined_prefixes(:)
+        character(len=16), allocatable :: stored_prefixes(:)
+        integer :: start_position, i
+        type(token_t) :: token_after_prefix
+
+        start_position = parser%current_token
+        allocate (character(len=16) :: local_prefixes(0))
+        call collect_prefix_keywords(parser, local_prefixes)
+
+        allocate (character(len=16) :: combined_prefixes(0))
+        call prefix_buffer%get_all(stored_prefixes)
+        if (allocated(stored_prefixes)) then
+            do i = 1, size(stored_prefixes)
+                call append_prefix_token(combined_prefixes, stored_prefixes(i))
+            end do
+        end if
+        if (allocated(local_prefixes)) then
+            do i = 1, size(local_prefixes)
+                call append_prefix_token(combined_prefixes, local_prefixes(i))
+            end do
+        end if
+
+        if (size(combined_prefixes) > 0) then
+            do
+                token_after_prefix = parser%peek()
+                if (token_after_prefix%kind == TK_WHITESPACE .or. &
+                    token_after_prefix%kind == TK_NEWLINE) then
+                    token_after_prefix = parser%consume()
+                    cycle
+                end if
+                exit
+            end do
+
+            if (token_after_prefix%kind == TK_KEYWORD .and. &
+                trim(to_lower(token_after_prefix%text)) == "function") then
+                parser%current_token = start_position
+                stmt_index = parse_function_definition(parser, arena, prefix_buffer, &
+                                                       combined_prefixes)
+            else
+                parser%current_token = start_position
+                call prefix_buffer%set(combined_prefixes)
+                stmt_index = 0
+            end if
+            try_handle_prefix_sequence = .true.
+        else
+            parser%current_token = start_position
+            stmt_index = 0
+            try_handle_prefix_sequence = .false.
+        end if
+    end function try_handle_prefix_sequence
 
     subroutine collect_prefix_keywords(parser, prefixes)
         type(parser_state_t), intent(inout) :: parser

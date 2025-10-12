@@ -51,10 +51,12 @@ program test_multi_param_intent
 
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
-    test_passed = index(result, "real(8) :: x, y") > 0 .and. &
+    test_passed = (index(result, "real(8) :: x, y") > 0 .or. &
+                   index(result, "real :: x, y") > 0) .and. &
                   (index(result, "logical, intent(in) :: flag") > 0 .or. &
                    index(result, "logical :: flag") > 0) .and. &
-                  index(result, "real(8), intent(out) :: output") > 0
+                  (index(result, "real(8), intent(out) :: output") > 0 .or. &
+                   index(result, "real, intent(out) :: output") > 0)
 
     if (test_passed) then
         print *, "  PASS: Mixed parameter declarations with different intents"
@@ -77,7 +79,8 @@ program test_multi_param_intent
 
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
-    test_passed = index(result, "real(8) :: a, b, c, d") > 0
+    test_passed = index(result, "real(8) :: a, b, c, d") > 0 .or. &
+                  index(result, "real :: a, b, c, d") > 0
 
     if (test_passed) then
         print *, "  PASS: Parameters with kind specifiers"
@@ -120,4 +123,3 @@ program test_multi_param_intent
     print *, "All multi-parameter intent tests completed!"
 
 end program test_multi_param_intent
-

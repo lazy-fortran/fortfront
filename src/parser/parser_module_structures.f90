@@ -8,6 +8,7 @@ module parser_module_structures_module
                            push_assignment, push_identifier, push_literal
     use parser_declarations, only: parse_declaration
     use parser_procedure_definitions_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_types, only: LITERAL_STRING
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
@@ -22,6 +23,7 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: module_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
         type(token_t) :: token
         character(len=:), allocatable :: module_name
         integer :: line, column
@@ -160,7 +162,7 @@ contains
                 ! Parse the subroutine and add to procedure list
                 block
                     integer :: proc_index
-                    proc_index = parse_subroutine_definition(parser, arena)
+                    proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
                     if (proc_index > 0) then
                         procedure_indices = [procedure_indices, proc_index]
                     end if
@@ -173,7 +175,7 @@ contains
                 ! Parse the function and add to procedure list
                 block
                     integer :: proc_index
-                    proc_index = parse_function_definition(parser, arena)
+                    proc_index = parse_function_definition(parser, arena, prefix_buffer)
                     if (proc_index > 0) then
                         procedure_indices = [procedure_indices, proc_index]
                     end if

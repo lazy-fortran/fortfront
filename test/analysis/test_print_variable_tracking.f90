@@ -3,6 +3,7 @@ program test_print_variable_tracking
     use lexer_core, only: tokenize_core, token_t
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_subroutine_definition
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     implicit none
@@ -32,6 +33,7 @@ contains
         character(len=:), allocatable :: identifiers(:)
         logical :: found_arg
         integer :: i
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing variable usage in simple print statement..."
 
@@ -44,7 +46,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             write (error_unit, *) "FAILED: Could not parse subroutine"
@@ -99,6 +101,7 @@ contains
         character(len=:), allocatable :: identifiers(:)
         logical :: found_x, found_y
         integer :: i
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing variable usage in print with multiple variables..."
 
@@ -110,7 +113,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             write (error_unit, *) "FAILED: Could not parse subroutine"
@@ -157,6 +160,7 @@ contains
         character(len=:), allocatable :: identifiers(:)
         logical :: found_a, found_b
         integer :: i
+        type(parser_prefix_buffer_t) :: prefix_buffer
 
         print *, "Testing variable usage in print with expression..."
 
@@ -168,7 +172,7 @@ contains
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        sub_index = parse_subroutine_definition(parser, arena)
+        sub_index = parse_subroutine_definition(parser, arena, prefix_buffer)
 
         if (sub_index <= 0) then
             write (error_unit, *) "FAILED: Could not parse subroutine"
