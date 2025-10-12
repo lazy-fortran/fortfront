@@ -25,6 +25,7 @@ contains
         character(len=1), parameter :: nl = new_line('A')
 
         input_code = "module math_interface" // nl // &
+                     "    use, intrinsic :: iso_fortran_env, only: dp => real64" // nl // &
                      "    implicit none" // nl // &
                      "" // nl // &
                      "    interface add" // nl // &
@@ -40,8 +41,8 @@ contains
                      "    end function add_int" // nl // &
                      "" // nl // &
                      "    function add_real(a, b) result(c)" // nl // &
-                     "        real, intent(in) :: a, b" // nl // &
-                     "        real :: c" // nl // &
+                     "        real(dp), intent(in) :: a, b" // nl // &
+                     "        real(dp) :: c" // nl // &
                      "        c = a + b" // nl // &
                      "    end function add_real" // nl // &
                      "" // nl // &
@@ -111,8 +112,8 @@ contains
         type(parser_prefix_buffer_t) :: prefix_buffer
         integer :: interface_index
         character(len=1), parameter :: nl = new_line('A')
-        character(len=*), parameter :: expected_fragment = &
-            "unexpected token 'unexpected_token' in interface block."
+        character(len=*), parameter :: expected_fragment = "unexpected token '" // &
+            "unexpected_token' in interface block."
 
         input_code = "interface add" // nl // &
                      "    unexpected_token" // nl // &

@@ -736,6 +736,7 @@ contains
         class(module_procedure_node), intent(inout) :: lhs
         class(module_procedure_node), intent(in) :: rhs
         integer :: n
+        type(string_t), allocatable :: tmp(:)
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -749,11 +750,13 @@ contains
 
         if (allocated(rhs%procedure_names)) then
             n = size(rhs%procedure_names)
-            if (allocated(lhs%procedure_names)) deallocate (lhs%procedure_names)
-            allocate (lhs%procedure_names(n))
-            lhs%procedure_names = rhs%procedure_names
+            allocate (tmp(n))
+            tmp = rhs%procedure_names
+            call move_alloc(tmp, lhs%procedure_names)
         else
-            if (allocated(lhs%procedure_names)) deallocate (lhs%procedure_names)
+            if (allocated(lhs%procedure_names)) then
+                call move_alloc(lhs%procedure_names, tmp)
+            end if
         end if
     end subroutine module_procedure_assign
 

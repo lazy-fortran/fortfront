@@ -737,7 +737,8 @@ contains
             token = parser%peek()
 
             ! Detect end of interface block
-            if (token%kind == TK_KEYWORD .and. trim(to_lower_local(token%text)) == "end") then
+            if (token%kind == TK_KEYWORD .and. &
+                trim(to_lower_local(token%text)) == "end") then
                 block
                     type(token_t) :: next_token
                     next_token = parser%get_token_at_index(parser%current_token + 1)
@@ -756,7 +757,8 @@ contains
             end if
 
             ! Parse module procedure statements inside the interface
-            if (token%kind == TK_KEYWORD .and. trim(to_lower_local(token%text)) == "module") then
+            if (token%kind == TK_KEYWORD .and. &
+                trim(to_lower_local(token%text)) == "module") then
                 stmt_index = parse_module_procedure_statement(parser, arena)
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
@@ -771,8 +773,8 @@ contains
             end if
 
             ! Report unexpected tokens instead of silently skipping them
-            call parser%error("Unexpected token '" // trim(token%text) // &
-                               "' in interface block.")
+            call parser%error("Unexpected token '"//trim(token%text)// &
+                              "' in interface block.")
             token = parser%consume()
         end do
 
@@ -822,8 +824,8 @@ contains
                 if (trim(token%text) == ",") then
                     token = parser%consume()
                 else
-                    call parser%error("Unexpected operator '" // &
-                                      trim(token%text) // &
+                    call parser%error("Unexpected operator '"// &
+                                      trim(token%text)// &
                                       "' in module procedure list.")
                     token = parser%consume()
                     exit
@@ -833,8 +835,8 @@ contains
             case (TK_WHITESPACE)
                 token = parser%consume()
             case default
-                call parser%error("Unexpected token '" // trim(token%text) // &
-                                   "' in module procedure list.")
+                call parser%error("Unexpected token '"//trim(token%text)// &
+                                  "' in module procedure list.")
                 token = parser%consume()
                 exit
             end select
