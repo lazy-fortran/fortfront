@@ -6,7 +6,8 @@ module parser_module_structures_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal
-    use parser_declarations, only: parse_declaration
+    use parser_declarations, only: parse_declaration, parse_derived_type_def, &
+                                   parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
@@ -89,6 +90,22 @@ contains
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
                         cycle  ! Continue to next iteration
+                    case ("type")
+                        if (parser_is_at_type_definition(parser)) then
+                            stmt_index = parse_derived_type_def(parser, arena)
+                        else
+                            stmt_index = parse_declaration(parser, arena)
+                        end if
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
+                    case ("class")
+                        stmt_index = parse_declaration(parser, arena)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
                     case ("implicit")
                         ! Parse implicit statement
                         call parse_simple_implicit_in_module(parser, arena, stmt_index)

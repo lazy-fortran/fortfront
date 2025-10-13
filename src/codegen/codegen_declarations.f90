@@ -705,17 +705,48 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: component_code
+        character(len=:), allocatable :: header_clause
         integer :: i
 
         ! Type definition header
-        code = "type :: " // node%name // new_line('A')
+        if (node%has_attributes .and. allocated(node%attribute_clause) .and. &
+            len_trim(node%attribute_clause) > 0) then
+            header_clause = ""
+            do i = 1, len_trim(node%attribute_clause)
+                header_clause = header_clause // node%attribute_clause(i:i)
+                if (node%attribute_clause(i:i) == "," .and. i < &
+                    len_trim(node%attribute_clause)) then
+                    if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
+                        node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
+                        header_clause = header_clause // " "
+                    end if
+                end if
+            end do
+
+            if (header_clause(1:1) == ",") then
+                code = "type" // header_clause // " :: " // node%name // &
+                       new_line('A')
+            else
+                code = "type " // trim(header_clause) // " :: " // node%name // &
+                       new_line('A')
+            end if
+        else
+            code = "type :: " // node%name // new_line('A')
+        end if
 
         ! Generate components
         if (allocated(node%component_indices)) then
             do i = 1, size(node%component_indices)
                 if (node%component_indices(i) > 0 .and. &
                     node%component_indices(i) <= arena%size) then
-                    component_code = generate_code_from_arena(arena, node%component_indices(i))
+                    if (.not. allocated(arena%entries(node%component_indices(i))%node)) cycle
+                    select type (child => arena%entries(node%component_indices(i))%node)
+                    type is (derived_type_node)
+                        cycle
+                    class default
+                        component_code = generate_code_from_arena(arena, node%component_indices(i))
+                    end select
+                    if (len_trim(component_code) == 0) cycle
                     code = code // "    " // component_code // new_line('A')
                 end if
             end do
@@ -905,7 +936,7 @@ contains
 
         ! Generate rest of body (non-use statements) with proper grouping
         if (allocated(node%body_indices) .and. non_use_count > 0) then
-         body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
+            body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
                                                            context_has_executable_before_contains)
 
             ! Check if body contains implied do loops and add loop variables after implicit none

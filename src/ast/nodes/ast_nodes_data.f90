@@ -100,6 +100,8 @@ module ast_nodes_data
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
         character(len=:), allocatable :: name  ! Type name
+        character(len=:), allocatable :: attribute_clause  ! Header attributes
+        logical :: has_attributes = .false.  ! Whether header has attributes
         integer, allocatable :: component_indices(:)  ! Component indices (stack-based)
         logical :: has_parameters = .false.  ! Whether it has parameters
         integer, allocatable :: param_indices(:)  ! Parameter indices (stack-based)
@@ -314,6 +316,14 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
+        ! Handle attribute clause
+        if (allocated(rhs%attribute_clause)) then
+            lhs%attribute_clause = rhs%attribute_clause
+        else if (allocated(lhs%attribute_clause)) then
+            deallocate (lhs%attribute_clause)
+        end if
+        lhs%has_attributes = rhs%has_attributes
+
         ! Handle component_indices array
         if (allocated(rhs%component_indices)) then
             lhs%component_indices = rhs%component_indices

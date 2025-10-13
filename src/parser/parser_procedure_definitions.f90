@@ -29,7 +29,7 @@ contains
         integer :: func_index
 
         type(token_t) :: token
-     character(len=:), allocatable :: function_name, return_type_str, result_variable_name
+        character(len=:), allocatable :: function_name, return_type_str, result_variable_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword

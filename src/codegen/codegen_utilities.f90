@@ -309,6 +309,10 @@ contains
                         i = i + 1
 
                     type is (declaration_node)
+                        if (is_type_definition_declaration(node)) then
+                            i = i + 1
+                            cycle
+                        end if
                         ! Group consecutive declarations of the same type
                         if (.not. in_contains_section .and. node%initializer_index == 0) then
                             call process_grouped_declarations(arena, body_indices, i, indent_str, code)
@@ -710,6 +714,10 @@ contains
 
         select type (node => arena%entries(body_indices(i))%node)
         type is (declaration_node)
+            if (is_type_definition_declaration(node)) then
+                i = i + 1
+                return
+            end if
             ! If this is a multi-variable declaration, emit it as-is to preserve
             ! per-variable dimensions/attributes
             if (node%is_multi_declaration) then
@@ -775,6 +783,45 @@ contains
             i = j
         end select
     end subroutine process_grouped_declarations
+
+    pure logical function is_type_definition_declaration(node) result(is_header)
+        type(declaration_node), intent(in) :: node
+        character(len=:), allocatable :: normalized
+
+        if (.not. allocated(node%type_name)) then
+            is_header = .false.
+            return
+        end if
+
+        normalized = to_lower_ascii(trim(node%type_name))
+        if (normalized /= "type") then
+            is_header = .false.
+            return
+        end if
+
+        if (node%is_multi_declaration) then
+            is_header = .false.
+            return
+        end if
+
+        if (node%initializer_index /= 0) then
+            is_header = .false.
+            return
+        end if
+
+        if (node%is_array .or. node%is_allocatable .or. node%is_pointer .or. &
+            node%is_target .or. node%is_external .or. node%is_parameter) then
+            is_header = .false.
+            return
+        end if
+
+        if (.not. allocated(node%var_name)) then
+            is_header = .false.
+            return
+        end if
+
+        is_header = (len_trim(node%var_name) > 0)
+    end function is_type_definition_declaration
 
     ! Process grouped parameter declarations
     subroutine process_grouped_parameters(arena, body_indices, i, indent_str, code)

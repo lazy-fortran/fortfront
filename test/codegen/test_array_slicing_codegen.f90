@@ -1,10 +1,10 @@
 program test_array_slicing_codegen
-    use fortfront, only: emit_fortran, lex_source, parse_tokens, &
-                         analyze_semantics, token_t, &
-                         ast_arena_t, create_ast_arena
+    use fortfront, only: analyze_semantics, ast_arena_t, create_ast_arena, &
+                         emit_fortran, lex_source, parse_tokens, token_t
     implicit none
 
     logical :: all_passed
+
     all_passed = .true.
 
     if (.not. test_basic_slices()) all_passed = .false.
@@ -15,6 +15,7 @@ program test_array_slicing_codegen
         print *, 'All array slicing codegen tests passed!'
     else
         print *, 'Some array slicing codegen tests failed!'
+        stop 1
     end if
 
 contains
@@ -24,10 +25,12 @@ contains
         type(ast_arena_t) :: arena
         character(len=:), allocatable :: error_msg, code, source
         integer :: root
+
         test_basic_slices = .true.
 
         source = &
             'program p' // new_line('a') // &
+            '  implicit none' // new_line('a') // &
             '  integer :: arr(5)' // new_line('a') // &
             '  arr(2:4) = [10, 20, 30]' // new_line('a') // &
             'end program p'
@@ -35,6 +38,7 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
+
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
                 print *, '  FAIL: parse error: ', trim(error_msg)
@@ -43,8 +47,8 @@ contains
             end if
         end if
 
-        call analyze_semantics(arena, root)
         call emit_fortran(arena, root, code)
+
         if (.not. allocated(code)) then
             print *, '  FAIL: no generated code'
             test_basic_slices = .false.
@@ -57,8 +61,8 @@ contains
             return
         end if
 
-        ! Array constructor can be [] or (/ /) depending on configuration
-        if (index(code, '[10, 20, 30]') == 0 .and. index(code, '(/10, 20, 30/)') == 0) then
+        if (index(code, '[10, 20, 30]') == 0 .and. &
+            index(code, '(/10, 20, 30/)') == 0) then
             print *, '  FAIL: missing array constructor for RHS'
             test_basic_slices = .false.
             return
@@ -70,10 +74,12 @@ contains
         type(ast_arena_t) :: arena
         character(len=:), allocatable :: error_msg, code, source
         integer :: root
+
         test_empty_bounds = .true.
 
         source = &
             'program p' // new_line('a') // &
+            '  implicit none' // new_line('a') // &
             '  integer :: arr(5)' // new_line('a') // &
             '  arr(:3) = arr(:3)' // new_line('a') // &
             '  arr(2:) = arr(2:)' // new_line('a') // &
@@ -83,6 +89,7 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
+
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
                 print *, '  FAIL: parse error: ', trim(error_msg)
@@ -93,6 +100,7 @@ contains
 
         call analyze_semantics(arena, root)
         call emit_fortran(arena, root, code)
+
         if (.not. allocated(code)) then
             print *, '  FAIL: no generated code'
             test_empty_bounds = .false.
@@ -104,12 +112,13 @@ contains
             test_empty_bounds = .false.
             return
         end if
+
         if (index(code, 'arr(2:)') == 0) then
             print *, '  FAIL: missing arr(2:)'
             test_empty_bounds = .false.
             return
         end if
-        ! Expect a full-range slice for 1-D array
+
         if (index(code, 'arr(:)') == 0) then
             print *, '  FAIL: missing arr(:)'
             test_empty_bounds = .false.
@@ -122,10 +131,12 @@ contains
         type(ast_arena_t) :: arena
         character(len=:), allocatable :: error_msg, code, source
         integer :: root
+
         test_multidim_slices = .true.
 
         source = &
             'program p' // new_line('a') // &
+            '  implicit none' // new_line('a') // &
             '  integer :: b(4,4)' // new_line('a') // &
             '  b(1:2, :3) = 0' // new_line('a') // &
             'end program p'
@@ -133,6 +144,7 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
+
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
                 print *, '  FAIL: parse error: ', trim(error_msg)
@@ -143,13 +155,15 @@ contains
 
         call analyze_semantics(arena, root)
         call emit_fortran(arena, root, code)
+
         if (.not. allocated(code)) then
             print *, '  FAIL: no generated code'
             test_multidim_slices = .false.
             return
         end if
 
-        if (index(code, 'b(1:2, :3)') == 0 .and. index(code, 'b(1:2,:3)') == 0) then
+        if (index(code, 'b(1:2, :3)') == 0 .and. &
+            index(code, 'b(1:2,:3)') == 0) then
             print *, '  FAIL: missing multidimensional slice b(1:2, :3)'
             test_multidim_slices = .false.
             return
