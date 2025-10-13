@@ -92,7 +92,6 @@ contains
 
                         lhs_parser = create_parser_state(lhs_tokens)
                         target_index = parse_range(lhs_parser, arena)
-                        print *, 'DEBUG parser target id:', trim(id_token%text), 'index:', target_index
                     end block
 
                     do while (.not. parser%is_at_end())
@@ -108,7 +107,6 @@ contains
                     end do
 
                     value_index = parse_range(parser, arena)
-                    print *, 'DEBUG parser value id:', trim(id_token%text), 'index:', value_index
                     if (value_index > 0 .and. target_index > 0) then
                         if (.not. allocated(assignment_op)) assignment_op = "="
                         stmt_index = push_assignment(arena, target_index, value_index, &
@@ -143,17 +141,31 @@ contains
         if (.not. saw_equals) return
 
         pos = parser%current_token
-        do while (pos < size(parser%tokens))
-            if (parser%tokens(pos)%kind == TK_OPERATOR) then
-                if (parser%tokens(pos)%text == ",") then
-                    is_multi_var_assignment = .true.
-                    return
-                else if (parser%tokens(pos)%text == "=") then
-                    exit
+        block
+            integer :: paren_depth
+            character(len=:), allocatable :: text
+            paren_depth = 0
+
+            do while (pos < size(parser%tokens))
+                if (parser%tokens(pos)%kind == TK_OPERATOR) then
+                    text = parser%tokens(pos)%text
+                    select case (text)
+                    case ("(", "[")
+                        paren_depth = paren_depth + 1
+                    case (")", "]")
+                        if (paren_depth > 0) paren_depth = paren_depth - 1
+                    case (",")
+                        if (paren_depth == 0) then
+                            is_multi_var_assignment = .true.
+                            return
+                        end if
+                    case ("=")
+                        if (paren_depth == 0) exit
+                    end select
                 end if
-            end if
-            pos = pos + 1
-        end do
+                pos = pos + 1
+            end do
+        end block
     end function is_multi_var_assignment
 
     subroutine parse_multi_variable_assignment(parser, arena, stmt_index, extra_indices)
