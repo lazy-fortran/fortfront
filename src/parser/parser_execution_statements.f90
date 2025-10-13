@@ -1,21 +1,28 @@
 module parser_execution_statements_module
     ! Parser module for execution statement types (call, program)
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
-    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_STRING, TK_NEWLINE, TK_KEYWORD
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
+                          TK_STRING, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
+                          TK_COMMENT, TK_WHITESPACE, to_lower
+    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, &
+                                 TK_STRING, TK_NEWLINE, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module, only: parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
                                    parse_derived_type_def, parser_is_at_type_definition
-    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_definition_statements_module, only: parse_function_definition, &
+                                                   parse_subroutine_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_assignment_module, only: parse_assignment_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement, parse_write_statement
-    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
-    use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
-                                                parse_error_stop_statement, parse_return_statement, &
-                                                parse_cycle_statement, parse_exit_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, &
+                                               parse_deallocate_statement
+    use parser_control_statements_module, only: parse_stop_statement, &
+                                                parse_goto_statement, &
+                                                parse_error_stop_statement, &
+                                                parse_return_statement, &
+                                                parse_cycle_statement, &
+                                                parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
                                           parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
@@ -101,7 +108,6 @@ contains
                 lowered = ""
             end if
 
-
             ! Check for 'end program'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -163,7 +169,8 @@ contains
                         call prefix_buffer%clear()
                     end if
                     call parse_simple_implicit(parser, arena, stmt_index)
-                case ("real", "integer", "logical", "character", "complex", "double", "class")
+                case ("real", "integer", "logical", "character", "complex", &
+                      "double", "class")
                     if (allocated(pending_prefixes)) then
                         deallocate (pending_prefixes)
                         call prefix_buffer%clear()
@@ -293,7 +300,8 @@ contains
                 if (trim(to_lower(token%text)) == 'class') then
                     call handle_variable_declaration(parser, arena, stmt_index)
                 else
-                    call parse_assignment_statement(parser, arena, stmt_index, additional_execution_indices)
+                    call parse_assignment_statement(parser, arena, stmt_index, &
+                                                    additional_execution_indices)
                 end if
             case (TK_NEWLINE, TK_COMMENT)
                 token = parser%consume()
@@ -317,7 +325,7 @@ contains
         end do
     end subroutine parse_program_body
 
-    ! Parse a simple if statement (minimal implementation to avoid circular dependencies)
+    ! Parse a simple if statement with optional else block
     function parse_simple_if(parser, arena) result(if_index)
         use parser_expressions_module, only: parse_expression
         type(parser_state_t), intent(inout) :: parser
@@ -326,9 +334,12 @@ contains
         type(token_t) :: token
         integer :: condition_index, line, column
         integer, allocatable :: then_body_indices(:)
+        integer, allocatable :: else_body_indices(:)
+        logical :: in_else, has_end_if
 
         if_index = 0
         allocate (then_body_indices(0))
+        allocate (else_body_indices(0))
 
         ! Consume 'if' keyword
         token = parser%consume()
@@ -339,7 +350,6 @@ contains
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            ! Create a token array from current position for expression parser
             block
                 type(token_t), allocatable, target :: expr_tokens(:)
                 integer :: start_pos, end_pos, paren_depth, expr_len
@@ -349,7 +359,6 @@ contains
                 end_pos = start_pos
                 paren_depth = 1
 
-                ! Find the matching closing parenthesis
                 do while (end_pos <= size(parser%tokens) .and. paren_depth > 0)
                     if (parser%tokens(end_pos)%text == "(") then
                         paren_depth = paren_depth + 1
@@ -359,7 +368,6 @@ contains
                     if (paren_depth > 0) end_pos = end_pos + 1
                 end do
 
-                ! Extract tokens for expression
                 expr_len = max(end_pos - start_pos, 0)
                 if (end_pos <= size(parser%tokens)) then
                     sentinel_location = parser%tokens(end_pos)
@@ -403,46 +411,116 @@ contains
             token = parser%consume()
         end if
 
-        ! Parse body until 'end if' or 'else' or 'elseif'
+        in_else = .false.
         do while (.not. parser%is_at_end())
             token = parser%peek()
 
-            ! Check for end of if
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "if") then
+            if (token%kind == TK_KEYWORD) then
+                select case (token%text)
+                case ("end")
+                    has_end_if = .false.
+                    block
+                        type(token_t) :: next_token
+                        integer :: next_index
+
+                        next_index = parser%current_token + 1
+                        if (next_index <= size(parser%tokens)) then
+                            next_token = parser%tokens(next_index)
+                            has_end_if = next_token%kind == TK_KEYWORD
+                            if (has_end_if) then
+                                has_end_if = next_token%text == "if"
+                            end if
+                        end if
+                    end block
+                    if (has_end_if) then
                         token = parser%consume()  ! consume 'end'
                         token = parser%consume()  ! consume 'if'
                         exit
                     end if
-                end if
-            else if (token%kind == TK_KEYWORD .and. &
-                     (token%text == "else" .or. token%text == "elseif")) then
-                ! For simplicity, skip else/elseif blocks for now
-                do while (.not. parser%is_at_end())
-                    token = parser%peek()
-                    if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                        if (parser%current_token + 1 <= size(parser%tokens)) then
-                            if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                                parser%tokens(parser%current_token + 1)%text == "if") then
-                                token = parser%consume()  ! consume 'end'
-                                token = parser%consume()  ! consume 'if'
+                case ("elseif")
+                    ! Fall back to original behavior: skip remainder of the block
+                    do while (.not. parser%is_at_end())
+                        token = parser%peek()
+                        if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                            has_end_if = .false.
+                            block
+                                type(token_t) :: next_token
+                                integer :: next_index
+
+                                next_index = parser%current_token + 1
+                                if (next_index <= size(parser%tokens)) then
+                                    next_token = parser%tokens(next_index)
+                                    has_end_if = next_token%kind == TK_KEYWORD
+                                    if (has_end_if) then
+                                        has_end_if = next_token%text == "if"
+                                    end if
+                                end if
+                            end block
+                            if (has_end_if) then
+                                token = parser%consume()
+                                token = parser%consume()
                                 exit
                             end if
                         end if
+                        token = parser%consume()
+                    end do
+                    exit
+                case ("else")
+                    ! Distinguish between ELSE and ELSE IF
+                    token = parser%consume()  ! consume 'else'
+                    if (parser%current_token <= size(parser%tokens)) then
+                        block
+                            type(token_t) :: current_token_obj
+
+                            current_token_obj = parser%tokens(parser%current_token)
+                            if (current_token_obj%kind == TK_KEYWORD .and. &
+                                current_token_obj%text == "if") then
+                                ! Treat ELSE IF like the old implementation (skip block)
+                                do while (.not. parser%is_at_end())
+                                    token = parser%peek()
+                                    if (token%kind == TK_KEYWORD .and. &
+                                        token%text == "end") then
+                                        has_end_if = .false.
+                                        block
+                                            type(token_t) :: next_token
+                                            integer :: next_index
+
+                                            next_index = parser%current_token + 1
+                                            if (next_index <= size(parser%tokens)) then
+                                                next_token = parser%tokens(next_index)
+                                                has_end_if = next_token%kind == TK_KEYWORD
+                                                if (has_end_if) then
+                                                    has_end_if = next_token%text == "if"
+                                                end if
+                                            end if
+                                        end block
+                                        if (has_end_if) then
+                                            token = parser%consume()
+                                            token = parser%consume()
+                                            exit
+                                        end if
+                                    end if
+                                    token = parser%consume()
+                                end do
+                                exit
+                            end if
+                        end block
                     end if
-                    token = parser%consume()
-                end do
-                exit
+                    in_else = .true.
+                    cycle
+                end select
             end if
 
-            ! Parse statement in if body
-            call parse_if_body_statement(parser, arena, then_body_indices)
+            if (in_else) then
+                call parse_if_body_statement(parser, arena, else_body_indices)
+            else
+                call parse_if_body_statement(parser, arena, then_body_indices)
+            end if
         end do
 
-        ! Create if node
+        if (.not. allocated(else_body_indices)) allocate (else_body_indices(0))
         if_index = push_if(arena, condition_index, then_body_indices, &
+                           else_body_indices=else_body_indices, &
                            line=line, column=column)
     end function parse_simple_if
 
@@ -468,8 +546,8 @@ contains
                 token = parser%consume()
             end select
         case (TK_IDENTIFIER)
-            ! Try parsing an assignment
-            call parse_assignment_statement(parser, arena, stmt_index, additional_execution_indices)
+            call parse_assignment_statement(parser, arena, stmt_index, &
+                                            additional_execution_indices)
         case (TK_NEWLINE)
             token = parser%consume()
         case default
@@ -515,10 +593,12 @@ contains
         ! Create implicit statement node
         if (implicit_type == "none") then
             stmt_index = push_implicit_statement(arena, .true., &
-                                                 line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, &
+                                                 column=implicit_token%column)
         else
             stmt_index = push_implicit_statement(arena, .false., &
-                                                 line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, &
+                                                 column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit
 
