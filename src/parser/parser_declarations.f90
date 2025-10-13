@@ -177,6 +177,42 @@ contains
         end if
     end subroutine strip_outer_parentheses
 
+    subroutine clear_derived_type_storage(type_spec)
+        type(type_specifier_t), intent(inout) :: type_spec
+
+        if (allocated(type_spec%derived_type_tokens)) then
+            deallocate (type_spec%derived_type_tokens)
+        end if
+        if (allocated(type_spec%derived_parameter_tokens)) then
+            deallocate (type_spec%derived_parameter_tokens)
+        end if
+        if (allocated(type_spec%derived_parameter_nodes)) then
+            deallocate (type_spec%derived_parameter_nodes)
+        end if
+        type_spec%derived_type_name = ""
+        type_spec%derived_type_module = ""
+        type_spec%has_derived_type_parameters = .false.
+        type_spec%derived_type_identifier = 0
+    end subroutine clear_derived_type_storage
+
+    subroutine initialize_type_specifier(type_spec, token)
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t), intent(in) :: token
+
+        call clear_derived_type_storage(type_spec)
+        type_spec%type_name = trim(token%text)
+        type_spec%base_keyword = trim(token%text)
+        type_spec%derived_type_name = ""
+        type_spec%derived_type_module = ""
+        type_spec%derived_type_identifier = 0
+        type_spec%is_derived_type = .false.
+        type_spec%has_derived_type_parameters = .false.
+        type_spec%has_kind = .false.
+        type_spec%kind_value = 0
+        type_spec%line = token%line
+        type_spec%column = token%column
+    end subroutine initialize_type_specifier
+
     subroutine split_derived_type_name_and_params(tokens, name_tokens, param_tokens)
         type(token_t), intent(in) :: tokens(:)
         type(token_t), allocatable, intent(out) :: name_tokens(:)
@@ -615,6 +651,243 @@ contains
         end do
     end function parser_is_at_type_definition
 
+    subroutine maybe_expand_double_precision(parser, type_spec, base_lower)
+        type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t), intent(inout) :: type_spec
+        character(len=:), allocatable, intent(inout) :: base_lower
+        type(token_t) :: next_token
+        character(len=:), allocatable :: next_lower
+
+        if (base_lower /= "double") return
+        if (parser%is_at_end()) return
+
+        next_token = parser%peek()
+        next_lower = to_lower(trim(next_token%text))
+
+        if (next_lower == "precision") then
+            next_token = parser%consume()
+            type_spec%type_name = "double precision"
+            type_spec%base_keyword = "double precision"
+            base_lower = "double precision"
+        end if
+    end subroutine maybe_expand_double_precision
+
+    subroutine maybe_consume_character_star(parser, type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t) :: token
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%text /= "*") return
+
+        token = parser%consume()
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        select case (token%text)
+        case ("*")
+            type_spec%has_kind = .true.
+            type_spec%kind_value = -1
+            token = parser%consume()
+        case default
+            if (token%kind == TK_NUMBER) then
+                read (token%text, *) type_spec%kind_value
+                type_spec%has_kind = .true.
+                token = parser%consume()
+            end if
+        end select
+    end subroutine maybe_consume_character_star
+
+    subroutine parse_parenthesized_spec(parser, arena, base_lower, type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: base_lower
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t) :: token
+
+        token = parser%consume()
+
+        select case (base_lower)
+        case ("type", "class")
+            call parse_parenthesized_derived(parser, arena, type_spec)
+        case ("character")
+            call parse_parenthesized_character(parser, type_spec)
+        case default
+            call skip_parenthesized_content(parser)
+        end select
+    end subroutine parse_parenthesized_spec
+
+    subroutine parse_parenthesized_derived(parser, arena, type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t), allocatable :: collected_tokens(:)
+        character(len=:), allocatable :: derived_text
+
+        call clear_derived_type_storage(type_spec)
+        type_spec%is_derived_type = .true.
+
+        call gather_derived_type_tokens(parser, collected_tokens)
+        if (allocated(collected_tokens)) then
+            call analyze_derived_type_tokens(type_spec, collected_tokens, arena)
+            derived_text = tokens_to_text(collected_tokens)
+            call move_alloc(collected_tokens, type_spec%derived_type_tokens)
+        else
+            derived_text = ""
+        end if
+
+        if (len_trim(derived_text) > 0) then
+            if (len_trim(type_spec%derived_type_name) == 0) then
+                type_spec%derived_type_name = trim(adjustl(derived_text))
+            end if
+            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
+                                  derived_text // ")"
+        else
+            type_spec%type_name = trim(type_spec%base_keyword) // "()"
+        end if
+    end subroutine parse_parenthesized_derived
+
+    subroutine gather_derived_type_tokens(parser, tokens)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), allocatable, intent(out) :: tokens(:)
+        type(token_t) :: token
+        integer :: depth
+
+        if (allocated(tokens)) deallocate (tokens)
+
+        depth = 0
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%text)
+            case (")")
+                if (depth == 0) then
+                    token = parser%consume()
+                    exit
+                else
+                    depth = depth - 1
+                    call append_token(tokens, token)
+                    token = parser%consume()
+                end if
+            case ("(")
+                depth = depth + 1
+                call append_token(tokens, token)
+                token = parser%consume()
+            case default
+                call append_token(tokens, token)
+                token = parser%consume()
+            end select
+        end do
+    end subroutine gather_derived_type_tokens
+
+    subroutine parse_parenthesized_character(parser, type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t) :: token
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            call handle_character_parameter(parser, type_spec)
+            call consume_comma_if_present(parser)
+        end do
+    end subroutine parse_parenthesized_character
+
+    subroutine handle_character_parameter(parser, type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(token_t) :: token
+        character(len=:), allocatable :: normalized
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        normalized = to_lower(trim(adjustl(token%text)))
+
+        select case (normalized)
+        case ("len")
+            token = parser%consume()
+            call consume_optional_equals(parser)
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                select case (token%text)
+                case ("*")
+                    type_spec%has_kind = .true.
+                    type_spec%kind_value = -1
+                    token = parser%consume()
+                case default
+                    if (token%kind == TK_NUMBER) then
+                        read (token%text, *) type_spec%kind_value
+                        type_spec%has_kind = .true.
+                        token = parser%consume()
+                    end if
+                end select
+            end if
+        case ("kind")
+            token = parser%consume()
+            call consume_optional_equals(parser)
+            if (.not. parser%is_at_end()) then
+                token = parser%consume()
+            end if
+        case default
+            if (token%kind == TK_NUMBER) then
+                read (token%text, *) type_spec%kind_value
+                type_spec%has_kind = .true.
+                token = parser%consume()
+            else if (token%text == "*") then
+                type_spec%has_kind = .true.
+                type_spec%kind_value = -1
+                token = parser%consume()
+            else
+                token = parser%consume()
+            end if
+        end select
+    end subroutine handle_character_parameter
+
+    subroutine consume_optional_equals(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%text == "=") then
+            token = parser%consume()
+        end if
+    end subroutine consume_optional_equals
+
+    subroutine consume_comma_if_present(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%text == ",") then
+            token = parser%consume()
+        end if
+    end subroutine consume_comma_if_present
+
+    subroutine skip_parenthesized_content(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+            token = parser%consume()
+            call consume_comma_if_present(parser)
+        end do
+    end subroutine skip_parenthesized_content
+
     ! Parse type specifier (e.g., "integer(kind=8)", "character(len=*)")
     function parse_type_specifier(parser, arena) result(type_spec)
         type(parser_state_t), intent(inout) :: parser
@@ -622,189 +895,23 @@ contains
         type(type_specifier_t) :: type_spec
 
         type(token_t) :: token
-        type(token_t) :: next_token
         character(len=:), allocatable :: base_lower
-        character(len=:), allocatable :: next_lower
 
         token = parser%consume()
-        type_spec%type_name = trim(token%text)
-        type_spec%base_keyword = trim(token%text)
-        type_spec%derived_type_name = ""
-        type_spec%derived_type_module = ""
-        if (allocated(type_spec%derived_type_tokens)) then
-            deallocate (type_spec%derived_type_tokens)
-        end if
-        if (allocated(type_spec%derived_parameter_tokens)) then
-            deallocate (type_spec%derived_parameter_tokens)
-        end if
-        if (allocated(type_spec%derived_parameter_nodes)) then
-            deallocate (type_spec%derived_parameter_nodes)
-        end if
-        type_spec%is_derived_type = .false.
-        type_spec%has_derived_type_parameters = .false.
-        type_spec%derived_type_identifier = 0
-        type_spec%line = token%line
-        type_spec%column = token%column
-        type_spec%has_kind = .false.
-        type_spec%kind_value = 0
+        call initialize_type_specifier(type_spec, token)
 
-        base_lower = to_lower(trim(token%text))
+        base_lower = to_lower(trim(type_spec%base_keyword))
+        call maybe_expand_double_precision(parser, type_spec, base_lower)
+        base_lower = to_lower(trim(type_spec%base_keyword))
 
-        ! Handle "double precision" as a two-word type name
-        if (base_lower == "double" .and. .not. parser%is_at_end()) then
-            next_token = parser%peek()
-            next_lower = to_lower(trim(next_token%text))
-            if (next_lower == "precision") then
-                next_token = parser%consume()
-                type_spec%type_name = "double precision"
-                type_spec%base_keyword = "double precision"
-                base_lower = "double precision"
-            end if
+        if (base_lower == "character") then
+            call maybe_consume_character_star(parser, type_spec)
         end if
 
-        ! Handle old-style character*len notation
-        if (base_lower == "character" .and. .not. parser%is_at_end()) then
-            token = parser%peek()
-            if (token%text == "*") then
-                token = parser%consume()
-                if (.not. parser%is_at_end()) then
-                    token = parser%peek()
-                    if (token%text == "*") then
-                        type_spec%has_kind = .true.
-                        type_spec%kind_value = -1
-                        token = parser%consume()
-                    else if (token%kind == TK_NUMBER) then
-                        read (token%text, *) type_spec%kind_value
-                        type_spec%has_kind = .true.
-                        token = parser%consume()
-                    end if
-                end if
-            end if
-        end if
-
-        ! Check for parenthesized specification (len/kind or derived type name)
         if (.not. parser%is_at_end()) then
             token = parser%peek()
             if (token%text == "(") then
-                token = parser%consume()
-                if (base_lower == "type" .or. base_lower == "class") then
-                    block
-                        character(len=:), allocatable :: derived_text
-                        integer :: nested_level
-                        type(token_t), allocatable :: collected_tokens(:)
-
-                        nested_level = 0
-                        type_spec%is_derived_type = .true.
-
-                        if (allocated(type_spec%derived_type_tokens)) then
-                            deallocate (type_spec%derived_type_tokens)
-                        end if
-
-                        do while (.not. parser%is_at_end())
-                            token = parser%peek()
-                            select case (token%text)
-                            case (")")
-                                if (nested_level == 0) then
-                                    token = parser%consume()
-                                    exit
-                                else
-                                    nested_level = nested_level - 1
-                                    call append_token(collected_tokens, token)
-                                    token = parser%consume()
-                                end if
-                            case ("(")
-                                nested_level = nested_level + 1
-                                call append_token(collected_tokens, token)
-                                token = parser%consume()
-                            case default
-                                call append_token(collected_tokens, token)
-                                token = parser%consume()
-                            end select
-                        end do
-
-                        if (allocated(collected_tokens)) then
-                            call analyze_derived_type_tokens(type_spec, collected_tokens, arena)
-                            derived_text = tokens_to_text(collected_tokens)
-                            call move_alloc(collected_tokens, type_spec%derived_type_tokens)
-                        else
-                            derived_text = ""
-                        end if
-
-                        if (len_trim(derived_text) > 0) then
-                            if (type_spec%is_derived_type) then
-                                if (len_trim(type_spec%derived_type_name) == 0) then
-                                    type_spec%derived_type_name = trim(adjustl(derived_text))
-                                end if
-                            end if
-                            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                                                  derived_text // ")"
-                        else
-                            type_spec%type_name = trim(type_spec%base_keyword) // "()"
-                        end if
-                    end block
-                else
-                    do while (.not. parser%is_at_end())
-                        token = parser%peek()
-
-                        if (token%text == ")") then
-                            token = parser%consume()
-                            exit
-                        end if
-
-                        if (base_lower == "character") then
-                            select case (to_lower(trim(token%text)))
-                            case ("len")
-                                token = parser%consume()
-                                if (.not. parser%is_at_end()) then
-                                    token = parser%peek()
-                                    if (token%text == "=") then
-                                        token = parser%consume()
-                                        token = parser%peek()
-                                    end if
-                                    if (token%text == "*") then
-                                        type_spec%has_kind = .true.
-                                        type_spec%kind_value = -1
-                                        token = parser%consume()
-                                    else if (token%kind == TK_NUMBER) then
-                                        read (token%text, *) type_spec%kind_value
-                                        type_spec%has_kind = .true.
-                                        token = parser%consume()
-                                    end if
-                                end if
-                            case ("kind")
-                                token = parser%consume()
-                                if (.not. parser%is_at_end()) then
-                                    token = parser%peek()
-                                    if (token%text == "=") then
-                                        token = parser%consume()
-                                    end if
-                                    if (.not. parser%is_at_end()) token = parser%consume()
-                                end if
-                            case default
-                                if (token%kind == TK_NUMBER) then
-                                    read (token%text, *) type_spec%kind_value
-                                    type_spec%has_kind = .true.
-                                    token = parser%consume()
-                                else if (token%text == "*") then
-                                    type_spec%has_kind = .true.
-                                    type_spec%kind_value = -1
-                                    token = parser%consume()
-                                else
-                                    token = parser%consume()
-                                end if
-                            end select
-                        else
-                            ! Non-character types: skip content
-                            token = parser%consume()
-                        end if
-
-                        if (parser%is_at_end()) exit
-                        token = parser%peek()
-                        if (token%text == ",") then
-                            token = parser%consume()
-                        end if
-                    end do
-                end if
+                call parse_parenthesized_spec(parser, arena, base_lower, type_spec)
             end if
         end if
     end function parse_type_specifier
