@@ -21,6 +21,10 @@ module parser_declarations
     ! Type specifier result type for structured type information
     type, public :: type_specifier_t
         character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: base_keyword
+        character(len=:), allocatable :: derived_type_name
+        type(token_t), allocatable :: derived_type_tokens(:)
+        logical :: is_derived_type = .false.
         logical :: has_kind = .false.
         integer :: kind_value = 0
         integer :: line = 0
@@ -42,6 +46,40 @@ module parser_declarations
     end type declaration_attributes_t
 
 contains
+
+    subroutine append_token(tokens, token)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), intent(in) :: token
+        type(token_t), allocatable :: temp(:)
+        integer :: current_size
+
+        if (.not. allocated(tokens)) then
+            allocate (tokens(1))
+            tokens(1) = token
+        else
+            current_size = size(tokens)
+            allocate (temp(current_size + 1))
+            temp(1:current_size) = tokens
+            temp(current_size + 1) = token
+            call move_alloc(temp, tokens)
+        end if
+    end subroutine append_token
+
+    function tokens_to_text(tokens) result(text)
+        type(token_t), allocatable, intent(in) :: tokens(:)
+        character(len=:), allocatable :: text
+        integer :: i
+
+        if (.not. allocated(tokens)) then
+            text = ""
+            return
+        end if
+
+        text = ""
+        do i = 1, size(tokens)
+            text = text // tokens(i)%text
+        end do
+    end function tokens_to_text
 
     logical function is_type_attribute_token(text) result(is_attribute)
         character(len=*), intent(in) :: text
@@ -223,25 +261,40 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t) :: type_spec
 
-        type(token_t) :: token, next_token
+        type(token_t) :: token
+        type(token_t) :: next_token
+        character(len=:), allocatable :: base_lower
+        character(len=:), allocatable :: next_lower
+
         token = parser%consume()
-        type_spec%type_name = trim(token%text)  ! Explicit trim for clean allocation
+        type_spec%type_name = trim(token%text)
+        type_spec%base_keyword = trim(token%text)
+        type_spec%derived_type_name = ""
+        if (allocated(type_spec%derived_type_tokens)) then
+            deallocate (type_spec%derived_type_tokens)
+        end if
+        type_spec%is_derived_type = .false.
         type_spec%line = token%line
         type_spec%column = token%column
         type_spec%has_kind = .false.
         type_spec%kind_value = 0
 
+        base_lower = to_lower(trim(token%text))
+
         ! Handle "double precision" as a two-word type name
-        if (trim(token%text) == "double" .and. .not. parser%is_at_end()) then
+        if (base_lower == "double" .and. .not. parser%is_at_end()) then
             next_token = parser%peek()
-            if (trim(next_token%text) == "precision") then
-                next_token = parser%consume()  ! consume "precision"
+            next_lower = to_lower(trim(next_token%text))
+            if (next_lower == "precision") then
+                next_token = parser%consume()
                 type_spec%type_name = "double precision"
+                type_spec%base_keyword = "double precision"
+                base_lower = "double precision"
             end if
         end if
 
         ! Handle old-style character*len notation
-        if (trim(type_spec%type_name) == "character" .and. .not. parser%is_at_end()) then
+        if (base_lower == "character" .and. .not. parser%is_at_end()) then
             token = parser%peek()
             if (token%text == "*") then
                 token = parser%consume()
@@ -265,14 +318,18 @@ contains
             token = parser%peek()
             if (token%text == "(") then
                 token = parser%consume()
-                if (trim(type_spec%type_name) == "type" .or. &
-                    trim(type_spec%type_name) == "class") then
+                if (base_lower == "type" .or. base_lower == "class") then
                     block
                         character(len=:), allocatable :: derived_text
                         integer :: nested_level
+                        type(token_t), allocatable :: collected_tokens(:)
 
-                        derived_text = ""
                         nested_level = 0
+                        type_spec%is_derived_type = .true.
+
+                        if (allocated(type_spec%derived_type_tokens)) then
+                            deallocate (type_spec%derived_type_tokens)
+                        end if
 
                         do while (.not. parser%is_at_end())
                             token = parser%peek()
@@ -283,29 +340,33 @@ contains
                                     exit
                                 else
                                     nested_level = nested_level - 1
-                                    derived_text = derived_text // ")"
+                                    call append_token(collected_tokens, token)
                                     token = parser%consume()
                                 end if
                             case ("(")
                                 nested_level = nested_level + 1
-                                derived_text = derived_text // "("
+                                call append_token(collected_tokens, token)
                                 token = parser%consume()
                             case default
-                                if (token%kind == TK_WHITESPACE .or. token%kind == TK_NEWLINE .or. &
-                                    token%kind == TK_COMMENT) then
-                                    token = parser%consume()
-                                else
-                                    derived_text = derived_text // trim(token%text)
-                                    token = parser%consume()
-                                end if
+                                call append_token(collected_tokens, token)
+                                token = parser%consume()
                             end select
                         end do
 
-                        if (len_trim(derived_text) > 0) then
-                            type_spec%type_name = trim(type_spec%type_name) // "(" // &
-                                                  trim(derived_text) // ")"
+                        if (allocated(collected_tokens)) then
+                            derived_text = tokens_to_text(collected_tokens)
+                            call move_alloc(collected_tokens, type_spec%derived_type_tokens)
                         else
-                            type_spec%type_name = trim(type_spec%type_name) // "()"
+                            derived_text = ""
+                        end if
+
+                        if (len_trim(derived_text) > 0) then
+                            type_spec%derived_type_name = trim(adjustl(derived_text))
+                            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
+                                                  derived_text // ")"
+                        else
+                            type_spec%derived_type_name = ""
+                            type_spec%type_name = trim(type_spec%base_keyword) // "()"
                         end if
                     end block
                 else
@@ -317,8 +378,9 @@ contains
                             exit
                         end if
 
-                        if (trim(type_spec%type_name) == "character") then
-                            if (trim(token%text) == "len") then
+                        if (base_lower == "character") then
+                            select case (to_lower(trim(token%text)))
+                            case ("len")
                                 token = parser%consume()
                                 if (.not. parser%is_at_end()) then
                                     token = parser%peek()
@@ -336,8 +398,7 @@ contains
                                         token = parser%consume()
                                     end if
                                 end if
-                            else if (trim(token%text) == "kind") then
-                                ! Skip explicit character kind for now
+                            case ("kind")
                                 token = parser%consume()
                                 if (.not. parser%is_at_end()) then
                                     token = parser%peek()
@@ -346,17 +407,19 @@ contains
                                     end if
                                     if (.not. parser%is_at_end()) token = parser%consume()
                                 end if
-                            else if (token%kind == TK_NUMBER) then
-                                read (token%text, *) type_spec%kind_value
-                                type_spec%has_kind = .true.
-                                token = parser%consume()
-                            else if (token%text == "*") then
-                                type_spec%has_kind = .true.
-                                type_spec%kind_value = -1
-                                token = parser%consume()
-                            else
-                                token = parser%consume()
-                            end if
+                            case default
+                                if (token%kind == TK_NUMBER) then
+                                    read (token%text, *) type_spec%kind_value
+                                    type_spec%has_kind = .true.
+                                    token = parser%consume()
+                                else if (token%text == "*") then
+                                    type_spec%has_kind = .true.
+                                    type_spec%kind_value = -1
+                                    token = parser%consume()
+                                else
+                                    token = parser%consume()
+                                end if
+                            end select
                         else
                             ! Non-character types: skip content
                             token = parser%consume()
