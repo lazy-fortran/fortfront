@@ -4,7 +4,7 @@ module codegen_expressions
     use ast_nodes_core
     use ast_nodes_data
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
-    use ast_nodes_bounds, only: array_slice_node, range_expression_node
+    use ast_nodes_bounds, only: array_slice_node, array_bounds_node, range_expression_node
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use type_system_unified
@@ -117,7 +117,7 @@ contains
             fortran_operator = node%operator
 
             ! Check for string concatenation: if operator is '+' and we're dealing with string literals
-            if (node%operator == "+" .and. is_string_concatenation(left_code, right_code)) then
+       if (node%operator == "+" .and. is_string_concatenation(left_code, right_code)) then
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
             end if
 
@@ -249,7 +249,7 @@ contains
     end function generate_code_call_or_subscript
 
     ! Helper function to generate comma-separated element code from indices
-    function generate_elements_code_from_indices(arena, element_indices) result(elements_code)
+function generate_elements_code_from_indices(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code
@@ -323,7 +323,7 @@ contains
         ! Check if this is a real array to handle type conversion
         is_real_array = .false.
         if (node%inferred_type%kind == TARRAY) then
-            if (node%inferred_type%has_args() .and. node%inferred_type%get_args_count() > 0) then
+     if (node%inferred_type%has_args() .and. node%inferred_type%get_args_count() > 0) then
                 array_type = node%inferred_type%get_arg(1)
                 is_real_array = (array_type%kind == TREAL)
             else
@@ -333,7 +333,7 @@ contains
                         integer :: j
                         do j = 1, size(node%element_indices)
                             if (node%element_indices(j) > 0) then
-                                select type (elem_node => arena%entries(node%element_indices(j))%node)
+                    select type (elem_node => arena%entries(node%element_indices(j))%node)
                                 type is (literal_node)
                                     if (elem_node%literal_kind == LITERAL_REAL) then
                                         is_real_array = .true.
@@ -349,7 +349,7 @@ contains
 
         ! Generate elements code based on array type (for type conversion)
         if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-            elements_code = generate_elements_code_from_indices(arena, node%element_indices)
+          elements_code = generate_elements_code_from_indices(arena, node%element_indices)
         else
             elements_code = ""
         end if
@@ -358,7 +358,7 @@ contains
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
                 ! Modern syntax: [1, 2, 3]
-                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
+            if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                     code = "[" // elements_code // "]"
                 else
                     ! Empty array - needs type spec, default to integer
@@ -366,7 +366,7 @@ contains
                 end if
             else if (node%syntax_style == "implied_do") then
                 ! Implied do loop syntax: generate actual implied do loop
-                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
+            if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                     ! The element should be a do loop node
                     code = generate_implied_do_array(arena, node%element_indices(1))
                 else
@@ -375,7 +375,7 @@ contains
                 end if
             else
                 ! Legacy syntax: (/ 1, 2, 3 /)
-                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
+            if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                     code = "(/ " // elements_code // " /)"
                 else
                     ! Empty array - needs type spec, default to integer
@@ -433,7 +433,7 @@ contains
         select type (range_node => node)
         type is (range_expression_node)
             ! Generate start expression
-            if (range_node%start_index > 0 .and. range_node%start_index <= arena%size) then
+           if (range_node%start_index > 0 .and. range_node%start_index <= arena%size) then
                 start_code = generate_code_from_arena(arena, range_node%start_index)
                 start_code = trim(adjustl(start_code))
             else
@@ -449,7 +449,7 @@ contains
             end if
 
             ! Generate stride expression (optional)
-            if (range_node%stride_index > 0 .and. range_node%stride_index <= arena%size) then
+         if (range_node%stride_index > 0 .and. range_node%stride_index <= arena%size) then
                 stride_code = generate_code_from_arena(arena, range_node%stride_index)
                 stride_code = trim(adjustl(stride_code))
             else
@@ -472,8 +472,66 @@ contains
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        ! Generate array bounds code
-        code = "1:"  ! Basic bounds - needs proper dimension analysis
+        character(len=:), allocatable :: lower_code, upper_code, stride_code
+        logical :: has_lower, has_upper, has_stride
+
+        select type (bounds_node => node)
+        type is (array_bounds_node)
+            ! Assumed-size takes precedence over other flags
+            if (bounds_node%is_assumed_size) then
+                code = "*"
+                return
+            end if
+
+            ! Fast-path for assumed/deferred shape with no explicit bounds
+            if ((bounds_node%is_assumed_shape .or. bounds_node%is_deferred_shape) .and. &
+       bounds_node%lower_bound_index <= 0 .and. bounds_node%upper_bound_index <= 0 .and. &
+                bounds_node%stride_index <= 0) then
+                code = ":"
+                return
+            end if
+
+            ! Lower bound (optional)
+            if (bounds_node%lower_bound_index > 0 .and. bounds_node%lower_bound_index <= arena%size) then
+                lower_code = trim(adjustl(generate_code_from_arena( &
+                                          arena, bounds_node%lower_bound_index)))
+                has_lower = len_trim(lower_code) > 0
+            else
+                lower_code = ""
+                has_lower = .false.
+            end if
+
+            ! Upper bound (optional)
+            if (bounds_node%upper_bound_index > 0 .and. bounds_node%upper_bound_index <= arena%size) then
+                upper_code = trim(adjustl(generate_code_from_arena( &
+                                          arena, bounds_node%upper_bound_index)))
+                has_upper = len_trim(upper_code) > 0
+            else
+                upper_code = ""
+                has_upper = .false.
+            end if
+
+            ! Stride (optional)
+       if (bounds_node%stride_index > 0 .and. bounds_node%stride_index <= arena%size) then
+                stride_code = trim(adjustl(generate_code_from_arena( &
+                                           arena, bounds_node%stride_index)))
+                has_stride = len_trim(stride_code) > 0
+            else
+                stride_code = ""
+                has_stride = .false.
+            end if
+
+            ! Compose the slice text
+            if (.not. has_lower .and. .not. has_upper) then
+                code = ":"
+            else
+                code = lower_code // ":" // upper_code
+            end if
+
+            if (has_stride) code = code // ":" // stride_code
+        class default
+            code = ":"
+        end select
     end function generate_code_array_bounds
 
     function generate_code_array_slice(arena, node, node_index) result(code)
@@ -488,7 +546,7 @@ contains
         select type (slice_node => node)
         type is (array_slice_node)
             ! Generate the array part (e.g., 'name' in name(1:3))
-            if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
+           if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
                 array_code = generate_code_from_arena(arena, slice_node%array_index)
                 array_code = trim(adjustl(array_code))
             else
@@ -610,7 +668,7 @@ contains
         case ('//')
             precedence = 6
             ! Relational operators (map syntactic variants to same precedence)
-        case ('.lt.', '.le.', '.gt.', '.ge.', '.eq.', '.ne.', '<', '<=', '>', '>=', '==', '/=')
+   case ('.lt.', '.le.', '.gt.', '.ge.', '.eq.', '.ne.', '<', '<=', '>', '>=', '==', '/=')
             precedence = 5
             ! Logical NOT (unary) binds tighter than AND/OR
         case ('.not.')

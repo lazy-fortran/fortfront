@@ -7,7 +7,7 @@ module parser_dispatcher_module
     use parser_state_module
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-                                   parse_derived_type_def
+                                   parse_derived_type_def, parser_is_at_type_definition
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
                                                parse_include_statement, parse_module
@@ -55,7 +55,6 @@ contains
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
-
         ! Dispatch based on first token
         select case (first_token%kind)
         case (TK_KEYWORD)
@@ -94,7 +93,8 @@ contains
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
-            case ("real", "integer", "logical", "character", "complex", "double")
+            case ("real", "integer", "logical", "character", "complex", "double", &
+                  "class")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
@@ -117,13 +117,17 @@ contains
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
             case default
-      if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
                     stmt_index = parse_as_expression(tokens, arena)
                 end if
             end select
         case (TK_IDENTIFIER)
-      if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
-                stmt_index = parse_assignment_or_expression(parser, arena)
+            if (to_lower(trim(first_token%text)) == "class") then
+                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+            else
+                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                end if
             end if
         case (TK_COMMENT)
             ! Parse comment
@@ -144,25 +148,12 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
-        type(token_t) :: first_token, second_token
+        type(token_t) :: first_token
         logical :: is_derived_type_def
 
         first_token = parser%peek()
-        is_derived_type_def = .false.
-
         if (first_token%text == "type") then
-            ! Check if this is a derived type definition or variable declaration
-            if (parser%current_token + 1 <= size(parser%tokens)) then
-                second_token = parser%tokens(parser%current_token + 1)
-
-                ! If second token is :: or identifier, it's a derived type definition
-                if (second_token%kind == TK_OPERATOR .and. second_token%text == "::") then
-                    is_derived_type_def = .true.
-                else if (second_token%kind == TK_IDENTIFIER) then
-                    is_derived_type_def = .true.
-                end if
-            end if
-
+            is_derived_type_def = parser_is_at_type_definition(parser)
             if (is_derived_type_def) then
                 stmt_index = parse_derived_type_def(parser, arena)
             else

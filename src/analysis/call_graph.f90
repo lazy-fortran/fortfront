@@ -83,6 +83,11 @@ module call_graph_module
         integer :: unresolved_count = 0
     end type call_graph_builder_t
 
+    type, private :: rename_entry_t
+        character(len=:), allocatable :: old_name
+        character(len=:), allocatable :: new_name
+    end type rename_entry_t
+
 contains
 
     ! Create a new empty call graph
@@ -578,6 +583,7 @@ contains
         call resolve_deferred_calls(builder)
         call detect_recursive_calls(builder, arena)
         call resolve_deferred_calls(builder)
+        call normalize_program_scopes(builder, arena)
 
         graph = builder%graph
     end function build_call_graph
@@ -934,6 +940,160 @@ contains
             builder%unresolved_calls(i)%call_index = 0
         end do
     end subroutine resolve_deferred_calls
+
+    subroutine normalize_program_scopes(builder, arena)
+        type(call_graph_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+
+        integer, allocatable :: program_symbols(:)
+        type(rename_entry_t), allocatable :: renames(:)
+        integer :: program_count
+        integer :: rename_count
+        integer :: agg_symbol
+        integer :: agg_proc_index
+        integer :: i
+        integer :: root_symbol
+        integer :: parent_symbol
+        integer :: node_index
+        character(len=:), allocatable :: old_name
+        character(len=:), allocatable :: new_name
+
+        program_count = 0
+        rename_count = 0
+        agg_symbol = find_symbol_by_full_name(builder, "__MULTI_UNIT__")
+        agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+
+        do i = 1, builder%symbol_count
+            if (.not. builder%symbol_table(i)%is_procedure) cycle
+            if (builder%symbol_table(i)%parent_symbol /= 0) cycle
+            if (.not. allocated(builder%symbol_table(i)%full_name)) cycle
+            if (trim(builder%symbol_table(i)%full_name) == "__MULTI_UNIT__") cycle
+            node_index = builder%symbol_table(i)%node_index
+            if (node_index <= 0) cycle
+            if (node_index > arena%size) cycle
+            if (.not. allocated(arena%entries(node_index)%node)) cycle
+            select case (trim(arena%entries(node_index)%node_type))
+            case ("program", "program_node")
+                call append_program_symbol(i)
+            end select
+        end do
+
+        if (program_count == 0) return
+
+        do i = 1, builder%symbol_count
+            if (.not. builder%symbol_table(i)%is_procedure) cycle
+            if (.not. allocated(builder%symbol_table(i)%full_name)) cycle
+            if (trim(builder%symbol_table(i)%full_name) == "__MULTI_UNIT__") cycle
+            if (is_program_symbol(i)) cycle
+
+            root_symbol = i
+            do
+                parent_symbol = builder%symbol_table(root_symbol)%parent_symbol
+                if (parent_symbol <= 0) exit
+                root_symbol = parent_symbol
+            end do
+
+            if (.not. is_program_symbol(root_symbol)) cycle
+
+            if (agg_symbol <= 0) call ensure_aggregator()
+            old_name = trim(builder%symbol_table(i)%full_name)
+            new_name = "__MULTI_UNIT__::" // trim(builder%symbol_table(i)%simple_name)
+            if (old_name == new_name) cycle
+
+            builder%symbol_table(i)%parent_symbol = agg_symbol
+            builder%symbol_table(i)%full_name = new_name
+            call append_rename(old_name, new_name)
+        end do
+
+        if (rename_count == 0) return
+
+        if (agg_proc_index <= 0) then
+            call builder%graph%add_proc("__MULTI_UNIT__", 0, 0, 0, is_main=.true.)
+        end if
+
+        do i = 1, builder%graph%proc_count
+            call apply_renames(builder%graph%procedures(i)%name)
+        end do
+
+        do i = 1, builder%graph%call_count
+            call apply_renames(builder%graph%calls(i)%caller)
+            call apply_renames(builder%graph%calls(i)%callee)
+        end do
+
+    contains
+
+        subroutine append_program_symbol(symbol_id)
+            integer, intent(in) :: symbol_id
+            integer, allocatable :: temp(:)
+
+            if (.not. allocated(program_symbols)) then
+                allocate (program_symbols(1))
+            else
+                allocate (temp(program_count + 1))
+                if (program_count > 0) temp(1:program_count) = program_symbols
+                call move_alloc(temp, program_symbols)
+            end if
+            program_count = program_count + 1
+            program_symbols(program_count) = symbol_id
+        end subroutine append_program_symbol
+
+        logical function is_program_symbol(symbol_id)
+            integer, intent(in) :: symbol_id
+            integer :: idx
+
+            is_program_symbol = .false.
+            if (.not. allocated(program_symbols)) return
+            do idx = 1, program_count
+                if (program_symbols(idx) == symbol_id) then
+                    is_program_symbol = .true.
+                    exit
+                end if
+            end do
+        end function is_program_symbol
+
+        subroutine ensure_aggregator()
+            if (agg_symbol <= 0) then
+                call add_symbol_entry(builder, "__MULTI_UNIT__", "__MULTI_UNIT__", 0, 0, .true., agg_symbol)
+            end if
+            agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+            if (agg_proc_index <= 0) then
+                call builder%graph%add_proc("__MULTI_UNIT__", 0, 0, 0, is_main=.true.)
+                agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
+            end if
+        end subroutine ensure_aggregator
+
+        subroutine append_rename(old_name_in, new_name_in)
+            character(len=*), intent(in) :: old_name_in
+            character(len=*), intent(in) :: new_name_in
+            type(rename_entry_t), allocatable :: temp(:)
+
+            if (.not. allocated(renames)) then
+                allocate (renames(1))
+            else
+                allocate (temp(rename_count + 1))
+                if (rename_count > 0) temp(1:rename_count) = renames
+                call move_alloc(temp, renames)
+            end if
+
+            rename_count = rename_count + 1
+            renames(rename_count)%old_name = trim(old_name_in)
+            renames(rename_count)%new_name = trim(new_name_in)
+        end subroutine append_rename
+
+        subroutine apply_renames(name)
+            character(len=:), allocatable, intent(inout) :: name
+            integer :: idx
+
+            if (.not. allocated(renames)) return
+            do idx = 1, rename_count
+                if (trim(name) == renames(idx)%old_name) then
+                    name = renames(idx)%new_name
+                    exit
+                end if
+            end do
+        end subroutine apply_renames
+
+    end subroutine normalize_program_scopes
 
     ! Compute a qualified name based on the parent scope
     function compute_full_name(builder, parent_symbol, simple_name) result(name)

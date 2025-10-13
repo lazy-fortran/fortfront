@@ -13,17 +13,29 @@ contains
 
     ! Create derived type node and add to stack
     function push_derived_type(arena, name, component_indices, param_indices, &
-                               line, column, parent_index) result(type_index)
+                               line, column, parent_index, attribute_clause) result(type_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: attribute_clause
         integer :: type_index
         type(derived_type_node) :: dtype
 
         ! Create derived type with index-based components
         dtype%name = name
+
+        if (present(attribute_clause)) then
+            if (len_trim(attribute_clause) > 0) then
+                dtype%attribute_clause = trim(attribute_clause)
+                dtype%has_attributes = .true.
+            else
+                dtype%has_attributes = .false.
+            end if
+        else
+            dtype%has_attributes = .false.
+        end if
 
         if (present(component_indices)) then
             if (size(component_indices) > 0) then

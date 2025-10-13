@@ -10,7 +10,7 @@ module parser_statement_utilities_module
                                                 parse_goto_statement, parse_error_stop_statement, &
                                                 parse_cycle_statement, parse_exit_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
-    use parser_execution_statements_module, only: parse_assignment_statement
+    use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, push_literal
@@ -81,7 +81,10 @@ contains
         integer :: assign_index
 
         ! Use the full assignment parser which handles multi-variable assignments
-        call parse_assignment_statement(parser, arena, assign_index)
+        integer, allocatable :: extra_indices(:)
+
+        call parse_assignment_statement(parser, arena, assign_index, extra_indices)
+        if (allocated(extra_indices)) deallocate (extra_indices)
     end function parse_assignment_simple
 
     ! Skip unknown statement (utility function)

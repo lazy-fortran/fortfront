@@ -3,7 +3,8 @@ module frontend_parsing
     ! Now serves as a compatibility layer over split modules
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN, &
+                          TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -87,13 +88,15 @@ contains
 
         call ensure_if_do_registration()
 
-        call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', debug_flag, status=debug_status)
+        call get_environment_variable( &
+            'FORTFRONT_DEBUG_DUMP_AST', debug_flag, status=debug_status)
         debug_units = (debug_status == 0 .and. len_trim(debug_flag) > 0)
 
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens, mixed_result)
         if (mixed_result%has_mixed_constructs) then
-            call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, error_msg)
+            call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, &
+                                        error_msg)
             return
         end if
 
@@ -118,8 +121,12 @@ contains
                 if (debug_units) then
                     start_text = ''
                     end_text = ''
-                    if (unit_start >= 1 .and. unit_start <= size(tokens)) start_text = tokens(unit_start)%text
-                    if (unit_end >= 1 .and. unit_end <= size(tokens)) end_text = tokens(unit_end)%text
+                    if (unit_start >= 1 .and. unit_start <= size(tokens)) then
+                        start_text = tokens(unit_start)%text
+                    end if
+                    if (unit_end >= 1 .and. unit_end <= size(tokens)) then
+                        end_text = tokens(unit_end)%text
+                    end if
                     write (error_unit, '(A,3I6,2X,A,1X,A)') &
                         'DEBUG parse unit bounds:', unit_start, unit_end, unit_index, &
                         trim(start_text), trim(end_text)
@@ -236,7 +243,7 @@ contains
         if (i <= size(tokens)) then
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (tokens(i)%text == "program" .or. tokens(i)%text == "module" .or. &
-                    tokens(i)%text == "function" .or. tokens(i)%text == "subroutine" .or. &
+                   tokens(i)%text == "function" .or. tokens(i)%text == "subroutine" .or. &
                     tokens(i)%text == "type") then
                     is_start = .true.
                 end if
@@ -309,7 +316,11 @@ contains
         integer, intent(out) :: unit_start, unit_end
 
         integer :: i, nesting_level
+        integer :: next_pos
+        integer :: name_pos
         character(len=:), allocatable :: unit_type
+        character(len=:), allocatable :: keyword_text
+        character(len=:), allocatable :: next_keyword
         logical :: in_module_contains
         logical :: preceded_by_end
 
@@ -322,7 +333,7 @@ contains
         ! Determine the unit type from the first keyword
         if (start_pos <= size(tokens)) then
             if (tokens(start_pos)%kind == TK_KEYWORD) then
-                unit_type = tokens(start_pos)%text
+                unit_type = to_lower(trim(tokens(start_pos)%text))
             end if
         end if
 
@@ -334,12 +345,13 @@ contains
                     unit_end = i - 1
                     exit
                 else if (tokens(i)%kind == TK_KEYWORD) then
-                    if (tokens(i)%text == "contains") then
+                    if (to_lower(trim(tokens(i)%text)) == "contains") then
                         in_module_contains = .true.
-                    else if (tokens(i)%text == "end") then
+                    else if (to_lower(trim(tokens(i)%text)) == "end") then
                         ! Check if this is "end module"
                         if (i + 1 <= size(tokens)) then
-                            if (tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "module") then
+                            if (tokens(i + 1)%kind == TK_KEYWORD .and. &
+                                to_lower(trim(tokens(i + 1)%text)) == "module") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     unit_end = i + 1  ! Include "end module"
@@ -353,7 +365,8 @@ contains
                                 end if
                             end if
                         end if
-                    else if (tokens(i)%text == "module" .and. .not. in_module_contains) then
+                    else if (to_lower(trim(tokens(i)%text)) == "module" .and. &
+                             .not. in_module_contains) then
                         ! Nested module (rare but possible)
                         nesting_level = nesting_level + 1
                     end if
@@ -369,10 +382,11 @@ contains
                     unit_end = i - 1
                     exit
                 else if (tokens(i)%kind == TK_KEYWORD) then
-                    if (tokens(i)%text == "end") then
+                    if (to_lower(trim(tokens(i)%text)) == "end") then
                         ! Check if this is "end subroutine" or "end function"
                         if (i + 1 <= size(tokens)) then
-                            if (tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == unit_type) then
+                            if (tokens(i + 1)%kind == TK_KEYWORD .and. &
+                                to_lower(trim(tokens(i + 1)%text)) == unit_type) then
                                 unit_end = i + 1  ! Include "end <unit_type>"
                                 ! Check if there's a name after "end <unit_type>"
                                 if (i + 2 <= size(tokens)) then
@@ -385,11 +399,77 @@ contains
                         end if
                         ! Also handle standalone "end" for simple procedures
                         if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
-                                                    tokens(i + 1)%kind /= TK_KEYWORD)) then
+                                                   tokens(i + 1)%kind /= TK_KEYWORD)) then
                             unit_end = i
                             exit
                         end if
                     end if
+                end if
+                unit_end = i
+            end do
+        else if (unit_type == "program") then
+            ! For explicit programs, locate the matching end program and include body
+            nesting_level = 1
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    keyword_text = to_lower(trim(tokens(i)%text))
+                    select case (keyword_text)
+                    case ("program")
+                        nesting_level = nesting_level + 1
+                    case ("end")
+                        next_pos = i + 1
+                        do while (next_pos <= size(tokens))
+                            select case (tokens(next_pos)%kind)
+                            case (TK_WHITESPACE)
+                                next_pos = next_pos + 1
+                            case (TK_NEWLINE, TK_COMMENT)
+                                exit
+                            case default
+                                exit
+                            end select
+                        end do
+
+                        if (next_pos > size(tokens)) then
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                unit_end = i
+                                exit
+                            end if
+                        else if (tokens(next_pos)%kind == TK_KEYWORD) then
+                            next_keyword = to_lower(trim(tokens(next_pos)%text))
+                            if (next_keyword == "program") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    unit_end = next_pos
+                                    name_pos = next_pos + 1
+                                    do while (name_pos <= size(tokens))
+                                        select case (tokens(name_pos)%kind)
+                                        case (TK_WHITESPACE)
+                                            name_pos = name_pos + 1
+                                        case (TK_IDENTIFIER)
+                                            unit_end = name_pos
+                                            exit
+                                        case default
+                                            exit
+                                        end select
+                                    end do
+                                    exit
+                                end if
+                            end if
+                        else
+                            select case (tokens(next_pos)%kind)
+                            case (TK_NEWLINE, TK_COMMENT, TK_EOF)
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    unit_end = i
+                                    exit
+                                end if
+                            end select
+                        end if
+                    end select
                 end if
                 unit_end = i
             end do
@@ -402,11 +482,13 @@ contains
                 else
                     preceded_by_end = .false.
                     if (i > 1) then
-                        if (tokens(i - 1)%kind == TK_KEYWORD .and. tokens(i - 1)%text == "end") then
+                        if (tokens(i - 1)%kind == TK_KEYWORD .and. &
+                            tokens(i - 1)%text == "end") then
                             preceded_by_end = .true.
                         end if
                     end if
-                    if (i > start_pos .and. is_program_unit_start(tokens, i) .and. .not. preceded_by_end) then
+                    if (i > start_pos .and. is_program_unit_start(tokens, i) .and. &
+                        .not. preceded_by_end) then
                         unit_end = i - 1
                         exit
                     else
@@ -440,8 +522,10 @@ contains
 
         is_end = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "function") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "end" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "function") then
                 is_end = .true.
             end if
         end if
@@ -467,8 +551,10 @@ contains
 
         is_start = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "do" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "while") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "do" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "while") then
                 is_start = .true.
             end if
         end if
@@ -481,8 +567,10 @@ contains
 
         is_start = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "select" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "case") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "select" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "case") then
                 is_start = .true.
             end if
         end if
@@ -495,8 +583,10 @@ contains
 
         is_end = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "do") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "end" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "do") then
                 is_end = .true.
             end if
         end if
@@ -509,8 +599,10 @@ contains
 
         is_end = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "select") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "end" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "select") then
                 is_end = .true.
             end if
         end if
@@ -536,8 +628,10 @@ contains
 
         is_end = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "if") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "end" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "if") then
                 is_end = .true.
             end if
         end if
@@ -563,8 +657,10 @@ contains
 
         is_end = .false.
         if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "type") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "end" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                tokens(pos + 1)%text == "type") then
                 is_end = .true.
             end if
         end if
