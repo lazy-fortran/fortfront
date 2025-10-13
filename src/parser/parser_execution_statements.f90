@@ -101,6 +101,7 @@ contains
                 lowered = ""
             end if
 
+
             ! Check for 'end program'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -162,7 +163,7 @@ contains
                         call prefix_buffer%clear()
                     end if
                     call parse_simple_implicit(parser, arena, stmt_index)
-                case ("real", "integer", "logical", "character", "complex", "double")
+                case ("real", "integer", "logical", "character", "complex", "double", "class")
                     if (allocated(pending_prefixes)) then
                         deallocate (pending_prefixes)
                         call prefix_buffer%clear()
@@ -289,7 +290,11 @@ contains
                     deallocate (pending_prefixes)
                     call prefix_buffer%clear()
                 end if
-                call parse_assignment_statement(parser, arena, stmt_index, additional_execution_indices)
+                if (trim(to_lower(token%text)) == 'class') then
+                    call handle_variable_declaration(parser, arena, stmt_index)
+                else
+                    call parse_assignment_statement(parser, arena, stmt_index, additional_execution_indices)
+                end if
             case (TK_NEWLINE, TK_COMMENT)
                 token = parser%consume()
                 stmt_index = 0
@@ -457,7 +462,7 @@ contains
             select case (token%text)
             case ("print")
                 stmt_index = parse_print_statement(parser, arena)
-            case ("real", "integer", "logical", "character")
+            case ("real", "integer", "logical", "character", "complex", "double", "class")
                 stmt_index = parse_declaration(parser, arena)
             case default
                 token = parser%consume()

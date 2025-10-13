@@ -682,6 +682,7 @@ contains
     subroutine maybe_dump_program_overview(arena, prog_index)
         use, intrinsic :: iso_fortran_env, only: error_unit
         use ast_nodes_procedure, only: function_def_node
+        use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         character(len=8) :: flag
@@ -707,6 +708,9 @@ contains
                 end if
             type is (function_def_node)
                 write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
+            type is (declaration_node)
+                write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, trim(node%type_name), &
+                    trim(node%var_name)
             end select
         end do
     end subroutine maybe_dump_program_overview

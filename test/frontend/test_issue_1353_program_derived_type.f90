@@ -1,9 +1,11 @@
 program test_issue_1353_program_derived_type
-    use frontend, only: transform_lazy_fortran_string
+    use frontend, only: transform_lazy_fortran_string, lex_source
+    use lexer_core, only: token_t, TK_KEYWORD
     implicit none
 
     call test_type_definition_inside_program()
     call test_type_definition_with_attributes()
+    call test_class_type_declaration()
     print *, ""
     print *, "All tests passed for issue 1353."
 
@@ -149,5 +151,80 @@ contains
 
         print *, "PASS: Derived type attributes keep declarations outside type"
     end subroutine test_type_definition_with_attributes
+
+    subroutine test_class_type_declaration()
+        character(len=:), allocatable :: input_code
+        character(len=:), allocatable :: output_code
+        character(len=:), allocatable :: error_msg
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: lex_error
+        integer :: idx_class_decl, i
+        logical :: class_token_found
+
+        input_code = "program class_decl" // new_line('A') // &
+                     "    implicit none" // new_line('A') // new_line('A') // &
+                     "    type :: base_t" // new_line('A') // &
+                     "        real :: x" // new_line('A') // &
+                     "    end type base_t" // new_line('A') // new_line('A') // &
+                     "    type(base_t) :: storage" // new_line('A') // &
+                     "    class(base_t), pointer :: p" // new_line('A') // &
+                     new_line('A') // &
+                     "    storage%x = 1.0" // new_line('A') // &
+                     "    p => storage" // new_line('A') // &
+                     "    print *, p%x" // new_line('A') // &
+                     "end program class_decl"
+
+        call lex_source(input_code, tokens, lex_error)
+
+        if (len_trim(lex_error) > 0) then
+            print *, "FAIL: lexer reported error for class declaration:", trim(lex_error)
+            error stop 1
+        end if
+
+        class_token_found = .false.
+        if (allocated(tokens)) then
+            do i = 1, size(tokens)
+                if (trim(tokens(i)%text) == "class") then
+                    class_token_found = .true.
+                    if (tokens(i)%kind /= TK_KEYWORD) then
+                        print *, "FAIL: class token not lexed as keyword"
+                        error stop 1
+                    end if
+                    exit
+                end if
+            end do
+        end if
+
+        if (.not. class_token_found) then
+            print *, "FAIL: class keyword missing from token stream"
+            error stop 1
+        end if
+
+        call transform_lazy_fortran_string(input_code, output_code, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: unexpected error for class declaration:", trim(error_msg)
+            error stop 1
+        end if
+
+        idx_class_decl = index(output_code, "class(base_t), pointer :: p")
+        if (idx_class_decl <= 0) then
+            print *, "FAIL: class declaration missing or malformed"
+            error stop 1
+        end if
+
+        if (index(output_code, "real(8) :: p") > 0 .or. &
+            index(output_code, "real :: p") > 0) then
+            print *, "FAIL: class declaration downgraded to real"
+            error stop 1
+        end if
+
+        if (index(output_code, "p => storage") <= 0) then
+            print *, "FAIL: pointer assignment was removed"
+            error stop 1
+        end if
+
+        print *, "PASS: Class declaration preserved with pointer attribute"
+    end subroutine test_class_type_declaration
 
 end program test_issue_1353_program_derived_type

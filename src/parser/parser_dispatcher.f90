@@ -55,7 +55,6 @@ contains
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
-
         ! Dispatch based on first token
         select case (first_token%kind)
         case (TK_KEYWORD)
@@ -94,7 +93,8 @@ contains
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
-            case ("real", "integer", "logical", "character", "complex", "double")
+            case ("real", "integer", "logical", "character", "complex", "double", &
+                  "class")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
@@ -122,9 +122,13 @@ contains
                 end if
             end select
         case (TK_IDENTIFIER)
+      if (to_lower(trim(first_token%text)) == "class") then
+                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+            else
       if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
                 stmt_index = parse_assignment_or_expression(parser, arena)
             end if
+        end if
         case (TK_COMMENT)
             ! Parse comment
             stmt_index = parse_comment(parser, arena)
