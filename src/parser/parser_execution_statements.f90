@@ -337,7 +337,8 @@ contains
             ! Create a token array from current position for expression parser
             block
                 type(token_t), allocatable, target :: expr_tokens(:)
-                integer :: start_pos, end_pos, paren_depth
+                integer :: start_pos, end_pos, paren_depth, expr_len
+                type(token_t) :: sentinel_location
 
                 start_pos = parser%current_token
                 end_pos = start_pos
@@ -354,14 +355,33 @@ contains
                 end do
 
                 ! Extract tokens for expression
-                if (end_pos > start_pos) then
-                    allocate (expr_tokens(end_pos - start_pos))
-                    expr_tokens = parser%tokens(start_pos:end_pos - 1)
-                    condition_index = parse_expression(expr_tokens, arena)
-                    parser%current_token = end_pos
+                expr_len = max(end_pos - start_pos, 0)
+                if (end_pos <= size(parser%tokens)) then
+                    sentinel_location = parser%tokens(end_pos)
                 else
+                    sentinel_location%line = token%line
+                    sentinel_location%column = token%column
+                    sentinel_location%text = ""
+                    sentinel_location%kind = TK_EOF
+                end if
+
+                if (expr_len > 0) then
+                    allocate (expr_tokens(expr_len + 1))
+                    expr_tokens(1:expr_len) = parser%tokens(start_pos:end_pos - 1)
+                    expr_tokens(expr_len + 1)%kind = TK_EOF
+                    expr_tokens(expr_len + 1)%text = ""
+                    expr_tokens(expr_len + 1)%line = sentinel_location%line
+                    expr_tokens(expr_len + 1)%column = sentinel_location%column
+                    condition_index = parse_expression(expr_tokens, arena)
+                else
+                    allocate (expr_tokens(1))
+                    expr_tokens(1)%kind = TK_EOF
+                    expr_tokens(1)%text = ""
+                    expr_tokens(1)%line = sentinel_location%line
+                    expr_tokens(1)%column = sentinel_location%column
                     condition_index = 0
                 end if
+                parser%current_token = end_pos
             end block
 
             token = parser%peek()
@@ -453,6 +473,13 @@ contains
 
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
+        end if
+
+        if (allocated(additional_execution_indices)) then
+            if (size(additional_execution_indices) > 0) then
+                body_indices = [body_indices, additional_execution_indices]
+            end if
+            deallocate (additional_execution_indices)
         end if
     end subroutine parse_if_body_statement
 
