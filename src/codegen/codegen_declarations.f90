@@ -715,7 +715,14 @@ contains
             do i = 1, size(node%component_indices)
                 if (node%component_indices(i) > 0 .and. &
                     node%component_indices(i) <= arena%size) then
-                    component_code = generate_code_from_arena(arena, node%component_indices(i))
+                    if (.not. allocated(arena%entries(node%component_indices(i))%node)) cycle
+                    select type (child => arena%entries(node%component_indices(i))%node)
+                    type is (derived_type_node)
+                        cycle
+                    class default
+                        component_code = generate_code_from_arena(arena, node%component_indices(i))
+                    end select
+                    if (len_trim(component_code) == 0) cycle
                     code = code // "    " // component_code // new_line('A')
                 end if
             end do

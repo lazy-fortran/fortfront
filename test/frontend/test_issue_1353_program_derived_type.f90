@@ -1,6 +1,6 @@
 program test_issue_1353_program_derived_type
     use frontend, only: transform_lazy_fortran_string, lex_source
-    use lexer_core, only: token_t, TK_KEYWORD
+    use lexer_core, only: token_t, TK_KEYWORD, to_lower
     implicit none
 
     call test_type_definition_inside_program()
@@ -15,19 +15,21 @@ contains
         character(len=:), allocatable :: input_code
         character(len=:), allocatable :: output_code
         character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: normalized_output
         integer :: idx_type, idx_end, idx_decl
+        integer :: header_count
 
         input_code = "program test_derived_type" // new_line('A') // &
                      "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type :: point_t"//new_line('A')// &
-                     "        real :: x"//new_line('A')// &
-                     "        real :: y"//new_line('A')// &
-                     "    end type point_t"//new_line('A')//new_line('A')// &
-                     "    type(point_t) :: p1, p2"//new_line('A')//new_line('A')// &
-                     "    p1%x = 1.0"//new_line('A')// &
-                     "    p1%y = 2.0"//new_line('A')//new_line('A')// &
-                     "    p2 = p1"//new_line('A')// &
-                     "    p2%x = 3.0"//new_line('A')//new_line('A')// &
+                     "    type :: point_t" // new_line('A') // &
+                     "        real :: x" // new_line('A') // &
+                     "        real :: y" // new_line('A') // &
+                     "    end type point_t" // new_line('A') // new_line('A') // &
+                     "    type(point_t) :: p1, p2" // new_line('A') // new_line('A') // &
+                     "    p1%x = 1.0" // new_line('A') // &
+                     "    p1%y = 2.0" // new_line('A') // new_line('A') // &
+                     "    p2 = p1" // new_line('A') // &
+                     "    p2%x = 3.0" // new_line('A') // new_line('A') // &
                      "    print *, ""p1:"", p1%x, p1%y" // new_line('A') // &
                      "    print *, ""p2:"", p2%x, p2%y" // new_line('A') // &
                      "end program test_derived_type"
@@ -74,6 +76,13 @@ contains
             error stop 1
         end if
 
+        normalized_output = to_lower(output_code)
+        header_count = count_occurrences(normalized_output, "type :: point_t")
+        if (header_count /= 1) then
+            print *, "FAIL: duplicate derived type header detected"
+            error stop 1
+        end if
+
         print *, "PASS: Derived type stays inside program with correct declarations"
     end subroutine test_type_definition_inside_program
 
@@ -82,9 +91,9 @@ contains
         character(len=:), allocatable :: output_code
         character(len=:), allocatable :: error_msg
         character(len=:), allocatable :: type_segment
+        character(len=:), allocatable :: normalized_output
         integer :: idx_type, idx_end, idx_decl
-        integer :: header_len
-        integer :: idx_duplicate
+        integer :: header_count
 
         input_code = "program attr_type_test" // new_line('A') // &
                      "    implicit none" // new_line('A') // new_line('A') // &
@@ -122,14 +131,11 @@ contains
             error stop 1
         end if
 
-        header_len = len("type :: point_t")
-        if (idx_type + header_len <= len(output_code)) then
-            idx_duplicate = index(output_code(idx_type + header_len:), &
-                                  "type :: point_t")
-            if (idx_duplicate > 0) then
-                print *, "FAIL: duplicate derived type header detected"
-                error stop 1
-            end if
+        normalized_output = to_lower(output_code)
+        header_count = count_occurrences(normalized_output, "type :: point_t")
+        if (header_count /= 1) then
+            print *, "FAIL: duplicate derived type header detected"
+            error stop 1
         end if
 
         type_segment = output_code(idx_type:idx_end)
@@ -226,5 +232,26 @@ contains
 
         print *, "PASS: Class declaration preserved with pointer attribute"
     end subroutine test_class_type_declaration
+
+    integer function count_occurrences(text, pattern) result(count)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        integer :: start_pos
+        integer :: found_pos
+        integer :: pattern_len
+
+        count = 0
+        pattern_len = len(pattern)
+        if (pattern_len == 0) return
+
+        start_pos = 1
+        do
+            if (start_pos > len(text)) exit
+            found_pos = index(text(start_pos:), pattern)
+            if (found_pos <= 0) exit
+            count = count + 1
+            start_pos = start_pos + found_pos + pattern_len - 1
+        end do
+    end function count_occurrences
 
 end program test_issue_1353_program_derived_type
