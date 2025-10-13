@@ -7,7 +7,7 @@ module parser_declarations
     use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_expressions_module, only: parse_comparison, parse_range
-    use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
+   use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
     use error_handling, only: ERROR_PARSER
     use ast_factory, only: push_multi_declaration, push_declaration, push_identifier
     implicit none
@@ -459,7 +459,7 @@ contains
         end select
     end function is_type_attribute_token
 
-    subroutine skip_type_definition_attributes(parser, invalid_definition, attribute_clause)
+  subroutine skip_type_definition_attributes(parser, invalid_definition, attribute_clause)
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: invalid_definition
         character(len=:), allocatable, intent(out), optional :: attribute_clause
@@ -739,11 +739,13 @@ contains
         end if
 
         if (len_trim(derived_text) > 0) then
-            if (len_trim(type_spec%derived_type_name) == 0) then
-                type_spec%derived_type_name = trim(adjustl(derived_text))
+            if (type_spec%is_derived_type) then
+                if (len_trim(type_spec%derived_type_name) == 0) then
+                    type_spec%derived_type_name = trim(adjustl(derived_text))
+                end if
             end if
             type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                                  derived_text // ")"
+                derived_text // ")"
         else
             type_spec%type_name = trim(type_spec%base_keyword) // "()"
         end if
@@ -1760,7 +1762,7 @@ contains
             if (has_header_attrs) then
                 type_index = push_derived_type(arena, type_name, &
                                                [integer ::], &
-                                               attribute_clause=header_attributes)
+                                                attribute_clause=header_attributes)
             else
                 type_index = push_derived_type(arena, type_name, &
                                                [integer ::])

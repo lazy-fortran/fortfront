@@ -92,6 +92,7 @@ contains
 
                         lhs_parser = create_parser_state(lhs_tokens)
                         target_index = parse_range(lhs_parser, arena)
+                        print *, 'DEBUG parser target id:', trim(id_token%text), 'index:', target_index
                     end block
 
                     do while (.not. parser%is_at_end())
@@ -107,6 +108,7 @@ contains
                     end do
 
                     value_index = parse_range(parser, arena)
+                    print *, 'DEBUG parser value id:', trim(id_token%text), 'index:', value_index
                     if (value_index > 0 .and. target_index > 0) then
                         if (.not. allocated(assignment_op)) assignment_op = "="
                         stmt_index = push_assignment(arena, target_index, value_index, &
