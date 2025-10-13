@@ -5,6 +5,7 @@ program test_issue_1353_program_derived_type
 
     call test_type_definition_inside_program()
     call test_type_definition_with_attributes()
+    call test_module_type_definition()
     call test_class_type_declaration()
     print *, ""
     print *, "All tests passed for issue 1353."
@@ -157,6 +158,106 @@ contains
 
         print *, "PASS: Derived type attributes keep declarations outside type"
     end subroutine test_type_definition_with_attributes
+
+    subroutine test_module_type_definition()
+        character(len=:), allocatable :: input_code
+        character(len=:), allocatable :: output_code
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: type_segment
+        character(len=:), allocatable :: normalized_output
+        integer :: idx_type, idx_end, idx_contains
+        integer :: header_count
+
+        input_code = "module attr_mod" // new_line('A') // &
+                     "    implicit none" // new_line('A') // new_line('A') // &
+                     "    type, public :: point_t" // new_line('A') // &
+                     "        real :: x" // new_line('A') // &
+                     "        real :: y" // new_line('A') // &
+                     "    end type point_t" // new_line('A') // new_line('A') // &
+                     "contains" // new_line('A') // &
+                     "    subroutine assign_point()" // new_line('A') // &
+                     "        type(point_t) :: p" // new_line('A') // &
+                     "        p%x = 1.0" // new_line('A') // &
+                     "        p%y = 2.0" // new_line('A') // &
+                     "        print *, p%x, p%y" // new_line('A') // &
+                     "    end subroutine assign_point" // new_line('A') // &
+                     "end module attr_mod"
+
+        call transform_lazy_fortran_string(input_code, output_code, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: unexpected error for module type:", trim(error_msg)
+            error stop 1
+        end if
+
+        idx_type = index(output_code, "type :: point_t")
+        if (idx_type <= 0) then
+            print *, "FAIL: module output missing derived type header"
+            error stop 1
+        end if
+
+        idx_end = index(output_code, "end type point_t")
+        if (idx_end <= 0) then
+            print *, "FAIL: module output missing end type statement"
+            error stop 1
+        end if
+
+        if (idx_type >= idx_end) then
+            print *, "FAIL: module emitted end type before type header"
+            error stop 1
+        end if
+
+        if (idx_type > 1) then
+            if (index(output_code(1:idx_type - 1), "real :: x") > 0 .or. &
+                index(output_code(1:idx_type - 1), "real :: y") > 0) then
+                print *, "FAIL: module leaked type components before definition"
+                error stop 1
+            end if
+        end if
+
+        type_segment = output_code(idx_type:idx_end)
+        if (index(type_segment, "type(point_t) ::") > 0) then
+            print *, "FAIL: module placed type variable inside definition"
+            error stop 1
+        end if
+
+        if (index(type_segment, "real :: x") <= 0 .or. &
+            index(type_segment, "real :: y") <= 0) then
+            print *, "FAIL: module missing component declarations inside type"
+            error stop 1
+        end if
+
+        idx_contains = index(output_code, "contains")
+        if (idx_contains <= 0) then
+            print *, "FAIL: module missing contains section"
+            error stop 1
+        end if
+
+        if (idx_contains <= idx_end) then
+            print *, "FAIL: contains section appears before end type"
+            error stop 1
+        end if
+
+        if (index(output_code, "type(point_t) :: p") <= 0) then
+            print *, "FAIL: module lost type variable declaration in subroutine"
+            error stop 1
+        end if
+
+        if (index(output_code, "p%x = 1.0") <= 0 .and. &
+            index(output_code, "p%x = 1.0d0") <= 0) then
+            print *, "FAIL: module lost assignment to p%x"
+            error stop 1
+        end if
+
+        normalized_output = to_lower(output_code)
+        header_count = count_occurrences(normalized_output, "type :: point_t")
+        if (header_count /= 1) then
+            print *, "FAIL: module emitted duplicate derived type headers"
+            error stop 1
+        end if
+
+        print *, "PASS: Module type definition preserved correctly"
+    end subroutine test_module_type_definition
 
     subroutine test_class_type_declaration()
         character(len=:), allocatable :: input_code
