@@ -16,7 +16,7 @@ module parser_declarations
     public :: parse_declaration, parse_multi_declaration, parse_declaration_with_result
     public :: parse_derived_type_def, parse_derived_type_component
     public :: parse_array_dimensions
-    public :: is_type_attribute_token
+    public :: is_type_attribute_token, parser_is_at_type_definition
 
     ! Type specifier result type for structured type information
     type, public :: type_specifier_t
@@ -125,6 +125,98 @@ contains
             end select
         end do
     end subroutine skip_type_definition_attributes
+
+    logical function parser_is_at_type_definition(parser) result(is_type_def)
+        type(parser_state_t), intent(in) :: parser
+        integer :: pos
+        integer :: depth
+        integer :: token_count
+        type(token_t) :: token
+        character(len=:), allocatable :: last_attribute
+        character(len=:), allocatable :: normalized_attribute
+
+        is_type_def = .false.
+        if (.not. associated(parser%tokens)) then
+            return
+        end if
+
+        if (parser%current_token < 1 .or. parser%current_token > size(parser%tokens)) then
+            return
+        end if
+
+        token = parser%tokens(parser%current_token)
+        if (trim(to_lower(token%text)) /= "type") then
+            return
+        end if
+
+        if (parser%current_token > 1) then
+            token = parser%tokens(parser%current_token - 1)
+            if (token%kind == TK_KEYWORD) then
+                if (trim(to_lower(token%text)) == "end") then
+                    return
+                end if
+            end if
+        end if
+
+        token_count = size(parser%tokens)
+        pos = parser%current_token + 1
+        last_attribute = ""
+
+        do while (pos <= token_count)
+            token = parser%tokens(pos)
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                pos = pos + 1
+            case (TK_OPERATOR)
+                select case (token%text)
+                case (",")
+                    last_attribute = ""
+                    pos = pos + 1
+                case ("::")
+                    is_type_def = .true.
+                    return
+                case ("(")
+                    if (len_trim(last_attribute) > 0) then
+                        normalized_attribute = to_lower(trim(adjustl(last_attribute)))
+                        select case (normalized_attribute)
+                        case ("extends", "bind")
+                            depth = 1
+                            pos = pos + 1
+                            do while (pos <= token_count .and. depth > 0)
+                                token = parser%tokens(pos)
+                                if (token%kind == TK_OPERATOR) then
+                                    select case (token%text)
+                                    case ("(")
+                                        depth = depth + 1
+                                    case (")")
+                                        depth = depth - 1
+                                    end select
+                                end if
+                                pos = pos + 1
+                            end do
+                            last_attribute = ""
+                        case default
+                            return
+                        end select
+                    else
+                        return
+                    end if
+                case default
+                    return
+                end select
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (is_type_attribute_token(token%text)) then
+                    last_attribute = trim(adjustl(token%text))
+                    pos = pos + 1
+                else
+                    is_type_def = .true.
+                    return
+                end if
+            case default
+                return
+            end select
+        end do
+    end function parser_is_at_type_definition
 
     ! Parse type specifier (e.g., "integer(kind=8)", "character(len=*)")
     function parse_type_specifier(parser) result(type_spec)
@@ -1014,18 +1106,11 @@ contains
         integer, parameter :: max_components = 100
         integer :: component_indices(max_components)
         integer :: component_count
-        integer :: debug_i
         logical :: invalid_type_spec
 
         type_index = 0
         component_count = 0
-
-        print *, 'DEBUG full token list start'
-        do debug_i = 1, parser%get_token_count()
-            print *, 'DEBUG full token', debug_i, trim(parser%tokens(debug_i)%text), parser%tokens(debug_i)%kind
-        end do
-        print *, 'DEBUG full token list end'
-
+        token = parser%peek()
         ! Consume 'type'
         token = parser%consume()
 
@@ -1044,8 +1129,10 @@ contains
         ! Skip any semicolons or newlines
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if ((token%kind == TK_OPERATOR .and. token%text == ";") .or. &
-                token%kind == TK_NEWLINE) then
+            if (token%kind == TK_OPERATOR .and. token%text == ";") then
+                token = parser%consume()
+            else if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
+                     token%kind == TK_COMMENT) then
                 token = parser%consume()
             else
                 exit
@@ -1080,6 +1167,9 @@ contains
                     token = parser%peek()
                     if (token%kind == TK_NEWLINE) then
                         token = parser%consume()
+                    else if (token%kind == TK_WHITESPACE .or. &
+                             token%kind == TK_COMMENT) then
+                        token = parser%consume()
                     else
                         exit
                     end if
@@ -1089,8 +1179,15 @@ contains
                 token = parser%peek()
                 if (.not. ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
                            token%text == "end")) then
-                    ! Skip unknown token to avoid infinite loop
-                    token = parser%consume()
+                    if (token%kind == TK_NEWLINE) then
+                        token = parser%consume()
+                    else if (token%kind == TK_WHITESPACE .or. &
+                             token%kind == TK_COMMENT) then
+                        token = parser%consume()
+                    else
+                        ! Skip unknown token to avoid infinite loop
+                        token = parser%consume()
+                    end if
                 end if
             end if
         end do
@@ -1119,6 +1216,9 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+            else if (token%kind == TK_WHITESPACE .or. &
+                     token%kind == TK_COMMENT) then
                 token = parser%consume()
             else
                 exit

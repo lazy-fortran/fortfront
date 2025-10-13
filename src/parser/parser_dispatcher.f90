@@ -7,7 +7,7 @@ module parser_dispatcher_module
     use parser_state_module
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-                                   parse_derived_type_def, is_type_attribute_token
+                                   parse_derived_type_def, parser_is_at_type_definition
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
                                                parse_include_statement, parse_module
@@ -149,7 +149,7 @@ contains
 
         first_token = parser%peek()
         if (first_token%text == "type") then
-            is_derived_type_def = looks_like_derived_type_definition(parser)
+            is_derived_type_def = parser_is_at_type_definition(parser)
             if (is_derived_type_def) then
                 stmt_index = parse_derived_type_def(parser, arena)
             else
@@ -693,81 +693,5 @@ contains
             end if
         end do
     end subroutine collect_prefix_keywords
-
-    logical function looks_like_derived_type_definition(parser) result(is_type_def)
-        type(parser_state_t), intent(in) :: parser
-        integer :: pos
-        integer :: depth
-        integer :: token_count
-        type(token_t) :: token
-        character(len=:), allocatable :: last_attribute
-        character(len=:), allocatable :: normalized_attribute
-
-        is_type_def = .false.
-        if (.not. associated(parser%tokens)) then
-            return
-        end if
-
-        token_count = size(parser%tokens)
-        pos = parser%current_token + 1
-        last_attribute = ""
-
-        do while (pos <= token_count)
-            token = parser%tokens(pos)
-            select case (token%kind)
-            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                pos = pos + 1
-            case (TK_OPERATOR)
-                select case (token%text)
-                case (",")
-                    last_attribute = ""
-                    pos = pos + 1
-                case ("::")
-                    is_type_def = .true.
-                    return
-                case ("(")
-                    if (len_trim(last_attribute) > 0) then
-                        normalized_attribute = to_lower(trim(adjustl(last_attribute)))
-                        select case (normalized_attribute)
-                        case ("extends", "bind")
-                            depth = 1
-                            pos = pos + 1
-                            do while (pos <= token_count .and. depth > 0)
-                                token = parser%tokens(pos)
-                                if (token%kind == TK_OPERATOR) then
-                                    select case (token%text)
-                                    case ("(")
-                                        depth = depth + 1
-                                    case (")")
-                                        depth = depth - 1
-                                    end select
-                                end if
-                                pos = pos + 1
-                            end do
-                            last_attribute = ""
-                        case default
-                            is_type_def = .false.
-                            return
-                        end select
-                    else
-                        is_type_def = .false.
-                        return
-                    end if
-                case default
-                    return
-                end select
-            case (TK_KEYWORD, TK_IDENTIFIER)
-                if (is_type_attribute_token(token%text)) then
-                    last_attribute = trim(adjustl(token%text))
-                    pos = pos + 1
-                else
-                    is_type_def = .true.
-                    return
-                end if
-            case default
-                return
-            end select
-        end do
-    end function looks_like_derived_type_definition
 
 end module parser_dispatcher_module
