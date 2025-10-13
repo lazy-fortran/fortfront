@@ -887,25 +887,16 @@ contains
                             select type (ib => arena%entries(node%body_indices(i))%node)
                             type is (use_statement_node)
                                 ! Generate use statement code
-                                if (trim(node%name) == "p") then
-                                    print *, 'DEBUG collect node', i, ': use'
-                                end if
                                 is_use_stmt = .true.
                                 use_statements_code = use_statements_code // "    " // &
                                                       generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
 
                             type is (implicit_statement_node)
-                                if (trim(node%name) == "p") then
-                                    print *, 'DEBUG collect node', i, ': implicit'
-                                end if
                                 if (ib%is_none) has_implicit = .true.
                                 non_use_count = non_use_count + 1
                                 non_use_indices(non_use_count) = node%body_indices(i)
 
                             type is (literal_node)
-                                if (trim(node%name) == "p") then
-                                    print *, 'DEBUG collect node', i, ': literal'
-                                end if
                                 if (allocated(ib%value)) then
                                     if (index(ib%value, 'implicit none') > 0) has_implicit = .true.
                                 end if
@@ -913,9 +904,6 @@ contains
                                 non_use_indices(non_use_count) = node%body_indices(i)
 
                             class default
-                                if (trim(node%name) == "p") then
-                                    print *, 'DEBUG collect node', i, ': other'
-                                end if
                                 non_use_count = non_use_count + 1
                                 non_use_indices(non_use_count) = node%body_indices(i)
                             end select
@@ -948,11 +936,7 @@ contains
 
         ! Generate rest of body (non-use statements) with proper grouping
         if (allocated(node%body_indices) .and. non_use_count > 0) then
-         if (trim(node%name) == "p") then
-            print *, 'DEBUG program non-use count:', non_use_count
-            print *, 'DEBUG program non-use indices:', non_use_indices(1:non_use_count)
-         end if
-         body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
+            body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
                                                            context_has_executable_before_contains)
 
             ! Check if body contains implied do loops and add loop variables after implicit none

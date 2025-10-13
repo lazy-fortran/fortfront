@@ -46,7 +46,6 @@ contains
         else
             left_code = ""
         end if
-        print *, 'DEBUG assign node', node_index, 'target:', trim(left_code)
 
         ! Generate right-hand side
         if (node%value_index > 0 .and. node%value_index <= arena%size) then
@@ -54,7 +53,6 @@ contains
         else
             right_code = ""
         end if
-        print *, 'DEBUG assign node', node_index, 'value:', trim(right_code)
 
         ! Build assignment
         if (allocated(node%operator) .and. node%operator == "=>") then
