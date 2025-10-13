@@ -7,6 +7,7 @@ program test_issue_1353_program_derived_type
     call test_type_definition_with_attributes()
     call test_module_type_definition()
     call test_class_type_declaration()
+    call test_type_definition_with_extends()
     print *, ""
     print *, "All tests passed for issue 1353."
 
@@ -115,7 +116,7 @@ contains
             error stop 1
         end if
 
-        idx_type = index(output_code, "type :: point_t")
+        idx_type = index(output_code, "type, public :: point_t")
         if (idx_type <= 0) then
             print *, "FAIL: attribute test missing derived type definition"
             error stop 1
@@ -133,7 +134,7 @@ contains
         end if
 
         normalized_output = to_lower(output_code)
-        header_count = count_occurrences(normalized_output, "type :: point_t")
+        header_count = count_occurrences(normalized_output, "type, public :: point_t")
         if (header_count /= 1) then
             print *, "FAIL: duplicate derived type header detected"
             error stop 1
@@ -190,7 +191,7 @@ contains
             error stop 1
         end if
 
-        idx_type = index(output_code, "type :: point_t")
+        idx_type = index(output_code, "type, public :: point_t")
         if (idx_type <= 0) then
             print *, "FAIL: module output missing derived type header"
             error stop 1
@@ -250,7 +251,7 @@ contains
         end if
 
         normalized_output = to_lower(output_code)
-        header_count = count_occurrences(normalized_output, "type :: point_t")
+        header_count = count_occurrences(normalized_output, "type, public :: point_t")
         if (header_count /= 1) then
             print *, "FAIL: module emitted duplicate derived type headers"
             error stop 1
@@ -258,6 +259,69 @@ contains
 
         print *, "PASS: Module type definition preserved correctly"
     end subroutine test_module_type_definition
+
+    subroutine test_type_definition_with_extends()
+        character(len=:), allocatable :: input_code
+        character(len=:), allocatable :: output_code
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: type_segment
+        character(len=:), allocatable :: normalized_output
+        integer :: idx_type, idx_end
+        integer :: header_count
+
+        input_code = "program extends_demo" // new_line('A') // &
+                     "    implicit none" // new_line('A') // new_line('A') // &
+                     "    type :: base_t" // new_line('A') // &
+                     "        real :: x" // new_line('A') // &
+                     "    end type base_t" // new_line('A') // new_line('A') // &
+                     "    type, extends(base_t) :: point_t" // new_line('A') // &
+                     "        real :: y" // new_line('A') // &
+                     "    end type point_t" // new_line('A') // new_line('A') // &
+                     "    type(point_t) :: p" // new_line('A') // &
+                     "    p%y = 2.0" // new_line('A') // &
+                     "    print *, p%y" // new_line('A') // &
+                     "end program extends_demo"
+
+        call transform_lazy_fortran_string(input_code, output_code, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: unexpected error for extends test:", trim(error_msg)
+            error stop 1
+        end if
+
+        idx_type = index(output_code, "type, extends(base_t) :: point_t")
+        if (idx_type <= 0) then
+            print *, "FAIL: extends attribute missing from derived type header"
+            error stop 1
+        end if
+
+        idx_end = index(output_code, "end type point_t")
+        if (idx_end <= idx_type) then
+            print *, "FAIL: extends test has malformed type block"
+            error stop 1
+        end if
+
+        type_segment = output_code(idx_type:idx_end)
+        if (index(type_segment, "real :: y") <= 0) then
+            print *, "FAIL: extends test lost component declaration inside type"
+            error stop 1
+        end if
+
+        normalized_output = to_lower(output_code)
+        header_count = count_occurrences(normalized_output, &
+                                         "type, extends(base_t) :: point_t")
+        if (header_count /= 1) then
+            print *, "FAIL: extends test produced duplicate derived type headers"
+            error stop 1
+        end if
+
+        if (index(output_code, "type(point_t) :: p") <= 0) then
+            print *, "FAIL: extends test lost type usage outside definition"
+            error stop 1
+        end if
+
+        print *, "PASS: Derived type with extends attribute preserved"
+    end subroutine test_type_definition_with_extends
 
     subroutine test_class_type_declaration()
         character(len=:), allocatable :: input_code

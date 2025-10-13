@@ -705,10 +705,34 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: component_code
+        character(len=:), allocatable :: header_clause
         integer :: i
 
         ! Type definition header
-        code = "type :: " // node%name // new_line('A')
+        if (node%has_attributes .and. allocated(node%attribute_clause) .and. &
+            len_trim(node%attribute_clause) > 0) then
+            header_clause = ""
+            do i = 1, len_trim(node%attribute_clause)
+                header_clause = header_clause // node%attribute_clause(i:i)
+                if (node%attribute_clause(i:i) == "," .and. i < &
+                    len_trim(node%attribute_clause)) then
+                    if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
+                        node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
+                        header_clause = header_clause // " "
+                    end if
+                end if
+            end do
+
+            if (header_clause(1:1) == ",") then
+                code = "type" // header_clause // " :: " // node%name // &
+                       new_line('A')
+            else
+                code = "type " // trim(header_clause) // " :: " // node%name // &
+                       new_line('A')
+            end if
+        else
+            code = "type :: " // node%name // new_line('A')
+        end if
 
         ! Generate components
         if (allocated(node%component_indices)) then

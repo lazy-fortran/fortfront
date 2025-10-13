@@ -1,7 +1,7 @@
 module parser_declarations
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, &
-                          TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, to_lower
+                          TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, TK_STRING, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
@@ -423,72 +423,104 @@ contains
         end select
     end function is_type_attribute_token
 
-    subroutine skip_type_definition_attributes(parser, invalid_definition)
+    subroutine skip_type_definition_attributes(parser, invalid_definition, attribute_clause)
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: invalid_definition
+        character(len=:), allocatable, intent(out), optional :: attribute_clause
 
         type(token_t) :: token
-        character(len=:), allocatable :: last_attribute
+        type(token_t), allocatable :: attr_tokens(:)
+        type(token_t), allocatable :: cleaned(:)
+        character(len=:), allocatable :: clause_text
+        character(len=:), allocatable :: sanitized
         integer :: depth
+        integer :: i
+        logical :: found_double_colon
 
         invalid_definition = .false.
-        last_attribute = ""
+        found_double_colon = .false.
+        if (present(attribute_clause)) then
+            if (allocated(attribute_clause)) deallocate (attribute_clause)
+        end if
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
             select case (token%kind)
             case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
                 token = parser%consume()
+                call append_token(attr_tokens, token)
             case (TK_OPERATOR)
                 select case (token%text)
                 case (",")
                     token = parser%consume()
-                    last_attribute = ""
+                    call append_token(attr_tokens, token)
                 case ("::")
                     token = parser%consume()
-                    return
+                    found_double_colon = .true.
+                    exit
                 case ("(")
-                    if (len(last_attribute) > 0) then
-                        select case (to_lower(trim(adjustl(last_attribute))))
-                        case ("extends", "bind")
-                            token = parser%consume()
-                            depth = 1
-                            do while (.not. parser%is_at_end() .and. depth > 0)
-                                token = parser%consume()
-                                if (token%kind == TK_OPERATOR) then
-                                    select case (token%text)
-                                    case ("(")
-                                        depth = depth + 1
-                                    case (")")
-                                        depth = depth - 1
-                                    end select
-                                end if
-                            end do
-                            last_attribute = ""
-                        case default
-                            invalid_definition = .true.
-                            return
-                        end select
-                    else
+                    token = parser%consume()
+                    call append_token(attr_tokens, token)
+                    depth = 1
+                    do while (.not. parser%is_at_end() .and. depth > 0)
+                        token = parser%consume()
+                        call append_token(attr_tokens, token)
+                        if (token%kind == TK_OPERATOR) then
+                            select case (token%text)
+                            case ("(")
+                                depth = depth + 1
+                            case (")")
+                                depth = depth - 1
+                            end select
+                        end if
+                    end do
+                    if (depth /= 0) then
                         invalid_definition = .true.
-                        return
+                        exit
                     end if
                 case default
-                    invalid_definition = .true.
-                    return
-                end select
-            case (TK_KEYWORD, TK_IDENTIFIER)
-                if (is_type_attribute_token(token%text)) then
-                    last_attribute = to_lower(trim(adjustl(token%text)))
                     token = parser%consume()
-                else
-                    return
-                end if
+                    call append_token(attr_tokens, token)
+                end select
+            case (TK_KEYWORD, TK_IDENTIFIER, TK_NUMBER, TK_STRING)
+                token = parser%consume()
+                call append_token(attr_tokens, token)
             case default
                 invalid_definition = .true.
-                return
+                exit
             end select
         end do
+
+        if (.not. found_double_colon) then
+            invalid_definition = .true.
+        end if
+
+        if (present(attribute_clause)) then
+            if (.not. invalid_definition .and. allocated(attr_tokens)) then
+                call trim_token_sequence(attr_tokens, cleaned)
+                if (allocated(cleaned)) then
+                    clause_text = trim(adjustl(tokens_to_text(cleaned)))
+                    if (len(clause_text) > 0) then
+                        sanitized = ""
+                        do i = 1, len(clause_text)
+                            sanitized = sanitized // clause_text(i:i)
+                            if (clause_text(i:i) == "," .and. i < len(clause_text)) then
+                                if (clause_text(i + 1:i + 1) /= " " .and. &
+                                    clause_text(i + 1:i + 1) /= new_line('A')) then
+                                    sanitized = sanitized // " "
+                                end if
+                            end if
+                        end do
+                        attribute_clause = trim(adjustl(sanitized))
+                    end if
+                    if (allocated(sanitized)) deallocate (sanitized)
+                    if (allocated(clause_text)) deallocate (clause_text)
+                    deallocate (cleaned)
+                end if
+            end if
+        end if
+
+        if (allocated(attr_tokens)) deallocate (attr_tokens)
     end subroutine skip_type_definition_attributes
 
     logical function parser_is_at_type_definition(parser) result(is_type_def)
@@ -1506,6 +1538,8 @@ contains
 
         type(token_t) :: token
         character(len=100) :: type_name
+        character(len=:), allocatable :: header_attributes
+        logical :: has_header_attrs
         integer :: comp_index
         integer, parameter :: max_components = 100
         integer :: component_indices(max_components)
@@ -1518,9 +1552,18 @@ contains
         ! Consume 'type'
         token = parser%consume()
 
-        call skip_type_definition_attributes(parser, invalid_type_spec)
+        call skip_type_definition_attributes(parser, invalid_type_spec, header_attributes)
         if (invalid_type_spec) then
             return
+        end if
+
+        has_header_attrs = .false.
+        if (allocated(header_attributes)) then
+            if (len_trim(header_attributes) > 0) then
+                has_header_attrs = .true.
+            else
+                deallocate (header_attributes)
+            end if
         end if
 
         token = parser%peek()
@@ -1598,11 +1641,23 @@ contains
 
         ! Create derived type node
         if (component_count > 0) then
-            type_index = push_derived_type(arena, type_name, &
-                                           component_indices(1:component_count))
+            if (has_header_attrs) then
+                type_index = push_derived_type(arena, type_name, &
+                                               component_indices(1:component_count), &
+                                               attribute_clause=header_attributes)
+            else
+                type_index = push_derived_type(arena, type_name, &
+                                               component_indices(1:component_count))
+            end if
         else
-            type_index = push_derived_type(arena, type_name, &
-                                           [integer ::])
+            if (has_header_attrs) then
+                type_index = push_derived_type(arena, type_name, &
+                                               [integer ::], &
+                                               attribute_clause=header_attributes)
+            else
+                type_index = push_derived_type(arena, type_name, &
+                                               [integer ::])
+            end if
         end if
     end function parse_derived_type_def
 
