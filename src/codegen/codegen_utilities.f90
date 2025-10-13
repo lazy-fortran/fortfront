@@ -443,7 +443,10 @@ contains
                                     if (found_params) then
                                         ! Generate declaration for all parameters in this multi-declaration
                                         type_name = trim(node%type_name)
-                                        append_kind = node%has_kind
+                                        if (is_character_type_string(type_name)) then
+                                            type_name = normalize_character_type(node, type_name)
+                                        end if
+                                        append_kind = node%has_kind .and. .not. is_character_type_string(type_name)
                                         code = code // indent_str // type_name
 
                                         if (append_kind) then
@@ -490,7 +493,8 @@ contains
                                             do j = 1, size(node%var_names)
                                                 if (.not. is_param(j)) then
                                                     if (have_nonparam) then
-                                                        nonparam_list = nonparam_list // ", " // trim(node%var_names(j))
+                                                        nonparam_list = nonparam_list // ", " // &
+                                                                        trim(node%var_names(j))
                                                     else
                                                         nonparam_list = trim(node%var_names(j))
                                                     end if
@@ -500,7 +504,10 @@ contains
 
                                             if (have_nonparam) then
                                                 local_type = trim(node%type_name)
-                                                local_append_kind = node%has_kind
+                                                if (is_character_type_string(local_type)) then
+                                                    local_type = normalize_character_type(node, local_type)
+                                                end if
+                                                local_append_kind = node%has_kind .and. .not. is_character_type_string(local_type)
                                                 if (local_type == 'real' .and. .not. local_append_kind) then
                                                     local_type = 'real(8)'
                                                 end if
@@ -522,7 +529,10 @@ contains
                                 if (param_idx > 0) then
                                     ! Generate the declaration with parameter attributes from the declaration node
                                     type_name = trim(node%type_name)
-                                    append_kind_single = node%has_kind
+                                    if (is_character_type_string(type_name)) then
+                                        type_name = normalize_character_type(node, type_name)
+                                    end if
+                                    append_kind_single = node%has_kind .and. .not. is_character_type_string(type_name)
                                     code = code // indent_str // type_name
 
                                     if (append_kind_single) then
@@ -565,7 +575,11 @@ contains
                             if (param_idx > 0) then
                                 ! Generate the declaration with attributes from parameter_declaration_node
                                 type_name = trim(node%type_name)
-                                append_kind_param = node%has_kind
+                                if (is_character_type_string(type_name)) then
+                                    type_name = normalize_character_type_param(type_name, node%has_kind, &
+                                                                              node%kind_value)
+                                end if
+                                append_kind_param = node%has_kind .and. .not. is_character_type_string(type_name)
                                 ! Debug: print if type_name is empty
                                 if (len_trim(type_name) == 0) then
                                     ! Skip if no type name - will be handled elsewhere
@@ -1113,6 +1127,16 @@ contains
             end if
         end if
 
+        if (has_length) then
+            lowered_len = to_lower_ascii(trim(length_spec))
+            select case (trim(lowered_len))
+            case ("-1")
+                length_spec = "*"
+            case ("len=-1")
+                length_spec = "len=*"
+            end select
+        end if
+
         if (.not. has_length) then
             type_str = "character"
         else
@@ -1180,6 +1204,16 @@ contains
             if (len_trim(length_spec) == 0) then
                 has_length = .false.
             end if
+        end if
+
+        if (has_length) then
+            lowered_len = to_lower_ascii(trim(length_spec))
+            select case (trim(lowered_len))
+            case ("-1")
+                length_spec = "*"
+            case ("len=-1")
+                length_spec = "len=*"
+            end select
         end if
 
         if (.not. has_length) then

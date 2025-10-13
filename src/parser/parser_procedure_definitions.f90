@@ -11,7 +11,7 @@ module parser_procedure_definitions_module
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block, &
-                           push_module_procedure
+                           push_module_procedure, push_if
     use ast_factory
     use ast_base, only: string_t
     implicit none
@@ -292,16 +292,48 @@ contains
                     end if
 
                     ! Parse the statement (handle multi-line IF blocks)
-     if (token%kind == TK_KEYWORD .and. (token%text == "if" .or. token%text == "IF")) then
-                        stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                    block
+                        integer :: first_token
+                        character(len=:), allocatable :: token_lower
+
+                        stmt_index = 0
+
+                        first_token = 1
+                        do while (first_token <= stmt_size)
+                            select case (stmt_tokens(first_token)%kind)
+                            case (TK_WHITESPACE, TK_NEWLINE)
+                                first_token = first_token + 1
+                            case default
+                                exit
+                            end select
+                        end do
+
+                        if (first_token <= stmt_size) then
+                            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
+                                token_lower = to_lower_local( &
+     &                                    stmt_tokens(first_token)%text)
+                                if (trim(token_lower) == "if") then
+                                    stmt_index = parse_if_statement_tokens( &
+     &                                        stmt_tokens, arena)
+                                end if
+                            end if
+                        end if
+
                         if (stmt_index <= 0) then
                             block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                            do while (block_parser%current_token < first_token .and. &
+     &                                  .not. block_parser%is_at_end())
+                                token = block_parser%consume()
+                            end do
+                            if (.not. block_parser%is_at_end()) then
+                                stmt_index = parse_statement_in_if_block( &
+     &                                    block_parser, arena, &
+     &                                    stmt_tokens(max(1, first_token)))
+                            else
+                                stmt_index = 0
+                            end if
                         end if
-                    else
-                        block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
-                    end if
+                    end block
 
                     ! Add to body
                     if (stmt_index > 0) then
@@ -346,6 +378,7 @@ contains
         integer :: condition_index
         integer, allocatable :: then_body_indices(:), else_body_indices(:)
         integer :: then_start, then_end, else_start, else_end
+        character(len=:), allocatable :: token_lower
 
         token_count = size(stmt_tokens)
         if (token_count <= 1) then
@@ -360,17 +393,20 @@ contains
 
         do i = 2, token_count
             if (stmt_tokens(i)%kind == TK_KEYWORD) then
-                select case (stmt_tokens(i)%text)
-                case ("then", "THEN")
+                token_lower = to_lower_local(stmt_tokens(i)%text)
+                select case (trim(token_lower))
+                case ("then")
                     if (then_pos < 0) then_pos = i
-                case ("else", "ELSE")
+                case ("else")
                     if (else_pos < 0) else_pos = i
-                case ("end", "END")
+                case ("end")
                     if (i < token_count) then
-                        if (stmt_tokens(i + 1)%kind == TK_KEYWORD .and. &
-              (stmt_tokens(i + 1)%text == "if" .or. stmt_tokens(i + 1)%text == "IF")) then
-                            end_pos = i
-                            exit
+                        if (stmt_tokens(i + 1)%kind == TK_KEYWORD) then
+                            token_lower = to_lower_local(stmt_tokens(i + 1)%text)
+                            if (trim(token_lower) == "if") then
+                                end_pos = i
+                                exit
+                            end if
                         end if
                     end if
                 end select
@@ -409,7 +445,8 @@ contains
         if (else_pos > 0) then
             else_start = else_pos + 1
             else_end = end_pos - 1
-        else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, else_end, arena)
+            else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, &
+     &                                              else_end, arena)
         else
             allocate (else_body_indices(0))
         end if
@@ -419,8 +456,7 @@ contains
                            line=stmt_tokens(1)%line, column=stmt_tokens(1)%column)
     end function parse_if_statement_tokens
 
-    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) &
-        result(body_indices)
+    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) result(body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: start_idx, end_idx
         type(ast_arena_t), intent(inout) :: arena
@@ -478,9 +514,21 @@ contains
                 line_tokens(stmt_size + 1)%column = token%column
 
                 line_parser = create_parser_state(line_tokens)
-              stmt_index = parse_statement_in_if_block(line_parser, arena, line_tokens(1))
-                if (stmt_index > 0) then
-                    body_indices = [body_indices, stmt_index]
+                do while (.not. line_parser%is_at_end())
+                    token = line_parser%peek()
+                    if (token%kind == TK_WHITESPACE .or. token%kind == TK_NEWLINE) then
+                        token = line_parser%consume()
+                    else
+                        exit
+                    end if
+                end do
+
+                if (.not. line_parser%is_at_end()) then
+                    stmt_index = parse_statement_in_if_block(line_parser, arena, &
+     &                                                     line_parser%peek())
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
                 end if
                 deallocate (line_tokens)
                 body_parser%current_token = stmt_end + 1
@@ -675,9 +723,48 @@ contains
                     stmt_tokens(stmt_size + 1)%line = token%line
                     stmt_tokens(stmt_size + 1)%column = token%column + 1
 
-                    ! Parse the statement
-                    block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    block
+                        integer :: first_token
+                        character(len=:), allocatable :: token_lower
+
+                        stmt_index = 0
+
+                        first_token = 1
+                        do while (first_token <= stmt_size)
+                            select case (stmt_tokens(first_token)%kind)
+                            case (TK_WHITESPACE, TK_NEWLINE)
+                                first_token = first_token + 1
+                            case default
+                                exit
+                            end select
+                        end do
+
+                        if (first_token <= stmt_size) then
+                            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
+                                token_lower = to_lower_local( &
+     &                                    stmt_tokens(first_token)%text)
+                                if (trim(token_lower) == "if") then
+                                    stmt_index = parse_if_statement_tokens( &
+     &                                        stmt_tokens, arena)
+                                end if
+                            end if
+                        end if
+
+                        if (stmt_index <= 0) then
+                            block_parser = create_parser_state(stmt_tokens)
+                            do while (block_parser%current_token < first_token .and. &
+     &                                  .not. block_parser%is_at_end())
+                                token = block_parser%consume()
+                            end do
+                            if (.not. block_parser%is_at_end()) then
+                                stmt_index = parse_statement_in_if_block( &
+     &                                    block_parser, arena, &
+     &                                    stmt_tokens(max(1, first_token)))
+                            else
+                                stmt_index = 0
+                            end if
+                        end if
+                    end block
 
                     ! Add to body
                     if (stmt_index > 0) then
