@@ -214,13 +214,16 @@ contains
         integer :: column_ref
         integer :: last_sep
         integer :: i
+        logical :: found_identifier
 
         module_name = ""
         base_name = ""
         line_ref = type_spec%line
         column_ref = type_spec%column
+        found_identifier = .false.
 
         if (.not. allocated(name_tokens)) then
+            type_spec%is_derived_type = .false.
             type_spec%derived_type_name = ""
             type_spec%derived_type_module = ""
             return
@@ -256,18 +259,35 @@ contains
             if (name_tokens(i)%kind == TK_IDENTIFIER) then
                 line_ref = name_tokens(i)%line
                 column_ref = name_tokens(i)%column
+                found_identifier = .true.
                 exit
             end if
         end do
 
-        type_spec%derived_type_name = base_name
-        if (len_trim(module_name) > 0) then
-            type_spec%derived_type_module = module_name
-        end if
-
         if (len_trim(base_name) > 0) then
-            type_spec%derived_type_identifier = push_identifier( &
-                arena, base_name, line=line_ref, column=column_ref)
+            if (trim(adjustl(base_name)) == "*") then
+                type_spec%derived_type_name = ""
+                type_spec%derived_type_module = ""
+                type_spec%derived_type_identifier = 0
+                type_spec%is_derived_type = .false.
+                return
+            end if
+
+            type_spec%derived_type_name = base_name
+            if (len_trim(module_name) > 0) then
+                type_spec%derived_type_module = module_name
+            end if
+
+            if (found_identifier) then
+                type_spec%derived_type_identifier = push_identifier( &
+                    arena, base_name, line=line_ref, column=column_ref)
+            else
+                type_spec%derived_type_identifier = 0
+            end if
+        else
+            type_spec%derived_type_name = ""
+            type_spec%derived_type_module = ""
+            type_spec%derived_type_identifier = 0
         end if
     end subroutine set_derived_type_name_info
 
@@ -370,6 +390,13 @@ contains
 
         call split_derived_type_name_and_params(tokens, name_tokens, param_tokens)
         call set_derived_type_name_info(type_spec, name_tokens, arena)
+        if (.not. type_spec%is_derived_type) then
+            if (allocated(type_spec%derived_parameter_tokens)) then
+                deallocate (type_spec%derived_parameter_tokens)
+            end if
+            if (allocated(param_tokens)) deallocate (param_tokens)
+            return
+        end if
         call process_derived_type_parameters(type_spec, param_tokens, arena)
 
         if (allocated(type_spec%derived_parameter_tokens)) then
@@ -672,8 +699,10 @@ contains
                         end if
 
                         if (len_trim(derived_text) > 0) then
-                            if (len_trim(type_spec%derived_type_name) == 0) then
-                                type_spec%derived_type_name = trim(adjustl(derived_text))
+                            if (type_spec%is_derived_type) then
+                                if (len_trim(type_spec%derived_type_name) == 0) then
+                                    type_spec%derived_type_name = trim(adjustl(derived_text))
+                                end if
                             end if
                             type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
                                                   derived_text // ")"

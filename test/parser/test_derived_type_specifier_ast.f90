@@ -10,6 +10,7 @@ program test_derived_type_specifier_ast
 
     character(len=*), parameter :: source = &
                                    "type(point_mod::point_t(3)) :: value"
+    character(len=*), parameter :: unlimited_source = "class(*), pointer :: p"
     type(token_t), allocatable :: tokens(:)
     character(len=:), allocatable :: error_msg
     type(parser_state_t) :: parser
@@ -71,4 +72,47 @@ program test_derived_type_specifier_ast
     end if
 
     print *, "PASS: derived type specifier produces structured AST"
+
+    call lex_source(unlimited_source, tokens, error_msg)
+    if (len_trim(error_msg) > 0) then
+        print *, "FAIL: lexer error for unlimited source:", trim(error_msg)
+        stop 1
+    end if
+
+    arena = create_ast_arena()
+    parser = create_parser_state(tokens)
+    type_spec = parse_type_specifier(parser, arena)
+
+    if (type_spec%is_derived_type) then
+        print *, "FAIL: unlimited polymorphic flagged as derived type"
+        stop 1
+    end if
+
+    if (len_trim(type_spec%derived_type_name) /= 0) then
+        print *, "FAIL: unlimited polymorphic captured derived name"
+        stop 1
+    end if
+
+    if (len_trim(type_spec%derived_type_module) /= 0) then
+        print *, "FAIL: unlimited polymorphic captured module name"
+        stop 1
+    end if
+
+    if (type_spec%derived_type_identifier /= 0) then
+        print *, "FAIL: unlimited polymorphic created identifier node"
+        stop 1
+    end if
+
+    if (allocated(type_spec%derived_parameter_nodes)) then
+        print *, "FAIL: unlimited polymorphic recorded parameter nodes"
+        stop 1
+    end if
+
+    if (type_spec%type_name /= "class(*)") then
+        print *, "FAIL: unlimited polymorphic type name mismatch:", &
+            trim(type_spec%type_name)
+        stop 1
+    end if
+
+    print *, "PASS: unlimited polymorphic spec parsed without derived metadata"
 end program test_derived_type_specifier_ast
