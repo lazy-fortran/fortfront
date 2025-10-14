@@ -357,7 +357,7 @@ contains
 
         ! Look for declarations with matching name (including parameters)
         ! Only check nodes that come before this one in the arena
-        do i = 1, min(arena%size, node_index - 1)
+        do i = node_index - 1, 1, -1
             select type (entry => arena%entries(i)%node)
             type is (declaration_node)
                 if (allocated(entry%var_name)) then
@@ -374,7 +374,6 @@ contains
                     end if
                 end if
             type is (assignment_node)
-                if (i >= node_index) cycle
                 if (entry%target_index <= 0 .or. entry%target_index > arena%size) cycle
                 if (.not. allocated(arena%entries(entry%target_index)%node)) cycle
                 select type (target => arena%entries(entry%target_index)%node)

@@ -472,7 +472,7 @@ contains
                 return
             end if
 
-            do i = 1, expr_idx - 1
+            do i = expr_idx - 1, 1, -1
                 if (.not. allocated(arena%entries(i)%node)) cycle
                 select type (assign_node => arena%entries(i)%node)
                 type is (assignment_node)
