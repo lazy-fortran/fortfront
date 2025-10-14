@@ -28,10 +28,13 @@ module semantic_analyzer
                                           infer_comparison_operation, &
                                           infer_logical_operation
     use semantic_inference_helpers, only: process_if_node_branches, process_do_while_node_body, &
-                                          process_where_node_clauses, process_where_stmt_node, &
-                                          process_forall_node_body, process_select_case_blocks, &
-                                          process_associate_node_body, process_stop_node_code, &
+                                    process_where_node_clauses, process_where_stmt_node, &
+                                   process_forall_node_body, process_select_case_blocks, &
+                                    process_associate_node_body, process_stop_node_code, &
                                           process_declaration_variables
+    use parser_type_hooks_module, only: type_annotation_t, consume_type_annotations, &
+                                        has_type_annotations
+    use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                               assignment_node, call_or_subscript_node, &
@@ -67,6 +70,7 @@ module semantic_analyzer
         type(error_collection_t) :: errors  ! Collect semantic errors
         logical :: strict_mode = .false.  ! Default lazy mode; callers may enable strict
         logical :: respect_implicit_none = .true.
+        type(type_annotation_t), allocatable :: parser_type_hints(:)
     contains
         ! Implement required abstract procedures from semantic_context_base_t FIRST
         procedure :: get_context_name => semantic_get_context_name
@@ -86,6 +90,7 @@ module semantic_analyzer
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
         procedure :: has_errors => semantic_context_has_errors
+        procedure :: get_type_hint => semantic_get_type_hint
 
         generic :: assignment(=) => assign
     end type semantic_context_t
@@ -132,12 +137,13 @@ contains
         ! Create polymorphic type scheme (no type variables to generalize)
         builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=real_to_real)
 
-        ! Add common math functions to global scope
-        call ctx%scopes%define("sin", builtin_scheme)
-        call ctx%scopes%define("cos", builtin_scheme)
-        call ctx%scopes%define("tan", builtin_scheme)
-        call ctx%scopes%define("sqrt", builtin_scheme)
         call ctx%scopes%define("exp", builtin_scheme)
+
+        if (has_type_annotations()) then
+            call consume_type_annotations(ctx%parser_type_hints)
+        else
+            allocate (ctx%parser_type_hints(0))
+        end if
         call ctx%scopes%define("log", builtin_scheme)
         call ctx%scopes%define("abs", builtin_scheme)
     end subroutine create_semantic_context
@@ -178,17 +184,24 @@ contains
         ! Prepass: define all declared variables in scope before inference
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+               if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (node => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
                             block
                                 type(mono_type_t) :: decl_type
                                 type(poly_type_t) :: scheme
+                                type(type_annotation_t) :: hint
                                 integer :: j
-                                call process_declaration_variables(node, decl_type)
+
+                                if (ctx%get_type_hint(prog%body_indices(i), hint)) then
+                                    call type_from_annotation(hint, decl_type)
+                                else
+                                    call process_declaration_variables(node, decl_type)
+                                end if
+
                                 scheme = ctx%generalize(decl_type)
-                                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                       if (node%is_multi_declaration .and. allocated(node%var_names)) then
                                     do j = 1, size(node%var_names)
                                         call ctx%scopes%define(node%var_names(j), scheme)
                                     end do
@@ -207,7 +220,7 @@ contains
         ! Main inference over statements
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+               if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                     call infer_and_store_type(ctx, arena, prog%body_indices(i))
                 end if
             end do
@@ -383,9 +396,9 @@ contains
                     end do
                 end if
             type is (function_def_node)
-                call analyze_function_parameters(arena, expr, param_types, this%scopes, this%next_var_id)
-                return_type = determine_function_return_type(arena, expr, this%next_var_id)
-                call create_function_scope(arena, expr, node_index, return_type, this%scopes)
+ call analyze_function_parameters(arena, expr, param_types, this%scopes, this%next_var_id)
+               return_type = determine_function_return_type(arena, expr, this%next_var_id)
+             call create_function_scope(arena, expr, node_index, return_type, this%scopes)
                 post_frame = current
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
@@ -523,7 +536,7 @@ contains
                     do i = size(expr%associations), 1, -1
                         if (expr%associations(i)%expr_index > 0) then
                             post_frame = current
-                            if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                             post_frame%node_index = current%node_index
                             post_frame%state = STATE_ASSOC_DEFINE
                             post_frame%aux_index = i
@@ -641,12 +654,12 @@ contains
             select type (assoc_node => arena%entries(parent_index)%node)
             type is (associate_node)
                 if (.not. allocated(assoc_node%associations)) return
-                if (assoc_index < 1 .or. assoc_index > size(assoc_node%associations)) return
+              if (assoc_index < 1 .or. assoc_index > size(assoc_node%associations)) return
                 if (assoc_node%associations(assoc_index)%expr_index <= 0) return
-                assoc_type = get_node_type(assoc_node%associations(assoc_index)%expr_index)
-                assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=assoc_type)
+               assoc_type = get_node_type(assoc_node%associations(assoc_index)%expr_index)
+             assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=assoc_type)
                 if (allocated(assoc_node%associations(assoc_index)%name)) then
-                    call this%scopes%define(assoc_node%associations(assoc_index)%name, assoc_scheme)
+          call this%scopes%define(assoc_node%associations(assoc_index)%name, assoc_scheme)
                 end if
             end select
         end subroutine handle_association
@@ -907,6 +920,67 @@ contains
         has_errors = this%errors%has_errors()
     end function semantic_context_has_errors
 
+    logical function semantic_get_type_hint(this, decl_index, annotation)
+        class(semantic_context_t), intent(in) :: this
+        integer, intent(in) :: decl_index
+        type(type_annotation_t), intent(out) :: annotation
+        integer :: i
+
+        semantic_get_type_hint = .false.
+        if (.not. allocated(this%parser_type_hints)) return
+        if (size(this%parser_type_hints) == 0) return
+
+        do i = 1, size(this%parser_type_hints)
+            if (this%parser_type_hints(i)%decl_index == decl_index) then
+                annotation = this%parser_type_hints(i)
+                semantic_get_type_hint = .true.
+                return
+            end if
+        end do
+    end function semantic_get_type_hint
+
+    subroutine type_from_annotation(annotation, var_type)
+        type(type_annotation_t), intent(in) :: annotation
+        type(mono_type_t), intent(out) :: var_type
+        integer :: kind_id
+        character(len=:), allocatable :: lowered
+
+        lowered = adjustl(to_lower(trim(annotation%type_name)))
+        select case (lowered)
+        case ("integer")
+            kind_id = TINT
+        case ("real")
+            kind_id = TREAL
+        case ("character")
+            kind_id = TCHAR
+        case ("logical")
+            kind_id = TLOGICAL
+        case ("complex")
+            kind_id = TCOMPLEX
+        case ("double precision")
+            kind_id = TDOUBLE
+        case default
+            if (index(lowered, "type(") == 1) then
+                kind_id = TDERIVED
+            else
+                kind_id = TREAL
+            end if
+        end select
+
+        var_type = create_mono_type(kind_id)
+
+        if (annotation%has_kind) then
+            if (kind_id == TCHAR) then
+                if (annotation%kind_value > 0) then
+                    var_type%size = annotation%kind_value
+                else if (annotation%kind_value == -1) then
+                    var_type%size = -1
+                end if
+            end if
+            var_type%kind = kind_id
+        end if
+    end subroutine type_from_annotation
+
     ! Infer type of literal
     function infer_literal(ctx, lit) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
@@ -958,11 +1032,11 @@ contains
             if (ctx%strict_mode) then
                 ! Standard Fortran mode: undefined variable is an error
                 error_result = create_error_result( &
-                               "Undefined variable '" // ident%name // "' in strict mode", &
+                               "Undefined variable '"//ident%name//"' in strict mode", &
                                ERROR_SEMANTIC, &
                                component="semantic_analyzer", &
                                context="infer_identifier", &
-                               suggestion="Declare the variable with 'integer :: " // ident%name // &
+                       suggestion="Declare the variable with 'integer :: "//ident%name// &
                                "' or remove 'implicit none' for lazy Fortran mode" &
                                )
                 call ctx%errors%add_result(error_result)
@@ -1066,7 +1140,7 @@ contains
         ! Process arguments to detect undefined variables
         if (allocated(call_node%arg_indices)) then
             do i = 1, size(call_node%arg_indices)
-                arg_type = get_inferred_type_from_arena(ctx, arena, call_node%arg_indices(i))
+             arg_type = get_inferred_type_from_arena(ctx, arena, call_node%arg_indices(i))
             end do
         end if
 
@@ -1076,7 +1150,7 @@ contains
         if (allocated(scheme)) then
             typ = ctx%instantiate(scheme)
             ! Extract return type from function type
-            if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
+  if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
         else
@@ -1147,7 +1221,8 @@ contains
         ! Use extracted assignment processing
         call process_assignment_inference(arena, assignment, assignment_index, &
                                           lhs_index, expr_typ, updated_expr_typ, &
-                                          ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id)
+                               ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
+                                          ctx%parser_type_hints)
 
         typ = updated_expr_typ
 
@@ -1212,7 +1287,7 @@ contains
         end if
 
         ! Start with first element type
-        first_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(1))
+       first_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(1))
         promoted_type = first_type
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
@@ -1225,7 +1300,7 @@ contains
 
         ! Check all elements for type promotion and consistency
         do i = 2, size(array_lit%element_indices)
-            element_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(i))
+     element_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(i))
 
             ! Check if all elements are arrays (for nested arrays)
             if (all_arrays .and. element_type%kind /= TARRAY) then

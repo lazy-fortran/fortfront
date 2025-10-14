@@ -2,7 +2,8 @@ module parser_dispatcher_module
     ! Statement dispatcher that delegates to appropriate parsing modules
     ! This implements the SRP by separating the switch logic from the implementations
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                  TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE, to_lower
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module
@@ -14,17 +15,17 @@ module parser_dispatcher_module
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
     use parser_definition_statements_module, only: parse_function_definition, &
-                                        parse_subroutine_definition, parse_interface_block
-    use parser_control_statements_module, only: parse_stop_statement, &
-               parse_return_statement, parse_goto_statement, parse_error_stop_statement, &
-                          parse_cycle_statement, parse_exit_statement, parse_end_statement
+                                                   parse_subroutine_definition, &
+                                                   parse_interface_block
+    use parser_control_statements_module, only: &
+        parse_stop_statement, parse_return_statement, parse_goto_statement, &
+        parse_error_stop_statement, parse_cycle_statement, parse_exit_statement, &
+        parse_end_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
-    use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
-                                          parse_where_construct, parse_associate
-    use parser_forall_module, only: parse_forall
+    use parser_control_flow_router_module, only: route_control_flow
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node
     use uid_generator, only: generate_uid
@@ -73,14 +74,8 @@ contains
                 stmt_index = parse_allocate_statement(parser, arena)
             case ("deallocate")
                 stmt_index = parse_deallocate_statement(parser, arena)
-            case ("if")
-                stmt_index = parse_if(parser, arena)
-            case ("do")
-                stmt_index = parse_do_loop(parser, arena)
-            case ("where")
-                stmt_index = parse_where_construct(parser, arena)
-            case ("select")
-                stmt_index = parse_select_case(parser, arena)
+            case ("if", "do", "where", "select", "forall", "associate")
+                stmt_index = route_control_flow(parser, arena)
             case ("function")
                 stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             case ("subroutine")
@@ -110,14 +105,11 @@ contains
                 stmt_index = parse_cycle_statement(parser, arena)
             case ("exit")
                 stmt_index = parse_exit_statement(parser, arena)
-            case ("associate")
-                stmt_index = parse_associate(parser, arena)
-            case ("forall")
-                stmt_index = parse_forall(parser, arena)
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
             case default
-                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+                                                     stmt_index)) then
                     stmt_index = parse_as_expression(tokens, arena)
                 end if
             end select
@@ -125,7 +117,8 @@ contains
             if (to_lower(trim(first_token%text)) == "class") then
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             else
-                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)) then
+                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+                                                     stmt_index)) then
                     stmt_index = parse_assignment_or_expression(parser, arena)
                 end if
             end if
@@ -230,7 +223,8 @@ contains
                 op_token = parser%consume()
 
                 ! Create target identifier
-      target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                target_index = push_identifier(arena, id_token%text, id_token%line, &
+                                               id_token%column)
 
                 ! Parse value expression
                 value_index = parse_range(parser, arena)

@@ -10,6 +10,7 @@ module parser_declarations
    use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
     use error_handling, only: ERROR_PARSER
     use ast_factory, only: push_multi_declaration, push_declaration, push_identifier
+    use parser_type_hooks_module, only: register_type_annotation
     implicit none
     private
 
@@ -1024,6 +1025,9 @@ contains
         type(type_specifier_t) :: type_spec
         type(declaration_attributes_t) :: attr_info
         integer :: initializer_index
+        character(len=:), allocatable :: var_name
+        integer, allocatable :: local_dimension_indices(:)
+        logical :: has_local_dimensions
 
         decl_index = 0
         initializer_index = 0
@@ -1168,14 +1172,27 @@ contains
                     end if
                 end if
                 decl_index = temp_index
+                if (temp_index > 0) then
+                    if (attr_info%has_global_dimensions) then
+                        call register_type_annotation(temp_index, type_spec%type_name, &
+                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                      is_pointer=attr_info%is_pointer, &
+                                     dimension_indices=attr_info%global_dimension_indices)
+                    else
+                        call register_type_annotation(temp_index, type_spec%type_name, &
+                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                      is_pointer=attr_info%is_pointer)
+                    end if
+                end if
                 return
             end if
-        end block
 
-        block
-            character(len=:), allocatable :: var_name
-            integer, allocatable :: local_dimension_indices(:)
-            logical :: has_local_dimensions
             var_name = token%text
             has_local_dimensions = .false.
 
@@ -1296,6 +1313,34 @@ contains
                                  )
                 end if
             end if
+
+            if (decl_index > 0) then
+                if (attr_info%has_global_dimensions) then
+                    call register_type_annotation(decl_index, type_spec%type_name, &
+                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  kind_value=type_spec%kind_value, &
+                                                  is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                  is_pointer=attr_info%is_pointer, &
+                                     dimension_indices=attr_info%global_dimension_indices)
+                else if (has_local_dimensions) then
+                    call register_type_annotation(decl_index, type_spec%type_name, &
+                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  kind_value=type_spec%kind_value, &
+                                                  is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                  is_pointer=attr_info%is_pointer, &
+                                                dimension_indices=local_dimension_indices)
+                else
+                    call register_type_annotation(decl_index, type_spec%type_name, &
+                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  kind_value=type_spec%kind_value, &
+                                                  is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                  is_pointer=attr_info%is_pointer)
+                end if
+            end if
+
         end block
     end function parse_declaration
 
@@ -1547,6 +1592,14 @@ contains
                                                   is_optional=attr_info%is_optional, &
                                                   is_parameter=attr_info%is_parameter &
                                                   )
+                                if (decl_indices(i) > 0) then
+                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
+                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                                                        kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                              is_pointer=attr_info%is_pointer, dimension_indices=var_dims)
+                                end if
                             end if
                         end block
                     else if (attr_info%has_global_dimensions) then
@@ -1564,6 +1617,15 @@ contains
                                           is_optional=attr_info%is_optional, &
                                           is_parameter=attr_info%is_parameter &
                                           )
+                        if (decl_indices(i) > 0) then
+                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
+                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                                                        kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                        is_pointer=attr_info%is_pointer, &
+                                     dimension_indices=attr_info%global_dimension_indices)
+                        end if
                     else
                         ! Variable without dimensions
                         decl_indices(i) = push_declaration( &
@@ -1578,8 +1640,17 @@ contains
                                           is_optional=attr_info%is_optional, &
                                           is_parameter=attr_info%is_parameter &
                                           )
+                        if (decl_indices(i) > 0) then
+                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
+                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                                                        kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                          is_pointer=attr_info%is_pointer)
+                        end if
                     end if
                 end do
+
             else
                 ! Use original multi-declaration approach when no per-var dims
                 if (type_spec%has_kind) then
@@ -1631,6 +1702,22 @@ contains
                 if (decl_index > 0) then
                     allocate (decl_indices(1))
                     decl_indices(1) = decl_index
+                    if (attr_info%has_global_dimensions) then
+                        call register_type_annotation(decl_index, type_spec%type_name, &
+                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                      is_pointer=attr_info%is_pointer, &
+                                     dimension_indices=attr_info%global_dimension_indices)
+                    else
+                        call register_type_annotation(decl_index, type_spec%type_name, &
+                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      kind_value=type_spec%kind_value, &
+                                                    is_parameter=attr_info%is_parameter, &
+                                                is_allocatable=attr_info%is_allocatable, &
+                                                      is_pointer=attr_info%is_pointer)
+                    end if
                 else
                     allocate (decl_indices(0))
                 end if

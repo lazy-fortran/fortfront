@@ -4,7 +4,7 @@ module ast_factory_core
                               identifier_node, literal_node, binary_op_node, &
                               call_or_subscript_node, array_literal_node, &
                               component_access_node, range_subscript_node, &
-                              create_array_literal, create_component_access, create_range_subscript, &
+                  create_array_literal, create_component_access, create_range_subscript, &
                               create_pointer_assignment
     use ast_nodes_misc, only: complex_literal_node
     use uid_generator, only: generate_uid
@@ -38,7 +38,7 @@ contains
                                 ERROR_MEMORY, &
                                 component="ast_factory_core", &
                                 context=context, &
-                                suggestion="Initialize arena with create_ast_arena() before use" &
+                        suggestion="Initialize arena with create_ast_arena() before use" &
                                 )
             return
         end if
@@ -49,7 +49,7 @@ contains
                                 ERROR_INTERNAL, &
                                 component="ast_factory_core", &
                                 context=context, &
-                                suggestion="Check for memory corruption or incorrect initialization" &
+                    suggestion="Check for memory corruption or incorrect initialization" &
                                 )
             return
         end if
@@ -80,7 +80,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                                suggestion="Ensure node index comes from valid push_* operation" &
+                        suggestion="Ensure node index comes from valid push_* operation" &
                                 )
             return
         end if
@@ -91,7 +91,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                                suggestion="Check that referenced node was created in this arena" &
+                       suggestion="Check that referenced node was created in this arena" &
                                 )
             return
         end if
@@ -102,7 +102,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                                suggestion="Ensure referenced node is still valid and not deallocated" &
+                  suggestion="Ensure referenced node is still valid and not deallocated" &
                                 )
             return
         end if
@@ -206,7 +206,7 @@ contains
     end function push_identifier
 
     ! Create literal node and add to stack
-    function push_literal(arena, value, kind, line, column, parent_index) result(lit_index)
+   function push_literal(arena, value, kind, line, column, parent_index) result(lit_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: value
         integer, intent(in) :: kind
@@ -270,17 +270,12 @@ contains
 
         ! Validate inputs
         if (object_index <= 0 .or. object_index > arena%size) then
-            ! Create error node for invalid base
-            access_index = push_literal(arena, &
-                                        "!ERROR: Invalid base for component access", &
-                                        LITERAL_STRING, line, column)
+            access_index = 0
             return
         end if
 
         if (len_trim(component_name) == 0) then
-            ! Create error node for empty component name
-            access_index = push_literal(arena, "!ERROR: Empty component name", &
-                                        LITERAL_STRING, line, column)
+            access_index = 0
             return
         end if
 
@@ -305,10 +300,7 @@ contains
 
         ! Validate base expression index
         if (base_expr_index <= 0 .or. base_expr_index > arena%size) then
-            ! Create error node for invalid base expression
-            subscript_index = push_literal(arena, &
-                                           "!ERROR: Invalid base for range subscript", &
-                                           LITERAL_STRING, line, column)
+            subscript_index = 0
             return
         end if
 
