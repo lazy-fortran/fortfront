@@ -7,7 +7,7 @@ module standardizer_types
     use ast_nodes_loops
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
-    use error_handling, only: result_t, success_result, create_error_result, ERROR_TYPE_SYSTEM
+use error_handling, only: result_t, success_result, create_error_result, ERROR_TYPE_SYSTEM
     implicit none
     private
 
@@ -27,6 +27,7 @@ module standardizer_types
         procedure :: get_error => string_get_error
     end type string_result_t
 
+    public :: INVALID_INTEGER
     public :: is_array_type
     public :: get_expression_type
     public :: has_array_slice_args
@@ -38,7 +39,6 @@ module standardizer_types
     public :: get_array_var_type
     public :: infer_element_type_from_literal
     public :: get_fortran_type_string
-    public :: INVALID_INTEGER
 
 contains
 
@@ -111,7 +111,7 @@ contains
             else
                 ! Check if it's an intrinsic function
                 block
-                    use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
+              use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
                     character(len=:), allocatable :: intrinsic_sig
                     logical :: is_intrinsic_func
 
@@ -151,10 +151,10 @@ contains
                         type(mono_type_t) :: element_type_args(1)
                         if (allocated(node%name)) then
                             ! Pattern matching for common array names and their element types
-                            if (index(node%name, "int") > 0 .or. index(node%name, "idx") > 0 .or. &
+                   if (index(node%name, "int") > 0 .or. index(node%name, "idx") > 0 .or. &
                                 index(node%name, "_i") > 0) then
                                 element_type_args(1) = create_mono_type(TINT)
-                            else if (index(node%name, "real") > 0 .or. index(node%name, "float") > 0 .or. &
+           else if (index(node%name, "real") > 0 .or. index(node%name, "float") > 0 .or. &
                                      index(node%name, "_r") > 0) then
                                 element_type_args(1) = create_mono_type(TREAL)
                             else
@@ -238,7 +238,7 @@ contains
                 if (array_node%element_indices(1) > 0 .and. &
                     array_node%element_indices(1) <= arena%size) then
                     if (allocated(arena%entries(array_node%element_indices(1))%node)) then
-                        select type (elem => arena%entries(array_node%element_indices(1))%node)
+                   select type (elem => arena%entries(array_node%element_indices(1))%node)
                         type is (do_loop_node)
                             has_implied = .true.
                         class default
@@ -266,7 +266,7 @@ contains
             ! For now, we'll handle simple integer literals
             if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
                 size = calculate_loop_size(arena, do_node%start_expr_index, &
-                                           do_node%end_expr_index, do_node%step_expr_index)
+                                          do_node%end_expr_index, do_node%step_expr_index)
             end if
         end select
     end function get_implied_do_size
@@ -283,19 +283,24 @@ contains
         ! Get start value
         start_val = get_integer_literal_value(arena, start_idx)
         if (start_val == INVALID_INTEGER) then
-            return
+            start_val = resolve_identifier_integer_value(arena, start_idx)
+            if (start_val == INVALID_INTEGER) return
         end if
 
         ! Get end value
         end_val = get_integer_literal_value(arena, end_idx)
         if (end_val == INVALID_INTEGER) then
-            return
+            end_val = resolve_identifier_integer_value(arena, end_idx)
+            if (end_val == INVALID_INTEGER) return
         end if
 
         ! Get step value (default to 1 if not specified)
         if (step_idx > 0) then
             step_val = get_integer_literal_value(arena, step_idx)
-            if (step_val == INVALID_INTEGER) step_val = 1
+            if (step_val == INVALID_INTEGER) then
+                step_val = resolve_identifier_integer_value(arena, step_idx)
+                if (step_val == INVALID_INTEGER) step_val = 1
+            end if
         else
             step_val = 1
         end if
@@ -373,7 +378,7 @@ contains
             else
                 select type (node => arena%entries(idx)%node)
                 type is (literal_node)
-                    if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
+                if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
                         read (node%value, *, iostat=iostat) value
                         if (iostat /= 0) value = INVALID_INTEGER
                     else
@@ -388,7 +393,7 @@ contains
                             left_val = results(node%left_index)
                         if (node%right_index > 0 .and. node%right_index <= arena%size) &
                             right_val = results(node%right_index)
-                        if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
+                  if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
                             select case (node%operator)
                             case ("-")
                                 value = left_val - right_val
@@ -400,6 +405,12 @@ contains
                                 if (right_val /= 0) value = left_val / right_val
                             end select
                         end if
+                    end if
+                type is (identifier_node)
+                    if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) then
+                        value = node%constant_integer
+                    else
+                        value = INVALID_INTEGER
                     end if
                 class default
                     value = INVALID_INTEGER
@@ -439,6 +450,45 @@ contains
         end function pop
 
     end function get_integer_literal_value
+
+    integer function resolve_identifier_integer_value(arena, expr_idx) result(val)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_idx
+
+        character(len=:), allocatable :: name
+        integer :: i
+
+        val = INVALID_INTEGER
+        if (expr_idx <= 0 .or. expr_idx > arena%size) return
+        if (.not. allocated(arena%entries(expr_idx)%node)) return
+
+        select type (node => arena%entries(expr_idx)%node)
+        type is (identifier_node)
+            if (.not. allocated(node%name)) return
+            name = trim(node%name)
+            if (len_trim(name) == 0) return
+            if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) then
+                val = node%constant_integer
+                return
+            end if
+
+            do i = expr_idx - 1, 1, -1
+                if (.not. allocated(arena%entries(i)%node)) cycle
+                select type (assign_node => arena%entries(i)%node)
+                type is (assignment_node)
+                    if (assign_node%target_index <= 0 .or. assign_node%target_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(assign_node%target_index)%node)) cycle
+                    select type (target => arena%entries(assign_node%target_index)%node)
+                    type is (identifier_node)
+                        if (.not. allocated(target%name)) cycle
+                        if (trim(target%name) /= name) cycle
+                        val = get_integer_literal_value(arena, assign_node%value_index)
+                        if (val /= INVALID_INTEGER) return
+                    end select
+                end select
+            end do
+        end select
+    end function resolve_identifier_integer_value
 
     ! Get array variable type declaration from an array expression
     function get_array_var_type(arena, expr_index) result(var_type)
@@ -512,12 +562,12 @@ contains
                                 ", dimension(", implied_size, ")"
                         else
                             ! Can't determine size, use allocatable
-                            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
                         end if
                     end block
                 else
                     ! Heuristic implied-do detection for modern syntax: [expr, i, start, end[, step]]
-                    if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+                if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
                         if (allocated(node%element_indices)) then
                             if (size(node%element_indices) >= 4) then
                                 block
@@ -525,9 +575,9 @@ contains
                                     logical :: ok
                                     ok = .false.
                                     ! Second element should be an identifier (loop variable)
-                                    if (node%element_indices(2) > 0 .and. node%element_indices(2) <= arena%size) then
-                                        if (allocated(arena%entries(node%element_indices(2))%node)) then
-                                            select type (idnode => arena%entries(node%element_indices(2))%node)
+         if (node%element_indices(2) > 0 .and. node%element_indices(2) <= arena%size) then
+                          if (allocated(arena%entries(node%element_indices(2))%node)) then
+                       select type (idnode => arena%entries(node%element_indices(2))%node)
                                             type is (identifier_node)
                                                 ok = .true.
                                             class default
@@ -536,29 +586,29 @@ contains
                                         end if
                                     end if
                                     if (ok) then
-                                        start_val = get_integer_literal_value(arena, node%element_indices(3))
-                                        end_val = get_integer_literal_value(arena, node%element_indices(4))
+                     start_val = get_integer_literal_value(arena, node%element_indices(3))
+                       end_val = get_integer_literal_value(arena, node%element_indices(4))
                                         if (size(node%element_indices) >= 5) then
-                                            step_val = get_integer_literal_value(arena, node%element_indices(5))
+                      step_val = get_integer_literal_value(arena, node%element_indices(5))
                                         else
                                             step_val = INVALID_INTEGER
                                         end if
-                                        if (start_val /= INVALID_INTEGER .and. end_val /= INVALID_INTEGER) then
+                   if (start_val /= INVALID_INTEGER .and. end_val /= INVALID_INTEGER) then
                                             if (step_val == INVALID_INTEGER) then
-                                                sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), 0)
+      sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), 0)
                                             else
-                                                sz = calculate_loop_size(arena, node%element_indices(3), &
-                                                                         node%element_indices(4), &
-                                                                         node%element_indices(5))
+                                sz = calculate_loop_size(arena, node%element_indices(3), &
+                                                                node%element_indices(4), &
+                                                                  node%element_indices(5))
                                             end if
                                             if (sz > 0) then
-                                                write (var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
+               write (var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
                                             else
-                                                var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
                                             end if
                                         else
                                             ! Non-literal bounds -> deferred shape allocatable
-                                            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
                                         end if
                                         return
                                     end if
@@ -590,7 +640,7 @@ contains
                         if (is_nested .and. inner_size > 0) then
                             ! Nested array - output 2D dimensions
                             write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
-                                ", dimension(", size(node%element_indices), ",", inner_size, ")"
+                          ", dimension(", size(node%element_indices), ",", inner_size, ")"
                         else
                             ! Simple 1D array
                             write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
@@ -617,7 +667,7 @@ contains
 
         type_str = ""  ! Empty default indicates type not determined
 
-        call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         if (elem_index <= 0 .or. elem_index > arena%size) return
         if (.not. allocated(arena%entries(elem_index)%node)) return
@@ -650,7 +700,7 @@ contains
         type(string_result_t) :: elem_result
         logical :: standardizer_type_standardization_enabled
 
-        call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         select case (mono_type%kind)
         case (TINT)
@@ -694,7 +744,7 @@ contains
                                            ERROR_TYPE_SYSTEM, &
                                            component="standardizer", &
                                            context="get_fortran_type_string", &
-                                           suggestion="Ensure array element type is properly inferred" &
+                             suggestion="Ensure array element type is properly inferred" &
                                            )
                 end if
             else
@@ -703,7 +753,7 @@ contains
                                        ERROR_TYPE_SYSTEM, &
                                        component="standardizer", &
                                        context="get_fortran_type_string", &
-                                       suggestion="Array type should have at least one type argument for element type" &
+         suggestion="Array type should have at least one type argument for element type" &
                                        )
             end if
         case default
@@ -712,7 +762,7 @@ contains
                                    ERROR_TYPE_SYSTEM, &
                                    component="standardizer", &
                                    context="get_fortran_type_string", &
-                                   suggestion="Type inference may have failed or encountered an unsupported type" &
+          suggestion="Type inference may have failed or encountered an unsupported type" &
                                    )
         end select
     end function get_fortran_type_string
