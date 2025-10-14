@@ -1,12 +1,13 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE
+                          TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
                                             statement_callbacks_t, &
-                                            null_statement_callbacks
+                                            null_statement_callbacks, &
+                                            find_statement_end
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -35,17 +36,20 @@ contains
 
         if (present(parent_index)) then
             if (present(consumed_count)) then
-                stmt_indices = parse_basic_statement_core(tokens, arena, &
-                                                          parent_index=parent_index, callbacks=local_callbacks, &
-                                                          consumed_count=consumed_count)
+                stmt_indices = parse_basic_statement_core( &
+                               tokens, arena, parent_index=parent_index, &
+                               callbacks=local_callbacks, &
+                               consumed_count=consumed_count)
             else
-                stmt_indices = parse_basic_statement_core(tokens, arena, &
-                                                          parent_index=parent_index, callbacks=local_callbacks)
+                stmt_indices = parse_basic_statement_core( &
+                               tokens, arena, parent_index=parent_index, &
+                               callbacks=local_callbacks)
             end if
         else
             if (present(consumed_count)) then
-                stmt_indices = parse_basic_statement_core(tokens, arena, &
-                                                          callbacks=local_callbacks, consumed_count=consumed_count)
+                stmt_indices = parse_basic_statement_core( &
+                               tokens, arena, callbacks=local_callbacks, &
+                               consumed_count=consumed_count)
             else
                 stmt_indices = parse_basic_statement_core(tokens, arena, &
                                                           callbacks=local_callbacks)
@@ -72,6 +76,9 @@ contains
         type(statement_callbacks_t) :: local_callbacks
         logical :: has_meaningful
         integer :: next_index
+        logical :: is_select_case
+        integer :: lookahead, extended_end
+        character(len=:), allocatable :: lowered_text
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -126,39 +133,75 @@ contains
                 stmt_start = parser%current_token
                 stmt_end = stmt_start
                 has_meaningful = .false.
+                is_select_case = .false.
 
-                ! Find end of current statement, respecting semicolons
-                do j = stmt_start, size(parser%tokens)
-                    select case (parser%tokens(j)%kind)
-                    case (TK_EOF)
-                        stmt_end = j
-                        exit
-                    case (TK_NEWLINE)
-                        stmt_end = j - 1
-                        exit
-                    case (TK_OPERATOR)
-                        if (parser%tokens(j)%text == ";") then
+                if (token%kind == TK_KEYWORD) then
+                    lowered_text = to_lower(token%text)
+                    if (trim(lowered_text) == "select") then
+                        lookahead = stmt_start + 1
+                        do while (lookahead <= size(parser%tokens))
+                            select case (parser%tokens(lookahead)%kind)
+                            case (TK_WHITESPACE, TK_COMMENT)
+                                lookahead = lookahead + 1
+                                cycle
+                            end select
+                            exit
+                        end do
+                        if (lookahead <= size(parser%tokens)) then
+                            if (parser%tokens(lookahead)%kind == TK_KEYWORD) then
+                                lowered_text = to_lower(parser%tokens(lookahead)%text)
+                                if (trim(lowered_text) == "case") then
+                                    is_select_case = .true.
+                                end if
+                            end if
+                        end if
+                    end if
+                end if
+
+                if (is_select_case) then
+                    extended_end = find_statement_end(parser%tokens, stmt_start)
+                    if (extended_end >= stmt_start) then
+                        stmt_end = extended_end
+                        has_meaningful = .true.
+                    else
+                        is_select_case = .false.
+                    end if
+                end if
+
+                if (.not. is_select_case) then
+                    do j = stmt_start, size(parser%tokens)
+                        select case (parser%tokens(j)%kind)
+                        case (TK_EOF)
+                            stmt_end = j
+                            exit
+                        case (TK_NEWLINE)
+                            stmt_end = j - 1
+                            exit
+                        case (TK_OPERATOR)
+                            if (parser%tokens(j)%text == ";") then
+                                stmt_end = j - 1
+                                exit
+                            end if
+                        end select
+
+                        if (j > stmt_start .and. parser%tokens(j)%line > &
+                            parser%tokens(stmt_start)%line) then
                             stmt_end = j - 1
                             exit
                         end if
-                    end select
 
-                    if (j > stmt_start .and. parser%tokens(j)%line > &
-                        parser%tokens(stmt_start)%line) then
-                        stmt_end = j - 1
-                        exit
-                    end if
+                        stmt_end = j
+                        select case (parser%tokens(j)%kind)
+                        case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                            cycle
+                        case default
+                            if (len_trim(parser%tokens(j)%text) > 0) then
+                                has_meaningful = .true.
+                            end if
+                        end select
+                    end do
 
-                    stmt_end = j
-                    select case (parser%tokens(j)%kind)
-                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                        cycle
-                    case default
-                        if (len_trim(parser%tokens(j)%text) > 0) then
-                            has_meaningful = .true.
-                        end if
-                    end select
-                end do
+                end if
 
                 if (.not. has_meaningful) then
                     if (stmt_end < stmt_start) then
@@ -187,7 +230,8 @@ contains
                         integer :: k
                         if (present(parent_index)) then
                             stmt_indices = parse_basic_statement_multi( &
-                                           stmt_tokens, arena, parent_index, local_callbacks)
+                                           stmt_tokens, arena, parent_index, &
+                                           local_callbacks)
                         else
                             stmt_indices = parse_basic_statement_multi( &
                                            stmt_tokens, arena, callbacks=local_callbacks)
