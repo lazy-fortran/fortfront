@@ -1,7 +1,6 @@
 module parser_statement_core_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
-    use ast_types, only: LITERAL_STRING
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression
     use parser_io_statements_module, only: parse_print_statement, &
@@ -13,50 +12,16 @@ module parser_statement_core_module
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier, push_literal
+    use ast_factory, only: push_assignment, push_identifier
+    use parser_statement_callbacks_module, only: statement_callbacks_t, &
+                                                 null_statement_callbacks
     implicit none
     private
 
-    public :: statement_callbacks_t, parse_basic_statement_core, &
-              null_statement_callbacks, find_statement_end, extend_if_statement_end
-
-    abstract interface
-        function parse_with_parent_interface(parser, arena, parent_index) &
-            result(node_index)
-            import :: parser_state_t, ast_arena_t
-            type(parser_state_t), intent(inout) :: parser
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(in), optional :: parent_index
-            integer :: node_index
-        end function parse_with_parent_interface
-
-        function parse_without_parent_interface(parser, arena) result(node_index)
-            import :: parser_state_t, ast_arena_t
-            type(parser_state_t), intent(inout) :: parser
-            type(ast_arena_t), intent(inout) :: arena
-            integer :: node_index
-        end function parse_without_parent_interface
-    end interface
-
-    type :: statement_callbacks_t
-        procedure(parse_with_parent_interface), pointer, nopass :: parse_if => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: &
-            parse_do_loop => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: &
-            parse_select_case => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: &
-            parse_where => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: &
-            parse_forall => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: &
-            parse_associate => null()
-    end type statement_callbacks_t
+    public :: statement_callbacks_t, null_statement_callbacks
+    public :: parse_basic_statement_core, find_statement_end, extend_if_statement_end
 
 contains
-
-    pure function null_statement_callbacks() result(callbacks)
-        type(statement_callbacks_t) :: callbacks
-    end function null_statement_callbacks
 
     logical function is_block_if(tokens, start_index) result(is_block)
         type(token_t), intent(in) :: tokens(:)
@@ -86,7 +51,7 @@ contains
     end function is_block_if
 
     pure logical function at_top_level(if_depth, select_depth, do_depth, &
-                                       where_depth, assoc_depth, forall_depth) result(is_top_level)
+                              where_depth, assoc_depth, forall_depth) result(is_top_level)
         integer, intent(in) :: if_depth, select_depth, do_depth
         integer, intent(in) :: where_depth, assoc_depth, forall_depth
 
@@ -535,7 +500,18 @@ contains
         end select
 
         if (stmt_index == 0) then
-            stmt_index = build_placeholder_or_zero(tokens, first_token, arena)
+            if (is_terminator_statement(first_token, tokens)) then
+                allocate (stmt_indices(1))
+                stmt_indices(1) = 0
+            else
+                call report_unparsed_statement(parser, tokens)
+                allocate (stmt_indices(1))
+                stmt_indices(1) = 0
+            end if
+            if (present(consumed_count)) then
+                consumed_count = parser%current_token - 1
+            end if
+            return
         end if
 
         if (.not. allocated(stmt_indices)) then
@@ -782,54 +758,58 @@ contains
                                      id_token%column, parent_index)
     end function parse_complex_assignment
 
-    integer function build_placeholder_or_zero(tokens, first_token, arena) &
-        result(stmt_index)
-        type(token_t), intent(in) :: tokens(:)
+    logical function is_terminator_statement(first_token, tokens) result(is_terminator)
         type(token_t), intent(in) :: first_token
-        type(ast_arena_t), intent(inout) :: arena
-        logical :: is_terminator
+        type(token_t), intent(in) :: tokens(:)
         character(len=:), allocatable :: lowered
-        character(len=256) :: debug_msg
-        character(len=64) :: token_text
-        integer :: debug_len, i
 
-        stmt_index = 0
         is_terminator = .false.
-        if (first_token%kind == TK_KEYWORD) then
-            lowered = to_lower(first_token%text)
-            select case (lowered)
-            case ("end")
-                if (size(tokens) >= 2) then
-                    select case (to_lower(tokens(2)%text))
-                    case ("if", "do", "select", "where", "forall", "associate", "case")
-                        is_terminator = .true.
-                    end select
-                else
+        if (first_token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(first_token%text)
+        select case (lowered)
+        case ("end")
+            if (size(tokens) >= 2) then
+                select case (to_lower(tokens(2)%text))
+                case ("if", "do", "select", "where", "forall", "associate", "case")
                     is_terminator = .true.
-                end if
-            case ("else", "elseif", "contains", "case", "endselect", "enddo", &
-                  "endif", "endwhere", "endforall", "elsewhere")
+                end select
+            else
                 is_terminator = .true.
-            end select
-        end if
+            end if
+        case ("else", "elseif", "contains", "case", "endselect", "enddo", &
+              "endif", "endwhere", "endforall", "elsewhere")
+            is_terminator = .true.
+        end select
+    end function is_terminator_statement
 
-        if (is_terminator) return
+    subroutine report_unparsed_statement(parser, tokens)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: tokens(:)
+        character(len=256) :: message
+        character(len=64) :: token_text
+        integer :: i, msg_len
 
-        debug_msg = "! Unparsed: "
-        debug_len = len_trim(debug_msg)
+        message = "Unrecognized statement:"
+        msg_len = len_trim(message)
+
         do i = 1, min(3, size(tokens))
             if (tokens(i)%kind == TK_EOF) exit
-            if (len_trim(tokens(i)%text) > 0) then
-                token_text = trim(tokens(i)%text)
-                if (debug_len + len_trim(token_text) + 1 < 250) then
-                    debug_msg = debug_msg(1:debug_len) // " " // trim(token_text)
-                    debug_len = len_trim(debug_msg)
-                end if
+            if (len_trim(tokens(i)%text) == 0) cycle
+
+            token_text = trim(tokens(i)%text)
+            if (msg_len + len_trim(token_text) + 1 < len(message)) then
+                message = message(1:msg_len) // " " // token_text
+                msg_len = len_trim(message)
             end if
         end do
 
-        stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
-                                  first_token%line, first_token%column)
-    end function build_placeholder_or_zero
+        if (msg_len == len_trim("Unrecognized statement:")) then
+            message = "Unrecognized statement"
+        end if
+
+        parser%current_token = max(1, parser%current_token)
+        call parser%error(trim(message))
+    end subroutine report_unparsed_statement
 
 end module parser_statement_core_module
