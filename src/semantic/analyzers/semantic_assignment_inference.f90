@@ -369,6 +369,22 @@ contains
 
             parent_idx = arena%entries(parent_idx)%parent_index
         end do
+
+        do parent_idx = start_index - 1, 1, -1
+            if (parent_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(parent_idx)%node)) cycle
+            select type (loop_node => arena%entries(parent_idx)%node)
+            type is (do_loop_node)
+                if (allocated(loop_node%var_name)) then
+                    if (trim(loop_node%var_name) == trim(var_name)) then
+                        extent = calculate_loop_size(arena, loop_node%start_expr_index, &
+                                      loop_node%end_expr_index, loop_node%step_expr_index)
+                        if (extent < 0) extent = 0
+                        if (extent > 0) return
+                    end if
+                end if
+            end select
+        end do
     end function find_loop_extent_for_variable
 
     ! Build nested array type information from inferred dimension sizes

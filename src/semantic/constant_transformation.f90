@@ -8,6 +8,7 @@ module constant_transformation
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_core
+    use standardizer_types, only: get_integer_literal_value, INVALID_INTEGER
     implicit none
     private
 
@@ -91,7 +92,7 @@ contains
                 type is (declaration_node)
                     call fold_declaration_node(arena, node)
                 type is (identifier_node)
-                    call fold_identifier_node(arena, node)
+                    call fold_identifier_node(arena, node, current%idx)
                 class default
                     cycle
                 end select
@@ -344,32 +345,50 @@ contains
         end if
     end subroutine fold_declaration_node
 
-    subroutine fold_identifier_node(arena, node)
+    subroutine fold_identifier_node(arena, node, node_index)
         type(ast_arena_t), intent(inout) :: arena
         type(identifier_node), intent(inout) :: node
+        integer, intent(in) :: node_index
         integer :: i
+        integer :: value
 
         ! Early exit if node name is not allocated
         if (.not. allocated(node%name)) return
 
         ! Look for declarations with matching name (including parameters)
         ! Only check nodes that come before this one in the arena
-        do i = 1, arena%size
-            select type (decl => arena%entries(i)%node)
+        do i = 1, min(arena%size, node_index - 1)
+            select type (entry => arena%entries(i)%node)
             type is (declaration_node)
-                if (allocated(decl%var_name)) then
-                    if (trim(decl%var_name) == trim(node%name)) then
+                if (allocated(entry%var_name)) then
+                    if (trim(entry%var_name) == trim(node%name)) then
                         ! Propagate the declaration's constant value
-                        if (decl%is_constant) then
+                        if (entry%is_constant) then
                             node%is_constant = .true.
-                            node%constant_type = decl%constant_type
-                            node%constant_integer = decl%constant_integer
-                            node%constant_real = decl%constant_real
-                            node%constant_logical = decl%constant_logical
+                            node%constant_type = entry%constant_type
+                            node%constant_integer = entry%constant_integer
+                            node%constant_real = entry%constant_real
+                            node%constant_logical = entry%constant_logical
                             return  ! Found match, no need to continue
                         end if
                     end if
                 end if
+            type is (assignment_node)
+                if (i >= node_index) cycle
+                if (entry%target_index <= 0 .or. entry%target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(entry%target_index)%node)) cycle
+                select type (target => arena%entries(entry%target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (trim(target%name) /= trim(node%name)) cycle
+                    value = get_integer_literal_value(arena, entry%value_index)
+                    if (value /= INVALID_INTEGER) then
+                        node%is_constant = .true.
+                        node%constant_type = LITERAL_INTEGER
+                        node%constant_integer = value
+                        return
+                    end if
+                end select
             end select
         end do
     end subroutine fold_identifier_node
