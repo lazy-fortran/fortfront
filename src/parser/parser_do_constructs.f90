@@ -14,7 +14,8 @@ module parser_do_constructs_module
     use parser_forall_module, only: parse_forall
     use parser_statement_core_module, only: parse_basic_statement_core, &
                                             statement_callbacks_t, &
-                                            null_statement_callbacks
+                                            null_statement_callbacks, &
+                                            find_statement_end
     implicit none
     private
 
@@ -301,18 +302,41 @@ contains
 
                 stmt_end = stmt_start
                 block
-                    integer :: block_end
+                    integer :: block_end, lookahead
                     logical :: handled_block
 
                     handled_block = .false.
                     if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
-                        if (parser%tokens(stmt_start)%text == "if") then
+                        select case (parser%tokens(stmt_start)%text)
+                        case ("if")
                             block_end = find_matching_end_if(parser%tokens, stmt_start)
                             if (block_end > stmt_start) then
                                 stmt_end = block_end
                                 handled_block = .true.
                             end if
-                        end if
+                        case ("select")
+                            lookahead = stmt_start + 1
+                            do while (lookahead <= size(parser%tokens))
+                                select case (parser%tokens(lookahead)%kind)
+                                case (TK_WHITESPACE, TK_COMMENT)
+                                    lookahead = lookahead + 1
+                                    cycle
+                                end select
+                                exit
+                            end do
+                            if (lookahead <= size(parser%tokens)) then
+                                if (parser%tokens(lookahead)%kind == TK_KEYWORD) then
+                                    if (parser%tokens(lookahead)%text == "case") then
+                                        block_end = find_statement_end( &
+                                                    parser%tokens, stmt_start)
+                                        if (block_end > stmt_start) then
+                                            stmt_end = block_end
+                                            handled_block = .true.
+                                        end if
+                                    end if
+                                end if
+                            end if
+                        end select
                     end if
 
                     if (.not. handled_block) then
