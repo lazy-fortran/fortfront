@@ -130,6 +130,49 @@ contains
         end do
     end function find_matching_end_if
 
+    integer function find_matching_end_do(tokens, start_pos) result(end_index)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+
+        integer :: idx
+        integer :: depth
+        type(token_t) :: token
+
+        end_index = -1
+        if (start_pos < 1 .or. start_pos > size(tokens)) return
+
+        depth = 1
+        idx = start_pos + 1
+        do while (idx <= size(tokens))
+            token = tokens(idx)
+            if (token%kind == TK_KEYWORD) then
+                select case (token%text)
+                case ("do")
+                    depth = depth + 1
+                case ("enddo", "end do")
+                    depth = depth - 1
+                    if (depth == 0) then
+                        end_index = idx
+                        return
+                    end if
+                case ("end")
+                    if (idx + 1 <= size(tokens)) then
+                        if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
+                            tokens(idx + 1)%text == "do") then
+                            depth = depth - 1
+                            if (depth == 0) then
+                                end_index = idx + 1
+                                return
+                            end if
+                            idx = idx + 1
+                        end if
+                    end if
+                end select
+            end if
+            idx = idx + 1
+        end do
+    end function find_matching_end_do
+
     function build_do_body_callbacks() result(callbacks)
         type(statement_callbacks_t) :: callbacks
 
@@ -310,6 +353,12 @@ contains
                         select case (parser%tokens(stmt_start)%text)
                         case ("if")
                             block_end = find_matching_end_if(parser%tokens, stmt_start)
+                            if (block_end > stmt_start) then
+                                stmt_end = block_end
+                                handled_block = .true.
+                            end if
+                        case ("do")
+                            block_end = find_matching_end_do(parser%tokens, stmt_start)
                             if (block_end > stmt_start) then
                                 stmt_end = block_end
                                 handled_block = .true.
