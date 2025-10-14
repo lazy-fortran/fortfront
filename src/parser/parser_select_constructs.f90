@@ -40,7 +40,7 @@ contains
         integer :: lower_index, upper_index, range_index
         integer :: start_pos, end_pos, depth, i, buffer_len
 
-        success = .false.
+        success = .true.
         allocate (value_indices(0))
 
         start_pos = parser%current_token
@@ -64,6 +64,7 @@ contains
         end do
 
         if (end_pos < start_pos) then
+            success = .false.
             if (depth == 0) parser%current_token = end_pos + 2
             return
         end if
@@ -78,16 +79,24 @@ contains
 
         sub_parser = create_parser_state(tokens_buffer)
 
+        success = .true.
+
         do
             lower_index = parse_expression_until(sub_parser, arena, [":", ","])
-            if (lower_index <= 0) exit
+            if (lower_index <= 0) then
+                success = .false.
+                exit
+            end if
 
             sub_token = sub_parser%peek()
 
             if (sub_token%kind == TK_OPERATOR .and. sub_token%text == ":") then
                 sub_token = sub_parser%consume()
                 upper_index = parse_expression_until(sub_parser, arena, [","])
-                if (upper_index <= 0) exit
+                if (upper_index <= 0) then
+                    success = .false.
+                    exit
+                end if
                 range_index = push_case_range( &
                               arena, lower_index, upper_index, line=case_token%line, &
                               column=case_token%column)
@@ -105,7 +114,12 @@ contains
             end if
         end do
 
-        success = (size(value_indices) > 0)
+        if (.not. success .or. size(value_indices) == 0) then
+            if (allocated(value_indices)) deallocate (value_indices)
+            allocate (value_indices(0))
+            success = .false.
+        end if
+
         parser%current_token = end_pos + 2
     end subroutine parse_case_value_list
 
@@ -231,13 +245,15 @@ contains
                                     if (allocated(value_indices)) then
                                         deallocate (value_indices)
                                     end if
-                                    cycle
+                                    select_index = 0
+                                    return
                                 end if
                             else
                                 if (allocated(value_indices)) then
                                     deallocate (value_indices)
                                 end if
-                                cycle
+                                select_index = 0
+                                return
                             end if
 
                             ! Skip rest of current line
