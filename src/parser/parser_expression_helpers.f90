@@ -5,7 +5,7 @@ module parser_expression_helpers_module
     use ast_types, only: LITERAL_REAL, LITERAL_INTEGER, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: component_access_node, identifier_node
     use ast_factory, only: push_literal, push_identifier, push_component_access, &
-                           push_call_or_subscript, push_call_or_subscript_with_slice_detection
+                       push_call_or_subscript, push_call_or_subscript_with_slice_detection
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -28,7 +28,7 @@ contains
         else
             ! No decimal point - classify as integer
             expr_index = push_literal(arena, current_token%text, &
-                                      LITERAL_INTEGER, current_token%line, current_token%column)
+                                LITERAL_INTEGER, current_token%line, current_token%column)
         end if
     end function parse_number_literal
 
@@ -68,10 +68,8 @@ contains
                                                component_token%text, &
                                                op_token%line, op_token%column)
         else
-            ! Error: expected identifier after %
-            expr_index = push_literal(arena, &
-                                      "!ERROR: Expected identifier after %, got '" // trim(component_token%text) // "'", &
-                                      LITERAL_STRING, op_token%line, op_token%column)
+            call parser%error("Expected identifier after % operator")
+            expr_index = base_expr
         end if
     end function parse_component_access_postfix
 
