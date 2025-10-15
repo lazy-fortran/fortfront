@@ -11,10 +11,6 @@ tooling_lightweight_ast.f90     # Gfortran compilation failure
 
 # Lazy Fortran type inference
 # Known semantic/codegen gaps awaiting fixes
-basic_function.lf              # Pending fix: transformation fails gfortran check
-function_test.lf               # Pending fix: transformation fails gfortran check
-issue_1356_function_name.lf    # Pending fix: function name resolution
-test_function_issue.lf         # Pending fix: function call typing regression
 # F90/F95 parser issues
 issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
 issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
