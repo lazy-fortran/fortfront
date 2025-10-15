@@ -392,6 +392,16 @@ contains
                         call push_child(expr%arg_indices(i))
                     end do
                 end if
+            type is (program_node)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (allocated(expr%body_indices)) then
+                    do i = size(expr%body_indices), 1, -1
+                        call push_child(expr%body_indices(i))
+                    end do
+                end if
             type is (array_slice_node)
                 local_type = infer_array_slice(this, arena, expr)
                 call finalize_node(node_index, local_type)
@@ -613,6 +623,13 @@ contains
             type is (function_def_node)
                 node_type = build_function_type(current)
                 call finalize_node(node_index, node_type)
+                if (allocated(expr%name)) then
+                    block
+                        type(poly_type_t) :: func_scheme
+                        func_scheme = this%generalize(node_type)
+                        call this%scopes%define(trim(expr%name), func_scheme)
+                    end block
+                end if
             type is (assignment_node)
                 node_type = infer_assignment(this, arena, expr, node_index)
                 call finalize_node(node_index, node_type)
@@ -1149,7 +1166,6 @@ contains
     ! Infer type of function call (simplified)
     function infer_function_call(ctx, arena, call_node) result(typ)
         use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
-        use iso_fortran_env, only: error_unit
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
@@ -1160,6 +1176,9 @@ contains
         integer :: i
         logical :: is_intrinsic_func
 
+        ! Default to real unless we determine otherwise
+        typ = create_mono_type(TREAL)
+
         ! Process arguments to detect undefined variables
         if (allocated(call_node%arg_indices)) then
             do i = 1, size(call_node%arg_indices)
@@ -1169,7 +1188,9 @@ contains
         end if
 
         ! Look up function in scope
-        call ctx%scopes%lookup(call_node%name, scheme)
+        if (allocated(call_node%name)) then
+            call ctx%scopes%lookup(call_node%name, scheme)
+        end if
 
         if (allocated(scheme)) then
             typ = ctx%instantiate(scheme)
@@ -1178,22 +1199,18 @@ contains
                 type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
+        else if (allocated(call_node%name) .and. &
+                 find_function_return_type(arena, call_node%name, typ)) then
+            ! Type recovered from arena metadata
         else
             ! Check if it's an intrinsic function
             is_intrinsic_func = is_intrinsic_function(call_node%name)
-            ! DEBUG: Print to stderr for debugging
-            ! write(error_unit, '(A,A,A,L1)') "DEBUG: Checking function '", call_node%name, "' - is_intrinsic: ", is_intrinsic_func
 
             if (is_intrinsic_func) then
-                ! Handle intrinsic functions - double check with registry
                 intrinsic_sig = get_intrinsic_signature(call_node%name)
-                ! DEBUG: Print signature
-                ! if (allocated(intrinsic_sig)) write(error_unit, '(A,A)') "DEBUG: Signature: ", intrinsic_sig
 
                 if (len_trim(intrinsic_sig) > 0) then
                     ! Parse the return type from the signature
-                    ! Signature format: "return_type(arg_types)"
-                    ! For mathematical intrinsics, return type is typically "real"
                     if (index(intrinsic_sig, "real(") == 1) then
                         typ = create_mono_type(TREAL)
                     else if (index(intrinsic_sig, "integer(") == 1) then
@@ -1203,19 +1220,56 @@ contains
                     else if (index(intrinsic_sig, "character(") == 1) then
                         typ = create_mono_type(TCHAR)
                     else
-                        ! Default to real for unknown intrinsic types
                         typ = create_mono_type(TREAL)
                     end if
                 else
-                    ! Unknown intrinsic - default to real type
                     typ = create_mono_type(TREAL)
                 end if
             else
-                ! Unknown function - default to real type
                 typ = create_mono_type(TREAL)
             end if
         end if
     end function infer_function_call
+
+    logical function find_function_return_type(arena, func_name, return_type) &
+        & result(found)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: func_name
+        type(mono_type_t), intent(out) :: return_type
+        integer :: i
+
+        found = .false.
+        return_type = create_mono_type(TREAL)
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (function_def_node)
+                if (.not. allocated(node%name)) cycle
+                if (trim(node%name) /= trim(func_name)) cycle
+                if (node%inferred_type%kind == TFUN .and. &
+                    & type_args_allocated(node%inferred_type) .and. &
+                    type_args_size(node%inferred_type) >= 2) then
+                    return_type = type_args_element(node%inferred_type, 2)
+                    found = .true.
+                    return
+                else if (allocated(node%return_type)) then
+                    select case (trim(node%return_type))
+                    case ("integer")
+                        return_type = create_mono_type(TINT)
+                    case ("logical")
+                        return_type = create_mono_type(TLOGICAL)
+                    case ("character")
+                        return_type = create_mono_type(TCHAR)
+                    case default
+                        return_type = create_mono_type(TREAL)
+                    end select
+                    found = .true.
+                    return
+                end if
+            end select
+        end do
+    end function find_function_return_type
 
     ! Infer type of array slice
     function infer_array_slice(ctx, arena, slice_node) result(typ)
