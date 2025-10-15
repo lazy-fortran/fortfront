@@ -27,10 +27,14 @@ module semantic_analyzer
     use semantic_binary_operations, only: infer_string_concatenation, &
                                           infer_comparison_operation, &
                                           infer_logical_operation
-    use semantic_inference_helpers, only: process_if_node_branches, process_do_while_node_body, &
-                                    process_where_node_clauses, process_where_stmt_node, &
-                                   process_forall_node_body, process_select_case_blocks, &
-                                    process_associate_node_body, process_stop_node_code, &
+    use semantic_inference_helpers, only: process_if_node_branches, &
+                                          process_do_while_node_body, &
+                                          process_where_node_clauses, &
+                                          process_where_stmt_node, &
+                                          process_forall_node_body, &
+                                          process_select_case_blocks, &
+                                          process_associate_node_body, &
+                                          process_stop_node_code, &
                                           process_declaration_variables
     use parser_type_hooks_module, only: type_annotation_t, consume_type_annotations, &
                                         has_type_annotations
@@ -39,7 +43,8 @@ module semantic_analyzer
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                               assignment_node, call_or_subscript_node, &
                               array_literal_node, program_node
-    use ast_nodes_procedure, only: subroutine_call_node, function_def_node, subroutine_def_node
+    use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
+                                   subroutine_def_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
                                  where_node, where_stmt_node, forall_node, &
                                  select_case_node, case_block_node, &
@@ -184,7 +189,8 @@ contains
         ! Prepass: define all declared variables in scope before inference
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-               if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (prog%body_indices(i) > 0 .and. &
+                    prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (node => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
@@ -201,7 +207,8 @@ contains
                                 end if
 
                                 scheme = ctx%generalize(decl_type)
-                       if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                if (node%is_multi_declaration .and. &
+                                    allocated(node%var_names)) then
                                     do j = 1, size(node%var_names)
                                         call ctx%scopes%define(node%var_names(j), scheme)
                                     end do
@@ -220,12 +227,14 @@ contains
         ! Main inference over statements
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-               if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (prog%body_indices(i) > 0 .and. &
+                    prog%body_indices(i) <= arena%size) then
                     call infer_and_store_type(ctx, arena, prog%body_indices(i))
                 end if
             end do
         end if
-        call check_undefined_variables_generic(ctx%scopes, ctx%errors, ctx%strict_mode, arena, prog_index)
+        call check_undefined_variables_generic(ctx%scopes, ctx%errors, ctx%strict_mode, &
+                                               arena, prog_index)
     end subroutine analyze_program_node_arena
 
     ! Infer type and store in AST node
@@ -345,6 +354,7 @@ contains
             type(mono_type_t) :: local_type
             type(poly_type_t) :: int_scheme
             type(mono_type_t), allocatable :: param_types(:)
+            character(len=64), allocatable :: param_names(:)
             type(mono_type_t) :: return_type
             type(mono_type_t) :: control_type
 
@@ -396,9 +406,12 @@ contains
                     end do
                 end if
             type is (function_def_node)
- call analyze_function_parameters(arena, expr, param_types, this%scopes, this%next_var_id)
-               return_type = determine_function_return_type(arena, expr, this%next_var_id)
-             call create_function_scope(arena, expr, node_index, return_type, this%scopes)
+                call analyze_function_parameters( &
+                    arena, expr, param_types, param_names, this%scopes, this%next_var_id)
+                return_type = determine_function_return_type( &
+                              arena, expr, param_names, param_types, this%next_var_id)
+                call create_function_scope( &
+                    arena, expr, node_index, return_type, this%scopes)
                 post_frame = current
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
@@ -412,6 +425,7 @@ contains
                 end if
                 call push_frame_local(post_frame)
                 if (allocated(param_types)) deallocate (param_types)
+                if (allocated(param_names)) deallocate (param_names)
                 if (allocated(expr%body_indices)) then
                     do i = size(expr%body_indices), 1, -1
                         call push_child(expr%body_indices(i))
@@ -536,7 +550,9 @@ contains
                     do i = size(expr%associations), 1, -1
                         if (expr%associations(i)%expr_index > 0) then
                             post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                            if (allocated(post_frame%param_types)) then
+                                deallocate (post_frame%param_types)
+                            end if
                             post_frame%node_index = current%node_index
                             post_frame%state = STATE_ASSOC_DEFINE
                             post_frame%aux_index = i
@@ -654,12 +670,16 @@ contains
             select type (assoc_node => arena%entries(parent_index)%node)
             type is (associate_node)
                 if (.not. allocated(assoc_node%associations)) return
-              if (assoc_index < 1 .or. assoc_index > size(assoc_node%associations)) return
+                if (assoc_index < 1 .or. assoc_index > &
+                    & size(assoc_node%associations)) return
                 if (assoc_node%associations(assoc_index)%expr_index <= 0) return
-               assoc_type = get_node_type(assoc_node%associations(assoc_index)%expr_index)
-             assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=assoc_type)
+                assoc_type = &
+                    & get_node_type(assoc_node%associations(assoc_index)%expr_index)
+                assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                    & mono=assoc_type)
                 if (allocated(assoc_node%associations(assoc_index)%name)) then
-          call this%scopes%define(assoc_node%associations(assoc_index)%name, assoc_scheme)
+                    call this%scopes%define(assoc_node%associations(assoc_index)%name, &
+                                            assoc_scheme)
                 end if
             end select
         end subroutine handle_association
@@ -852,13 +872,17 @@ contains
         integer, intent(in) :: func_index
         type(mono_type_t) :: typ
         type(mono_type_t), allocatable :: param_types(:)
+        character(len=64), allocatable :: param_names(:)
         type(mono_type_t) :: return_type
         integer :: i
 
         ! Use extracted function analysis modules
-        call analyze_function_parameters(arena, func_node, param_types, ctx%scopes, ctx%next_var_id)
-        return_type = determine_function_return_type(arena, func_node, ctx%next_var_id)
-        call create_function_scope(arena, func_node, func_index, return_type, ctx%scopes)
+        call analyze_function_parameters( &
+            arena, func_node, param_types, param_names, ctx%scopes, ctx%next_var_id)
+        return_type = determine_function_return_type( &
+                      arena, func_node, param_names, param_types, ctx%next_var_id)
+        call create_function_scope( &
+            arena, func_node, func_index, return_type, ctx%scopes)
 
         ! Analyze function body with parameters and result in scope
         if (allocated(func_node%body_indices)) then
@@ -1036,9 +1060,8 @@ contains
                                ERROR_SEMANTIC, &
                                component="semantic_analyzer", &
                                context="infer_identifier", &
-                       suggestion="Declare the variable with 'integer :: "//ident%name// &
-                               "' or remove 'implicit none' for lazy Fortran mode" &
-                               )
+                               suggestion="Declare 'integer :: "//ident%name// &
+                               "' or drop 'implicit none' for lazy Fortran mode")
                 call ctx%errors%add_result(error_result)
 
                 ! Create fresh type variable for continued analysis
@@ -1140,7 +1163,8 @@ contains
         ! Process arguments to detect undefined variables
         if (allocated(call_node%arg_indices)) then
             do i = 1, size(call_node%arg_indices)
-             arg_type = get_inferred_type_from_arena(ctx, arena, call_node%arg_indices(i))
+                arg_type = get_inferred_type_from_arena(ctx, arena, &
+                    & call_node%arg_indices(i))
             end do
         end if
 
@@ -1150,7 +1174,8 @@ contains
         if (allocated(scheme)) then
             typ = ctx%instantiate(scheme)
             ! Extract return type from function type
-  if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
+            if (typ%kind == TFUN .and. type_args_allocated(typ) .and. &
+                type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
         else
@@ -1219,10 +1244,10 @@ contains
         updated_expr_typ = expr_typ
 
         ! Use extracted assignment processing
-        call process_assignment_inference(arena, assignment, assignment_index, &
-                                          lhs_index, expr_typ, updated_expr_typ, &
-                               ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
-                                          ctx%parser_type_hints)
+        call process_assignment_inference( &
+            arena, assignment, assignment_index, lhs_index, expr_typ, updated_expr_typ, &
+            ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
+                & ctx%parser_type_hints)
 
         typ = updated_expr_typ
 
@@ -1287,7 +1312,8 @@ contains
         end if
 
         ! Start with first element type
-       first_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(1))
+        first_type = get_inferred_type_from_arena( &
+                     ctx, arena, array_lit%element_indices(1))
         promoted_type = first_type
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
@@ -1300,7 +1326,8 @@ contains
 
         ! Check all elements for type promotion and consistency
         do i = 2, size(array_lit%element_indices)
-     element_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(i))
+            element_type = get_inferred_type_from_arena( &
+                           ctx, arena, array_lit%element_indices(i))
 
             ! Check if all elements are arrays (for nested arrays)
             if (all_arrays .and. element_type%kind /= TARRAY) then
