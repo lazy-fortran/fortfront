@@ -392,7 +392,8 @@ contains
 
         type(arena_mono_type_t) :: arena_type
 
-        if (.not. is_valid_mono_handle(this%handle) .or. .not. associated(this%arena)) then
+        if (.not. is_valid_mono_handle(this%handle) .or. .not. &
+            & associated(this%arena)) then
             str = "invalid_type"
             return
         end if
@@ -452,7 +453,8 @@ contains
         class(mono_type_t), intent(inout) :: this
         type(arena_mono_type_t) :: arena_type
 
-        if (.not. is_valid_mono_handle(this%handle) .or. .not. associated(this%arena)) return
+        if (.not. is_valid_mono_handle(this%handle) .or. .not. &
+            & associated(this%arena)) return
 
         arena_type = get_mono_type(this%arena, this%handle)
         this%kind = arena_type%kind
@@ -472,7 +474,8 @@ contains
         type(arena_mono_type_t) :: arena_type
 
         has_args = .false.
-        if (.not. is_valid_mono_handle(this%handle) .or. .not. associated(this%arena)) return
+        if (.not. is_valid_mono_handle(this%handle) .or. .not. &
+            & associated(this%arena)) return
 
         arena_type = get_mono_type(this%arena, this%handle)
         has_args = is_valid_args_handle(arena_type%args) .and. arena_type%args%count > 0
@@ -486,7 +489,8 @@ contains
         type(arena_mono_type_t) :: arena_type
 
         count = 0
-        if (.not. is_valid_mono_handle(this%handle) .or. .not. associated(this%arena)) return
+        if (.not. is_valid_mono_handle(this%handle) .or. .not. &
+            & associated(this%arena)) return
 
         arena_type = get_mono_type(this%arena, this%handle)
         if (is_valid_args_handle(arena_type%args)) then
@@ -505,7 +509,8 @@ contains
 
         ! Return invalid type if out of bounds or invalid
         arg_type%kind = 0
-        if (.not. is_valid_mono_handle(this%handle) .or. .not. associated(this%arena)) return
+        if (.not. is_valid_mono_handle(this%handle) .or. .not. &
+            & associated(this%arena)) return
 
         arena_type = get_mono_type(this%arena, this%handle)
         if (.not. is_valid_args_handle(arena_type%args)) return
@@ -747,7 +752,8 @@ contains
         type(arena_poly_type_t) :: arena_poly
         type(arena_mono_type_t) :: arena_mono
 
-        if (.not. is_valid_poly_handle(this%handle) .or. .not. associated(this%arena)) return
+        if (.not. is_valid_poly_handle(this%handle) .or. .not. &
+            & associated(this%arena)) return
         if (this%mono_synced) return
 
         arena_poly = get_poly_type(this%arena, this%handle)
@@ -768,6 +774,20 @@ contains
     function poly_type_get_mono(this) result(mono)
         class(poly_type_t), intent(inout) :: this
         type(mono_type_t) :: mono
+
+        if (is_valid_poly_handle(this%handle) .and. associated(this%arena)) then
+            block
+                type(arena_poly_type_t) :: arena_poly
+
+                arena_poly = get_poly_type(this%arena, this%handle)
+                if (is_valid_mono_handle(arena_poly%mono)) then
+                    mono%handle = arena_poly%mono
+                    mono%arena => this%arena
+                    call mono%sync_from_arena()
+                    return
+                end if
+            end block
+        end if
 
         if (.not. this%mono_synced) then
             call this%sync_mono()

@@ -358,12 +358,21 @@ contains
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         param_names(i) = param%name
+                        if (param%inferred_type%kind > 0) then
+                            fn_param_type(i) = trim(param%inferred_type%to_string())
+                            fn_param_type_inferred(i) = .false.
+                        end if
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
                         fn_param_optional(i) = param%is_optional
                         if (allocated(param%type_name)) then
                             fn_param_type(i) = trim(param%type_name)
                             if (len_trim(fn_param_type(i)) > 0) fn_param_type_inferred(i) = .false.
+                        end if
+                        if ((.not. allocated(param%type_name) .or. len_trim(param%type_name) == 0) .and. &
+                            param%inferred_type%kind > 0) then
+                            fn_param_type(i) = trim(param%inferred_type%to_string())
+                            fn_param_type_inferred(i) = .false.
                         end if
                         fn_param_has_kind(i) = param%has_kind
                         fn_param_kind_value(i) = param%kind_value
@@ -384,6 +393,11 @@ contains
                         if (allocated(param%type_name)) then
                             fn_param_type(i) = trim(param%type_name)
                             if (len_trim(fn_param_type(i)) > 0) fn_param_type_inferred(i) = .false.
+                        end if
+                        if ((.not. allocated(param%type_name) .or. len_trim(param%type_name) == 0) .and. &
+                            param%inferred_type%kind > 0) then
+                            fn_param_type(i) = trim(param%inferred_type%to_string())
+                            fn_param_type_inferred(i) = .false.
                         end if
                         fn_param_has_kind(i) = param%has_kind
                         fn_param_kind_value(i) = param%kind_value
