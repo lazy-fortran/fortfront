@@ -8,12 +8,14 @@ module semantic_function_analysis
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
-                              call_or_subscript_node, literal_node, binary_op_node
-    use ast_nodes_procedure, only: function_def_node
+                              call_or_subscript_node, literal_node, binary_op_node, &
+                              program_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use scope_manager, only: scope_stack_t
     use semantic_validation_utils, only: update_identifier_type_in_arena, int_to_str
-    use semantic_type_operations, only: get_common_type
+    use semantic_type_operations, only: get_common_type, &
+                                       instantiate_type_scheme_op
     implicit none
     private
 
@@ -173,7 +175,8 @@ contains
                         else
                             inferred_arg_type = &
                                 infer_identifier_type_from_context( &
-                                arena, arg_node%name, stored_names, param_types)
+                                arena, arg_node%name, stored_names, param_types, &
+                                scopes, arg_idx, next_var_id)
                             if (inferred_arg_type%kind == TINT) then
                                 param_types(i) = inferred_arg_type
                             end if
@@ -369,21 +372,52 @@ contains
     end function infer_expression_type_static
 
     function infer_identifier_type_from_context(arena, ident_name, param_names, &
-                                                param_types) result(typ)
+                                                param_types, scopes, anchor_index, &
+                                                next_var_id) result(typ)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: ident_name
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(scope_stack_t), intent(in) :: scopes
+        integer, intent(in) :: anchor_index
+        integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
+        type(poly_type_t), allocatable :: scheme
         integer :: idx, target_idx, name_idx
+        integer :: scope_index, program_index, search_start
         character(len=64) :: lowered_name
 
         typ%kind = 0
         lowered_name = trim(ident_name)
         if (len_trim(lowered_name) == 0) return
+        if (arena%size <= 0) return
 
-        do idx = 1, arena%size
+        call scopes%lookup(lowered_name, scheme)
+        if (allocated(scheme)) then
+            typ = instantiate_type_scheme_op(scheme, next_var_id)
+            if (typ%kind /= 0) then
+                deallocate (scheme)
+                return
+            end if
+            deallocate (scheme)
+        end if
+
+        scope_index = -1
+        program_index = -1
+        if (anchor_index > 0 .and. anchor_index <= arena%size) then
+            scope_index = find_nearest_scope_owner(arena, anchor_index)
+            program_index = find_program_owner(arena, anchor_index)
+            search_start = anchor_index - 1
+        else
+            search_start = arena%size
+        end if
+
+        if (search_start < 1) return
+
+        do idx = search_start, 1, -1
             if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. identifier_visible_in_scope(arena, idx, scope_index, &
+                                                  program_index)) cycle
             select type (node => arena%entries(idx)%node)
             type is (declaration_node)
                 if (allocated(node%var_name)) then
@@ -404,6 +438,10 @@ contains
                 target_idx = node%target_index
                 if (target_idx <= 0 .or. target_idx > arena%size) cycle
                 if (.not. allocated(arena%entries(target_idx)%node)) cycle
+                if (.not. identifier_visible_in_scope(arena, target_idx, &
+                                                      scope_index, program_index)) then
+                    cycle
+                end if
                 select type (target => arena%entries(target_idx)%node)
                 type is (identifier_node)
                     if (trim(target%name) /= lowered_name) cycle
@@ -477,6 +515,88 @@ contains
             end if
         end if
     end subroutine create_function_scope
+
+    integer function find_nearest_scope_owner(arena, node_index) result(scope_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current
+
+        scope_index = 0
+        current = node_index
+        do while (current > 0 .and. current <= arena%size)
+            if (.not. allocated(arena%entries(current)%node)) then
+                current = arena%entries(current)%parent_index
+                cycle
+            end if
+            select type (owner => arena%entries(current)%node)
+            type is (function_def_node)
+                scope_index = current
+                return
+            type is (subroutine_def_node)
+                scope_index = current
+                return
+            end select
+            current = arena%entries(current)%parent_index
+        end do
+    end function find_nearest_scope_owner
+
+    integer function find_program_owner(arena, node_index) result(program_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current
+
+        program_index = 0
+        current = node_index
+        do while (current > 0 .and. current <= arena%size)
+            if (.not. allocated(arena%entries(current)%node)) then
+                current = arena%entries(current)%parent_index
+                cycle
+            end if
+            select type (owner => arena%entries(current)%node)
+            type is (program_node)
+                program_index = current
+                return
+            end select
+            current = arena%entries(current)%parent_index
+        end do
+    end function find_program_owner
+
+    logical function identifier_visible_in_scope(arena, candidate_index, &
+                                                 scope_index, program_index) &
+        result(is_visible)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: candidate_index
+        integer, intent(in) :: scope_index
+        integer, intent(in) :: program_index
+        integer :: candidate_scope, candidate_program
+
+        is_visible = .false.
+        if (candidate_index <= 0 .or. candidate_index > arena%size) return
+        if (.not. allocated(arena%entries(candidate_index)%node)) return
+
+        if (scope_index < 0) then
+            is_visible = .true.
+            return
+        end if
+
+        candidate_scope = find_nearest_scope_owner(arena, candidate_index)
+
+        if (scope_index > 0) then
+            if (candidate_scope == scope_index) then
+                is_visible = .true.
+            end if
+            return
+        end if
+
+        candidate_program = find_program_owner(arena, candidate_index)
+        if (candidate_scope == 0) then
+            if (program_index < 0) then
+                is_visible = .true.
+            else if (candidate_program == program_index) then
+                is_visible = .true.
+            end if
+        end if
+    end function identifier_visible_in_scope
 
     function declaration_type_to_mono(type_name) result(mono)
         character(len=*), intent(in) :: type_name

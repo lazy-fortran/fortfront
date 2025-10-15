@@ -23,6 +23,11 @@ contains
                  '    result = x * x' // new_line('a') // &
                  '    return result' // new_line('a') // &
                  'end function' // new_line('a') // &
+                 'function noise()' // new_line('a') // &
+                 '    val = 2.5' // new_line('a') // &
+                 '    noise = val' // new_line('a') // &
+                 '    return' // new_line('a') // &
+                 'end function' // new_line('a') // &
                  'val = 5' // new_line('a') // &
                  'squared = square(val)' // new_line('a') // &
                  'print *, squared' // new_line('a')
