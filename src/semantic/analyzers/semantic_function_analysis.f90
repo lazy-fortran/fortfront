@@ -173,7 +173,7 @@ contains
                         else
                             inferred_arg_type = &
                                 infer_identifier_type_from_context( &
-                                arena, arg_node%name, param_names, param_types)
+                                arena, arg_node%name, stored_names, param_types)
                             if (inferred_arg_type%kind == TINT) then
                                 param_types(i) = inferred_arg_type
                             end if
