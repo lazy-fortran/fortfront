@@ -39,8 +39,9 @@ contains
             ! Common integer variable patterns
             typ = create_mono_type(TINT)
         case ('x', 'y', 'z', 'result', 'value', 'temp')
-            ! Common real variable patterns
-            typ = create_mono_type(TREAL)
+            ! Ambiguous numeric names: defer to usage-driven inference
+            typ = create_mono_type(TVAR, var=create_type_var(next_var_id, "v"))
+            next_var_id = next_var_id + 1
         case ('flag', 'found', 'done', 'success', 'valid')
             ! Common logical variable patterns
             typ = create_mono_type(TLOGICAL)
@@ -74,6 +75,7 @@ contains
 
         integer :: i, idx, arg_idx
         type(mono_type_t) :: temp_type
+        type(mono_type_t) :: inferred_arg_type
         type(poly_type_t) :: scheme
         character(len=64), allocatable :: stored_names(:)
         character(len=64) :: param_name
@@ -128,15 +130,16 @@ contains
             end if
 
             if (temp_type%kind == TVAR) then
+                if (temp_type%var%id == 0) then
+                    temp_type = create_mono_type(TVAR, &
+                                                 var=create_type_var(next_var_id, "arg"))
+                    next_var_id = next_var_id + 1
+                end if
                 if (len_trim(trimmed_name) > 0) then
                     select case (trimmed_name(1:1))
                     case ('i', 'j', 'k', 'l', 'm', 'n')
                         temp_type = create_mono_type(TINT)
-                    case default
-                        temp_type = create_mono_type(TREAL)
                     end select
-                else
-                    temp_type = create_mono_type(TREAL)
                 end if
             end if
 
@@ -167,6 +170,13 @@ contains
                     type is (identifier_node)
                         if (arg_node%inferred_type%kind == TINT) then
                             param_types(i) = create_mono_type(TINT)
+                        else
+                            inferred_arg_type = &
+                                infer_identifier_type_from_context( &
+                                arena, arg_node%name, param_names, param_types)
+                            if (inferred_arg_type%kind == TINT) then
+                                param_types(i) = inferred_arg_type
+                            end if
                         end if
                     end select
                 end do
@@ -263,15 +273,10 @@ contains
         end if
 
         if (return_type%kind == TVAR) then
-            if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
-                select case (func_node%name(1:1))
-                case ('i', 'j', 'k', 'l', 'm', 'n')
-                    return_type = create_mono_type(TINT)
-                case default
-                    return_type = create_mono_type(TREAL)
-                end select
-            else
-                return_type = create_mono_type(TREAL)
+            if (return_type%var%id == 0) then
+                return_type = create_mono_type(TVAR, &
+                                               var=create_type_var(next_var_id, "ret"))
+                next_var_id = next_var_id + 1
             end if
         end if
     end function determine_function_return_type
@@ -362,6 +367,53 @@ contains
             if (node%inferred_type%kind > 0) typ = node%inferred_type
         end select
     end function infer_expression_type_static
+
+    function infer_identifier_type_from_context(arena, ident_name, param_names, &
+                                                param_types) result(typ)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: ident_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t) :: typ
+        integer :: idx, target_idx, name_idx
+        character(len=64) :: lowered_name
+
+        typ%kind = 0
+        lowered_name = trim(ident_name)
+        if (len_trim(lowered_name) == 0) return
+
+        do idx = 1, arena%size
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (node => arena%entries(idx)%node)
+            type is (declaration_node)
+                if (allocated(node%var_name)) then
+                    if (trim(node%var_name) == lowered_name) then
+                        typ = declaration_type_to_mono(node%type_name)
+                        if (typ%kind /= 0) return
+                    end if
+                end if
+                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                    do name_idx = 1, size(node%var_names)
+                        if (trim(node%var_names(name_idx)) == lowered_name) then
+                            typ = declaration_type_to_mono(node%type_name)
+                            if (typ%kind /= 0) return
+                        end if
+                    end do
+                end if
+            type is (assignment_node)
+                target_idx = node%target_index
+                if (target_idx <= 0 .or. target_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(target_idx)%node)) cycle
+                select type (target => arena%entries(target_idx)%node)
+                type is (identifier_node)
+                    if (trim(target%name) /= lowered_name) cycle
+                    typ = infer_expression_type_static( &
+                          arena, node%value_index, param_names, param_types)
+                    if (typ%kind /= 0) return
+                end select
+            end select
+        end do
+    end function infer_identifier_type_from_context
 
     ! Create function scope with result variable
     subroutine create_function_scope(arena, func_node, func_index, return_type, scopes)
