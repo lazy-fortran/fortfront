@@ -172,6 +172,8 @@ contains
 
         prefix = ""
 
+        if (is_windows) return
+
         inquire (file='scripts/with_timeout.sh', exist=script_exists)
         if (script_exists) then
             prefix = 'scripts/with_timeout.sh ' // trim(limit_secs) // ' '
