@@ -5,7 +5,8 @@ module input_validation
     ! Cleanly separated from frontend concerns with no circular dependencies
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING, &
+                          to_lower
 
     implicit none
     private
@@ -434,6 +435,7 @@ contains
                         subroutine_count = subroutine_count + 1
                     end if
                 case ("module")
+                    if (is_module_procedure_statement(tokens, i)) cycle
                     ! Check if this is not "end module"
                     if (i == 1) then
                         module_count = module_count + 1
@@ -481,6 +483,34 @@ contains
                                               "MISSING_END")
         end if
     end subroutine check_missing_end_constructs
+
+    logical function is_module_procedure_statement(tokens, pos) result(is_module_proc)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: j
+        character(len=:), allocatable :: next_kw
+
+        is_module_proc = .false.
+        if (pos < 1 .or. pos > size(tokens)) return
+
+        j = pos + 1
+        do while (j <= size(tokens))
+            if (tokens(j)%kind == TK_EOF) return
+            select case (tokens(j)%kind)
+            case (TK_NEWLINE, TK_COMMENT)
+                j = j + 1
+                cycle
+            case (TK_KEYWORD)
+                next_kw = trim(to_lower(tokens(j)%text))
+                if (next_kw == "procedure") then
+                    is_module_proc = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_module_procedure_statement
 
     ! Check for specifically invalid patterns that should be rejected
     logical function contains_invalid_patterns(tokens) result(is_invalid)
