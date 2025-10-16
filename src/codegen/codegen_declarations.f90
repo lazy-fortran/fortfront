@@ -1407,9 +1407,9 @@ contains
                 if (allocated(func%return_type)) then
                     if (len_trim(func%return_type) > 0) then
                         type_name = trim(func%return_type)
-                        return
                     end if
                 end if
+                return
             end select
         end do
     end function get_function_return_type_string
