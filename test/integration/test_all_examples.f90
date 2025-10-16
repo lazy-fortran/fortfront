@@ -20,6 +20,7 @@ program test_all_examples
     xpass_count = 0
 
     is_windows = check_if_windows()
+    call verify_shell_helpers(is_windows)
 
     ! Find fortfront executable (avoid fpm run overhead)
     fortfront_exe = find_fortfront_executable()
@@ -112,21 +113,58 @@ contains
         end if
     end function check_if_windows
 
+    subroutine verify_shell_helpers(is_windows)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: quoted
+        character(len=:), allocatable :: command
+        integer :: trimmed_len
+
+        quoted = quote_for_shell('path with spaces/example.lf', is_windows)
+        if (len_trim(quoted) == 0) then
+            print *, "ERROR: quote_for_shell rejected safe path"
+            stop 1
+        end if
+        trimmed_len = len_trim(quoted)
+        if (quoted(1:1) /= '"' .or. quoted(trimmed_len:trimmed_len) /= '"') then
+            print *, "ERROR: quote_for_shell missing quotes"
+            stop 1
+        end if
+
+        if (len_trim(quote_for_shell('bad&path', is_windows)) /= 0) then
+            print *, "ERROR: quote_for_shell accepted unsafe characters"
+            stop 1
+        end if
+
+        command = build_compile_command('output file.f90', 'modules dir', is_windows)
+        if (len_trim(command) == 0) then
+            print *, "ERROR: build_compile_command returned empty command"
+            stop 1
+        end if
+        if (index(command, '"modules dir"') == 0) then
+            print *, "ERROR: module directory not quoted"
+            stop 1
+        end if
+    end subroutine verify_shell_helpers
+
     subroutine cleanup_file(file)
         character(len=*), intent(in) :: file
-        integer :: ec
-        logical :: is_win
-        character(len=:), allocatable :: quoted
+        logical :: exists
+        integer :: unit_num, ios
+        character(len=:), allocatable :: trimmed
 
-        is_win = check_if_windows()
-        quoted = quote_for_shell(file, is_win)
-        if (len_trim(quoted) == 0) return
+        trimmed = trim(file)
+        if (len_trim(trimmed) == 0) return
 
-        if (is_win) then
-            call execute_command_line('cmd /C if exist '//trim(quoted)// &
-                                      ' del /F /Q '//trim(quoted), exitstat=ec)
-        else
-            call execute_command_line('rm -f '//trim(quoted), exitstat=ec)
+        inquire (file=trimmed, exist=exists)
+        if (.not. exists) return
+
+        open (newunit=unit_num, file=trimmed, status='old', action='readwrite', &
+            & iostat=ios)
+        if (ios /= 0) then
+            open (newunit=unit_num, file=trimmed, status='old', action='read', iostat=ios)
+        end if
+        if (ios == 0) then
+            close (unit_num, status='delete', iostat=ios)
         end if
     end subroutine cleanup_file
 
