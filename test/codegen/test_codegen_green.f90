@@ -78,6 +78,47 @@ contains
             print *, '  EXPECTED FAIL: ', trim(error_msg)
         end if
 
+        ! Mixed array literal should promote integers to real(8)
+        input_file = 'test_cg_arr_mixed.lf'
+        open (newunit=unit, file=input_file, status='replace')
+        write (unit, '(a)') 'arr = [1, 2.0, 3]'
+        close (unit)
+
+        output_file = 'test_cg_arr_mixed_out.f90'
+        options%output_file = output_file
+        error_msg = ''
+
+        call compile_source(input_file, options, error_msg)
+
+        if (error_msg == '') then
+            open (newunit=unit, file=output_file, status='old', iostat=unit)
+            if (unit == 0) then
+                generated_correctly = .false.
+                do
+                    read (unit, '(a)', iostat=unit) line
+                    if (unit /= 0) exit
+                    if (index(line, '1.0d0') > 0 .and. &
+                        index(line, '2.0d0') > 0 .and. &
+                        index(line, '3.0d0') > 0) then
+                        generated_correctly = .true.
+                        print *, '  Generated with promotion: ', trim(line)
+                        exit
+                    end if
+                end do
+                close (unit)
+
+                if (generated_correctly) then
+                    print *, '  SUCCESS: Mixed array literals promoted to real(8)'
+                else
+                    print *, '  FAIL: Mixed array literal did not promote integers'
+                    test_array_literal_codegen = .false.
+                end if
+            end if
+        else
+            print *, '  FAIL: Mixed array literal compilation error - ', trim(error_msg)
+            test_array_literal_codegen = .false.
+        end if
+
     end function test_array_literal_codegen
 
     logical function test_implied_do_codegen()
@@ -101,7 +142,8 @@ contains
         call compile_source(input_file, options, error_msg)
 
         if (error_msg /= '') then
-            print *, '  EXPECTED FAIL: Implied do codegen not implemented - ', trim(error_msg)
+            print *, '  EXPECTED FAIL: Implied do codegen not implemented - ', &
+                & trim(error_msg)
         else
             print *, '  Check if output contains: (/ (i*i, i=1,5) /)'
             ! Could verify the output here
@@ -182,7 +224,8 @@ contains
         call compile_source(input_file, options, error_msg)
 
         if (error_msg /= '') then
-            print *, '  EXPECTED FAIL: Complex expressions with intrinsics - ', trim(error_msg)
+            print *, '  EXPECTED FAIL: Complex expressions with intrinsics - ', &
+                & trim(error_msg)
         else
             print *, '  Complex expression might have compiled'
         end if

@@ -55,17 +55,7 @@ contains
                 call get_type_standardization(standardize_types_enabled)
                 if (standardize_types_enabled) then
                     if (node%literal_kind == LITERAL_REAL) then
-                        block
-                            character(len=:), allocatable :: lc
-                            lc = code
-                            ! Only append if not already having exponent/kind/d-suffix
-                            if (index(lc, 'e') == 0 .and. index(lc, 'E') == 0 .and. &
-                                index(lc, 'd') == 0 .and. index(lc, 'D') == 0) then
-                                if (index(lc, '.') > 0) then
-                                    code = trim(lc) // 'd0'
-                                end if
-                            end if
-                        end block
+                        code = promote_literal_to_real64(code)
                     end if
                 end if
             end if
@@ -127,8 +117,10 @@ contains
 
             left_paren = .false.
             right_paren = .false.
-            if (len_trim(left_op) > 0) left_paren = needs_parentheses(trim(fortran_operator), trim(left_op), .true.)
-            if (len_trim(right_op) > 0) right_paren = needs_parentheses(trim(fortran_operator), trim(right_op), .false.)
+            if (len_trim(left_op) > 0) left_paren = &
+                & needs_parentheses(trim(fortran_operator), trim(left_op), .true.)
+            if (len_trim(right_op) > 0) right_paren = &
+                & needs_parentheses(trim(fortran_operator), trim(right_op), .false.)
 
             if (left_paren) left_code = "(" // left_code // ")"
             if (right_paren) right_code = "(" // right_code // ")"
@@ -270,10 +262,11 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
     function generate_real_elements_code(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
-        character(len=:), allocatable :: elements_code, elem_code
-        type(mono_type_t) :: elem_type
+        character(len=:), allocatable :: elements_code
+        character(len=:), allocatable :: elem_code
+        character(len=:), allocatable :: promoted_code
         integer :: i
-        logical :: is_integer_literal
+        logical :: promote_literal
 
         elements_code = ""
         do i = 1, size(element_indices)
@@ -281,28 +274,20 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
             if (element_indices(i) > 0) then
                 elem_code = generate_code_from_arena(arena, element_indices(i))
                 elem_code = trim(elem_code)
-                is_integer_literal = .false.
+                promote_literal = .false.
 
-                ! Check if element is an integer literal that needs conversion
+                ! Promote numeric literals to real(8) form
                 select type (node => arena%entries(element_indices(i))%node)
                 type is (literal_node)
-                    if (node%literal_kind == LITERAL_INTEGER) then
-                        is_integer_literal = .true.
+                    if (node%literal_kind == LITERAL_INTEGER .or. &
+                        node%literal_kind == LITERAL_REAL) then
+                        promote_literal = .true.
                     end if
                 end select
 
-                if (is_integer_literal) then
-                    ! Convert integer to real - use simple conversion
-                    ! Check if it's just a simple integer
-                    if (index(elem_code, '.') == 0 .and. &
-                        index(elem_code, 'e') == 0 .and. &
-                        index(elem_code, 'E') == 0 .and. &
-                        index(elem_code, 'd') == 0 .and. &
-                        index(elem_code, 'D') == 0) then
-                        elements_code = elements_code // elem_code // ".0"
-                    else
-                        elements_code = elements_code // elem_code
-                    end if
+                if (promote_literal) then
+                    promoted_code = promote_literal_to_real64(elem_code)
+                    elements_code = elements_code // promoted_code
                 else
                     elements_code = elements_code // elem_code
                 end if
@@ -349,7 +334,12 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
 
         ! Generate elements code based on array type (for type conversion)
         if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-          elements_code = generate_elements_code_from_indices(arena, node%element_indices)
+            if (is_real_array) then
+                elements_code = generate_real_elements_code(arena, node%element_indices)
+            else
+                elements_code = generate_elements_code_from_indices(arena, &
+                    & node%element_indices)
+            end if
         else
             elements_code = ""
         end if
@@ -391,6 +381,36 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
             end if
         end if
     end function generate_code_array_literal
+
+    ! Promote numeric literal string to real(8) form (using d exponent)
+    function promote_literal_to_real64(code) result(promoted)
+        character(len=*), intent(in) :: code
+        character(len=:), allocatable :: promoted
+        character(len=:), allocatable :: trimmed
+        integer :: exp_pos
+
+        trimmed = trim(code)
+        promoted = trimmed
+
+        if (len_trim(promoted) == 0) return
+
+        ! Respect explicit kind annotations and existing double precision markers
+        if (index(promoted, '_') /= 0) return
+        if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
+
+        exp_pos = index(promoted, 'e')
+        if (exp_pos == 0) exp_pos = index(promoted, 'E')
+        if (exp_pos /= 0) then
+            promoted(exp_pos:exp_pos) = 'd'
+            return
+        end if
+
+        if (index(promoted, '.') /= 0) then
+            promoted = promoted // "d0"
+        else
+            promoted = promoted // ".0d0"
+        end if
+    end function promote_literal_to_real64
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
     function generate_code_complex_literal(arena, node, node_index) result(code)
@@ -492,7 +512,8 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
             end if
 
             ! Lower bound (optional)
-            if (bounds_node%lower_bound_index > 0 .and. bounds_node%lower_bound_index <= arena%size) then
+            if (bounds_node%lower_bound_index > 0 .and. bounds_node%lower_bound_index <= &
+                & arena%size) then
                 lower_code = trim(adjustl(generate_code_from_arena( &
                                           arena, bounds_node%lower_bound_index)))
                 has_lower = len_trim(lower_code) > 0
@@ -502,7 +523,8 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
             end if
 
             ! Upper bound (optional)
-            if (bounds_node%upper_bound_index > 0 .and. bounds_node%upper_bound_index <= arena%size) then
+            if (bounds_node%upper_bound_index > 0 .and. bounds_node%upper_bound_index <= &
+                & arena%size) then
                 upper_code = trim(adjustl(generate_code_from_arena( &
                                           arena, bounds_node%upper_bound_index)))
                 has_upper = len_trim(upper_code) > 0
@@ -559,7 +581,9 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
                 if (i > 1) bounds_code = bounds_code // ", "
                 if (slice_node%bounds_indices(i) > 0 .and. &
                     slice_node%bounds_indices(i) <= arena%size) then
-                    bounds_code = bounds_code // trim(adjustl(generate_code_from_arena(arena, slice_node%bounds_indices(i))))
+                    bounds_code = bounds_code // &
+                        & trim(adjustl(generate_code_from_arena(arena, &
+                        & slice_node%bounds_indices(i))))
                 else
                     bounds_code = bounds_code // ":"  ! Default to full range if bounds missing
                 end if
@@ -780,10 +804,12 @@ function generate_elements_code_from_indices(arena, element_indices) result(elem
         is_string = .false.
         if (len(trimmed_code) >= 2) then
             ! Check for single quotes
-            if (trimmed_code(1:1) == "'" .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == "'") then
+            if (trimmed_code(1:1) == "'" .and. &
+                & trimmed_code(len(trimmed_code):len(trimmed_code)) == "'") then
                 is_string = .true.
                 ! Check for double quotes
-            else if (trimmed_code(1:1) == '"' .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == '"') then
+            else if (trimmed_code(1:1) == '"' .and. &
+                & trimmed_code(len(trimmed_code):len(trimmed_code)) == '"') then
                 is_string = .true.
             end if
         end if
