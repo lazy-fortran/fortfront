@@ -29,8 +29,6 @@ contains
     function run_basic_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
-        character(len=:), allocatable :: generated
-        character(len=:), allocatable :: errors
         character(len=32), parameter :: required_fragments(3) = [ &
                                         character(len=32) :: &
                                         'integer function square', &
@@ -51,32 +49,13 @@ contains
                  'squared = square(val)' // new_line('a') // &
                  'print *, squared'
 
-        call transform_lazy_fortran_string(source, generated, errors)
-
-        if (.not. allocated(generated)) generated = ''
-        if (.not. allocated(errors)) errors = ''
-
-        passed = .true.
-
-        if (len_trim(errors) > 0) then
-            write (error_unit, '(A)') 'transform reported errors:'
-            write (error_unit, '(A)') trim(errors)
-            passed = .false.
-        end if
-
-        if (.not. verify_fragments(generated, required_fragments, .true.)) then
-            passed = .false.
-        end if
-        if (.not. verify_fragments(generated, forbidden_fragments, .false.)) then
-            passed = .false.
-        end if
+        passed = run_function_inference_case(source, required_fragments, &
+                                             forbidden_fragments, 'basic')
     end function run_basic_function_test
 
     function run_reordered_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
-        character(len=:), allocatable :: generated
-        character(len=:), allocatable :: errors
         character(len=40), parameter :: required_fragments(4) = [ &
                                         character(len=40) :: &
                                         'integer :: val', &
@@ -98,46 +77,72 @@ contains
                  '    return result' // new_line('a') // &
                  'end function'
 
+        passed = run_function_inference_case(source, required_fragments, &
+                                             forbidden_fragments, 'reordered')
+    end function run_reordered_function_test
+
+    function run_function_inference_case(source, required_fragments, &
+                                         forbidden_fragments, context) &
+        result(passed)
+        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: required_fragments(:)
+        character(len=*), intent(in) :: forbidden_fragments(:)
+        character(len=*), intent(in) :: context
+        logical :: passed
+        character(len=:), allocatable :: descriptor
+        character(len=:), allocatable :: generated
+        character(len=:), allocatable :: errors
+
         call transform_lazy_fortran_string(source, generated, errors)
 
         if (.not. allocated(generated)) generated = ''
         if (.not. allocated(errors)) errors = ''
 
-        passed = .true.
+        descriptor = ''
+        if (len_trim(context) > 0) then
+            descriptor = ' (' // trim(context) // ')'
+        end if
 
+        passed = .true.
         if (len_trim(errors) > 0) then
-            write (error_unit, '(A)') 'transform reported errors (reordered):'
+            write (error_unit, '(A)') 'transform reported errors' // descriptor &
+                // ':'
             write (error_unit, '(A)') trim(errors)
             passed = .false.
         end if
 
-        if (.not. verify_fragments(generated, required_fragments, .true.)) then
-            passed = .false.
-        end if
-        if (.not. verify_fragments(generated, forbidden_fragments, .false.)) then
-            passed = .false.
-        end if
-    end function run_reordered_function_test
+        if (.not. verify_fragments(generated, required_fragments, .true., &
+                                   context)) passed = .false.
+        if (.not. verify_fragments(generated, forbidden_fragments, .false., &
+                                   context)) passed = .false.
+    end function run_function_inference_case
 
-    logical function verify_fragments(generated, fragments, expect_present) &
+    logical function verify_fragments(generated, fragments, expect_present, &
+                                      context) &
         result(all_valid)
         character(len=*), intent(in) :: generated
         character(len=*), intent(in) :: fragments(:)
         logical, intent(in) :: expect_present
+        character(len=*), intent(in) :: context
         integer :: i
         character(len=:), allocatable :: fragment
+        character(len=:), allocatable :: descriptor
 
         all_valid = .true.
+        descriptor = ''
+        if (len_trim(context) > 0) descriptor = ' (' // trim(context) // ')'
         do i = 1, size(fragments)
             fragment = trim(fragments(i))
             if (expect_present) then
                 if (index(generated, fragment) == 0) then
-                    write (error_unit, '(A)') 'missing fragment: ' // fragment
+                    write (error_unit, '(A)') 'missing fragment' // descriptor &
+                        // ': ' // fragment
                     all_valid = .false.
                 end if
             else
                 if (index(generated, fragment) > 0) then
-                    write (error_unit, '(A)') 'unexpected fragment: ' // fragment
+                    write (error_unit, '(A)') 'unexpected fragment' // &
+                        descriptor // ': ' // fragment
                     all_valid = .false.
                 end if
             end if
