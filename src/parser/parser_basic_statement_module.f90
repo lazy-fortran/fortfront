@@ -184,12 +184,6 @@ contains
                             end if
                         end select
 
-                        if (j > stmt_start .and. parser%tokens(j)%line > &
-                            parser%tokens(stmt_start)%line) then
-                            stmt_end = j - 1
-                            exit
-                        end if
-
                         stmt_end = j
                         select case (parser%tokens(j)%kind)
                         case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)

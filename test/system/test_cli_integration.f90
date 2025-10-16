@@ -34,7 +34,7 @@ program test_cli_integration
         ! Only remove previously built CLI binaries so test artifacts remain intact
         if (is_windows) then
             call execute_command_line( &
-                'cmd /C if exist build (for /d %d in (build\gfortran_*) do ' // &
+                'cmd /C if exist build (for /d %d in (build\gfortran_*) do '// &
                 'if exist "%d\app" rmdir /S /Q "%d\app")', exitstat=clean_status)
         else
             call execute_command_line( &
@@ -47,7 +47,8 @@ program test_cli_integration
         call execute_command_line(build_command, exitstat=test_count)
     end block
     if (test_count /= 0) then
-        print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
+        print *, "SKIPPING: Failed to build fortfront executable (exit code:", &
+            & test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
         stop 0
     end if
@@ -104,11 +105,23 @@ contains
 
     subroutine cleanup_file(file)
         character(len=*), intent(in) :: file
-        integer :: ec
-        if (check_if_windows()) then
-            call execute_command_line('cmd /C if exist ' // trim(file) // ' del /F /Q ' // trim(file), exitstat=ec)
-        else
-            call execute_command_line('rm -f ' // trim(file), exitstat=ec)
+        character(len=:), allocatable :: trimmed
+        logical :: exists
+        integer :: unit_num, ios
+
+        trimmed = trim(file)
+        if (len_trim(trimmed) == 0) return
+
+        inquire (file=trimmed, exist=exists)
+        if (.not. exists) return
+
+        open (newunit=unit_num, file=trimmed, status='old', action='readwrite', &
+            & iostat=ios)
+        if (ios /= 0) then
+            open (newunit=unit_num, file=trimmed, status='old', action='read', iostat=ios)
+        end if
+        if (ios == 0) then
+            close (unit_num, status='delete', iostat=ios)
         end if
     end subroutine cleanup_file
 
@@ -158,6 +171,8 @@ contains
         logical :: script_exists
 
         prefix = ""
+
+        if (is_windows) return
 
         inquire (file='scripts/with_timeout.sh', exist=script_exists)
         if (script_exists) then
@@ -209,20 +224,24 @@ contains
                 character(len=64), allocatable :: roots(:)
                 integer :: r
                 allocate (roots(5))
-                roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', '..\\..\\..\\..']
+                roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', &
+                    & '..\\..\\..\\..']
                 do r = 1, size(roots)
                     call execute_command_line('cmd /C where /R ' // trim(roots(r)) // ' fortfront.exe > fortfront_search_win.txt', &
                                               exitstat=exit_code)
                     if (exit_code == 0) then
-                        open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
+                        open (newunit=unit_num, file='fortfront_search_win.txt', &
+                            & status='old', action='read', iostat=exit_code)
                         if (exit_code == 0) then
                             do
                                 read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code /= 0) exit
                                 if (len_trim(search_output) > 0) then
                                     ! Prefer app\fortfront.exe path if present
-                                    if (index(adjustl(search_output), 'app\\fortfront.exe') > 0) then
-                                        inquire (file=trim(search_output), exist=file_exists)
+                                    if (index(adjustl(search_output), &
+                                        & 'app\\fortfront.exe') > 0) then
+                                        inquire (file=trim(search_output), &
+                                            & exist=file_exists)
                                         if (file_exists) then
                                             executable_path = trim(search_output)
                                             exit
@@ -241,7 +260,8 @@ contains
                             end if
                             close (unit_num)
                         end if
-                        call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
+                        call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
+                            & exitstat=exit_code)
                     end if
                     if (len(executable_path) > 0) return
                 end do
@@ -265,12 +285,14 @@ contains
         call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
                                   exitstat=exit_code)
         if (exit_code == 0) then
-            open(newunit=unit_num, file='fortfront_search.txt', status='old', action='read', iostat=exit_code)
+            open (newunit=unit_num, file='fortfront_search.txt', status='old', &
+                & action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read (unit_num, '(A)', iostat=exit_code) search_output
                 close (unit_num)
                 ! Clean up temporary file
-                call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
+                call execute_command_line('rm -f fortfront_search.txt', &
+                    & exitstat=exit_code)
                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
                     inquire (file=trim(search_output), exist=file_exists)
                     if (file_exists) then
@@ -336,11 +358,12 @@ contains
         end if
 
         ! Prepare input file for cross-platform piping
-        call write_text_file('test_input.lf', 'print *, ''test''' // new_line('a'))
+        call write_text_file('test_input.lf', 'print *, ''test'''//new_line('a'))
 
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // '" test_input.lf > test_output.txt 2> test_error.txt"'
+            command = 'cmd /C ""' // executable_path // &
+                & '" test_input.lf > test_output.txt 2> test_error.txt"'
         else
             command = build_pipe_command(executable_path, 'test_input.lf', &
                                          'test_output.txt', 'test_error.txt', .false.)
@@ -351,7 +374,8 @@ contains
 
         if (success) then
             ! Check if output contains expected Fortran code (scan file)
-            open (unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
+            open (unit=10, file='test_output.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
                 do
@@ -365,7 +389,8 @@ contains
 100             close (10)
                 ! On Windows via fpm wrapper, allow any non-empty output as success
                 if (.not. success .and. is_windows) then
-                    open (unit=13, file='test_output.txt', status='old', action='read', iostat=exit_code)
+                    open (unit=13, file='test_output.txt', status='old', action='read', &
+                        & iostat=exit_code)
                     if (exit_code == 0) then
                         do
                             read (13, '(A)', end=102, iostat=exit_code) output_line
@@ -379,7 +404,8 @@ contains
                     end if
                 end if
                 ! Ensure no diagnostics leaked to stderr (should be empty on success)
-                open (unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
+                open (unit=12, file='test_error.txt', status='old', action='read', &
+                    & iostat=exit_code)
                 if (exit_code == 0) then
                     do
                         read (12, '(A)', end=101, iostat=exit_code) err_line
@@ -406,7 +432,8 @@ contains
             print *, "  Executable path: ", executable_path
             print *, "  Exit code: ", run_status
             ! Dump captured stderr for diagnostics (Windows and POSIX)
-            open (unit=98, file='test_error.txt', status='old', action='read', iostat=exit_code)
+            open (unit=98, file='test_error.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 do
                     read (98, '(A)', end=199, iostat=exit_code) err_line
@@ -441,7 +468,7 @@ contains
         end if
 
         ! Prepare a CRLF-ended input file (convert from LF)
-        call write_text_file('test_input_crlf_src.lf', 'print *, ''test''' // new_line('a'))
+        call write_text_file('test_input_crlf_src.lf', 'print *, ''test'''//new_line('a'))
         call execute_command_line('bash -lc "sed ''s/$/\\r/'' test_input_crlf_src.lf > test_input_crlf.lf"', &
                                   exitstat=exit_code)
         if (exit_code /= 0) then
@@ -452,14 +479,16 @@ contains
 
         ! Pipe CRLF input to the executable
         command = build_pipe_command(executable_path, 'test_input_crlf.lf', &
-                                     'test_output_crlf.txt', 'test_error_crlf.txt', .false.)
+                                     'test_output_crlf.txt', &
+                                         & 'test_error_crlf.txt', .false.)
         call execute_command_line(command, exitstat=run_status)
 
         success = (run_status == 0)
 
         if (success) then
             ! Verify expected output and empty stderr
-            open (unit=14, file='test_output_crlf.txt', status='old', action='read', iostat=exit_code)
+            open (unit=14, file='test_output_crlf.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
                 do
@@ -472,7 +501,8 @@ contains
                 end do
 110             close (14)
 
-                open (unit=15, file='test_error_crlf.txt', status='old', action='read', iostat=exit_code)
+                open (unit=15, file='test_error_crlf.txt', status='old', action='read', &
+                    & iostat=exit_code)
                 if (exit_code == 0) then
                     do
                         read (15, '(A)', end=111, iostat=exit_code) err_line
@@ -521,14 +551,16 @@ contains
             return
         end if
 
-        call write_text_file('test_input_pipe_win.lf', 'print *, ''test''' // new_line('a'))
+        call write_text_file('test_input_pipe_win.lf', 'print *, ''test'''//new_line('a'))
         command = build_pipe_command(executable_path, 'test_input_pipe_win.lf', &
-                                     'test_output_pipe_win.txt', 'test_error_pipe_win.txt', .true.)
+                                     'test_output_pipe_win.txt', &
+                                         & 'test_error_pipe_win.txt', .true.)
         call execute_command_line(command, exitstat=run_status)
 
         success = (run_status == 0)
         if (success) then
-            open(unit=16, file='test_output_pipe_win.txt', status='old', action='read', iostat=exit_code)
+            open (unit=16, file='test_output_pipe_win.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
                 do
@@ -553,7 +585,8 @@ contains
         if (.not. success) then
             print *, "  Windows pipe CLI test failed"
             print *, "  Exit code: ", run_status
-            open(unit=96, file='test_error_pipe_win.txt', status='old', action='read', iostat=exit_code)
+            open (unit=96, file='test_error_pipe_win.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 do
                     read (96, '(A)', end=398, iostat=exit_code) line
@@ -585,7 +618,8 @@ contains
         end if
 
         ! Run with invalid input (cross-platform piping)
-        call write_text_file('test_invalid.lf', 'invalid fortran code @#$%' // new_line('a'))
+        call write_text_file('test_invalid.lf', &
+            & 'invalid fortran code @#$%'//new_line('a'))
         command = build_pipe_command(executable_path, 'test_invalid.lf', &
                                      'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
@@ -602,7 +636,8 @@ contains
         if (.not. success) then
             print *, "  Error handling failed"
             print *, "  Exit code: ", run_status
-            open (unit=97, file='test_error2.txt', status='old', action='read', iostat=exit_code)
+            open (unit=97, file='test_error2.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 do
                     read (97, '(A)', end=298, iostat=exit_code) line
@@ -634,7 +669,8 @@ contains
 
         ! Run with an unknown flag; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
+            command = 'cmd /C ""' // executable_path // &
+                & '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
                       ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
@@ -672,7 +708,8 @@ contains
 
         ! Run with a single dash; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // '" - > test_output_dash.txt 2>test_error_dash.txt"'
+            command = 'cmd /C ""' // executable_path // &
+                & '" - > test_output_dash.txt 2>test_error_dash.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
                       ' - > test_output_dash.txt 2>test_error_dash.txt'
@@ -709,10 +746,11 @@ contains
         end if
 
         ! Create a file whose name begins with a hyphen
-        call write_text_file('-input_test.lf', 'print *, ''ok''' // new_line('a'))
+        call write_text_file('-input_test.lf', 'print *, ''ok'''//new_line('a'))
 
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
+            command = 'cmd /C ""' // executable_path // &
+                & '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
                       ' -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt'
@@ -723,7 +761,8 @@ contains
 
         if (success) then
             ! Output should be a valid program; stderr should be empty
-            open (unit=31, file='out_hyphen.txt', status='old', action='read', iostat=exit_code)
+            open (unit=31, file='out_hyphen.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 read (31, '(A)', end=410, iostat=exit_code) line
                 if (exit_code == 0) then
@@ -737,7 +776,8 @@ contains
             end if
 
             if (success) then
-                open (unit=32, file='err_hyphen.txt', status='old', action='read', iostat=exit_code)
+                open (unit=32, file='err_hyphen.txt', status='old', action='read', &
+                    & iostat=exit_code)
                 if (exit_code == 0) then
                     do
                         read (32, '(A)', end=411, iostat=exit_code) line
@@ -783,7 +823,7 @@ contains
 
         ! Run with lazy function syntax which is not supported
         if (is_windows) then
-            call write_text_file('test_func.lf', 'func add(x, y) = x + y' // new_line('a'))
+            call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
             command = build_pipe_command(executable_path, 'test_func.lf', &
                                          'test_out_func.txt', 'test_err_func.txt', .true.)
         else
@@ -798,7 +838,8 @@ contains
 
         ! And program output should still be produced
         if (success) then
-            open (unit=21, file='test_out_func.txt', status='old', action='read', iostat=exit_code)
+            open (unit=21, file='test_out_func.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 read (21, '(A)', end=300, iostat=exit_code) line
                 if (exit_code == 0) then
@@ -842,7 +883,8 @@ contains
         ! Run with empty input (cross-platform)
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
-            command = 'cmd /C "type NUL | "' // executable_path // '" > test_output3.txt 2>test_error3.txt"'
+            command = 'cmd /C "type NUL | "' // executable_path // &
+                & '" > test_output3.txt 2>test_error3.txt"'
         else
             command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
                       executable_path // ' > test_output3.txt 2>test_error3.txt"'
@@ -853,7 +895,8 @@ contains
 
         if (success) then
             ! Check output contains valid empty program
-            open (unit=11, file='test_output3.txt', status='old', action='read', iostat=exit_code)
+            open (unit=11, file='test_output3.txt', status='old', action='read', &
+                & iostat=exit_code)
             if (exit_code == 0) then
                 read (11, '(A)', end=200, iostat=exit_code) output_line
                 if (exit_code == 0) then
@@ -892,9 +935,11 @@ contains
         end if
 
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // '" --help > help_out.txt 2>help_err.txt"'
+            command = 'cmd /C ""' // executable_path // &
+                & '" --help > help_out.txt 2>help_err.txt"'
         else
-            command = 'bash -lc "' // timeout_wrapper('20') // executable_path // ' --help > help_out.txt 2>help_err.txt"'
+            command = 'bash -lc "' // timeout_wrapper('20') // executable_path // &
+                & ' --help > help_out.txt 2>help_err.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
 
