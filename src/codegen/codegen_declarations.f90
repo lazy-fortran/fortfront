@@ -1233,9 +1233,12 @@ contains
         character(len=64) :: func_types(MAX_VARS)
         character(len=64) :: internal_funcs(MAX_VARS)
         character(len=64) :: func_return_type
+        character(len=64) :: defined_func_names(MAX_VARS)
+        character(len=64) :: defined_func_types(MAX_VARS)
         logical :: name_declared
         integer :: declared_count, var_count, func_count, internal_count
         integer :: i, j, idx, target_idx
+        integer :: defined_func_count
         character(len=64) :: name_buf
         character(len=:), allocatable :: type_buf
 
@@ -1244,8 +1247,12 @@ contains
         var_count = 0
         func_count = 0
         internal_count = 0
+        defined_func_count = 0
 
         if (.not. allocated(prog%body_indices)) return
+
+        call build_function_return_type_table(arena, defined_func_names, &
+            defined_func_types, defined_func_count)
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
@@ -1305,8 +1312,11 @@ contains
                                                 type is (call_or_subscript_node)
                                                     if (len_trim(rhs%name) > 0) then
                                                         func_return_type = &
-                                                            get_function_return_type_string( &
-                                                            arena, rhs%name)
+                                                            lookup_function_return_type( &
+                                                            defined_func_names, &
+                                                            defined_func_types, &
+                                                            defined_func_count, &
+                                                            rhs%name)
                                                         if (len_trim(func_return_type) > 0) then
                                                             type_buf = trim( &
                                                                 func_return_type)
@@ -1337,8 +1347,9 @@ contains
                                 if (len_trim(type_buf) == 0 .or. &
                                     trim(type_buf) == 'real') then
                                     func_return_type = &
-                                        get_function_return_type_string(arena, &
-                                        val%name)
+                                        lookup_function_return_type( &
+                                        defined_func_names, defined_func_types, &
+                                        defined_func_count, val%name)
                                     if (len_trim(func_return_type) > 0) then
                                         type_buf = trim(func_return_type)
                                     end if
@@ -1389,8 +1400,43 @@ contains
         end do
     end function exists_in_list
 
-    function get_function_return_type_string(arena, func_name) result(type_name)
+    subroutine build_function_return_type_table(arena, func_names, func_types, count)
         type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(inout) :: func_names(:)
+        character(len=*), intent(inout) :: func_types(:)
+        integer, intent(out) :: count
+        integer :: i
+        character(len=64) :: func_name
+
+        count = 0
+        func_names = ""
+        func_types = ""
+
+        do i = 1, arena%size
+            if (count >= size(func_names)) exit
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (func => arena%entries(i)%node)
+            type is (function_def_node)
+                if (.not. allocated(func%name)) cycle
+                func_name = trim(func%name)
+                if (len_trim(func_name) == 0) cycle
+                if (exists_in_list(func_names, count, func_name)) cycle
+                count = count + 1
+                func_names(count) = func_name
+                if (allocated(func%return_type)) then
+                    if (len_trim(func%return_type) > 0) then
+                        func_types(count) = trim(func%return_type)
+                    end if
+                end if
+            end select
+        end do
+    end subroutine build_function_return_type_table
+
+    function lookup_function_return_type(func_names, func_types, count, &
+            func_name) result(type_name)
+        character(len=*), intent(in) :: func_names(:)
+        character(len=*), intent(in) :: func_types(:)
+        integer, intent(in) :: count
         character(len=*), intent(in) :: func_name
         character(len=:), allocatable :: type_name
         integer :: i
@@ -1398,21 +1444,15 @@ contains
         type_name = ""
         if (len_trim(func_name) == 0) return
 
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (func => arena%entries(i)%node)
-            type is (function_def_node)
-                if (.not. allocated(func%name)) cycle
-                if (trim(func%name) /= trim(func_name)) cycle
-                if (allocated(func%return_type)) then
-                    if (len_trim(func%return_type) > 0) then
-                        type_name = trim(func%return_type)
-                    end if
+        do i = 1, count
+            if (trim(func_names(i)) == trim(func_name)) then
+                if (len_trim(func_types(i)) > 0) then
+                    type_name = trim(func_types(i))
                 end if
                 return
-            end select
+            end if
         end do
-    end function get_function_return_type_string
+    end function lookup_function_return_type
 
     ! Convert mono_type_t to Fortran type string
     function mono_type_to_string(mono) result(type_name)
