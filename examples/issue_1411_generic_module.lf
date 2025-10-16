@@ -1,0 +1,26 @@
+! Issue #1411: Top-level statements dropped around module with generic interface
+module scalar_ops
+    implicit none
+    interface double_it
+        module procedure double_int
+        module procedure double_real
+    end interface
+contains
+    function double_int(x)
+        implicit none
+        integer, intent(in) :: x
+        integer :: double_int
+        double_int = 2 * x
+    end function double_int
+
+    function double_real(x)
+        implicit none
+        real, intent(in) :: x
+        real :: double_real
+        double_real = 2.0 * x
+    end function double_real
+end module scalar_ops
+
+use scalar_ops
+print *, double_it(3)
+print *, double_it(1.5)

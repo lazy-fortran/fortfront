@@ -1,0 +1,16 @@
+! Issue #1408: Module PRIVATE/PUBLIC attributes dropped
+module math_ops
+    implicit none
+    private
+    public :: double_value
+contains
+    function double_value(x)
+        implicit none
+        integer, intent(in) :: x
+        integer :: double_value
+        double_value = 2 * x
+    end function double_value
+end module math_ops
+
+use math_ops
+print *, double_value(5)
