@@ -939,6 +939,18 @@ contains
             body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
                                                            context_has_executable_before_contains)
 
+            if (index(code, 'use iso_fortran_env') == 0) then
+                if (index(body_code, 'output_unit') > 0) then
+                    block
+                        integer :: header_end
+                        header_end = index(code, new_line('A'))
+                        if (header_end <= 0) header_end = len(code)
+                        code = code(1:header_end) // '    use iso_fortran_env, only: output_unit' // &
+                               new_line('A') // code(header_end + 1:)
+                    end block
+                end if
+            end if
+
             ! Check if body contains implied do loops and add loop variables after implicit none
             if (len(body_code) > 0) then
                 block
