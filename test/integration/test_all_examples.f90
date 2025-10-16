@@ -393,10 +393,6 @@ contains
             end if
         end if
 
-        ! Clean up temp files
-        call cleanup_file(output_file)
-        call cleanup_file(error_file)
-
         ! Check if this test is expected to fail
         expect_fail = is_expected_failure(basename_str, expected_failures, &
                                           num_expected_failures)
@@ -407,6 +403,7 @@ contains
                 print *, "XFAIL (expected failure)"
                 xfail_count = xfail_count + 1
             else
+                call report_example_failure(trim(basename_str), output_file, error_file)
                 if (has_error) then
                     print *, "FAIL (parser error or compilation failed)"
                 else
@@ -432,7 +429,62 @@ contains
             end if
         end if
 
+        ! Clean up temp files
+        call cleanup_file(output_file)
+        call cleanup_file(error_file)
+
     end subroutine test_single_example
+
+    subroutine report_example_failure(name, output_file, error_file)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: output_file
+        character(len=*), intent(in) :: error_file
+        character(len=256) :: line
+        integer :: unit_num, ios, printed
+        logical :: exists
+
+        inquire (file=trim(error_file), exist=exists)
+        if (exists) then
+            print *, "---- stderr for ", trim(name)
+            open (newunit=unit_num, file=trim(error_file), status='old', &
+                  action='read', iostat=ios)
+            if (ios == 0) then
+                printed = 0
+                do
+                    read (unit_num, '(A)', iostat=ios) line
+                    if (ios /= 0) exit
+                    print *, trim(line)
+                    printed = printed + 1
+                    if (printed >= 10) then
+                        exit
+                    end if
+                end do
+                close (unit_num)
+            end if
+        else
+            print *, "---- stderr missing for ", trim(name)
+        end if
+
+        inquire (file=trim(output_file), exist=exists)
+        if (exists) then
+            print *, "---- generated output preview for ", trim(name)
+            open (newunit=unit_num, file=trim(output_file), status='old', &
+                  action='read', iostat=ios)
+            if (ios == 0) then
+                printed = 0
+                do
+                    read (unit_num, '(A)', iostat=ios) line
+                    if (ios /= 0) exit
+                    print *, trim(line)
+                    printed = printed + 1
+                    if (printed >= 10) exit
+                end do
+                close (unit_num)
+            end if
+        else
+            print *, "---- generated output missing for ", trim(name)
+        end if
+    end subroutine report_example_failure
 
     function get_module_directory(executable_path) result(module_dir)
         character(len=*), intent(in) :: executable_path
