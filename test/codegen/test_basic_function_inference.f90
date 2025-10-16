@@ -1,6 +1,6 @@
 program test_basic_function_inference
     use frontend, only: transform_lazy_fortran_string
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     if (run_basic_function_test()) then
@@ -18,6 +18,16 @@ contains
         character(len=:), allocatable :: source
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
+        integer :: i
+        character(len=32), parameter :: required_fragments(3) = (/ &
+                                        'integer function square', &
+                                        'integer :: x           ', &
+                                        'integer :: val         '/)
+        character(len=32), parameter :: forbidden_fragments(4) = (/ &
+                                        'real function square      ', &
+                                        'real :: square            ', &
+                                        'real(8) function square   ', &
+                                        'real, external :: square  '/)
 
         source = 'function square(x)' // new_line('a') // &
                  '    result = x * x' // new_line('a') // &
@@ -40,40 +50,21 @@ contains
             passed = .false.
         end if
 
-        if (index(generated, 'integer function square') == 0) then
-            write (error_unit, '(A)') 'missing integer function signature'
-            passed = .false.
-        end if
+        do i = 1, size(required_fragments)
+            if (index(generated, trim(required_fragments(i))) == 0) then
+                write (error_unit, '(A)') 'missing fragment: ' // &
+                    trim(required_fragments(i))
+                passed = .false.
+            end if
+        end do
 
-        if (index(generated, 'integer :: x') == 0) then
-            write (error_unit, '(A)') 'missing integer parameter declaration'
-            passed = .false.
-        end if
-
-        if (index(generated, 'integer :: val') == 0) then
-            write (error_unit, '(A)') 'missing integer caller declaration'
-            passed = .false.
-        end if
-
-        if (index(generated, 'real function square') > 0) then
-            write (error_unit, '(A)') 'unexpected real function signature'
-            passed = .false.
-        end if
-
-        if (index(generated, 'real :: square') > 0) then
-            write (error_unit, '(A)') 'unexpected real variable declaration for square'
-            passed = .false.
-        end if
-
-        if (index(generated, 'real(8) function square') > 0) then
-            write (error_unit, '(A)') 'unexpected real(8) function signature'
-            passed = .false.
-        end if
-
-        if (index(generated, 'real, external :: square') > 0) then
-            write (error_unit, '(A)') 'unexpected real external declaration for square'
-            passed = .false.
-        end if
+        do i = 1, size(forbidden_fragments)
+            if (index(generated, trim(forbidden_fragments(i))) > 0) then
+                write (error_unit, '(A)') 'unexpected fragment: ' // &
+                    trim(forbidden_fragments(i))
+                passed = .false.
+            end if
+        end do
     end function run_basic_function_test
 
 end program test_basic_function_inference
