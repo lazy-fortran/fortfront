@@ -4,10 +4,11 @@ program test_basic_function_inference
     implicit none
 
     if (run_basic_function_test()) then
-        write (*, '(A)') 'PASS: basic function inference generates integer types'
+        write (*, '(A)') 'PASS: basic function inference emits integer types'
         stop 0
     else
-        write (error_unit, '(A)') 'FAIL: basic function inference generates integer types'
+        write (error_unit, '(A)') &
+            & 'FAIL: basic function inference skipped integer emission'
         stop 1
     end if
 
@@ -18,16 +19,17 @@ contains
         character(len=:), allocatable :: source
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
-        integer :: i
-        character(len=32), parameter :: required_fragments(3) = (/ &
+        character(len=32), parameter :: required_fragments(3) = [ &
+                                        character(len=32) :: &
                                         'integer function square', &
-                                        'integer :: x           ', &
-                                        'integer :: val         '/)
-        character(len=32), parameter :: forbidden_fragments(4) = (/ &
-                                        'real function square      ', &
-                                        'real :: square            ', &
-                                        'real(8) function square   ', &
-                                        'real, external :: square  '/)
+                                        'integer :: x', &
+                                        'integer :: val']
+        character(len=32), parameter :: forbidden_fragments(4) = [ &
+                                        character(len=32) :: &
+                                        'real function square', &
+                                        'real :: square', &
+                                        'real(8) function square', &
+                                        'real, external :: square']
 
         source = 'function square(x)' // new_line('a') // &
                  '    result = x * x' // new_line('a') // &
@@ -50,21 +52,37 @@ contains
             passed = .false.
         end if
 
-        do i = 1, size(required_fragments)
-            if (index(generated, trim(required_fragments(i))) == 0) then
-                write (error_unit, '(A)') 'missing fragment: ' // &
-                    trim(required_fragments(i))
-                passed = .false.
-            end if
-        end do
-
-        do i = 1, size(forbidden_fragments)
-            if (index(generated, trim(forbidden_fragments(i))) > 0) then
-                write (error_unit, '(A)') 'unexpected fragment: ' // &
-                    trim(forbidden_fragments(i))
-                passed = .false.
-            end if
-        end do
+        if (.not. verify_fragments(generated, required_fragments, .true.)) then
+            passed = .false.
+        end if
+        if (.not. verify_fragments(generated, forbidden_fragments, .false.)) then
+            passed = .false.
+        end if
     end function run_basic_function_test
+
+    logical function verify_fragments(generated, fragments, expect_present) &
+        result(all_valid)
+        character(len=*), intent(in) :: generated
+        character(len=*), intent(in) :: fragments(:)
+        logical, intent(in) :: expect_present
+        integer :: i
+        character(len=:), allocatable :: fragment
+
+        all_valid = .true.
+        do i = 1, size(fragments)
+            fragment = trim(fragments(i))
+            if (expect_present) then
+                if (index(generated, fragment) == 0) then
+                    write (error_unit, '(A)') 'missing fragment: ' // fragment
+                    all_valid = .false.
+                end if
+            else
+                if (index(generated, fragment) > 0) then
+                    write (error_unit, '(A)') 'unexpected fragment: ' // fragment
+                    all_valid = .false.
+                end if
+            end if
+        end do
+    end function verify_fragments
 
 end program test_basic_function_inference
