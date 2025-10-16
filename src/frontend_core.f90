@@ -440,14 +440,6 @@ contains
             deallocate (normalized)
         end if
 
-        ! DEBUG: dump tokens
-        do i = 1, size(tokens)
-            if (allocated(tokens(i)%text)) then
-                write (error_unit, '(A,I0,A,I0,A,A)') 'TOK ', i, ': kind=', tokens(i)%kind, ' text="', tokens(i)%text, '"'
-            else
-                write (error_unit, '(A,I0,A,I0)') 'TOK ', i, ': kind=', tokens(i)%kind
-            end if
-        end do
     end subroutine normalize_line_continuations
 
 end module frontend_core

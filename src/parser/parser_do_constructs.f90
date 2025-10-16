@@ -390,16 +390,25 @@ contains
 
                     if (.not. handled_block) then
                         do j = stmt_start, size(parser%tokens)
-                            if (parser%tokens(j)%kind == TK_EOF) then
+                            select case (parser%tokens(j)%kind)
+                            case (TK_EOF)
                                 stmt_end = j
                                 exit
-                            end if
-                            if (j > stmt_start .and. &
-                                parser%tokens(j)%kind == TK_OPERATOR .and. &
-                                parser%tokens(j)%text == ";") then
-                                stmt_end = j - 1
+                            case (TK_NEWLINE)
+                                if (j == stmt_start) then
+                                    stmt_end = j
+                                else
+                                    stmt_end = j - 1
+                                end if
                                 exit
-                            end if
+                            case (TK_OPERATOR)
+                                if (j > stmt_start) then
+                                    if (parser%tokens(j)%text == ";") then
+                                        stmt_end = j - 1
+                                        exit
+                                    end if
+                                end if
+                            end select
                             stmt_end = j
                         end do
                     end if
@@ -591,10 +600,18 @@ contains
                 end if
 
                 do j = stmt_start, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_EOF) then
+                    select case (parser%tokens(j)%kind)
+                    case (TK_EOF)
                         stmt_end = j
                         exit
-                    end if
+                    case (TK_NEWLINE)
+                        if (j == stmt_start) then
+                            stmt_end = j
+                        else
+                            stmt_end = j - 1
+                        end if
+                        exit
+                    end select
                     stmt_end = j
                 end do
 
