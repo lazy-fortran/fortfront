@@ -114,11 +114,18 @@ contains
     subroutine cleanup_file(file)
         character(len=*), intent(in) :: file
         integer :: ec
-        if (check_if_windows()) then
-            call execute_command_line('cmd /C if exist ' // trim(file) // &
-                                      ' del /F /Q ' // trim(file), exitstat=ec)
+        logical :: is_win
+        character(len=:), allocatable :: quoted
+
+        is_win = check_if_windows()
+        quoted = quote_for_shell(file, is_win)
+        if (len_trim(quoted) == 0) return
+
+        if (is_win) then
+            call execute_command_line('cmd /C if exist '//trim(quoted)// &
+                                      ' del /F /Q '//trim(quoted), exitstat=ec)
         else
-            call execute_command_line('rm -f ' // trim(file), exitstat=ec)
+            call execute_command_line('rm -f '//trim(quoted), exitstat=ec)
         end if
     end subroutine cleanup_file
 
@@ -200,7 +207,8 @@ contains
     end function is_expected_failure
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                          test_count, pass_count, fail_count, skip_count, &
+                                          test_count, pass_count, fail_count, &
+                                              & skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures)
         character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
@@ -223,7 +231,8 @@ contains
                            trim(extension) // ' > ' // trim(list_file) // ' 2>nul"'
         else
             list_command = 'ls ' // trim(examples_dir) // '/*' // &
-                           trim(extension) // ' > ' // trim(list_file) // ' 2>/dev/null || true'
+                           trim(extension) // ' > ' // trim(list_file) // &
+                               & ' 2>/dev/null || true'
         end if
 
         call execute_command_line(trim(list_command), exitstat=ios)
@@ -246,7 +255,8 @@ contains
 
             ! Build full path
             if (is_windows) then
-                call test_single_example(trim(examples_dir) // '\' // trim(line), fortfront_exe, &
+                call test_single_example(trim(examples_dir)//'\'//trim(line), &
+                    & fortfront_exe, &
                                          test_count, pass_count, fail_count, skip_count, &
                                          xfail_count, xpass_count, is_windows, &
                                          expected_failures, num_expected_failures)
@@ -274,7 +284,7 @@ contains
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
 
-        character(len=500) :: command
+        character(len=1024) :: command
         character(len=256) :: output_file, error_file, basename_str
         integer :: exit_code, i, unit_out
         logical :: has_error, has_unparsed, file_exists, has_warning, expect_fail
@@ -372,26 +382,14 @@ contains
 
         ! Try to compile the output with gfortran to catch silent bugs
         if (.not. has_error .and. .not. has_unparsed) then
-            if (len_trim(module_dir) > 0) then
-                if (is_windows) then
-                    command = 'gfortran -c -fsyntax-only -I "' // trim(module_dir) // '" ' // &
-                              trim(output_file) // ' > nul 2>&1'
-                else
-                    command = 'gfortran -c -fsyntax-only -I ' // trim(module_dir) // ' ' // &
-                              trim(output_file) // ' > /dev/null 2>&1'
-                end if
-            else
-                if (is_windows) then
-                    command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
-                              ' > nul 2>&1'
-                else
-                    command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
-                              ' > /dev/null 2>&1'
-                end if
-            end if
-            call execute_command_line(trim(command), exitstat=exit_code)
-            if (exit_code /= 0) then
+            command = build_compile_command(output_file, module_dir, is_windows)
+            if (len_trim(command) == 0) then
                 has_error = .true.
+            else
+                call execute_command_line(trim(command), exitstat=exit_code)
+                if (exit_code /= 0) then
+                    has_error = .true.
+                end if
             end if
         end if
 
@@ -439,56 +437,191 @@ contains
     function get_module_directory(executable_path) result(module_dir)
         character(len=*), intent(in) :: executable_path
         character(len=:), allocatable :: module_dir
-        integer :: pos, exit_code, unit_num
+        character(len=:), allocatable :: candidate
+        character(len=:), allocatable :: search_file
+        character(len=:), allocatable :: command
+        character(len=64) :: clock_string
+        integer :: clock_count, exit_code, unit_num
         character(len=512) :: path_line
         logical :: is_win
 
         module_dir = ''
+
         is_win = check_if_windows()
 
-        if (is_win) then
-            call execute_command_line('cmd /C "dir /B /S fortfront.mod > fortfront_module_search.txt"', &
-                                      exitstat=exit_code)
-        else
-            call execute_command_line('find build -name "fortfront.mod" -type f | head -1 > fortfront_module_search.txt', &
-                                      exitstat=exit_code)
-        end if
+        call system_clock(count=clock_count)
+        write (clock_string, '(I0)') abs(clock_count)
+        search_file = 'fortfront_module_search_' // trim(clock_string) // '.txt'
 
-        if (exit_code == 0) then
-            open (newunit=unit_num, file='fortfront_module_search.txt', status='old', action='read', &
-                  iostat=exit_code)
+        command = build_module_search_command(search_file, is_win)
+        if (len_trim(command) > 0) then
+            call execute_command_line(trim(command), exitstat=exit_code)
             if (exit_code == 0) then
-                read (unit_num, '(A)', iostat=exit_code) path_line
-                close (unit_num)
-                call cleanup_file('fortfront_module_search.txt')
-                if (exit_code == 0 .and. len_trim(path_line) > 0) then
-                    pos = index(path_line, '/fortfront.mod', back=.true.)
-                    if (pos > 0) then
-                        module_dir = trim(path_line(1:pos - 1))
-                        return
+                open (newunit=unit_num, file=trim(search_file), status='old', &
+                      action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    read (unit_num, '(A)', iostat=exit_code) path_line
+                    close (unit_num)
+                    if (exit_code == 0) then
+                        module_dir = directory_from_module_path(trim(path_line))
+                        if (len_trim(module_dir) > 0) then
+                            call cleanup_file(search_file)
+                            return
+                        end if
                     end if
-                    pos = index(path_line, '\fortfront.mod', back=.true.)
-                    if (pos > 0) then
-                        module_dir = trim(path_line(1:pos - 1))
-                        return
-                    end if
+                else
+                    close (unit_num, status='delete')
                 end if
-            else
-                close (unit_num, status='delete')
             end if
         end if
 
-        call cleanup_file('fortfront_module_search.txt')
+        call cleanup_file(search_file)
 
-        pos = index(executable_path, '/app/', back=.true.)
+        candidate = extract_module_candidate(executable_path, '/app/')
+        if (len_trim(candidate) > 0) then
+            if (module_directory_has_module(candidate, '/')) then
+                module_dir = candidate
+                return
+            end if
+        end if
+
+        candidate = extract_module_candidate(executable_path, '\app\')
+        if (len_trim(candidate) > 0) then
+            if (module_directory_has_module(candidate, '\')) then
+                module_dir = candidate
+            end if
+        end if
+    end function get_module_directory
+
+    function build_module_search_command(search_file, is_windows) result(command)
+        character(len=*), intent(in) :: search_file
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: command
+
+        command = ''
+
+        if (.not. is_safe_path(search_file)) return
+
+        if (is_windows) then
+            command = 'cmd /C "dir /B /S fortfront.mod > ' // trim(search_file) // '"'
+        else
+            command = 'find build -name "fortfront.mod" -type f | head -1 > ' // &
+                      trim(search_file)
+        end if
+    end function build_module_search_command
+
+    function directory_from_module_path(path_line) result(directory)
+        character(len=*), intent(in) :: path_line
+        character(len=:), allocatable :: directory
+        integer :: pos
+
+        directory = ''
+        if (len_trim(path_line) == 0) return
+
+        pos = index(path_line, '/fortfront.mod', back=.true.)
         if (pos > 0) then
-            module_dir = executable_path(1:pos - 1)
+            directory = trim(path_line(1:pos - 1))
+            if (.not. is_safe_path(directory)) directory = ''
             return
         end if
 
-        pos = index(executable_path, '\app\', back=.true.)
+        pos = index(path_line, '\fortfront.mod', back=.true.)
         if (pos > 0) then
-            module_dir = executable_path(1:pos - 1)
+            directory = trim(path_line(1:pos - 1))
+            if (.not. is_safe_path(directory)) directory = ''
         end if
-    end function get_module_directory
+    end function directory_from_module_path
+
+    function extract_module_candidate(path, marker) result(value)
+        character(len=*), intent(in) :: path, marker
+        character(len=:), allocatable :: value
+        integer :: pos
+
+        value = ''
+        pos = index(path, marker, back=.true.)
+        if (pos > 0) then
+            value = trim(path(1:pos - 1))
+        end if
+    end function extract_module_candidate
+
+    logical function module_directory_has_module(base, sep)
+        character(len=*), intent(in) :: base
+        character(len=1), intent(in) :: sep
+        character(len=:), allocatable :: module_path
+        logical :: exists
+
+        module_directory_has_module = .false.
+        if (len_trim(base) == 0) return
+
+        module_path = trim(base) // sep // 'fortfront.mod'
+        inquire (file=trim(module_path), exist=exists)
+        if (exists) then
+            module_directory_has_module = is_safe_path(base)
+        end if
+    end function module_directory_has_module
+
+    function build_compile_command(output_file, module_dir, is_windows) result(command)
+        character(len=*), intent(in) :: output_file
+        character(len=*), intent(in) :: module_dir
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: command
+        character(len=:), allocatable :: module_arg, output_arg
+
+        command = ''
+
+        output_arg = quote_for_shell(output_file, is_windows)
+        if (len_trim(output_arg) == 0) return
+
+        command = 'gfortran -c -fsyntax-only '
+
+        if (len_trim(module_dir) > 0) then
+            module_arg = quote_for_shell(module_dir, is_windows)
+            if (len_trim(module_arg) > 0) then
+                command = command // '-I ' // module_arg // ' '
+            end if
+        end if
+
+        command = command // output_arg
+
+        if (is_windows) then
+            command = command // ' > nul 2>&1'
+        else
+            command = command // ' > /dev/null 2>&1'
+        end if
+    end function build_compile_command
+
+    function quote_for_shell(path, is_windows) result(argument)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: argument
+
+        if (.not. is_safe_path(path)) then
+            argument = ''
+        else
+            if (is_windows) then
+                argument = '"' // trim(path) // '"'
+            else
+                argument = '"' // trim(path) // '"'
+            end if
+        end if
+    end function quote_for_shell
+
+    logical function is_safe_path(path)
+        character(len=*), intent(in) :: path
+        integer :: i
+        character(len=*), parameter :: forbidden_chars = "'""&|;<>`$"
+
+        is_safe_path = .false.
+        if (len_trim(path) == 0) return
+
+        do i = 1, len_trim(path)
+            if (index(forbidden_chars, path(i:i)) > 0) return
+        end do
+
+        if (index(path, achar(10)) > 0) return
+        if (index(path, achar(13)) > 0) return
+
+        is_safe_path = .true.
+    end function is_safe_path
+
 end program test_all_examples
