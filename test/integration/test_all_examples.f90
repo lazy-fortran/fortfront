@@ -429,8 +429,8 @@ contains
             command = 'cmd /C "type ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
                       ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
         else
-            command = 'sh -c "cat ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
-                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
+            command = 'cat ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
+                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg)
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)
