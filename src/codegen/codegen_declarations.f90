@@ -542,7 +542,7 @@ contains
             do idx = 1, len(text)
                 char_code = iachar(lower_text(idx:idx))
                 if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
-                    lower_text(idx:idx) = achar(char_code + 32)
+                    lower_text(idx:idx) = achar(char_code + iachar('a') - iachar('A'))
                 end if
             end do
         end function to_lower_ascii_decl
