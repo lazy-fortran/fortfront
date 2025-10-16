@@ -141,22 +141,18 @@ contains
             print *, "ERROR: build_compile_command returned empty command"
             stop 1
         end if
+        if (index(command, '"modules dir"') == 0) then
+            print *, "ERROR: module directory not quoted"
+            stop 1
+        end if
+        if (index(command, '"output file.f90"') == 0) then
+            print *, "ERROR: output path not quoted"
+            stop 1
+        end if
         if (is_windows) then
-            if (index(command, '""modules dir""') == 0) then
-                print *, "ERROR: module directory not quoted"
-                stop 1
-            end if
-            if (index(command, '""output file.f90""') == 0) then
-                print *, "ERROR: output path not quoted"
-                stop 1
-            end if
-        else
-            if (index(command, '"modules dir"') == 0) then
-                print *, "ERROR: module directory not quoted"
-                stop 1
-            end if
-            if (index(command, '"output file.f90"') == 0) then
-                print *, "ERROR: output path not quoted"
+            if (index(quote_for_shell('pipe path', is_windows, &
+                                      escape_for_cmd=.true.), '""pipe path""') == 0) then
+                print *, "ERROR: Windows cmd escaping missing"
                 stop 1
             end if
         end if
@@ -412,10 +408,14 @@ contains
         character(len=:), allocatable :: input_arg, exe_arg, output_arg, error_arg
         integer :: exit_code
 
-        input_arg = quote_for_shell(filepath, is_windows)
-        exe_arg = quote_for_shell(fortfront_exe, is_windows)
-        output_arg = quote_for_shell(output_file, is_windows)
-        error_arg = quote_for_shell(error_file, is_windows)
+        input_arg = quote_for_shell(filepath, is_windows, &
+                                    escape_for_cmd=.true.)
+        exe_arg = quote_for_shell(fortfront_exe, is_windows, &
+                                  escape_for_cmd=.true.)
+        output_arg = quote_for_shell(output_file, is_windows, &
+                                     escape_for_cmd=.true.)
+        error_arg = quote_for_shell(error_file, is_windows, &
+                                    escape_for_cmd=.true.)
 
         if (len_trim(input_arg) == 0 .or. len_trim(exe_arg) == 0 .or. &
             len_trim(output_arg) == 0 .or. len_trim(error_arg) == 0) then
@@ -938,14 +938,19 @@ contains
         end if
     end function build_compile_command
 
-    function quote_for_shell(path, is_windows) result(argument)
+    function quote_for_shell(path, is_windows, escape_for_cmd) result(argument)
         character(len=*), intent(in) :: path
         logical, intent(in) :: is_windows
+        logical, intent(in), optional :: escape_for_cmd
         character(len=:), allocatable :: argument
+        logical :: needs_cmd_escape
+
+        needs_cmd_escape = .false.
+        if (present(escape_for_cmd)) needs_cmd_escape = escape_for_cmd
 
         if (.not. is_safe_path(path)) then
             argument = ''
-        else if (is_windows) then
+        else if (is_windows .and. needs_cmd_escape) then
             argument = '""' // trim(path) // '""'
         else
             argument = '"' // trim(path) // '"'
