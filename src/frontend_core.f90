@@ -14,7 +14,8 @@ module frontend_core
     ! Migrated from ast_core: use explicit imports for better dependency management
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
+    use compiler_arena, only: compiler_arena_t, create_compiler_arena, &
+        & destroy_compiler_arena
     use ast_nodes_misc, only: comment_node
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
@@ -28,7 +29,8 @@ module frontend_core
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
                               set_line_length_config, get_line_length_config
-    use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
+    use path_validation, only: validate_input_path, validate_output_path, &
+        & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
 
@@ -71,14 +73,16 @@ contains
         type(path_validation_result_t) :: validation_result
 
         ! Log compilation start with proper logging
-        write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
+        write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " &
+            & // input_file
 
         error_msg = ""
 
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
         if (.not. validation_result%is_valid()) then
-            error_msg = "Input path validation failed: " // validation_result%get_message()
+            error_msg = "Input path validation failed: " // &
+                & validation_result%get_message()
             return
         end if
 
@@ -267,9 +271,11 @@ contains
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-                    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+                    error_msg = error_msg // new_line('a') // "  - " // &
+                        & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+                        error_msg = error_msg // new_line('a') // "    Suggestion: " // &
+                            & ctx%errors%errors(i)%suggestion
                     end if
                 end if
             end if
@@ -277,7 +283,8 @@ contains
 
         ! Add summary if there are more errors
         if (total_errors > 3) then
-            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), &
+                & " more error(s)"
             error_msg = error_msg // new_line('a') // trim(temp_msg)
         end if
     end function get_detailed_semantic_errors
@@ -402,7 +409,7 @@ contains
                 end if
             case (TK_OPERATOR)
                 if (allocated(tokens(i)%text)) then
-                    if (trim(tokens(i)%text) == "&") then
+                    if (is_line_continuation_token(tokens(i)%text)) then
                         skip_leading_ampersand = .true.
                         suppress_newline = .true.
                         i = i + 1
@@ -441,5 +448,38 @@ contains
         end if
 
     end subroutine normalize_line_continuations
+
+    pure logical function is_line_continuation_token(text) result(is_continuation)
+        character(len=*), intent(in) :: text
+        integer :: idx, n
+        character(len=1) :: ch
+
+        is_continuation = .false.
+        n = len(text)
+        if (n == 0) return
+
+        idx = 1
+        do while (idx <= n)
+            ch = text(idx:idx)
+            if (.not. is_whitespace_char(ch)) exit
+            idx = idx + 1
+        end do
+        if (idx > n) return
+        if (text(idx:idx) /= "&") return
+
+        idx = idx + 1
+        do while (idx <= n)
+            ch = text(idx:idx)
+            if (.not. is_whitespace_char(ch)) return
+            idx = idx + 1
+        end do
+        is_continuation = .true.
+    end function is_line_continuation_token
+
+    pure logical function is_whitespace_char(ch) result(is_ws)
+        character(len=1), intent(in) :: ch
+
+        is_ws = (iachar(ch) <= 32)
+    end function is_whitespace_char
 
 end module frontend_core
