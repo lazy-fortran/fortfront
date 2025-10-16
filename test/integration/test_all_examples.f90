@@ -620,9 +620,32 @@ contains
         character(len=:), allocatable :: candidate
         character(len=:), allocatable :: current_dir
         character(len=:), allocatable :: parent_dir
+        character(len=:), allocatable :: env_candidate
         character(len=1) :: sep
+        character(len=1024) :: env_dir
+        integer :: env_status
 
         module_dir = ''
+
+        env_dir = ''
+        call get_environment_variable('FORTFRONT_MODULE_DIR', env_dir, &
+                                      status=env_status)
+        if (env_status == 0) then
+            env_candidate = trim(env_dir)
+            if (len_trim(env_candidate) > 0) then
+                if (index(env_candidate, '.mod', back=.true.) == &
+                    len_trim(env_candidate) - 3) then
+                    env_candidate = directory_from_path(env_candidate)
+                end if
+                if (len_trim(env_candidate) > 0) then
+                    sep = path_separator_for(env_candidate)
+                    if (module_directory_has_module(env_candidate, sep)) then
+                        module_dir = trim(env_candidate)
+                        return
+                    end if
+                end if
+            end if
+        end if
 
         candidate = find_module_dir_from_compile_commands(executable_path)
         if (len_trim(candidate) > 0) then
