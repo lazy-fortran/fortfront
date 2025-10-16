@@ -113,11 +113,13 @@ contains
             fortran_operator = node%operator
 
             ! Recover from missing operands in concatenation nodes (issue #1386)
-            if (trim(fortran_operator) == '//' .and. len_trim(left_code) == 0) then
+            if (is_missing_concat_operand(trim(fortran_operator), .false., left_code, &
+                                          right_code)) then
                 code = right_code
                 return
             end if
-            if (trim(fortran_operator) == '//' .and. len_trim(right_code) == 0) then
+            if (is_missing_concat_operand(trim(fortran_operator), .true., left_code, &
+                                          right_code)) then
                 code = left_code
                 return
             end if
@@ -817,7 +819,7 @@ contains
     end function int_to_string
 
     ! Check if we have string concatenation (both operands are string literals)
-    function is_string_concatenation(left_code, right_code) result(is_string)
+    pure function is_string_concatenation(left_code, right_code) result(is_string)
         character(len=*), intent(in) :: left_code, right_code
         logical :: is_string
 
@@ -826,7 +828,7 @@ contains
     end function is_string_concatenation
 
     ! Check if a code fragment is a string literal
-    function is_string_literal(code) result(is_string)
+    pure function is_string_literal(code) result(is_string)
         character(len=*), intent(in) :: code
         logical :: is_string
         character(len=:), allocatable :: trimmed_code
@@ -848,6 +850,30 @@ contains
             end if
         end if
     end function is_string_literal
+
+    pure logical function is_missing_concat_operand(operator, checking_left, left_code, &
+                                                    right_code) result(is_missing)
+        character(len=*), intent(in) :: operator
+        logical, intent(in) :: checking_left
+        character(len=*), intent(in) :: left_code
+        character(len=*), intent(in) :: right_code
+        logical :: is_concat_op
+
+        is_concat_op = (operator == '//') .or. &
+                       (operator == '+' .and. (is_string_literal(left_code) .or. &
+                                               is_string_literal(right_code)))
+
+        if (.not. is_concat_op) then
+            is_missing = .false.
+            return
+        end if
+
+        if (checking_left) then
+            is_missing = len_trim(right_code) == 0
+        else
+            is_missing = len_trim(left_code) == 0
+        end if
+    end function is_missing_concat_operand
 
     ! generate_code_from_arena is provided as an interface at the module level
 
