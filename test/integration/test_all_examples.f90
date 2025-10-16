@@ -184,7 +184,8 @@ contains
         open (newunit=unit_num, file=trimmed, status='old', action='readwrite', &
             & iostat=ios)
         if (ios /= 0) then
-            open (newunit=unit_num, file=trimmed, status='old', action='read', iostat=ios)
+            open (newunit=unit_num, file=trimmed, status='old', action='read', &
+                  iostat=ios)
         end if
         if (ios == 0) then
             close (unit_num, status='delete', iostat=ios)
@@ -319,13 +320,15 @@ contains
             if (is_windows) then
                 call test_single_example(trim(examples_dir)//'\'//trim(line), &
                     & fortfront_exe, &
-                                         test_count, pass_count, fail_count, skip_count, &
+                                         test_count, pass_count, fail_count, &
+                                             skip_count, &
                                          xfail_count, xpass_count, is_windows, &
                                          expected_failures, num_expected_failures)
             else
                 ! On Unix, ls gives full path already
                 call test_single_example(trim(line), fortfront_exe, &
-                                         test_count, pass_count, fail_count, skip_count, &
+                                         test_count, pass_count, fail_count, &
+                                         skip_count, &
                                          xfail_count, xpass_count, is_windows, &
                                          expected_failures, num_expected_failures)
             end if
@@ -683,6 +686,8 @@ contains
             if (set_module_dir_if_exists(candidate, module_dir)) return
         end if
 
+        call fallback_module_dir_search(module_dir)
+
         sep = path_separator_for('fortfront_modules')
         if (module_directory_has_module('fortfront_modules', sep)) then
             module_dir = 'fortfront_modules'
@@ -789,6 +794,56 @@ contains
         inquire (file='compile_commands.json', exist=exists)
         if (exists) path = 'compile_commands.json'
     end function resolve_compile_commands_path
+
+    subroutine fallback_module_dir_search(module_dir)
+        character(len=:), allocatable, intent(inout) :: module_dir
+        character(len=256) :: search_file
+        integer :: exit_code, unit_num, ios
+        character(len=512) :: line
+        integer :: sep_pos
+        logical :: is_win
+
+        if (len_trim(module_dir) > 0) return
+
+        is_win = check_if_windows()
+        search_file = 'fortfront_module_search.txt'
+
+        if (is_win) then
+            call execute_command_line('cmd /C "dir /s /b fortfront.mod > '// &
+                                      trim(search_file)//' 2>nul"', &
+                                      exitstat=exit_code)
+        else
+            call execute_command_line( &
+                'find build -name "fortfront.mod" -print -quit > '// &
+                trim(search_file)//' 2>/dev/null', exitstat=exit_code)
+        end if
+
+        if (exit_code /= 0) then
+            call cleanup_file(search_file)
+            return
+        end if
+
+        open (newunit=unit_num, file=trim(search_file), status='old', action='read', &
+              iostat=ios)
+        if (ios /= 0) then
+            call cleanup_file(search_file)
+            return
+        end if
+
+        read (unit_num, '(A)', iostat=ios) line
+        close (unit_num)
+        call cleanup_file(search_file)
+
+        if (ios /= 0) return
+        if (len_trim(line) == 0) return
+
+        sep_pos = find_last_separator(trim(line))
+        if (sep_pos > 0) then
+            module_dir = trim(line(1:sep_pos - 1))
+        else
+            module_dir = directory_from_path(trim(line))
+        end if
+    end subroutine fallback_module_dir_search
 
     pure function extract_argument_path(line) result(path)
         character(len=*), intent(in) :: line
@@ -919,7 +974,8 @@ contains
         end if
     end function set_module_dir_if_exists
 
-    pure function build_compile_command(output_file, module_dir, is_windows) result(command)
+    pure function build_compile_command(output_file, module_dir, is_windows) &
+        result(command)
         character(len=*), intent(in) :: output_file
         character(len=*), intent(in) :: module_dir
         logical, intent(in) :: is_windows
