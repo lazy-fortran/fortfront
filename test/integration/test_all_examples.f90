@@ -140,9 +140,24 @@ contains
             print *, "ERROR: build_compile_command returned empty command"
             stop 1
         end if
-        if (index(command, '"modules dir"') == 0) then
-            print *, "ERROR: module directory not quoted"
-            stop 1
+        if (is_windows) then
+            if (index(command, '""modules dir""') == 0) then
+                print *, "ERROR: module directory not quoted"
+                stop 1
+            end if
+            if (index(command, '""output file.f90""') == 0) then
+                print *, "ERROR: output path not quoted"
+                stop 1
+            end if
+        else
+            if (index(command, '"modules dir"') == 0) then
+                print *, "ERROR: module directory not quoted"
+                stop 1
+            end if
+            if (index(command, '"output file.f90"') == 0) then
+                print *, "ERROR: output path not quoted"
+                stop 1
+            end if
         end if
     end subroutine verify_shell_helpers
 
@@ -906,12 +921,10 @@ contains
 
         if (.not. is_safe_path(path)) then
             argument = ''
+        else if (is_windows) then
+            argument = '""' // trim(path) // '""'
         else
-            if (is_windows) then
-                argument = '"' // trim(path) // '"'
-            else
-                argument = '"' // trim(path) // '"'
-            end if
+            argument = '"' // trim(path) // '"'
         end if
     end function quote_for_shell
 
