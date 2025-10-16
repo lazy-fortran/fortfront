@@ -130,7 +130,8 @@ contains
             stop 1
         end if
 
-        if (len_trim(quote_for_shell('bad&path', is_windows)) /= 0) then
+        if (len_trim(quote_for_shell('bad&path', is_windows)) /= 0 .or. &
+            len_trim(quote_for_shell('bad%path', is_windows)) /= 0) then
             print *, "ERROR: quote_for_shell accepted unsafe characters"
             stop 1
         end if
@@ -931,12 +932,15 @@ contains
     logical function is_safe_path(path)
         character(len=*), intent(in) :: path
         integer :: i
-        character(len=*), parameter :: forbidden_chars = "'""&|;<>`$"
+        integer :: code
+        character(len=*), parameter :: forbidden_chars = "'""&|;<>`$%^"
 
         is_safe_path = .false.
         if (len_trim(path) == 0) return
 
         do i = 1, len_trim(path)
+            code = iachar(path(i:i))
+            if (code < 32 .or. code == 127) return
             if (index(forbidden_chars, path(i:i)) > 0) return
         end do
 
