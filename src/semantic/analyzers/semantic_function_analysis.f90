@@ -431,6 +431,52 @@ contains
         end if
     end function infer_identifier_type_from_context
 
+    function infer_identifier_type_at_index(arena, entry_index, lowered_name, &
+                                            param_names, param_types, scope_index, &
+                                            program_index) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: entry_index
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: scope_index, program_index
+        type(mono_type_t) :: candidate
+        integer :: name_idx, target_idx
+
+        candidate%kind = 0
+        if (.not. allocated(arena%entries(entry_index)%node)) return
+
+        select type (node => arena%entries(entry_index)%node)
+        type is (declaration_node)
+            if (allocated(node%var_name)) then
+                if (trim(node%var_name) == lowered_name) then
+                    candidate = declaration_type_to_mono(node%type_name)
+                    if (candidate%kind /= 0) return
+                end if
+            end if
+            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                do name_idx = 1, size(node%var_names)
+                    if (trim(node%var_names(name_idx)) == lowered_name) then
+                        candidate = declaration_type_to_mono(node%type_name)
+                        if (candidate%kind /= 0) return
+                    end if
+                end do
+            end if
+        type is (assignment_node)
+            target_idx = node%target_index
+            if (target_idx <= 0 .or. target_idx > arena%size) return
+            if (.not. allocated(arena%entries(target_idx)%node)) return
+            if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
+                                                  program_index)) return
+            select type (target => arena%entries(target_idx)%node)
+            type is (identifier_node)
+                if (trim(target%name) /= lowered_name) return
+                candidate = infer_expression_type_static(arena, node%value_index, &
+                                                         param_names, param_types)
+            end select
+        end select
+    end function infer_identifier_type_at_index
+
     subroutine search_identifier_type_range(arena, lowered_name, param_names, &
                                             param_types, scope_index, program_index, &
                                             start_idx, end_idx, step, typ)
@@ -441,43 +487,21 @@ contains
         integer, intent(in) :: scope_index, program_index
         integer, intent(in) :: start_idx, end_idx, step
         type(mono_type_t), intent(inout) :: typ
-        integer :: idx, name_idx, target_idx
+        type(mono_type_t) :: candidate
+        integer :: idx
 
         if (typ%kind /= 0 .or. step == 0) return
         do idx = start_idx, end_idx, step
             if (.not. allocated(arena%entries(idx)%node)) cycle
             if (.not. identifier_visible_in_scope(arena, idx, scope_index, &
                                                   program_index)) cycle
-            select type (node => arena%entries(idx)%node)
-            type is (declaration_node)
-                if (allocated(node%var_name)) then
-                    if (trim(node%var_name) == lowered_name) then
-                        typ = declaration_type_to_mono(node%type_name)
-                        if (typ%kind /= 0) return
-                    end if
-                end if
-                if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                    do name_idx = 1, size(node%var_names)
-                        if (trim(node%var_names(name_idx)) == lowered_name) then
-                            typ = declaration_type_to_mono(node%type_name)
-                            if (typ%kind /= 0) return
-                        end if
-                    end do
-                end if
-            type is (assignment_node)
-                target_idx = node%target_index
-                if (target_idx <= 0 .or. target_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(target_idx)%node)) cycle
-                if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
-                                                      program_index)) cycle
-                select type (target => arena%entries(target_idx)%node)
-                type is (identifier_node)
-                    if (trim(target%name) /= lowered_name) cycle
-                    typ = infer_expression_type_static(arena, node%value_index, &
-                                                       param_names, param_types)
-                    if (typ%kind /= 0) return
-                end select
-            end select
+            candidate = infer_identifier_type_at_index(arena, idx, lowered_name, &
+                                                       param_names, param_types, &
+                                                       scope_index, program_index)
+            if (candidate%kind /= 0) then
+                typ = candidate
+                return
+            end if
         end do
     end subroutine search_identifier_type_range
 
