@@ -852,8 +852,8 @@ contains
             is_expression = ((identifier_count > 0) .or. (number_count > 0 .and. operator_count > 0)) .and. &
                             (has_assignment .or. has_function_call .or. &
                              (operator_count > 0 .and. (identifier_count + number_count) >= operator_count))
-    end if
-end function is_likely_fortran_expression
+        end if
+    end function is_likely_fortran_expression
 
     logical function is_valid_operand_token(token)
         type(token_t), intent(in) :: token

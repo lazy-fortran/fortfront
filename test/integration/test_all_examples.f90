@@ -678,7 +678,7 @@ contains
         end if
     end function get_module_directory
 
-    function extract_module_candidate(path, marker) result(value)
+    pure function extract_module_candidate(path, marker) result(value)
         character(len=*), intent(in) :: path, marker
         character(len=:), allocatable :: value
         integer :: pos
@@ -779,7 +779,7 @@ contains
         if (exists) path = 'compile_commands.json'
     end function resolve_compile_commands_path
 
-    function extract_argument_path(line) result(path)
+    pure function extract_argument_path(line) result(path)
         character(len=*), intent(in) :: line
         character(len=:), allocatable :: path
         integer :: first_quote, second_quote
@@ -798,7 +798,7 @@ contains
         path = trim(line(first_quote + 1:second_quote - 1))
     end function extract_argument_path
 
-    function join_path(base, component, sep) result(path)
+    pure function join_path(base, component, sep) result(path)
         character(len=*), intent(in) :: base
         character(len=*), intent(in) :: component
         character(len=1), intent(in) :: sep
@@ -827,7 +827,7 @@ contains
         end if
     end function join_path
 
-    function directory_from_path(path) result(directory)
+    pure function directory_from_path(path) result(directory)
         character(len=*), intent(in) :: path
         character(len=:), allocatable :: directory
         character(len=:), allocatable :: trimmed_path
@@ -908,7 +908,7 @@ contains
         end if
     end function set_module_dir_if_exists
 
-    function build_compile_command(output_file, module_dir, is_windows) result(command)
+    pure function build_compile_command(output_file, module_dir, is_windows) result(command)
         character(len=*), intent(in) :: output_file
         character(len=*), intent(in) :: module_dir
         logical, intent(in) :: is_windows
@@ -938,7 +938,7 @@ contains
         end if
     end function build_compile_command
 
-    function quote_for_shell(path, is_windows, escape_for_cmd) result(argument)
+    pure function quote_for_shell(path, is_windows, escape_for_cmd) result(argument)
         character(len=*), intent(in) :: path
         logical, intent(in) :: is_windows
         logical, intent(in), optional :: escape_for_cmd
@@ -957,7 +957,7 @@ contains
         end if
     end function quote_for_shell
 
-    logical function is_safe_path(path)
+    pure logical function is_safe_path(path)
         character(len=*), intent(in) :: path
         integer :: i
         integer :: code

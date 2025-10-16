@@ -395,59 +395,89 @@ contains
         if (size(tokens) == 0) return
 
         allocate (normalized(size(tokens)))
-        count = 0
         suppress_newline = .false.
         skip_leading_ampersand = .false.
+        count = 0
 
-        i = 1
-        do while (i <= size(tokens))
-            select case (tokens(i)%kind)
-            case (TK_WHITESPACE, TK_COMMENT)
-                if (skip_leading_ampersand) then
-                    i = i + 1
-                    cycle
-                end if
-            case (TK_OPERATOR)
-                if (allocated(tokens(i)%text)) then
-                    if (is_line_continuation_token(tokens(i)%text)) then
-                        skip_leading_ampersand = .true.
-                        suppress_newline = .true.
-                        i = i + 1
-                        cycle
-                    else
-                        skip_leading_ampersand = .false.
-                    end if
-                else
-                    skip_leading_ampersand = .false.
-                end if
-            case (TK_NEWLINE)
-                if (suppress_newline) then
-                    suppress_newline = .false.
-                    i = i + 1
-                    cycle
-                end if
-                skip_leading_ampersand = .false.
-            case default
-                skip_leading_ampersand = .false.
-            end select
-
-            count = count + 1
-            normalized(count) = tokens(i)
-            i = i + 1
+        do i = 1, size(tokens)
+            if (should_skip_token(tokens(i), suppress_newline, skip_leading_ampersand)) then
+                cycle
+            end if
+            call append_token(normalized, count, tokens(i))
         end do
 
-        if (count < size(tokens)) then
-            call move_alloc(normalized, tokens)
-            if (count > 0) then
-                tokens = tokens(1:count)
-            else
-                allocate (tokens(0))
+        call finalize_normalized_tokens(tokens, normalized, count)
+    end subroutine normalize_line_continuations
+
+    logical function should_skip_token(token, suppress_newline, skip_leading_ampersand)
+        type(token_t), intent(in) :: token
+        logical, intent(inout) :: suppress_newline
+        logical, intent(inout) :: skip_leading_ampersand
+
+        should_skip_token = .false.
+        select case (token%kind)
+        case (TK_WHITESPACE, TK_COMMENT)
+            if (skip_leading_ampersand) should_skip_token = .true.
+        case (TK_OPERATOR)
+            if (.not. allocated(token%text)) then
+                skip_leading_ampersand = .false.
+                return
             end if
-        else
+            if (.not. is_line_continuation_token(token%text)) then
+                skip_leading_ampersand = .false.
+                return
+            end if
+            if (skip_leading_ampersand) then
+                should_skip_token = .true.
+                return
+            end if
+            skip_leading_ampersand = .true.
+            suppress_newline = .true.
+            should_skip_token = .true.
+        case (TK_NEWLINE)
+            if (suppress_newline) then
+                suppress_newline = .false.
+                should_skip_token = .true.
+            else
+                skip_leading_ampersand = .false.
+            end if
+        case default
+            skip_leading_ampersand = .false.
+        end select
+    end function should_skip_token
+
+    subroutine append_token(buffer, count, token)
+        type(token_t), allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+        type(token_t), intent(in) :: token
+
+        count = count + 1
+        buffer(count) = token
+    end subroutine append_token
+
+    subroutine finalize_normalized_tokens(tokens, normalized, count)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), allocatable, intent(inout) :: normalized(:)
+        integer, intent(in) :: count
+        type(token_t), allocatable :: trimmed(:)
+
+        if (count == size(tokens)) then
             deallocate (normalized)
+            return
         end if
 
-    end subroutine normalize_line_continuations
+        if (count <= 0) then
+            if (allocated(tokens)) deallocate (tokens)
+            allocate (tokens(0))
+            if (allocated(normalized)) deallocate (normalized)
+            return
+        end if
+
+        allocate (trimmed(count))
+        trimmed = normalized(1:count)
+        call move_alloc(trimmed, tokens)
+        if (allocated(normalized)) deallocate (normalized)
+    end subroutine finalize_normalized_tokens
 
     pure logical function is_line_continuation_token(text) result(is_continuation)
         character(len=*), intent(in) :: text
