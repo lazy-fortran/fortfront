@@ -224,14 +224,17 @@ contains
         references_tooling_api = .false.
 
         do i = 1, size(tokens)
+            if (.not. allocated(tokens(i)%text)) cycle
             lower_text = to_lower_ascii_local(tokens(i)%text)
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (lower_text == 'implicit') then
                     if (i < size(tokens)) then
                         if (tokens(i + 1)%kind == TK_KEYWORD) then
-                            next_text = to_lower_ascii_local(tokens(i + 1)%text)
-                            if (next_text == 'none') then
-                                has_implicit_none = .true.
+                            if (allocated(tokens(i + 1)%text)) then
+                                next_text = to_lower_ascii_local(tokens(i + 1)%text)
+                                if (next_text == 'none') then
+                                    has_implicit_none = .true.
+                                end if
                             end if
                         end if
                     end if

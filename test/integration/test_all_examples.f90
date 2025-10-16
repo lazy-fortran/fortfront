@@ -1,5 +1,5 @@
 program test_all_examples
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
     use executable_finder, only: find_fortfront_executable
     implicit none
 
@@ -9,8 +9,8 @@ program test_all_examples
     character(len=256) :: examples_dir
     character(len=256), allocatable :: expected_failures(:)
     integer :: num_expected_failures
-    integer :: ios
     character(len=:), allocatable :: fortfront_exe
+    real(dp) :: success_rate
 
     test_count = 0
     pass_count = 0
@@ -64,8 +64,9 @@ program test_all_examples
     write (*, '(A,I0)') "Skipped: ", skip_count
 
     if (test_count > 0) then
-        write (*, '(A,F5.1,A)') "Success rate: ", &
-            real(pass_count + xfail_count) * 100.0 / real(test_count), "%"
+        success_rate = real(pass_count + xfail_count, kind=dp) * 100.0_dp / &
+                       real(test_count, kind=dp)
+        write (*, '(A,F6.1,A)') "Success rate: ", success_rate, "%"
     end if
 
     print *, ""
@@ -274,6 +275,26 @@ contains
 
     end subroutine test_examples_by_extension
 
+    pure function extract_example_basename(filepath) result(name)
+        character(len=*), intent(in) :: filepath
+        character(len=256) :: name
+        character(len=:), allocatable :: trimmed
+        integer :: sep_pos
+
+        name = ''
+        if (len_trim(filepath) == 0) return
+
+        trimmed = trim(filepath)
+        sep_pos = find_last_separator(trimmed)
+
+        if (sep_pos > 0 .and. sep_pos < len(trimmed)) then
+            name = trim(trimmed(sep_pos + 1:))
+        else
+            name = trim(trimmed)
+        end if
+        name = adjustl(name)
+    end function extract_example_basename
+
     subroutine test_single_example(filepath, fortfront_exe, test_count, pass_count, &
                                    fail_count, skip_count, xfail_count, xpass_count, &
                                    is_windows, expected_failures, num_expected_failures)
@@ -284,29 +305,16 @@ contains
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
 
-        character(len=1024) :: command
-        character(len=256) :: output_file, error_file, basename_str
-        integer :: exit_code, i, unit_out
-        logical :: has_error, has_unparsed, file_exists, has_warning, expect_fail
-        character(len=512) :: line
+        character(len=256) :: output_file, error_file
+        character(len=256) :: basename_str
+        logical :: has_error, has_unparsed, has_warning, file_exists, expect_fail
         character(len=:), allocatable :: module_dir
 
-        ! Extract basename for display and output files
-        i = max(index(filepath, '/', back=.true.), index(filepath, '\', back=.true.))
-        if (i > 0) then
-            basename_str = filepath(i + 1:)
-        else
-            basename_str = filepath
-        end if
-
+        basename_str = extract_example_basename(filepath)
         output_file = 'test_example_' // trim(basename_str) // '_output.f90'
         error_file = 'test_example_' // trim(basename_str) // '.err'
-
-        test_count = test_count + 1
-
         write (*, '(A)', advance='no') "Testing " // trim(basename_str) // " ... "
 
-        ! Check if example file exists
         inquire (file=trim(filepath), exist=file_exists)
         if (.not. file_exists) then
             print *, "SKIP (file not found)"
@@ -316,94 +324,165 @@ contains
 
         module_dir = get_module_directory(fortfront_exe)
 
-        ! Run fortfront on the example using direct binary (much faster than fpm run)
-        ! Note: Errors go to stderr, actual fortran code to stdout
+        call run_transform_and_scan(filepath, fortfront_exe, output_file, &
+                                    error_file, is_windows, has_error, has_unparsed, &
+                                    has_warning)
+
+        if (.not. has_error .and. .not. has_unparsed) then
+            if (.not. compile_generated_output(output_file, module_dir, &
+                                               is_windows)) then
+                has_error = .true.
+            end if
+        end if
+
+        expect_fail = is_expected_failure(trim(basename_str), expected_failures, &
+                                          num_expected_failures)
+        test_count = test_count + 1
+
+        call finalize_example_result(trim(basename_str), output_file, error_file, &
+                                     has_error, has_unparsed, has_warning, expect_fail, &
+                                     pass_count, fail_count, xfail_count, xpass_count)
+
+        call cleanup_file(output_file)
+        call cleanup_file(error_file)
+    end subroutine test_single_example
+
+    subroutine run_transform_and_scan(filepath, fortfront_exe, output_file, &
+                                      error_file, is_windows, has_error, has_unparsed, &
+                                      has_warning)
+        character(len=*), intent(in) :: filepath, fortfront_exe
+        character(len=*), intent(in) :: output_file, error_file
+        logical, intent(in) :: is_windows
+        logical, intent(out) :: has_error, has_unparsed, has_warning
+        character(len=2048) :: command
+        character(len=:), allocatable :: input_arg, exe_arg, output_arg, error_arg
+        integer :: exit_code
+
+        input_arg = quote_for_shell(filepath, is_windows)
+        exe_arg = quote_for_shell(fortfront_exe, is_windows)
+        output_arg = quote_for_shell(output_file, is_windows)
+        error_arg = quote_for_shell(error_file, is_windows)
+
+        if (len_trim(input_arg) == 0 .or. len_trim(exe_arg) == 0 .or. &
+            len_trim(output_arg) == 0 .or. len_trim(error_arg) == 0) then
+            has_error = .true.
+            has_unparsed = .false.
+            has_warning = .false.
+            return
+        end if
+
         if (is_windows) then
-            command = 'cmd /C "type ' // trim(filepath) // ' | "' // &
-                      trim(fortfront_exe) // '" > ' // trim(output_file) // ' 2>' // &
-                      trim(error_file) // '"'
+            command = 'cmd /C "type ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
+                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
         else
-            command = 'sh -c "cat ' // trim(filepath) // ' | ' // &
-                      trim(fortfront_exe) // ' > ' // trim(output_file) // ' 2>' // &
-                      trim(error_file) // '"'
+            command = 'sh -c "cat ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
+                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)
 
-        ! Check for errors in output and stderr
-        has_error = .false.
+        has_error = (exit_code /= 0)
         has_unparsed = .false.
         has_warning = .false.
 
-        ! Check stderr file for error markers (parser errors go to stderr)
-        open (newunit=unit_out, file=trim(error_file), status='old', &
-              action='read', iostat=exit_code)
-        if (exit_code == 0) then
-            do
-                read (unit_out, '(A)', iostat=exit_code) line
-                if (exit_code /= 0) exit
+        call scan_error_file(error_file, has_error, has_warning)
+        call scan_output_file(output_file, has_error, has_unparsed)
+    end subroutine run_transform_and_scan
 
-                ! Check for errors in stderr
-                if (index(line, 'ERROR') > 0) then
-                    has_error = .true.
-                end if
+    subroutine scan_error_file(error_file, has_error, has_warning)
+        character(len=*), intent(in) :: error_file
+        logical, intent(inout) :: has_error, has_warning
+        integer :: unit_num, ios
+        character(len=512) :: line
+        logical :: exists
 
-                ! Check for warnings
-                if (index(line, 'WARNING') > 0) then
-                    has_warning = .true.
-                end if
-            end do
-            close (unit_out)
-        end if
-
-        ! Check output file for code generation issues
-        open (newunit=unit_out, file=trim(output_file), status='old', &
-              action='read', iostat=exit_code)
-        if (exit_code == 0) then
-            do
-                read (unit_out, '(A)', iostat=exit_code) line
-                if (exit_code /= 0) exit
-
-                ! Check for compilation failure marker
-                if (index(line, '! COMPILATION FAILED') > 0) then
-                    has_error = .true.
-                    exit
-                end if
-
-                ! Check for unparsed content (indicates incomplete parsing)
-                if (index(line, '! Unparsed:') > 0) then
-                    has_unparsed = .true.
-                end if
-            end do
-            close (unit_out)
-        else
+        inquire (file=trim(error_file), exist=exists)
+        if (.not. exists) then
             has_error = .true.
+            return
         end if
 
-        ! Try to compile the output with gfortran to catch silent bugs
-        if (.not. has_error .and. .not. has_unparsed) then
-            command = build_compile_command(output_file, module_dir, is_windows)
-            if (len_trim(command) == 0) then
+        open (newunit=unit_num, file=trim(error_file), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) then
+            has_error = .true.
+            return
+        end if
+
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            if (index(line, 'ERROR') > 0) has_error = .true.
+            if (index(line, 'WARNING') > 0) has_warning = .true.
+        end do
+
+        close (unit_num)
+    end subroutine scan_error_file
+
+    subroutine scan_output_file(output_file, has_error, has_unparsed)
+        character(len=*), intent(in) :: output_file
+        logical, intent(inout) :: has_error, has_unparsed
+        integer :: unit_num, ios
+        character(len=512) :: line
+        logical :: exists
+
+        inquire (file=trim(output_file), exist=exists)
+        if (.not. exists) then
+            has_error = .true.
+            return
+        end if
+
+        open (newunit=unit_num, file=trim(output_file), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) then
+            has_error = .true.
+            return
+        end if
+
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            if (index(line, '! COMPILATION FAILED') > 0) then
                 has_error = .true.
-            else
-                call execute_command_line(trim(command), exitstat=exit_code)
-                if (exit_code /= 0) then
-                    has_error = .true.
-                end if
+                exit
             end if
+            if (index(line, '! Unparsed:') > 0) has_unparsed = .true.
+        end do
+
+        close (unit_num)
+    end subroutine scan_output_file
+
+    logical function compile_generated_output(output_file, module_dir, is_windows)
+        character(len=*), intent(in) :: output_file
+        character(len=*), intent(in) :: module_dir
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: command
+        integer :: exit_code
+
+        command = build_compile_command(output_file, module_dir, is_windows)
+        if (len_trim(command) == 0) then
+            compile_generated_output = .false.
+            return
         end if
 
-        ! Check if this test is expected to fail
-        expect_fail = is_expected_failure(basename_str, expected_failures, &
-                                          num_expected_failures)
+        call execute_command_line(trim(command), exitstat=exit_code)
+        compile_generated_output = (exit_code == 0)
+    end function compile_generated_output
 
-        ! Report result
+    subroutine finalize_example_result(name, output_file, error_file, has_error, &
+                                       has_unparsed, has_warning, expect_fail, &
+                                       pass_count, fail_count, xfail_count, xpass_count)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: output_file, error_file
+        logical, intent(in) :: has_error, has_unparsed, has_warning, expect_fail
+        integer, intent(inout) :: pass_count, fail_count, xfail_count, xpass_count
+
         if (has_error .or. has_unparsed) then
             if (expect_fail) then
                 print *, "XFAIL (expected failure)"
                 xfail_count = xfail_count + 1
             else
-                call report_example_failure(trim(basename_str), output_file, error_file)
+                call report_example_failure(name, output_file, error_file)
                 if (has_error) then
                     print *, "FAIL (parser error or compilation failed)"
                 else
@@ -428,12 +507,7 @@ contains
                 pass_count = pass_count + 1
             end if
         end if
-
-        ! Clean up temp files
-        call cleanup_file(output_file)
-        call cleanup_file(error_file)
-
-    end subroutine test_single_example
+    end subroutine finalize_example_result
 
     subroutine report_example_failure(name, output_file, error_file)
         character(len=*), intent(in) :: name
