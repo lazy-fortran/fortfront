@@ -20,12 +20,13 @@ module frontend_transformation
                               set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
     use ast_nodes_core, only: program_node
-    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_misc, only: contains_node
     use ast_nodes_data, only: declaration_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave
+    use procedure_classification, only: should_hoist_procedure
 
     implicit none
     private
@@ -184,7 +185,8 @@ contains
         logical :: saved_standardize_types, saved_standardizer_types
 
         call save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                        saved_standardize_types, saved_standardizer_types)
+                                        saved_standardize_types, &
+                                        saved_standardizer_types)
 
         ! Set new configuration
         call apply_format_options(format_opts)
@@ -433,7 +435,8 @@ contains
         output = "program main" // new_line('A') // &
                  "    implicit none" // new_line('A') // &
                  "    ! COMPILATION FAILED" // new_line('A') // &
-          "    ! Original code could not be structured as a program" // new_line('A') // &
+                 "    ! Original code could not be structured as a program" // &
+                 new_line('A') // &
                  "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
@@ -574,7 +577,8 @@ contains
         integer, intent(inout) :: root_index
 
         integer :: i, j, target_prog_idx, contains_pos
-        integer, allocatable :: functions(:)
+        integer, allocatable :: procedures(:)
+        integer, allocatable :: all_procedures(:)
         integer, allocatable :: new_body(:)
         class(program_node), pointer :: root_prog => null()
 
@@ -590,7 +594,8 @@ contains
         end select
         if (.not. associated(root_prog)) return
 
-        allocate (functions(0))
+        if (allocated(all_procedures)) deallocate (all_procedures)
+        allocate (all_procedures(0))
         target_prog_idx = 0
 
         if (allocated(root_prog%body_indices)) then
@@ -607,19 +612,31 @@ contains
                         end if
                     end if
                 type is (function_def_node)
-                    functions = [functions, root_prog%body_indices(i)]
+                    all_procedures = [all_procedures, root_prog%body_indices(i)]
+                type is (subroutine_def_node)
+                    all_procedures = [all_procedures, root_prog%body_indices(i)]
                 end select
             end do
         end if
 
         if (target_prog_idx == 0) return
-        if (size(functions) == 0) return
+        if (size(all_procedures) == 0) return
+
+        if (allocated(procedures)) deallocate (procedures)
+        allocate (procedures(0))
+        do i = 1, size(all_procedures)
+            if (should_hoist_procedure(arena, all_procedures(i), target_prog_idx)) then
+                procedures = [procedures, all_procedures(i)]
+            end if
+        end do
+
+        if (size(procedures) == 0) return
 
         ! Remove function indices from multi-unit body
         allocate (new_body(0))
         if (allocated(root_prog%body_indices)) then
             do i = 1, size(root_prog%body_indices)
-                if (any(root_prog%body_indices(i) == functions)) cycle
+                if (any(root_prog%body_indices(i) == procedures)) cycle
                 new_body = [new_body, root_prog%body_indices(i)]
             end do
         end if
@@ -676,13 +693,13 @@ contains
                     allocate (original(0))
                 end if
                 orig_size = size(original)
-                insert_size = size(functions)
+                insert_size = size(procedures)
                 allocate (target%body_indices(orig_size + insert_size))
                 if (contains_pos >= 1) then
                     target%body_indices(1:contains_pos) = original(1:contains_pos)
                 end if
                 target%body_indices(contains_pos + 1:contains_pos + insert_size) &
-                    & = functions
+                    & = procedures
                 if (contains_pos < orig_size) then
                     target%body_indices(contains_pos + insert_size + 1:) = &
                         original(contains_pos + 1:orig_size)
@@ -690,9 +707,9 @@ contains
             end block
 
             ! Update parent indices and remove external declarations
-            do i = 1, size(functions)
-                if (functions(i) > 0 .and. functions(i) <= arena%size) then
-                    arena%entries(functions(i))%parent_index = target_prog_idx
+            do i = 1, size(procedures)
+                if (procedures(i) > 0 .and. procedures(i) <= arena%size) then
+                    arena%entries(procedures(i))%parent_index = target_prog_idx
                 end if
             end do
 
@@ -700,7 +717,8 @@ contains
                 do i = 1, size(target%body_indices)
                     if (target%body_indices(i) <= 0 .or. target%body_indices(i) > &
                         & arena%size) cycle
-                    if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
+                    if (.not. &
+                        allocated(arena%entries(target%body_indices(i))%node)) cycle
                     select type (stmt => arena%entries(target%body_indices(i))%node)
                     type is (declaration_node)
                         block
@@ -709,15 +727,17 @@ contains
                             if (stmt%is_multi_declaration .and. &
                                 & allocated(stmt%var_names)) then
                                 do j = 1, size(stmt%var_names)
-                                    if (is_function_name(trim(stmt%var_names(j)), arena, &
-                                        & functions)) then
+                                    if &
+                                        (is_procedure_name(trim(stmt%var_names(j)), &
+                                        arena, &
+                                        & procedures)) then
                                         declares_function = .true.
                                         exit
                                     end if
                                 end do
                             else
-                                if (is_function_name(trim(stmt%var_name), arena, &
-                                    & functions)) then
+                                if (is_procedure_name(trim(stmt%var_name), arena, &
+                                    & procedures)) then
                                     declares_function = .true.
                                 end if
                             end if
@@ -740,25 +760,30 @@ contains
         end select
     end subroutine normalize_multi_unit_container
 
-    logical function is_function_name(name, arena, func_indices) result(match)
+    logical function is_procedure_name(name, arena, proc_indices) result(match)
         character(len=*), intent(in) :: name
         type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: func_indices(:)
+        integer, intent(in) :: proc_indices(:)
         integer :: k
 
         match = .false.
-        do k = 1, size(func_indices)
-            if (func_indices(k) <= 0 .or. func_indices(k) > arena%size) cycle
-            if (.not. allocated(arena%entries(func_indices(k))%node)) cycle
-            select type (fn => arena%entries(func_indices(k))%node)
+        do k = 1, size(proc_indices)
+            if (proc_indices(k) <= 0 .or. proc_indices(k) > arena%size) cycle
+            if (.not. allocated(arena%entries(proc_indices(k))%node)) cycle
+            select type (proc_node => arena%entries(proc_indices(k))%node)
             type is (function_def_node)
-                if (trim(fn%name) == trim(name)) then
+                if (trim(proc_node%name) == trim(name)) then
+                    match = .true.
+                    return
+                end if
+            type is (subroutine_def_node)
+                if (trim(proc_node%name) == trim(name)) then
                     match = .true.
                     return
                 end if
             end select
         end do
-    end function is_function_name
+    end function is_procedure_name
 
     ! Run code generation phase
     subroutine run_code_generation_phase(compiler_arena, prog_index, output)
@@ -774,7 +799,7 @@ contains
 
     subroutine maybe_dump_program_overview(arena, prog_index)
         use, intrinsic :: iso_fortran_env, only: error_unit
-        use ast_nodes_procedure, only: function_def_node
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
@@ -801,6 +826,8 @@ contains
                 end if
             type is (function_def_node)
                 write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
+            type is (subroutine_def_node)
+                write (error_unit, '(A,I0,2X,A)') '  subroutine idx', i, trim(node%name)
             type is (declaration_node)
                 write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, &
                     & trim(node%type_name), &
