@@ -9,8 +9,6 @@
 # Lazy Fortran type inference
 # Known semantic/codegen gaps awaiting fixes
 # F90/F95 parser issues
-issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
-
 # Lazy Fortran control flow
 
 # Silent bugs (compile successfully but produce wrong code - cannot be detected by test)
