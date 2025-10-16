@@ -55,17 +55,7 @@ contains
                 call get_type_standardization(standardize_types_enabled)
                 if (standardize_types_enabled) then
                     if (node%literal_kind == LITERAL_REAL) then
-                        block
-                            character(len=:), allocatable :: lc
-                            lc = code
-                            ! Only append if not already having exponent/kind/d-suffix
-                            if (index(lc, 'e') == 0 .and. index(lc, 'E') == 0 .and. &
-                                index(lc, 'd') == 0 .and. index(lc, 'D') == 0) then
-                                if (index(lc, '.') > 0) then
-                                    code = trim(lc) // 'd0'
-                                end if
-                            end if
-                        end block
+                        code = promote_literal_to_real64(code)
                     end if
                 end if
             end if
