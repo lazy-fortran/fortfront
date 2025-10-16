@@ -279,6 +279,7 @@ contains
         integer :: exit_code, i, unit_out
         logical :: has_error, has_unparsed, file_exists, has_warning, expect_fail
         character(len=512) :: line
+        character(len=:), allocatable :: module_dir
 
         ! Extract basename for display and output files
         i = max(index(filepath, '/', back=.true.), index(filepath, '\', back=.true.))
@@ -302,6 +303,8 @@ contains
             skip_count = skip_count + 1
             return
         end if
+
+        module_dir = get_module_directory(fortfront_exe)
 
         ! Run fortfront on the example using direct binary (much faster than fpm run)
         ! Note: Errors go to stderr, actual fortran code to stdout
@@ -369,12 +372,22 @@ contains
 
         ! Try to compile the output with gfortran to catch silent bugs
         if (.not. has_error .and. .not. has_unparsed) then
-            if (is_windows) then
-                command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
-                          ' > nul 2>&1'
+            if (len_trim(module_dir) > 0) then
+                if (is_windows) then
+                    command = 'gfortran -c -fsyntax-only -I "' // trim(module_dir) // '" ' // &
+                              trim(output_file) // ' > nul 2>&1'
+                else
+                    command = 'gfortran -c -fsyntax-only -I ' // trim(module_dir) // ' ' // &
+                              trim(output_file) // ' > /dev/null 2>&1'
+                end if
             else
-                command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
-                          ' > /dev/null 2>&1'
+                if (is_windows) then
+                    command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
+                              ' > nul 2>&1'
+                else
+                    command = 'gfortran -c -fsyntax-only ' // trim(output_file) // &
+                              ' > /dev/null 2>&1'
+                end if
             end if
             call execute_command_line(trim(command), exitstat=exit_code)
             if (exit_code /= 0) then
@@ -423,4 +436,59 @@ contains
 
     end subroutine test_single_example
 
+    function get_module_directory(executable_path) result(module_dir)
+        character(len=*), intent(in) :: executable_path
+        character(len=:), allocatable :: module_dir
+        integer :: pos, exit_code, unit_num
+        character(len=512) :: path_line
+        logical :: is_win
+
+        module_dir = ''
+        is_win = check_if_windows()
+
+        if (is_win) then
+            call execute_command_line('cmd /C "dir /B /S fortfront.mod > fortfront_module_search.txt"', &
+                                      exitstat=exit_code)
+        else
+            call execute_command_line('find build -name "fortfront.mod" -type f | head -1 > fortfront_module_search.txt', &
+                                      exitstat=exit_code)
+        end if
+
+        if (exit_code == 0) then
+            open (newunit=unit_num, file='fortfront_module_search.txt', status='old', action='read', &
+                  iostat=exit_code)
+            if (exit_code == 0) then
+                read (unit_num, '(A)', iostat=exit_code) path_line
+                close (unit_num)
+                call cleanup_file('fortfront_module_search.txt')
+                if (exit_code == 0 .and. len_trim(path_line) > 0) then
+                    pos = index(path_line, '/fortfront.mod', back=.true.)
+                    if (pos > 0) then
+                        module_dir = trim(path_line(1:pos - 1))
+                        return
+                    end if
+                    pos = index(path_line, '\fortfront.mod', back=.true.)
+                    if (pos > 0) then
+                        module_dir = trim(path_line(1:pos - 1))
+                        return
+                    end if
+                end if
+            else
+                close (unit_num, status='delete')
+            end if
+        end if
+
+        call cleanup_file('fortfront_module_search.txt')
+
+        pos = index(executable_path, '/app/', back=.true.)
+        if (pos > 0) then
+            module_dir = executable_path(1:pos - 1)
+            return
+        end if
+
+        pos = index(executable_path, '\app\', back=.true.)
+        if (pos > 0) then
+            module_dir = executable_path(1:pos - 1)
+        end if
+    end function get_module_directory
 end program test_all_examples

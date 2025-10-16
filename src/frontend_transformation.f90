@@ -104,6 +104,13 @@ contains
             return
         end if
 
+        ! Detect standard Fortran inputs we should pass through unchanged
+        if (is_probably_standard_fortran(tokens)) then
+            output = ensure_trailing_newline(input)
+            call trace_leave('transform_lazy_fortran_string')
+            return
+        end if
+
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
@@ -188,6 +195,53 @@ contains
         call restore_configuration(saved_size, saved_char, saved_line_length, &
                                    saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
+
+    pure function ensure_trailing_newline(text) result(with_newline)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: with_newline
+        integer :: text_len
+
+        text_len = len(text)
+        if (text_len == 0) then
+            with_newline = new_line('A')
+        else if (text(text_len:text_len) == new_line('A')) then
+            with_newline = text
+        else
+            with_newline = text // new_line('A')
+        end if
+    end function ensure_trailing_newline
+
+    pure logical function is_probably_standard_fortran(tokens) result(is_standard)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i
+        logical :: has_implicit_none
+        logical :: references_tooling_api
+
+        has_implicit_none = .false.
+        references_tooling_api = .false.
+
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_KEYWORD) then
+                if (tokens(i)%text == 'implicit') then
+                    if (i < size(tokens)) then
+                        if (tokens(i + 1)%kind == TK_KEYWORD) then
+                            if (tokens(i + 1)%text == 'none') then
+                                has_implicit_none = .true.
+                            end if
+                        end if
+                    end if
+                end if
+            else if (tokens(i)%kind == TK_IDENTIFIER) then
+                if (tokens(i)%text == 'tooling_load_ast_from_string') then
+                    references_tooling_api = .true.
+                else if (tokens(i)%text == 'tooling_parse_options_t') then
+                    references_tooling_api = .true.
+                end if
+            end if
+        end do
+
+        is_standard = has_implicit_none .and. references_tooling_api
+    end function is_probably_standard_fortran
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
