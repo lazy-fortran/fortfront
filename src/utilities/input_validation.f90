@@ -5,7 +5,7 @@ module input_validation
     ! Cleanly separated from frontend concerns with no circular dependencies
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING
 
     implicit none
     private
@@ -300,7 +300,7 @@ contains
                 ! If operator is followed by EOF or another line without operand, it's incomplete
                 if (j > size(tokens) .or. tokens(j)%kind == TK_EOF .or. &
                     (tokens(j)%line > tokens(i)%line .and. &
-                     tokens(j)%kind /= TK_IDENTIFIER .and. tokens(j)%kind /= TK_NUMBER)) then
+                     .not. is_valid_operand_token(tokens(j)))) then
                     error_msg = format_enhanced_error("Incomplete expression: operator '" // &
                                                       trim(tokens(i)%text) // "' needs operand", &
                                                       tokens(i)%line, tokens(i)%column, source_lines, &
@@ -852,7 +852,25 @@ contains
             is_expression = ((identifier_count > 0) .or. (number_count > 0 .and. operator_count > 0)) .and. &
                             (has_assignment .or. has_function_call .or. &
                              (operator_count > 0 .and. (identifier_count + number_count) >= operator_count))
-        end if
-    end function is_likely_fortran_expression
+    end if
+end function is_likely_fortran_expression
+
+    logical function is_valid_operand_token(token)
+        type(token_t), intent(in) :: token
+
+        is_valid_operand_token = .false.
+        select case (token%kind)
+        case (TK_IDENTIFIER, TK_NUMBER, TK_STRING)
+            is_valid_operand_token = .true.
+        case (TK_KEYWORD)
+            is_valid_operand_token = .true.
+        case (TK_OPERATOR)
+            if (.not. allocated(token%text)) return
+            select case (trim(token%text))
+            case ("(", "[", "+", "-", ".not.")
+                is_valid_operand_token = .true.
+            end select
+        end select
+    end function is_valid_operand_token
 
 end module input_validation

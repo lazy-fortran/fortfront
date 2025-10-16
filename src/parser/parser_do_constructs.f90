@@ -394,11 +394,6 @@ contains
                                 stmt_end = j
                                 exit
                             end if
-                            if (j > stmt_start .and. parser%tokens(j)%line > &
-                                parser%tokens(stmt_start)%line) then
-                                stmt_end = j - 1
-                                exit
-                            end if
                             if (j > stmt_start .and. &
                                 parser%tokens(j)%kind == TK_OPERATOR .and. &
                                 parser%tokens(j)%text == ";") then
@@ -598,11 +593,6 @@ contains
                 do j = stmt_start, size(parser%tokens)
                     if (parser%tokens(j)%kind == TK_EOF) then
                         stmt_end = j
-                        exit
-                    end if
-                    if (j > stmt_start .and. parser%tokens(j)%line > &
-                        parser%tokens(stmt_start)%line) then
-                        stmt_end = j - 1
                         exit
                     end if
                     stmt_end = j

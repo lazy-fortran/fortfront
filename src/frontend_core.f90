@@ -5,7 +5,7 @@ module frontend_core
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
@@ -143,6 +143,9 @@ contains
 
         error_msg = ""
         call tokenize_core(source, tokens)
+        if (allocated(tokens)) then
+            call normalize_line_continuations(tokens)
+        end if
     end subroutine lex_file
 
     ! Simple interface functions for clean pipeline usage
@@ -158,6 +161,7 @@ contains
         else
             allocate (character(len=0) :: error_msg)
             error_msg = ""
+            call normalize_line_continuations(tokens)
         end if
     end subroutine lex_source
 
@@ -371,5 +375,79 @@ contains
             lhs%output_file = rhs%output_file
         end if
     end subroutine compilation_options_assign
+
+    ! Normalize free-form line continuations indicated with '&'
+    subroutine normalize_line_continuations(tokens)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), allocatable :: normalized(:)
+        integer :: i, count
+        logical :: suppress_newline
+        logical :: skip_leading_ampersand
+
+        if (.not. allocated(tokens)) return
+        if (size(tokens) == 0) return
+
+        allocate (normalized(size(tokens)))
+        count = 0
+        suppress_newline = .false.
+        skip_leading_ampersand = .false.
+
+        i = 1
+        do while (i <= size(tokens))
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                if (skip_leading_ampersand) then
+                    i = i + 1
+                    cycle
+                end if
+            case (TK_OPERATOR)
+                if (allocated(tokens(i)%text)) then
+                    if (trim(tokens(i)%text) == "&") then
+                        skip_leading_ampersand = .true.
+                        suppress_newline = .true.
+                        i = i + 1
+                        cycle
+                    else
+                        skip_leading_ampersand = .false.
+                    end if
+                else
+                    skip_leading_ampersand = .false.
+                end if
+            case (TK_NEWLINE)
+                if (suppress_newline) then
+                    suppress_newline = .false.
+                    i = i + 1
+                    cycle
+                end if
+                skip_leading_ampersand = .false.
+            case default
+                skip_leading_ampersand = .false.
+            end select
+
+            count = count + 1
+            normalized(count) = tokens(i)
+            i = i + 1
+        end do
+
+        if (count < size(tokens)) then
+            call move_alloc(normalized, tokens)
+            if (count > 0) then
+                tokens = tokens(1:count)
+            else
+                allocate (tokens(0))
+            end if
+        else
+            deallocate (normalized)
+        end if
+
+        ! DEBUG: dump tokens
+        do i = 1, size(tokens)
+            if (allocated(tokens(i)%text)) then
+                write (error_unit, '(A,I0,A,I0,A,A)') 'TOK ', i, ': kind=', tokens(i)%kind, ' text="', tokens(i)%text, '"'
+            else
+                write (error_unit, '(A,I0,A,I0)') 'TOK ', i, ': kind=', tokens(i)%kind
+            end if
+        end do
+    end subroutine normalize_line_continuations
 
 end module frontend_core
