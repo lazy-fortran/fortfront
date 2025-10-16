@@ -1232,6 +1232,7 @@ contains
         character(len=64) :: func_names(MAX_VARS)
         character(len=64) :: func_types(MAX_VARS)
         character(len=64) :: internal_funcs(MAX_VARS)
+        character(len=64) :: func_return_type
         logical :: name_declared
         integer :: declared_count, var_count, func_count, internal_count
         integer :: i, j, idx, target_idx
@@ -1288,15 +1289,40 @@ contains
                             if (len_trim(name_buf) == 0) cycle
                             name_declared = exists_in_list(declared_names, declared_count, name_buf)
                             if (.not. name_declared) then
-                            if (.not. exists_in_list(var_names, var_count, name_buf)) then
-                                type_buf = mono_type_to_string(id%inferred_type)
-                                if (len_trim(type_buf) == 0) type_buf = 'real'
-                                if (var_count < MAX_VARS) then
-                                    var_count = var_count + 1
-                                    var_names(var_count) = name_buf
-                                    var_types(var_count) = trim(type_buf)
+                                if (.not. exists_in_list(var_names, var_count, &
+                                        name_buf)) then
+                                    type_buf = mono_type_to_string( &
+                                        id%inferred_type)
+                                    if (len_trim(type_buf) == 0 .or. &
+                                        trim(type_buf) == 'real') then
+                                        func_return_type = ''
+                                        if (stmt%value_index > 0 .and. &
+                                            stmt%value_index <= arena%size) then
+                                            if (allocated(arena%entries( &
+                                                    stmt%value_index)%node)) then
+                                                select type (rhs => arena%entries( &
+                                                        stmt%value_index)%node)
+                                                type is (call_or_subscript_node)
+                                                    if (len_trim(rhs%name) > 0) then
+                                                        func_return_type = &
+                                                            get_function_return_type_string( &
+                                                            arena, rhs%name)
+                                                        if (len_trim(func_return_type) > 0) then
+                                                            type_buf = trim( &
+                                                                func_return_type)
+                                                        end if
+                                                    end if
+                                                end select
+                                            end if
+                                        end if
+                                    end if
+                                    if (len_trim(type_buf) == 0) type_buf = 'real'
+                                    if (var_count < MAX_VARS) then
+                                        var_count = var_count + 1
+                                        var_names(var_count) = name_buf
+                                        var_types(var_count) = trim(type_buf)
+                                    end if
                                 end if
-                            end if
                             end if
                         end select
                     end if
@@ -1308,6 +1334,15 @@ contains
                         type is (call_or_subscript_node)
                             if (len_trim(val%name) > 0) then
                                 type_buf = mono_type_to_string(val%inferred_type)
+                                if (len_trim(type_buf) == 0 .or. &
+                                    trim(type_buf) == 'real') then
+                                    func_return_type = &
+                                        get_function_return_type_string(arena, &
+                                        val%name)
+                                    if (len_trim(func_return_type) > 0) then
+                                        type_buf = trim(func_return_type)
+                                    end if
+                                end if
                                 if (len_trim(type_buf) == 0) type_buf = 'real'
                                 if (.not. exists_in_list(func_names, func_count, trim(val%name))) then
                                     if (func_count < MAX_VARS) then
@@ -1326,12 +1361,14 @@ contains
         if (var_count == 0 .and. func_count == 0) return
 
         do i = 1, var_count
-         decl_code = decl_code // "    " // trim(var_types(i)) // " :: " // trim(var_names(i)) // new_line('A')
+            decl_code = decl_code // "    " // trim(var_types(i)) // " :: " // &
+                trim(var_names(i)) // new_line('A')
         end do
 
         do i = 1, func_count
             if (.not. exists_in_list(internal_funcs, internal_count, trim(func_names(i)))) then
-            decl_code = decl_code // "    " // trim(func_types(i)) // ", external :: " // trim(func_names(i)) // new_line('A')
+                decl_code = decl_code // "    " // trim(func_types(i)) // &
+                    ", external :: " // trim(func_names(i)) // new_line('A')
             end if
         end do
     end function collect_program_variable_decls
@@ -1351,6 +1388,31 @@ contains
             end if
         end do
     end function exists_in_list
+
+    function get_function_return_type_string(arena, func_name) result(type_name)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: func_name
+        character(len=:), allocatable :: type_name
+        integer :: i
+
+        type_name = ""
+        if (len_trim(func_name) == 0) return
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (func => arena%entries(i)%node)
+            type is (function_def_node)
+                if (.not. allocated(func%name)) cycle
+                if (trim(func%name) /= trim(func_name)) cycle
+                if (allocated(func%return_type)) then
+                    if (len_trim(func%return_type) > 0) then
+                        type_name = trim(func%return_type)
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function get_function_return_type_string
 
     ! Convert mono_type_t to Fortran type string
     function mono_type_to_string(mono) result(type_name)
