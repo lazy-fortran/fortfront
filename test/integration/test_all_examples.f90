@@ -141,13 +141,24 @@ contains
             print *, "ERROR: build_compile_command returned empty command"
             stop 1
         end if
-        if (index(command, '"modules dir"') == 0) then
-            print *, "ERROR: module directory not quoted"
-            stop 1
-        end if
-        if (index(command, '"output file.f90"') == 0) then
-            print *, "ERROR: output path not quoted"
-            stop 1
+        if (is_windows) then
+            if (index(command, '""modules dir""') == 0) then
+                print *, "ERROR: module directory not quoted for cmd"
+                stop 1
+            end if
+            if (index(command, '""output file.f90""') == 0) then
+                print *, "ERROR: output path not quoted for cmd"
+                stop 1
+            end if
+        else
+            if (index(command, '"modules dir"') == 0) then
+                print *, "ERROR: module directory not quoted"
+                stop 1
+            end if
+            if (index(command, '"output file.f90"') == 0) then
+                print *, "ERROR: output path not quoted"
+                stop 1
+            end if
         end if
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
@@ -917,13 +928,15 @@ contains
 
         command = ''
 
-        output_arg = quote_for_shell(output_file, is_windows)
+        output_arg = quote_for_shell(output_file, is_windows, &
+                                     escape_for_cmd=is_windows)
         if (len_trim(output_arg) == 0) return
 
         command = 'gfortran -c -fsyntax-only '
 
         if (len_trim(module_dir) > 0) then
-            module_arg = quote_for_shell(module_dir, is_windows)
+            module_arg = quote_for_shell(module_dir, is_windows, &
+                                         escape_for_cmd=is_windows)
             if (len_trim(module_arg) > 0) then
                 command = command // '-I ' // module_arg // ' '
             end if
