@@ -42,7 +42,7 @@ contains
 
         source = "program test" // new_line('a') // &
                  "    if (.false.) then" // new_line('a') // &
-                 "        print *, 'dead code'" // new_line('a') // &
+                 "        continue" // new_line('a') // &
                  "    end if" // new_line('a') // &
                  "end program test"
 
@@ -96,7 +96,7 @@ contains
 
         source = "program test" // new_line('a') // &
                  "    if (1 > 2) then" // new_line('a') // &
-                 "        print *, 'dead code'" // new_line('a') // &
+                 "        continue" // new_line('a') // &
                  "    end if" // new_line('a') // &
                  "end program test"
 
@@ -151,7 +151,7 @@ contains
         source = "program test" // new_line('a') // &
                  "    integer, parameter :: N = 0" // new_line('a') // &
                  "    if (N > 0) then" // new_line('a') // &
-                 "        print *, 'dead code'" // new_line('a') // &
+                 "        continue" // new_line('a') // &
                  "    end if" // new_line('a') // &
                  "end program test"
 
