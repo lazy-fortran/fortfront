@@ -490,99 +490,42 @@ contains
         character(len=*), intent(in) :: executable_path
         character(len=:), allocatable :: module_dir
         character(len=:), allocatable :: candidate
-        character(len=:), allocatable :: search_file
-        character(len=:), allocatable :: command
-        character(len=64) :: clock_string
-        integer :: clock_count, exit_code, unit_num
-        character(len=512) :: path_line
-        logical :: is_win
+        character(len=:), allocatable :: current_dir
+        character(len=:), allocatable :: parent_dir
+        character(len=1) :: sep
 
         module_dir = ''
 
-        is_win = check_if_windows()
-
-        call system_clock(count=clock_count)
-        write (clock_string, '(I0)') abs(clock_count)
-        search_file = 'fortfront_module_search_' // trim(clock_string) // '.txt'
-
-        command = build_module_search_command(search_file, is_win)
-        if (len_trim(command) > 0) then
-            call execute_command_line(trim(command), exitstat=exit_code)
-            if (exit_code == 0) then
-                open (newunit=unit_num, file=trim(search_file), status='old', &
-                      action='read', iostat=exit_code)
-                if (exit_code == 0) then
-                    read (unit_num, '(A)', iostat=exit_code) path_line
-                    close (unit_num)
-                    if (exit_code == 0) then
-                        module_dir = directory_from_module_path(trim(path_line))
-                        if (len_trim(module_dir) > 0) then
-                            call cleanup_file(search_file)
-                            return
-                        end if
-                    end if
-                else
-                    close (unit_num, status='delete')
-                end if
-            end if
+        candidate = find_module_dir_from_compile_commands(executable_path)
+        if (len_trim(candidate) > 0) then
+            module_dir = trim(candidate)
+            return
         end if
 
-        call cleanup_file(search_file)
+        current_dir = directory_from_path(executable_path)
+        do while (len_trim(current_dir) > 0)
+            if (set_module_dir_if_exists(current_dir, module_dir)) return
+            parent_dir = directory_from_path(current_dir)
+            if (len_trim(parent_dir) == 0) exit
+            if (trim(parent_dir) == trim(current_dir)) exit
+            current_dir = parent_dir
+        end do
 
         candidate = extract_module_candidate(executable_path, '/app/')
         if (len_trim(candidate) > 0) then
-            if (module_directory_has_module(candidate, '/')) then
-                module_dir = candidate
-                return
-            end if
+            if (set_module_dir_if_exists(candidate, module_dir)) return
         end if
 
         candidate = extract_module_candidate(executable_path, '\app\')
         if (len_trim(candidate) > 0) then
-            if (module_directory_has_module(candidate, '\')) then
-                module_dir = candidate
-            end if
+            if (set_module_dir_if_exists(candidate, module_dir)) return
+        end if
+
+        sep = path_separator_for('fortfront_modules')
+        if (module_directory_has_module('fortfront_modules', sep)) then
+            module_dir = 'fortfront_modules'
         end if
     end function get_module_directory
-
-    function build_module_search_command(search_file, is_windows) result(command)
-        character(len=*), intent(in) :: search_file
-        logical, intent(in) :: is_windows
-        character(len=:), allocatable :: command
-
-        command = ''
-
-        if (.not. is_safe_path(search_file)) return
-
-        if (is_windows) then
-            command = 'cmd /C "dir /B /S fortfront.mod > ' // trim(search_file) // '"'
-        else
-            command = 'find build -name "fortfront.mod" -type f | head -1 > ' // &
-                      trim(search_file)
-        end if
-    end function build_module_search_command
-
-    function directory_from_module_path(path_line) result(directory)
-        character(len=*), intent(in) :: path_line
-        character(len=:), allocatable :: directory
-        integer :: pos
-
-        directory = ''
-        if (len_trim(path_line) == 0) return
-
-        pos = index(path_line, '/fortfront.mod', back=.true.)
-        if (pos > 0) then
-            directory = trim(path_line(1:pos - 1))
-            if (.not. is_safe_path(directory)) directory = ''
-            return
-        end if
-
-        pos = index(path_line, '\fortfront.mod', back=.true.)
-        if (pos > 0) then
-            directory = trim(path_line(1:pos - 1))
-            if (.not. is_safe_path(directory)) directory = ''
-        end if
-    end function directory_from_module_path
 
     function extract_module_candidate(path, marker) result(value)
         character(len=*), intent(in) :: path, marker
@@ -611,6 +554,208 @@ contains
             module_directory_has_module = is_safe_path(base)
         end if
     end function module_directory_has_module
+
+    function find_module_dir_from_compile_commands(executable_path) result(module_dir)
+        character(len=*), intent(in) :: executable_path
+        character(len=:), allocatable :: module_dir
+        integer :: unit_num, ios
+        character(len=512) :: line
+        logical :: awaiting_path
+        character(len=:), allocatable :: candidate
+        character(len=1) :: sep
+        character(len=:), allocatable :: commands_path
+        logical :: exists
+
+        module_dir = ''
+        awaiting_path = .false.
+
+        commands_path = 'build/compile_commands.json'
+        inquire (file=trim(commands_path), exist=exists)
+        if (.not. exists) then
+            commands_path = resolve_compile_commands_path(executable_path)
+            if (len_trim(commands_path) == 0) return
+        end if
+
+        open (newunit=unit_num, file=trim(commands_path), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) return
+
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+
+            if (awaiting_path) then
+                candidate = extract_argument_path(line)
+                if (len_trim(candidate) > 0) then
+                    sep = path_separator_for(candidate)
+                    if (module_directory_has_module(candidate, sep)) then
+                        module_dir = trim(candidate)
+                        exit
+                    end if
+                end if
+                awaiting_path = .false.
+            else if (index(line, '"-J"') > 0) then
+                awaiting_path = .true.
+            end if
+        end do
+
+        close (unit_num)
+    end function find_module_dir_from_compile_commands
+
+    function resolve_compile_commands_path(executable_path) result(path)
+        character(len=*), intent(in) :: executable_path
+        character(len=:), allocatable :: path
+        character(len=:), allocatable :: current_dir
+        character(len=:), allocatable :: candidate
+        character(len=1) :: sep
+        logical :: exists
+
+        path = ''
+        current_dir = directory_from_path(executable_path)
+
+        do while (len_trim(current_dir) > 0)
+            sep = path_separator_for(current_dir)
+            candidate = join_path(current_dir, 'compile_commands.json', sep)
+            inquire (file=trim(candidate), exist=exists)
+            if (exists) then
+                path = trim(candidate)
+                return
+            end if
+            current_dir = directory_from_path(current_dir)
+        end do
+
+        inquire (file='compile_commands.json', exist=exists)
+        if (exists) path = 'compile_commands.json'
+    end function resolve_compile_commands_path
+
+    function extract_argument_path(line) result(path)
+        character(len=*), intent(in) :: line
+        character(len=:), allocatable :: path
+        integer :: first_quote, second_quote
+
+        path = ''
+
+        first_quote = index(line, '"')
+        if (first_quote == 0) return
+
+        second_quote = index(line(first_quote + 1:), '"')
+        if (second_quote == 0) return
+
+        second_quote = second_quote + first_quote
+        if (second_quote - first_quote <= 1) return
+
+        path = trim(line(first_quote + 1:second_quote - 1))
+    end function extract_argument_path
+
+    function join_path(base, component, sep) result(path)
+        character(len=*), intent(in) :: base
+        character(len=*), intent(in) :: component
+        character(len=1), intent(in) :: sep
+        character(len=:), allocatable :: path
+        character(len=:), allocatable :: trimmed_base
+        integer :: last_char
+
+        path = ''
+
+        if (len_trim(component) == 0) then
+            path = trim(base)
+            return
+        end if
+
+        trimmed_base = trim(base)
+        if (len(trimmed_base) == 0) then
+            path = trim(component)
+            return
+        end if
+
+        last_char = len(trimmed_base)
+        if (trimmed_base(last_char:last_char) == sep) then
+            path = trimmed_base // trim(component)
+        else
+            path = trimmed_base // sep // trim(component)
+        end if
+    end function join_path
+
+    function directory_from_path(path) result(directory)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable :: directory
+        character(len=:), allocatable :: trimmed_path
+        integer :: sep_pos
+
+        directory = ''
+
+        trimmed_path = trim(path)
+        if (len(trimmed_path) == 0) return
+
+        sep_pos = find_last_separator(trimmed_path)
+        if (sep_pos <= 0) then
+            directory = ''
+        else if (sep_pos == 1) then
+            directory = trimmed_path(1:1)
+        else
+            directory = trim(trimmed_path(1:sep_pos - 1))
+        end if
+    end function directory_from_path
+
+    pure integer function find_last_separator(path) result(position)
+        character(len=*), intent(in) :: path
+        integer :: i
+
+        position = 0
+        do i = len(path), 1, -1
+            if (path(i:i) == '/' .or. path(i:i) == '\') then
+                position = i
+                return
+            end if
+        end do
+    end function find_last_separator
+
+    function path_separator_for(path) result(sep)
+        character(len=*), intent(in) :: path
+        character(len=1) :: sep
+        integer :: pos
+        logical :: is_win
+
+        sep = '/'
+
+        if (len_trim(path) == 0) then
+            is_win = check_if_windows()
+            if (is_win) sep = '\'
+            return
+        end if
+
+        pos = find_last_separator(path)
+        if (pos > 0) then
+            sep = path(pos:pos)
+        else
+            is_win = check_if_windows()
+            if (is_win) sep = '\'
+        end if
+    end function path_separator_for
+
+    logical function set_module_dir_if_exists(base, module_dir)
+        character(len=*), intent(in) :: base
+        character(len=:), allocatable, intent(inout) :: module_dir
+        character(len=1) :: sep
+        character(len=:), allocatable :: candidate
+
+        set_module_dir_if_exists = .false.
+        if (len_trim(base) == 0) return
+
+        sep = path_separator_for(base)
+        if (module_directory_has_module(base, sep)) then
+            module_dir = trim(base)
+            set_module_dir_if_exists = .true.
+            return
+        end if
+
+        candidate = join_path(base, 'build', sep)
+        if (len_trim(candidate) == 0) return
+        if (module_directory_has_module(candidate, sep)) then
+            module_dir = trim(candidate)
+            set_module_dir_if_exists = .true.
+        end if
+    end function set_module_dir_if_exists
 
     function build_compile_command(output_file, module_dir, is_windows) result(command)
         character(len=*), intent(in) :: output_file

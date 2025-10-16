@@ -217,23 +217,27 @@ contains
         integer :: i
         logical :: has_implicit_none
         logical :: references_tooling_api
+        character(len=:), allocatable :: lower_text
+        character(len=:), allocatable :: next_text
 
         has_implicit_none = .false.
         references_tooling_api = .false.
 
         do i = 1, size(tokens)
+            lower_text = to_lower_ascii_local(tokens(i)%text)
             if (tokens(i)%kind == TK_KEYWORD) then
-                if (tokens(i)%text == 'implicit') then
+                if (lower_text == 'implicit') then
                     if (i < size(tokens)) then
                         if (tokens(i + 1)%kind == TK_KEYWORD) then
-                            if (tokens(i + 1)%text == 'none') then
+                            next_text = to_lower_ascii_local(tokens(i + 1)%text)
+                            if (next_text == 'none') then
                                 has_implicit_none = .true.
                             end if
                         end if
                     end if
                 end if
             else if (tokens(i)%kind == TK_IDENTIFIER) then
-                select case (tokens(i)%text)
+                select case (lower_text)
                 case ('tooling_load_ast_from_string', 'tooling_parse_options_t', &
                       'transform_lazy_fortran_string', &
                       'transform_lazy_fortran_string_with_format', &
@@ -245,6 +249,21 @@ contains
 
         is_standard = has_implicit_none .and. references_tooling_api
     end function is_probably_standard_fortran
+
+    pure function to_lower_ascii_local(text) result(lower_text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)) :: lower_text
+        integer :: i
+        integer :: code
+
+        lower_text = text
+        do i = 1, len(text)
+            code = iachar(text(i:i))
+            if (code >= 65 .and. code <= 90) then
+                lower_text(i:i) = achar(code + 32)
+            end if
+        end do
+    end function to_lower_ascii_local
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
