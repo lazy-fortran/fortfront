@@ -237,6 +237,8 @@ contains
                 end if
             end do
             code = code // "(" // args_code // ")"
+        else
+            code = code // "()"
         end if
     end function generate_code_call_or_subscript
 

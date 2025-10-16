@@ -5,7 +5,7 @@ module frontend_core
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
@@ -14,7 +14,8 @@ module frontend_core
     ! Migrated from ast_core: use explicit imports for better dependency management
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
+    use compiler_arena, only: compiler_arena_t, create_compiler_arena, &
+        & destroy_compiler_arena
     use ast_nodes_misc, only: comment_node
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
@@ -28,7 +29,8 @@ module frontend_core
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
                               set_line_length_config, get_line_length_config
-    use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
+    use path_validation, only: validate_input_path, validate_output_path, &
+        & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
 
@@ -71,14 +73,16 @@ contains
         type(path_validation_result_t) :: validation_result
 
         ! Log compilation start with proper logging
-        write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
+        write (error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " &
+            & // input_file
 
         error_msg = ""
 
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
         if (.not. validation_result%is_valid()) then
-            error_msg = "Input path validation failed: " // validation_result%get_message()
+            error_msg = "Input path validation failed: " // &
+                & validation_result%get_message()
             return
         end if
 
@@ -143,6 +147,9 @@ contains
 
         error_msg = ""
         call tokenize_core(source, tokens)
+        if (allocated(tokens)) then
+            call normalize_line_continuations(tokens)
+        end if
     end subroutine lex_file
 
     ! Simple interface functions for clean pipeline usage
@@ -158,6 +165,7 @@ contains
         else
             allocate (character(len=0) :: error_msg)
             error_msg = ""
+            call normalize_line_continuations(tokens)
         end if
     end subroutine lex_source
 
@@ -263,9 +271,11 @@ contains
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-                    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+                    error_msg = error_msg // new_line('a') // "  - " // &
+                        & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+                        error_msg = error_msg // new_line('a') // "    Suggestion: " // &
+                            & ctx%errors%errors(i)%suggestion
                     end if
                 end if
             end if
@@ -273,7 +283,8 @@ contains
 
         ! Add summary if there are more errors
         if (total_errors > 3) then
-            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), &
+                & " more error(s)"
             error_msg = error_msg // new_line('a') // trim(temp_msg)
         end if
     end function get_detailed_semantic_errors
@@ -371,5 +382,134 @@ contains
             lhs%output_file = rhs%output_file
         end if
     end subroutine compilation_options_assign
+
+    ! Normalize free-form line continuations indicated with '&'
+    subroutine normalize_line_continuations(tokens)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), allocatable :: normalized(:)
+        integer :: i, count
+        logical :: suppress_newline
+        logical :: skip_leading_ampersand
+
+        if (.not. allocated(tokens)) return
+        if (size(tokens) == 0) return
+
+        allocate (normalized(size(tokens)))
+        suppress_newline = .false.
+        skip_leading_ampersand = .false.
+        count = 0
+
+        do i = 1, size(tokens)
+            if (should_skip_token(tokens(i), suppress_newline, skip_leading_ampersand)) then
+                cycle
+            end if
+            call append_token(normalized, count, tokens(i))
+        end do
+
+        call finalize_normalized_tokens(tokens, normalized, count)
+    end subroutine normalize_line_continuations
+
+    logical function should_skip_token(token, suppress_newline, skip_leading_ampersand)
+        type(token_t), intent(in) :: token
+        logical, intent(inout) :: suppress_newline
+        logical, intent(inout) :: skip_leading_ampersand
+
+        should_skip_token = .false.
+        select case (token%kind)
+        case (TK_WHITESPACE, TK_COMMENT)
+            if (skip_leading_ampersand) should_skip_token = .true.
+        case (TK_OPERATOR)
+            if (.not. allocated(token%text)) then
+                skip_leading_ampersand = .false.
+                return
+            end if
+            if (.not. is_line_continuation_token(token%text)) then
+                skip_leading_ampersand = .false.
+                return
+            end if
+            if (skip_leading_ampersand) then
+                should_skip_token = .true.
+                return
+            end if
+            skip_leading_ampersand = .true.
+            suppress_newline = .true.
+            should_skip_token = .true.
+        case (TK_NEWLINE)
+            if (suppress_newline) then
+                suppress_newline = .false.
+                should_skip_token = .true.
+            else
+                skip_leading_ampersand = .false.
+            end if
+        case default
+            skip_leading_ampersand = .false.
+        end select
+    end function should_skip_token
+
+    subroutine append_token(buffer, count, token)
+        type(token_t), allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+        type(token_t), intent(in) :: token
+
+        count = count + 1
+        buffer(count) = token
+    end subroutine append_token
+
+    subroutine finalize_normalized_tokens(tokens, normalized, count)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), allocatable, intent(inout) :: normalized(:)
+        integer, intent(in) :: count
+        type(token_t), allocatable :: trimmed(:)
+
+        if (count == size(tokens)) then
+            deallocate (normalized)
+            return
+        end if
+
+        if (count <= 0) then
+            if (allocated(tokens)) deallocate (tokens)
+            allocate (tokens(0))
+            if (allocated(normalized)) deallocate (normalized)
+            return
+        end if
+
+        allocate (trimmed(count))
+        trimmed = normalized(1:count)
+        call move_alloc(trimmed, tokens)
+        if (allocated(normalized)) deallocate (normalized)
+    end subroutine finalize_normalized_tokens
+
+    pure logical function is_line_continuation_token(text) result(is_continuation)
+        character(len=*), intent(in) :: text
+        integer :: idx, n
+        character(len=1) :: ch
+
+        is_continuation = .false.
+        n = len(text)
+        if (n == 0) return
+
+        idx = 1
+        do while (idx <= n)
+            ch = text(idx:idx)
+            if (.not. is_whitespace_char(ch)) exit
+            idx = idx + 1
+        end do
+        if (idx > n) return
+        if (text(idx:idx) /= "&") return
+
+        idx = idx + 1
+        do while (idx <= n)
+            ch = text(idx:idx)
+            if (.not. is_whitespace_char(ch)) return
+            idx = idx + 1
+        end do
+        is_continuation = .true.
+    end function is_line_continuation_token
+
+    pure logical function is_whitespace_char(ch) result(is_ws)
+        character(len=1), intent(in) :: ch
+
+        is_ws = (iachar(ch) <= 32)
+    end function is_whitespace_char
 
 end module frontend_core

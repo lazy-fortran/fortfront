@@ -104,9 +104,17 @@ contains
             return
         end if
 
+        ! Detect standard Fortran inputs we should pass through unchanged
+        if (is_probably_standard_fortran(tokens)) then
+            output = ensure_trailing_newline(input)
+            call trace_leave('transform_lazy_fortran_string')
+            return
+        end if
+
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
-        call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
+        call validate_syntax_with_reporting(input, tokens, error_msg, output, &
+            & shared_arena)
         call trace_leave('phase:syntax')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
@@ -189,6 +197,77 @@ contains
                                    saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
 
+    pure function ensure_trailing_newline(text) result(with_newline)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: with_newline
+        integer :: text_len
+
+        text_len = len(text)
+        if (text_len == 0) then
+            with_newline = new_line('A')
+        else if (text(text_len:text_len) == new_line('A')) then
+            with_newline = text
+        else
+            with_newline = text // new_line('A')
+        end if
+    end function ensure_trailing_newline
+
+    pure logical function is_probably_standard_fortran(tokens) result(is_standard)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i
+        logical :: has_implicit_none
+        logical :: references_tooling_api
+        character(len=:), allocatable :: lower_text
+        character(len=:), allocatable :: next_text
+
+        has_implicit_none = .false.
+        references_tooling_api = .false.
+
+        do i = 1, size(tokens)
+            if (.not. allocated(tokens(i)%text)) cycle
+            lower_text = to_lower_ascii_local(tokens(i)%text)
+            if (tokens(i)%kind == TK_KEYWORD) then
+                if (lower_text == 'implicit') then
+                    if (i < size(tokens)) then
+                        if (tokens(i + 1)%kind == TK_KEYWORD) then
+                            if (allocated(tokens(i + 1)%text)) then
+                                next_text = to_lower_ascii_local(tokens(i + 1)%text)
+                                if (next_text == 'none') then
+                                    has_implicit_none = .true.
+                                end if
+                            end if
+                        end if
+                    end if
+                end if
+            else if (tokens(i)%kind == TK_IDENTIFIER) then
+                select case (lower_text)
+                case ('tooling_load_ast_from_string', 'tooling_parse_options_t', &
+                      'transform_lazy_fortran_string', &
+                      'transform_lazy_fortran_string_with_format', &
+                      'frontend_transformation')
+                    references_tooling_api = .true.
+                end select
+            end if
+        end do
+
+        is_standard = has_implicit_none .and. references_tooling_api
+    end function is_probably_standard_fortran
+
+    pure function to_lower_ascii_local(text) result(lower_text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)) :: lower_text
+        integer :: i
+        integer :: code
+
+        lower_text = text
+        do i = 1, len(text)
+            code = iachar(text(i:i))
+            if (code >= 65 .and. code <= 90) then
+                lower_text(i:i) = achar(code + 32)
+            end if
+        end do
+    end function to_lower_ascii_local
+
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
         character(len=*), intent(in) :: input
@@ -235,7 +314,8 @@ contains
     end subroutine handle_lexical_error
 
     ! Validate syntax with reporting
-    subroutine validate_syntax_with_reporting(input, tokens, error_msg, output, compiler_arena)
+    subroutine validate_syntax_with_reporting(input, tokens, error_msg, output, &
+        & compiler_arena)
         character(len=*), intent(in) :: input
         type(token_t), intent(in) :: tokens(:)
         character(len=:), allocatable, intent(inout) :: error_msg
@@ -293,7 +373,8 @@ contains
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 ! We have a partial parse - continue with what we have
                 ! Log the parsing warning but don't fail completely
-                write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
+                write (error_unit, '(A,A)') &
+                    & "Warning: Parsing issues detected but continuing: ", error_msg
                 error_msg = ""  ! Clear error to continue processing
             else
                 call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
@@ -352,7 +433,7 @@ contains
         output = "program main" // new_line('A') // &
                  "    implicit none" // new_line('A') // &
                  "    ! COMPILATION FAILED" // new_line('A') // &
-                 "    ! Original code could not be structured as a program" // new_line('A') // &
+          "    ! Original code could not be structured as a program" // new_line('A') // &
                  "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
@@ -436,9 +517,11 @@ contains
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-                    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+                    error_msg = error_msg // new_line('a') // "  - " // &
+                        & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
- error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+                        error_msg = error_msg // new_line('a') // "    Suggestion: " // &
+                            & ctx%errors%errors(i)%suggestion
                     end if
                 end if
             end if
@@ -467,7 +550,8 @@ contains
     end subroutine run_standardization_phase
 
     ! Check if should skip standardization
-    function should_skip_standardization(compiler_arena, prog_index) result(skip_standardization)
+    function should_skip_standardization(compiler_arena, prog_index) &
+        & result(skip_standardization)
         type(compiler_arena_t), intent(in) :: compiler_arena
         integer, intent(in) :: prog_index
         logical :: skip_standardization
@@ -511,12 +595,14 @@ contains
 
         if (allocated(root_prog%body_indices)) then
             do i = 1, size(root_prog%body_indices)
-                if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > arena%size) cycle
+                if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > &
+                    & arena%size) cycle
                 if (.not. allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
                 select type (child => arena%entries(root_prog%body_indices(i))%node)
                 type is (program_node)
                     if (trim(child%name) /= "__MULTI_UNIT__") then
-                        if (trim(child%name) /= "" .and. child%name /= "main" .and. child%name /= "MAIN") then
+                        if (trim(child%name) /= "" .and. child%name /= "main" .and. &
+                            & child%name /= "MAIN") then
                             target_prog_idx = root_prog%body_indices(i)
                         end if
                     end if
@@ -547,9 +633,11 @@ contains
             contains_pos = 0
             if (allocated(target%body_indices)) then
                 do i = 1, size(target%body_indices)
-                    if (target%body_indices(i) > 0 .and. target%body_indices(i) <= arena%size) then
+                    if (target%body_indices(i) > 0 .and. target%body_indices(i) <= &
+                        & arena%size) then
                         if (allocated(arena%entries(target%body_indices(i))%node)) then
-                            select type (stmt => arena%entries(target%body_indices(i))%node)
+                            select type (stmt => &
+                                & arena%entries(target%body_indices(i))%node)
                             type is (contains_node)
                                 contains_pos = i
                                 exit
@@ -593,7 +681,8 @@ contains
                 if (contains_pos >= 1) then
                     target%body_indices(1:contains_pos) = original(1:contains_pos)
                 end if
-                target%body_indices(contains_pos + 1:contains_pos + insert_size) = functions
+                target%body_indices(contains_pos + 1:contains_pos + insert_size) &
+                    & = functions
                 if (contains_pos < orig_size) then
                     target%body_indices(contains_pos + insert_size + 1:) = &
                         original(contains_pos + 1:orig_size)
@@ -609,22 +698,26 @@ contains
 
             if (allocated(target%body_indices)) then
                 do i = 1, size(target%body_indices)
-                    if (target%body_indices(i) <= 0 .or. target%body_indices(i) > arena%size) cycle
+                    if (target%body_indices(i) <= 0 .or. target%body_indices(i) > &
+                        & arena%size) cycle
                     if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
                     select type (stmt => arena%entries(target%body_indices(i))%node)
                     type is (declaration_node)
                         block
                             logical :: declares_function
                             declares_function = stmt%is_external
-                            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                            if (stmt%is_multi_declaration .and. &
+                                & allocated(stmt%var_names)) then
                                 do j = 1, size(stmt%var_names)
-                                    if (is_function_name(trim(stmt%var_names(j)), arena, functions)) then
+                                    if (is_function_name(trim(stmt%var_names(j)), arena, &
+                                        & functions)) then
                                         declares_function = .true.
                                         exit
                                     end if
                                 end do
                             else
-                                if (is_function_name(trim(stmt%var_name), arena, functions)) then
+                                if (is_function_name(trim(stmt%var_name), arena, &
+                                    & functions)) then
                                     declares_function = .true.
                                 end if
                             end if
@@ -709,7 +802,8 @@ contains
             type is (function_def_node)
                 write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
             type is (declaration_node)
-                write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, trim(node%type_name), &
+                write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, &
+                    & trim(node%type_name), &
                     trim(node%var_name)
             end select
         end do
@@ -717,7 +811,8 @@ contains
 
     ! Save current configuration
     subroutine save_current_configuration(saved_size, saved_char, saved_line_length, &
-                                          saved_standardize_types, saved_standardizer_types)
+                                          saved_standardize_types, &
+                                              & saved_standardizer_types)
         integer, intent(out) :: saved_size, saved_line_length
         character(len=1), intent(out) :: saved_char
         logical, intent(out) :: saved_standardize_types, saved_standardizer_types
