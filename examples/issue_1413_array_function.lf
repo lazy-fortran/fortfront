@@ -1,0 +1,8 @@
+! Issue #1413: Array-valued function results collapsed to scalar
+function create_vector()
+    implicit none
+    real, dimension(3) :: create_vector
+    create_vector = (/1.0, 2.0, 3.0/)
+end function create_vector
+
+print *, create_vector()

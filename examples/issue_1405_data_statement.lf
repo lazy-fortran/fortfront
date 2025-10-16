@@ -1,0 +1,4 @@
+! Issue #1405: DATA statements are dropped during transformation
+common_array = 0
+DATA common_array /1, 2, 3/
+print *, common_array(1)

@@ -1,0 +1,5 @@
+! Issue #1410: Pointer initialization rewritten incorrectly
+integer, pointer :: p => null()
+allocate(p)
+p = 5
+print *, p

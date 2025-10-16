@@ -1,0 +1,5 @@
+! Issue #1406: NAMELIST declarations removed during transformation
+real :: temperature
+namelist /weather/ temperature
+temperature = 285.5
+print *, temperature

@@ -13,3 +13,13 @@
 
 # Silent bugs (compile successfully but produce wrong code - cannot be detected by test)
 # These are commented out to avoid XPASS, but documented here for reference:
+issue_1405_data_statement.lf      # Issue #1405: DATA statement dropped
+# issue_1406_namelist.lf         # Issue #1406: NAMELIST declaration lost (XPASS: manual verification still fails)
+issue_1407_character_function.lf   # Issue #1407: Character function result mishandled
+# issue_1408_module_visibility.lf # Issue #1408: Module visibility clauses dropped (XPASS: manual inspection confirms loss)
+issue_1409_use_rename.f90        # Issue #1409: USE renaming rewritten incorrectly
+issue_1410_pointer_null.lf    # Issue #1410: Pointer => null() rewritten as = null
+# issue_1411_generic_module.lf  # Issue #1411: Top-level statements dropped with generic interface (XPASS: reproducer stored)
+# issue_1412_iso_only.lf        # Issue #1412: USE, intrinsic ONLY list dropped (XPASS: transformer still wrong)
+issue_1413_array_function.lf # Issue #1413: Array function result collapsed to scalar
+# issue_1414_implied_do.lf      # Issue #1414: Implied DO in IO expanded incorrectly (XPASS: compare manual output)
