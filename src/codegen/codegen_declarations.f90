@@ -521,8 +521,31 @@ contains
         ! Add initializer if present
         if (node%initializer_index > 0 .and. node%initializer_index <= arena%size) then
             init_code = generate_code_from_arena(arena, node%initializer_index)
-            code = code // " = " // init_code
+            if (node%is_pointer) then
+                if (to_lower_ascii_decl(trim(init_code)) == "null") then
+                    init_code = "null()"
+                end if
+                code = code // " => " // init_code
+            else
+                code = code // " = " // init_code
+            end if
         end if
+    contains
+
+        pure function to_lower_ascii_decl(text) result(lower_text)
+            character(len=*), intent(in) :: text
+            character(len=len(text)) :: lower_text
+            integer :: idx
+            integer :: char_code
+
+            lower_text = text
+            do idx = 1, len(text)
+                char_code = iachar(lower_text(idx:idx))
+                if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
+                    lower_text(idx:idx) = achar(char_code + iachar('a') - iachar('A'))
+                end if
+            end do
+        end function to_lower_ascii_decl
     end function generate_code_declaration
 
     ! Generate code for parameter declarations
