@@ -939,16 +939,127 @@ contains
             body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
                                                            context_has_executable_before_contains)
 
-            if (index(code, 'use iso_fortran_env') == 0) then
-                if (index(body_code, 'output_unit') > 0) then
-                    block
-                        integer :: header_end
+            if (index(body_code, 'output_unit') > 0) then
+                block
+                    integer :: search_pos
+                    integer :: iso_pos
+                    integer :: line_start
+                    integer :: line_end
+                    integer :: header_end
+                    integer :: comment_pos
+                    logical :: has_iso_line
+                    logical :: iso_has_only
+                    logical :: iso_has_output
+                    character(len=:), allocatable :: prefix
+                    character(len=:), allocatable :: suffix
+                    character(len=:), allocatable :: iso_line
+                    character(len=:), allocatable :: iso_comment
+                    character(len=:), allocatable :: trimmed_line
+
+                    has_iso_line = .false.
+                    search_pos = 1
+
+                    do
+                        iso_pos = index(code(search_pos:), 'iso_fortran_env')
+                        if (iso_pos == 0) exit
+                        iso_pos = search_pos + iso_pos - 1
+
+                        line_start = iso_pos
+                        do while (line_start > 1 .and. code(line_start - 1:line_start - 1) &
+                                  /= new_line('A'))
+                            line_start = line_start - 1
+                        end do
+
+                        line_end = iso_pos
+                        do while (line_end <= len(code) .and. code(line_end:line_end) &
+                                  /= new_line('A'))
+                            line_end = line_end + 1
+                        end do
+
+                        has_iso_line = .true.
+
+                        if (line_end > len(code)) then
+                            iso_line = code(line_start:)
+                        else
+                            iso_line = code(line_start:line_end - 1)
+                        end if
+
+                        iso_has_only = index(to_lower_ascii_local(iso_line), 'only:') > 0
+                        iso_has_output = index(to_lower_ascii_local(iso_line), 'output_unit') > 0
+
+                        if (iso_has_only .and. .not. iso_has_output) then
+                            if (line_start > 1) then
+                                prefix = code(1:line_start - 1)
+                            else
+                                prefix = ''
+                            end if
+
+                            if (line_end <= len(code)) then
+                                if (line_end < len(code)) then
+                                    suffix = code(line_end + 1:)
+                                else
+                                    suffix = ''
+                                end if
+                            else
+                                suffix = ''
+                            end if
+
+                            comment_pos = scan(iso_line, '!')
+                            if (comment_pos > 0) then
+                                if (comment_pos > 1) then
+                                    trimmed_line = iso_line(1:comment_pos - 1)
+                                else
+                                    trimmed_line = ''
+                                end if
+                                iso_comment = iso_line(comment_pos:)
+                            else
+                                trimmed_line = iso_line
+                                iso_comment = ''
+                            end if
+
+                            if (len_trim(trimmed_line) > 0) then
+                                trimmed_line = trimmed_line(1:len_trim(trimmed_line))
+                            end if
+
+                            iso_line = trimmed_line // ', output_unit'
+                            if (len_trim(iso_comment) > 0) then
+                                iso_line = iso_line // ' ' // iso_comment
+                            end if
+
+                            code = prefix // iso_line // new_line('A') // suffix
+                            iso_has_output = .true.
+                        end if
+
+                        if (.not. iso_has_only .or. iso_has_output) exit
+
+                        if (line_end <= len(code)) then
+                            search_pos = line_end + 1
+                        else
+                            exit
+                        end if
+                    end do
+
+                    if (.not. has_iso_line) then
                         header_end = index(code, new_line('A'))
                         if (header_end <= 0) header_end = len(code)
-                        code = code(1:header_end) // '    use iso_fortran_env, only: output_unit' // &
-                               new_line('A') // code(header_end + 1:)
-                    end block
-                end if
+
+                        if (header_end > 0) then
+                            prefix = code(1:header_end)
+                        else
+                            prefix = ''
+                        end if
+
+                        if (header_end < len(code)) then
+                            suffix = code(header_end + 1:)
+                        else
+                            suffix = ''
+                        end if
+
+                        code = prefix // &
+                               '    use, intrinsic :: iso_fortran_env, only: output_unit' // &
+                               new_line('A') // suffix
+                    end if
+                end block
             end if
 
             ! Check if body contains implied do loops and add loop variables after implicit none
@@ -1082,6 +1193,23 @@ contains
 
         ! Program end
         code = code // "end program " // node%name
+    contains
+
+        pure function to_lower_ascii_local(text) result(lower_text)
+            character(len=*), intent(in) :: text
+            character(len=len(text)) :: lower_text
+            integer :: i
+            integer :: char_code
+
+            lower_text = text
+            do i = 1, len(text)
+                char_code = iachar(lower_text(i:i))
+                if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
+                    lower_text(i:i) = achar(char_code + 32)
+                end if
+            end do
+        end function to_lower_ascii_local
+
     end function generate_code_program
 
     logical function program_is_trivial_wrapper(arena, prog_index, name) result(is_trivial)
