@@ -8,6 +8,7 @@ module ast_nodes_io
 
     ! Public factory functions
     public :: create_print_statement
+    public :: create_io_implied_do
 
     ! I/O statement AST nodes
 
@@ -21,6 +22,20 @@ module ast_nodes_io
         procedure :: assign => print_statement_assign
         generic :: assignment(=) => assign
     end type print_statement_node
+
+    ! I/O implied-do node used within I/O lists
+    type, extends(ast_node), public :: io_implied_do_node
+        integer :: expr_index = 0
+        character(len=:), allocatable :: var_name
+        integer :: start_expr_index = 0
+        integer :: end_expr_index = 0
+        integer :: step_expr_index = 0
+    contains
+        procedure :: accept => io_implied_do_accept
+        procedure :: to_json => io_implied_do_to_json
+        procedure :: assign => io_implied_do_assign
+        generic :: assignment(=) => assign
+    end type io_implied_do_node
 
     ! Write statement node
     type, extends(ast_node), public :: write_statement_node
@@ -113,6 +128,40 @@ contains
         end if
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
     end subroutine print_statement_assign
+
+    ! Stub implementations for io_implied_do_node
+    subroutine io_implied_do_accept(this, visitor)
+        class(io_implied_do_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine io_implied_do_accept
+
+    subroutine io_implied_do_to_json(this, json, parent)
+        class(io_implied_do_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine io_implied_do_to_json
+
+    subroutine io_implied_do_assign(lhs, rhs)
+        class(io_implied_do_node), intent(inout) :: lhs
+        class(io_implied_do_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%expr_index = rhs%expr_index
+        if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
+        lhs%start_expr_index = rhs%start_expr_index
+        lhs%end_expr_index = rhs%end_expr_index
+        lhs%step_expr_index = rhs%step_expr_index
+    end subroutine io_implied_do_assign
 
     ! Stub implementations for write_statement_node
     subroutine write_statement_accept(this, visitor)
@@ -232,7 +281,8 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (allocated(this%descriptor_type)) call json%add(obj, &
-                                                           'descriptor_type', this%descriptor_type)
+                                                           'descriptor_type', &
+                                                           this%descriptor_type)
         call json%add(obj, 'width', this%width)
         call json%add(obj, 'decimal_places', this%decimal_places)
         call json%add(obj, 'exponent_width', this%exponent_width)
@@ -288,5 +338,25 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_print_statement
+
+    function create_io_implied_do(expr_index, var_name, start_expr_index, &
+                                  end_expr_index, step_expr_index, line, column) &
+        result(node)
+        integer, intent(in) :: expr_index
+        character(len=*), intent(in) :: var_name
+        integer, intent(in) :: start_expr_index, end_expr_index
+        integer, intent(in), optional :: step_expr_index
+        integer, intent(in), optional :: line, column
+        type(io_implied_do_node) :: node
+
+        node%uid = generate_uid()
+        node%expr_index = expr_index
+        node%var_name = var_name
+        node%start_expr_index = start_expr_index
+        node%end_expr_index = end_expr_index
+        if (present(step_expr_index)) node%step_expr_index = step_expr_index
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_io_implied_do
 
 end module ast_nodes_io

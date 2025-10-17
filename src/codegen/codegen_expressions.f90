@@ -8,6 +8,7 @@ module codegen_expressions
                                 range_expression_node
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
+    use ast_nodes_io, only: io_implied_do_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -28,6 +29,7 @@ module codegen_expressions
     public :: generate_code_array_bounds
     public :: generate_code_array_slice
     public :: generate_code_array_operation
+    public :: generate_code_io_implied_do
     public :: generate_code_implied_do
     public :: get_operator_precedence
     public :: needs_parentheses
@@ -711,6 +713,46 @@ contains
             code = "[integer ::]"
         end select
     end function generate_implied_do_array
+
+    function generate_code_io_implied_do(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(io_implied_do_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: expr_code
+        character(len=:), allocatable :: start_code, end_code, step_code
+
+        expr_code = ""
+        if (node%expr_index > 0) then
+            expr_code = generate_code_from_arena(arena, node%expr_index)
+            expr_code = trim(expr_code)
+        end if
+
+        if (node%start_expr_index > 0) then
+            start_code = generate_code_from_arena(arena, node%start_expr_index)
+            start_code = trim(start_code)
+        else
+            start_code = "1"
+        end if
+
+        if (node%end_expr_index > 0) then
+            end_code = generate_code_from_arena(arena, node%end_expr_index)
+            end_code = trim(end_code)
+        else
+            end_code = "1"
+        end if
+
+        if (node%step_expr_index > 0) then
+            step_code = generate_code_from_arena(arena, node%step_expr_index)
+            step_code = trim(step_code)
+            code = "(" // trim(expr_code) // ", " // trim(node%var_name) // " = " // &
+                   trim(start_code) // ", " // trim(end_code) // ", " // &
+                   trim(step_code) // ")"
+        else
+            code = "(" // trim(expr_code) // ", " // trim(node%var_name) // " = " // &
+                   trim(start_code) // ", " // trim(end_code) // ")"
+        end if
+    end function generate_code_io_implied_do
 
     ! Get operator precedence (higher number = higher precedence)
     function get_operator_precedence(op) result(precedence)
