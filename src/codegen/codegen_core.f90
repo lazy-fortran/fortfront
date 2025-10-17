@@ -10,10 +10,12 @@ module codegen_core
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
                               parameter_declaration_node, module_node, derived_type_node
-    use ast_nodes_bounds, only: range_expression_node, array_bounds_node, array_slice_node, &
+    use ast_nodes_bounds, only: range_expression_node, array_bounds_node, &
+                                array_slice_node, &
                                 array_operation_node
     use ast_nodes_core, only: range_subscript_node, literal_node, identifier_node, &
-                              binary_op_node, call_or_subscript_node, array_literal_node, &
+                              binary_op_node, call_or_subscript_node, &
+                              array_literal_node, &
                               assignment_node, program_node, component_access_node
     use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node
@@ -62,6 +64,8 @@ contains
             code = generate_code_component_access(arena, node, node_index)
         type is (array_literal_node)
             code = generate_code_array_literal(arena, node, node_index)
+        type is (io_implied_do_node)
+            code = generate_code_io_implied_do(arena, node, node_index)
         type is (complex_literal_node)
             code = generate_code_complex_literal(arena, node, node_index)
         type is (range_expression_node)
@@ -320,7 +324,8 @@ contains
     end subroutine initialize_codegen
 
     ! Generate code for mixed construct containers
-    function generate_code_mixed_construct_container(arena, node, node_index) result(code)
+    function generate_code_mixed_construct_container(arena, node, node_index) &
+        result(code)
         type(ast_arena_t), intent(in) :: arena
         type(mixed_construct_container_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -339,7 +344,9 @@ contains
                         code = code // new_line('A') // new_line('A')
                     end if
 
-                    code = code // codegen_core_generate_arena(arena, node%explicit_program_indices(i))
+                    code = code // &
+                        codegen_core_generate_arena(arena, &
+                        node%explicit_program_indices(i))
                 end if
             end do
         end if
@@ -354,7 +361,9 @@ contains
                         code = code // new_line('A') // new_line('A')
                     end if
 
-                    code = code // codegen_core_generate_arena(arena, node%implicit_declaration_indices(i))
+                    code = code // &
+                        codegen_core_generate_arena(arena, &
+                        node%implicit_declaration_indices(i))
                 end if
             end do
         end if
