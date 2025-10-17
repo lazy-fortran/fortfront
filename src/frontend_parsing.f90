@@ -20,8 +20,10 @@ module frontend_parsing
     use frontend_program_units, only: parse_program_unit, parse_module_unit, &
                                       parse_function_unit, parse_subroutine_unit, &
                                       parse_type_unit, parse_explicit_program_unit, &
-                                      parse_implicit_main_program, not_meaningful_program_unit, &
-                                      has_any_non_comment_content, has_executable_statements
+                                      parse_implicit_main_program, &
+                                      not_meaningful_program_unit, &
+                                      has_any_non_comment_content, &
+                                      has_executable_statements
     use frontend_statement_processing, only: parse_all_statements, &
                                              process_comment_statement, &
                                              process_regular_statement, &
@@ -165,7 +167,8 @@ contains
             end if
         else
             ! Multiple units
-            call handle_multiple_program_units(arena, unit_indices, prog_index, error_msg)
+            call handle_multiple_program_units(arena, unit_indices, &
+                                               prog_index, error_msg)
         end if
     end subroutine parse_tokens
 
@@ -198,7 +201,8 @@ contains
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (tokens(i)%text == "program" .or. tokens(i)%text == "module" .or. &
-                    tokens(i)%text == "function" .or. tokens(i)%text == "subroutine") then
+                    tokens(i)%text == "function" .or. tokens(i)%text == &
+                    "subroutine") then
                     has_explicit_program_unit = .true.
                     exit
                 end if
@@ -243,7 +247,8 @@ contains
         if (i <= size(tokens)) then
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (tokens(i)%text == "program" .or. tokens(i)%text == "module" .or. &
-                   tokens(i)%text == "function" .or. tokens(i)%text == "subroutine" .or. &
+                    tokens(i)%text == "function" .or. tokens(i)%text == &
+                    "subroutine" .or. &
                     tokens(i)%text == "type") then
                     is_start = .true.
                 end if
@@ -252,7 +257,8 @@ contains
     end function is_program_unit_start
 
     ! Check if unit has meaningful content
-    function unit_has_meaningful_content(tokens, unit_start, unit_end) result(has_content)
+    function unit_has_meaningful_content(tokens, unit_start, unit_end) &
+        result(has_content)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: unit_start, unit_end
         logical :: has_content
@@ -367,8 +373,13 @@ contains
                         end if
                     else if (to_lower(trim(tokens(i)%text)) == "module" .and. &
                              .not. in_module_contains) then
-                        ! Nested module (rare but possible)
-                        nesting_level = nesting_level + 1
+                        ! Nested module (rare but possible) - ensure this isn't part of
+                        ! "module procedure" or similar interface syntax (issue #1411)
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                                nesting_level = nesting_level + 1
+                            end if
+                        end if
                     end if
                 end if
                 unit_end = i
@@ -399,7 +410,8 @@ contains
                         end if
                         ! Also handle standalone "end" for simple procedures
                         if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
-                                                   tokens(i + 1)%kind /= TK_KEYWORD)) then
+                                                    tokens(i + 1)%kind /= &
+                                                    TK_KEYWORD)) then
                             unit_end = i
                             exit
                         end if
