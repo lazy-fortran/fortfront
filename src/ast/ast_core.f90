@@ -64,7 +64,7 @@ module ast_core
                             create_print_statement
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
                               deallocate_statement_node, &
-                              use_statement_node, include_statement_node, &
+                              use_statement_node, visibility_statement_node, include_statement_node, &
                               contains_node, interface_block_node, &
                               comment_node, blank_line_node, implicit_statement_node, &
                               end_statement_node, &
@@ -101,7 +101,7 @@ module ast_core
               read_statement_node, format_descriptor_node
     public :: complex_literal_node, allocate_statement_node, &
               deallocate_statement_node
-    public :: use_statement_node, include_statement_node, contains_node, &
+    public :: use_statement_node, visibility_statement_node, include_statement_node, contains_node, &
               interface_block_node, comment_node, blank_line_node, end_statement_node
     public :: array_bounds_node, array_slice_node, range_expression_node, &
               array_operation_node
@@ -124,7 +124,7 @@ module ast_core
     public :: create_identifier, create_literal, create_binary_op, &
               create_call_or_subscript, &
               create_assignment, create_program, create_subroutine_call, &
-              create_use_statement, create_implicit_statement, &
+              create_use_statement, create_visibility_statement, create_implicit_statement, &
               create_include_statement, create_interface_block, create_module, &
               create_stop, &
               create_return, create_goto, create_error_stop, &

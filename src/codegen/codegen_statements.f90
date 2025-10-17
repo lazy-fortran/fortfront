@@ -25,6 +25,7 @@ module codegen_statements
     public :: generate_code_cycle
     public :: generate_code_exit
     public :: generate_code_use_statement
+    public :: generate_code_visibility_statement
     public :: generate_code_implicit_statement
     public :: generate_code_comment
     public :: generate_code_blank_line
@@ -333,6 +334,30 @@ contains
             end if
         end if
     end function generate_code_use_statement
+
+    function generate_code_visibility_statement(node) result(code)
+        type(visibility_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+
+        if (node%is_private) then
+            code = "private"
+        else
+            code = "public"
+        end if
+
+        if (node%has_list .and. allocated(node%names)) then
+            code = code // " :: "
+            do i = 1, size(node%names)
+                if (i > 1) code = code // ", "
+                if (allocated(node%names(i)%s)) then
+                    code = code // trim(node%names(i)%s)
+                end if
+            end do
+        else if (node%has_double_colon) then
+            code = code // " ::"
+        end if
+    end function generate_code_visibility_statement
 
     ! Generate code for implicit statements
     function generate_code_implicit_statement(node) result(code)
