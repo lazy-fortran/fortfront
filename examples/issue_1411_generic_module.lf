@@ -15,12 +15,12 @@ contains
 
     function double_real(x)
         implicit none
-        real, intent(in) :: x
-        real :: double_real
-        double_real = 2.0 * x
+        real(8), intent(in) :: x
+        real(8) :: double_real
+        double_real = 2.0d0 * x
     end function double_real
 end module scalar_ops
 
 use scalar_ops
 print *, double_it(3)
-print *, double_it(1.5)
+print *, double_it(1.5d0)
