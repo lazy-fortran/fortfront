@@ -25,12 +25,14 @@ contains
     ! Create use statement node and add to stack
     function push_use_statement(arena, module_name, only_list, rename_list, &
                                 has_only, line, column, parent_index, &
-                                url_spec) result(use_index)
+                                url_spec, has_double_colon, is_intrinsic, &
+                                is_non_intrinsic) result(use_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
+        logical, intent(in), optional :: has_double_colon, is_intrinsic, is_non_intrinsic
         integer, intent(in), optional :: line, column, parent_index
         integer :: use_index
         type(use_statement_node) :: use_stmt
@@ -40,6 +42,9 @@ contains
         use_stmt%module_name = module_name
         if (present(url_spec)) use_stmt%url_spec = url_spec
         if (present(has_only)) use_stmt%has_only = has_only
+        if (present(has_double_colon)) use_stmt%has_double_colon = has_double_colon
+        if (present(is_intrinsic)) use_stmt%is_intrinsic = is_intrinsic
+        if (present(is_non_intrinsic)) use_stmt%is_non_intrinsic = is_non_intrinsic
         if (present(only_list)) then
             if (size(only_list) > 0) then
                 allocate (use_stmt%only_list(size(only_list)))

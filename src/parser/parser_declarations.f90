@@ -716,7 +716,7 @@ contains
         case ("character")
             call parse_parenthesized_character(parser, type_spec)
         case default
-            call skip_parenthesized_content(parser)
+            call capture_parenthesized_content(parser, type_spec)
         end select
     end subroutine parse_parenthesized_spec
 
@@ -876,9 +876,12 @@ contains
         end if
     end subroutine consume_comma_if_present
 
-    subroutine skip_parenthesized_content(parser)
+    subroutine capture_parenthesized_content(parser, type_spec)
         type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t), intent(inout) :: type_spec
         type(token_t) :: token
+        type(token_t), allocatable :: collected_tokens(:)
+        character(len=:), allocatable :: collected_text
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -886,10 +889,20 @@ contains
                 token = parser%consume()
                 exit
             end if
+            call append_token(collected_tokens, token)
             token = parser%consume()
             call consume_comma_if_present(parser)
         end do
-    end subroutine skip_parenthesized_content
+
+        if (allocated(collected_tokens)) then
+            collected_text = tokens_to_text(collected_tokens)
+            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
+                                  trim(adjustl(collected_text)) // ")"
+            deallocate (collected_tokens)
+        else
+            type_spec%type_name = trim(type_spec%base_keyword) // "()"
+        end if
+    end subroutine capture_parenthesized_content
 
     ! Parse type specifier (e.g., "integer(kind=8)", "character(len=*)")
     function parse_type_specifier(parser, arena) result(type_spec)
