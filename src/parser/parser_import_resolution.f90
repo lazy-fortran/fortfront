@@ -208,6 +208,7 @@ contains
         character(len=:), allocatable :: only_list(:)
         character(len=:), allocatable :: rename_list(:)
         logical :: has_only, is_valid_url
+        logical :: has_double_colon, intrinsic_nature, non_intrinsic_nature
         integer :: line, column
 
         ! Consume 'use' keyword
@@ -215,12 +216,46 @@ contains
         line = token%line
         column = token%column
 
+        has_double_colon = .false.
+        intrinsic_nature = .false.
+        non_intrinsic_nature = .false.
+
         ! Get module name (can be identifier or string for Go-style imports)
         token = parser%peek()
+
+        ! Handle optional comma with module nature or double colon
+        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+            token = parser%consume()  ! consume ','
+            token = parser%peek()
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) then
+                block
+                    character(len=:), allocatable :: attr_text
+                    attr_text = to_lower_ascii_token(token%text)
+                    if (attr_text == "intrinsic") then
+                        intrinsic_nature = .true.
+                        token = parser%consume()
+                    else if (attr_text == "non_intrinsic") then
+                        non_intrinsic_nature = .true.
+                        token = parser%consume()
+                    end if
+                end block
+                token = parser%peek()
+            end if
+            if (token%kind == TK_OPERATOR .and. token%text == "::") then
+                token = parser%consume()
+                has_double_colon = .true.
+            end if
+            token = parser%peek()
+        else if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
+            has_double_colon = .true.
+            token = parser%peek()
+        end if
+
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
             module_name = token%text
-            url_spec = ""  ! No URL for regular imports
+            if (allocated(url_spec)) deallocate (url_spec)
         else if (token%kind == TK_STRING) then
             ! Go-style import with URL
             token = parser%consume()
@@ -286,9 +321,19 @@ contains
             allocate (character(len=0) :: rename_list(0))
         end if
 
-        ! Create use statement node
-        stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
-                                        has_only, line, column, url_spec=url_spec)
+        ! Create use statement node (conditionally include URL spec)
+        if (allocated(url_spec)) then
+            stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
+                                            has_only, line, column, url_spec=url_spec, &
+                                            has_double_colon=has_double_colon, &
+                                            is_intrinsic=intrinsic_nature, &
+                                            is_non_intrinsic=non_intrinsic_nature)
+        else
+            stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
+                                            has_only, line, column, has_double_colon=has_double_colon, &
+                                            is_intrinsic=intrinsic_nature, &
+                                            is_non_intrinsic=non_intrinsic_nature)
+        end if
     end function parse_use_statement
 
     function parse_include_statement(parser, arena) result(stmt_index)

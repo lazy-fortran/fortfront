@@ -44,10 +44,18 @@ program test_parser_type_hints
         stop 1
     end if
 
-    if (trim(ctx%parser_type_hints(1)%type_name) /= 'real') then
-        write (error_unit, '(a)') 'ERROR: recorded type name is incorrect'
-        stop 1
-    end if
+    block
+        character(len=:), allocatable :: recorded
+        recorded = trim(ctx%parser_type_hints(1)%type_name)
+        if (index(recorded, 'real') /= 1) then
+            write (error_unit, '(a)') 'ERROR: recorded type name missing real prefix'
+            stop 1
+        end if
+        if (index(recorded, 'kind=8') == 0) then
+            write (error_unit, '(a)') 'ERROR: recorded type name missing kind qualifier'
+            stop 1
+        end if
+    end block
 
     if (.not. ctx%parser_type_hints(1)%is_allocatable) then
         write (error_unit, '(a)') 'ERROR: allocatable attribute missing from annotation'
