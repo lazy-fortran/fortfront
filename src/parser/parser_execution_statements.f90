@@ -26,6 +26,7 @@ module parser_execution_statements_module
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
     use parser_call_module, only: parse_call_statement
+    use parser_import_statements_module, only: parse_use_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement
@@ -110,7 +111,8 @@ contains
             ! Check for 'end program'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "program") then
                         ! Found 'end program', consume both tokens
                         token = parser%consume()  ! end
@@ -158,7 +160,8 @@ contains
                         else
                             call prefix_buffer%clear()
                         end if
-                      stmt_index = parse_function_definition(parser, arena, prefix_buffer)
+                        stmt_index = parse_function_definition(parser, arena, &
+                                                               prefix_buffer)
                         call prefix_buffer%clear()
                     case ("subroutine")
                         if (allocated(pending_prefixes)) then
@@ -167,7 +170,8 @@ contains
                         else
                             call prefix_buffer%clear()
                         end if
-                    stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+                        stmt_index = parse_subroutine_definition(parser, arena, &
+                                                                 prefix_buffer)
                         call prefix_buffer%clear()
                     case ("implicit")
                         if (allocated(pending_prefixes)) then
@@ -194,6 +198,12 @@ contains
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_print_statement(parser, arena)
+                    case ("use")
+                        if (allocated(pending_prefixes)) then
+                            deallocate (pending_prefixes)
+                            call prefix_buffer%clear()
+                        end if
+                        stmt_index = parse_use_statement(parser, arena)
                     case ("write")
                         if (allocated(pending_prefixes)) then
                             deallocate (pending_prefixes)
