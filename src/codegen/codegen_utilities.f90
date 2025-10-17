@@ -168,7 +168,8 @@ contains
     end function can_group_parameters
 
     ! Check if declarations can be grouped considering parameter mapping
-    function can_group_declarations_with_params(node1, node2, param_map) result(can_group)
+    function can_group_declarations_with_params(node1, node2, param_map) &
+        result(can_group)
         type(declaration_node), intent(in) :: node1, node2
         type(parameter_info_t), intent(in) :: param_map(:)
         logical :: can_group
@@ -314,17 +315,21 @@ contains
                             cycle
                         end if
                         ! Group consecutive declarations of the same type
-                        if (.not. in_contains_section .and. node%initializer_index == 0) then
-                            call process_grouped_declarations(arena, body_indices, i, indent_str, code)
+                        if (.not. in_contains_section .and. &
+                            node%initializer_index == 0) then
+                            call process_grouped_declarations(arena, body_indices, i, &
+                                                              indent_str, code)
                         else
                             stmt_code = generate_code_from_arena(arena, body_indices(i))
-                            code = code // indent_lines(stmt_code, indent) // new_line('A')
+                            code = code // indent_lines(stmt_code, indent) // &
+                                   new_line('A')
                             i = i + 1
                         end if
 
                     type is (parameter_declaration_node)
                         ! Group consecutive parameter declarations
-                        call process_grouped_parameters(arena, body_indices, i, indent_str, code)
+                        call process_grouped_parameters(arena, body_indices, i, &
+                                                        indent_str, code)
 
                     type is (comment_node)
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
@@ -366,7 +371,8 @@ contains
     end function generate_grouped_body
 
     ! Generate grouped body with parameter mapping
-    function generate_grouped_body_with_params(arena, body_indices, indent, param_map, proc_node) result(code)
+    function generate_grouped_body_with_params(arena, body_indices, indent, param_map, &
+                                               proc_node) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -388,11 +394,14 @@ contains
         character(len=:), allocatable :: result_var_name
         logical :: has_return_type_in_signature
         logical :: keep_result_decl
+        logical :: force_keep_result_decl
+        character(len=:), allocatable :: lowered_return
         logical :: has_dimensions
 
         ! Build indent string
         indent_str = repeat("    ", indent)
         code = ""
+        force_keep_result_decl = .false.
 
         ! Determine if we should skip result variable declarations
         ! Skip when: function has return type in signature AND has result variable
@@ -400,12 +409,17 @@ contains
         result_var_name = ""
         select type (proc_node)
         type is (function_def_node)
-            if (allocated(proc_node%return_type) .and. len_trim(proc_node%return_type) > 0) then
+            if (allocated(proc_node%return_type) .and. &
+                len_trim(proc_node%return_type) > 0) then
                 has_return_type_in_signature = .true.
                 if (allocated(proc_node%result_variable)) then
                     result_var_name = trim(proc_node%result_variable)
                 else if (allocated(proc_node%name)) then
                     result_var_name = trim(proc_node%name)
+                end if
+                lowered_return = to_lower_ascii(trim(proc_node%return_type))
+                if (index(lowered_return, "len=") > 0) then
+                    force_keep_result_decl = .true.
                 end if
             end if
         end select
@@ -420,7 +434,8 @@ contains
                         type is (declaration_node)
                             ! Check if this declaration is for parameter(s)
                             ! Handle both single and multi-declarations for parameters
-                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            if (node%is_multi_declaration .and. &
+                                allocated(node%var_names)) then
                                 ! Multi-variable declaration - check each variable
                                 block
                                     logical :: found_params, first_var
@@ -434,11 +449,13 @@ contains
 
                                     ! Check which variables are parameters
                                     do j = 1, size(node%var_names)
-                                        param_idx = find_parameter_info(param_map, trim(node%var_names(j)))
+                                        param_idx = find_parameter_info(param_map, &
+                                                                  trim(node%var_names(j)))
                                         is_param(j) = (param_idx > 0)
                                         if (param_idx > 0) then
                                             found_params = .true.
-                                            if (first_param_idx == 0) first_param_idx = param_idx
+                                            if (first_param_idx == 0) first_param_idx &
+                                                = param_idx
                                         end if
                                     end do
 
@@ -446,26 +463,30 @@ contains
                                         ! Generate declaration for all parameters in this multi-declaration
                                         type_name = trim(node%type_name)
                                         if (is_character_type_string(type_name)) then
-                                            type_name = normalize_character_type(node, type_name)
+                                            type_name = &
+                                                normalize_character_type(node, &
+                                                                         type_name)
                                         end if
-                                        append_kind = node%has_kind .and. .not. is_character_type_string(type_name)
+                                        append_kind = node%has_kind .and. .not. &
+                                                      is_character_type_string(type_name)
                                         code = code // indent_str // type_name
 
                                         if (append_kind) then
-                                            code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                         end if
 
                                         ! Use attributes from the declaration node
                                         if (node%has_intent) then
-                                            code = code // ", intent(" // node%intent // ")"
-                                        else if (allocated(param_map(first_param_idx)%intent_str) .and. &
-                                                 len_trim(param_map(first_param_idx)%intent_str) > 0) then
-                                            code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
+                                            code = code // ", intent(" // &
+                                                   node%intent // ")"
+                         else if (allocated(param_map(first_param_idx)%intent_str) .and. &
+                                 len_trim(param_map(first_param_idx)%intent_str) > 0) then
+                code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
                                         end if
 
                                         if (node%is_optional) then
                                             code = code // ", optional"
-                                        else if (param_map(first_param_idx)%is_optional) then
+                                     else if (param_map(first_param_idx)%is_optional) then
                                             code = code // ", optional"
                                         end if
 
@@ -485,7 +506,8 @@ contains
 
                                         ! Also emit a declaration for non-parameter variables (locals)
                                         block
-                                            character(len=:), allocatable :: nonparam_list
+                                            character(len=:), allocatable :: &
+                                                nonparam_list
                                             logical :: have_nonparam
                                             character(len=:), allocatable :: local_type
                                             logical :: local_append_kind
@@ -495,10 +517,12 @@ contains
                                             do j = 1, size(node%var_names)
                                                 if (.not. is_param(j)) then
                                                     if (have_nonparam) then
-                                                        nonparam_list = nonparam_list // ", " // &
-                                                                        trim(node%var_names(j))
+                                                        nonparam_list = nonparam_list &
+                                                                        // ", " // &
+                                                                   trim(node%var_names(j))
                                                     else
-                                                        nonparam_list = trim(node%var_names(j))
+                                                        nonparam_list = &
+                                                            trim(node%var_names(j))
                                                     end if
                                                     have_nonparam = .true.
                                                 end if
@@ -506,19 +530,25 @@ contains
 
                                             if (have_nonparam) then
                                                 local_type = trim(node%type_name)
-                                                if (is_character_type_string(local_type)) then
-                                                    local_type = normalize_character_type(node, local_type)
+                                            if (is_character_type_string(local_type)) then
+                                                    local_type = &
+                                                        normalize_character_type(node, &
+                                                                               local_type)
                                                 end if
-                                                local_append_kind = node%has_kind .and. .not. is_character_type_string(local_type)
-                                                if (local_type == 'real' .and. .not. local_append_kind) then
+                                                local_append_kind = node%has_kind .and. &
+                                                                    .not. &
+                                                      is_character_type_string(local_type)
+                                                if (local_type == 'real' .and. .not. &
+                                                    local_append_kind) then
                                                     local_type = 'real(8)'
                                                 end if
                                                 code = code // indent_str // local_type
                                                 if (local_append_kind) then
-                                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                                 end if
                                                 ! Intentionally do NOT add intent/optional for non-parameters
-                                                code = code // " :: " // nonparam_list // new_line('A')
+                                                code = code // " :: " // nonparam_list &
+                                                       // new_line('A')
                                             end if
                                         end block
                                     end if
@@ -532,21 +562,24 @@ contains
                                     ! Generate the declaration with parameter attributes from the declaration node
                                     type_name = trim(node%type_name)
                                     if (is_character_type_string(type_name)) then
-                                        type_name = normalize_character_type(node, type_name)
+                                        type_name = &
+                                            normalize_character_type(node, type_name)
                                     end if
-                                    append_kind_single = node%has_kind .and. .not. is_character_type_string(type_name)
+                                    append_kind_single = node%has_kind .and. .not. &
+                                                       is_character_type_string(type_name)
                                     code = code // indent_str // type_name
 
                                     if (append_kind_single) then
-                                        code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                     end if
 
                                     ! Use attributes from the declaration node itself
                                     if (node%has_intent) then
                                         code = code // ", intent(" // node%intent // ")"
-                                    else if (allocated(param_map(param_idx)%intent_str) .and. &
-                                             len_trim(param_map(param_idx)%intent_str) > 0) then
-                                        code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                               else if (allocated(param_map(param_idx)%intent_str) .and. &
+                                       len_trim(param_map(param_idx)%intent_str) > 0) then
+                                        code = code // ", intent(" // &
+                                               param_map(param_idx)%intent_str // ")"
                                     end if
 
                                     if (node%is_optional) then
@@ -558,11 +591,13 @@ contains
                                     code = code // " :: " // param_map(param_idx)%name
 
                                     ! Add dimensions if present
-                                    if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                    if (allocated(node%dimension_indices) .and. &
+                                        size(node%dimension_indices) > 0) then
                                         code = code // "("
                                         do j = 1, size(node%dimension_indices)
                                             if (j > 1) code = code // ", "
-                                            stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                            stmt_code = generate_code_from_arena(arena, &
+                                                                node%dimension_indices(j))
                                             code = code // stmt_code
                                         end do
                                         code = code // ")"
@@ -578,10 +613,13 @@ contains
                                 ! Generate the declaration with attributes from parameter_declaration_node
                                 type_name = trim(node%type_name)
                                 if (is_character_type_string(type_name)) then
-                                    type_name = normalize_character_type_param(type_name, node%has_kind, &
-                                                                              node%kind_value)
+                                    type_name = &
+                                        normalize_character_type_param(type_name, &
+                                                                       node%has_kind, &
+                                                                       node%kind_value)
                                 end if
-                                append_kind_param = node%has_kind .and. .not. is_character_type_string(type_name)
+                                append_kind_param = node%has_kind .and. .not. &
+                                                    is_character_type_string(type_name)
                                 ! Debug: print if type_name is empty
                                 if (len_trim(type_name) == 0) then
                                     ! Skip if no type name - will be handled elsewhere
@@ -590,12 +628,13 @@ contains
                                 code = code // indent_str // type_name
 
                                 if (append_kind_param) then
-                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                 end if
 
                                 ! Use attributes from the parameter_declaration_node itself
                                 if (len_trim(param_map(param_idx)%intent_str) > 0) then
-                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                    code = code // ", intent(" // &
+                                           param_map(param_idx)%intent_str // ")"
                                 end if
 
                                 if (param_map(param_idx)%is_optional) then
@@ -605,11 +644,13 @@ contains
                                 code = code // " :: " // param_map(param_idx)%name
 
                                 ! Add dimensions if present
-                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                if (allocated(node%dimension_indices) .and. &
+                                    size(node%dimension_indices) > 0) then
                                     code = code // "("
                                     do j = 1, size(node%dimension_indices)
                                         if (j > 1) code = code // ", "
-                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                        stmt_code = generate_code_from_arena(arena, &
+                                                                node%dimension_indices(j))
                                         code = code // stmt_code
                                     end do
                                     code = code // ")"
@@ -635,10 +676,12 @@ contains
                     type is (declaration_node)
                         ! Skip parameter declarations if we're handling them separately
                         if (size(param_map) > 0) then
-                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            if (node%is_multi_declaration .and. &
+                                allocated(node%var_names)) then
                                 ! Check if any variable in multi-declaration is a parameter
                                 do var_idx = 1, size(node%var_names)
-                                    param_idx = find_parameter_info(param_map, trim(node%var_names(var_idx)))
+                                    param_idx = find_parameter_info(param_map, &
+                                                            trim(node%var_names(var_idx)))
                                     if (param_idx > 0) then
                                         should_skip = .true.
                                         exit
@@ -658,18 +701,27 @@ contains
                         ! in the function statement (e.g., array shape or allocatable flag).
                         if (.not. should_skip .and. has_return_type_in_signature) then
                             if (len_trim(result_var_name) > 0) then
-                                has_dimensions = allocated(node%dimension_indices) .and. &
-                                                 size(node%dimension_indices) > 0
-                                keep_result_decl = node%is_multi_declaration .or. node%is_array .or. &
-                                                   has_dimensions .or. node%is_allocatable .or. &
-                                                   node%is_pointer .or. node%is_target .or. &
-                                                   node%is_parameter .or. node%has_initializer
+                                has_dimensions = &
+                                    allocated(node%dimension_indices) .and. &
+                                    size(node%dimension_indices) > 0
+                                keep_result_decl = node%is_multi_declaration .or. &
+                                                   node%is_array .or. &
+                                                   has_dimensions .or. &
+                                                   node%is_allocatable .or. &
+                                                   node%is_pointer .or. &
+                                                   node%is_target .or. &
+                                                   node%is_parameter .or. &
+                                                   node%has_initializer
+
+                                if (force_keep_result_decl) keep_result_decl = .true.
 
                                 if (.not. keep_result_decl) then
-                                    if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                    if (node%is_multi_declaration .and. &
+                                        allocated(node%var_names)) then
                                         ! Check if any variable in multi-declaration is the result variable
                                         do var_idx = 1, size(node%var_names)
-                                            if (trim(node%var_names(var_idx)) == result_var_name) then
+                                            if (trim(node%var_names(var_idx)) == &
+                                                result_var_name) then
                                                 should_skip = .true.
                                                 exit
                                             end if
@@ -703,14 +755,16 @@ contains
 
         ! Generate the rest of the body with filtered indices
         if (filtered_count > 0) then
-            code = code // generate_grouped_body(arena, filtered_indices(1:filtered_count), indent)
+            code = code // generate_grouped_body(arena, &
+                                               filtered_indices(1:filtered_count), indent)
         end if
 
         deallocate (filtered_indices)
     end function generate_grouped_body_with_params
 
     ! Generate grouped body with context about executable statements
-    function generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains) result(code)
+    function generate_grouped_body_context(arena, body_indices, indent, &
+                                           has_exec_before_contains) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -802,9 +856,11 @@ contains
                     intent_str = ""
                 end if
                 stmt_code = generate_grouped_declaration(first_node%type_name, &
-                                                         first_node%kind_value, first_node%has_kind, &
+                                                         first_node%kind_value, &
+                                                         first_node%has_kind, &
                                                          intent_str, &
-                                                         var_list, first_node%is_optional)
+                                                         var_list, &
+                                                         first_node%is_optional)
             end block
             code = code // indent_str // stmt_code // new_line('A')
             i = j
@@ -898,13 +954,16 @@ contains
                 stmt_code = "real"
             end if
             if (is_character_type_string(stmt_code)) then
-                stmt_code = normalize_character_type_param(stmt_code, first_node%has_kind, &
-                    first_node%kind_value)
+                stmt_code = normalize_character_type_param(stmt_code, &
+                                                           first_node%has_kind, &
+                                                           first_node%kind_value)
             else if (first_node%has_kind .and. first_node%kind_value > 0) then
-                stmt_code = stmt_code // "(" // trim(adjustl(int_to_string(first_node%kind_value))) // ")"
+                stmt_code = stmt_code // "(" // &
+                            trim(adjustl(int_to_string(first_node%kind_value))) // ")"
             end if
             if (first_node%intent_type /= INTENT_NONE) then
-                stmt_code = stmt_code // ", intent(" // intent_type_to_string(first_node%intent_type) // ")"
+                stmt_code = stmt_code // ", intent(" // &
+                            intent_type_to_string(first_node%intent_type) // ")"
             end if
             if (first_node%is_optional) then
                 stmt_code = stmt_code // ", optional"
@@ -951,7 +1010,8 @@ contains
                 if (proc_node%param_indices(i) > 0 .and. &
                     proc_node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
-                        select type (param_node => arena%entries(proc_node%param_indices(i))%node)
+                        select type (param_node => &
+                                     arena%entries(proc_node%param_indices(i))%node)
                         type is (identifier_node)
                             if (param_node%name == var_name) then
                                 is_param = .true.
@@ -969,7 +1029,8 @@ contains
                 if (proc_node%param_indices(i) > 0 .and. &
                     proc_node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
-                        select type (param_node => arena%entries(proc_node%param_indices(i))%node)
+                        select type (param_node => &
+                                     arena%entries(proc_node%param_indices(i))%node)
                         type is (identifier_node)
                             if (param_node%name == var_name) then
                                 is_param = .true.
@@ -1038,32 +1099,49 @@ contains
         logical, intent(out) :: has_length
         character(len=:), allocatable, intent(out) :: length_spec
         integer :: star_pos, open_paren, close_paren
+        integer :: depth, i, last_char
+        character(len=:), allocatable :: trimmed_str
 
         has_length = .false.
         length_spec = ""
 
-        star_pos = index(type_str, "*")
+        trimmed_str = trim(type_str)
+
+        open_paren = index(trimmed_str, "(")
+
+        star_pos = index(trimmed_str, "*")
         if (star_pos > 0) then
-            if (star_pos < len_trim(type_str)) then
-                length_spec = trim(type_str(star_pos + 1:))
-                if (len_trim(length_spec) > 0) then
-                    has_length = .true.
-                    return
+            if (open_paren == 0 .or. star_pos < open_paren) then
+                if (star_pos < len_trim(trimmed_str)) then
+                    length_spec = trim(trimmed_str(star_pos + 1:))
+                    if (len_trim(length_spec) > 0) then
+                        has_length = .true.
+                        return
+                    end if
                 end if
             end if
         end if
 
-        open_paren = index(type_str, "(")
         if (open_paren > 0) then
-            close_paren = index(type_str(open_paren + 1:), ")")
-            if (close_paren > 0) then
-                close_paren = open_paren + close_paren
-                if (close_paren > open_paren + 1) then
-                    length_spec = trim(type_str(open_paren + 1:close_paren - 1))
-                    if (len_trim(length_spec) > 0) then
-                        has_length = .true.
+            depth = 0
+            close_paren = 0
+            last_char = len_trim(trimmed_str)
+            do i = open_paren + 1, last_char
+                select case (trimmed_str(i:i))
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth == 0) then
+                        close_paren = i
+                        exit
+                    else
+                        depth = depth - 1
                     end if
-                end if
+                end select
+            end do
+            if (close_paren > open_paren + 1) then
+                length_spec = trim(trimmed_str(open_paren + 1:close_paren - 1))
+                if (len_trim(length_spec) > 0) has_length = .true.
             end if
         end if
     end subroutine extract_character_length
@@ -1101,7 +1179,8 @@ contains
 
         if (has_length) then
             lowered_len = to_lower_ascii(length_spec)
-            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, "len=") == 0) then
+            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, &
+                                                            "len=") == 0) then
                 type_str = trimmed
                 return
             end if
@@ -1162,7 +1241,8 @@ contains
     end function normalize_character_type
 
     ! Simpler normalization helper for parameter declarations (no inference data)
-    function normalize_character_type_param(raw_type, has_kind, kind_value) result(type_str)
+    function normalize_character_type_param(raw_type, has_kind, kind_value) &
+        result(type_str)
         character(len=*), intent(in) :: raw_type
         logical, intent(in) :: has_kind
         integer, intent(in) :: kind_value
@@ -1195,7 +1275,8 @@ contains
 
         if (has_length) then
             lowered_len = to_lower_ascii(length_spec)
-            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, "len=") == 0) then
+            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, &
+                                                            "len=") == 0) then
                 type_str = trimmed
                 return
             end if
