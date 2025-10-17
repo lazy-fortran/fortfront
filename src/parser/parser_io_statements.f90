@@ -6,7 +6,8 @@ module parser_io_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_print_statement, push_write_statement, push_read_statement
+    use ast_factory, only: push_print_statement, push_write_statement, &
+                           push_read_statement
     use ast_factory
     implicit none
     private
@@ -69,7 +70,9 @@ contains
 
         if (.not. parser%is_at_end()) then
             ! Parse first argument
-            current_arg_index = parse_comparison(parser, arena)
+            current_arg_index = parse_io_implied_do(parser, arena)
+            if (current_arg_index == 0) current_arg_index = &
+                parse_comparison(parser, arena)
             if (current_arg_index > 0) then
                 arg_indices = [current_arg_index]
 
@@ -79,7 +82,9 @@ contains
                     if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
 
                     token = parser%consume()  ! consume comma
-                    current_arg_index = parse_comparison(parser, arena)
+                    current_arg_index = parse_io_implied_do(parser, arena)
+                    if (current_arg_index == 0) current_arg_index = &
+                        parse_comparison(parser, arena)
                     if (current_arg_index > 0) then
                         arg_indices = [arg_indices, current_arg_index]
                     else
@@ -89,6 +94,116 @@ contains
             end if
         end if
     end subroutine parse_argument_list
+
+    ! Parse implied-do expression specific to I/O lists: (expr, var = start, end [, step])
+    function parse_io_implied_do(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+
+        type(token_t) :: token
+        integer :: saved_pos
+        integer :: value_expr_index
+        integer :: start_index, end_index, step_index
+        character(len=:), allocatable :: var_name
+        integer :: line, column
+
+        expr_index = 0
+        saved_pos = parser%current_token
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") return
+        line = token%line
+        column = token%column
+        token = parser%consume()  ! consume '('
+
+        value_expr_index = parse_comparison(parser, arena)
+        if (value_expr_index <= 0) then
+            expr_index = fail_and_restore()
+            return
+        end if
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+            expr_index = fail_and_restore()
+            return
+        end if
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) then
+            expr_index = fail_and_restore()
+            return
+        end if
+        var_name = token%text
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
+            expr_index = fail_and_restore()
+            return
+        end if
+        token = parser%consume()
+
+        start_index = parse_comparison(parser, arena)
+        if (start_index <= 0) then
+            expr_index = fail_and_restore()
+            return
+        end if
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+            expr_index = fail_and_restore()
+            return
+        end if
+        token = parser%consume()
+
+        end_index = parse_comparison(parser, arena)
+        if (end_index <= 0) then
+            expr_index = fail_and_restore()
+            return
+        end if
+
+        step_index = 0
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+            token = parser%consume()
+            step_index = parse_comparison(parser, arena)
+            if (step_index <= 0) then
+                expr_index = fail_and_restore()
+                return
+            end if
+        end if
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
+            expr_index = fail_and_restore()
+            return
+        end if
+        token = parser%consume()
+
+        if (step_index > 0) then
+            expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+                                            start_expr_index=start_index, &
+                                            end_expr_index=end_index, &
+                                            step_expr_index=step_index, line=line, &
+                                            column=column)
+        else
+            expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+                                            start_expr_index=start_index, &
+                                            end_expr_index=end_index, line=line, &
+                                            column=column)
+        end if
+        if (allocated(var_name)) deallocate (var_name)
+        return
+
+    contains
+        integer function fail_and_restore()
+            if (allocated(var_name)) deallocate (var_name)
+            parser%current_token = saved_pos
+            fail_and_restore = 0
+        end function fail_and_restore
+    end function parse_io_implied_do
 
     function parse_print_statement(parser, arena) result(print_index)
         type(parser_state_t), intent(inout) :: parser

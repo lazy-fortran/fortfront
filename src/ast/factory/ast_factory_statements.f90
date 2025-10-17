@@ -2,9 +2,13 @@ module ast_factory_statements
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
-    use ast_nodes_misc, only: use_statement_node, implicit_statement_node, include_statement_node, &
-                              end_statement_node, allocate_statement_node, deallocate_statement_node
-    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, cycle_node, exit_node
+    use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
+                              include_statement_node, &
+                              end_statement_node, allocate_statement_node, &
+                              deallocate_statement_node
+    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
+                                 cycle_node, exit_node
+    use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
 
@@ -14,6 +18,7 @@ module ast_factory_statements
     public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
     public :: push_allocate, push_deallocate
+    public :: push_io_implied_do
 
 contains
 
@@ -57,6 +62,33 @@ contains
         use_index = arena%size
     end function push_use_statement
 
+    ! Create IO implied-do node and add to arena
+    function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &
+                                end_expr_index, step_expr_index, line, column, &
+                                parent_index) result(node_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: expr_index
+        character(len=*), intent(in) :: var_name
+        integer, intent(in) :: start_expr_index
+        integer, intent(in) :: end_expr_index
+        integer, intent(in), optional :: step_expr_index
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: node_index
+        type(io_implied_do_node) :: node
+
+        node%uid = generate_uid()
+        node%expr_index = expr_index
+        node%var_name = var_name
+        node%start_expr_index = start_expr_index
+        node%end_expr_index = end_expr_index
+        if (present(step_expr_index)) node%step_expr_index = step_expr_index
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+
+        call arena%push(node, "io_implied_do", parent_index)
+        node_index = arena%size
+    end function push_io_implied_do
+
     ! Create implicit statement node and add to stack
     function push_implicit_statement(arena, is_none, type_name, kind_value, has_kind, &
                                      length_value, has_length, letter_ranges, &
@@ -87,11 +119,15 @@ contains
                 do i = 1, size(letter_ranges)
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
-                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
+                        implicit_stmt%letter_specs(i)%start_letter = &
+                            letter_ranges(i) (1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = &
+                            letter_ranges(i) (dash_pos + 1:dash_pos + 1)
                     else
-                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i) (1:1)
+                        implicit_stmt%letter_specs(i)%start_letter = &
+                            letter_ranges(i) (1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = &
+                            letter_ranges(i) (1:1)
                     end if
                 end do
             end if
@@ -182,7 +218,8 @@ contains
     end function push_goto
 
     ! Create ERROR STOP statement node and add to stack
-    function push_error_stop(arena, error_code_index, error_message, line, column, parent_index) result(error_stop_index)
+    function push_error_stop(arena, error_code_index, error_message, line, column, &
+                             parent_index) result(error_stop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: error_code_index
         character(len=*), intent(in), optional :: error_message
@@ -190,7 +227,8 @@ contains
         integer :: error_stop_index
         type(error_stop_node) :: error_stop_stmt
         error_stop_stmt%uid = generate_uid()
-        if (present(error_code_index)) error_stop_stmt%error_code_index = error_code_index
+        if (present(error_code_index)) error_stop_stmt%error_code_index = &
+            error_code_index
         if (present(error_message)) error_stop_stmt%error_message = error_message
         if (present(line)) error_stop_stmt%line = line
         if (present(column)) error_stop_stmt%column = column
@@ -200,7 +238,8 @@ contains
     end function push_error_stop
 
     ! Create CYCLE statement node and add to stack
-    function push_cycle(arena, loop_label, line, column, parent_index) result(cycle_index)
+    function push_cycle(arena, loop_label, line, column, parent_index) &
+        result(cycle_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: loop_label
         integer, intent(in), optional :: line, column, parent_index
