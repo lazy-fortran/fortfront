@@ -387,6 +387,8 @@ contains
         logical :: append_kind_param
         character(len=:), allocatable :: result_var_name
         logical :: has_return_type_in_signature
+        logical :: keep_result_decl
+        logical :: has_dimensions
 
         ! Build indent string
         indent_str = repeat("    ", indent)
@@ -651,21 +653,32 @@ contains
                             end if
                         end if
 
-                        ! Skip result variable declaration if return type is in signature
+                        ! Skip result variable declaration if return type is in signature,
+                        ! unless the declaration carries attributes that cannot be expressed
+                        ! in the function statement (e.g., array shape or allocatable flag).
                         if (.not. should_skip .and. has_return_type_in_signature) then
                             if (len_trim(result_var_name) > 0) then
-                                if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                                    ! Check if any variable in multi-declaration is the result variable
-                                    do var_idx = 1, size(node%var_names)
-                                        if (trim(node%var_names(var_idx)) == result_var_name) then
+                                has_dimensions = allocated(node%dimension_indices) .and. &
+                                                 size(node%dimension_indices) > 0
+                                keep_result_decl = node%is_multi_declaration .or. node%is_array .or. &
+                                                   has_dimensions .or. node%is_allocatable .or. &
+                                                   node%is_pointer .or. node%is_target .or. &
+                                                   node%is_parameter .or. node%has_initializer
+
+                                if (.not. keep_result_decl) then
+                                    if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                        ! Check if any variable in multi-declaration is the result variable
+                                        do var_idx = 1, size(node%var_names)
+                                            if (trim(node%var_names(var_idx)) == result_var_name) then
+                                                should_skip = .true.
+                                                exit
+                                            end if
+                                        end do
+                                    else
+                                        ! Single variable declaration
+                                        if (trim(node%var_name) == result_var_name) then
                                             should_skip = .true.
-                                            exit
                                         end if
-                                    end do
-                                else
-                                    ! Single variable declaration
-                                    if (trim(node%var_name) == result_var_name) then
-                                        should_skip = .true.
                                     end if
                                 end if
                             end if
