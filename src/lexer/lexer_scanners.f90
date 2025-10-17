@@ -5,7 +5,8 @@ module lexer_scanners
     private
 
     ! Public scanning functions
-    public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, scan_logical_token
+    public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
+              scan_logical_token
     public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
@@ -39,7 +40,8 @@ contains
                 dot_count = 1
                 pos = pos + 1
                 col_num = col_num + 1
-            else if (((c == 'e' .or. c == 'E') .or. (c == 'd' .or. c == 'D')) .and. .not. has_exp) then
+            else if (((c == 'e' .or. c == 'E') .or. (c == 'd' .or. c == 'D')) .and. &
+                     .not. has_exp) then
                 has_exp = .true.
                 e_count = 1
                 pos = pos + 1
@@ -187,7 +189,8 @@ contains
     end subroutine scan_string
 
     ! Safe string scanning with error handling
-    subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, &
+                                scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -369,7 +372,8 @@ contains
     end subroutine scan_logical_token
 
     ! Safe scanning functions
-    subroutine scan_number_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_number_safe(source, pos, line_num, col_num, tokens, token_count, &
+                                scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -385,7 +389,9 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_number_safe
 
-    subroutine scan_identifier_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_identifier_safe(source, pos, line_num, col_num, tokens, &
+                                    token_count, &
+                                    scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -401,7 +407,8 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_identifier_safe
 
-    subroutine scan_comment_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_comment_safe(source, pos, line_num, col_num, tokens, token_count, &
+                                 scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -417,7 +424,8 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_comment_safe
 
-    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, &
+                                  scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -433,7 +441,8 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_operator_safe
 
-    subroutine scan_logical_token_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+    subroutine scan_logical_token_safe(source, pos, line_num, col_num, tokens, &
+                                       token_count, scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
@@ -458,13 +467,15 @@ contains
         lower_word = to_lower(word)
 
         select case (trim(lower_word))
-        case ('program', 'end', 'endif', 'function', 'subroutine', 'if', 'then', 'else', &
+        case ('program', 'end', 'endif', 'function', 'subroutine', 'if', &
+              'then', 'else', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
-              'public', 'private', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', 'read', 'write', 'call', &
+              'public', 'private', 'namelist', 'type', 'class', 'extends', 'abstract', &
+              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', &
+              'read', 'write', 'call', &
               'allocate', 'deallocate', &
               'select', 'case', 'default', 'where', 'elsewhere', 'endwhere', &
               'associate', 'endassociate', 'forall', 'endforall')

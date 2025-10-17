@@ -3,7 +3,7 @@ module ast_factory_statements
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
-                              visibility_statement_node, &
+                              visibility_statement_node, namelist_statement_node, &
                               include_statement_node, &
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node
@@ -14,7 +14,8 @@ module ast_factory_statements
     private
 
     ! Public statement node creation functions
-    public :: push_use_statement, push_visibility_statement, push_implicit_statement, push_include_statement
+    public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
+              push_implicit_statement, push_include_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
@@ -98,6 +99,34 @@ contains
         call arena%push(vis_stmt, "visibility_statement", parent_index)
         vis_index = arena%size
     end function push_visibility_statement
+
+    function push_namelist_statement(arena, group_name, variable_names, line, column, &
+                                     parent_index) result(namelist_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: group_name
+        character(len=*), intent(in), optional :: variable_names(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: namelist_index
+        type(namelist_statement_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        node%group_name = trim(group_name)
+
+        if (present(variable_names)) then
+            if (size(variable_names) > 0) then
+                allocate (node%variable_names(size(variable_names)))
+                do i = 1, size(variable_names)
+                    node%variable_names(i) = string_t(trim(variable_names(i)))
+                end do
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+        call arena%push(node, "namelist_statement", parent_index)
+        namelist_index = arena%size
+    end function push_namelist_statement
 
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &
