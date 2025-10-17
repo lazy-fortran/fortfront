@@ -1,11 +1,12 @@
 module parser_module_structures_module
     ! Module structure parsing for module definitions and bodies
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_module_structured, push_implicit_statement, &
-                           push_assignment, push_identifier, push_literal
+                           push_assignment, push_identifier, push_literal, &
+                           push_visibility_statement
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
                                    parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
@@ -84,6 +85,12 @@ contains
             if (.not. in_contains_section) then
                 if (token%kind == TK_KEYWORD) then
                     select case (token%text)
+                    case ("public", "private")
+                        stmt_index = parse_visibility_statement(parser, arena)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
                     case ("integer", "real", "logical", "character", "complex")
                         stmt_index = parse_declaration(parser, arena)
                         if (stmt_index > 0) then
@@ -238,6 +245,89 @@ contains
         module_index = push_module_structured(arena, module_name, declaration_indices, &
                                               procedure_indices, has_contains, line, column)
     end function parse_module
+
+    function parse_visibility_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: keyword_token, token
+        logical :: is_private
+        logical :: has_double_colon
+        character(len=:), allocatable :: names(:)
+
+        stmt_index = 0
+        if (parser%is_at_end()) return
+
+        keyword_token = parser%consume()
+        is_private = to_lower(keyword_token%text) == "private"
+        has_double_colon = .false.
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "::") then
+                token = parser%consume()
+                has_double_colon = .true.
+            end if
+        end if
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_IDENTIFIER)
+                call append_name(names, token%text)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                if (token%text == ",") then
+                    token = parser%consume()
+                    cycle
+                else if (token%text == "::" .and. .not. has_double_colon) then
+                    token = parser%consume()
+                    has_double_colon = .true.
+                    cycle
+                else
+                    exit
+                end if
+            case (TK_NEWLINE)
+                token = parser%consume()
+                exit
+            case (TK_COMMENT)
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (allocated(names)) then
+            stmt_index = push_visibility_statement(arena, is_private, names, &
+                                                   keyword_token%line, keyword_token%column, &
+                                                   has_double_colon=has_double_colon)
+        else
+            stmt_index = push_visibility_statement(arena, is_private, &
+                                                   line=keyword_token%line, column=keyword_token%column, &
+                                                   has_double_colon=has_double_colon)
+        end if
+    contains
+        subroutine append_name(list, value)
+            character(len=:), allocatable, intent(inout) :: list(:)
+            character(len=*), intent(in) :: value
+            character(len=:), allocatable :: temp(:)
+            integer :: n, current_len, target_len
+
+            if (.not. allocated(list)) then
+                allocate (character(len=len_trim(value)) :: list(1))
+                list(1) = trim(value)
+            else
+                n = size(list)
+                current_len = len(list)
+                target_len = len_trim(value)
+                target_len = max(current_len, target_len)
+                allocate (character(len=target_len) :: temp(n + 1))
+                temp(1:n) = list
+                temp(n + 1) = trim(value)
+                call move_alloc(temp, list)
+            end if
+        end subroutine append_name
+    end function parse_visibility_statement
 
     ! Parse a simple implicit statement in module context
     subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)

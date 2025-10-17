@@ -86,6 +86,18 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type use_statement_node
 
+    type, extends(ast_node), public :: visibility_statement_node
+        type(string_t), allocatable :: names(:)
+        logical :: is_private = .false.
+        logical :: has_list = .false.
+        logical :: has_double_colon = .false.
+    contains
+        procedure :: accept => visibility_statement_accept
+        procedure :: to_json => visibility_statement_to_json
+        procedure :: assign => visibility_statement_assign
+        generic :: assignment(=) => assign
+    end type visibility_statement_node
+
     ! Include statement node
     type, extends(ast_node), public :: include_statement_node
         character(len=:), allocatable :: filename
@@ -168,7 +180,7 @@ module ast_nodes_misc
 
     ! Constructors migrated from ast_core
     public :: create_comment, create_blank_line, create_end_statement
-    public :: create_use_statement, create_include_statement
+    public :: create_use_statement, create_visibility_statement, create_include_statement
     public :: create_implicit_statement, create_interface_block, create_module_procedure
 
 contains
@@ -262,6 +274,34 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_use_statement
+
+    function create_visibility_statement(is_private, names, has_double_colon, &
+                                         line, column) result(node)
+        use uid_generator, only: generate_uid
+        logical, intent(in) :: is_private
+        character(len=*), intent(in), optional :: names(:)
+        logical, intent(in), optional :: has_double_colon
+        integer, intent(in), optional :: line, column
+        type(visibility_statement_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        node%is_private = is_private
+        if (present(has_double_colon)) node%has_double_colon = has_double_colon
+
+        if (present(names)) then
+            if (size(names) > 0) then
+                node%has_list = .true.
+                allocate (node%names(size(names)))
+                do i = 1, size(names)
+                    node%names(i)%s = names(i)
+                end do
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_visibility_statement
 
     function create_implicit_statement(is_none, type_name, kind_value, has_kind, &
                                        length_value, has_length, letter_ranges, &
@@ -562,6 +602,70 @@ contains
         lhs%is_intrinsic = rhs%is_intrinsic
         lhs%is_non_intrinsic = rhs%is_non_intrinsic
     end subroutine use_statement_assign
+
+    subroutine visibility_statement_accept(this, visitor)
+        class(visibility_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine visibility_statement_accept
+
+    subroutine visibility_statement_to_json(this, json, parent)
+        class(visibility_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'visibility_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'is_private', this%is_private)
+        call json%add(obj, 'has_list', this%has_list)
+        call json%add(obj, 'has_double_colon', this%has_double_colon)
+        if (allocated(this%names)) then
+            do i = 1, size(this%names)
+                if (allocated(this%names(i)%s)) then
+                    call json%add(obj, 'name_' // trim(adjustl(to_string(i))), this%names(i)%s)
+                end if
+            end do
+        end if
+        call json%add(parent, obj)
+    contains
+        pure function to_string(val) result(str)
+            integer, intent(in) :: val
+            character(len=:), allocatable :: str
+            character(len=16) :: buf
+            write (buf, '(I0)') val
+            str = trim(buf)
+        end function to_string
+    end subroutine visibility_statement_to_json
+
+    subroutine visibility_statement_assign(lhs, rhs)
+        class(visibility_statement_node), intent(inout) :: lhs
+        class(visibility_statement_node), intent(in) :: rhs
+        integer :: i
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%is_private = rhs%is_private
+        lhs%has_list = rhs%has_list
+        lhs%has_double_colon = rhs%has_double_colon
+
+        if (allocated(lhs%names)) deallocate (lhs%names)
+        if (allocated(rhs%names)) then
+            allocate (lhs%names(size(rhs%names)))
+            do i = 1, size(rhs%names)
+                lhs%names(i) = rhs%names(i)
+            end do
+        end if
+    end subroutine visibility_statement_assign
 
     ! Include statement implementations
     subroutine include_statement_accept(this, visitor)
