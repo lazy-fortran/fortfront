@@ -79,7 +79,8 @@ contains
             do i = 1, size(node%arg_indices)
                 if (i > 1) args_code = args_code // ", "
                 if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
-                    args_code = args_code // generate_code_from_arena(arena, node%arg_indices(i))
+                    args_code = args_code // generate_code_from_arena(arena, &
+                                                                      node%arg_indices(i))
                 end if
             end do
             code = code // "(" // args_code // ")"
@@ -109,8 +110,10 @@ contains
         if (allocated(node%expression_indices)) then
             do i = 1, size(node%expression_indices)
                 if (i > 1) args_code = args_code // ", "
-                if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= arena%size) then
-                    args_code = args_code // generate_code_from_arena(arena, node%expression_indices(i))
+                if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= &
+                    arena%size) then
+                    args_code = args_code // generate_code_from_arena(arena, &
+                                                               node%expression_indices(i))
                 end if
             end do
         end if
@@ -151,7 +154,8 @@ contains
                 if (i > 1) args_code = args_code // ", "
                 if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
                     ! Use recursive code generation for proper expression handling
-                    args_code = args_code // generate_code_from_arena(arena, node%arg_indices(i))
+                    args_code = args_code // generate_code_from_arena(arena, &
+                                                                      node%arg_indices(i))
                 end if
             end do
         end if
@@ -255,7 +259,8 @@ contains
     function generate_code_use_statement(node) result(code)
         type(use_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: only_clause, rename_clause
+        character(len=:), allocatable :: only_clause
+        character(len=:), allocatable :: rename_entry
         integer :: i
 
         ! Build proper use statement with all components
@@ -275,41 +280,44 @@ contains
         code = code // " " // node%module_name
 
         ! Add only clause if present
-        if (node%has_only .and. allocated(node%only_list)) then
-            only_clause = ""
-            do i = 1, size(node%only_list)
-                if (allocated(node%only_list(i)%s)) then
-                    if (i == 1) then
-                        only_clause = only_clause // node%only_list(i)%s
-                    else
-                        only_clause = only_clause // ", " // node%only_list(i)%s
-                    end if
-                end if
+        only_clause = ""
+        if (node%has_only) then
+            if (allocated(node%only_list)) then
+                do i = 1, size(node%only_list)
+                    if (.not. allocated(node%only_list(i)%s)) cycle
+                    if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
+                    only_clause = only_clause // node%only_list(i)%s
+                end do
+            end if
+            if (allocated(node%rename_list)) then
+                do i = 1, size(node%rename_list), 2
+                    if (i + 1 > size(node%rename_list)) exit
+                    if (.not. allocated(node%rename_list(i)%s)) cycle
+                    if (.not. allocated(node%rename_list(i + 1)%s)) cycle
+                    rename_entry = node%rename_list(i)%s // " => " // &
+                                   node%rename_list(i + 1)%s
+                    if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
+                    only_clause = only_clause // rename_entry
+                end do
+            end if
+            if (len_trim(only_clause) > 0) then
+                code = code // ", only: " // trim(only_clause)
+            else
+                code = code // ", only:"
+            end if
+        else if (allocated(node%rename_list)) then
+            ! Fallback: emit rename list under only clause even if flag missing
+            do i = 1, size(node%rename_list), 2
+                if (i + 1 > size(node%rename_list)) exit
+                if (.not. allocated(node%rename_list(i)%s)) cycle
+                if (.not. allocated(node%rename_list(i + 1)%s)) cycle
+                rename_entry = node%rename_list(i)%s // " => " // &
+                               node%rename_list(i + 1)%s
+                if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
+                only_clause = only_clause // rename_entry
             end do
             if (len_trim(only_clause) > 0) then
                 code = code // ", only: " // trim(only_clause)
-            end if
-        end if
-
-        ! Add rename clause if present (format: new_name => old_name)
-        if (allocated(node%rename_list) .and. size(node%rename_list) > 0) then
-            rename_clause = ""
-            do i = 1, size(node%rename_list), 2  ! Process pairs
-                if (i + 1 <= size(node%rename_list)) then
-                    if (allocated(node%rename_list(i)%s) .and. allocated(node%rename_list(i + 1)%s)) then
-                        if (len_trim(rename_clause) > 0) then
-                            rename_clause = rename_clause // ", "
-                        end if
-                        rename_clause = rename_clause // node%rename_list(i)%s // " => " // node%rename_list(i+1)%s
-                    end if
-                end if
-            end do
-            if (len_trim(rename_clause) > 0) then
-                if (index(code, "only:") > 0) then
-                    code = code // ", " // trim(rename_clause)
-                else
-                    code = code // ", " // trim(rename_clause)
-                end if
             end if
         end if
     end function generate_code_use_statement
@@ -376,8 +384,11 @@ contains
                             shape_code = ""
                             do j = 1, size(node%shape_indices)
                                 if (j > 1) shape_code = shape_code // ", "
-                                if (node%shape_indices(j) > 0 .and. node%shape_indices(j) <= arena%size) then
-                                    shape_code = shape_code // generate_code_from_arena(arena, node%shape_indices(j))
+                                if (node%shape_indices(j) > 0 .and. &
+                                    node%shape_indices(j) <= arena%size) then
+                                    shape_code = shape_code // &
+                                                 generate_code_from_arena(arena, &
+                                                                    node%shape_indices(j))
                                 end if
                             end do
                             if (len(shape_code) > 0) then
@@ -392,16 +403,20 @@ contains
 
         ! Optional keyword arguments
         if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
-            args = args // ", stat=" // generate_code_from_arena(arena, node%stat_var_index)
+            args = args // ", stat=" // generate_code_from_arena(arena, &
+                                                                 node%stat_var_index)
         end if
         if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
-            args = args // ", errmsg=" // generate_code_from_arena(arena, node%errmsg_var_index)
+            args = args // ", errmsg=" // generate_code_from_arena(arena, &
+                                                                   node%errmsg_var_index)
         end if
         if (node%source_expr_index > 0 .and. node%source_expr_index <= arena%size) then
-            args = args // ", source=" // generate_code_from_arena(arena, node%source_expr_index)
+            args = args // ", source=" // generate_code_from_arena(arena, &
+                                                                   node%source_expr_index)
         end if
         if (node%mold_expr_index > 0 .and. node%mold_expr_index <= arena%size) then
-            args = args // ", mold=" // generate_code_from_arena(arena, node%mold_expr_index)
+            args = args // ", mold=" // generate_code_from_arena(arena, &
+                                                                 node%mold_expr_index)
         end if
 
         code = "allocate(" // args // ")"
@@ -428,10 +443,12 @@ contains
         end if
 
         if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
-            args = args // ", stat=" // generate_code_from_arena(arena, node%stat_var_index)
+            args = args // ", stat=" // generate_code_from_arena(arena, &
+                                                                 node%stat_var_index)
         end if
         if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
-            args = args // ", errmsg=" // generate_code_from_arena(arena, node%errmsg_var_index)
+            args = args // ", errmsg=" // generate_code_from_arena(arena, &
+                                                                   node%errmsg_var_index)
         end if
 
         code = "deallocate(" // args // ")"

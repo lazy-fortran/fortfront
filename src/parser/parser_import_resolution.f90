@@ -7,6 +7,7 @@ module parser_import_resolution_module
     use ast_factory, only: push_use_statement, push_include_statement, push_literal
     use ast_factory, only: push_use_statement, push_include_statement, push_literal
     use ast_types, only: LITERAL_STRING
+    use string_types, only: string_t
     use url_utilities, only: extract_module_from_url
     implicit none
     private
@@ -16,23 +17,45 @@ module parser_import_resolution_module
 contains
 
     ! Parse comma-separated list of identifiers (for only clause)
-    subroutine parse_identifier_list(parser, identifier_list)
+    subroutine parse_identifier_list(parser, identifier_list, rename_list)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: identifier_list(:)
-        character(len=:), allocatable :: temp_list(:)
+        character(len=:), allocatable, intent(out) :: rename_list(:)
         type(token_t) :: token
+        character(len=:), allocatable :: local_name, remote_name
+        type(string_t), allocatable :: only_temp(:)
+        type(string_t), allocatable :: rename_temp(:)
         integer :: count, capacity
+        integer :: rename_count, rename_capacity
+        integer :: alloc_len
+        integer :: i, max_len
 
         count = 0
-        capacity = 4  ! Initial capacity
-        allocate (character(len=64) :: temp_list(capacity))
+        capacity = 0
+        rename_count = 0
+        rename_capacity = 0
 
         ! Parse first identifier
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
-            count = count + 1
-            temp_list(count) = token%text
+            local_name = trimmed_or_empty(token%text)
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "=>") then
+                token = parser%consume()  ! consume '=>'
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    token = parser%consume()
+                    remote_name = trimmed_or_empty(token%text)
+                    call append_rename_pair(local_name, remote_name)
+                else
+                    ! Malformed rename - treat as simple identifier
+                    call append_only(local_name)
+                end if
+            else
+                call append_only(local_name)
+            end if
 
             ! Parse additional identifiers (comma-separated)
             do while (.not. parser%is_at_end())
@@ -42,24 +65,24 @@ contains
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER) then
                         token = parser%consume()
+                        local_name = trimmed_or_empty(token%text)
 
-                        ! Expand array if needed
-                        if (count >= capacity) then
-                            capacity = capacity * 2
-                            block
-                                character(len=64), allocatable :: new_temp_list(:)
-                                integer :: i
-                                allocate (new_temp_list(capacity))
-                                do i = 1, count
-                                    new_temp_list(i) = temp_list(i)
-                                end do
-                                deallocate (temp_list)
-                                call move_alloc(new_temp_list, temp_list)
-                            end block
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=>") then
+                            token = parser%consume()
+                            token = parser%peek()
+                            if (token%kind == TK_IDENTIFIER) then
+                                token = parser%consume()
+                                remote_name = trimmed_or_empty(token%text)
+                                call append_rename_pair(local_name, remote_name)
+                            else
+                                ! Malformed rename - treat as simple identifier
+                                call append_only(local_name)
+                            end if
+                        else
+                            ! Simple identifier entry
+                            call append_only(local_name)
                         end if
-
-                        count = count + 1
-                        temp_list(count) = token%text
                     else
                         exit  ! Not an identifier after comma
                     end if
@@ -71,13 +94,108 @@ contains
 
         ! Copy to final array with exact size
         if (count > 0) then
-            allocate (character(len=64) :: identifier_list(count))
-            identifier_list(1:count) = temp_list(1:count)
+            max_len = 0
+            do i = 1, count
+                max_len = max(max_len, len_trim(only_temp(i)%s))
+            end do
+            max_len = max(1, max_len)
+            allocate (character(len=max_len) :: identifier_list(count))
+            do i = 1, count
+                identifier_list(i) = trim(only_temp(i)%s)
+            end do
         else
             allocate (character(len=0) :: identifier_list(0))
         end if
 
-        deallocate (temp_list)
+        if (rename_count > 0) then
+            max_len = 0
+            do i = 1, rename_count
+                max_len = max(max_len, len_trim(rename_temp(i)%s))
+            end do
+            max_len = max(1, max_len)
+            allocate (character(len=max_len) :: rename_list(rename_count))
+            do i = 1, rename_count
+                rename_list(i) = trim(rename_temp(i)%s)
+            end do
+        else
+            allocate (character(len=0) :: rename_list(0))
+        end if
+
+        if (allocated(only_temp)) deallocate (only_temp)
+        if (allocated(rename_temp)) deallocate (rename_temp)
+
+    contains
+
+        subroutine ensure_only_capacity(required)
+            integer, intent(in) :: required
+            type(string_t), allocatable :: new_array(:)
+            integer :: new_capacity
+
+            if (capacity >= required) return
+            new_capacity = max(4, capacity)
+            do while (new_capacity < required)
+                new_capacity = max(4, new_capacity * 2)
+            end do
+            allocate (new_array(new_capacity))
+            if (capacity > 0 .and. allocated(only_temp)) then
+                new_array(1:count) = only_temp(1:count)
+                deallocate (only_temp)
+            end if
+            call move_alloc(new_array, only_temp)
+            capacity = new_capacity
+        end subroutine ensure_only_capacity
+
+        subroutine ensure_rename_capacity(required)
+            integer, intent(in) :: required
+            type(string_t), allocatable :: new_array(:)
+            integer :: new_capacity
+
+            if (rename_capacity >= required) return
+            new_capacity = max(4, rename_capacity)
+            do while (new_capacity < required)
+                new_capacity = max(4, new_capacity * 2)
+            end do
+            allocate (new_array(new_capacity))
+            if (rename_capacity > 0 .and. allocated(rename_temp)) then
+                new_array(1:rename_count) = rename_temp(1:rename_count)
+                deallocate (rename_temp)
+            end if
+            call move_alloc(new_array, rename_temp)
+            rename_capacity = new_capacity
+        end subroutine ensure_rename_capacity
+
+        subroutine append_only(value)
+            character(len=*), intent(in) :: value
+            call ensure_only_capacity(count + 1)
+            count = count + 1
+            only_temp(count) = string_t(value)
+        end subroutine append_only
+
+        subroutine append_rename_pair(local, remote)
+            character(len=*), intent(in) :: local
+            character(len=*), intent(in) :: remote
+            call ensure_rename_capacity(rename_count + 2)
+            rename_count = rename_count + 1
+            rename_temp(rename_count) = string_t(local)
+            rename_count = rename_count + 1
+            rename_temp(rename_count) = string_t(remote)
+        end subroutine append_rename_pair
+
+        function trimmed_or_empty(text) result(clean)
+            character(len=*), intent(in) :: text
+            character(len=:), allocatable :: clean
+            integer :: len_clean
+
+            len_clean = len_trim(text)
+            if (len_clean <= 0) len_clean = 1
+            allocate (character(len=len_clean) :: clean)
+            if (len_trim(text) > 0) then
+                clean = trim(text)
+            else
+                clean = ""
+            end if
+        end function trimmed_or_empty
+
     end subroutine parse_identifier_list
 
     function parse_use_statement(parser, arena) result(stmt_index)
@@ -144,7 +262,8 @@ contains
 
             ! Check for 'only' keyword
             token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. token%text == "only") then
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
+                trim(to_lower_ascii_token(token%text)) == "only") then
                 token = parser%consume()  ! consume 'only'
                 has_only = .true.
 
@@ -153,9 +272,7 @@ contains
                 if (token%kind == TK_OPERATOR .and. token%text == ":") then
                     token = parser%consume()  ! consume ':'
                     ! Parse only list - collect identifiers
-                    call parse_identifier_list(parser, only_list)
-                    ! For now, no rename support (simplified)
-                    allocate (character(len=0) :: rename_list(0))
+                    call parse_identifier_list(parser, only_list, rename_list)
                 else
                     ! Malformed only clause
                     allocate (character(len=0) :: only_list(0))
@@ -199,5 +316,20 @@ contains
         ! Create include statement node
         stmt_index = push_include_statement(arena, filename, line, column)
     end function parse_include_statement
+
+    pure function to_lower_ascii_token(text) result(lower_text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)) :: lower_text
+        integer :: i
+        integer :: char_code
+
+        lower_text = text
+        do i = 1, len(text)
+            char_code = iachar(lower_text(i:i))
+            if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
+                lower_text(i:i) = achar(char_code + 32)
+            end if
+        end do
+    end function to_lower_ascii_token
 
 end module parser_import_resolution_module
