@@ -33,6 +33,7 @@ module ast_visitor
         procedure(visit_interface_block_interface), deferred :: visit_interface_block
         procedure(visit_module_interface), deferred :: visit_module
         procedure(visit_use_statement_interface), deferred :: visit_use_statement
+        procedure(visit_visibility_statement_interface), deferred :: visit_visibility_statement
         procedure(visit_include_statement_interface), deferred :: visit_include_statement
     end type ast_visitor_t
 
@@ -59,6 +60,7 @@ module ast_visitor
         procedure :: visit_interface_block => debug_visit_interface_block
         procedure :: visit_module => debug_visit_module
         procedure :: visit_use_statement => debug_visit_use_statement
+        procedure :: visit_visibility_statement => debug_visit_visibility_statement
         procedure :: visit_include_statement => debug_visit_include_statement
         procedure :: visit_call_or_subscript => debug_visit_call_or_subscript
     end type debug_visitor_t
@@ -173,6 +175,12 @@ module ast_visitor
             class(module_node), intent(in) :: node
         end subroutine visit_module_interface
 
+        subroutine visit_visibility_statement_interface(this, node)
+            import :: ast_visitor_t, visibility_statement_node
+            class(ast_visitor_t), intent(inout) :: this
+            class(visibility_statement_node), intent(in) :: node
+        end subroutine visit_visibility_statement_interface
+
         subroutine visit_use_statement_interface(this, node)
             import :: ast_visitor_t, use_statement_node
             class(ast_visitor_t), intent(inout) :: this
@@ -192,7 +200,7 @@ module ast_visitor
     public :: function_def_accept, subroutine_def_accept
     public :: call_or_subscript_accept, subroutine_call_accept, &
               identifier_accept, literal_accept
-    public :: use_statement_accept, include_statement_accept, print_statement_accept
+    public :: use_statement_accept, visibility_statement_accept, include_statement_accept, print_statement_accept
     public :: declaration_accept, do_loop_accept, do_while_accept, if_accept
     public :: select_case_accept, derived_type_accept, interface_block_accept, module_accept
 
@@ -297,6 +305,16 @@ contains
             call vis%visit_use_statement(this)
         end select
     end subroutine use_statement_accept
+
+    subroutine visibility_statement_accept(this, visitor)
+        class(visibility_statement_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+
+        select type (vis => visitor)
+        class is (ast_visitor_t)
+            call vis%visit_visibility_statement(this)
+        end select
+    end subroutine visibility_statement_accept
 
     subroutine include_statement_accept(this, visitor)
         class(include_statement_node), intent(in) :: this
@@ -558,6 +576,30 @@ contains
 
         call append_debug(this, "use_statement: " // node%module_name)
     end subroutine debug_visit_use_statement
+
+    subroutine debug_visit_visibility_statement(this, node)
+        class(debug_visitor_t), intent(inout) :: this
+        class(visibility_statement_node), intent(in) :: node
+        character(len=:), allocatable :: clause
+        integer :: i
+
+        if (node%is_private) then
+            clause = "private"
+        else
+            clause = "public"
+        end if
+
+        if (node%has_list .and. allocated(node%names)) then
+            clause = clause // " ::"
+            do i = 1, size(node%names)
+                if (allocated(node%names(i)%s)) then
+                    clause = clause // " " // trim(node%names(i)%s)
+                end if
+            end do
+        end if
+
+        call append_debug(this, "visibility_statement: " // clause)
+    end subroutine debug_visit_visibility_statement
 
     subroutine debug_visit_include_statement(this, node)
         class(debug_visitor_t), intent(inout) :: this

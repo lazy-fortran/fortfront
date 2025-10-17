@@ -3,6 +3,7 @@ module ast_factory_statements
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
+                              visibility_statement_node, &
                               include_statement_node, &
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node
@@ -13,7 +14,7 @@ module ast_factory_statements
     private
 
     ! Public statement node creation functions
-    public :: push_use_statement, push_implicit_statement, push_include_statement
+    public :: push_use_statement, push_visibility_statement, push_implicit_statement, push_include_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
@@ -66,6 +67,37 @@ contains
         call arena%push(use_stmt, "use_statement", parent_index)
         use_index = arena%size
     end function push_use_statement
+
+    function push_visibility_statement(arena, is_private, names, line, column, &
+                                       parent_index, has_double_colon) result(vis_index)
+        type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in) :: is_private
+        character(len=*), intent(in), optional :: names(:)
+        integer, intent(in), optional :: line, column, parent_index
+        logical, intent(in), optional :: has_double_colon
+        integer :: vis_index
+        type(visibility_statement_node) :: vis_stmt
+        integer :: i
+
+        vis_stmt%uid = generate_uid()
+        vis_stmt%is_private = is_private
+        if (present(has_double_colon)) vis_stmt%has_double_colon = has_double_colon
+
+        if (present(names)) then
+            if (size(names) > 0) then
+                vis_stmt%has_list = .true.
+                allocate (vis_stmt%names(size(names)))
+                do i = 1, size(names)
+                    vis_stmt%names(i) = string_t(names(i))
+                end do
+            end if
+        end if
+
+        if (present(line)) vis_stmt%line = line
+        if (present(column)) vis_stmt%column = column
+        call arena%push(vis_stmt, "visibility_statement", parent_index)
+        vis_index = arena%size
+    end function push_visibility_statement
 
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &
