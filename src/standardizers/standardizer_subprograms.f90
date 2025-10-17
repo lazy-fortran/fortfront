@@ -117,7 +117,6 @@ contains
         integer, intent(in) :: func_index
         integer :: i
         character(len=:), allocatable :: res_name
-        character(len=:), allocatable :: lowered_type
         logical :: has_decl
         integer, allocatable :: new_body_indices(:)
         type(declaration_node) :: decl
@@ -250,28 +249,19 @@ contains
             decl%kind_value = 8
         end if
 
-        if (len_trim(decl%type_name) > 0) then
-            lowered_type = to_lower_ascii_local(trim(decl%type_name))
-            if (index(lowered_type, "character") == 1 .and. &
-                index(lowered_type, "len=") > 0) then
-                func_def%return_type = ""
-            else if (.not. allocated(func_def%return_type) .or. &
-                     len_trim(func_def%return_type) == 0) then
-                if (decl%has_kind .and. decl%kind_value > 0 .and. &
-                    decl%type_name /= "character") then
-                    block
-                        character(len=64) :: buffer
-                        write (buffer, '(A,"(",I0,")")') trim(decl%type_name), &
-                            decl%kind_value
-                        func_def%return_type = trim(buffer)
-                    end block
-                else
-                    func_def%return_type = trim(decl%type_name)
-                end if
+        if (.not. allocated(func_def%return_type) .or. &
+            len_trim(func_def%return_type) == 0) then
+            if (decl%has_kind .and. decl%kind_value > 0 .and. &
+                decl%type_name /= "character") then
+                block
+                    character(len=64) :: buffer
+                    write (buffer, '(A,"(",I0,")")') trim(decl%type_name), &
+                        decl%kind_value
+                    func_def%return_type = trim(buffer)
+                end block
+            else
+                func_def%return_type = trim(decl%type_name)
             end if
-        else if (.not. allocated(func_def%return_type) .or. &
-                 len_trim(func_def%return_type) == 0) then
-            func_def%return_type = ""
         end if
 
         decl%var_name = trim(func_def%result_variable)
@@ -572,7 +562,8 @@ contains
                                                     fn_param_kind_value, &
                                                     fn_param_is_array, &
                                                     fn_param_is_allocatable, &
-                        fn_param_type_inferred, standardizer_type_standardization_enabled)
+                                                    fn_param_type_inferred, &
+                                                standardizer_type_standardization_enabled)
 
         if (requires_intent_in) then
             call rebuild_parameter_declarations(arena, func_def, func_index, &
@@ -1273,25 +1264,5 @@ contains
         ! Update root index to point to the program
         sub_index = prog_index
     end subroutine wrap_subroutine_in_program
-
-    pure function to_lower_ascii_local(text) result(lowered)
-        character(len=*), intent(in) :: text
-        character(len=:), allocatable :: lowered
-        integer :: i, code
-
-        if (len(text) == 0) then
-            allocate (character(len=0) :: lowered)
-            return
-        end if
-
-        allocate (character(len=len(text)) :: lowered)
-        lowered = text
-        do i = 1, len(text)
-            code = iachar(lowered(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lowered(i:i) = achar(code + 32)
-            end if
-        end do
-    end function to_lower_ascii_local
 
 end module standardizer_subprograms

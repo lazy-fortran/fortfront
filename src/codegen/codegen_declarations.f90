@@ -63,14 +63,7 @@ contains
         end if
 
         if (len_trim(return_type_code) > 0) then
-            block
-                character(len=:), allocatable :: lowered_rt
-                lowered_rt = to_lower_ascii_str(trim(return_type_code))
-                if (index(lowered_rt, "character") == 1 .and. &
-                    index(lowered_rt, "len=") > 0) then
-                    return_type_code = ""
-                end if
-            end block
+            return_type_code = fix_character_len_placeholder(return_type_code)
         end if
 
         if (allocated(node%prefix_keywords)) then
