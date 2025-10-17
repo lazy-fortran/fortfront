@@ -76,6 +76,9 @@ module ast_nodes_misc
         ! mappings (new_name => old_name)
         logical :: has_only = .false.  ! Whether the only
         ! clause is present
+        logical :: has_double_colon = .false.
+        logical :: is_intrinsic = .false.
+        logical :: is_non_intrinsic = .false.
     contains
         procedure :: accept => use_statement_accept
         procedure :: to_json => use_statement_to_json
@@ -218,13 +221,15 @@ contains
     end function create_end_statement
 
     function create_use_statement(module_name, only_list, rename_list, &
-                                  has_only, line, column, url_spec) result(node)
+                                  has_only, line, column, url_spec, &
+                                  has_double_colon, is_intrinsic, is_non_intrinsic) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         integer, intent(in), optional :: line, column
+        logical, intent(in), optional :: has_double_colon, is_intrinsic, is_non_intrinsic
         type(use_statement_node) :: node
         integer :: i
 
@@ -232,6 +237,9 @@ contains
         node%uid = generate_uid()
         if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
+        if (present(has_double_colon)) node%has_double_colon = has_double_colon
+        if (present(is_intrinsic)) node%is_intrinsic = is_intrinsic
+        if (present(is_non_intrinsic)) node%is_non_intrinsic = is_non_intrinsic
 
         if (present(only_list)) then
             if (size(only_list) > 0) then
@@ -517,6 +525,9 @@ contains
         if (allocated(this%url_spec)) call json%add(obj, 'url_spec', &
                                                     this%url_spec)
         call json%add(obj, 'has_only', this%has_only)
+        call json%add(obj, 'has_double_colon', this%has_double_colon)
+        call json%add(obj, 'is_intrinsic', this%is_intrinsic)
+        call json%add(obj, 'is_non_intrinsic', this%is_non_intrinsic)
         call json%add(parent, obj)
     end subroutine use_statement_to_json
 
@@ -547,6 +558,9 @@ contains
             lhs%rename_list = rhs%rename_list
         end if
         lhs%has_only = rhs%has_only
+        lhs%has_double_colon = rhs%has_double_colon
+        lhs%is_intrinsic = rhs%is_intrinsic
+        lhs%is_non_intrinsic = rhs%is_non_intrinsic
     end subroutine use_statement_assign
 
     ! Include statement implementations

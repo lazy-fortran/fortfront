@@ -57,6 +57,25 @@ contains
             end if
         end do
 
+        ! Capture optional kind suffix (e.g., _int32, _real64)
+        if (pos <= len(source)) then
+            c = source(pos:pos)
+            if (c == '_') then
+                pos = pos + 1
+                col_num = col_num + 1
+                do while (pos <= len(source))
+                    c = source(pos:pos)
+                    if ((c >= '0' .and. c <= '9') .or. (c >= 'A' .and. c <= 'Z') .or. &
+                        (c >= 'a' .and. c <= 'z') .or. c == '_') then
+                        pos = pos + 1
+                        col_num = col_num + 1
+                    else
+                        exit
+                    end if
+                end do
+            end if
+        end if
+
         ! Create number token
         if (token_count < size(tokens)) then
             token_count = token_count + 1

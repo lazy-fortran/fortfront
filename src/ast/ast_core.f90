@@ -261,12 +261,14 @@ contains
     end function create_subroutine_call
 
     function create_use_statement(module_name, only_list, rename_list, &
-                                  has_only, line, column, url_spec) result(node)
+                                  has_only, line, column, url_spec, &
+                                  has_double_colon, is_intrinsic, is_non_intrinsic) result(node)
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         integer, intent(in), optional :: line, column
+        logical, intent(in), optional :: has_double_colon, is_intrinsic, is_non_intrinsic
         type(use_statement_node) :: node
         integer :: i
 
@@ -274,6 +276,9 @@ contains
         node%uid = generate_uid()
         if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
+        if (present(has_double_colon)) node%has_double_colon = has_double_colon
+        if (present(is_intrinsic)) node%is_intrinsic = is_intrinsic
+        if (present(is_non_intrinsic)) node%is_non_intrinsic = is_non_intrinsic
 
         if (present(only_list)) then
             if (size(only_list) > 0) then

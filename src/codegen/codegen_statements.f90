@@ -262,6 +262,7 @@ contains
         character(len=:), allocatable :: only_clause
         character(len=:), allocatable :: rename_entry
         integer :: i
+        logical :: needs_double_colon
 
         ! Build proper use statement with all components
         if (.not. allocated(node%module_name)) then
@@ -271,9 +272,20 @@ contains
 
         code = "use"
 
+        needs_double_colon = node%has_double_colon .or. node%is_intrinsic .or. &
+                             node%is_non_intrinsic
+
         ! Add URL spec for Go-style imports if present
         if (allocated(node%url_spec)) then
-            code = code // " " // node%url_spec // " "
+            code = code // " " // node%url_spec
+            if (needs_double_colon) code = code // " ::"
+        else
+            if (node%is_intrinsic) then
+                code = code // ", intrinsic"
+            else if (node%is_non_intrinsic) then
+                code = code // ", non_intrinsic"
+            end if
+            if (needs_double_colon) code = code // " ::"
         end if
 
         ! Add module name
