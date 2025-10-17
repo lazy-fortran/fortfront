@@ -26,6 +26,7 @@ module codegen_statements
     public :: generate_code_exit
     public :: generate_code_use_statement
     public :: generate_code_visibility_statement
+    public :: generate_code_namelist_statement
     public :: generate_code_implicit_statement
     public :: generate_code_comment
     public :: generate_code_blank_line
@@ -113,8 +114,8 @@ contains
                 if (i > 1) args_code = args_code // ", "
                 if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= &
                     arena%size) then
-                    args_code = args_code // generate_code_from_arena(arena, &
-                                                               node%expression_indices(i))
+                    args_code = args_code // generate_code_from_arena( &
+                                arena, node%expression_indices(i))
                 end if
             end do
         end if
@@ -359,6 +360,33 @@ contains
         end if
     end function generate_code_visibility_statement
 
+    function generate_code_namelist_statement(node) result(code)
+        type(namelist_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: names
+        integer :: i
+
+        if (.not. allocated(node%group_name)) then
+            code = "namelist"
+            return
+        end if
+
+        names = ""
+        if (allocated(node%variable_names)) then
+            do i = 1, size(node%variable_names)
+                if (.not. allocated(node%variable_names(i)%s)) cycle
+                if (len_trim(names) > 0) names = names // ", "
+                names = names // trim(node%variable_names(i)%s)
+            end do
+        end if
+
+        if (len_trim(names) > 0) then
+            code = "namelist /" // trim(node%group_name) // "/ " // trim(names)
+        else
+            code = "namelist /" // trim(node%group_name) // "/"
+        end if
+    end function generate_code_namelist_statement
+
     ! Generate code for implicit statements
     function generate_code_implicit_statement(node) result(code)
         type(implicit_statement_node), intent(in) :: node
@@ -424,8 +452,8 @@ contains
                                 if (node%shape_indices(j) > 0 .and. &
                                     node%shape_indices(j) <= arena%size) then
                                     shape_code = shape_code // &
-                                                 generate_code_from_arena(arena, &
-                                                                    node%shape_indices(j))
+                                                 generate_code_from_arena( &
+                                                 arena, node%shape_indices(j))
                                 end if
                             end do
                             if (len(shape_code) > 0) then

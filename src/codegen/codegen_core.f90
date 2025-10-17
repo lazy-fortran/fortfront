@@ -22,7 +22,7 @@ module codegen_core
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
-                              visibility_statement_node, &
+                              visibility_statement_node, namelist_statement_node, &
                               contains_node, end_statement_node, interface_block_node, &
                               module_procedure_node
     use ast_nodes_control
@@ -105,6 +105,8 @@ contains
             code = generate_code_exit(arena, node, node_index)
         type is (visibility_statement_node)
             code = generate_code_visibility_statement(node)
+        type is (namelist_statement_node)
+            code = generate_code_namelist_statement(node)
         type is (use_statement_node)
             code = generate_code_use_statement(node)
         type is (implicit_statement_node)
@@ -253,13 +255,44 @@ contains
         if (space_run > 0 .and. .not. leading) buffer = buffer // ' '
         clean = buffer
         clean = replace_all(clean, ' * ', '*')
-        clean = replace_all(clean, ' / ', '/')
         clean = replace_all(clean, ' ** ', '**')
         clean = replace_all(clean, '* ', '*')
-        clean = replace_all(clean, '/ ', '/')
+        if (index(clean, 'namelist') == 0) then
+            clean = replace_all(clean, ' / ', '/')
+            clean = replace_all(clean, '/ ', '/')
+        else
+            clean = adjust_namelist_spacing(clean)
+        end if
         clean = replace_all(clean, ' ,', ',')
         clean = replace_all(clean, ' )', ')')
     end function normalize_line_spacing
+
+    function adjust_namelist_spacing(text) result(out)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: out
+        character(len=:), allocatable :: trimmed, prefix, rest, group, remainder
+        integer :: slash1, slash2
+
+        trimmed = adjustl(text)
+        slash1 = index(trimmed, '/')
+        if (slash1 <= 0) then
+            out = trimmed
+            return
+        end if
+
+        prefix = trim(trimmed(1:slash1 - 1))
+        rest = trimmed(slash1 + 1:)
+        slash2 = index(rest, '/')
+        if (slash2 <= 0) then
+            out = trimmed
+            return
+        end if
+
+        group = trim(adjustl(rest(1:slash2 - 1)))
+        remainder = trim(adjustl(rest(slash2 + 1:)))
+        out = trim(prefix) // ' /' // group // '/'
+        if (len_trim(remainder) > 0) out = out // ' ' // trim(remainder)
+    end function adjust_namelist_spacing
 
     function replace_all(text, pattern, replacement) result(out)
         character(len=*), intent(in) :: text
@@ -348,8 +381,8 @@ contains
                     end if
 
                     code = code // &
-                        codegen_core_generate_arena(arena, &
-                        node%explicit_program_indices(i))
+                           codegen_core_generate_arena(arena, &
+                                                       node%explicit_program_indices(i))
                 end if
             end do
         end if
@@ -364,9 +397,8 @@ contains
                         code = code // new_line('A') // new_line('A')
                     end if
 
-                    code = code // &
-                        codegen_core_generate_arena(arena, &
-                        node%implicit_declaration_indices(i))
+                    code = code // codegen_core_generate_arena( &
+                           arena, node%implicit_declaration_indices(i))
                 end if
             end do
         end if

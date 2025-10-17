@@ -1,12 +1,13 @@
 module parser_module_structures_module
     ! Module structure parsing for module definitions and bodies
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE, to_lower
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal, &
-                           push_visibility_statement
+                           push_visibility_statement, push_namelist_statement
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
                                    parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
@@ -63,7 +64,8 @@ contains
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 ! Look ahead for "module"
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "module") then
                         ! Consume "end module"
                         token = parser%consume()  ! consume "end"
@@ -87,6 +89,12 @@ contains
                     select case (token%text)
                     case ("public", "private")
                         stmt_index = parse_visibility_statement(parser, arena)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
+                    case ("namelist")
+                        stmt_index = parse_namelist_statement(parser, arena)
                         if (stmt_index > 0) then
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
@@ -146,7 +154,8 @@ contains
 
                             ! Create target identifier
                             target_index = push_identifier(arena, id_token%text, &
-                                                           id_token%line, id_token%column)
+                                                           id_token%line, &
+                                                           id_token%column)
 
                             ! For simple module assignments, just consume the rest of the line
                             ! We'll create a simple identifier node for the RHS
@@ -155,27 +164,36 @@ contains
                                 integer :: rhs_index
 
                                 rhs_token = parser%peek()
-                                if (rhs_token%kind == TK_NUMBER .or. rhs_token%kind == TK_IDENTIFIER) then
+                                if (rhs_token%kind == TK_NUMBER .or. rhs_token%kind == &
+                                    TK_IDENTIFIER) then
                                     rhs_token = parser%consume()
 
                                     ! Create identifier or literal node for RHS
                                     if (rhs_token%kind == TK_IDENTIFIER) then
-                                        rhs_index = push_identifier(arena, rhs_token%text, &
-                                                                    rhs_token%line, rhs_token%column)
+                                        rhs_index = push_identifier(arena, &
+                                                                    rhs_token%text, &
+                                                                    rhs_token%line, &
+                                                                    rhs_token%column)
                                     else
                                         ! For numbers, create as literal
-                                        rhs_index = push_literal(arena, rhs_token%text, &
-                                                                 rhs_token%line, rhs_token%column, LITERAL_STRING)
+                                        rhs_index = push_literal(arena, &
+                                                                 rhs_token%text, &
+                                                                 rhs_token%line, &
+                                                                 rhs_token%column, &
+                                                                 LITERAL_STRING)
                                     end if
 
                                     if (rhs_index > 0 .and. target_index > 0) then
                                         ! Create assignment node
-                                        if (.not. allocated(assignment_op)) assignment_op = "="
-                                        assign_index = push_assignment(arena, target_index, rhs_index, &
-                                                                       id_token%line, id_token%column, &
-                                                                       operator_text=assignment_op)
+                                        if (.not. allocated(assignment_op)) &
+                                            assignment_op = "="
+                                        assign_index = push_assignment( &
+                                                       arena, target_index, rhs_index, &
+                                                       id_token%line, id_token%column, &
+                                                       operator_text=assignment_op)
                                         if (assign_index > 0) then
-                                            declaration_indices = [declaration_indices, assign_index]
+                                            declaration_indices = [declaration_indices, &
+                                                                   assign_index]
                                         end if
                                     end if
                                 end if
@@ -199,11 +217,13 @@ contains
             end if
 
             ! Parse subroutine definitions for contains section
-            if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+            if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == &
+                "subroutine") then
                 ! Parse the subroutine and add to procedure list
                 block
                     integer :: proc_index
-                    proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+                    proc_index = parse_subroutine_definition(parser, arena, &
+                                                             prefix_buffer)
                     if (proc_index > 0) then
                         procedure_indices = [procedure_indices, proc_index]
                     end if
@@ -212,7 +232,8 @@ contains
             end if
 
             ! Parse function definitions for contains section
-            if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
+            if (in_contains_section .and. token%kind == TK_KEYWORD .and. &
+                token%text == "function") then
                 ! Parse the function and add to procedure list
                 block
                     integer :: proc_index
@@ -232,7 +253,9 @@ contains
 
             if (in_contains_section) then
                 ! Don't consume function/subroutine - let them be handled by the checks above
-                if (.not. (token%kind == TK_KEYWORD .and. (token%text == "function" .or. token%text == "subroutine"))) then
+                if (.not. (token%kind == TK_KEYWORD .and. &
+                           (token%text == "function" .or. token%text == &
+                            "subroutine"))) then
                     token = parser%consume()
                 end if
             else
@@ -243,7 +266,8 @@ contains
 
         ! Create module node with proper structure
         module_index = push_module_structured(arena, module_name, declaration_indices, &
-                                              procedure_indices, has_contains, line, column)
+                                              procedure_indices, has_contains, &
+                                              line, column)
     end function parse_module
 
     function parse_visibility_statement(parser, arena) result(stmt_index)
@@ -299,11 +323,13 @@ contains
 
         if (allocated(names)) then
             stmt_index = push_visibility_statement(arena, is_private, names, &
-                                                   keyword_token%line, keyword_token%column, &
+                                                   keyword_token%line, &
+                                                   keyword_token%column, &
                                                    has_double_colon=has_double_colon)
         else
             stmt_index = push_visibility_statement(arena, is_private, &
-                                                   line=keyword_token%line, column=keyword_token%column, &
+                                                   line=keyword_token%line, &
+                                                   column=keyword_token%column, &
                                                    has_double_colon=has_double_colon)
         end if
     contains
@@ -328,6 +354,92 @@ contains
             end if
         end subroutine append_name
     end function parse_visibility_statement
+
+    function parse_namelist_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: keyword_token, token
+        character(len=:), allocatable :: group_name
+        character(len=:), allocatable :: names(:)
+        integer :: line, column
+
+        stmt_index = 0
+        if (parser%is_at_end()) return
+
+        keyword_token = parser%consume()
+        line = keyword_token%line
+        column = keyword_token%column
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "/")) return
+        token = parser%consume()
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) return
+        group_name = trim(token%text)
+        token = parser%consume()
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "/")) return
+        token = parser%consume()
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_IDENTIFIER)
+                call append_name(names, token%text)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                if (token%text == ",") then
+                    token = parser%consume()
+                    cycle
+                else
+                    exit
+                end if
+            case (TK_NEWLINE)
+                token = parser%consume()
+                exit
+            case (TK_COMMENT)
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (.not. allocated(group_name)) return
+
+        if (allocated(names)) then
+            stmt_index = push_namelist_statement(arena, group_name, names, line, column)
+        else
+            stmt_index = push_namelist_statement(arena, group_name, line=line, &
+                                                 column=column)
+        end if
+    contains
+        subroutine append_name(list, value)
+            character(len=:), allocatable, intent(inout) :: list(:)
+            character(len=*), intent(in) :: value
+            character(len=:), allocatable :: temp(:)
+            integer :: n, current_len, target_len
+
+            if (.not. allocated(list)) then
+                allocate (character(len=len_trim(value)) :: list(1))
+                list(1) = trim(value)
+            else
+                n = size(list)
+                current_len = len(list)
+                target_len = len_trim(value)
+                target_len = max(current_len, target_len)
+                allocate (character(len=target_len) :: temp(n + 1))
+                temp(1:n) = list
+                temp(n + 1) = trim(value)
+                call move_alloc(temp, list)
+            end if
+        end subroutine append_name
+    end function parse_namelist_statement
 
     ! Parse a simple implicit statement in module context
     subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)
@@ -354,10 +466,12 @@ contains
         ! Create implicit statement node
         if (implicit_type == "none") then
             stmt_index = push_implicit_statement(arena, .true., &
-                                                 line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, &
+                                                 column=implicit_token%column)
         else
             stmt_index = push_implicit_statement(arena, .false., &
-                                                 line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, &
+                                                 column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit_in_module
 
@@ -389,8 +503,10 @@ contains
                 else if (token%text == "end") then
                     ! Check if next token is our procedure type
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == proc_type) then
+                        if (parser%tokens(parser%current_token + 1)%kind == &
+                            TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == &
+                            proc_type) then
                             nesting_level = nesting_level - 1
                         end if
                     end if

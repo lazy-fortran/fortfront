@@ -98,6 +98,16 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type visibility_statement_node
 
+    type, extends(ast_node), public :: namelist_statement_node
+        character(len=:), allocatable :: group_name
+        type(string_t), allocatable :: variable_names(:)
+    contains
+        procedure :: accept => namelist_statement_accept
+        procedure :: to_json => namelist_statement_to_json
+        procedure :: assign => namelist_statement_assign
+        generic :: assignment(=) => assign
+    end type namelist_statement_node
+
     ! Include statement node
     type, extends(ast_node), public :: include_statement_node
         character(len=:), allocatable :: filename
@@ -234,7 +244,8 @@ contains
 
     function create_use_statement(module_name, only_list, rename_list, &
                                   has_only, line, column, url_spec, &
-                                  has_double_colon, is_intrinsic, is_non_intrinsic) result(node)
+                                  has_double_colon, is_intrinsic, is_non_intrinsic) &
+        result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
@@ -303,6 +314,31 @@ contains
         if (present(column)) node%column = column
     end function create_visibility_statement
 
+    function create_namelist_statement(group_name, variable_names, line, column) &
+        result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: group_name
+        character(len=*), intent(in), optional :: variable_names(:)
+        integer, intent(in), optional :: line, column
+        type(namelist_statement_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        node%group_name = trim(group_name)
+
+        if (present(variable_names)) then
+            if (size(variable_names) > 0) then
+                allocate (node%variable_names(size(variable_names)))
+                do i = 1, size(variable_names)
+                    node%variable_names(i)%s = trim(variable_names(i))
+                end do
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_namelist_statement
+
     function create_implicit_statement(is_none, type_name, kind_value, has_kind, &
                                        length_value, has_length, letter_ranges, &
                                        line, column) result(node)
@@ -316,7 +352,7 @@ contains
         character(len=*), intent(in), optional :: letter_ranges(:)
         integer, intent(in), optional :: line, column
         type(implicit_statement_node) :: node
-        integer :: i, dash_pos
+        integer :: i, dash_pos, upper_idx
 
         node%is_none = is_none
         node%uid = generate_uid()
@@ -333,8 +369,10 @@ contains
                 do i = 1, size(letter_ranges)
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
+                        upper_idx = dash_pos + 1
                         node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) &
+                                                          (upper_idx:upper_idx)
                     else
                         node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
                         node%letter_specs(i)%end_letter = letter_ranges(i) (1:1)
@@ -625,7 +663,8 @@ contains
         if (allocated(this%names)) then
             do i = 1, size(this%names)
                 if (allocated(this%names(i)%s)) then
-                    call json%add(obj, 'name_' // trim(adjustl(to_string(i))), this%names(i)%s)
+                    call json%add(obj, 'name_'//trim(adjustl(to_string(i))), &
+                                  this%names(i)%s)
                 end if
             end do
         end if
@@ -666,6 +705,68 @@ contains
             end do
         end if
     end subroutine visibility_statement_assign
+
+    subroutine namelist_statement_accept(this, visitor)
+        class(namelist_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine namelist_statement_accept
+
+    subroutine namelist_statement_to_json(this, json, parent)
+        class(namelist_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'namelist_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%group_name)) call json%add(obj, 'group', this%group_name)
+        if (allocated(this%variable_names)) then
+            do i = 1, size(this%variable_names)
+                if (allocated(this%variable_names(i)%s)) then
+                    call json%add(obj, 'name_'//trim(adjustl(to_string(i))), &
+                                  this%variable_names(i)%s)
+                end if
+            end do
+        end if
+        call json%add(parent, obj)
+    contains
+        pure function to_string(val) result(str)
+            integer, intent(in) :: val
+            character(len=:), allocatable :: str
+            character(len=16) :: buf
+            write (buf, '(I0)') val
+            str = trim(buf)
+        end function to_string
+    end subroutine namelist_statement_to_json
+
+    subroutine namelist_statement_assign(lhs, rhs)
+        class(namelist_statement_node), intent(inout) :: lhs
+        class(namelist_statement_node), intent(in) :: rhs
+        integer :: i
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+
+        if (allocated(rhs%group_name)) lhs%group_name = rhs%group_name
+
+        if (allocated(lhs%variable_names)) deallocate (lhs%variable_names)
+        if (allocated(rhs%variable_names)) then
+            allocate (lhs%variable_names(size(rhs%variable_names)))
+            do i = 1, size(rhs%variable_names)
+                lhs%variable_names(i) = rhs%variable_names(i)
+            end do
+        end if
+    end subroutine namelist_statement_assign
 
     ! Include statement implementations
     subroutine include_statement_accept(this, visitor)

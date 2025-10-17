@@ -23,7 +23,8 @@ module ast_core
     use iso_fortran_env, only: error_unit
     use intrinsic_registry, only: get_intrinsic_info
     use uid_generator, only: generate_uid
-    use error_handling, only: result_t, success_result, create_error_result, ERROR_VALIDATION
+    use error_handling, only: result_t, success_result, create_error_result, &
+                              ERROR_VALIDATION
 
     ! Re-export base types and interfaces
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
@@ -32,7 +33,8 @@ module ast_core
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
 
     ! Re-export arena functionality (modern generational arena)
-    use ast_arena_modern, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, destroy_ast_arena
+    use ast_arena_modern, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, &
+                                create_ast_arena, destroy_ast_arena
 
     ! Re-export all node types
     use ast_nodes_core, only: program_node, assignment_node, &
@@ -51,7 +53,8 @@ module ast_core
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node, &
                                    create_function_def, create_subroutine_def, &
-                                   is_procedure_node, get_procedure_name, get_procedure_params, &
+                                   is_procedure_node, get_procedure_name, &
+                                   get_procedure_params, &
                                    get_procedure_body, procedure_has_return_type, &
                                    get_procedure_return_type
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
@@ -64,7 +67,8 @@ module ast_core
                             create_print_statement
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
                               deallocate_statement_node, &
-                              use_statement_node, visibility_statement_node, include_statement_node, &
+                              use_statement_node, visibility_statement_node, &
+                              namelist_statement_node, include_statement_node, &
                               contains_node, interface_block_node, &
                               comment_node, blank_line_node, implicit_statement_node, &
                               end_statement_node, &
@@ -85,9 +89,10 @@ module ast_core
               ast_node_wrapper
     public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, &
               LITERAL_ARRAY, LITERAL_COMPLEX
-    public :: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, destroy_ast_arena
+    public :: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, &
+              destroy_ast_arena
     public :: program_node, assignment_node, pointer_assignment_node, &
-              identifier_node, literal_node
+              identifier_node, literal_node, namelist_statement_node
     public :: binary_op_node, call_or_subscript_node, array_literal_node
     public :: if_node, do_loop_node, do_while_node, forall_node, &
               elseif_wrapper, case_wrapper
@@ -101,7 +106,8 @@ module ast_core
               read_statement_node, format_descriptor_node
     public :: complex_literal_node, allocate_statement_node, &
               deallocate_statement_node
-    public :: use_statement_node, visibility_statement_node, include_statement_node, contains_node, &
+    public :: use_statement_node, visibility_statement_node, include_statement_node, &
+              contains_node, &
               interface_block_node, comment_node, blank_line_node, end_statement_node
     public :: array_bounds_node, array_slice_node, range_expression_node, &
               array_operation_node
@@ -124,12 +130,14 @@ module ast_core
     public :: create_identifier, create_literal, create_binary_op, &
               create_call_or_subscript, &
               create_assignment, create_program, create_subroutine_call, &
-              create_use_statement, create_visibility_statement, create_implicit_statement, &
+              create_use_statement, create_visibility_statement, &
+              create_namelist_statement, create_implicit_statement, &
               create_include_statement, create_interface_block, create_module, &
               create_stop, &
               create_return, create_goto, create_error_stop, &
               create_cycle, create_exit, create_where, &
-              create_comment, create_blank_line, create_array_bounds, create_array_slice, &
+              create_comment, create_blank_line, create_array_bounds, &
+              create_array_slice, &
               create_range_expression, create_array_operation
 
 contains
@@ -262,7 +270,8 @@ contains
 
     function create_use_statement(module_name, only_list, rename_list, &
                                   has_only, line, column, url_spec, &
-                                  has_double_colon, is_intrinsic, is_non_intrinsic) result(node)
+                                  has_double_colon, is_intrinsic, is_non_intrinsic) &
+        result(node)
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
@@ -314,7 +323,7 @@ contains
         character(len=*), intent(in), optional :: letter_ranges(:)  ! "a", "i-n", "o-z"
         integer, intent(in), optional :: line, column
         type(implicit_statement_node) :: node
-        integer :: i, dash_pos
+        integer :: i, dash_pos, upper_idx
 
         node%is_none = is_none
         node%uid = generate_uid()
@@ -332,8 +341,10 @@ contains
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
                         ! Range like "a-h"
+                        upper_idx = dash_pos + 1
                         node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) &
+                                                          (upper_idx:upper_idx)
                     else
                         ! Single letter like "a"
                         node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
@@ -441,7 +452,8 @@ contains
         if (present(column)) node%column = column
     end function create_goto
 
-    function create_error_stop(error_code_index, error_message, line, column) result(node)
+    function create_error_stop(error_code_index, error_message, line, column) &
+        result(node)
         integer, intent(in), optional :: error_code_index
         character(len=*), intent(in), optional :: error_message
         integer, intent(in), optional :: line, column
@@ -492,7 +504,9 @@ contains
 
         ! Validate mask index - return default node on failure to avoid crash
         if (mask_expr_index <= 0) then
-            write(error_unit, '(A)') "ERROR [ast_core]: Invalid mask expression index in create_where - returning default node"
+            write (error_unit, '(A)') &
+                "ERROR [ast_core]: Invalid mask expression index in create_where " // &
+                "- returning default node"
             ! Continue with default initialization - node already has UID and safe defaults
             if (present(line)) node%line = line
             if (present(column)) node%column = column
@@ -570,7 +584,8 @@ contains
     ! Backward compatibility wrapper for create_declaration
     function create_declaration_wrapper(type_name, var_name, kind_value, &
                                         initializer, dimensions, &
-                                        is_allocatable, is_pointer, line, column) result(node)
+                                        is_allocatable, is_pointer, line, column) &
+        result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value

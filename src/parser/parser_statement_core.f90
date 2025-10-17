@@ -12,7 +12,7 @@ module parser_statement_core_module
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier
+    use ast_factory, only: push_assignment, push_identifier, push_namelist_statement
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
                                                  null_statement_callbacks
     implicit none
@@ -51,7 +51,8 @@ contains
     end function is_block_if
 
     pure logical function at_top_level(if_depth, select_depth, do_depth, &
-                              where_depth, assoc_depth, forall_depth) result(is_top_level)
+                                       where_depth, assoc_depth, forall_depth) &
+        result(is_top_level)
         integer, intent(in) :: if_depth, select_depth, do_depth
         integer, intent(in) :: where_depth, assoc_depth, forall_depth
 
@@ -618,6 +619,8 @@ contains
             stmt_index = parse_goto_statement(parser, arena)
         case ("error")
             stmt_index = parse_error_stop_statement(parser, arena)
+        case ("namelist")
+            stmt_index = parse_namelist_statement(parser, arena, parent_index)
         end select
     end function parse_keyword_statement
 
@@ -811,5 +814,104 @@ contains
         parser%current_token = max(1, parser%current_token)
         call parser%error(trim(message))
     end subroutine report_unparsed_statement
+
+    integer function parse_namelist_statement(parser, arena, parent_index) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        type(token_t) :: token
+        character(len=:), allocatable :: group_name
+        character(len=:), allocatable :: names(:)
+        integer :: line, column
+
+        stmt_index = 0
+        token = parser%peek()
+        line = token%line
+        column = token%column
+
+        token = parser%consume()
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "/")) return
+        token = parser%consume()
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) return
+        group_name = trim(token%text)
+        token = parser%consume()
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "/")) return
+        token = parser%consume()
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_IDENTIFIER)
+                call append_name(names, token%text)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                if (token%text == ",") then
+                    token = parser%consume()
+                    cycle
+                else
+                    exit
+                end if
+            case (TK_NEWLINE)
+                token = parser%consume()
+                exit
+            case (TK_COMMENT)
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (.not. allocated(group_name)) return
+
+        if (present(parent_index)) then
+            if (allocated(names)) then
+                stmt_index = push_namelist_statement(arena, group_name, names, &
+                                                     line, column, parent_index)
+            else
+                stmt_index = push_namelist_statement(arena, group_name, line=line, &
+                                                     column=column, &
+                                                     parent_index=parent_index)
+            end if
+        else
+            if (allocated(names)) then
+                stmt_index = push_namelist_statement(arena, group_name, names, &
+                                                     line, column)
+            else
+                stmt_index = push_namelist_statement(arena, group_name, line=line, &
+                                                     column=column)
+            end if
+        end if
+    contains
+        subroutine append_name(list, value)
+            character(len=:), allocatable, intent(inout) :: list(:)
+            character(len=*), intent(in) :: value
+            character(len=:), allocatable :: temp(:)
+            integer :: n, current_len, target_len
+
+            if (.not. allocated(list)) then
+                allocate (character(len=len_trim(value)) :: list(1))
+                list(1) = trim(value)
+            else
+                n = size(list)
+                current_len = len(list)
+                target_len = len_trim(value)
+                target_len = max(current_len, target_len)
+                allocate (character(len=target_len) :: temp(n + 1))
+                temp(1:n) = list
+                temp(n + 1) = trim(value)
+                call move_alloc(temp, list)
+            end if
+        end subroutine append_name
+    end function parse_namelist_statement
 
 end module parser_statement_core_module
