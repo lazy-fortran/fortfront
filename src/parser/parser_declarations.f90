@@ -1,13 +1,15 @@
 module parser_declarations
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, &
+                          TK_KEYWORD, &
                           TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, TK_STRING, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_expressions_module, only: parse_comparison, parse_range
-   use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
+    use parser_result_types, only: parse_result_t, success_parse_result, &
+                                   error_parse_result
     use error_handling, only: ERROR_PARSER
     use ast_factory, only: push_multi_declaration, push_declaration, push_identifier
     use parser_type_hooks_module, only: register_type_annotation
@@ -36,6 +38,8 @@ module parser_declarations
         integer :: kind_value = 0
         integer :: line = 0
         integer :: column = 0
+        logical :: has_character_length = .false.
+        character(len=:), allocatable :: character_length_expr
     end type type_specifier_t
 
     ! Declaration attributes result type for structured attribute information
@@ -129,7 +133,8 @@ contains
         end if
 
         first_token = 1
-        do while (first_token <= size(input_tokens) .and. is_trivia_token(input_tokens(first_token)))
+        do while (first_token <= size(input_tokens) .and. &
+                  is_trivia_token(input_tokens(first_token)))
             first_token = first_token + 1
         end do
 
@@ -139,7 +144,8 @@ contains
         end if
 
         last_token = size(input_tokens)
-      do while (last_token >= first_token .and. is_trivia_token(input_tokens(last_token)))
+        do while (last_token >= first_token .and. &
+                  is_trivia_token(input_tokens(last_token)))
             last_token = last_token - 1
         end do
 
@@ -212,6 +218,9 @@ contains
         type_spec%kind_value = 0
         type_spec%line = token%line
         type_spec%column = token%column
+        type_spec%has_character_length = .false.
+        if (allocated(type_spec%character_length_expr)) deallocate &
+            (type_spec%character_length_expr)
     end subroutine initialize_type_specifier
 
     subroutine split_derived_type_name_and_params(tokens, name_tokens, param_tokens)
@@ -460,7 +469,8 @@ contains
         end select
     end function is_type_attribute_token
 
-  subroutine skip_type_definition_attributes(parser, invalid_definition, attribute_clause)
+    subroutine skip_type_definition_attributes(parser, invalid_definition, &
+                                               attribute_clause)
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: invalid_definition
         character(len=:), allocatable, intent(out), optional :: attribute_clause
@@ -574,7 +584,8 @@ contains
             return
         end if
 
-        if (parser%current_token < 1 .or. parser%current_token > size(parser%tokens)) then
+        if (parser%current_token < 1 .or. parser%current_token > &
+            size(parser%tokens)) then
             return
         end if
 
@@ -692,11 +703,19 @@ contains
             type_spec%has_kind = .true.
             type_spec%kind_value = -1
             token = parser%consume()
+            type_spec%has_character_length = .true.
+            if (allocated(type_spec%character_length_expr)) deallocate &
+                (type_spec%character_length_expr)
+            type_spec%character_length_expr = "*"
         case default
             if (token%kind == TK_NUMBER) then
                 read (token%text, *) type_spec%kind_value
                 type_spec%has_kind = .true.
                 token = parser%consume()
+                type_spec%has_character_length = .true.
+                if (allocated(type_spec%character_length_expr)) deallocate &
+                    (type_spec%character_length_expr)
+                type_spec%character_length_expr = trim(adjustl(token%text))
             end if
         end select
     end subroutine maybe_consume_character_star
@@ -788,6 +807,15 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t) :: token
+        type(token_t), allocatable :: param_tokens(:)
+        type(token_t), allocatable :: cleaned_tokens(:)
+        character(len=:), allocatable :: collected_text
+        character(len=:), allocatable :: param_text
+        integer :: param_start, param_end
+        logical :: first_param
+
+        collected_text = ""
+        first_param = .true.
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -796,16 +824,75 @@ contains
                 exit
             end if
 
+            param_start = parser%current_token
             call handle_character_parameter(parser, type_spec)
+            param_end = parser%current_token - 1
+
+            if (param_end >= param_start) then
+                param_tokens = parser%tokens(param_start:param_end)
+                call trim_token_sequence(param_tokens, cleaned_tokens)
+                if (allocated(param_tokens)) deallocate (param_tokens)
+                if (allocated(cleaned_tokens)) then
+                    param_text = trim(adjustl(tokens_to_text(cleaned_tokens)))
+                    deallocate (cleaned_tokens)
+                    if (len_trim(param_text) > 0) then
+                        if (.not. first_param) collected_text = collected_text // ", "
+                        collected_text = collected_text // param_text
+                        first_param = .false.
+                    end if
+                end if
+            end if
+
             call consume_comma_if_present(parser)
         end do
+
+        if (len_trim(collected_text) > 0) then
+            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
+                trim(collected_text) // ")"
+        else
+            type_spec%type_name = trim(type_spec%base_keyword)
+        end if
     end subroutine parse_parenthesized_character
+
+    subroutine collect_character_parameter_tokens(parser, tokens)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), allocatable, intent(out) :: tokens(:)
+        type(token_t) :: token
+        integer :: depth
+
+        if (allocated(tokens)) deallocate (tokens)
+        depth = 0
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%text)
+            case (")")
+                if (depth == 0) exit
+            case (",")
+                if (depth == 0) exit
+            end select
+
+            call append_token(tokens, token)
+            token = parser%consume()
+
+            select case (token%text)
+            case ("(")
+                depth = depth + 1
+            case (")")
+                if (depth > 0) depth = depth - 1
+            end select
+        end do
+    end subroutine collect_character_parameter_tokens
 
     subroutine handle_character_parameter(parser, type_spec)
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t) :: token
         character(len=:), allocatable :: normalized
+        type(token_t), allocatable :: value_tokens(:)
+        type(token_t), allocatable :: cleaned(:)
+        character(len=:), allocatable :: value_text
+        integer :: read_stat, numeric_value
 
         if (parser%is_at_end()) return
 
@@ -816,20 +903,40 @@ contains
         case ("len")
             token = parser%consume()
             call consume_optional_equals(parser)
-            if (.not. parser%is_at_end()) then
-                token = parser%peek()
-                select case (token%text)
-                case ("*")
+            call collect_character_parameter_tokens(parser, value_tokens)
+            if (allocated(value_tokens)) then
+                call trim_token_sequence(value_tokens, cleaned)
+                if (allocated(cleaned)) then
+                    value_text = trim(adjustl(tokens_to_text(cleaned)))
+                    deallocate (cleaned)
+                else
+                    value_text = ""
+                end if
+                deallocate (value_tokens)
+            else
+                value_text = ""
+            end if
+
+            if (len_trim(value_text) > 0) then
+                type_spec%has_character_length = .true.
+                if (allocated(type_spec%character_length_expr)) deallocate &
+                    (type_spec%character_length_expr)
+                type_spec%character_length_expr = trim(value_text)
+
+                if (trim(value_text) == "*") then
                     type_spec%has_kind = .true.
                     type_spec%kind_value = -1
-                    token = parser%consume()
-                case default
-                    if (token%kind == TK_NUMBER) then
-                        read (token%text, *) type_spec%kind_value
+                else
+                    read_stat = 0
+                    read (value_text, *, iostat=read_stat) numeric_value
+                    if (read_stat == 0) then
                         type_spec%has_kind = .true.
-                        token = parser%consume()
+                        type_spec%kind_value = numeric_value
+                    else
+                        type_spec%has_kind = .false.
+                        type_spec%kind_value = 0
                     end if
-                end select
+                end if
             end if
         case ("kind")
             token = parser%consume()
@@ -851,6 +958,45 @@ contains
             end if
         end select
     end subroutine handle_character_parameter
+
+    subroutine finalize_character_type_spec(type_spec)
+        type(type_specifier_t), intent(inout) :: type_spec
+        character(len=:), allocatable :: length_expr
+        character(len=:), allocatable :: lowered_len
+        character(len=64) :: buffer
+
+        length_expr = ""
+
+        if (type_spec%has_character_length) then
+            if (allocated(type_spec%character_length_expr)) then
+                length_expr = trim(type_spec%character_length_expr)
+            end if
+        else if (type_spec%has_kind) then
+            select case (type_spec%kind_value)
+            case (-1)
+                length_expr = "*"
+            case default
+                if (type_spec%kind_value > 0) then
+                    write (buffer, '(I0)') type_spec%kind_value
+                    length_expr = trim(buffer)
+                end if
+            end select
+        end if
+
+        if (len_trim(length_expr) == 0) then
+            type_spec%type_name = trim(type_spec%base_keyword)
+            return
+        end if
+
+        lowered_len = to_lower(trim(length_expr))
+        if (index(lowered_len, "len=") == 1) then
+            type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
+                trim(length_expr) // ")"
+        else
+            type_spec%type_name = trim(type_spec%base_keyword) // "(len=" // &
+                trim(length_expr) // ")"
+        end if
+    end subroutine finalize_character_type_spec
 
     subroutine consume_optional_equals(parser)
         type(parser_state_t), intent(inout) :: parser
@@ -897,7 +1043,7 @@ contains
         if (allocated(collected_tokens)) then
             collected_text = tokens_to_text(collected_tokens)
             type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
-                                  trim(adjustl(collected_text)) // ")"
+                trim(adjustl(collected_text)) // ")"
             deallocate (collected_tokens)
         else
             type_spec%type_name = trim(type_spec%base_keyword) // "()"
@@ -929,6 +1075,10 @@ contains
             if (token%text == "(") then
                 call parse_parenthesized_spec(parser, arena, base_lower, type_spec)
             end if
+        end if
+
+        if (base_lower == "character") then
+            call finalize_character_type_spec(type_spec)
         end if
     end function parse_type_specifier
 
@@ -976,7 +1126,8 @@ contains
                         token = parser%peek()
                         if (token%text == "(") then
                             token = parser%consume()  ! consume '('
-            call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
+                            call parse_array_dimensions(parser, arena, &
+                                                       attr_info%global_dimension_indices)
                             attr_info%has_global_dimensions = .true.
                         end if
                     end if
@@ -1114,11 +1265,13 @@ contains
                                     if (var_count > size(var_names)) then
                                         ! Extend array if needed
                                         block
-                                           character(len=64), allocatable :: temp_names(:)
+                                            character(len=64), allocatable :: &
+                                                temp_names(:)
                                             integer :: old_size
                                             old_size = size(var_names)
                                             allocate (temp_names(old_size * 2))
-                                            temp_names(1:old_size) = var_names(1:old_size)
+                                            temp_names(1:old_size) = &
+                                                var_names(1:old_size)
                                             deallocate (var_names)
                                             call move_alloc(temp_names, var_names)
                                         end block
@@ -1188,7 +1341,8 @@ contains
                 if (temp_index > 0) then
                     if (attr_info%has_global_dimensions) then
                         call register_type_annotation(temp_index, type_spec%type_name, &
-                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      var_names(1:var_count), &
+                                                      has_kind=type_spec%has_kind, &
                                                       kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1196,7 +1350,8 @@ contains
                                      dimension_indices=attr_info%global_dimension_indices)
                     else
                         call register_type_annotation(temp_index, type_spec%type_name, &
-                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      var_names(1:var_count), &
+                                                      has_kind=type_spec%has_kind, &
                                                       kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1226,7 +1381,8 @@ contains
                     token = parser%consume()
                     ! Special handling for complex type initializers
                     if (type_spec%type_name == "complex") then
-        initializer_index = handle_complex_initializer(parser, arena, type_spec%type_name)
+                        initializer_index = handle_complex_initializer(parser, arena, &
+                                                                      type_spec%type_name)
                     else
                         initializer_index = parse_comparison(parser, arena)
                     end if
@@ -1330,7 +1486,8 @@ contains
             if (decl_index > 0) then
                 if (attr_info%has_global_dimensions) then
                     call register_type_annotation(decl_index, type_spec%type_name, &
-                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  [adjustl(trim(var_name))], &
+                                                  has_kind=type_spec%has_kind, &
                                                   kind_value=type_spec%kind_value, &
                                                   is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1338,7 +1495,8 @@ contains
                                      dimension_indices=attr_info%global_dimension_indices)
                 else if (has_local_dimensions) then
                     call register_type_annotation(decl_index, type_spec%type_name, &
-                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  [adjustl(trim(var_name))], &
+                                                  has_kind=type_spec%has_kind, &
                                                   kind_value=type_spec%kind_value, &
                                                   is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1346,7 +1504,8 @@ contains
                                                 dimension_indices=local_dimension_indices)
                 else
                     call register_type_annotation(decl_index, type_spec%type_name, &
-                                 [adjustl(trim(var_name))], has_kind=type_spec%has_kind, &
+                                                  [adjustl(trim(var_name))], &
+                                                  has_kind=type_spec%has_kind, &
                                                   kind_value=type_spec%kind_value, &
                                                   is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1531,7 +1690,9 @@ contains
                 if (next_token%text == "=" .or. next_token%text == "=>") then
                     next_token = parser%consume()
                     if (type_spec%type_name == "complex") then
-  init_indices(var_count) = handle_complex_initializer(parser, arena, type_spec%type_name)
+                        init_indices(var_count) = &
+                            handle_complex_initializer(parser, arena, &
+                                                       type_spec%type_name)
                     else
                         init_indices(var_count) = parse_comparison(parser, arena)
                     end if
@@ -1606,12 +1767,15 @@ contains
                                                   is_parameter=attr_info%is_parameter &
                                                   )
                                 if (decl_indices(i) > 0) then
-                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
-                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                                    call register_type_annotation(decl_indices(i), &
+                                                                  type_spec%type_name, &
+                                                          [adjustl(trim(var_names(i)))], &
+                                                            has_kind=type_spec%has_kind, &
                                                         kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
-                              is_pointer=attr_info%is_pointer, dimension_indices=var_dims)
+                                                        is_pointer=attr_info%is_pointer, &
+                                                               dimension_indices=var_dims)
                                 end if
                             end if
                         end block
@@ -1631,8 +1795,10 @@ contains
                                           is_parameter=attr_info%is_parameter &
                                           )
                         if (decl_indices(i) > 0) then
-                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
-                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                            call register_type_annotation(decl_indices(i), &
+                                                          type_spec%type_name, &
+                                                          [adjustl(trim(var_names(i)))], &
+                                                          has_kind=type_spec%has_kind, &
                                                         kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1654,8 +1820,10 @@ contains
                                           is_parameter=attr_info%is_parameter &
                                           )
                         if (decl_indices(i) > 0) then
-                     call register_type_annotation(decl_indices(i), type_spec%type_name, &
-                             [adjustl(trim(var_names(i)))], has_kind=type_spec%has_kind, &
+                            call register_type_annotation(decl_indices(i), &
+                                                          type_spec%type_name, &
+                                                          [adjustl(trim(var_names(i)))], &
+                                                          has_kind=type_spec%has_kind, &
                                                         kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1717,7 +1885,8 @@ contains
                     decl_indices(1) = decl_index
                     if (attr_info%has_global_dimensions) then
                         call register_type_annotation(decl_index, type_spec%type_name, &
-                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      var_names(1:var_count), &
+                                                      has_kind=type_spec%has_kind, &
                                                       kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1725,7 +1894,8 @@ contains
                                      dimension_indices=attr_info%global_dimension_indices)
                     else
                         call register_type_annotation(decl_index, type_spec%type_name, &
-                                    var_names(1:var_count), has_kind=type_spec%has_kind, &
+                                                      var_names(1:var_count), &
+                                                      has_kind=type_spec%has_kind, &
                                                       kind_value=type_spec%kind_value, &
                                                     is_parameter=attr_info%is_parameter, &
                                                 is_allocatable=attr_info%is_allocatable, &
@@ -1761,7 +1931,8 @@ contains
         ! Consume 'type'
         token = parser%consume()
 
-        call skip_type_definition_attributes(parser, invalid_type_spec, header_attributes)
+        call skip_type_definition_attributes(parser, invalid_type_spec, &
+                                             header_attributes)
         if (invalid_type_spec) then
             return
         end if
@@ -1800,10 +1971,12 @@ contains
             token = parser%peek()
 
             ! Check for end type
-            if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "end") then
+            if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+                token%text == "end") then
                 token = parser%consume()
                 token = parser%peek()
-                if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "type") then
+                if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+                    token%text == "type") then
                     token = parser%consume()
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER) then
@@ -1833,7 +2006,8 @@ contains
             else if (comp_index == 0) then
                 ! If we couldn't parse a component, skip to next line or token
                 token = parser%peek()
-            if (.not. ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+                if (.not. ((token%kind == TK_IDENTIFIER .or. token%kind == &
+                            TK_KEYWORD) .and. &
                            token%text == "end")) then
                     if (token%kind == TK_NEWLINE) then
                         token = parser%consume()
@@ -1896,7 +2070,9 @@ contains
         token = parser%peek()
 
         ! Handle end of type definition
-        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "end") then
+        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+            token%text &
+            == "end") then
             return
         end if
 
