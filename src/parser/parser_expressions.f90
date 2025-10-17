@@ -1446,26 +1446,39 @@ contains
                 paren = parser%consume()
             end if
 
-            ! Create call_or_subscript node with slice detection
-            if (allocated(arg_indices)) then
-
+            ! Determine the call target name (identifier or component)
+            block
+                logical :: name_available
+                name_available = .false.
                 select type (node => arena%entries(expr_index)%node)
                 type is (component_access_node)
-                    name_for_call = node%component_name
+                    if (allocated(node%component_name)) then
+                        name_for_call = node%component_name
+                        name_available = .true.
+                    end if
                 type is (identifier_node)
-                    name_for_call = node%name
+                    if (allocated(node%name)) then
+                        name_for_call = node%name
+                        name_available = .true.
+                    end if
                 class default
                     if (allocated(arg_indices)) deallocate (arg_indices)
                     return
                 end select
 
-                if (allocated(name_for_call)) then
-                    expr_index = &
-                        push_call_or_subscript_with_slice_detection(arena, &
-                                                             name_for_call, arg_indices, &
-                                                                 paren%line, paren%column)
+                if (.not. name_available) then
+                    if (allocated(arg_indices)) deallocate (arg_indices)
+                    return
                 end if
+            end block
+
+            ! Create call_or_subscript node with slice detection even when no args are present
+            if (.not. allocated(arg_indices)) then
+                allocate (arg_indices(0))
             end if
+
+            expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                                        name_for_call, arg_indices, paren%line, paren%column)
         end block
     end function parse_array_indexing_postfix
 
