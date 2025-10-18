@@ -215,10 +215,35 @@ contains
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
         type(transform_context_t), intent(in) :: context
+        character(len=:), allocatable :: base_output
+        logical :: has_functions, has_subroutines, has_main_code
 
-        ! For now, just call the base transformation
-        ! TODO: Implement module/program wrapping based on context
-        call transform_lazy_fortran_string(input, output, error_msg)
+        ! First do the base transformation
+        call transform_lazy_fortran_string(input, base_output, error_msg)
+
+        if (len_trim(error_msg) > 0) then
+            output = base_output
+            return
+        end if
+
+        ! Analyze what we have in the output
+        call analyze_output_content(base_output, has_functions, has_subroutines, &
+                                    has_main_code)
+
+        ! Wrap based on content type
+        if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
+            ! Only functions/subs: wrap in module
+            call wrap_in_module_only(base_output, context, output)
+        else if (has_main_code .and. .not. (has_functions .or. has_subroutines)) then
+            ! Only main code: wrap in program
+            call wrap_in_program_only(base_output, context, output)
+        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
+            ! Both: module for functions + program with use
+            call wrap_in_module_and_program(base_output, context, output)
+        else
+            ! Nothing to wrap, return as-is
+            output = base_output
+        end if
     end subroutine transform_with_context
 
     pure function ensure_trailing_newline(text) result(with_newline)
@@ -1027,5 +1052,421 @@ contains
             deallocate (block_text)
         end if
     end function extract_leading_comment_block
+
+    ! Analyze output to detect content types
+    subroutine analyze_output_content(output, has_functions, has_subroutines, has_main_code)
+        character(len=*), intent(in) :: output
+        logical, intent(out) :: has_functions, has_subroutines, has_main_code
+        integer :: i, line_start, line_end, prog_pos, contains_pos
+        character(len=:), allocatable :: line, trimmed
+        logical :: has_program_wrapper, has_executable_in_program
+        logical :: has_module
+
+        has_functions = .false.
+        has_subroutines = .false.
+        has_main_code = .false.
+        has_program_wrapper = .false.
+        has_executable_in_program = .false.
+        has_module = .false.
+
+        i = 1
+        do while (i <= len(output))
+            ! Find line boundaries
+            line_start = i
+            line_end = index(output(i:), new_line('A'))
+            if (line_end == 0) then
+                line = output(i:)
+                i = len(output) + 1
+            else
+                line = output(i:i + line_end - 2)
+                i = i + line_end
+            end if
+
+            trimmed = trim(adjustl(line))
+
+            ! Detect module (but not "end module")
+            if (index(trimmed, 'module ') > 0 .and. &
+                index(trimmed, 'end module') == 0 .and. &
+                index(trimmed, 'module procedure') == 0) then
+                has_module = .true.
+            end if
+
+            ! Detect functions (but not "end function")
+            if (index(trimmed, 'function ') > 0 .and. &
+                index(trimmed, 'end function') == 0) then
+                has_functions = .true.
+            end if
+
+            ! Detect subroutines (but not "end subroutine")
+            if (index(trimmed, 'subroutine ') > 0 .and. &
+                index(trimmed, 'end subroutine') == 0) then
+                has_subroutines = .true.
+            end if
+
+            ! Detect program wrapper
+            if (index(trimmed, 'program ') > 0 .and. &
+                index(trimmed, 'end program') == 0) then
+                has_program_wrapper = .true.
+            end if
+        end do
+
+        ! If input already has a module, skip function/main detection
+        ! This means we return .false. for both to skip wrapping
+        if (has_module) then
+            has_functions = .false.
+            has_subroutines = .false.
+            has_main_code = .false.
+            return
+        end if
+
+        ! Check if program has actual executable code (not just function wrappers)
+        if (has_program_wrapper) then
+            ! Look for "contains" - if present, check for statements between program and contains
+            prog_pos = index(output, 'program ')
+            contains_pos = index(output(prog_pos:), 'contains')
+
+            if (contains_pos > 0) then
+                ! Check if there are non-declaration statements between program and contains
+                call check_for_executable_statements(output(prog_pos:prog_pos + contains_pos - 1), &
+                                                     has_executable_in_program)
+            else
+                ! No contains, so program might have executable code
+                call check_for_executable_statements(output(prog_pos:), has_executable_in_program)
+            end if
+
+            has_main_code = has_executable_in_program
+        end if
+    end subroutine analyze_output_content
+
+    ! Check if text contains executable statements (not just declarations/implicit)
+    subroutine check_for_executable_statements(text, has_executable)
+        character(len=*), intent(in) :: text
+        logical, intent(out) :: has_executable
+        integer :: i
+        character(len=:), allocatable :: line, trimmed
+
+        has_executable = .false.
+
+        i = 1
+        do while (i <= len(text))
+            ! Find line
+            line = extract_line(text, i)
+            trimmed = trim(adjustl(line))
+
+            ! Skip empty lines, comments, declarations
+            if (len_trim(trimmed) == 0) cycle
+            if (trimmed(1:1) == '!') cycle
+            if (index(trimmed, 'implicit') > 0) cycle
+            if (index(trimmed, 'integer ::') > 0) cycle
+            if (index(trimmed, 'real ::') > 0) cycle
+            if (index(trimmed, 'character') > 0) cycle
+            if (index(trimmed, 'logical ::') > 0) cycle
+            if (index(trimmed, 'program ') > 0) cycle
+            if (index(trimmed, 'contains') > 0) cycle
+
+            ! If we get here, it's likely an executable statement
+            has_executable = .true.
+            return
+        end do
+    end subroutine check_for_executable_statements
+
+    ! Extract a line from text starting at position i, update i
+    function extract_line(text, i) result(line)
+        character(len=*), intent(in) :: text
+        integer, intent(inout) :: i
+        character(len=:), allocatable :: line
+        integer :: line_end
+
+        line_end = index(text(i:), new_line('A'))
+        if (line_end == 0) then
+            line = text(i:)
+            i = len(text) + 1
+        else
+            line = text(i:i + line_end - 2)
+            i = i + line_end
+        end if
+    end function extract_line
+
+    ! Wrap functions/subroutines only in a module
+    subroutine wrap_in_module_only(base_output, context, output)
+        character(len=*), intent(in) :: base_output
+        type(transform_context_t), intent(in) :: context
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable :: functions_part
+
+        ! Extract functions/subroutines (remove any wrapping program)
+        call extract_functions(base_output, functions_part)
+
+        ! Build module
+        output = 'module ' // context%module_name // new_line('A') // &
+                 '    implicit none' // new_line('A') // &
+                 'contains' // new_line('A') // &
+                 new_line('A') // &
+                 functions_part // &
+                 'end module ' // context%module_name // new_line('A')
+    end subroutine wrap_in_module_only
+
+    ! Wrap main code only in a program
+    subroutine wrap_in_program_only(base_output, context, output)
+        character(len=*), intent(in) :: base_output
+        type(transform_context_t), intent(in) :: context
+        character(len=:), allocatable, intent(out) :: output
+
+        ! The base output should already have a program wrapper
+        ! Just rename it if needed
+        call rename_program(base_output, context%program_name, output)
+    end subroutine wrap_in_program_only
+
+    ! Wrap functions in module AND main code in program with use
+    subroutine wrap_in_module_and_program(base_output, context, output)
+        character(len=*), intent(in) :: base_output
+        type(transform_context_t), intent(in) :: context
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable :: functions_part, main_part
+
+        ! Split output into functions and main code
+        call split_functions_and_main(base_output, functions_part, main_part)
+
+        ! Build module with functions
+        output = 'module ' // context%module_name // new_line('A') // &
+                 '    implicit none' // new_line('A') // &
+                 'contains' // new_line('A') // &
+                 new_line('A') // &
+                 functions_part // &
+                 'end module ' // context%module_name // new_line('A') // &
+                 new_line('A')
+
+        ! Remove external declarations from main_part (they conflict with use)
+        block
+            character(len=:), allocatable :: cleaned_main
+            call remove_external_declarations(main_part, cleaned_main)
+            main_part = cleaned_main
+        end block
+
+        ! Add program with use statement
+        output = output // &
+                 'program ' // context%program_name // new_line('A') // &
+                 '    use ' // context%module_name // new_line('A') // &
+                 main_part
+        ! Ensure newline before end program
+        if (len(main_part) > 0) then
+            if (main_part(len(main_part):len(main_part)) /= new_line('A')) then
+                output = output // new_line('A')
+            end if
+        end if
+        output = output // 'end program ' // context%program_name // new_line('A')
+    end subroutine wrap_in_module_and_program
+
+    ! Extract functions/subroutines from output (remove program wrapper if present)
+    subroutine extract_functions(base_output, functions_part)
+        character(len=*), intent(in) :: base_output
+        character(len=:), allocatable, intent(out) :: functions_part
+        integer :: prog_start, prog_end, func_start
+
+        ! Look for "program" and "end program" to remove wrapper
+        prog_start = index(base_output, 'program ')
+
+        if (prog_start > 0) then
+            ! Find where functions start (after "contains")
+            func_start = index(base_output(prog_start:), 'contains')
+            if (func_start > 0) then
+                func_start = prog_start + func_start + 7  ! Skip "contains"
+                ! Find "end program"
+                prog_end = index(base_output(func_start:), 'end program')
+                if (prog_end > 0) then
+                    functions_part = base_output(func_start:func_start + prog_end - 2)
+                else
+                    functions_part = base_output(func_start:)
+                end if
+            else
+                ! No contains, just take everything before end program
+                prog_end = index(base_output(prog_start:), 'end program')
+                if (prog_end > 0) then
+                    functions_part = base_output(1:prog_start - 1)
+                else
+                    functions_part = base_output
+                end if
+            end if
+        else
+            ! No program wrapper, return as-is
+            functions_part = base_output
+        end if
+    end subroutine extract_functions
+
+    ! Rename program in output
+    subroutine rename_program(base_output, new_name, output)
+        character(len=*), intent(in) :: base_output
+        character(len=*), intent(in) :: new_name
+        character(len=:), allocatable, intent(out) :: output
+        integer :: prog_pos, end_prog_pos, name_start, name_end
+        character(len=:), allocatable :: before_name, after_name
+
+        prog_pos = index(base_output, 'program ')
+        if (prog_pos == 0) then
+            output = base_output
+            return
+        end if
+
+        ! Find the old program name
+        name_start = prog_pos + 8  ! After "program "
+        name_end = name_start
+        do while (name_end <= len(base_output))
+            if (base_output(name_end:name_end) == new_line('A') .or. &
+                base_output(name_end:name_end) == ' ') then
+                exit
+            end if
+            name_end = name_end + 1
+        end do
+        name_end = name_end - 1
+
+        ! Replace with new name
+        before_name = base_output(1:name_start - 1)
+        after_name = base_output(name_end + 1:)
+        output = before_name // trim(new_name) // after_name
+
+        ! Also replace in "end program"
+        end_prog_pos = index(output, 'end program ')
+        if (end_prog_pos > 0) then
+            name_start = end_prog_pos + 12
+            name_end = name_start
+            do while (name_end <= len(output))
+                if (output(name_end:name_end) == new_line('A') .or. &
+                    output(name_end:name_end) == ' ') then
+                    exit
+                end if
+                name_end = name_end + 1
+            end do
+            name_end = name_end - 1
+
+            before_name = output(1:name_start - 1)
+            after_name = output(name_end + 1:)
+            output = before_name // trim(new_name) // after_name
+        end if
+    end subroutine rename_program
+
+    ! Split output into functions and main code parts
+    subroutine split_functions_and_main(base_output, functions_part, main_part)
+        character(len=*), intent(in) :: base_output
+        character(len=:), allocatable, intent(out) :: functions_part, main_part
+        integer :: prog_start, func_end
+        character(len=:), allocatable :: temp_main
+
+        ! Find where functions end and program begins
+        prog_start = index(base_output, 'program ')
+
+        if (prog_start > 1) then
+            functions_part = base_output(1:prog_start - 1)
+            temp_main = base_output(prog_start:)
+
+            ! Remove "program " and "end program" lines from main_part, keep content
+            call extract_program_body(temp_main, main_part)
+        else
+            functions_part = ''
+            main_part = base_output
+        end if
+    end subroutine split_functions_and_main
+
+    ! Extract program body (remove program/end program lines)
+    subroutine extract_program_body(program_text, body)
+        character(len=*), intent(in) :: program_text
+        character(len=:), allocatable, intent(out) :: body
+        integer :: start_pos, end_pos, absolute_end_pos
+        integer :: i
+
+        ! Skip "program name" line
+        start_pos = index(program_text, new_line('A'))
+        if (start_pos == 0) then
+            body = ''
+            return
+        end if
+        start_pos = start_pos + 1
+
+        ! Find "end program"
+        end_pos = index(program_text(start_pos:), 'end program')
+        if (end_pos > 0) then
+            ! end_pos is relative to start_pos
+            ! Convert to absolute position
+            absolute_end_pos = start_pos + end_pos - 1
+            ! Back up to start of line containing "end program"
+            do i = absolute_end_pos - 1, start_pos, -1
+                if (program_text(i:i) == new_line('A')) then
+                    absolute_end_pos = i
+                    exit
+                end if
+            end do
+            ! Extract body up to (but not including) "end program" line
+            if (absolute_end_pos > start_pos) then
+                body = program_text(start_pos:absolute_end_pos - 1)
+            else
+                body = ''
+            end if
+        else
+            body = program_text(start_pos:)
+        end if
+    end subroutine extract_program_body
+
+    ! Remove external declarations (conflicts with module use)
+    subroutine remove_external_declarations(input, output)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        integer :: i, j, line_start, line_end
+        character(len=:), allocatable :: line, trimmed, result
+        logical :: skip_line
+        integer :: input_len
+
+        result = ''
+        input_len = len(input)
+        i = 1
+
+        do while (i <= input_len)
+            line_start = i
+            ! Find line end
+            line_end = i - 1
+            do j = i, input_len
+                if (input(j:j) == new_line('A')) then
+                    line_end = j - 1
+                    i = j + 1
+                    exit
+                end if
+                line_end = j
+            end do
+            if (line_end < line_start) then
+                i = input_len + 1
+                cycle
+            end if
+            if (j > input_len .and. line_end == input_len) then
+                i = input_len + 1
+            end if
+
+            ! Extract line
+            if (line_end >= line_start) then
+                line = input(line_start:line_end)
+            else
+                line = ''
+            end if
+
+            trimmed = trim(adjustl(line))
+
+            ! Check if this line is an external declaration
+            skip_line = .false.
+            if (index(trimmed, ', external ::') > 0 .or. &
+                index(trimmed, ', external::') > 0 .or. &
+                index(trimmed, ',external ::') > 0 .or. &
+                index(trimmed, ',external::') > 0) then
+                skip_line = .true.
+            end if
+
+            ! Add line if not skipping
+            if (.not. skip_line) then
+                if (len(result) > 0) then
+                    result = result // new_line('A') // line
+                else
+                    result = line
+                end if
+            end if
+        end do
+
+        output = result
+    end subroutine remove_external_declarations
 
 end module frontend_transformation

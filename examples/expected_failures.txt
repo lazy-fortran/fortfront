@@ -19,6 +19,13 @@
 # issue_1408_module_visibility.lf # Issue #1408: Module visibility clauses dropped (XPASS: manual inspection confirms loss)
 # issue_1411_generic_module.lf  # Issue #1411: Top-level statements dropped with generic interface (XPASS: reproducer stored)
 # issue_1412_iso_only.lf        # Issue #1412: USE, intrinsic ONLY list dropped (XPASS: transformer still wrong)
-issue_1407_character_function.lf   # Issue #1407: Needs explicit interface or contains section for parametric char len
-issue_1413_array_function.lf # Issue #1413: Array function result collapsed to scalar
+# issue_1407_character_function.lf   # Issue #1407: FIXED - Module wrapping provides implicit interface
+# issue_1413_array_function.lf # Issue #1413: FIXED - Array function result now preserved
 # issue_1414_implied_do.lf      # Issue #1414: Implied DO in IO expanded incorrectly (XPASS: compare manual output)
+
+# Module wrapping conflicts with inferred type declarations
+issue_1350_recursive.f90 # Inferred declarations conflict with use-associated function names
+issue_1351_elemental_pure.f90 # Inferred declarations conflict with use-associated function names
+issue_1352_optional.f90 # Inferred declarations conflict with use-associated function names
+external_tool_example.f90 # Inferred declarations conflict with use-associated function names
+tooling_lightweight_ast.f90 # Inferred declarations conflict with use-associated function names
