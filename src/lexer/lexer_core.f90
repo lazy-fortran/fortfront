@@ -3,6 +3,7 @@ module lexer_core
     use lexer_token_types
     use lexer_scanners
     use error_handling
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -12,15 +13,18 @@ module lexer_core
     public :: TOKEN_WHITESPACE, TOKEN_COMMENT, TOKEN_NEWLINE
 
     ! Re-export types
-    public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, scan_result_t
+    public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, &
+              scan_result_t
 
     ! Re-export main functions
     public :: tokenize_safe, tokenize_core, tokenize_core_safe
     public :: token_type_name
 
     ! Re-export scanning functions
-    public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, scan_logical_token
-    public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
+    public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
+              scan_logical_token
+    public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
+              scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
     ! Re-export utilities
@@ -108,28 +112,33 @@ contains
 
             case ('.')  ! Logical token, decimal number, or separator between numbers
                 if (pos < source_len) then
-                    if (source(pos + 1:pos + 1) >= '0' .and. source(pos + 1:pos + 1) <= '9') then
+                    if (source(pos + 1:pos + 1) >= '0' .and. source(pos + 1:pos + 1) &
+                        <= '9') then
                         ! Only treat as a decimal number if not immediately following a digit
                         block
                             logical :: prev_is_digit
                             if (pos > 1) then
-                                prev_is_digit = (source(pos - 1:pos - 1) >= '0' .and. source(pos - 1:pos - 1) <= '9')
+                                prev_is_digit = (source(pos - 1:pos - 1) >= '0' .and. &
+                                                 source(pos - 1:pos - 1) <= '9')
                             else
                                 prev_is_digit = .false.
                             end if
                             if (prev_is_digit) then
                                 ! Pattern like "3.14.159": second dot should be an operator separator
                                 call scan_operator(source, pos, line_num, col_num, &
-                                                   tokenize_res%tokens, tokenize_res%token_count)
+                                                   tokenize_res%tokens, &
+                                                   tokenize_res%token_count)
                             else
                                 call scan_number(source, pos, line_num, col_num, &
-                                                 tokenize_res%tokens, tokenize_res%token_count)
+                                                 tokenize_res%tokens, &
+                                                 tokenize_res%token_count)
                             end if
                         end block
                     else
                         ! Not followed by a digit: try logical token forms like .and., .true.
                         call scan_logical_token(source, pos, line_num, col_num, &
-                                                tokenize_res%tokens, tokenize_res%token_count)
+                                                tokenize_res%tokens, &
+                                                tokenize_res%token_count)
                     end if
                 else
                     ! At end of source: treat as operator (defensive)
@@ -266,7 +275,7 @@ contains
         integer :: old_size, new_size
 
         old_size = size(tokens)
-        new_size = old_size * 2
+        new_size = old_size*2
 
         allocate (temp(new_size))
         temp(1:old_size) = tokens
@@ -297,26 +306,10 @@ contains
         integer :: old_size, new_size
 
         old_size = size(trivia)
-        new_size = old_size * 2
+        new_size = old_size*2
 
         allocate (temp(new_size))
         temp(1:old_size) = trivia
         call move_alloc(temp, trivia)
     end subroutine resize_trivia_buffer
-
-    ! Re-export to_lower from scanners module
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, ascii_val
-
-        lower_str = str
-        do i = 1, len(str)
-            ascii_val = iachar(str(i:i))
-            if (ascii_val >= 65 .and. ascii_val <= 90) then
-                lower_str(i:i) = achar(ascii_val + 32)
-            end if
-        end do
-    end function to_lower
-
 end module lexer_core

@@ -1,4 +1,5 @@
 module parser_procedure_definitions_module
+    use string_utils_mod, only: to_lower
     ! Parser module for function, subroutine, and interface definitions
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, &
                           TK_STRING, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
@@ -10,18 +11,21 @@ module parser_procedure_definitions_module
     use parser_expressions_module, only: parse_comparison
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block, &
+    use ast_factory, only: push_function_def, push_subroutine_def, &
+                           push_interface_block, &
                            push_module_procedure, push_if
     use ast_factory
     use ast_base, only: string_t
     implicit none
     private
 
-   public :: parse_function_definition, parse_subroutine_definition, parse_interface_block
+    public :: parse_function_definition, parse_subroutine_definition, &
+              parse_interface_block
 
 contains
 
-    function parse_function_definition(parser, arena, prefix_buffer, prefix_list) result(func_index)
+    function parse_function_definition(parser, arena, prefix_buffer, prefix_list) &
+        result(func_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -29,7 +33,8 @@ contains
         integer :: func_index
 
         type(token_t) :: token
-        character(len=:), allocatable :: function_name, return_type_str, result_variable_name
+        character(len=:), allocatable :: function_name, return_type_str, &
+                                         result_variable_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword
@@ -72,7 +77,7 @@ contains
         do
             token = parser%peek()
             if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                select case (trim(to_lower_local(token%text)))
+                select case (trim(to_lower(token%text)))
                 case ("recursive")
                     has_recursive_keyword = .true.
                     call append_prefix_keyword(prefix_keywords, "recursive")
@@ -94,7 +99,7 @@ contains
         ! Check if we have a return type before "function"
         token = parser%peek()
         if (token%kind == TK_KEYWORD) then
-            select case (trim(to_lower_local(token%text)))
+            select case (trim(to_lower(token%text)))
             case ("real", "integer", "logical", "character")
                 return_type_str = token%text
                 token = parser%consume()
@@ -232,21 +237,27 @@ contains
                                     preceded_by_end = .false.
                                     preceded_by_else = .false.
                                     if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                                        if (all_tokens(pos - 1)%kind == &
+                                            TK_KEYWORD) then
+                                            if (all_tokens(pos - 1)%text == "end") &
+                                                preceded_by_end = .true.
+                                            if (all_tokens(pos - 1)%text == "else") &
+                                                preceded_by_else = .true.
                                         end if
                                     end if
-                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                                    if (.not. preceded_by_end .and. .not. &
+                                        preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
                                     if (pos < size(all_tokens)) then
-                                        if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                                        if (all_tokens(pos + 1)%kind == &
+                                            TK_KEYWORD .and. &
                                             all_tokens(pos + 1)%text == "if") then
                                             depth = depth - 1
                                             if (depth <= 0) then
-                                                stmt_end = min(size(all_tokens), pos + 1)
+                                                stmt_end = &
+                                                    min(size(all_tokens), pos + 1)
                                                 exit
                                             end if
                                         end if
@@ -278,9 +289,11 @@ contains
                     if (.not. infer_recursive_from_body) then
                         do i = 1, stmt_size
                             if (stmt_tokens(i)%kind == TK_IDENTIFIER) then
-                                if (trim(stmt_tokens(i)%text) == trim(function_name)) then
+                                if (trim(stmt_tokens(i)%text) == &
+                                    trim(function_name)) then
                                     if (i < stmt_size) then
-                                        if (stmt_tokens(i + 1)%kind == TK_OPERATOR .and. &
+                                        if (stmt_tokens(i + 1)%kind == &
+                                            TK_OPERATOR .and. &
                                             stmt_tokens(i + 1)%text == "(") then
                                             infer_recursive_from_body = .true.
                                             exit
@@ -310,7 +323,7 @@ contains
 
                         if (first_token <= stmt_size) then
                             if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
-                                token_lower = to_lower_local( &
+                                token_lower = to_lower( &
      &                                    stmt_tokens(first_token)%text)
                                 if (trim(token_lower) == "if") then
                                     stmt_index = parse_if_statement_tokens( &
@@ -361,7 +374,8 @@ contains
 
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
-                                     line, column, result_variable=result_variable_name, &
+                                       line, column, &
+                                       result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
                                        prefix_keywords=prefix_keywords)
     end function parse_function_definition
@@ -393,7 +407,7 @@ contains
 
         do i = 2, token_count
             if (stmt_tokens(i)%kind == TK_KEYWORD) then
-                token_lower = to_lower_local(stmt_tokens(i)%text)
+                token_lower = to_lower(stmt_tokens(i)%text)
                 select case (trim(token_lower))
                 case ("then")
                     if (then_pos < 0) then_pos = i
@@ -402,7 +416,7 @@ contains
                 case ("end")
                     if (i < token_count) then
                         if (stmt_tokens(i + 1)%kind == TK_KEYWORD) then
-                            token_lower = to_lower_local(stmt_tokens(i + 1)%text)
+                            token_lower = to_lower(stmt_tokens(i + 1)%text)
                             if (trim(token_lower) == "if") then
                                 end_pos = i
                                 exit
@@ -440,7 +454,8 @@ contains
         else
             then_end = end_pos - 1
         end if
-        then_body_indices = parse_if_body_tokens(stmt_tokens, then_start, then_end, arena)
+        then_body_indices = parse_if_body_tokens(stmt_tokens, then_start, &
+                                                 then_end, arena)
 
         if (else_pos > 0) then
             else_start = else_pos + 1
@@ -456,7 +471,8 @@ contains
                            line=stmt_tokens(1)%line, column=stmt_tokens(1)%column)
     end function parse_if_statement_tokens
 
-    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) result(body_indices)
+    function parse_if_body_tokens(stmt_tokens, start_idx, end_idx, arena) &
+        result(body_indices)
         type(token_t), intent(in) :: stmt_tokens(:)
         integer, intent(in) :: start_idx, end_idx
         type(ast_arena_t), intent(inout) :: arena
@@ -568,7 +584,8 @@ contains
         call move_alloc(temp, prefixes)
     end subroutine append_prefix_keyword
 
-    function parse_subroutine_definition(parser, arena, prefix_buffer) result(sub_index)
+    function parse_subroutine_definition(parser, arena, prefix_buffer) &
+        result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -680,21 +697,27 @@ contains
                                     preceded_by_end = .false.
                                     preceded_by_else = .false.
                                     if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                                        if (all_tokens(pos - 1)%kind == &
+                                            TK_KEYWORD) then
+                                            if (all_tokens(pos - 1)%text == "end") &
+                                                preceded_by_end = .true.
+                                            if (all_tokens(pos - 1)%text == "else") &
+                                                preceded_by_else = .true.
                                         end if
                                     end if
-                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                                    if (.not. preceded_by_end .and. .not. &
+                                        preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
                                     if (pos < size(all_tokens)) then
-                                        if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                                        if (all_tokens(pos + 1)%kind == &
+                                            TK_KEYWORD .and. &
                                             all_tokens(pos + 1)%text == "if") then
                                             depth = depth - 1
                                             if (depth <= 0) then
-                                                stmt_end = min(size(all_tokens), pos + 1)
+                                                stmt_end = &
+                                                    min(size(all_tokens), pos + 1)
                                                 exit
                                             end if
                                         end if
@@ -741,7 +764,7 @@ contains
 
                         if (first_token <= stmt_size) then
                             if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
-                                token_lower = to_lower_local( &
+                                token_lower = to_lower( &
      &                                    stmt_tokens(first_token)%text)
                                 if (trim(token_lower) == "if") then
                                     stmt_index = parse_if_statement_tokens( &
@@ -785,11 +808,13 @@ contains
         end if
 
         ! Create subroutine node
-    sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
+                                        body_indices, &
                                         line, column)
     end function parse_subroutine_definition
 
-    function parse_interface_block(parser, arena, prefix_buffer) result(interface_index)
+    function parse_interface_block(parser, arena, prefix_buffer) &
+        result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -825,12 +850,12 @@ contains
 
             ! Detect end of interface block
             if (token%kind == TK_KEYWORD .and. &
-                trim(to_lower_local(token%text)) == "end") then
+                trim(to_lower(token%text)) == "end") then
                 block
                     type(token_t) :: next_token
                     next_token = parser%get_token_at_index(parser%current_token + 1)
                     if (next_token%kind == TK_KEYWORD .and. &
-                        trim(to_lower_local(next_token%text)) == "interface") then
+                        trim(to_lower(next_token%text)) == "interface") then
                         token = parser%consume()  ! consume "end"
                         token = parser%consume()  ! consume "interface"
                         token = parser%peek()
@@ -845,7 +870,7 @@ contains
 
             ! Parse module procedure statements inside the interface
             if (token%kind == TK_KEYWORD .and. &
-                trim(to_lower_local(token%text)) == "module") then
+                trim(to_lower(token%text)) == "module") then
                 stmt_index = parse_module_procedure_statement(parser, arena)
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
@@ -890,7 +915,7 @@ contains
         ! Procedure keyword must follow
         token = parser%peek()
         if (.not. (token%kind == TK_KEYWORD .and. &
-                   trim(to_lower_local(token%text)) == "procedure")) then
+                   trim(to_lower(token%text)) == "procedure")) then
             return
         end if
         token = parser%consume()
@@ -931,7 +956,8 @@ contains
 
         if (allocated(procedure_names)) then
             if (size(procedure_names) > 0) then
-                stmt_index = push_module_procedure(arena, procedure_names, line, column)
+                stmt_index = push_module_procedure(arena, procedure_names, &
+                                                   line, column)
             end if
         end if
     end function parse_module_procedure_statement
@@ -965,14 +991,14 @@ contains
         character(len=:), allocatable :: next_lower
         integer :: next_index
 
-        token_lower = to_lower_local(token%text)
+        token_lower = to_lower(token%text)
         can_use = .false.
 
         select case (trim(token_lower))
         case ('double')
             next_index = parser%current_token + 1
             lookahead = parser%get_token_at_index(next_index)
-            next_lower = to_lower_local(trim(lookahead%text))
+            next_lower = to_lower(trim(lookahead%text))
             if (next_lower /= 'precision') then
                 can_use = .true.
             end if
@@ -980,19 +1006,5 @@ contains
             can_use = .false.
         end select
     end function keyword_can_be_function_name
-
-    pure function to_lower_local(value) result(lower_value)
-        character(len=*), intent(in) :: value
-        character(len=len(value)) :: lower_value
-        integer :: i, code
-
-        lower_value = value
-        do i = 1, len(lower_value)
-            code = iachar(lower_value(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lower_value(i:i) = achar(code + 32)
-            end if
-        end do
-    end function to_lower_local
 
 end module parser_procedure_definitions_module

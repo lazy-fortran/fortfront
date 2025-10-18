@@ -2,6 +2,8 @@ module standardizer_allocatable
     ! Allocatable marking logic module
     ! Handles array reassignment detection and string length change tracking
 
+    use string_utils_mod, only: to_lower
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_loops
@@ -833,38 +835,16 @@ contains
         end if
     end function apply_allocatable_attributes
 
-    pure function to_lower_ascii_local(text) result(lowered)
-        character(len=*), intent(in) :: text
-        character(len=:), allocatable :: lowered
-        integer :: i, code
-        character(len=:), allocatable :: trimmed
-
-        trimmed = trim(text)
-        if (len(trimmed) == 0) then
-            allocate (character(len=0) :: lowered)
-            return
-        end if
-
-        allocate (character(len=len(trimmed)) :: lowered)
-        do i = 1, len(trimmed)
-            code = iachar(trimmed(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lowered(i:i) = achar(code + 32)
-            else
-                lowered(i:i) = trimmed(i:i)
-            end if
-        end do
-    end function to_lower_ascii_local
-
     pure logical function has_explicit_character_length(type_name) result(has_len)
         character(len=*), intent(in) :: type_name
         character(len=:), allocatable :: lowered
 
-        lowered = to_lower_ascii_local(type_name)
-        if (len(lowered) == 0) then
+        if (len_trim(type_name) == 0) then
             has_len = .false.
             return
         end if
+
+        lowered = trim(to_lower(type_name))
 
         if (index(lowered, "len=") > 0) then
             has_len = .true.
