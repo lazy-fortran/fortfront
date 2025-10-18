@@ -479,6 +479,7 @@ contains
         type(parser_state_t) :: line_parser
         integer :: stmt_size
         integer :: stmt_index
+        type(token_t) :: consumed_token
 
         stmt_size = stmt_end - stmt_start + 1
         if (stmt_size <= 0) return
@@ -494,8 +495,9 @@ contains
         call skip_if_body_line_padding(line_parser)
 
         if (.not. line_parser%is_at_end()) then
+            consumed_token = line_parser%peek()
             stmt_index = parse_statement_in_if_block(line_parser, arena, &
-                                                     line_parser%peek())
+                                                     consumed_token)
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
             end if
