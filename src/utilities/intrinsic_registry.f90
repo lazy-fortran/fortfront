@@ -41,8 +41,8 @@ contains
             if (trim(to_lower(intrinsic_functions(i)%name)) == &
                 trim(to_lower(name))) then
                 is_intrinsic = .true.
-                signature = intrinsic_functions(i)%return_type // "(" // &
-                            intrinsic_functions(i)%arg_types // ")"
+                signature = intrinsic_functions(i)%return_type//"("// &
+                            intrinsic_functions(i)%arg_types//")"
                 return
             end if
         end do
@@ -137,17 +137,20 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="real", return_type="real", arg_types="integer", &
+                                 name="real", return_type="real", &
+                                 arg_types="integer", &
                                  description="Convert to real")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="nint", return_type="integer", arg_types="real", &
+                                 name="nint", return_type="integer", &
+                                 arg_types="real", &
                                  description="Nearest integer")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="floor", return_type="integer", arg_types="real", &
+                                 name="floor", return_type="integer", &
+                                 arg_types="real", &
                                  description="Floor function")
 
         i = i + 1
@@ -159,12 +162,14 @@ contains
         ! Array functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="size", return_type="integer", arg_types="array", &
+                                 name="size", return_type="integer", &
+                                 arg_types="array", &
                                  description="Array size")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="sum", return_type="numeric", arg_types="array", &
+                                 name="sum", return_type="numeric", &
+                                 arg_types="array", &
                                  description="Array sum")
 
         i = i + 1
@@ -252,7 +257,7 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="allocated", return_type="logical", &
                                  arg_types="allocatable", &
-                                 description="Check if allocatable variable is allocated")
+                               description="Check if allocatable variable is allocated")
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then

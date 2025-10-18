@@ -2,7 +2,8 @@ module parser_procedure_bodies_module
     ! Procedure body parsing for subroutines and functions in module contexts
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_subroutine_def, push_function_def, &
@@ -65,8 +66,10 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, token%text, &
-                                                                     "", 0, 0, .false., &
+                            param_index = push_parameter_declaration(arena, &
+                                                                     token%text, &
+                                                                     "", 0, &
+                                                                     0, .false., &
                                                                      empty_dims, &
                                                                      token%line, &
                                                                      token%column)
@@ -227,7 +230,7 @@ contains
             function_name = token%text
             token = parser%consume()
         else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, &
-                                                                             token)) then
+                                                                            token)) then
             function_name = token%text
             token = parser%consume()
         else
@@ -255,8 +258,10 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, token%text, &
-                                                                     "", 0, 0, .false., &
+                            param_index = push_parameter_declaration(arena, &
+                                                                     token%text, &
+                                                                     "", 0, &
+                                                                     0, .false., &
                                                                      empty_dims, &
                                                                      token%line, &
                                                                      token%column)
@@ -302,7 +307,8 @@ contains
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
                         TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "function") then
+                        parser%tokens(parser%current_token + 1)%text == &
+                        "function") then
                         ! Check if this "end function" belongs to this function
                         ! Look ahead to see if there's a function name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &

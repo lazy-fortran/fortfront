@@ -152,7 +152,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -261,7 +261,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -776,7 +776,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)

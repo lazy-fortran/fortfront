@@ -62,7 +62,8 @@ contains
         ! Check for invalid characters
         if (contains_invalid_characters(filepath)) then
             result%code = PATH_INVALID_CHARACTERS
-            result%message = "Path contains invalid or potentially dangerous characters"
+            result%message = &
+                "Path contains invalid or potentially dangerous characters"
             return
         end if
 

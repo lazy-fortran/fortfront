@@ -2,7 +2,8 @@ module parser_import_resolution_module
     use string_utils_mod, only: to_lower
     ! Import resolution module for use, include statements
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_use_statement, push_include_statement, push_literal
@@ -135,7 +136,7 @@ contains
             if (capacity >= required) return
             new_capacity = max(4, capacity)
             do while (new_capacity < required)
-                new_capacity = max(4, new_capacity * 2)
+                new_capacity = max(4, new_capacity*2)
             end do
             allocate (new_array(new_capacity))
             if (capacity > 0 .and. allocated(only_temp)) then
@@ -154,7 +155,7 @@ contains
             if (rename_capacity >= required) return
             new_capacity = max(4, rename_capacity)
             do while (new_capacity < required)
-                new_capacity = max(4, new_capacity * 2)
+                new_capacity = max(4, new_capacity*2)
             end do
             allocate (new_array(new_capacity))
             if (rename_capacity > 0 .and. allocated(rename_temp)) then
@@ -324,13 +325,16 @@ contains
 
         ! Create use statement node (conditionally include URL spec)
         if (allocated(url_spec)) then
-            stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
-                                            has_only, line, column, url_spec=url_spec, &
+            stmt_index = push_use_statement(arena, module_name, only_list, &
+                                            rename_list, &
+                                            has_only, line, column, &
+                                            url_spec=url_spec, &
                                             has_double_colon=has_double_colon, &
                                             is_intrinsic=intrinsic_nature, &
                                             is_non_intrinsic=non_intrinsic_nature)
         else
-            stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
+            stmt_index = push_use_statement(arena, module_name, only_list, &
+                                            rename_list, &
                                             has_only, line, column, &
                                             has_double_colon=has_double_colon, &
                                             is_intrinsic=intrinsic_nature, &

@@ -24,7 +24,8 @@ contains
         call get_environment_variable('FORTFRONT_TRACE', trace_env, status=s1)
         call get_environment_variable('FORTFRONT_TRACE_FILE', file_env, status=s2)
 
-        call compute_cli_trace_settings(trim(trace_env), trim(file_env), trace_enabled, &
+        call compute_cli_trace_settings(trim(trace_env), trim(file_env), &
+                                        trace_enabled, &
                                         trace_file_path)
     end subroutine init_cli_trace
 

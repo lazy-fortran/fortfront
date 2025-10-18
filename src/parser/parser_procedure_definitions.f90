@@ -237,7 +237,8 @@ contains
                                     preceded_by_end = .false.
                                     preceded_by_else = .false.
                                     if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
+                                        if (all_tokens(pos - 1)%kind == &
+                                            TK_KEYWORD) then
                                             if (all_tokens(pos - 1)%text == "end") &
                                                 preceded_by_end = .true.
                                             if (all_tokens(pos - 1)%text == "else") &
@@ -255,7 +256,8 @@ contains
                                             all_tokens(pos + 1)%text == "if") then
                                             depth = depth - 1
                                             if (depth <= 0) then
-                                                stmt_end = min(size(all_tokens), pos + 1)
+                                                stmt_end = &
+                                                    min(size(all_tokens), pos + 1)
                                                 exit
                                             end if
                                         end if
@@ -582,7 +584,8 @@ contains
         call move_alloc(temp, prefixes)
     end subroutine append_prefix_keyword
 
-    function parse_subroutine_definition(parser, arena, prefix_buffer) result(sub_index)
+    function parse_subroutine_definition(parser, arena, prefix_buffer) &
+        result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -694,7 +697,8 @@ contains
                                     preceded_by_end = .false.
                                     preceded_by_else = .false.
                                     if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
+                                        if (all_tokens(pos - 1)%kind == &
+                                            TK_KEYWORD) then
                                             if (all_tokens(pos - 1)%text == "end") &
                                                 preceded_by_end = .true.
                                             if (all_tokens(pos - 1)%text == "else") &
@@ -712,7 +716,8 @@ contains
                                             all_tokens(pos + 1)%text == "if") then
                                             depth = depth - 1
                                             if (depth <= 0) then
-                                                stmt_end = min(size(all_tokens), pos + 1)
+                                                stmt_end = &
+                                                    min(size(all_tokens), pos + 1)
                                                 exit
                                             end if
                                         end if
@@ -808,7 +813,8 @@ contains
                                         line, column)
     end function parse_subroutine_definition
 
-    function parse_interface_block(parser, arena, prefix_buffer) result(interface_index)
+    function parse_interface_block(parser, arena, prefix_buffer) &
+        result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -950,7 +956,8 @@ contains
 
         if (allocated(procedure_names)) then
             if (size(procedure_names) > 0) then
-                stmt_index = push_module_procedure(arena, procedure_names, line, column)
+                stmt_index = push_module_procedure(arena, procedure_names, &
+                                                   line, column)
             end if
         end if
     end function parse_module_procedure_statement
@@ -998,6 +1005,6 @@ contains
         case default
             can_use = .false.
         end select
-end function keyword_can_be_function_name
+    end function keyword_can_be_function_name
 
 end module parser_procedure_definitions_module

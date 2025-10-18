@@ -8,7 +8,8 @@ module lexer_scanners
     ! Public scanning functions
     public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
               scan_logical_token
-    public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
+    public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
+              scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
 contains
@@ -182,7 +183,7 @@ contains
             else
                 ! Unclosed string - create proper closed string to prevent invalid multiline Fortran
                 ! Extract content until current position and add closing quote
-                tokens(token_count)%text = source(start_pos:pos - 1) // quote_char
+                tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
@@ -425,7 +426,8 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_comment_safe
 
-    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, &
+    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, &
+                                  token_count, &
                                   scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count

@@ -13,7 +13,8 @@ module lexer_core
     public :: TOKEN_WHITESPACE, TOKEN_COMMENT, TOKEN_NEWLINE
 
     ! Re-export types
-    public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, scan_result_t
+    public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, &
+              scan_result_t
 
     ! Re-export main functions
     public :: tokenize_safe, tokenize_core, tokenize_core_safe
@@ -22,7 +23,8 @@ module lexer_core
     ! Re-export scanning functions
     public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
               scan_logical_token
-    public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
+    public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
+              scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
     ! Re-export utilities
@@ -273,7 +275,7 @@ contains
         integer :: old_size, new_size
 
         old_size = size(tokens)
-        new_size = old_size * 2
+        new_size = old_size*2
 
         allocate (temp(new_size))
         temp(1:old_size) = tokens
@@ -304,7 +306,7 @@ contains
         integer :: old_size, new_size
 
         old_size = size(trivia)
-        new_size = old_size * 2
+        new_size = old_size*2
 
         allocate (temp(new_size))
         temp(1:old_size) = trivia
