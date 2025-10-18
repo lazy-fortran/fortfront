@@ -27,6 +27,8 @@ program test_issue_1413_array_function_result
 
     if (.not. allocated(output)) success = .false.
     if (success) then
+        if (index(output, 'function create_vector()') == 0) success = .false.
+        if (index(output, 'real function create_vector') /= 0) success = .false.
         if (index(output, 'real :: create_vector(3)') == 0) success = .false.
         if (index(output, 'print *, create_vector()') == 0) success = .false.
     end if
