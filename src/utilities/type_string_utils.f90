@@ -118,7 +118,7 @@ contains
             type_str = "character(len=:), allocatable"
         else if (mono_type%size > 0) then
             write (size_buffer, '(i0)') mono_type%size
-            type_str = "character(len=" // trim(size_buffer) // ")"
+            type_str = "character(len="//trim(size_buffer)//")"
         else
             if (prefer_len_zero_char) then
                 type_str = "character(len=0)"
@@ -169,13 +169,13 @@ contains
         if (include_shape) then
             if (mono_type%size > 0) then
                 write (size_buffer, '(i0)') mono_type%size
-                type_str = trim(element_str) // ", dimension(" // &
-                    trim(size_buffer) // ")"
+                type_str = trim(element_str)//", dimension("// &
+                    trim(size_buffer)//")"
             else if (mono_type%alloc_info%is_allocatable .or. &
                      mono_type%alloc_info%needs_allocatable_string) then
-                type_str = trim(element_str) // ", dimension(:), allocatable"
+                type_str = trim(element_str)//", dimension(:), allocatable"
             else
-                type_str = trim(element_str) // ", dimension(:)"
+                type_str = trim(element_str)//", dimension(:)"
             end if
         else
             type_str = element_str
