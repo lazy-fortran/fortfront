@@ -479,7 +479,6 @@ contains
         type(parser_state_t) :: line_parser
         integer :: stmt_size
         integer :: stmt_index
-        type(token_t) :: consumed_token
 
         stmt_size = stmt_end - stmt_start + 1
         if (stmt_size <= 0) return
