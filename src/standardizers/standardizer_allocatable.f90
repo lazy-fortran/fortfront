@@ -214,7 +214,8 @@ contains
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     call handle_multi_variable_declaration_allocatable(arena, &
                                                                        current_index, &
-                                assigned_vars, assignment_counts, var_count, prog_index, &
+                                            assigned_vars, assignment_counts, var_count, &
+                                                                       prog_index, &
                                                                        needs_split)
 
                     if (needs_split) then
@@ -228,18 +229,7 @@ contains
                         if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
                             if (assignment_counts(i) >= 2 .or. &
                                 is_procedure_parameter(arena, current_index)) then
-                                if (stmt%is_array) then
-                                    stmt%is_allocatable = .true.
-                                    if (allocated(stmt%dimension_indices)) then
-                                        deallocate (stmt%dimension_indices)
-                                        allocate (stmt%dimension_indices(1))
-                                        stmt%dimension_indices(1) = 0
-                                    end if
-                                    arena%entries(current_index)%node = stmt
-                                else if ((allocated(stmt%type_name) .and. &
-                                          trim(stmt%type_name) == "character") .or. &
-                                         (stmt%inferred_type%kind == TCHAR)) then
-                                    stmt%is_allocatable = .true.
+                                if (apply_allocatable_attributes(stmt)) then
                                     arena%entries(current_index)%node = stmt
                                 end if
                             end if
@@ -353,16 +343,7 @@ contains
                     block
                         type(declaration_node) :: tmp
                         tmp = decl
-                        ! Only mark allocatable for arrays or character types
-                        if (tmp%is_array .or. &
-                            (allocated(tmp%type_name) .and. trim(tmp%type_name) == &
-                             "character")) then
-                            tmp%is_allocatable = .true.
-                            if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
-                                deallocate (tmp%dimension_indices)
-                                allocate (tmp%dimension_indices(1))
-                                tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
-                            end if
+                        if (apply_allocatable_attributes(tmp)) then
                             arena%entries(decl_index)%node = tmp
                         end if
                     end block
@@ -813,6 +794,37 @@ contains
         end function pop
 
     end subroutine collect_string_vars_needing_allocatable
+
+    logical function apply_allocatable_attributes(decl)
+        type(declaration_node), intent(inout) :: decl
+        logical :: is_character
+
+        apply_allocatable_attributes = .false.
+        is_character = .false.
+
+        if (allocated(decl%type_name)) then
+            if (trim(decl%type_name) == "character") then
+                is_character = .true.
+            end if
+        end if
+
+        if (decl%inferred_type%kind == TCHAR) then
+            is_character = .true.
+        end if
+
+        if (decl%is_array) then
+            decl%is_allocatable = .true.
+            if (allocated(decl%dimension_indices)) then
+                deallocate (decl%dimension_indices)
+            end if
+            allocate (decl%dimension_indices(1))
+            decl%dimension_indices(1) = 0
+            apply_allocatable_attributes = .true.
+        else if (is_character) then
+            decl%is_allocatable = .true.
+            apply_allocatable_attributes = .true.
+        end if
+    end function apply_allocatable_attributes
 
     pure function to_lower_ascii_local(text) result(lowered)
         character(len=*), intent(in) :: text
