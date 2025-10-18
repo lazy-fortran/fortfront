@@ -6,6 +6,7 @@ module standardizer_types
     use ast_nodes_core
     use ast_nodes_loops
     use type_system_unified
+    use type_string_utils, only: mono_type_to_string
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, &
                               ERROR_TYPE_SYSTEM
@@ -590,7 +591,8 @@ contains
                                     logical :: ok
                                     ok = .false.
                                     ! Second element should be an identifier (loop variable)
-                        if (node%element_indices(2) > 0 .and. node%element_indices(2) <= &
+                                    if (node%element_indices(2) > 0 .and. &
+                                        node%element_indices(2) <= &
                                         arena%size) then
                           if (allocated(arena%entries(node%element_indices(2))%node)) then
                                             select type (idnode => &
@@ -613,10 +615,12 @@ contains
                                         else
                                             step_val = INVALID_INTEGER
                                         end if
-                                       if (start_val /= INVALID_INTEGER .and. end_val /= &
+                                        if (start_val /= INVALID_INTEGER .and. &
+                                            end_val /= &
                                             INVALID_INTEGER) then
                                             if (step_val == INVALID_INTEGER) then
-                                sz = calculate_loop_size(arena, node%element_indices(3), &
+                                                sz = calculate_loop_size(arena, &
+                                                                node%element_indices(3), &
                                                                node%element_indices(4), 0)
                                             else
                                                 sz = calculate_loop_size(arena, &
@@ -625,7 +629,8 @@ contains
                                                                   node%element_indices(5))
                                             end if
                                             if (sz > 0) then
-                                     write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                                write (var_type, '(a,a,i0,a)') &
+                                                    trim(elem_type_str), &
                                                     ", dimension(", sz, ")"
                                             else
                                                 var_type = trim(elem_type_str) // &
@@ -662,7 +667,8 @@ contains
                                     if (allocated(arr_node%element_indices)) then
                                         if (size(arr_node%element_indices) > 0) then
                                             if (inner_size < 0) then
-                                               inner_size = size(arr_node%element_indices)
+                                                inner_size = &
+                                                    size(arr_node%element_indices)
                                             else if (inner_size /= &
                                                      size(arr_node%element_indices)) then
                                                 all_literal_arrays = .false.
@@ -749,47 +755,25 @@ contains
     recursive function get_fortran_type_string(mono_type) result(string_result)
         type(mono_type_t), intent(in) :: mono_type
         type(string_result_t) :: string_result
-        type(string_result_t) :: elem_result
         logical :: standardizer_type_standardization_enabled
+        logical :: type_success
+        character(len=:), allocatable :: type_string
+        character(len=:), allocatable :: element_type
 
-     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+        call get_standardizer_type_standardization( &
+            standardizer_type_standardization_enabled)
 
-        select case (mono_type%kind)
-        case (TINT)
-            string_result%result = success_result()
-            string_result%value = "integer"
-        case (TREAL)
-            string_result%result = success_result()
-            if (standardizer_type_standardization_enabled) then
-                string_result%value = "real(8)"
-            else
-                string_result%value = "real"
-            end if
-        case (TLOGICAL)
-            string_result%result = success_result()
-            string_result%value = "logical"
-        case (TCHAR)
-            string_result%result = success_result()
-            if (mono_type%alloc_info%needs_allocatable_string) then
-                string_result%value = "character(len=:), allocatable"
-            else if (mono_type%size > 0) then
-                block
-                    character(len=20) :: size_str
-                    write (size_str, '(i0)') mono_type%size
-                    string_result%value = "character(len=" // trim(size_str) // ")"
-                end block
-            else
-                ! For zero-length or unknown strings, use explicit length 0
-                ! character(*) is only valid in parameter declarations, not variable declarations
-                string_result%value = "character(len=0)"
-            end if
-        case (TARRAY)
-            ! For arrays, get the element type
-            if (type_args_allocated(mono_type) .and. type_args_size(mono_type) > 0) then
-                elem_result = get_fortran_type_string(type_args_element(mono_type, 1))
-                if (elem_result%is_success()) then
+        if (mono_type%kind == TARRAY) then
+            if (type_args_allocated(mono_type) .and. &
+                type_args_size(mono_type) > 0) then
+                element_type = mono_type_to_string( &
+                               type_args_element(mono_type, 1), include_shape=.false., &
+                               prefer_len_zero_char=.true., &
+                             standardize_real=standardizer_type_standardization_enabled, &
+                               success=type_success)
+                if (type_success) then
                     string_result%result = success_result()
-                    string_result%value = elem_result%get_value()
+                    string_result%value = element_type
                 else
                     string_result%result = create_error_result( &
                                            "Failed to determine array element type", &
@@ -808,7 +792,18 @@ contains
          suggestion="Array type should have at least one type argument for element type" &
                                        )
             end if
-        case default
+            return
+        end if
+
+        type_string = mono_type_to_string(mono_type, include_shape=.false., &
+                                          prefer_len_zero_char=.true., &
+                             standardize_real=standardizer_type_standardization_enabled, &
+                                          success=type_success)
+
+        if (type_success) then
+            string_result%result = success_result()
+            string_result%value = type_string
+        else
             string_result%result = create_error_result( &
                                    "Unknown or unsupported type kind", &
                                    ERROR_TYPE_SYSTEM, &
@@ -816,7 +811,7 @@ contains
                                    context="get_fortran_type_string", &
           suggestion="Type inference may have failed or encountered an unsupported type" &
                                    )
-        end select
+        end if
     end function get_fortran_type_string
 
     ! String result methods

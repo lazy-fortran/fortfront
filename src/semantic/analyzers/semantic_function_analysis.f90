@@ -18,6 +18,7 @@ module semantic_function_analysis
     use semantic_type_operations, only: get_common_type, &
                                         instantiate_type_scheme_op
     use string_utils_mod, only: int_to_string
+    use type_string_utils, only: mono_type_to_string
     implicit none
     private
 
@@ -564,6 +565,7 @@ contains
         character(len=:), allocatable :: func_name
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: type_string
+        logical :: type_success
 
         if (allocated(func_node%name)) then
             func_name = trim(func_node%name)
@@ -598,7 +600,15 @@ contains
             call update_identifier_type_in_arena(arena, func_name, return_type)
         end if
 
-        type_string = mono_type_to_string(return_type)
+        type_string = mono_type_to_string(return_type, include_shape=.false., &
+                                          success=type_success)
+        if (.not. type_success) type_string = ''
+        if (type_success) then
+            if (return_type%kind == TCHAR .and. return_type%size <= 0 .and. &
+                .not. return_type%alloc_info%needs_allocatable_string) then
+                type_string = "character(len=:), allocatable"
+            end if
+        end if
         if (len_trim(type_string) > 0) then
             if (func_index > 0 .and. func_index <= arena%size) then
                 if (allocated(arena%entries(func_index)%node)) then
@@ -729,30 +739,6 @@ contains
             mono%kind = 0
         end select
     end function declaration_type_to_mono
-
-    function mono_type_to_string(typ) result(name)
-        type(mono_type_t), intent(in) :: typ
-        character(len=:), allocatable :: name
-        character(len=32) :: size_buf
-
-        select case (typ%kind)
-        case (TINT)
-            name = 'integer'
-        case (TREAL)
-            name = 'real'
-        case (TLOGICAL)
-            name = 'logical'
-        case (TCHAR)
-            if (typ%size > 0) then
-                size_buf = int_to_string(typ%size)
-                name = 'character(len=' // trim(size_buf) // ')'
-            else
-                name = 'character(len=:), allocatable'
-            end if
-        case default
-            name = ''
-        end select
-    end function mono_type_to_string
 
     function detect_result_name(arena, func_node) result(res_name)
         type(ast_arena_t), intent(in) :: arena
