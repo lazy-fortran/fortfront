@@ -88,7 +88,7 @@ contains
 
         ! Define required modules for pure Fortran integration
         required_modules = [ &
-                           "fortfront_external_interface", &
+                           "fortfront_c_interface       ", &
                            "frontend                    ", &
                            "lexer_core                  ", &
                            "parser_expressions_module   ", &
@@ -130,16 +130,16 @@ contains
         call test_start("Module interfaces are complete")
 
         ! Check key interface module exists
-        inquire (file='fortfront_modules/fortfront_external_interface.mod', &
+        inquire (file='fortfront_modules/fortfront_c_interface.mod', &
                  exist=mod_exists)
 
         interfaces_complete = mod_exists
 
         call test_result(interfaces_complete)
         if (interfaces_complete) then
-            print *, "  SUCCESS: External interface module found"
+            print *, "  SUCCESS: C interface module found"
         else
-            print *, "  FAILED: External interface module missing"
+            print *, "  FAILED: C interface module missing"
         end if
     end subroutine test_module_interfaces_complete
 
