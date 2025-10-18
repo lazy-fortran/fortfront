@@ -25,6 +25,7 @@ module parser_dispatcher_module
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
+    use parser_statement_core_module, only: parse_data_statement
     use parser_control_flow_router_module, only: route_control_flow
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node
@@ -37,7 +38,8 @@ module parser_dispatcher_module
     implicit none
     private
 
-    public :: parse_statement_dispatcher, get_additional_indices, clear_additional_indices
+    public :: parse_statement_dispatcher, get_additional_indices, &
+              clear_additional_indices
 
     ! Module variable to store additional indices from multi-declaration parsing
     integer, allocatable :: additional_indices(:)
@@ -50,6 +52,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
+        character(len=:), allocatable :: lowered_keyword
         type(parser_state_t) :: parser
         type(token_t) :: first_token
         integer :: target_index, value_index
@@ -59,7 +62,8 @@ contains
         ! Dispatch based on first token
         select case (first_token%kind)
         case (TK_KEYWORD)
-            select case (first_token%text)
+            lowered_keyword = to_lower(trim(first_token%text))
+            select case (lowered_keyword)
             case ("use")
                 stmt_index = parse_use_statement(parser, arena)
             case ("include")
@@ -107,6 +111,8 @@ contains
                 stmt_index = parse_exit_statement(parser, arena)
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
+            case ("data")
+                stmt_index = parse_data_statement(parser, arena)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                      stmt_index)) then
@@ -114,7 +120,8 @@ contains
                 end if
             end select
         case (TK_IDENTIFIER)
-            if (to_lower(trim(first_token%text)) == "class") then
+            lowered_keyword = to_lower(trim(first_token%text))
+            if (lowered_keyword == "class") then
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             else
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
@@ -162,7 +169,8 @@ contains
                     logical :: has_initializer, has_comma
                     integer, allocatable :: decl_indices(:)
 
-                    call analyze_declaration_structure(parser, has_initializer, has_comma)
+                    call analyze_declaration_structure(parser, &
+                                                       has_initializer, has_comma)
 
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
@@ -189,7 +197,8 @@ contains
             else
                 ! Check if this looks like a function definition
                 if (looks_like_function_definition(parser)) then
-                   stmt_index = parse_function_or_expression(parser, arena, prefix_buffer)
+                    stmt_index = parse_function_or_expression(parser, arena, &
+                                                              prefix_buffer)
                 else
                     ! Default to declaration parsing for type keywords
                     ! This handles "real(kind=real64) :: x" where :: detection fails
@@ -248,7 +257,8 @@ contains
     end function parse_assignment_or_expression
 
     ! Parse function definition or expression
-    function parse_function_or_expression(parser, arena, prefix_buffer) result(stmt_index)
+    function parse_function_or_expression(parser, arena, prefix_buffer) &
+        result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -260,7 +270,8 @@ contains
         ! Look ahead to see if next token is "function"
         if (parser%current_token + 1 <= size(parser%tokens)) then
             second_token = parser%tokens(parser%current_token + 1)
-           if (second_token%kind == TK_KEYWORD .and. second_token%text == "function") then
+            if (second_token%kind == TK_KEYWORD .and. second_token%text == &
+                "function") then
                 stmt_index = parse_function_definition(parser, arena, prefix_buffer)
                 return
             end if
@@ -288,7 +299,8 @@ contains
         has_double_colon = .false.
         paren_depth = 0
 
-      do i = parser%current_token + 1, min(parser%current_token + 50, size(parser%tokens))
+        do i = parser%current_token + 1, min(parser%current_token + 50, &
+                                             size(parser%tokens))
             if (parser%tokens(i)%kind == TK_OPERATOR) then
                 if (parser%tokens(i)%text == "(") then
                     paren_depth = paren_depth + 1
@@ -329,11 +341,14 @@ contains
         looks_like_function_definition = .false.
 
         ! Look for "function" keyword within the next few tokens
-      do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
-   if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
+        do i = parser%current_token + 1, min(parser%current_token + 10, &
+                                             size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == &
+                "function") then
                 looks_like_function_definition = .true.
                 exit
-   else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
+            else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text &
+                     == "::") then
                 ! Found :: before function - this is a declaration
                 exit
             else if (parser%tokens(i)%kind == TK_EOF) then
@@ -453,7 +468,8 @@ contains
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
-       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
+                             LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -475,7 +491,8 @@ contains
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
                 ! Create identifier node immediately
-               target_index = push_identifier(arena, token%text, token%line, token%column)
+                target_index = push_identifier(arena, token%text, token%line, &
+                                               token%column)
                 var_indices = [var_indices, target_index]
 
                 ! Check for comma or equals
@@ -504,12 +521,16 @@ contains
             token = parser%peek()
             if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
                 token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
-             (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
+                (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. &
+                                                  token%text == &
+                                                  '.false.'))) then
                 token = parser%consume()
                 ! Determine literal type based on token kind
-        literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, token%text)
+                literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, &
+                                                                           token%text)
                 ! Create literal node immediately
-     value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
+                value_index = push_literal(arena, token%text, literal_type, token%line, &
+                                           token%column)
                 value_indices = [value_indices, value_index]
 
                 ! Check for comma or end
@@ -548,8 +569,10 @@ contains
             if (target_index > 0 .and. value_index > 0) then
                 assignment_indices = [assignment_indices, &
                                       push_assignment(arena, target_index, value_index, &
-                                           parser%tokens(parser%current_token - 1)%line, &
-                                          parser%tokens(parser%current_token - 1)%column)]
+                                                      parser%tokens(parser%current_token &
+                                                                    - 1)%line, &
+                                                    parser%tokens(parser%current_token - &
+                                                                    1)%column)]
             end if
         end do
 
@@ -567,9 +590,11 @@ contains
     end subroutine parse_multi_variable_assignment_dispatcher
 
     ! Helper function to determine literal type from token kind (dispatcher version)
-    function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
+    function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) &
+        result(literal_type)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
-       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
+                             LITERAL_LOGICAL
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type

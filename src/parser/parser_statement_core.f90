@@ -2,7 +2,7 @@ module parser_statement_core_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_expression
+    use parser_expressions_module, only: parse_expression, parse_expression_until
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
     use parser_control_statements_module, only: &
@@ -12,7 +12,10 @@ module parser_statement_core_module
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier, push_namelist_statement
+    use ast_nodes_core, only: array_literal_node
+    use ast_factory, only: push_assignment, push_identifier, push_namelist_statement, &
+                           push_array_literal
+    use type_system_unified, only: create_mono_type, TARRAY
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
                                                  null_statement_callbacks
     implicit none
@@ -20,6 +23,7 @@ module parser_statement_core_module
 
     public :: statement_callbacks_t, null_statement_callbacks
     public :: parse_basic_statement_core, find_statement_end, extend_if_statement_end
+    public :: parse_data_statement
 
 contains
 
@@ -492,6 +496,20 @@ contains
         end if
 
         stmt_index = 0
+        block
+            character(len=:), allocatable :: lowered_text
+            lowered_text = to_lower(first_token%text)
+            if (trim(lowered_text) == 'data') then
+                stmt_index = parse_data_statement(parser, arena, parent_index)
+                if (stmt_index > 0) then
+                    if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
+                    stmt_indices(1) = stmt_index
+                    if (present(consumed_count)) consumed_count = &
+                        parser%current_token - 1
+                    return
+                end if
+            end if
+        end block
         select case (first_token%kind)
         case (TK_KEYWORD)
             stmt_index = parse_keyword_statement(first_token, parser, arena, &
@@ -566,62 +584,68 @@ contains
         type(statement_callbacks_t), intent(in) :: callbacks
 
         stmt_index = 0
-        select case (first_token%text)
-        case ("if")
-            if (associated(callbacks%parse_if)) then
-                if (present(parent_index)) then
-                    stmt_index = callbacks%parse_if(parser, arena, parent_index)
-                else
-                    stmt_index = callbacks%parse_if(parser, arena)
+        block
+            character(len=:), allocatable :: lowered
+            lowered = to_lower(first_token%text)
+            select case (lowered)
+            case ("if")
+                if (associated(callbacks%parse_if)) then
+                    if (present(parent_index)) then
+                        stmt_index = callbacks%parse_if(parser, arena, parent_index)
+                    else
+                        stmt_index = callbacks%parse_if(parser, arena)
+                    end if
                 end if
-            end if
-        case ("do")
-            if (associated(callbacks%parse_do_loop)) then
-                stmt_index = callbacks%parse_do_loop(parser, arena)
-            end if
-        case ("select")
-            if (associated(callbacks%parse_select_case)) then
-                stmt_index = callbacks%parse_select_case(parser, arena)
-            end if
-        case ("where")
-            if (associated(callbacks%parse_where)) then
-                stmt_index = callbacks%parse_where(parser, arena)
-            end if
-        case ("forall")
-            if (associated(callbacks%parse_forall)) then
-                stmt_index = callbacks%parse_forall(parser, arena)
-            end if
-        case ("associate")
-            if (associated(callbacks%parse_associate)) then
-                stmt_index = callbacks%parse_associate(parser, arena)
-            end if
-        case ("print")
-            stmt_index = parse_print_statement(parser, arena)
-        case ("write")
-            stmt_index = parse_write_statement(parser, arena)
-        case ("read")
-            stmt_index = parse_read_statement(parser, arena)
-        case ("cycle")
-            stmt_index = parse_cycle_statement(parser, arena)
-        case ("exit")
-            stmt_index = parse_exit_statement(parser, arena)
-        case ("return")
-            if (present(parent_index)) then
-                stmt_index = parse_return_statement(parser, arena, parent_index)
-            else
-                stmt_index = parse_return_statement(parser, arena)
-            end if
-        case ("call")
-            stmt_index = parse_call_statement(parser, arena)
-        case ("stop")
-            stmt_index = parse_stop_statement(parser, arena)
-        case ("go")
-            stmt_index = parse_goto_statement(parser, arena)
-        case ("error")
-            stmt_index = parse_error_stop_statement(parser, arena)
-        case ("namelist")
-            stmt_index = parse_namelist_statement(parser, arena, parent_index)
-        end select
+            case ("do")
+                if (associated(callbacks%parse_do_loop)) then
+                    stmt_index = callbacks%parse_do_loop(parser, arena)
+                end if
+            case ("select")
+                if (associated(callbacks%parse_select_case)) then
+                    stmt_index = callbacks%parse_select_case(parser, arena)
+                end if
+            case ("where")
+                if (associated(callbacks%parse_where)) then
+                    stmt_index = callbacks%parse_where(parser, arena)
+                end if
+            case ("forall")
+                if (associated(callbacks%parse_forall)) then
+                    stmt_index = callbacks%parse_forall(parser, arena)
+                end if
+            case ("associate")
+                if (associated(callbacks%parse_associate)) then
+                    stmt_index = callbacks%parse_associate(parser, arena)
+                end if
+            case ("print")
+                stmt_index = parse_print_statement(parser, arena)
+            case ("write")
+                stmt_index = parse_write_statement(parser, arena)
+            case ("read")
+                stmt_index = parse_read_statement(parser, arena)
+            case ("data")
+                stmt_index = parse_data_statement(parser, arena, parent_index)
+            case ("cycle")
+                stmt_index = parse_cycle_statement(parser, arena)
+            case ("exit")
+                stmt_index = parse_exit_statement(parser, arena)
+            case ("return")
+                if (present(parent_index)) then
+                    stmt_index = parse_return_statement(parser, arena, parent_index)
+                else
+                    stmt_index = parse_return_statement(parser, arena)
+                end if
+            case ("call")
+                stmt_index = parse_call_statement(parser, arena)
+            case ("stop")
+                stmt_index = parse_stop_statement(parser, arena)
+            case ("go")
+                stmt_index = parse_goto_statement(parser, arena)
+            case ("error")
+                stmt_index = parse_error_stop_statement(parser, arena)
+            case ("namelist")
+                stmt_index = parse_namelist_statement(parser, arena, parent_index)
+            end select
+        end block
     end function parse_keyword_statement
 
     integer function parse_identifier_statement(parser, arena, parent_index, tokens) &
@@ -815,6 +839,165 @@ contains
         call parser%error(trim(message))
     end subroutine report_unparsed_statement
 
+    integer function parse_data_statement(parser, arena, parent_index) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        type(token_t) :: token
+        type(token_t) :: target_token
+        integer :: target_index
+        integer, allocatable :: element_indices(:)
+        integer :: value_index
+        logical :: expect_value
+
+        stmt_index = 0
+
+        ! Consume DATA keyword
+        token = parser%consume()
+
+        call skip_trivia(parser)
+
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) then
+            call parser%error("Expected identifier after DATA keyword")
+            return
+        end if
+
+        target_token = parser%consume()
+        if (present(parent_index)) then
+            target_index = push_identifier(arena, trim(target_token%text), &
+                                           target_token%line, target_token%column, &
+                                           parent_index)
+        else
+            target_index = push_identifier(arena, trim(target_token%text), &
+                                           target_token%line, target_token%column)
+        end if
+        if (target_index <= 0) return
+
+        call skip_trivia(parser)
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. trim(token%text) /= "/") then
+            call parser%error("Expected '/' to begin DATA value list")
+            return
+        end if
+        token = parser%consume()  ! consume opening slash
+
+        expect_value = .true.
+        call skip_trivia(parser)
+
+        do
+            token = parser%peek()
+            if (token%kind == TK_EOF) then
+                call parser%error("Unexpected end of statement inside DATA value list")
+                return
+            end if
+
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == "/") then
+                if (expect_value) then
+                    call parser%error("DATA statement value list cannot be empty")
+                    return
+                end if
+                exit
+            end if
+
+            value_index = parse_expression_until(parser, arena, [",", "/"])
+            if (value_index <= 0) return
+            call append_index(element_indices, value_index)
+
+            call skip_trivia(parser)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR) then
+                select case (trim(token%text))
+                case (",")
+                    token = parser%consume()
+                    expect_value = .true.
+                    call skip_trivia(parser)
+                    cycle
+                case ("/")
+                    expect_value = .false.
+                case default
+                    call parser%error("Unexpected token in DATA statement value list")
+                    return
+                end select
+            else
+                call parser%error("Unexpected token in DATA statement value list")
+                return
+            end if
+        end do
+
+        ! Consume closing slash
+        token = parser%consume()
+
+        if (.not. allocated(element_indices)) then
+            call parser%error("DATA statement requires at least one value")
+            return
+        end if
+
+        block
+            integer :: array_index
+            integer :: element_count
+            element_count = size(element_indices)
+            if (present(parent_index)) then
+                array_index = push_array_literal(arena, element_indices, &
+                                                 target_token%line, &
+                                                 target_token%column, &
+                                                 parent_index, syntax_style="legacy")
+            else
+                array_index = push_array_literal(arena, element_indices, &
+                                                 target_token%line, &
+                                                 target_token%column, &
+                                                 syntax_style="legacy")
+            end if
+            if (array_index <= 0) return
+
+            call annotate_array_literal(arena, array_index, element_count)
+
+            if (present(parent_index)) then
+                stmt_index = push_assignment(arena, target_index, array_index, &
+                                             target_token%line, target_token%column, &
+                                             parent_index)
+            else
+                stmt_index = push_assignment(arena, target_index, array_index, &
+                                             target_token%line, target_token%column)
+            end if
+        end block
+    contains
+        subroutine append_index(indices, value)
+            integer, allocatable, intent(inout) :: indices(:)
+            integer, intent(in) :: value
+            integer, allocatable :: tmp(:)
+
+            if (value <= 0) return
+            if (.not. allocated(indices)) then
+                allocate (indices(1))
+                indices(1) = value
+            else
+                allocate (tmp(size(indices) + 1))
+                tmp(1:size(indices)) = indices
+                tmp(size(indices) + 1) = value
+                call move_alloc(tmp, indices)
+            end if
+        end subroutine append_index
+
+        subroutine annotate_array_literal(arena, array_index, element_count)
+            use type_system_unified, only: create_mono_type, TARRAY
+            type(ast_arena_t), intent(inout) :: arena
+            integer, intent(in) :: array_index
+            integer, intent(in) :: element_count
+            if (array_index <= 0 .or. array_index > arena%size) return
+            if (.not. allocated(arena%entries(array_index)%node)) return
+            select type (array_node => arena%entries(array_index)%node)
+            type is (array_literal_node)
+                array_node%inferred_type = create_mono_type(TARRAY, &
+                                                            array_size=element_count)
+            end select
+        end subroutine annotate_array_literal
+
+        ! No identifier annotation needed here; semantic pass will refine type info.
+    end function parse_data_statement
+
     integer function parse_namelist_statement(parser, arena, parent_index) &
         result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -913,5 +1096,19 @@ contains
             end if
         end subroutine append_name
     end function parse_namelist_statement
+
+    subroutine skip_trivia(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: current
+
+        do
+            current = parser%peek()
+            if (current%kind == TK_WHITESPACE .or. current%kind == TK_COMMENT) then
+                current = parser%consume()
+            else
+                exit
+            end if
+        end do
+    end subroutine skip_trivia
 
 end module parser_statement_core_module

@@ -1,5 +1,6 @@
 program test_merge_intent_fix
     use codegen_utilities, only: generate_grouped_body
+    use codegen_core, only: initialize_codegen
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_data, only: create_declaration
     implicit none
@@ -11,6 +12,8 @@ program test_merge_intent_fix
 
     total = 0
     passed = 0
+
+    call initialize_codegen()
 
     call test_start("Grouped decl with no intent (MERGE length)")
     arena = create_ast_arena()
