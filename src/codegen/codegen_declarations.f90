@@ -395,6 +395,7 @@ contains
         character(len=:), allocatable :: init_code, type_str
         integer :: i, j
         logical :: standardize_types_enabled
+        logical :: has_dimension_attr
 
         ! Get type standardization setting
         call get_type_standardization(standardize_types_enabled)
@@ -521,6 +522,8 @@ contains
             code = code // ", parameter"
         end if
 
+        has_dimension_attr = index(to_lower_ascii_decl(trim(type_str)), "dimension(") > 0
+
         ! Add variable names - handle both single and multi declarations
         code = code // " :: "
         if (node%is_multi_declaration .and. allocated(node%var_names)) then
@@ -529,7 +532,9 @@ contains
                 if (i > 1) code = code // ", "
                 code = code // trim(node%var_names(i))
                 ! Add dimensions per variable if needed
-                if (node%is_array .and. allocated(node%dimension_indices)) then
+                if (node%is_array .and. allocated(node%dimension_indices) .and. &
+                    .not. has_dimension_attr) then
+                    code = trim(code)
                     code = code // "("
                     do j = 1, size(node%dimension_indices)
                         if (j > 1) code = code // ","
@@ -549,8 +554,10 @@ contains
             code = code // node%var_name
 
             ! Add array dimensions if present
-            if (node%is_array .and. allocated(node%dimension_indices)) then
+            if (node%is_array .and. allocated(node%dimension_indices) .and. &
+                .not. has_dimension_attr) then
                 ! Generate dimension expressions
+                code = trim(code)
                 code = code // "("
                 do i = 1, size(node%dimension_indices)
                     if (i > 1) code = code // ","
@@ -1609,6 +1616,16 @@ contains
         internal_count = 0
         defined_func_count = 0
 
+        declared_names = ""
+        var_names = ""
+        var_types = ""
+        func_names = ""
+        func_types = ""
+        internal_funcs = ""
+        func_return_type = ""
+        defined_func_names = ""
+        defined_func_types = ""
+
         if (.not. allocated(prog%body_indices)) return
 
         call build_function_return_type_table(arena, defined_func_names, &
@@ -1690,6 +1707,8 @@ contains
                                     if (len_trim(type_buf) == 0) type_buf = 'real'
                                     if (var_count < MAX_VARS) then
                                         var_count = var_count + 1
+                                        var_names(var_count) = ""
+                                        var_types(var_count) = ""
                                         var_names(var_count) = name_buf
                                         var_types(var_count) = trim(type_buf)
                                     end if
@@ -1720,6 +1739,8 @@ contains
                                                          trim(val%name))) then
                                     if (func_count < MAX_VARS) then
                                         func_count = func_count + 1
+                                        func_names(func_count) = ""
+                                        func_types(func_count) = ""
                                         func_names(func_count) = trim(val%name)
                                         func_types(func_count) = trim(type_buf)
                                     end if
@@ -1818,7 +1839,7 @@ contains
     end function lookup_function_return_type
 
     ! Convert mono_type_t to Fortran type string
-    function mono_type_to_string(mono) result(type_name)
+    recursive function mono_type_to_string(mono) result(type_name)
         type(mono_type_t), intent(in) :: mono
         character(len=:), allocatable :: type_name
 
@@ -1832,6 +1853,32 @@ contains
             type_name = "integer"
         case (TREAL)
             type_name = "real"
+        case (TARRAY)
+            block
+                type(mono_type_t) :: elem_mono
+                character(len=:), allocatable :: elem_str
+
+                if (mono%get_args_count() > 0) then
+                    elem_mono = mono%get_arg(1)
+                    elem_str = mono_type_to_string(elem_mono)
+                else
+                    elem_str = ""
+                end if
+
+                if (.not. allocated(elem_str) .or. len_trim(elem_str) == 0) then
+                    elem_str = "real"
+                end if
+
+                if (mono%size > 0) then
+                    type_name = trim(elem_str) // ", dimension(" // &
+                        trim(int_to_string(mono%size)) // ")"
+                else if (mono%alloc_info%is_allocatable .or. &
+                         mono%alloc_info%needs_allocatable_string) then
+                    type_name = trim(elem_str) // ", dimension(:), allocatable"
+                else
+                    type_name = trim(elem_str) // ", dimension(:)"
+                end if
+            end block
         case (TCHAR)
             if (mono%size > 0) then
                 type_name = "character(len=" // &

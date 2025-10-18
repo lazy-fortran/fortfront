@@ -10,6 +10,7 @@ module parser_procedure_bodies_module
                            push_literal, push_binary_op
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
+    use parser_statement_core_module, only: parse_data_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     implicit none
     private
@@ -63,8 +64,11 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                                     empty_dims, token%line, token%column)
+                            param_index = push_parameter_declaration(arena, token%text, &
+                                                                     "", 0, 0, .false., &
+                                                                     empty_dims, &
+                                                                     token%line, &
+                                                                     token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
@@ -87,14 +91,18 @@ contains
             ! Check for end of subroutine
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "subroutine") then
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == &
+                        "subroutine") then
                         ! Check if this "end subroutine" belongs to this subroutine
                         ! Look ahead to see if there's a subroutine name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
-                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            parser%tokens(parser%current_token + 2)%kind == &
+                            TK_IDENTIFIER) then
                             ! There is a name - check if it matches our subroutine
-                            if (parser%tokens(parser%current_token + 2)%text == subroutine_name) then
+                            if (parser%tokens(parser%current_token + 2)%text == &
+                                subroutine_name) then
                                 ! This is our matching "end subroutine" - consume it and exit
                                 token = parser%consume()  ! consume "end"
                                 token = parser%consume()  ! consume "subroutine"
@@ -146,7 +154,8 @@ contains
         end do
 
         ! Create subroutine node
-        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
+                                        body_indices, &
                                         line, column)
     end function parse_subroutine_in_module
 
@@ -216,7 +225,8 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
             token = parser%consume()
-        else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, token)) then
+        else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, &
+                                                                             token)) then
             function_name = token%text
             token = parser%consume()
         else
@@ -244,8 +254,11 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                                     empty_dims, token%line, token%column)
+                            param_index = push_parameter_declaration(arena, token%text, &
+                                                                     "", 0, 0, .false., &
+                                                                     empty_dims, &
+                                                                     token%line, &
+                                                                     token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
@@ -286,14 +299,17 @@ contains
             ! Check for end of function
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "function") then
                         ! Check if this "end function" belongs to this function
                         ! Look ahead to see if there's a function name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
-                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            parser%tokens(parser%current_token + 2)%kind == &
+                            TK_IDENTIFIER) then
                             ! There is a name - check if it matches our function
-                            if (parser%tokens(parser%current_token + 2)%text == function_name) then
+                            if (parser%tokens(parser%current_token + 2)%text == &
+                                function_name) then
                                 ! This is our matching "end function" - consume it and exit
                                 token = parser%consume()  ! consume "end"
                                 token = parser%consume()  ! consume "function"
@@ -438,9 +454,11 @@ contains
 
         select case (token%kind)
         case (TK_KEYWORD)
-            select case (token%text)
+            select case (trim(to_lower_local(token%text)))
             case ("print")
                 stmt_index = parse_simple_print_statement(parser, arena)
+            case ("data")
+                stmt_index = parse_data_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", "double")
                 ! Check if this is a multi-variable declaration
                 block
