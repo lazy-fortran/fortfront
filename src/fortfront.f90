@@ -38,7 +38,6 @@ module fortfront
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
-    use fortfront_external_interface, only: fortfront_transform_source
 
     ! Re-export AST arena and core types
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
