@@ -19,10 +19,10 @@ module frontend_transformation
    use codegen_indent, only: set_indent_config, get_indent_config, &
                              set_line_length_config, get_line_length_config
    use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
-   use ast_nodes_core, only: program_node
+   use ast_nodes_core, only: program_node, assignment_node
    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-   use ast_nodes_misc, only: contains_node
-   use ast_nodes_data, only: declaration_node
+   use ast_nodes_misc, only: contains_node, use_statement_node
+   use ast_nodes_data, only: declaration_node, module_node
    use frontend_parsing, only: parse_tokens
    use frontend_core, only: lex_source, emit_fortran
    use debug_trace, only: trace_init, trace_enter, trace_leave
@@ -217,47 +217,125 @@ contains
    end subroutine transform_lazy_fortran_string_with_format
 
    ! Context-aware transformation (wraps functions in modules, respects source names)
+   ! AST-based transformation with context-aware module wrapping
    subroutine transform_with_context(input, output, error_msg, context)
       character(len=*), intent(in) :: input
       character(len=:), allocatable, intent(out) :: output
       character(len=:), allocatable, intent(out) :: error_msg
       type(transform_context_t), intent(in) :: context
-      character(len=:), allocatable :: base_output
+
+      ! For standard Fortran mode, use simple transformation
+      if (context%input_mode == INPUT_MODE_STANDARD) then
+         call transform_lazy_fortran_string(input, output, error_msg)
+         return
+      end if
+
+      ! For lazy Fortran mode, use AST-based wrapping
+      call transform_lazy_with_ast_wrapping(input, output, error_msg, context)
+   end subroutine transform_with_context
+
+   ! Transform lazy Fortran with AST-based module wrapping
+   subroutine transform_lazy_with_ast_wrapping(input, output, error_msg, context)
+      character(len=*), intent(in) :: input
+      character(len=:), allocatable, intent(out) :: output
+      character(len=:), allocatable, intent(out) :: error_msg
+      type(transform_context_t), intent(in) :: context
+      type(token_t), allocatable, target :: tokens(:)
+      integer :: prog_index
       logical :: has_functions, has_subroutines, has_main_code
 
-      ! First do the base transformation
-      call transform_lazy_fortran_string(input, base_output, error_msg)
+      allocate (character(len=0) :: error_msg)
+      error_msg = ""
 
-      if (len_trim(error_msg) > 0) then
-         output = base_output
-         return
-      end if
+      call trace_init()
+      call trace_enter('transform_lazy_with_ast_wrapping')
+      call initialize_codegen()
 
-      ! For standard Fortran, skip module wrapping and return transformed output
-      if (context%input_mode == INPUT_MODE_STANDARD) then
-         output = base_output
-         return
-      end if
-
-      ! For lazy Fortran: analyze what we have in the output
-      call analyze_output_content(base_output, has_functions, has_subroutines, &
-                                  has_main_code)
-
-      ! Wrap based on content type
-      if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
-         ! Only functions/subs: wrap in module
-         call wrap_in_module_only(base_output, context, output)
-      else if (has_main_code .and. .not. (has_functions .or. has_subroutines)) then
-         ! Only main code: wrap in program
-         call wrap_in_program_only(base_output, context, output)
-      else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-         ! Both: module for functions + program with use
-         call wrap_in_module_and_program(base_output, context, output)
+      ! Initialize or reset shared arena
+      if (.not. shared_arena_initialized) then
+         call shared_arena%init()
+         shared_arena_initialized = .true.
       else
-         ! Nothing to wrap, return as-is
-         output = base_output
+         call shared_arena%reset()
       end if
-   end subroutine transform_with_context
+
+      ! Handle empty input
+      if (is_empty_or_whitespace_only(input)) then
+         call create_minimal_program(output)
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      ! Run transformation pipeline up to AST construction
+      call run_lexical_analysis(input, tokens, shared_arena, error_msg)
+      if (error_msg /= "") then
+         call handle_lexical_error(input, error_msg, output, shared_arena)
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      if (is_probably_standard_fortran(tokens)) then
+         output = ensure_trailing_newline(input)
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
+      if (error_msg /= "") then
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      if (not_meaningful_for_parsing(tokens)) then
+         call create_minimal_program(output)
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
+      if (error_msg /= "") then
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      ! Run semantic analysis and standardization (but not code generation yet)
+      call run_semantic_analysis_phase(shared_arena, prog_index, error_msg)
+      if (allocated(error_msg) .and. len(error_msg) > 0) then
+         call run_code_generation_phase(shared_arena, prog_index, output)
+         call trace_leave('transform_lazy_with_ast_wrapping')
+         return
+      end if
+
+      call run_standardization_phase(shared_arena, prog_index)
+
+      ! AST-BASED WRAPPING: Analyze and modify AST directly
+      call analyze_ast_content(shared_arena%ast, prog_index, has_functions, &
+                               has_subroutines, has_main_code)
+
+      ! Wrap AST based on content
+      if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
+         call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
+      else if ((has_functions .or. has_subroutines) .and. has_main_code) then
+         call wrap_ast_in_module_and_program(shared_arena%ast, prog_index, context)
+      end if
+      ! If only main code or nothing to wrap, leave AST as-is
+
+      ! Generate code from (possibly wrapped) AST
+      call run_code_generation_phase(shared_arena, prog_index, output)
+
+      ! Preserve leading comments
+      if (has_leading_comment(input)) then
+         block
+            character(len=:), allocatable :: lead
+            lead = extract_leading_comment_block(input)
+            if (allocated(lead) .and. len_trim(lead) > 0) then
+               output = trim(lead)//new_line('A')//trim(output)
+            end if
+         end block
+      end if
+
+      call trace_leave('transform_lazy_with_ast_wrapping')
+   end subroutine transform_lazy_with_ast_wrapping
 
    pure function ensure_trailing_newline(text) result(with_newline)
       character(len=*), intent(in) :: text
@@ -1134,6 +1212,169 @@ contains
          deallocate (block_text)
       end if
    end function extract_leading_comment_block
+
+   ! ========================================================================
+   ! AST-BASED WRAPPING FUNCTIONS (Clean, proper compiler architecture)
+   ! ========================================================================
+
+   ! Analyze AST content directly (no string manipulation)
+   subroutine analyze_ast_content(arena, root_index, has_functions, &
+                                  has_subroutines, has_main_code)
+      type(ast_arena_t), intent(in) :: arena
+      integer, intent(in) :: root_index
+      logical, intent(out) :: has_functions, has_subroutines, has_main_code
+      integer :: i
+      class(*), pointer :: node_ptr
+
+      has_functions = .false.
+      has_subroutines = .false.
+      has_main_code = .false.
+
+      ! Check if root is already a module - if so, don't wrap
+      if (root_index > 0 .and. root_index <= arena%size) then
+         if (allocated(arena%entries(root_index)%node)) then
+            select type (root => arena%entries(root_index)%node)
+            type is (module_node)
+               ! Already a module, no wrapping needed
+               return
+            end select
+         end if
+      end if
+
+      ! Scan all nodes in arena
+      do i = 1, arena%size
+         if (.not. allocated(arena%entries(i)%node)) cycle
+
+         select type (node => arena%entries(i)%node)
+         type is (function_def_node)
+            has_functions = .true.
+         type is (subroutine_def_node)
+            has_subroutines = .true.
+         type is (assignment_node)
+            ! Assignment outside of procedures = main code
+            if (arena%entries(i)%parent_index == root_index) then
+               has_main_code = .true.
+            end if
+         end select
+      end do
+   end subroutine analyze_ast_content
+
+   ! Wrap procedures in a module (AST manipulation, no strings!)
+   subroutine wrap_ast_in_module_only(arena, root_index, context)
+      type(ast_arena_t), intent(inout) :: arena
+      integer, intent(inout) :: root_index
+      type(transform_context_t), intent(in) :: context
+      type(module_node) :: mod
+      integer :: i, mod_index
+      integer, allocatable :: proc_indices(:)
+
+      ! Find all procedure nodes
+      allocate (proc_indices(0))
+      do i = 1, arena%size
+         if (.not. allocated(arena%entries(i)%node)) cycle
+         select type (node => arena%entries(i)%node)
+         type is (function_def_node)
+            proc_indices = [proc_indices, i]
+         type is (subroutine_def_node)
+            proc_indices = [proc_indices, i]
+         end select
+      end do
+
+      if (size(proc_indices) == 0) return
+
+      ! Create module node
+      mod%name = context%module_name
+      mod%has_contains = .true.
+      mod%procedure_indices = proc_indices
+      mod%line = 1
+      mod%column = 1
+
+      ! Push module to arena
+      call arena%push(mod, "module", 0)
+      mod_index = arena%size
+
+      ! Update parent indices of procedures
+      do i = 1, size(proc_indices)
+         arena%entries(proc_indices(i))%parent_index = mod_index
+      end do
+
+      ! Set new root
+      root_index = mod_index
+   end subroutine wrap_ast_in_module_only
+
+   ! Wrap procedures in module and main code in program (AST manipulation)
+   subroutine wrap_ast_in_module_and_program(arena, root_index, context)
+      type(ast_arena_t), intent(inout) :: arena
+      integer, intent(inout) :: root_index
+      type(transform_context_t), intent(in) :: context
+      type(module_node) :: mod
+      type(program_node), pointer :: prog_ptr
+      type(use_statement_node) :: use_stmt
+      integer :: i, mod_index, use_index
+      integer, allocatable :: proc_indices(:), new_body(:)
+
+      ! Find all procedure nodes and extract from program
+      allocate (proc_indices(0))
+      do i = 1, arena%size
+         if (.not. allocated(arena%entries(i)%node)) cycle
+         select type (node => arena%entries(i)%node)
+         type is (function_def_node)
+            proc_indices = [proc_indices, i]
+         type is (subroutine_def_node)
+            proc_indices = [proc_indices, i]
+         end select
+      end do
+
+      if (size(proc_indices) == 0) return
+
+      ! Create module with procedures
+      mod%name = context%module_name
+      mod%has_contains = .true.
+      mod%procedure_indices = proc_indices
+      mod%line = 1
+      mod%column = 1
+      call arena%push(mod, "module", 0)
+      mod_index = arena%size
+
+      ! Update procedure parent indices
+      do i = 1, size(proc_indices)
+         arena%entries(proc_indices(i))%parent_index = mod_index
+      end do
+
+      ! Remove procedures from program body and add use statement
+      if (root_index > 0 .and. root_index <= arena%size) then
+         if (allocated(arena%entries(root_index)%node)) then
+            select type (prog => arena%entries(root_index)%node)
+            type is (program_node)
+               ! Create use statement
+               use_stmt%module_name = context%module_name
+               use_stmt%line = 1
+               use_stmt%column = 1
+               call arena%push(use_stmt, "use", root_index)
+               use_index = arena%size
+
+               ! Remove procedure indices from program body
+               if (allocated(prog%body_indices)) then
+                  allocate (new_body(0))
+                  do i = 1, size(prog%body_indices)
+                     if (.not. any(prog%body_indices(i) == proc_indices)) then
+                        new_body = [new_body, prog%body_indices(i)]
+                     end if
+                  end do
+                  ! Prepend use statement
+                  prog%body_indices = [use_index, new_body]
+               end if
+            end select
+         end if
+      end if
+
+      ! Note: We don't change root_index because the program is still the root
+      ! Code generation will emit both the module and the program
+   end subroutine wrap_ast_in_module_and_program
+
+   ! ========================================================================
+   ! OLD STRING-BASED FUNCTIONS (DEPRECATED - To be removed)
+   ! ========================================================================
 
    ! Analyze output to detect content types
    subroutine analyze_output_content(output, has_functions, has_subroutines, has_main_code)
