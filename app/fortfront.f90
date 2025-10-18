@@ -1,6 +1,7 @@
 program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
-    use frontend, only: transform_lazy_fortran_string
+    use frontend, only: transform_lazy_fortran_string, transform_with_context, &
+                        transform_context_t
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use cli_io, only: read_all_stdin_or_file
@@ -213,7 +214,11 @@ program fortfront_cli
     ! Transform lazy fortran to standard fortran
     call trace_enter('cli:transform')
     call cli_trace('CLI: transform begin')
-    call transform_lazy_fortran_string(input_text, output_text, error_msg)
+    block
+        type(transform_context_t) :: context
+        call create_transform_context(from_file, filename, context)
+        call transform_with_context(input_text, output_text, error_msg, context)
+    end block
     call trace_leave('cli:transform')
     call cli_trace('CLI: transform end')
 
@@ -250,6 +255,63 @@ program fortfront_cli
     call trace_leave('cli:main')
 
 contains
+
+    subroutine create_transform_context(from_file, filename, context)
+        logical, intent(in) :: from_file
+        character(len=:), allocatable, intent(in) :: filename
+        type(transform_context_t), intent(out) :: context
+        character(len=:), allocatable :: basename
+        integer :: dot_pos, slash_pos
+        character(len=32) :: uuid_str
+        integer :: pid, timestamp
+
+        if (from_file .and. allocated(filename)) then
+            ! Extract basename from filename
+            basename = trim(filename)
+
+            ! Remove directory path
+            slash_pos = index(basename, '/', back=.true.)
+            if (slash_pos > 0) then
+                basename = basename(slash_pos + 1:)
+            end if
+
+            ! Remove extension (.lf, .f90, etc.)
+            dot_pos = index(basename, '.', back=.true.)
+            if (dot_pos > 1) then
+                basename = basename(1:dot_pos - 1)
+            end if
+
+            context%source_name = basename
+            context%module_name = trim(basename) // '_mod'
+            context%program_name = basename
+            context%has_filename = .true.
+        else
+            ! Generate unique name for stdin using PID
+            call get_pid_impl(pid)
+            call get_timestamp_impl(timestamp)
+            write(uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
+
+            context%source_name = trim(uuid_str)
+            context%module_name = trim(uuid_str) // '_mod'
+            context%program_name = 'main'
+            context%has_filename = .false.
+        end if
+    end subroutine create_transform_context
+
+    subroutine get_pid_impl(pid)
+        integer, intent(out) :: pid
+        ! Simple fallback - just use a constant for now
+        ! TODO: Use actual getpid() via C interop if available
+        pid = 12345
+    end subroutine get_pid_impl
+
+    subroutine get_timestamp_impl(timestamp)
+        integer, intent(out) :: timestamp
+        integer :: values(8)
+        call date_and_time(values=values)
+        ! Combine date/time into a simple integer
+        timestamp = values(5)*3600 + values(6)*60 + values(7)
+    end subroutine get_timestamp_impl
 
     subroutine cli_trace(message)
         character(len=*), intent(in) :: message

@@ -32,7 +32,9 @@ module frontend_transformation
     private
 
     public :: transform_lazy_fortran_string, &
-              transform_lazy_fortran_string_with_format, format_options_t
+              transform_lazy_fortran_string_with_format, &
+              transform_with_context, &
+              format_options_t, transform_context_t
 
     ! Performance: reuse a single compiler arena across transformations
     ! to avoid repeated heavy allocations and deallocations.
@@ -48,6 +50,14 @@ module frontend_transformation
         logical :: standardize_types = .true.  ! Whether to standardize type kinds
         integer :: line_length = 130  ! Maximum line length before adding continuations
     end type format_options_t
+
+    ! Context for transformation (source name, wrapping strategy)
+    type :: transform_context_t
+        character(len=:), allocatable :: source_name  ! filename without extension or "stdin"
+        character(len=:), allocatable :: module_name  ! for wrapping functions
+        character(len=:), allocatable :: program_name ! for wrapping main code
+        logical :: has_filename = .false.  ! true if from file, false if stdin
+    end type transform_context_t
 
 contains
     ! String-based transformation function for CLI usage
@@ -198,6 +208,18 @@ contains
         call restore_configuration(saved_size, saved_char, saved_line_length, &
                                    saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
+
+    ! Context-aware transformation (wraps functions in modules, respects source names)
+    subroutine transform_with_context(input, output, error_msg, context)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
+        type(transform_context_t), intent(in) :: context
+
+        ! For now, just call the base transformation
+        ! TODO: Implement module/program wrapping based on context
+        call transform_lazy_fortran_string(input, output, error_msg)
+    end subroutine transform_with_context
 
     pure function ensure_trailing_newline(text) result(with_newline)
         character(len=*), intent(in) :: text
