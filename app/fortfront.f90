@@ -2,6 +2,8 @@ program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
     use frontend, only: transform_lazy_fortran_string, transform_with_context, &
                         transform_context_t
+    use frontend_transformation, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
+                                       detect_input_mode_from_content
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use cli_io, only: read_all_stdin_or_file
@@ -216,7 +218,7 @@ program fortfront_cli
     call cli_trace('CLI: transform begin')
     block
         type(transform_context_t) :: context
-        call create_transform_context(from_file, filename, context)
+        call create_transform_context(from_file, filename, input_text, context)
         call transform_with_context(input_text, output_text, error_msg, context)
     end block
     call trace_leave('cli:transform')
@@ -256,17 +258,18 @@ program fortfront_cli
 
 contains
 
-    subroutine create_transform_context(from_file, filename, context)
+    subroutine create_transform_context(from_file, filename, input_text, context)
         logical, intent(in) :: from_file
         character(len=:), allocatable, intent(in) :: filename
+        character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
-        character(len=:), allocatable :: basename
+        character(len=:), allocatable :: basename, extension
         integer :: dot_pos, slash_pos
         character(len=32) :: uuid_str
         integer :: pid, timestamp
 
         if (from_file .and. allocated(filename)) then
-            ! Extract basename from filename
+            ! Extract basename and extension from filename
             basename = trim(filename)
 
             ! Remove directory path
@@ -275,10 +278,21 @@ contains
                 basename = basename(slash_pos + 1:)
             end if
 
-            ! Remove extension (.lf, .f90, etc.)
+            ! Extract extension
             dot_pos = index(basename, '.', back=.true.)
             if (dot_pos > 1) then
+                extension = basename(dot_pos:)
                 basename = basename(1:dot_pos - 1)
+            else
+                extension = ''
+            end if
+
+            ! Determine input mode based on file extension
+            if (extension == '.lf') then
+                context%input_mode = INPUT_MODE_LAZY
+            else
+                ! All other extensions (.f90, .f, .for, etc.) are standard Fortran
+                context%input_mode = INPUT_MODE_STANDARD
             end if
 
             context%source_name = basename
@@ -286,6 +300,9 @@ contains
             context%program_name = 'main'
             context%has_filename = .true.
         else
+            ! Stdin: detect mode from content
+            context%input_mode = detect_input_mode_from_content(input_text)
+
             ! Generate unique name for stdin using PID
             call get_pid_impl(pid)
             call get_timestamp_impl(timestamp)

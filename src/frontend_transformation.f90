@@ -34,7 +34,9 @@ module frontend_transformation
     public :: transform_lazy_fortran_string, &
               transform_lazy_fortran_string_with_format, &
               transform_with_context, &
-              format_options_t, transform_context_t
+              format_options_t, transform_context_t, &
+              INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
+              detect_input_mode_from_content
 
     ! Performance: reuse a single compiler arena across transformations
     ! to avoid repeated heavy allocations and deallocations.
@@ -51,12 +53,17 @@ module frontend_transformation
         integer :: line_length = 130  ! Maximum line length before adding continuations
     end type format_options_t
 
+    ! Input mode enumeration
+    integer, parameter :: INPUT_MODE_LAZY = 1      ! Lazy Fortran (.lf files)
+    integer, parameter :: INPUT_MODE_STANDARD = 2  ! Standard Fortran (.f90, .f, etc.)
+
     ! Context for transformation (source name, wrapping strategy)
     type :: transform_context_t
         character(len=:), allocatable :: source_name  ! filename without extension or "stdin"
         character(len=:), allocatable :: module_name  ! for wrapping functions
         character(len=:), allocatable :: program_name ! for wrapping main code
         logical :: has_filename = .false.  ! true if from file, false if stdin
+        integer :: input_mode = INPUT_MODE_LAZY  ! INPUT_MODE_LAZY or INPUT_MODE_STANDARD
     end type transform_context_t
 
 contains
@@ -226,7 +233,13 @@ contains
             return
         end if
 
-        ! Analyze what we have in the output
+        ! For standard Fortran, skip module wrapping and return transformed output
+        if (context%input_mode == INPUT_MODE_STANDARD) then
+            output = base_output
+            return
+        end if
+
+        ! For lazy Fortran: analyze what we have in the output
         call analyze_output_content(base_output, has_functions, has_subroutines, &
                                     has_main_code)
 
@@ -301,6 +314,77 @@ contains
 
         is_standard = has_implicit_none .and. references_tooling_api
     end function is_probably_standard_fortran
+
+    pure function detect_input_mode_from_content(input) result(mode)
+        character(len=*), intent(in) :: input
+        integer :: mode
+        logical :: has_implicit_none, has_program, has_module, has_subroutine
+        logical :: has_function_keyword, has_end_function
+        integer :: i, line_start, line_end
+        character(len=:), allocatable :: line, trimmed
+
+        has_implicit_none = .false.
+        has_program = .false.
+        has_module = .false.
+        has_subroutine = .false.
+        has_function_keyword = .false.
+        has_end_function = .false.
+
+        i = 1
+        do while (i <= len(input))
+            line_start = i
+            line_end = index(input(i:), new_line('A'))
+            if (line_end == 0) then
+                line = input(i:)
+                i = len(input) + 1
+            else
+                line = input(i:i + line_end - 2)
+                i = i + line_end
+            end if
+
+            trimmed = trim(adjustl(line))
+            if (len(trimmed) == 0) cycle
+            if (trimmed(1:1) == '!') cycle
+
+            if (index(trimmed, 'implicit none') > 0 .or. &
+                index(trimmed, 'implicit  none') > 0) then
+                has_implicit_none = .true.
+            end if
+
+            if (index(trimmed, 'program ') > 0 .and. &
+                index(trimmed, 'end program') == 0) then
+                has_program = .true.
+            end if
+
+            if (index(trimmed, 'module ') > 0 .and. &
+                index(trimmed, 'end module') == 0 .and. &
+                index(trimmed, 'module procedure') == 0) then
+                has_module = .true.
+            end if
+
+            if (index(trimmed, 'subroutine ') > 0 .and. &
+                index(trimmed, 'end subroutine') == 0) then
+                has_subroutine = .true.
+            end if
+
+            if (index(trimmed, 'function ') > 0 .and. &
+                index(trimmed, 'end function') == 0) then
+                has_function_keyword = .true.
+            end if
+
+            if (index(trimmed, 'end function') > 0) then
+                has_end_function = .true.
+            end if
+        end do
+
+        if (has_implicit_none .or. has_program .or. has_module) then
+            mode = INPUT_MODE_STANDARD
+        else if (has_subroutine .or. (has_function_keyword .and. has_end_function)) then
+            mode = INPUT_MODE_STANDARD
+        else
+            mode = INPUT_MODE_LAZY
+        end if
+    end function detect_input_mode_from_content
 
     pure function to_lower_ascii_local(text) result(lower_text)
         character(len=*), intent(in) :: text
