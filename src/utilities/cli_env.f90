@@ -1,5 +1,6 @@
 module cli_env
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -23,10 +24,12 @@ contains
         call get_environment_variable('FORTFRONT_TRACE', trace_env, status=s1)
         call get_environment_variable('FORTFRONT_TRACE_FILE', file_env, status=s2)
 
-        call compute_cli_trace_settings(trim(trace_env), trim(file_env), trace_enabled, trace_file_path)
+        call compute_cli_trace_settings(trim(trace_env), trim(file_env), trace_enabled, &
+                                        trace_file_path)
     end subroutine init_cli_trace
 
-    pure subroutine compute_cli_trace_settings(trace_env, file_env, trace_enabled, trace_file_path)
+    pure subroutine compute_cli_trace_settings(trace_env, file_env, trace_enabled, &
+                                               trace_file_path)
         character(len=*), intent(in) :: trace_env
         character(len=*), intent(in) :: file_env
         logical, intent(out) :: trace_enabled
@@ -98,19 +101,5 @@ contains
             val = (len(t) > 0)
         end select
     end function is_truthy
-
-    pure function to_lower(s) result(out)
-        character(len=*), intent(in) :: s
-        character(len=len(s)) :: out
-        integer :: i, ia
-        do i = 1, len(s)
-            ia = iachar(s(i:i))
-            if (ia >= iachar('A') .and. ia <= iachar('Z')) then
-                out(i:i) = achar(ia + 32)
-            else
-                out(i:i) = s(i:i)
-            end if
-        end do
-    end function to_lower
 
 end module cli_env

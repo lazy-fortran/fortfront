@@ -1,4 +1,5 @@
 module frontend_transformation
+   use string_utils_mod, only: to_lower
    use, intrinsic :: iso_fortran_env, only: error_unit
    ! fortfront - Transformation functions module
    ! Contains string-based transformation functionality
@@ -365,13 +366,13 @@ contains
 
       do i = 1, size(tokens)
          if (.not. allocated(tokens(i)%text)) cycle
-         lower_text = to_lower_ascii_local(tokens(i)%text)
+         lower_text = to_lower(tokens(i)%text)
          if (tokens(i)%kind == TK_KEYWORD) then
             if (lower_text == 'implicit') then
                if (i < size(tokens)) then
                   if (tokens(i + 1)%kind == TK_KEYWORD) then
                      if (allocated(tokens(i + 1)%text)) then
-                        next_text = to_lower_ascii_local(tokens(i + 1)%text)
+                        next_text = to_lower(tokens(i + 1)%text)
                         if (next_text == 'none') then
                            has_implicit_none = .true.
                         end if
@@ -424,7 +425,7 @@ contains
          if (len(trimmed) == 0) cycle
          if (trimmed(1:1) == '!') cycle
 
-         lowered = to_lower_ascii_local(trimmed)
+         lowered = to_lower(trimmed)
 
          if (index(lowered, 'implicit none') == 1 .or. &
              index(lowered, 'implicit  none') == 1) then
@@ -461,21 +462,6 @@ contains
          mode = INPUT_MODE_LAZY
       end if
    end function detect_input_mode_from_content
-
-   pure function to_lower_ascii_local(text) result(lower_text)
-      character(len=*), intent(in) :: text
-      character(len=len(text)) :: lower_text
-      integer :: i
-      integer :: code
-
-      lower_text = text
-      do i = 1, len(text)
-         code = iachar(text(i:i))
-         if (code >= 65 .and. code <= 90) then
-            lower_text(i:i) = achar(code + 32)
-         end if
-      end do
-   end function to_lower_ascii_local
 
    ! Check if input is empty or whitespace only
    function is_empty_or_whitespace_only(input) result(is_empty)

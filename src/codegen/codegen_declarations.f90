@@ -14,7 +14,7 @@ module codegen_declarations
     use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
-    use string_utils_mod, only: int_to_string
+    use string_utils_mod, only: int_to_string, to_lower
     use codegen_indent
     use codegen_utilities, only: parameter_info_t, &
                                  generate_grouped_body, &
@@ -298,7 +298,7 @@ contains
 
         if (.not. allocated(node%body_indices)) return
 
-        lowered_return = to_lower_ascii_str(trim(return_type_code))
+        lowered_return = to_lower(trim(return_type_code))
         if (len_trim(lowered_return) == 0) return
 
         do i = 1, size(node%body_indices)
@@ -501,7 +501,7 @@ contains
         end if
 
         if (is_character_type_string(type_str)) then
-            if (index(to_lower_ascii_str(trim(type_str)), "len=)") > 0) then
+            if (index(to_lower(trim(type_str)), "len=)") > 0) then
                 if (node%has_kind) then
                     select case (node%kind_value)
                     case (-1)
@@ -546,7 +546,7 @@ contains
 
         ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
-            if (index(to_lower_ascii_decl(trim(code)), 'allocatable') == 0) then
+            if (index(to_lower(trim(code)), 'allocatable') == 0) then
                 code = code // ", allocatable"
             end if
         else if (node%inferred_type%kind > 0) then
@@ -562,32 +562,32 @@ contains
 
         ! Add pointer if present
         if (node%is_pointer) then
-            if (index(to_lower_ascii_decl(trim(code)), 'pointer') == 0) then
+            if (index(to_lower(trim(code)), 'pointer') == 0) then
                 code = code // ", pointer"
             end if
         end if
 
         ! Add target if present
         if (node%is_target) then
-            if (index(to_lower_ascii_decl(trim(code)), 'target') == 0) then
+            if (index(to_lower(trim(code)), 'target') == 0) then
                 code = code // ", target"
             end if
         end if
 
         if (node%is_external) then
-            if (index(to_lower_ascii_decl(trim(code)), 'external') == 0) then
+            if (index(to_lower(trim(code)), 'external') == 0) then
                 code = code // ", external"
             end if
         end if
 
         ! Add parameter if present
         if (node%is_parameter) then
-            if (index(to_lower_ascii_decl(trim(code)), 'parameter') == 0) then
+            if (index(to_lower(trim(code)), 'parameter') == 0) then
                 code = code // ", parameter"
             end if
         end if
 
-        has_dimension_attr = index(to_lower_ascii_decl(trim(type_str)), "dimension(") > 0
+        has_dimension_attr = index(to_lower(trim(type_str)), "dimension(") > 0
 
         ! Add variable names - handle both single and multi declarations
         code = code // " :: "
@@ -646,7 +646,7 @@ contains
         if (node%initializer_index > 0 .and. node%initializer_index <= arena%size) then
             init_code = generate_code_from_arena(arena, node%initializer_index)
             if (node%is_pointer) then
-                if (to_lower_ascii_decl(trim(init_code)) == "null") then
+                if (to_lower(trim(init_code)) == "null") then
                     init_code = "null()"
                 end if
                 code = code // " => " // init_code
@@ -656,22 +656,7 @@ contains
         end if
 
         code = fix_character_len_placeholder(code)
-    contains
 
-        pure function to_lower_ascii_decl(text) result(lower_text)
-            character(len=*), intent(in) :: text
-            character(len=len(text)) :: lower_text
-            integer :: idx
-            integer :: char_code
-
-            lower_text = text
-            do idx = 1, len(text)
-                char_code = iachar(lower_text(idx:idx))
-                if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
-                    lower_text(idx:idx) = achar(char_code + iachar('a') - iachar('A'))
-                end if
-            end do
-        end function to_lower_ascii_decl
     end function generate_code_declaration
 
     ! Generate code for parameter declarations
@@ -1170,8 +1155,8 @@ contains
                             iso_line = code(line_start:line_end - 1)
                         end if
 
-                        iso_has_only = index(to_lower_ascii_local(iso_line), 'only:') > 0
-                        iso_has_output = index(to_lower_ascii_local(iso_line), &
+                        iso_has_only = index(to_lower(iso_line), 'only:') > 0
+                        iso_has_output = index(to_lower(iso_line), &
                                                'output_unit') > 0
 
                         if (iso_has_only .and. .not. iso_has_output) then
@@ -1393,22 +1378,6 @@ contains
 
         ! Program end
         code = code // "end program " // node%name
-    contains
-
-        pure function to_lower_ascii_local(text) result(lower_text)
-            character(len=*), intent(in) :: text
-            character(len=len(text)) :: lower_text
-            integer :: i
-            integer :: char_code
-
-            lower_text = text
-            do i = 1, len(text)
-                char_code = iachar(lower_text(i:i))
-                if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
-                    lower_text(i:i) = achar(char_code + 32)
-                end if
-            end do
-        end function to_lower_ascii_local
 
     end function generate_code_program
 
@@ -1423,7 +1392,7 @@ contains
         override = ""
 
         if (allocated(node%return_type)) then
-            lowered = to_lower_ascii_str(trim(node%return_type))
+            lowered = to_lower(trim(node%return_type))
             if (index(lowered, "character(len=:), allocatable") == 0) return
         else
             return
@@ -1449,9 +1418,10 @@ contains
                 if (len_trim(stmt%var_name) == 0) cycle
                 if (trim(stmt%var_name) /= target_name) cycle
                 if (.not. allocated(stmt%type_name)) cycle
-                lowered = to_lower_ascii_str(trim(stmt%type_name))
+                lowered = to_lower(trim(stmt%type_name))
                 if (index(lowered, "len=") > 0) then
-                    if (.not. character_len_references_params(arena, node, stmt%type_name)) then
+                    if (.not. character_len_references_params(arena, node, &
+                                                              stmt%type_name)) then
                         override = trim(stmt%type_name)
                         return
                     end if
@@ -1460,7 +1430,8 @@ contains
         end do
     end subroutine derive_character_return_type
 
-    logical function character_len_references_params(arena, node, type_spec) result(refs_params)
+    logical function character_len_references_params(arena, node, type_spec) &
+        result(refs_params)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=*), intent(in) :: type_spec
@@ -1504,7 +1475,7 @@ contains
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: lowered
 
-        lowered = to_lower_ascii_str(trim(text))
+        lowered = to_lower(trim(text))
         is_deferred = (index(lowered, 'character') == 1) .and. &
                       (index(lowered, 'len=:') > 0)
         if (is_deferred) then
@@ -1563,7 +1534,7 @@ contains
         character(len=*), intent(in) :: type_name
         character(len=:), allocatable :: lowered
 
-        lowered = to_lower_ascii_str(trim(type_name))
+        lowered = to_lower(trim(type_name))
         if (len_trim(lowered) == 0) then
             matches = .false.
             return
@@ -1574,27 +1545,6 @@ contains
                   (index(lowered, 'len=*') == 0) .and. &
                   (index(lowered, 'len=:') == 0)
     end function is_character_len_declaration
-
-    pure function to_lower_ascii_str(text) result(lower_text)
-        character(len=*), intent(in) :: text
-        character(len=:), allocatable :: lower_text
-        integer :: i, code
-
-        if (len(text) == 0) then
-            allocate (character(len=0) :: lower_text)
-            return
-        end if
-
-        allocate (character(len=len(text)) :: lower_text)
-        do i = 1, len(text)
-            code = iachar(text(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lower_text(i:i) = achar(code + 32)
-            else
-                lower_text(i:i) = text(i:i)
-            end if
-        end do
-    end function to_lower_ascii_str
 
     pure function fix_character_len_placeholder(text) result(out)
         character(len=*), intent(in) :: text

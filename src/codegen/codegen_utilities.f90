@@ -13,9 +13,9 @@ module codegen_utilities
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
-    use type_string_utils, only: is_character_type_string, to_lower_ascii
+    use type_string_utils, only: is_character_type_string
     use codegen_arena_interface, only: generate_code_from_arena
-    use string_utils_mod, only: int_to_string
+    use string_utils_mod, only: int_to_string, to_lower
     implicit none
     private
 
@@ -409,7 +409,7 @@ contains
                 else if (allocated(proc_node%name)) then
                     result_var_name = trim(proc_node%name)
                 end if
-                lowered_return = to_lower_ascii(trim(proc_node%return_type))
+                lowered_return = to_lower(trim(proc_node%return_type))
                 if (index(lowered_return, "len=") > 0) then
                     force_keep_result_decl = .true.
                 end if
@@ -931,7 +931,7 @@ contains
             return
         end if
 
-        normalized = to_lower_ascii(trim(node%type_name))
+        normalized = to_lower(trim(node%type_name))
         if (normalized /= "type") then
             is_header = .false.
             return
@@ -1190,7 +1190,7 @@ contains
             trimmed = trim(trimmed(:comma_pos - 1))
         end if
 
-        lowered_trim = to_lower_ascii(trimmed)
+        lowered_trim = to_lower(trimmed)
         if (index(lowered_trim, "kind=") > 0 .and. index(lowered_trim, "len") == 0) then
             type_str = trimmed
             return
@@ -1199,7 +1199,7 @@ contains
         call extract_character_length(trimmed, has_length, length_spec)
 
         if (has_length) then
-            lowered_len = to_lower_ascii(length_spec)
+            lowered_len = to_lower(length_spec)
             if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, &
                                                             "len=") == 0) then
                 type_str = trimmed
@@ -1241,7 +1241,7 @@ contains
         end if
 
         if (has_length) then
-            lowered_len = to_lower_ascii(trim(length_spec))
+            lowered_len = to_lower(trim(length_spec))
             select case (trim(lowered_len))
             case ("-1")
                 length_spec = "*"
@@ -1253,7 +1253,7 @@ contains
         if (.not. has_length) then
             type_str = "character"
         else
-            lowered_len = to_lower_ascii(length_spec)
+            lowered_len = to_lower(length_spec)
             if (index(lowered_len, "len=") == 0) then
                 length_spec = "len=" // trim(length_spec)
             end if
@@ -1286,7 +1286,7 @@ contains
             trimmed = trim(trimmed(:comma_pos - 1))
         end if
 
-        lowered_trim = to_lower_ascii(trimmed)
+        lowered_trim = to_lower(trimmed)
         if (index(lowered_trim, "kind=") > 0 .and. index(lowered_trim, "len") == 0) then
             type_str = trimmed
             return
@@ -1295,7 +1295,7 @@ contains
         call extract_character_length(trimmed, has_length, length_spec)
 
         if (has_length) then
-            lowered_len = to_lower_ascii(length_spec)
+            lowered_len = to_lower(length_spec)
             if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, &
                                                             "len=") == 0) then
                 type_str = trimmed
@@ -1322,7 +1322,7 @@ contains
         end if
 
         if (has_length) then
-            lowered_len = to_lower_ascii(trim(length_spec))
+            lowered_len = to_lower(trim(length_spec))
             select case (trim(lowered_len))
             case ("-1")
                 length_spec = "*"
@@ -1334,7 +1334,7 @@ contains
         if (.not. has_length) then
             type_str = "character"
         else
-            lowered_len = to_lower_ascii(length_spec)
+            lowered_len = to_lower(length_spec)
             if (index(lowered_len, "len=") == 0) then
                 length_spec = "len=" // trim(length_spec)
             end if

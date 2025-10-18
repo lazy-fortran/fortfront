@@ -1,5 +1,6 @@
 module intrinsic_registry
     use iso_fortran_env, only: error_unit
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -151,7 +152,8 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="ceiling", return_type="integer", arg_types="real", &
+                                 name="ceiling", return_type="integer", &
+                                 arg_types="real", &
                                  description="Ceiling function")
 
         ! Array functions
@@ -167,80 +169,95 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="shape", return_type="integer_array", arg_types="array", &
+                                 name="shape", return_type="integer_array", &
+                                 arg_types="array", &
                                  description="Array shape")
 
         ! String functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="len", return_type="integer", arg_types="character", &
+                                 name="len", return_type="integer", &
+                                 arg_types="character", &
                                  description="String length")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="len_trim", return_type="integer", arg_types="character", &
+                                 name="len_trim", return_type="integer", &
+                                 arg_types="character", &
                                  description="Trimmed string length")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="trim", return_type="character", arg_types="character", &
+                                 name="trim", return_type="character", &
+                                 arg_types="character", &
                                  description="Remove trailing blanks")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="adjustl", return_type="character", arg_types="character", &
+                                 name="adjustl", return_type="character", &
+                                 arg_types="character", &
                                  description="Adjust left")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="adjustr", return_type="character", arg_types="character", &
+                                 name="adjustr", return_type="character", &
+                                 arg_types="character", &
                                  description="Adjust right")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="index", return_type="integer", arg_types="character,character", &
+                                 name="index", return_type="integer", &
+                                 arg_types="character,character", &
                                  description="Substring position")
 
         ! Variadic functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="min", return_type="numeric", arg_types="numeric,numeric,...", &
+                                 name="min", return_type="numeric", &
+                                 arg_types="numeric,numeric,...", &
                                  description="Minimum value")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="max", return_type="numeric", arg_types="numeric,numeric,...", &
+                                 name="max", return_type="numeric", &
+                                 arg_types="numeric,numeric,...", &
                                  description="Maximum value")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="mod", return_type="numeric", arg_types="numeric,numeric", &
+                                 name="mod", return_type="numeric", &
+                                 arg_types="numeric,numeric", &
                                  description="Modulo function")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="modulo", return_type="numeric", arg_types="numeric,numeric", &
+                                 name="modulo", return_type="numeric", &
+                                 arg_types="numeric,numeric", &
                                  description="Modulo function")
 
         ! Inquiry functions
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="present", return_type="logical", arg_types="any", &
+                                 name="present", return_type="logical", &
+                                 arg_types="any", &
                                  description="Check if optional argument is present")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="precision", return_type="integer", arg_types="real", &
+                                 name="precision", return_type="integer", &
+                                 arg_types="real", &
                                  description="Decimal precision")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="allocated", return_type="logical", arg_types="allocatable", &
+                                 name="allocated", return_type="logical", &
+                                 arg_types="allocatable", &
                                  description="Check if allocatable variable is allocated")
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
-            write (error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
+            write (error_unit, '(A)') &
+                "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
             write (error_unit, '(A)') "in initialization - registry may be incomplete"
             ! Continue with partial registry rather than crashing
         end if
@@ -249,18 +266,5 @@ contains
     end subroutine initialize_intrinsic_registry
 
     ! Helper function to convert string to lowercase
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, ascii_val
-
-        lower_str = str
-        do i = 1, len(str)
-            ascii_val = iachar(str(i:i))
-            if (ascii_val >= 65 .and. ascii_val <= 90) then  ! A-Z
-                lower_str(i:i) = achar(ascii_val + 32)  ! Convert to lowercase
-            end if
-        end do
-    end function to_lower
 
 end module intrinsic_registry

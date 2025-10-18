@@ -1,4 +1,5 @@
 module parser_import_resolution_module
+    use string_utils_mod, only: to_lower
     ! Import resolution module for use, include statements
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
@@ -230,7 +231,7 @@ contains
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) then
                 block
                     character(len=:), allocatable :: attr_text
-                    attr_text = to_lower_ascii_token(token%text)
+                    attr_text = to_lower(token%text)
                     if (attr_text == "intrinsic") then
                         intrinsic_nature = .true.
                         token = parser%consume()
@@ -298,7 +299,7 @@ contains
             ! Check for 'only' keyword
             token = parser%peek()
             if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
-                trim(to_lower_ascii_token(token%text)) == "only") then
+                trim(to_lower(token%text)) == "only") then
                 token = parser%consume()  ! consume 'only'
                 has_only = .true.
 
@@ -330,7 +331,8 @@ contains
                                             is_non_intrinsic=non_intrinsic_nature)
         else
             stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
-                                            has_only, line, column, has_double_colon=has_double_colon, &
+                                            has_only, line, column, &
+                                            has_double_colon=has_double_colon, &
                                             is_intrinsic=intrinsic_nature, &
                                             is_non_intrinsic=non_intrinsic_nature)
         end if
@@ -361,20 +363,5 @@ contains
         ! Create include statement node
         stmt_index = push_include_statement(arena, filename, line, column)
     end function parse_include_statement
-
-    pure function to_lower_ascii_token(text) result(lower_text)
-        character(len=*), intent(in) :: text
-        character(len=len(text)) :: lower_text
-        integer :: i
-        integer :: char_code
-
-        lower_text = text
-        do i = 1, len(text)
-            char_code = iachar(lower_text(i:i))
-            if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
-                lower_text(i:i) = achar(char_code + 32)
-            end if
-        end do
-    end function to_lower_ascii_token
 
 end module parser_import_resolution_module

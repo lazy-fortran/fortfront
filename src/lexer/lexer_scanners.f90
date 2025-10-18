@@ -1,6 +1,7 @@
 module lexer_scanners
     use lexer_token_types
     use error_handling
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -503,18 +504,5 @@ contains
     end function is_logical_constant
 
     ! Helper function to convert string to lowercase
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, ascii_val
-
-        lower_str = str
-        do i = 1, len(str)
-            ascii_val = iachar(str(i:i))
-            if (ascii_val >= 65 .and. ascii_val <= 90) then
-                lower_str(i:i) = achar(ascii_val + 32)
-            end if
-        end do
-    end function to_lower
 
 end module lexer_scanners

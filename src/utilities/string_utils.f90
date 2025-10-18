@@ -3,8 +3,24 @@ module string_utils_mod
     private
 
     public :: int_to_string
+    public :: to_lower
 
 contains
+
+    pure function to_lower(text) result(lower_text)
+        character(len=*), intent(in) :: text
+        character(len=len(text)) :: lower_text
+        integer :: idx
+        integer :: char_code
+
+        lower_text = text
+        do idx = 1, len(text)
+            char_code = iachar(lower_text(idx:idx))
+            if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
+                lower_text(idx:idx) = achar(char_code + 32)
+            end if
+        end do
+    end function to_lower
 
     pure function int_to_string(val, width) result(str)
         integer, intent(in) :: val

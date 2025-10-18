@@ -2,6 +2,8 @@ module path_validation
     ! Secure path validation utility for preventing path traversal attacks
     ! Validates file paths against common security vulnerabilities
 
+    use string_utils_mod, only: to_lower
+
     implicit none
     private
 
@@ -297,7 +299,7 @@ contains
         if (dot_pos == 0 .or. dot_pos == len(path)) return
 
         ! Extract extension (convert to lowercase for comparison)
-        extension = to_lowercase(path(dot_pos + 1:))
+        extension = to_lower(path(dot_pos + 1:))
 
         ! Check against list of potentially dangerous extensions
         select case (extension)
@@ -317,7 +319,7 @@ contains
         character(len=:), allocatable :: normalized_path
 
         is_system = .false.
-        normalized_path = to_lowercase(trim(path))
+        normalized_path = to_lower(trim(path))
 
         ! Check for common system directories (Unix/Linux)
         if (starts_with(normalized_path, '/etc/') .or. &
@@ -342,25 +344,6 @@ contains
             return
         end if
     end function is_system_path
-
-    ! Helper function to convert string to lowercase
-    function to_lowercase(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=:), allocatable :: lower_str
-        integer :: i
-        character(len=1) :: c
-
-        allocate (character(len=len(str)) :: lower_str)
-
-        do i = 1, len(str)
-            c = str(i:i)
-            if (c >= 'A' .and. c <= 'Z') then
-                lower_str(i:i) = char(ichar(c) + 32)
-            else
-                lower_str(i:i) = c
-            end if
-        end do
-    end function to_lowercase
 
     ! Helper function to check if string starts with prefix
     function starts_with(str, prefix) result(matches)

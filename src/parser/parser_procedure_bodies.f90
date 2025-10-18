@@ -1,5 +1,6 @@
 module parser_procedure_bodies_module
     ! Procedure body parsing for subroutines and functions in module contexts
+    use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module
@@ -180,7 +181,7 @@ contains
         do
             token = parser%peek()
             if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                select case (trim(to_lower_local(token%text)))
+                select case (trim(to_lower(token%text)))
                 case ("recursive")
                     has_recursive_keyword = .true.
                     call append_prefix_keyword(prefix_keywords, "recursive")
@@ -202,7 +203,7 @@ contains
         ! Check if we have a return type before "function"
         token = parser%peek()
         if (token%kind == TK_KEYWORD) then
-            select case (trim(to_lower_local(token%text)))
+            select case (trim(to_lower(token%text)))
             case ("real", "integer", "logical", "character")
                 return_type_str = token%text
                 token = parser%consume()
@@ -383,14 +384,14 @@ contains
         character(len=:), allocatable :: next_lower
         integer :: next_index
 
-        token_lower = to_lower_local(token%text)
+        token_lower = to_lower(token%text)
         can_use = .false.
 
         select case (trim(token_lower))
         case ('double')
             next_index = parser%current_token + 1
             lookahead = parser%get_token_at_index(next_index)
-            next_lower = to_lower_local(trim(lookahead%text))
+            next_lower = to_lower(trim(lookahead%text))
             if (next_lower /= 'precision') then
                 can_use = .true.
             end if
@@ -427,20 +428,6 @@ contains
         call move_alloc(temp, prefixes)
     end subroutine append_prefix_keyword
 
-    pure function to_lower_local(value) result(lower_value)
-        character(len=*), intent(in) :: value
-        character(len=len(value)) :: lower_value
-        integer :: i, code
-
-        lower_value = value
-        do i = 1, len(lower_value)
-            code = iachar(lower_value(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lower_value(i:i) = achar(code + 32)
-            end if
-        end do
-    end function to_lower_local
-
     ! Basic statement parsing for subroutine/function bodies (avoiding circular deps)
     function parse_basic_statement_in_subroutine(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -454,7 +441,7 @@ contains
 
         select case (token%kind)
         case (TK_KEYWORD)
-            select case (trim(to_lower_local(token%text)))
+            select case (trim(to_lower(token%text)))
             case ("print")
                 stmt_index = parse_simple_print_statement(parser, arena)
             case ("data")
