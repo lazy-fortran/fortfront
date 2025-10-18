@@ -283,7 +283,7 @@ contains
 
             context%source_name = basename
             context%module_name = basename
-            context%program_name = trim(basename) // '_app'
+            context%program_name = 'main'
             context%has_filename = .true.
         else
             ! Generate unique name for stdin using PID
