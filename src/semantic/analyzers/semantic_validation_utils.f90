@@ -7,6 +7,7 @@ module semantic_validation_utils
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node
     use ast_nodes_bounds, only: array_slice_node
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -19,7 +20,8 @@ contains
     ! Character function to convert integer to string
     character(len=20) function int_to_str(n)
         integer, intent(in) :: n
-        write (int_to_str, '(I0)') n
+
+        int_to_str = int_to_string(n)
     end function int_to_str
 
     ! Helper functions for validate_array_bounds

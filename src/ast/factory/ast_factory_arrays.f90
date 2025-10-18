@@ -5,6 +5,7 @@ module ast_factory_arrays
     use ast_factory_core, only: push_literal
     use ast_base, only: LITERAL_INTEGER
     use uid_generator, only: generate_uid
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -26,8 +27,8 @@ contains
         character(len=20) :: start_str, end_str
 
         ! Convert indices to strings
-        write (start_str, '(I0)') start_idx
-        write (end_str, '(I0)') end_idx
+        start_str = int_to_string(start_idx)
+        end_str = int_to_string(end_idx)
 
         ! Create start and end index literals
         start_literal_idx = push_literal(arena, trim(start_str), LITERAL_INTEGER, line, column)

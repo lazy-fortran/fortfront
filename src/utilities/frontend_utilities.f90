@@ -2,6 +2,7 @@ module frontend_utilities
     ! fortfront - Utility functions module
     ! Contains helper functions and utilities
 
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -55,7 +56,8 @@ contains
     function int_to_str(num) result(str)
         integer, intent(in) :: num
         character(len=20) :: str
-        write (str, '(I0)') num
+
+        str = int_to_string(num)
     end function int_to_str
 
 end module frontend_utilities

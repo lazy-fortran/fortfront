@@ -1,6 +1,7 @@
 module plugin_metadata_module
     !! Plugin metadata management for versioning and dependencies
     !! Provides metadata validation, version comparison, and dependency tracking
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -145,15 +146,15 @@ contains
 
         character(len=16) :: dep_count, cap_count
 
-        write (dep_count, '(I0)') 0
-        write (cap_count, '(I0)') 0
+        dep_count = int_to_string(0)
+        cap_count = int_to_string(0)
 
         if (allocated(metadata%dependencies)) then
-            write (dep_count, '(I0)') size(metadata%dependencies)
+            dep_count = int_to_string(size(metadata%dependencies))
         end if
 
         if (allocated(metadata%capabilities)) then
-            write (cap_count, '(I0)') size(metadata%capabilities)
+            cap_count = int_to_string(size(metadata%capabilities))
         end if
 
         formatted_string = trim(metadata%name) // " v" // trim(metadata%version) // &

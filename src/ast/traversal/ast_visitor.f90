@@ -8,6 +8,7 @@ module ast_visitor
     use ast_nodes_io
     use ast_nodes_data
     use ast_nodes_misc
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -634,17 +635,10 @@ contains
         end if
     end subroutine append_debug
 
-    function int_to_string(val) result(str)
-        integer, intent(in) :: val
-        character(len=20) :: str
-        write (str, '(I0)') val
-    end function int_to_string
-
     function int_array_to_string(arr) result(str)
         integer, intent(in) :: arr(:)
         character(len=:), allocatable :: str
         integer :: i
-        character(len=20) :: temp
 
         if (size(arr) == 0) then
             str = "[integer ::]"  ! Empty array with type spec
@@ -653,9 +647,8 @@ contains
 
         str = "["
         do i = 1, size(arr)
-            write (temp, '(I0)') arr(i)
             if (i > 1) str = str // ","
-            str = str // trim(temp)
+            str = str // int_to_string(arr(i))
         end do
         str = str // "]"
     end function int_array_to_string

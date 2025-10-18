@@ -19,6 +19,7 @@ module standardizer_declarations_core
     use lexer_core, only: to_lower
     use standardizer_types
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -1014,7 +1015,7 @@ contains
 
             type_str = trim(decl%type_name)
             if (decl%has_kind) then
-                write (buffer, '(I0)') decl%kind_value
+                buffer = int_to_string(decl%kind_value)
                 if (len_trim(buffer) > 0) then
                     type_str = trim(type_str) // "(" // trim(buffer) // ")"
                 end if
@@ -1039,7 +1040,7 @@ contains
                             type_str = type_str // ":"
                         end if
                     else if (dim_idx > arena%size) then
-                        write (buffer, '(I0)') dim_idx
+                        buffer = int_to_string(dim_idx)
                         type_str = type_str // trim(buffer)
                     else
                         type_str = type_str // ":"

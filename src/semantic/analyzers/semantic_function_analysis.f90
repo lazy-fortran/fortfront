@@ -17,6 +17,7 @@ module semantic_function_analysis
     use semantic_validation_utils, only: update_identifier_type_in_arena, int_to_str
     use semantic_type_operations, only: get_common_type, &
                                         instantiate_type_scheme_op
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -743,7 +744,7 @@ contains
             name = 'logical'
         case (TCHAR)
             if (typ%size > 0) then
-                write (size_buf, '(I0)') typ%size
+                size_buf = int_to_string(typ%size)
                 name = 'character(len=' // trim(size_buf) // ')'
             else
                 name = 'character(len=:), allocatable'

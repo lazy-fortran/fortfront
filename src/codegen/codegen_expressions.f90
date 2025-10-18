@@ -34,7 +34,6 @@ module codegen_expressions
     public :: get_operator_precedence
     public :: needs_parentheses
     public :: get_node_operator
-    public :: int_to_string
 
 contains
 
@@ -849,16 +848,6 @@ contains
             op = ""
         end select
     end function get_node_operator
-
-    ! Convert integer to string
-    function int_to_string(n) result(str)
-        integer, intent(in) :: n
-        character(len=:), allocatable :: str
-        character(len=32) :: buffer
-
-        write (buffer, '(I0)') n
-        str = trim(buffer)
-    end function int_to_string
 
     ! Check if we have string concatenation (both operands are string literals)
     pure function is_string_concatenation(left_code, right_code) result(is_string)
