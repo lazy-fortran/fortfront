@@ -26,7 +26,8 @@ module standardizer_allocatable
 
 contains
 
-    ! Mark variables that need allocatable due to array reassignment patterns (Issue 188)
+    ! Mark variables needing allocatable for array reassignment patterns
+    ! (Issue 188)
     subroutine mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
@@ -149,7 +150,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -212,11 +213,9 @@ contains
             select type (stmt => arena%entries(current_index)%node)
             type is (declaration_node)
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                    call handle_multi_variable_declaration_allocatable(arena, &
-                                                                       current_index, &
-                                            assigned_vars, assignment_counts, var_count, &
-                                                                       prog_index, &
-                                                                       needs_split)
+                    call handle_multi_variable_declaration_allocatable( &
+                        arena, current_index, assigned_vars, assignment_counts, &
+                        var_count, prog_index, needs_split)
 
                     if (needs_split) then
                         call split_multi_variable_declaration(arena, current_index, &
@@ -260,7 +259,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -338,7 +337,7 @@ contains
 
                 ! If all variables in the declaration need allocatable, mark the whole
                 ! multi-declaration as allocatable (no split needed)
-                ! But only for arrays and character types - scalars cannot be allocatable
+                ! Only arrays or character types can switch to allocatable
                 if (found_allocatable .and. .not. found_non_allocatable) then
                     block
                         type(declaration_node) :: tmp
@@ -374,7 +373,8 @@ contains
 
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
-            if (.not. (decl%is_multi_declaration .and. allocated(decl%var_names))) return
+            if (.not. (decl%is_multi_declaration .and. &
+                       allocated(decl%var_names))) return
 
             ! Allocate working arrays
             allocate (alloc_vars(size(decl%var_names)))
@@ -405,7 +405,7 @@ contains
                 end if
             end do
 
-            ! Create per-variable declarations to preserve names and attributes precisely
+            ! Create per-variable declarations to keep names and attributes exact
             block
                 integer, allocatable :: new_indices(:)
                 integer, allocatable :: replaced(:)
@@ -633,10 +633,9 @@ contains
             do i = 1, size(prog%body_indices)
                 if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
                     arena%size) then
-                    call collect_string_vars_needing_allocatable(arena, &
-                                                                 prog%body_indices(i), &
-                                                        string_vars_needing_allocatable, &
-                                                                 var_count)
+                    call collect_string_vars_needing_allocatable( &
+                        arena, prog%body_indices(i), string_vars_needing_allocatable, &
+                        var_count)
                 end if
             end do
         end if
@@ -654,25 +653,31 @@ contains
                                 if (trim(stmt%var_name) == &
                                     trim(string_vars_needing_allocatable(j))) then
                                     if (allocated(stmt%type_name)) then
-                                   if (has_explicit_character_length(stmt%type_name)) then
-                          stmt%inferred_type%alloc_info%needs_allocatable_string = .false.
+                                        if (has_explicit_character_length( &
+                                            stmt%type_name)) then
+                                            stmt%inferred_type%alloc_info% &
+                                                needs_allocatable_string = .false.
                                             cycle
                                         end if
                                     end if
-                                    ! Guard: only mark character declarations as allocatable strings.
-                                    ! Avoid changing non-character types (e.g., integer/real) into character.
+                                    ! Guard: only mark character declarations
+                                    ! as allocatable strings.
+                                    ! Do not convert non-character types.
                                     if (trim(stmt%type_name) == 'character' .or. &
                                         stmt%inferred_type%kind == TCHAR) then
                                         if (stmt%inferred_type%kind > 0) then
-                           stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
-                                            ! Clear type_name so codegen uses inferred_type
+                                            stmt%inferred_type%alloc_info% &
+                                                needs_allocatable_string = .true.
+                                            ! Clear type_name so inferred_type applies
                                             stmt%type_name = ""
                                         else
-                                            ! Create an inferred_type for the declaration
+                                            ! Create inferred_type for declaration
                                             stmt%inferred_type%kind = TCHAR
-                                            stmt%inferred_type%size = 0  ! Unknown size for allocatable
-                           stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
-                                            ! Clear type_name so codegen uses inferred_type
+                                            ! Unknown size for allocatable
+                                            stmt%inferred_type%size = 0
+                                            stmt%inferred_type%alloc_info% &
+                                                needs_allocatable_string = .true.
+                                            ! Clear type_name so inferred_type applies
                                             stmt%type_name = ""
                                         end if
                                     end if
@@ -725,10 +730,12 @@ contains
                         select type (target => arena%entries(stmt%target_index)%node)
                         type is (identifier_node)
                             if (target%inferred_type%kind > 0) then
-                        if (target%inferred_type%alloc_info%needs_allocatable_string) then
+                                if (target%inferred_type%alloc_info% &
+                                    needs_allocatable_string) then
                                     exists = .false.
                                     do j = 1, var_count
-                                        if (trim(var_list(j)) == trim(target%name)) then
+                                        if (trim(var_list(j)) == &
+                                            trim(target%name)) then
                                             exists = .true.
                                             exit
                                         end if
@@ -767,7 +774,7 @@ contains
             type(node_stack_entry), allocatable :: tmp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate (tmp(capacity * 2))
+                allocate (tmp(capacity*2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
