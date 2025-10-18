@@ -4,29 +4,13 @@ module procedure_classification
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         & get_procedure_params, get_procedure_name
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
     public :: should_hoist_procedure
 
 contains
-
-    pure function to_lower_ascii(text) result(lower_text)
-        character(len=*), intent(in) :: text
-        character(len=len(text)) :: lower_text
-        integer, parameter :: upper_a = iachar('A')
-        integer, parameter :: upper_z = iachar('Z')
-        integer, parameter :: delta = iachar('a') - iachar('A')
-        integer :: i, code
-
-        lower_text = text
-        do i = 1, len(text)
-            code = iachar(text(i:i))
-            if (code >= upper_a .and. code <= upper_z) then
-                lower_text(i:i) = achar(code + delta)
-            end if
-        end do
-    end function to_lower_ascii
 
     logical function should_hoist_procedure(arena, proc_idx, target_prog_idx) &
         & result(should_hoist)
@@ -122,7 +106,7 @@ contains
         type is (function_def_node)
             if (.not. allocated(proc_node%prefix_keywords)) return
             do i = 1, size(proc_node%prefix_keywords)
-                keyword = to_lower_ascii(trim(proc_node%prefix_keywords(i)))
+                keyword = to_lower(trim(proc_node%prefix_keywords(i)))
                 select case (keyword)
                 case ('pure', 'elemental')
                     has_prefix = .true.
@@ -210,7 +194,7 @@ contains
 
         proc_name = get_procedure_name(arena%entries(proc_idx)%node)
         if (.not. allocated(proc_name)) return
-        proc_name = trim(to_lower_ascii(proc_name))
+        proc_name = trim(to_lower(proc_name))
         if (len(proc_name) == 0) return
 
         select type (target => arena%entries(target_prog_idx)%node)
@@ -243,7 +227,7 @@ contains
             type is (declaration_node)
                 if (.not. decl%is_external) cycle
                 if (allocated(decl%var_name)) then
-                    candidate = trim(to_lower_ascii(decl%var_name))
+                    candidate = trim(to_lower(decl%var_name))
                     if (candidate == name) then
                         has_match = .true.
                         return
@@ -252,7 +236,7 @@ contains
                 if (decl%is_multi_declaration) then
                     if (allocated(decl%var_names)) then
                         do j = 1, size(decl%var_names)
-                            candidate = trim(to_lower_ascii(decl%var_names(j)))
+                            candidate = trim(to_lower(decl%var_names(j)))
                             if (candidate == name) then
                                 has_match = .true.
                                 return

@@ -1,13 +1,15 @@
 module lexer_scanners
     use lexer_token_types
     use error_handling
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
     ! Public scanning functions
     public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, &
               scan_logical_token
-    public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
+    public :: scan_number_safe, scan_comment_safe, scan_string_safe, &
+              scan_identifier_safe
     public :: scan_operator_safe, scan_logical_token_safe
 
 contains
@@ -181,7 +183,7 @@ contains
             else
                 ! Unclosed string - create proper closed string to prevent invalid multiline Fortran
                 ! Extract content until current position and add closing quote
-                tokens(token_count)%text = source(start_pos:pos - 1) // quote_char
+                tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
@@ -424,7 +426,8 @@ contains
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_comment_safe
 
-    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, &
+    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, &
+                                  token_count, &
                                   scan_result)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
@@ -503,18 +506,5 @@ contains
     end function is_logical_constant
 
     ! Helper function to convert string to lowercase
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, ascii_val
-
-        lower_str = str
-        do i = 1, len(str)
-            ascii_val = iachar(str(i:i))
-            if (ascii_val >= 65 .and. ascii_val <= 90) then
-                lower_str(i:i) = achar(ascii_val + 32)
-            end if
-        end do
-    end function to_lower
 
 end module lexer_scanners
