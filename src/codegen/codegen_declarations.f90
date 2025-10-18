@@ -1450,12 +1450,54 @@ contains
                 if (.not. allocated(stmt%type_name)) cycle
                 lowered = to_lower_ascii_str(trim(stmt%type_name))
                 if (index(lowered, "len=") > 0) then
-                    override = trim(stmt%type_name)
-                    return
+                    if (.not. character_len_references_params(arena, node, stmt%type_name)) then
+                        override = trim(stmt%type_name)
+                        return
+                    end if
                 end if
             end select
         end do
     end subroutine derive_character_return_type
+
+    logical function character_len_references_params(arena, node, type_spec) result(refs_params)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=*), intent(in) :: type_spec
+        integer :: len_pos, paren_pos, i
+        character(len=:), allocatable :: len_expr
+        character(len=:), allocatable :: param_name
+
+        refs_params = .false.
+        len_pos = index(type_spec, 'len=')
+        if (len_pos == 0) return
+
+        paren_pos = index(type_spec(len_pos:), ')')
+        if (paren_pos == 0) return
+
+        len_expr = type_spec(len_pos + 4:len_pos + paren_pos - 2)
+        if (.not. allocated(node%param_indices)) return
+
+        do i = 1, size(node%param_indices)
+            if (node%param_indices(i) <= 0 .or. node%param_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(node%param_indices(i))%node)) cycle
+
+            select type (param_node => arena%entries(node%param_indices(i))%node)
+            type is (identifier_node)
+                param_name = trim(param_node%name)
+            type is (parameter_declaration_node)
+                param_name = trim(param_node%name)
+            type is (declaration_node)
+                param_name = trim(param_node%var_name)
+            class default
+                cycle
+            end select
+
+            if (index(len_expr, trim(param_name)) > 0) then
+                refs_params = .true.
+                return
+            end if
+        end do
+    end function character_len_references_params
 
     pure logical function is_deferred_character_return(text) result(is_deferred)
         character(len=*), intent(in) :: text
