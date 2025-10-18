@@ -13,6 +13,7 @@ module codegen_utilities
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
+    use type_string_utils, only: is_character_type_string, to_lower_ascii
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
@@ -1121,40 +1122,6 @@ contains
             end if
         end do
     end function is_parameter_name
-
-    ! Helper to detect character type declarations irrespective of spacing/case
-    pure logical function is_character_type_string(type_str)
-        character(len=*), intent(in) :: type_str
-        character(len=:), allocatable :: trimmed
-        character(len=:), allocatable :: lowered
-
-        trimmed = adjustl(trim(type_str))
-        if (len_trim(trimmed) < len("character")) then
-            is_character_type_string = .false.
-            return
-        end if
-
-        lowered = to_lower_ascii(trimmed)
-        is_character_type_string = index(lowered, "character") == 1
-    end function is_character_type_string
-
-    ! ASCII-only lowercase conversion helper for type comparisons
-    pure function to_lower_ascii(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, position
-        character(len=*), parameter :: uppercase_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        character(len=*), parameter :: lowercase_letters = 'abcdefghijklmnopqrstuvwxyz'
-
-        lower_str = str
-
-        if (len(str) == 0) return
-
-        do i = 1, len(str)
-            position = index(uppercase_letters, str(i:i))
-            if (position > 0) lower_str(i:i) = lowercase_letters(position:position)
-        end do
-    end function to_lower_ascii
 
     ! Extract character length specification (len or old-style *) from type text
     subroutine extract_character_length(type_str, has_length, length_spec)
