@@ -14,8 +14,9 @@ module codegen_declarations
     use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
+    use string_utils_mod, only: int_to_string
     use codegen_indent
-    use codegen_utilities, only: parameter_info_t, int_to_string, &
+    use codegen_utilities, only: parameter_info_t, &
                                  generate_grouped_body, &
                                  generate_grouped_body_with_params, &
                                  generate_grouped_body_context, find_parameter_info, &

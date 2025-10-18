@@ -1,4 +1,5 @@
 module error_handling
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -107,7 +108,7 @@ contains
         end select
 
         ! Format error code
-        write (code_str, '(I0)') this%error_code
+        code_str = int_to_string(this%error_code)
 
         ! Build comprehensive message
         message = trim(severity_str)
@@ -406,21 +407,21 @@ contains
             end select
         end do
 
-        write (count_str, '(I0)') this%count
+        count_str = int_to_string(this%count)
         summary = "Total: " // trim(count_str)
 
         if (critical > 0) then
-            write (count_str, '(I0)') critical
+            count_str = int_to_string(critical)
             summary = summary // ", Critical: " // trim(count_str)
         end if
 
         if (errors > 0) then
-            write (count_str, '(I0)') errors
+            count_str = int_to_string(errors)
             summary = summary // ", Errors: " // trim(count_str)
         end if
 
         if (warnings > 0) then
-            write (count_str, '(I0)') warnings
+            count_str = int_to_string(warnings)
             summary = summary // ", Warnings: " // trim(count_str)
         end if
     end function get_summary

@@ -17,6 +17,7 @@ module semantic_assignment_inference
     use error_handling, only: error_collection_t
     use parser_type_hooks_module, only: type_annotation_t
     use lexer_core, only: to_lower
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -433,7 +434,7 @@ contains
         do i = 1, size(dim_sizes)
             if (i > 1) dims_string = dims_string // ","
             if (dim_sizes(i) > 0) then
-                write (dim_component, '(I0)') dim_sizes(i)
+                dim_component = int_to_string(dim_sizes(i))
                 dims_string = dims_string // trim(dim_component)
             else
                 dims_string = dims_string // ":"
