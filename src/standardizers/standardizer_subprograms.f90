@@ -11,6 +11,7 @@ module standardizer_subprograms
     use type_system_unified
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use lexer_core, only: to_lower
+    use type_string_utils, only: is_character_type_string
     implicit none
     private
 
@@ -340,8 +341,11 @@ contains
             is_match = .false.
             return
         end if
-        is_match = (index(lowered, 'character') == 1) .and. &
-                   (index(lowered, 'len=') > 0) .and. &
+        if (.not. is_character_type_string(type_name)) then
+            is_match = .false.
+            return
+        end if
+        is_match = (index(lowered, 'len=') > 0) .and. &
                    (index(lowered, 'len=*') == 0) .and. &
                    (index(lowered, 'len=:') == 0)
     end function is_character_length_decl
