@@ -31,7 +31,8 @@ module frontend
                                 is_end_do, is_end_select, is_if_then_start, is_end_if
     use frontend_transformation, only: transform_lazy_fortran_string, &
                                        transform_lazy_fortran_string_with_format, &
-                                       format_options_t
+                                       transform_with_context, &
+                                       format_options_t, transform_context_t
 
     implicit none
     private
@@ -41,7 +42,9 @@ module frontend
               analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
     public :: transform_lazy_fortran_string, &
-              transform_lazy_fortran_string_with_format, format_options_t
+              transform_lazy_fortran_string_with_format, &
+              transform_with_context, &
+              format_options_t, transform_context_t
     ! Debug functions for unit testing
     public :: find_program_unit_boundary, is_function_start, is_end_function, &
               parse_program_unit

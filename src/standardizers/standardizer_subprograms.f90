@@ -10,6 +10,7 @@ module standardizer_subprograms
     use ast_factory
     use type_system_unified
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use lexer_core, only: to_lower
     implicit none
     private
 
@@ -118,8 +119,11 @@ contains
         integer :: i
         character(len=:), allocatable :: res_name
         logical :: has_decl
+        integer :: decl_index
+        integer :: name_pos
         integer, allocatable :: new_body_indices(:)
         type(declaration_node) :: decl
+        type(declaration_node) :: existing_decl
         logical :: type_std_enabled
         logical :: result_inferred
 
@@ -165,6 +169,8 @@ contains
 
         ! Check if a declaration exists for the result variable
         has_decl = .false.
+        decl_index = 0
+        name_pos = -1
         if (allocated(func_def%body_indices)) then
             do i = 1, size(func_def%body_indices)
                 if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= &
@@ -176,7 +182,22 @@ contains
                             if (trim(stmt%var_name) == &
                                 trim(func_def%result_variable)) then
                                 has_decl = .true.
+                                decl_index = func_def%body_indices(i)
+                                existing_decl = stmt
                                 exit
+                            end if
+                            if (stmt%is_multi_declaration .and. &
+                                allocated(stmt%var_names)) then
+                                do name_pos = 1, size(stmt%var_names)
+                                    if (trim(stmt%var_names(name_pos)) == &
+                                        trim(func_def%result_variable)) then
+                                        has_decl = .true.
+                                        decl_index = func_def%body_indices(i)
+                                        existing_decl = stmt
+                                        exit
+                                    end if
+                                end do
+                                if (has_decl) exit
                             end if
                         end select
                     end if
@@ -184,7 +205,18 @@ contains
             end do
         end if
 
-        if (has_decl) return
+        if (has_decl) then
+            if (allocated(func_def%name)) then
+                if (trim(func_def%result_variable) == trim(func_def%name)) then
+                    if (is_character_length_decl(existing_decl%type_name)) then
+                        func_def%return_type = ''
+                        arena%entries(func_index)%node = func_def
+                        return
+                    end if
+                end if
+            end if
+            return
+        end if
 
         decl%type_name = ""
         decl%has_kind = .false.
@@ -298,6 +330,21 @@ contains
         ! Update arena entry with modified function
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_result
+
+    logical function is_character_length_decl(type_name) result(is_match)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(type_name)
+        if (len_trim(lowered) == 0) then
+            is_match = .false.
+            return
+        end if
+        is_match = (index(lowered, 'character') == 1) .and. &
+                   (index(lowered, 'len=') > 0) .and. &
+                   (index(lowered, 'len=*') == 0) .and. &
+                   (index(lowered, 'len=:') == 0)
+    end function is_character_length_decl
 
     ! Standardize function parameters by updating existing declarations or adding new ones
     subroutine standardize_function_parameters(arena, func_def, func_index)

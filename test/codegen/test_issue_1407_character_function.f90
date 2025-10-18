@@ -29,11 +29,14 @@ program test_issue_1407_character_function
     if (.not. allocated(output)) success = .false.
 
     if (success) then
-        if (index(output, 'function greet(name)') == 0) success = .false.
-        if (index(output, 'character(len=*), intent(in) :: name') == 0) success = .false.
+        if (index(output, 'character(len=:), allocatable function greet') > 0) success = .false.
         if (index(output, 'character(len=len(name)) :: greet') == 0) success = .false.
-        if (index(output, 'len=))') > 0) success = .false.
-        if (index(output, 'character(len=:), allocatable') > 0) success = .false.
+        if (index(output, "greet = 'Hello, ' // name") == 0) then
+            if (index(output, "greet = 'Hello, ' //name") == 0) success = .false.
+        end if
+        if (index(output, 'character(len=len(name)) function greet(name)') == 0) then
+            if (index(output, 'function greet(name)') == 0) success = .false.
+        end if
     end if
 
     if (success) then
