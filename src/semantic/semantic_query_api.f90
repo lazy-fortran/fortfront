@@ -9,6 +9,7 @@ module semantic_query_api
                              SCOPE_INTERFACE
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
+    use type_string_utils, only: mono_type_to_string
     use identifier_table, only: identifier_table_get
     use fortfront_types, only: symbol_info_t, symbol_reference_t
     use ast_arena_modern, only: ast_arena_t
@@ -316,29 +317,30 @@ contains
     recursive function get_type_name(mono_type) result(name)
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable :: name
+        logical :: type_success
 
         select case (mono_type%kind)
-        case (TINT)
-            name = "integer"
-        case (TREAL)
-            name = "real"
-        case (TCHAR)
-            name = "character"
-        case (TLOGICAL)
-            name = "logical"
-        case (TARRAY)
-            if (mono_type%has_args() .and. mono_type%get_args_count() > 0) then
-                name = get_type_name(mono_type%get_arg(1))
-            else
-                name = "unknown_array"
-            end if
         case (TFUN)
             name = "function"
+            return
         case (TVAR)
             name = "type_variable"
-        case default
-            name = "unknown"
+            return
         end select
+
+        name = mono_type_to_string(mono_type, include_shape=.false., &
+                                   prefer_len_zero_char=.true., success=type_success)
+
+        if (.not. type_success) then
+            name = "unknown"
+            return
+        end if
+
+        if (mono_type%kind == TCHAR) then
+            name = "character"
+        else if (mono_type%kind == TARRAY) then
+            if (index(name, 'character') == 1) name = "character"
+        end if
     end function get_type_name
 
     function get_array_rank(mono_type) result(rank)
@@ -485,7 +487,7 @@ contains
             this%context%scopes%scopes(target_depth)%env%name_ids(i)
             )
             symbols(i)%type_info = this%context%instantiate( &
-                                   this%context%scopes%scopes(target_depth)%env%schemes(i))
+                                  this%context%scopes%scopes(target_depth)%env%schemes(i))
             symbols(i)%is_parameter = .false.
             symbols(i)%is_used = .false.
             symbols(i)%is_defined = .true.
