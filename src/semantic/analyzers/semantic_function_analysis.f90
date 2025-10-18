@@ -4,12 +4,13 @@ module semantic_function_analysis
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_type_var, &
                                    create_poly_type, create_fun_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, &
+                                   TARRAY
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
                               call_or_subscript_node, literal_node, binary_op_node, &
-                              program_node
+                              program_node, array_literal_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use scope_manager, only: scope_stack_t
@@ -366,6 +367,52 @@ contains
             if (left_typ%kind == 0) left_typ = right_typ
             if (right_typ%kind == 0) right_typ = left_typ
             typ = get_common_type(left_typ, right_typ)
+        type is (array_literal_node)
+            block
+                integer :: elem_count, elem_idx
+                type(mono_type_t) :: elem_type, other_type
+                type(mono_type_t), allocatable :: args(:)
+
+                elem_count = 0
+                if (allocated(node%element_indices)) then
+                    elem_count = size(node%element_indices)
+                end if
+
+                if (elem_count == 0) then
+                    allocate (args(1))
+                    args(1) = create_mono_type(TINT)
+                    typ = create_mono_type(TARRAY, args=args)
+                    return
+                end if
+
+                elem_type = infer_expression_type_static( &
+                            arena, node%element_indices(1), param_names, param_types)
+                if (elem_type%kind == 0) elem_type = create_mono_type(TREAL)
+
+                do elem_idx = 2, elem_count
+                    other_type = infer_expression_type_static( &
+                                 arena, node%element_indices(elem_idx), &
+                                 param_names, param_types)
+                    if (other_type%kind == 0) cycle
+
+                    if (elem_type%kind == TARRAY .and. other_type%kind /= TARRAY) then
+                        ! Keep existing array element type
+                    else if (elem_type%kind /= TARRAY .and. other_type%kind == &
+                             TARRAY) then
+                        elem_type = other_type
+                    else
+                        elem_type = get_common_type(elem_type, other_type)
+                    end if
+                end do
+
+                allocate (args(1))
+                args(1) = elem_type
+                if (elem_count > 0) then
+                    typ = create_mono_type(TARRAY, args=args, array_size=elem_count)
+                else
+                    typ = create_mono_type(TARRAY, args=args)
+                end if
+            end block
         type is (call_or_subscript_node)
             if (node%inferred_type%kind > 0) typ = node%inferred_type
         end select
