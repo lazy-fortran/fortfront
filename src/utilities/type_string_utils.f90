@@ -43,7 +43,7 @@ contains
         logical :: prefer_len_zero_local
         logical :: standardize_real_local
         logical :: success_local
-        character(len=:), allocatable :: array_string
+        character(len=:), allocatable :: computed_string
 
         include_shape_local = .false.
         if (present(include_shape)) include_shape_local = include_shape
@@ -55,57 +55,71 @@ contains
         standardize_real_local = .false.
         if (present(standardize_real)) standardize_real_local = standardize_real
 
-        success_local = .true.
-        type_str = ""
+        call resolve_mono_type_string(mono_type, include_shape_local, &
+                                      prefer_len_zero_local, &
+                                      standardize_real_local, computed_string, &
+                                      success_local)
 
-        if (mono_type%kind <= 0) then
-            success_local = .false.
+        if (success_local) then
+            type_str = computed_string
+        else if (present(fallback)) then
+            type_str = fallback
         else
-            select case (mono_type%kind)
-            case (TINT)
-                type_str = "integer"
-            case (TREAL)
-                if (standardize_real_local) then
-                    type_str = "real(8)"
-                else
-                    type_str = "real"
-                end if
-            case (TLOGICAL)
-                type_str = "logical"
-            case (TCHAR)
-                call resolve_character_string(mono_type, prefer_len_zero_local, &
-                                              type_str)
-            case (TARRAY)
-                call resolve_array_string(mono_type, include_shape_local, &
-                                          prefer_len_zero_local, &
-                                          standardize_real_local, array_string, &
-                                          success_local)
-                if (success_local) type_str = array_string
-            case (TCOMPLEX)
-                type_str = "complex"
-            case (TDOUBLE)
-                type_str = "double precision"
-            case (TFUN)
-                type_str = "function"
-            case (TVAR)
-                type_str = "type_variable"
-            case (TDERIVED)
-                type_str = "derived_type"
-            case default
-                success_local = .false.
-            end select
-        end if
-
-        if (.not. success_local) then
-            if (present(fallback)) then
-                type_str = fallback
-            else
-                type_str = ""
-            end if
+            type_str = ""
         end if
 
         if (present(success)) success = success_local
     end function mono_type_to_string
+
+    recursive subroutine resolve_mono_type_string(mono_type, include_shape, &
+                                                  prefer_len_zero_char, &
+                                                  standardize_real, &
+                                                  type_str, success)
+        type(mono_type_t), intent(in) :: mono_type
+        logical, intent(in) :: include_shape
+        logical, intent(in) :: prefer_len_zero_char
+        logical, intent(in) :: standardize_real
+        character(len=:), allocatable, intent(out) :: type_str
+        logical, intent(out) :: success
+
+        character(len=:), allocatable :: array_string
+        success = .true.; type_str = ""
+
+        if (mono_type%kind <= 0) then
+            success = .false.
+            return
+        end if
+
+        select case (mono_type%kind)
+        case (TINT)
+            type_str = "integer"
+        case (TREAL)
+            type_str = "real"
+            if (standardize_real) type_str = "real(8)"
+        case (TLOGICAL)
+            type_str = "logical"
+        case (TCHAR)
+            call resolve_character_string(mono_type, prefer_len_zero_char, &
+                                          type_str)
+        case (TARRAY)
+            call resolve_array_string(mono_type, include_shape, &
+                                      prefer_len_zero_char, standardize_real, &
+                                      array_string, success)
+            if (success) type_str = array_string
+        case (TCOMPLEX)
+            type_str = "complex"
+        case (TDOUBLE)
+            type_str = "double precision"
+        case (TFUN)
+            type_str = "function"
+        case (TVAR)
+            type_str = "type_variable"
+        case (TDERIVED)
+            type_str = "derived_type"
+        case default
+            success = .false.
+        end select
+    end subroutine resolve_mono_type_string
 
     subroutine resolve_character_string(mono_type, prefer_len_zero_char, type_str)
         type(mono_type_t), intent(in) :: mono_type
@@ -118,7 +132,7 @@ contains
             type_str = "character(len=:), allocatable"
         else if (mono_type%size > 0) then
             write (size_buffer, '(i0)') mono_type%size
-            type_str = "character(len="//trim(size_buffer)//")"
+            type_str = "character(len=" // trim(size_buffer) // ")"
         else
             if (prefer_len_zero_char) then
                 type_str = "character(len=0)"
@@ -169,13 +183,13 @@ contains
         if (include_shape) then
             if (mono_type%size > 0) then
                 write (size_buffer, '(i0)') mono_type%size
-                type_str = trim(element_str)//", dimension("// &
-                    trim(size_buffer)//")"
+                type_str = trim(element_str) // ", dimension(" // &
+                    trim(size_buffer) // ")"
             else if (mono_type%alloc_info%is_allocatable .or. &
                      mono_type%alloc_info%needs_allocatable_string) then
-                type_str = trim(element_str)//", dimension(:), allocatable"
+                type_str = trim(element_str) // ", dimension(:), allocatable"
             else
-                type_str = trim(element_str)//", dimension(:)"
+                type_str = trim(element_str) // ", dimension(:)"
             end if
         else
             type_str = element_str
