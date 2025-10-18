@@ -1048,14 +1048,52 @@ contains
                 type_str = type_str // ")"
             end if
 
-            if (decl%is_allocatable) type_str = trim(type_str) // ", allocatable"
-            if (decl%is_pointer) type_str = trim(type_str) // ", pointer"
-            if (decl%is_target) type_str = trim(type_str) // ", target"
-            if (decl%is_parameter) type_str = trim(type_str) // ", parameter"
+            if (decl%is_allocatable) then
+                if (.not. has_attribute(type_str, "allocatable")) then
+                    type_str = trim(type_str) // ", allocatable"
+                end if
+            end if
+
+            if (decl%is_pointer) then
+                if (.not. has_attribute(type_str, "pointer")) then
+                    type_str = trim(type_str) // ", pointer"
+                end if
+            end if
+
+            if (decl%is_target) then
+                if (.not. has_attribute(type_str, "target")) then
+                    type_str = trim(type_str) // ", target"
+                end if
+            end if
+
+            if (decl%is_parameter) then
+                if (.not. has_attribute(type_str, "parameter")) then
+                    type_str = trim(type_str) // ", parameter"
+                end if
+            end if
+
             if (decl%has_intent .and. allocated(decl%intent)) then
-                type_str = trim(type_str) // ", intent(" // trim(decl%intent) // ")"
+                if (.not. has_attribute(type_str, "intent(")) then
+                    type_str = trim(type_str) // ", intent(" // trim(decl%intent) // ")"
+                end if
             end if
         end function declaration_type_string
+
+        pure logical function has_attribute(text, attr) result(found)
+            character(len=*), intent(in) :: text
+            character(len=*), intent(in) :: attr
+            character(len=:), allocatable :: lowered
+            integer :: i, char_code
+
+            lowered = trim(text)
+            do i = 1, len(lowered)
+                char_code = iachar(lowered(i:i))
+                if (char_code >= iachar('A') .and. char_code <= iachar('Z')) then
+                    lowered(i:i) = achar(char_code + 32)
+                end if
+            end do
+            found = index(lowered, trim(attr)) > 0
+        end function has_attribute
 
         subroutine push(idx)
             integer, intent(in) :: idx
