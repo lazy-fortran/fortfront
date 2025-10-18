@@ -154,45 +154,38 @@ contains
         logical, intent(out) :: success
 
         character(len=:), allocatable :: element_str
-        logical :: element_success
         character(len=32) :: size_buffer
 
         success = .true.
-        type_str = ""
 
         if (.not. type_args_allocated(mono_type)) then
             success = .false.
-            return
-        end if
-
-        if (type_args_size(mono_type) <= 0) then
+        else if (type_args_size(mono_type) <= 0) then
             success = .false.
-            return
         end if
+        if (.not. success) return
 
         element_str = mono_type_to_string(type_args_element(mono_type, 1), &
                                           include_shape=.false., &
                                           prefer_len_zero_char=prefer_len_zero_char, &
                                           standardize_real=standardize_real, &
-                                          success=element_success)
-        if (.not. element_success) then
-            success = .false.
+                                          success=success)
+        if (.not. success) return
+
+        if (.not. include_shape) then
+            type_str = element_str
             return
         end if
 
-        if (include_shape) then
-            if (mono_type%size > 0) then
-                write (size_buffer, '(i0)') mono_type%size
-                type_str = trim(element_str) // ", dimension(" // &
-                    trim(size_buffer) // ")"
-            else if (mono_type%alloc_info%is_allocatable .or. &
-                     mono_type%alloc_info%needs_allocatable_string) then
-                type_str = trim(element_str) // ", dimension(:), allocatable"
-            else
-                type_str = trim(element_str) // ", dimension(:)"
-            end if
+        type_str = trim(element_str)
+        if (mono_type%size > 0) then
+            write (size_buffer, '(i0)') mono_type%size
+            type_str = type_str // ", dimension(" // trim(size_buffer) // ")"
+        else if (mono_type%alloc_info%is_allocatable .or. &
+                 mono_type%alloc_info%needs_allocatable_string) then
+            type_str = type_str // ", dimension(:), allocatable"
         else
-            type_str = element_str
+            type_str = type_str // ", dimension(:)"
         end if
     end subroutine resolve_array_string
 
