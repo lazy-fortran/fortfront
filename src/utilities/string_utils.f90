@@ -42,7 +42,7 @@ contains
             write (buffer, '(I0)') val
         end if
 
-        str = trim(adjustl(buffer))
+        str = trim(buffer)
     end function int_to_string
 
 end module string_utils_mod
