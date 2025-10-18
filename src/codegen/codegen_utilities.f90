@@ -472,21 +472,25 @@ contains
                                         code = code // indent_str // type_name
 
                                         if (append_kind) then
-                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                            code = code // "(" // &
+                                      trim(adjustl(int_to_string(node%kind_value))) // ")"
                                         end if
 
                                         ! Use attributes from the declaration node
                                         if (node%has_intent) then
                                             code = code // ", intent(" // &
                                                    node%intent // ")"
-                         else if (allocated(param_map(first_param_idx)%intent_str) .and. &
+                                        else if &
+                                 (allocated(param_map(first_param_idx)%intent_str) .and. &
                                  len_trim(param_map(first_param_idx)%intent_str) > 0) then
-                code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
+                                            code = code // ", intent(" // &
+                                              param_map(first_param_idx)%intent_str // ")"
                                         end if
 
                                         if (node%is_optional) then
                                             code = code // ", optional"
-                                     else if (param_map(first_param_idx)%is_optional) then
+                                        else if &
+                                            (param_map(first_param_idx)%is_optional) then
                                             code = code // ", optional"
                                         end if
 
@@ -544,7 +548,8 @@ contains
                                                 end if
                                                 code = code // indent_str // local_type
                                                 if (local_append_kind) then
-                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                                    code = code // "(" // &
+                                      trim(adjustl(int_to_string(node%kind_value))) // ")"
                                                 end if
                                                 ! Intentionally do NOT add intent/optional for non-parameters
                                                 code = code // " :: " // nonparam_list &
@@ -570,13 +575,15 @@ contains
                                     code = code // indent_str // type_name
 
                                     if (append_kind_single) then
-                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                        code = code // "(" // &
+                                      trim(adjustl(int_to_string(node%kind_value))) // ")"
                                     end if
 
                                     ! Use attributes from the declaration node itself
                                     if (node%has_intent) then
                                         code = code // ", intent(" // node%intent // ")"
-                               else if (allocated(param_map(param_idx)%intent_str) .and. &
+                                    else if &
+                                       (allocated(param_map(param_idx)%intent_str) .and. &
                                        len_trim(param_map(param_idx)%intent_str) > 0) then
                                         code = code // ", intent(" // &
                                                param_map(param_idx)%intent_str // ")"
@@ -628,7 +635,8 @@ contains
                                 code = code // indent_str // type_name
 
                                 if (append_kind_param) then
-                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                    code = code // "(" // &
+                                      trim(adjustl(int_to_string(node%kind_value))) // ")"
                                 end if
 
                                 ! Use attributes from the parameter_declaration_node itself
@@ -756,7 +764,8 @@ contains
         ! Generate the rest of the body with filtered indices
         if (filtered_count > 0) then
             code = code // generate_grouped_body(arena, &
-                                               filtered_indices(1:filtered_count), indent)
+                                                 filtered_indices(1:filtered_count), &
+                                                 indent)
         end if
 
         deallocate (filtered_indices)
@@ -791,7 +800,8 @@ contains
 
         type(declaration_node) :: first_node
         character(len=:), allocatable :: var_list, stmt_code
-        integer :: j
+        character(len=64), allocatable :: grouped_names(:)
+        integer :: j, group_count, k, m
 
         select type (node => arena%entries(body_indices(i))%node)
         type is (declaration_node)
@@ -809,7 +819,9 @@ contains
             end if
 
             first_node = node
-            var_list = trim(node%var_name)
+            group_count = 1
+            allocate (grouped_names(group_count))
+            grouped_names(1) = trim(node%var_name)
 
             ! For arrays or other non-groupable declarations, emit them individually
             if (node%is_array .or. node%is_allocatable .or. node%is_pointer .or. &
@@ -830,7 +842,9 @@ contains
                         select type (next_node => arena%entries(body_indices(j))%node)
                         type is (declaration_node)
                             if (can_group_declarations(first_node, next_node)) then
-                                var_list = var_list // ", " // trim(next_node%var_name)
+                                group_count = group_count + 1
+                                call append_name(grouped_names, group_count, &
+                                                 trim(next_node%var_name))
                                 j = j + 1
                             else
                                 exit
@@ -846,25 +860,74 @@ contains
                 end if
             end do
 
-            ! Generate grouped declaration
-            ! Avoid MERGE on character of unequal lengths; build intent string explicitly
-            block
-                character(len=:), allocatable :: intent_str
-                if (first_node%has_intent) then
-                    intent_str = first_node%intent
-                else
-                    intent_str = ""
-                end if
-                stmt_code = generate_grouped_declaration(first_node%type_name, &
-                                                         first_node%kind_value, &
-                                                         first_node%has_kind, &
-                                                         intent_str, &
-                                                         var_list, &
-                                                         first_node%is_optional)
-            end block
-            code = code // indent_str // stmt_code // new_line('A')
-            i = j
+            if (group_count == 1) then
+                stmt_code = generate_code_from_arena(arena, body_indices(i))
+                code = code // indent_str // stmt_code // new_line('A')
+                i = j
+            else
+                call sort_names(grouped_names, group_count)
+
+                var_list = ""
+                do k = 1, group_count
+                    if (k > 1) var_list = var_list // ", "
+                    var_list = var_list // grouped_names(k)
+                end do
+
+                ! Generate grouped declaration
+                ! Avoid MERGE on character of unequal lengths; build intent string explicitly
+                block
+                    character(len=:), allocatable :: intent_str
+                    if (first_node%has_intent) then
+                        intent_str = first_node%intent
+                    else
+                        intent_str = ""
+                    end if
+                    stmt_code = generate_grouped_declaration(first_node%type_name, &
+                                                             first_node%kind_value, &
+                                                             first_node%has_kind, &
+                                                             intent_str, &
+                                                             var_list, &
+                                                             first_node%is_optional)
+                end block
+                code = code // indent_str // stmt_code // new_line('A')
+                i = j
+            end if
         end select
+    contains
+        subroutine append_name(names, count, new_name)
+            character(len=64), allocatable, intent(inout) :: names(:)
+            integer, intent(in) :: count
+            character(len=*), intent(in) :: new_name
+            character(len=64), allocatable :: tmp(:)
+
+            if (.not. allocated(names)) then
+                allocate (names(1))
+                names(1) = new_name
+            else
+                allocate (tmp(count))
+                tmp(1:count - 1) = names
+                tmp(count) = new_name
+                call move_alloc(tmp, names)
+            end if
+        end subroutine append_name
+
+        subroutine sort_names(names, count)
+            character(len=64), allocatable, intent(inout) :: names(:)
+            integer, intent(in) :: count
+            character(len=64) :: tmp
+
+            if (count <= 1) return
+
+            do k = 1, count - 1
+                do m = k + 1, count
+                    if (names(m) < names(k)) then
+                        tmp = names(k)
+                        names(k) = names(m)
+                        names(m) = tmp
+                    end if
+                end do
+            end do
+        end subroutine sort_names
     end subroutine process_grouped_declarations
 
     pure logical function is_type_definition_declaration(node) result(is_header)

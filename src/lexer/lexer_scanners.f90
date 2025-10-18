@@ -473,7 +473,8 @@ contains
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
-              'public', 'private', 'namelist', 'type', 'class', 'extends', 'abstract', &
+              'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
+              'abstract', &
               'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', &
               'read', 'write', 'call', &
               'allocate', 'deallocate', &

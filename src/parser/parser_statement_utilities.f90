@@ -1,17 +1,25 @@
 module parser_statement_utilities_module
     ! Parser utility functions for statement parsing within function/subroutine bodies
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_declarations, only: parse_declaration
     use parser_expressions_module, only: parse_comparison
-    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, parse_read_statement
-    use parser_control_statements_module, only: parse_stop_statement, parse_return_statement, &
-                                                parse_goto_statement, parse_error_stop_statement, &
-                                                parse_cycle_statement, parse_exit_statement
-    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
+    use parser_io_statements_module, only: parse_print_statement, &
+                                           parse_write_statement, &
+                                           parse_read_statement
+    use parser_control_statements_module, only: parse_stop_statement, &
+                                                parse_return_statement, &
+                                                parse_goto_statement, &
+                                                parse_error_stop_statement, &
+                                                parse_cycle_statement, &
+                                                parse_exit_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, &
+                                               parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
+    use parser_statement_core_module, only: parse_data_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, push_literal
     use ast_factory
@@ -34,13 +42,15 @@ contains
         ! Simplified statement parsing for if blocks
         select case (token%kind)
         case (TK_KEYWORD)
-            select case (token%text)
+            select case (trim(to_lower(token%text)))
             case ("print")
                 stmt_index = parse_print_statement(parser, arena)
             case ("write")
                 stmt_index = parse_write_statement(parser, arena)
             case ("read")
                 stmt_index = parse_read_statement(parser, arena)
+            case ("data")
+                stmt_index = parse_data_statement(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", "double", "type")
