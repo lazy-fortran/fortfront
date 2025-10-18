@@ -951,18 +951,10 @@ contains
             type is (declaration_node)
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     do j = 1, size(stmt%var_names)
-                        call mark_variable_declared(stmt%var_names(j), var_names, &
-                                                    var_declared, var_count)
+                        call register_decl_var(trim(stmt%var_names(j)), stmt)
                     end do
                 else
-                    call mark_variable_declared(stmt%var_name, var_names, &
-                                                var_declared, var_count)
-                    do j = 1, var_count
-                        if (.not. var_declared(j) .and. trim(var_types(j)) == &
-                            trim(stmt%type_name)) then
-                            var_declared(j) = .true.
-                        end if
-                    end do
+                    call register_decl_var(trim(stmt%var_name), stmt)
                 end if
             type is (assignment_node)
                 call collect_assignment_vars(arena, current_index, var_names, &
@@ -989,6 +981,81 @@ contains
         end do
 
     contains
+
+        subroutine register_decl_var(name, decl)
+            character(len=*), intent(in) :: name
+            type(declaration_node), intent(in) :: decl
+            character(len=:), allocatable :: type_str
+            integer :: idx, k
+
+            if (len_trim(name) == 0) return
+            type_str = declaration_type_string(decl)
+            call add_variable(name, type_str, var_names, var_types, var_declared, &
+                              var_count, function_names, func_count)
+            call mark_variable_declared(name, var_names, var_declared, var_count)
+
+            idx = 0
+            do k = 1, var_count
+                if (trim(var_names(k)) == trim(name)) then
+                    idx = k
+                    exit
+                end if
+            end do
+            if (idx > 0 .and. len_trim(type_str) > 0) then
+                var_types(idx) = type_str
+            end if
+        end subroutine register_decl_var
+
+        function declaration_type_string(decl) result(type_str)
+            type(declaration_node), intent(in) :: decl
+            character(len=:), allocatable :: type_str
+            character(len=32) :: buffer
+            integer :: dim_idx, i
+
+            type_str = trim(decl%type_name)
+            if (decl%has_kind) then
+                write (buffer, '(I0)') decl%kind_value
+                if (len_trim(buffer) > 0) then
+                    type_str = trim(type_str) // "(" // trim(buffer) // ")"
+                end if
+            end if
+
+            if (decl%is_array .and. allocated(decl%dimension_indices)) then
+                type_str = trim(type_str) // ", dimension("
+                do i = 1, size(decl%dimension_indices)
+                    if (i > 1) type_str = type_str // ","
+                    dim_idx = decl%dimension_indices(i)
+                    if (dim_idx == 0) then
+                        type_str = type_str // ":"
+                    else if (dim_idx > 0 .and. dim_idx <= arena%size) then
+                        if (allocated(arena%entries(dim_idx)%node)) then
+                            select type (dim_node => arena%entries(dim_idx)%node)
+                            type is (literal_node)
+                                type_str = type_str // trim(dim_node%value)
+                            class default
+                                type_str = type_str // ":"
+                            end select
+                        else
+                            type_str = type_str // ":"
+                        end if
+                    else if (dim_idx > arena%size) then
+                        write (buffer, '(I0)') dim_idx
+                        type_str = type_str // trim(buffer)
+                    else
+                        type_str = type_str // ":"
+                    end if
+                end do
+                type_str = type_str // ")"
+            end if
+
+            if (decl%is_allocatable) type_str = trim(type_str) // ", allocatable"
+            if (decl%is_pointer) type_str = trim(type_str) // ", pointer"
+            if (decl%is_target) type_str = trim(type_str) // ", target"
+            if (decl%is_parameter) type_str = trim(type_str) // ", parameter"
+            if (decl%has_intent .and. allocated(decl%intent)) then
+                type_str = trim(type_str) // ", intent(" // trim(decl%intent) // ")"
+            end if
+        end function declaration_type_string
 
         subroutine push(idx)
             integer, intent(in) :: idx

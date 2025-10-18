@@ -619,30 +619,48 @@ contains
                     ! Regular array literal with explicit elements
                     ! Check if this is a nested array (all elements are arrays)
                     block
-                        logical :: is_nested
-                        integer :: inner_size, i
-                        type(mono_type_t) :: inner_type
-                        is_nested = .false.
-                        inner_size = 0
+                        logical :: has_array_element, all_literal_arrays
+                        integer :: inner_size, elem_idx, i
+                        has_array_element = .false.
+                        all_literal_arrays = .true.
+                        inner_size = -1
 
-                        ! Check if node has inferred type that's nested TARRAY
-                        if (node%inferred_type%kind == TARRAY) then
-                            if (node%inferred_type%has_args() .and. &
-                                node%inferred_type%get_args_count() > 0) then
-                                inner_type = node%inferred_type%get_arg(1)
-                                if (inner_type%kind == TARRAY) then
-                                    is_nested = .true.
-                                    inner_size = inner_type%size
-                                end if
-                            end if
+                        if (allocated(node%element_indices)) then
+                            do i = 1, size(node%element_indices)
+                                elem_idx = node%element_indices(i)
+                                if (elem_idx <= 0 .or. elem_idx > arena%size) cycle
+                                if (.not. allocated(arena%entries(elem_idx)%node)) cycle
+                                select type (arr_node => arena%entries(elem_idx)%node)
+                                type is (array_literal_node)
+                                    has_array_element = .true.
+                                    if (allocated(arr_node%element_indices)) then
+                                        if (inner_size < 0) then
+                                            inner_size = size(arr_node%element_indices)
+                                        else if (inner_size /= size(arr_node%element_indices)) then
+                                            all_literal_arrays = .false.
+                                        end if
+                                    else
+                                        all_literal_arrays = .false.
+                                    end if
+                                type is (identifier_node)
+                                    if (arr_node%inferred_type%kind == TARRAY) then
+                                        has_array_element = .true.
+                                        all_literal_arrays = .false.
+                                    end if
+                                class default
+                                    ! Not an array element
+                                end select
+                            end do
                         end if
 
-                        if (is_nested .and. inner_size > 0) then
-                            ! Nested array - output 2D dimensions
-                            write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
-                          ", dimension(", size(node%element_indices), ",", inner_size, ")"
+                        if (has_array_element) then
+                            if (all_literal_arrays .and. inner_size > 0) then
+                                write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
+                                    ", dimension(", size(node%element_indices), ",", inner_size, ")"
+                            else
+                                var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                            end if
                         else
-                            ! Simple 1D array
                             write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", size(node%element_indices), ")"
                         end if
