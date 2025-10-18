@@ -2,6 +2,7 @@ module ast_nodes_misc
     use json_module
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
                         ast_visitor_base_t
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -673,9 +674,8 @@ contains
         pure function to_string(val) result(str)
             integer, intent(in) :: val
             character(len=:), allocatable :: str
-            character(len=16) :: buf
-            write (buf, '(I0)') val
-            str = trim(buf)
+
+            str = int_to_string(val)
         end function to_string
     end subroutine visibility_statement_to_json
 
@@ -736,9 +736,8 @@ contains
         pure function to_string(val) result(str)
             integer, intent(in) :: val
             character(len=:), allocatable :: str
-            character(len=16) :: buf
-            write (buf, '(I0)') val
-            str = trim(buf)
+
+            str = int_to_string(val)
         end function to_string
     end subroutine namelist_statement_to_json
 

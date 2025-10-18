@@ -15,6 +15,7 @@ module codegen_utilities
     use codegen_indent
     use type_string_utils, only: is_character_type_string, to_lower_ascii
     use codegen_arena_interface, only: generate_code_from_arena
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -24,7 +25,6 @@ module codegen_utilities
     ! Context for executable code before contains
     logical, save :: context_has_executable_before_contains = .false.
 
-    public :: int_to_string
     public :: find_node_index_in_arena
     public :: same_node
     public :: can_group_declarations
@@ -50,15 +50,6 @@ module codegen_utilities
     end type parameter_info_t
 
 contains
-
-    ! Convert integer to string
-    function int_to_string(num) result(str)
-        integer, intent(in) :: num
-        character(len=:), allocatable :: str
-        character(len=32) :: buffer
-        write (buffer, '(I0)') num
-        str = trim(buffer)
-    end function int_to_string
 
     ! Find node index in arena
     function find_node_index_in_arena(arena, target_node) result(index)

@@ -314,15 +314,6 @@ contains
                       '"phase": "complete"}}'
     end subroutine semantic_info_to_json
 
-    ! Helper function for integer to string conversion
-    function str(i) result(s)
-        integer, intent(in) :: i
-        character(len=:), allocatable :: s
-        character(len=12) :: temp
-        write (temp, '(i0)') i
-        s = trim(temp)
-    end function str
-
     ! Find nodes by type name
     function find_nodes_by_type(arena, type_name) result(indices)
         type(ast_arena_t), intent(in) :: arena

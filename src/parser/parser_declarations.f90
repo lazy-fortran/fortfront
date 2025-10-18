@@ -13,6 +13,7 @@ module parser_declarations
     use error_handling, only: ERROR_PARSER
     use ast_factory, only: push_multi_declaration, push_declaration, push_identifier
     use parser_type_hooks_module, only: register_type_annotation
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -977,7 +978,7 @@ contains
                 length_expr = "*"
             case default
                 if (type_spec%kind_value > 0) then
-                    write (buffer, '(I0)') type_spec%kind_value
+                    buffer = int_to_string(type_spec%kind_value)
                     length_expr = trim(buffer)
                 end if
             end select

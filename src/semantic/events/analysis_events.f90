@@ -4,6 +4,7 @@ module semantic_events
     use analysis_event_data, only: event_data_base_t
     use semantic_context_types, only: semantic_context_base_t
     use ast_arena_modern, only: ast_arena_t
+    use string_utils_mod, only: int_to_string
     implicit none
     private
 
@@ -102,13 +103,13 @@ contains
         serialized_data = ""
 
         ! Build serialized representation
-        write (temp_string, '(I0)') event%event_type
+        temp_string = int_to_string(event%event_type)
         serialized_data = "type:" // trim(temp_string)
 
-        write (temp_string, '(I0)') event%node_index
+        temp_string = int_to_string(event%node_index)
         serialized_data = trim(serialized_data) // ";node:" // trim(temp_string)
 
-        write (temp_string, '(I0)') event%source_analyzer_id
+        temp_string = int_to_string(event%source_analyzer_id)
         serialized_data = trim(serialized_data) // ";analyzer:" // trim(temp_string)
 
         if (event%consumed) then
