@@ -24,6 +24,8 @@
 
 ### Architectural Solution: Type-Safe Memory Management
 
+Update 2025-10: The experimental `safe_allocation_registry` component described below was never integrated and has now been removed from the main branch. These notes are retained to guide any future work that revisits the idea.
+
 ## 1. Safe Allocation Strategy
 
 ### Principle: Always Use Proper Assignment Operators
@@ -53,7 +55,7 @@ class default
 - **Debugging**: Explicit error information instead of silent failures
 - **Maintainability**: Consistent error handling patterns
 
-## 2. Comprehensive Type Registry
+## 2. Comprehensive Type Registry (historical prototype)
 
 ### Implementation: Centralized Type Management
 
@@ -166,7 +168,7 @@ class default
     arena%entries(index)%node_type = "error_node"
 ```
 
-### Fix 3: Error Node Infrastructure
+### Fix 3: Error Node Infrastructure (historical sketch)
 
 Create proper error handling infrastructure:
 
