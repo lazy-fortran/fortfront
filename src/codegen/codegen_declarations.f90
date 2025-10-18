@@ -63,7 +63,11 @@ contains
         end if
 
         if (len_trim(return_type_code) > 0) then
-            return_type_code = fix_character_len_placeholder(return_type_code)
+            if (should_omit_return_type(arena, node, return_type_code)) then
+                return_type_code = ""
+            else
+                return_type_code = fix_character_len_placeholder(return_type_code)
+            end if
         end if
 
         if (allocated(node%prefix_keywords)) then
@@ -262,6 +266,48 @@ contains
         ! End function
         code = code // "end function " // node%name
     end function generate_code_function_def
+
+    logical function should_omit_return_type(arena, node, return_type_code) result(omit)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=*), intent(in) :: return_type_code
+        character(len=:), allocatable :: result_name
+        character(len=:), allocatable :: lowered_return
+        integer :: i, decl_index
+
+        omit = .false.
+        result_name = ""
+        if (allocated(node%result_variable)) then
+            result_name = trim(node%result_variable)
+        end if
+        if (len_trim(result_name) == 0 .and. allocated(node%name)) then
+            result_name = trim(node%name)
+        end if
+        if (len_trim(result_name) == 0) return
+
+        if (.not. allocated(node%name)) return
+
+        if (.not. allocated(node%body_indices)) return
+
+        lowered_return = to_lower_ascii_str(trim(return_type_code))
+        if (len_trim(lowered_return) == 0) return
+
+        do i = 1, size(node%body_indices)
+            decl_index = node%body_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            select type (decl => arena%entries(decl_index)%node)
+            type is (declaration_node)
+                if (trim(decl%var_name) /= trim(result_name)) cycle
+                if (.not. decl%is_array) then
+                    if (.not. allocated(decl%dimension_indices)) cycle
+                    if (size(decl%dimension_indices) == 0) cycle
+                end if
+                omit = .true.
+                return
+            end select
+        end do
+    end function should_omit_return_type
 
     ! Generate code for subroutine definitions
     function generate_code_subroutine_def(arena, node, node_index) result(code)
