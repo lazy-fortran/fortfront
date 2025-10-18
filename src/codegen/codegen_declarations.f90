@@ -70,6 +70,14 @@ contains
             end if
         end if
 
+        if (len_trim(return_type_code) > 0) then
+            if (is_deferred_character_return(return_type_code)) then
+                if (has_character_len_result_decl(arena, node)) then
+                    return_type_code = ""
+                end if
+            end if
+        end if
+
         if (allocated(node%prefix_keywords)) then
             do i = 1, size(node%prefix_keywords)
                 if (len_trim(node%prefix_keywords(i)) > 0) then
@@ -1442,12 +1450,129 @@ contains
                 if (.not. allocated(stmt%type_name)) cycle
                 lowered = to_lower_ascii_str(trim(stmt%type_name))
                 if (index(lowered, "len=") > 0) then
-                    override = trim(stmt%type_name)
-                    return
+                    if (.not. character_len_references_params(arena, node, stmt%type_name)) then
+                        override = trim(stmt%type_name)
+                        return
+                    end if
                 end if
             end select
         end do
     end subroutine derive_character_return_type
+
+    logical function character_len_references_params(arena, node, type_spec) result(refs_params)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=*), intent(in) :: type_spec
+        integer :: len_pos, paren_pos, i
+        character(len=:), allocatable :: len_expr
+        character(len=:), allocatable :: param_name
+
+        refs_params = .false.
+        len_pos = index(type_spec, 'len=')
+        if (len_pos == 0) return
+
+        paren_pos = index(type_spec(len_pos:), ')')
+        if (paren_pos == 0) return
+
+        len_expr = type_spec(len_pos + 4:len_pos + paren_pos - 2)
+        if (.not. allocated(node%param_indices)) return
+
+        do i = 1, size(node%param_indices)
+            if (node%param_indices(i) <= 0 .or. node%param_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(node%param_indices(i))%node)) cycle
+
+            select type (param_node => arena%entries(node%param_indices(i))%node)
+            type is (identifier_node)
+                param_name = trim(param_node%name)
+            type is (parameter_declaration_node)
+                param_name = trim(param_node%name)
+            type is (declaration_node)
+                param_name = trim(param_node%var_name)
+            class default
+                cycle
+            end select
+
+            if (index(len_expr, trim(param_name)) > 0) then
+                refs_params = .true.
+                return
+            end if
+        end do
+    end function character_len_references_params
+
+    pure logical function is_deferred_character_return(text) result(is_deferred)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower_ascii_str(trim(text))
+        is_deferred = (index(lowered, 'character') == 1) .and. &
+                      (index(lowered, 'len=:') > 0)
+        if (is_deferred) then
+            if (index(lowered, 'allocatable') == 0) then
+                is_deferred = .false.
+            end if
+        end if
+    end function is_deferred_character_return
+
+    logical function has_character_len_result_decl(arena, node) result(has_decl)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: target_name
+        integer :: i, decl_index, name_idx
+        character(len=:), allocatable :: lowered
+
+        has_decl = .false.
+
+        if (allocated(node%result_variable)) then
+            target_name = trim(node%result_variable)
+        else if (allocated(node%name)) then
+            target_name = trim(node%name)
+        else
+            target_name = ''
+        end if
+
+        if (len_trim(target_name) == 0) return
+        if (.not. allocated(node%body_indices)) return
+
+        do i = 1, size(node%body_indices)
+            decl_index = node%body_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            select type (stmt => arena%entries(decl_index)%node)
+            type is (declaration_node)
+                if (is_character_len_declaration(stmt%type_name)) then
+                    if (trim(stmt%var_name) == target_name) then
+                        has_decl = .true.
+                        return
+                    end if
+                    if (stmt%is_multi_declaration .and. &
+                        allocated(stmt%var_names)) then
+                        do name_idx = 1, size(stmt%var_names)
+                            if (trim(stmt%var_names(name_idx)) == target_name) then
+                                has_decl = .true.
+                                return
+                            end if
+                        end do
+                    end if
+                end if
+            end select
+        end do
+    end function has_character_len_result_decl
+
+    pure logical function is_character_len_declaration(type_name) result(matches)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower_ascii_str(trim(type_name))
+        if (len_trim(lowered) == 0) then
+            matches = .false.
+            return
+        end if
+
+        matches = (index(lowered, 'character') == 1) .and. &
+                  (index(lowered, 'len=') > 0) .and. &
+                  (index(lowered, 'len=*') == 0) .and. &
+                  (index(lowered, 'len=:') == 0)
+    end function is_character_len_declaration
 
     pure function to_lower_ascii_str(text) result(lower_text)
         character(len=*), intent(in) :: text

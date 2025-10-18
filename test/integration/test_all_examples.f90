@@ -440,10 +440,10 @@ contains
         end if
 
         if (is_windows) then
-            command = 'cmd /C "type ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
+            command = 'cmd /C "' // trim(exe_arg) // ' ' // trim(input_arg) // &
                       ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
         else
-            command = 'cat ' // trim(input_arg) // ' | ' // trim(exe_arg) // &
+            command = trim(exe_arg) // ' ' // trim(input_arg) // &
                       ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg)
         end if
 

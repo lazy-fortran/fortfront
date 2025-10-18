@@ -2,7 +2,7 @@
 function greet(name)
     implicit none
     character(len=*), intent(in) :: name
-    character(len=len(name)) :: greet
+    character(len=len(name)+7) :: greet
     greet = 'Hello, ' // name
 end function greet
 
