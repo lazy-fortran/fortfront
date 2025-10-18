@@ -24,32 +24,21 @@ module parser_procedure_definitions_module
 
 contains
 
-    function parse_function_definition(parser, arena, prefix_buffer, prefix_list) &
-        result(func_index)
+    subroutine parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
+                                              prefix_keywords, has_recursive_keyword)
         type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), intent(in), optional :: prefix_list(:)
-        integer :: func_index
+        character(len=16), allocatable, intent(out) :: prefix_keywords(:)
+        logical, intent(out) :: has_recursive_keyword
 
-        type(token_t) :: token
-        character(len=:), allocatable :: function_name, return_type_str, &
-                                         result_variable_name
-        integer :: line, column
-        integer, allocatable :: param_indices(:), body_indices(:)
-        logical :: has_recursive_keyword
-        logical :: infer_recursive_from_body
-        character(len=16), allocatable :: prefix_keywords(:)
-        integer :: i
         character(len=16), allocatable :: pending_prefixes(:)
+        type(token_t) :: token
+        integer :: i
 
-        ! Initialize
-        return_type_str = ""
-        result_variable_name = ""
         has_recursive_keyword = .false.
-        infer_recursive_from_body = .false.
-
         allocate (character(len=16) :: prefix_keywords(0))
+
         if (present(prefix_list)) then
             if (size(prefix_list) > 0) then
                 allocate (character(len=16) :: pending_prefixes(size(prefix_list)))
@@ -61,9 +50,11 @@ contains
         else
             call prefix_buffer%consume(pending_prefixes)
         end if
+
         if (.not. allocated(pending_prefixes)) then
             allocate (character(len=16) :: pending_prefixes(0))
         end if
+
         if (size(pending_prefixes) > 0) then
             do i = 1, size(pending_prefixes)
                 call append_prefix_keyword(prefix_keywords, pending_prefixes(i))
@@ -73,7 +64,6 @@ contains
             end do
         end if
 
-        ! Optional prefix keywords before "function"
         do
             token = parser%peek()
             if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
@@ -95,8 +85,20 @@ contains
                 exit
             end if
         end do
+    end subroutine parse_function_prefix_keywords
 
-        ! Check if we have a return type before "function"
+    subroutine parse_function_signature(parser, return_type_str, function_name, &
+                                        line, column, is_valid)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: return_type_str, function_name
+        integer, intent(out) :: line, column
+        logical, intent(out) :: is_valid
+
+        type(token_t) :: token
+
+        return_type_str = ""
+        is_valid = .true.
+
         token = parser%peek()
         if (token%kind == TK_KEYWORD) then
             select case (trim(to_lower(token%text)))
@@ -106,18 +108,16 @@ contains
             end select
         end if
 
-        ! Consume function keyword
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "function") then
             line = token%line
             column = token%column
             token = parser%consume()
         else
-            func_index = 0
+            is_valid = .false.
             return
         end if
 
-        ! Get function name
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
@@ -129,22 +129,15 @@ contains
         else
             function_name = "unnamed_function"
         end if
+    end subroutine parse_function_signature
 
-        ! Parse parameters with protective error handling
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()
-            ! Parse typed parameters safely
-            call parse_typed_parameters(parser, arena, param_indices)
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()
-            end if
-        else
-            allocate (param_indices(0))
-        end if
+    subroutine parse_function_result_clause(parser, result_variable_name)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: result_variable_name
 
-        ! Check for result clause
+        type(token_t) :: token
+
+        result_variable_name = ""
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
             token = parser%consume()
@@ -162,6 +155,50 @@ contains
                 end if
             end if
         end if
+    end subroutine parse_function_result_clause
+
+    function parse_function_definition(parser, arena, prefix_buffer, prefix_list) &
+        result(func_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), intent(in), optional :: prefix_list(:)
+        integer :: func_index
+
+        type(token_t) :: token
+        character(len=:), allocatable :: function_name, return_type_str, &
+                                         result_variable_name
+        integer :: line, column
+        integer, allocatable :: param_indices(:), body_indices(:)
+        logical :: has_recursive_keyword, is_valid
+        logical :: infer_recursive_from_body
+        character(len=16), allocatable :: prefix_keywords(:)
+
+        infer_recursive_from_body = .false.
+
+        call parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
+                                            prefix_keywords, has_recursive_keyword)
+
+        call parse_function_signature(parser, return_type_str, function_name, &
+                                      line, column, is_valid)
+        if (.not. is_valid) then
+            func_index = 0
+            return
+        end if
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()
+            call parse_typed_parameters(parser, arena, param_indices)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
+        else
+            allocate (param_indices(0))
+        end if
+
+        call parse_function_result_clause(parser, result_variable_name)
 
         ! Parse function body until "end function"
         call parse_procedure_body(parser, arena, function_name, "function", &
