@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `ast_core` module implements a "god module" anti-pattern that creates hidden dependencies and tight coupling. This guide provides step-by-step instructions for migrating to explicit module imports.
+The now-removed `ast_core` module implements a "god module" anti-pattern that creates hidden dependencies and tight coupling. This guide provides step-by-step instructions for migrating to explicit module imports.
+
+As of 2025-10, `ast_core` no longer exists in the main branch; this guide is preserved to help downstream forks migrate remaining references to the modern modules.
 
 ## Problem with ast_core
 
@@ -106,7 +108,7 @@ After migration, you'll have:
 1. **Start Small**: Migrate test files first
 2. **Core Modules**: Migrate parser, semantic analyzer, code generator
 3. **Support Modules**: Migrate remaining modules
-4. **Remove ast_core**: Delete the god module after all migrations
+4. **Remove ast_core**: Delete the god module after all migrations *(completed upstream; downstream forks should delete their copy after migrating)*
 
 ## Common Patterns
 
@@ -158,7 +160,7 @@ After migration:
 
 ## Notes and Status
 
-- ast_core remains available but is deprecated; prefer explicit imports.
+- ast_core has been removed from the main branch; forks must migrate before rebasing.
 - Use `ast_arena_modern` for arena APIs (`create_ast_arena`, `destroy_ast_arena`).
 - `ast_factory` re-exports push/create helpers split across specialized modules.
 - No migration automation script is shipped; migrate incrementally using your editor and `rg`.
