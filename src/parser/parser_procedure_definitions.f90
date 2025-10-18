@@ -164,200 +164,8 @@ contains
         end if
 
         ! Parse function body until "end function"
-        allocate (body_indices(0))
-
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-
-            ! Check for end of function
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                ! Look ahead for "function"
-                block
-                    type(token_t), allocatable, target :: all_tokens(:)
-                    integer :: next_idx
-                    if (associated(parser%tokens)) then
-                        allocate (all_tokens(size(parser%tokens)))
-                        all_tokens = parser%tokens
-                    else
-                        allocate (all_tokens(0))
-                    end if
-                    next_idx = parser%current_token + 1
-                    if (next_idx <= size(all_tokens)) then
-                        if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
-                            all_tokens(next_idx)%text == "function") then
-                            ! Consume "end function"
-                            token = parser%consume()  ! consume "end"
-                            token = parser%consume()  ! consume "function"
-                            ! Optionally consume function name
-                            if (.not. parser%is_at_end()) then
-                                token = parser%peek()
-                                if (token%kind == TK_IDENTIFIER .and. &
-                                    token%text == function_name) then
-                                    token = parser%consume()
-                                end if
-                            end if
-                            exit  ! Exit the body parsing loop
-                        end if
-                    end if
-                end block
-            end if
-
-            ! Skip empty lines
-            if (token%kind == TK_NEWLINE) then
-                token = parser%consume()
-                cycle
-            end if
-
-            ! Collect tokens for the current statement line
-            block
-                type(token_t), allocatable, target :: stmt_tokens(:), all_tokens(:)
-                integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
-                type(parser_state_t) :: block_parser
-
-                if (associated(parser%tokens)) then
-                    allocate (all_tokens(size(parser%tokens)))
-                    all_tokens = parser%tokens
-                else
-                    allocate (all_tokens(0))
-                end if
-                stmt_start = parser%current_token
-                stmt_end = stmt_start
-
-                if (token%kind == TK_KEYWORD .and. token%text == "if") then
-                    block
-                        integer :: depth, pos
-                        logical :: preceded_by_end, preceded_by_else
-
-                        depth = 0
-                        pos = stmt_start
-                        do while (pos <= size(all_tokens))
-                            if (all_tokens(pos)%kind == TK_KEYWORD) then
-                                select case (all_tokens(pos)%text)
-                                case ("if")
-                                    preceded_by_end = .false.
-                                    preceded_by_else = .false.
-                                    if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == &
-                                            TK_KEYWORD) then
-                                            if (all_tokens(pos - 1)%text == "end") &
-                                                preceded_by_end = .true.
-                                            if (all_tokens(pos - 1)%text == "else") &
-                                                preceded_by_else = .true.
-                                        end if
-                                    end if
-                                    if (.not. preceded_by_end .and. .not. &
-                                        preceded_by_else) then
-                                        depth = depth + 1
-                                    end if
-                                case ("end")
-                                    if (pos < size(all_tokens)) then
-                                        if (all_tokens(pos + 1)%kind == &
-                                            TK_KEYWORD .and. &
-                                            all_tokens(pos + 1)%text == "if") then
-                                            depth = depth - 1
-                                            if (depth <= 0) then
-                                                stmt_end = &
-                                                    min(size(all_tokens), pos + 1)
-                                                exit
-                                            end if
-                                        end if
-                                    end if
-                                end select
-                            end if
-                            stmt_end = pos
-                            pos = pos + 1
-                        end do
-                    end block
-                else
-                    do i = stmt_start, size(all_tokens)
-                        if (i > stmt_start .and. all_tokens(i)%line /= token%line) exit
-                        stmt_end = i
-                    end do
-                end if
-
-                ! Extract statement tokens
-                stmt_size = stmt_end - stmt_start + 1
-                if (stmt_size > 0) then
-                    allocate (stmt_tokens(stmt_size + 1))
-                    stmt_tokens(1:stmt_size) = all_tokens(stmt_start:stmt_end)
-                    ! Add EOF token
-                    stmt_tokens(stmt_size + 1)%kind = TK_EOF
-                    stmt_tokens(stmt_size + 1)%text = ""
-                    stmt_tokens(stmt_size + 1)%line = token%line
-                    stmt_tokens(stmt_size + 1)%column = token%column + 1
-
-                    if (.not. infer_recursive_from_body) then
-                        do i = 1, stmt_size
-                            if (stmt_tokens(i)%kind == TK_IDENTIFIER) then
-                                if (trim(stmt_tokens(i)%text) == &
-                                    trim(function_name)) then
-                                    if (i < stmt_size) then
-                                        if (stmt_tokens(i + 1)%kind == &
-                                            TK_OPERATOR .and. &
-                                            stmt_tokens(i + 1)%text == "(") then
-                                            infer_recursive_from_body = .true.
-                                            exit
-                                        end if
-                                    end if
-                                end if
-                            end if
-                        end do
-                    end if
-
-                    ! Parse the statement (handle multi-line IF blocks)
-                    block
-                        integer :: first_token
-                        character(len=:), allocatable :: token_lower
-
-                        stmt_index = 0
-
-                        first_token = 1
-                        do while (first_token <= stmt_size)
-                            select case (stmt_tokens(first_token)%kind)
-                            case (TK_WHITESPACE, TK_NEWLINE)
-                                first_token = first_token + 1
-                            case default
-                                exit
-                            end select
-                        end do
-
-                        if (first_token <= stmt_size) then
-                            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
-                                token_lower = to_lower( &
-     &                                    stmt_tokens(first_token)%text)
-                                if (trim(token_lower) == "if") then
-                                    stmt_index = parse_if_statement_tokens( &
-     &                                        stmt_tokens, arena)
-                                end if
-                            end if
-                        end if
-
-                        if (stmt_index <= 0) then
-                            block_parser = create_parser_state(stmt_tokens)
-                            do while (block_parser%current_token < first_token .and. &
-     &                                  .not. block_parser%is_at_end())
-                                token = block_parser%consume()
-                            end do
-                            if (.not. block_parser%is_at_end()) then
-                                stmt_index = parse_statement_in_if_block( &
-     &                                    block_parser, arena, &
-     &                                    stmt_tokens(max(1, first_token)))
-                            else
-                                stmt_index = 0
-                            end if
-                        end if
-                    end block
-
-                    ! Add to body
-                    if (stmt_index > 0) then
-                        body_indices = [body_indices, stmt_index]
-                    end if
-
-                    ! Advance parser position
-                    parser%current_token = stmt_end + 1
-                end if
-            end block
-        end do
+        call parse_procedure_body(parser, arena, function_name, "function", &
+                                  body_indices, infer_recursive_from_body)
 
         ! Merge parameter attributes from body declarations
         if (allocated(param_indices) .and. allocated(body_indices)) then
@@ -624,181 +432,8 @@ contains
         end if
 
         ! Parse subroutine body until "end subroutine"
-        allocate (body_indices(0))
-
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-
-            ! Check for end of subroutine
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                ! Look ahead for "subroutine"
-                block
-                    type(token_t), allocatable, target :: all_tokens(:)
-                    integer :: next_idx
-                    if (associated(parser%tokens)) then
-                        allocate (all_tokens(size(parser%tokens)))
-                        all_tokens = parser%tokens
-                    else
-                        allocate (all_tokens(0))
-                    end if
-                    next_idx = parser%current_token + 1
-                    if (next_idx <= size(all_tokens)) then
-                        if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
-                            all_tokens(next_idx)%text == "subroutine") then
-                            ! Consume "end subroutine"
-                            token = parser%consume()  ! consume "end"
-                            token = parser%consume()  ! consume "subroutine"
-                            ! Optionally consume subroutine name
-                            if (.not. parser%is_at_end()) then
-                                token = parser%peek()
-                                if (token%kind == TK_IDENTIFIER .and. &
-                                    token%text == subroutine_name) then
-                                    token = parser%consume()
-                                end if
-                            end if
-                            exit  ! Exit the body parsing loop
-                        end if
-                    end if
-                end block
-            end if
-
-            ! Skip empty lines
-            if (token%kind == TK_NEWLINE) then
-                token = parser%consume()
-                cycle
-            end if
-
-            ! Collect tokens for the current statement line
-            block
-                type(token_t), allocatable, target :: stmt_tokens(:), all_tokens(:)
-                integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
-                type(parser_state_t) :: block_parser
-
-                if (associated(parser%tokens)) then
-                    allocate (all_tokens(size(parser%tokens)))
-                    all_tokens = parser%tokens
-                else
-                    allocate (all_tokens(0))
-                end if
-                stmt_start = parser%current_token
-                stmt_end = stmt_start
-
-                if (token%kind == TK_KEYWORD .and. token%text == "if") then
-                    block
-                        integer :: depth, pos
-                        logical :: preceded_by_end, preceded_by_else
-
-                        depth = 0
-                        pos = stmt_start
-                        do while (pos <= size(all_tokens))
-                            if (all_tokens(pos)%kind == TK_KEYWORD) then
-                                select case (all_tokens(pos)%text)
-                                case ("if")
-                                    preceded_by_end = .false.
-                                    preceded_by_else = .false.
-                                    if (pos > 1) then
-                                        if (all_tokens(pos - 1)%kind == &
-                                            TK_KEYWORD) then
-                                            if (all_tokens(pos - 1)%text == "end") &
-                                                preceded_by_end = .true.
-                                            if (all_tokens(pos - 1)%text == "else") &
-                                                preceded_by_else = .true.
-                                        end if
-                                    end if
-                                    if (.not. preceded_by_end .and. .not. &
-                                        preceded_by_else) then
-                                        depth = depth + 1
-                                    end if
-                                case ("end")
-                                    if (pos < size(all_tokens)) then
-                                        if (all_tokens(pos + 1)%kind == &
-                                            TK_KEYWORD .and. &
-                                            all_tokens(pos + 1)%text == "if") then
-                                            depth = depth - 1
-                                            if (depth <= 0) then
-                                                stmt_end = &
-                                                    min(size(all_tokens), pos + 1)
-                                                exit
-                                            end if
-                                        end if
-                                    end if
-                                end select
-                            end if
-                            stmt_end = pos
-                            pos = pos + 1
-                        end do
-                    end block
-                else
-                    do i = stmt_start, size(all_tokens)
-                        if (i > stmt_start .and. all_tokens(i)%line /= token%line) exit
-                        stmt_end = i
-                    end do
-                end if
-
-                ! Extract statement tokens
-                stmt_size = stmt_end - stmt_start + 1
-                if (stmt_size > 0) then
-                    allocate (stmt_tokens(stmt_size + 1))
-                    stmt_tokens(1:stmt_size) = all_tokens(stmt_start:stmt_end)
-                    ! Add EOF token
-                    stmt_tokens(stmt_size + 1)%kind = TK_EOF
-                    stmt_tokens(stmt_size + 1)%text = ""
-                    stmt_tokens(stmt_size + 1)%line = token%line
-                    stmt_tokens(stmt_size + 1)%column = token%column + 1
-
-                    block
-                        integer :: first_token
-                        character(len=:), allocatable :: token_lower
-
-                        stmt_index = 0
-
-                        first_token = 1
-                        do while (first_token <= stmt_size)
-                            select case (stmt_tokens(first_token)%kind)
-                            case (TK_WHITESPACE, TK_NEWLINE)
-                                first_token = first_token + 1
-                            case default
-                                exit
-                            end select
-                        end do
-
-                        if (first_token <= stmt_size) then
-                            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
-                                token_lower = to_lower( &
-     &                                    stmt_tokens(first_token)%text)
-                                if (trim(token_lower) == "if") then
-                                    stmt_index = parse_if_statement_tokens( &
-     &                                        stmt_tokens, arena)
-                                end if
-                            end if
-                        end if
-
-                        if (stmt_index <= 0) then
-                            block_parser = create_parser_state(stmt_tokens)
-                            do while (block_parser%current_token < first_token .and. &
-     &                                  .not. block_parser%is_at_end())
-                                token = block_parser%consume()
-                            end do
-                            if (.not. block_parser%is_at_end()) then
-                                stmt_index = parse_statement_in_if_block( &
-     &                                    block_parser, arena, &
-     &                                    stmt_tokens(max(1, first_token)))
-                            else
-                                stmt_index = 0
-                            end if
-                        end if
-                    end block
-
-                    ! Add to body
-                    if (stmt_index > 0) then
-                        body_indices = [body_indices, stmt_index]
-                    end if
-
-                    ! Advance parser position
-                    parser%current_token = stmt_end + 1
-                end if
-            end block
-        end do
+        call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
+                                  body_indices)
 
         ! Merge parameter attributes from body declarations
         if (allocated(param_indices) .and. allocated(body_indices)) then
@@ -812,6 +447,261 @@ contains
                                         body_indices, &
                                         line, column)
     end function parse_subroutine_definition
+
+    subroutine parse_procedure_body(parser, arena, procedure_name, end_keyword, &
+                                    body_indices, infer_recursive_flag)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: end_keyword
+        integer, allocatable, intent(out) :: body_indices(:)
+        logical, intent(inout), optional :: infer_recursive_flag
+
+        type(token_t) :: token
+        integer :: stmt_index
+
+        allocate (body_indices(0))
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+
+            if (check_procedure_end(parser, token, end_keyword, procedure_name)) exit
+
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+                cycle
+            end if
+
+            call parse_body_statement(parser, arena, token, procedure_name, &
+                                      infer_recursive_flag, stmt_index)
+
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            end if
+        end do
+    end subroutine parse_procedure_body
+
+    logical function check_procedure_end(parser, first_token, end_keyword, &
+                                         procedure_name) result(is_end)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: end_keyword
+        character(len=*), intent(in) :: procedure_name
+        type(token_t), allocatable, target :: all_tokens(:)
+        integer :: next_idx
+        type(token_t) :: token_local
+
+        is_end = .false.
+        if (first_token%kind /= TK_KEYWORD) return
+        if (first_token%text /= "end") return
+
+        if (associated(parser%tokens)) then
+            allocate (all_tokens(size(parser%tokens)))
+            all_tokens = parser%tokens
+        else
+            allocate (all_tokens(0))
+        end if
+
+        next_idx = parser%current_token + 1
+        if (next_idx > size(all_tokens)) return
+
+        if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
+            all_tokens(next_idx)%text == end_keyword) then
+            token_local = parser%consume()
+            token_local = parser%consume()
+            if (.not. parser%is_at_end()) then
+                token_local = parser%peek()
+                if (token_local%kind == TK_IDENTIFIER .and. &
+                    token_local%text == procedure_name) then
+                    token_local = parser%consume()
+                end if
+            end if
+            is_end = .true.
+        end if
+    end function check_procedure_end
+
+    subroutine parse_body_statement(parser, arena, first_token, procedure_name, &
+                                    infer_recursive_flag, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: procedure_name
+        logical, intent(inout), optional :: infer_recursive_flag
+        integer, intent(out) :: stmt_index
+
+        type(token_t), allocatable, target :: stmt_tokens(:)
+        integer :: stmt_size
+        integer :: stmt_end
+
+        call collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
+                                      stmt_end)
+
+        if (stmt_size <= 0) then
+            stmt_index = 0
+            return
+        end if
+
+        call maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
+                                            infer_recursive_flag)
+
+        stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena)
+
+        parser%current_token = stmt_end + 1
+
+        if (allocated(stmt_tokens)) deallocate (stmt_tokens)
+    end subroutine parse_body_statement
+
+    subroutine collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
+                                        stmt_end)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: first_token
+        type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
+        integer, intent(out) :: stmt_size
+        integer, intent(out) :: stmt_end
+
+        type(token_t), allocatable, target :: all_tokens(:)
+        integer :: stmt_start
+        integer :: i, pos, depth
+        logical :: preceded_by_end, preceded_by_else
+
+        if (associated(parser%tokens)) then
+            allocate (all_tokens(size(parser%tokens)))
+            all_tokens = parser%tokens
+        else
+            allocate (all_tokens(0))
+        end if
+
+        stmt_start = parser%current_token
+        stmt_end = stmt_start
+
+        if (first_token%kind == TK_KEYWORD .and. first_token%text == "if") then
+            depth = 0
+            pos = stmt_start
+            do while (pos <= size(all_tokens))
+                if (all_tokens(pos)%kind == TK_KEYWORD) then
+                    select case (all_tokens(pos)%text)
+                    case ("if")
+                        preceded_by_end = .false.
+                        preceded_by_else = .false.
+                        if (pos > 1) then
+                            if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
+                                if (all_tokens(pos - 1)%text == "end") &
+                                    preceded_by_end = .true.
+                                if (all_tokens(pos - 1)%text == "else") &
+                                    preceded_by_else = .true.
+                            end if
+                        end if
+                        if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                            depth = depth + 1
+                        end if
+                    case ("end")
+                        if (pos < size(all_tokens)) then
+                            if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                                all_tokens(pos + 1)%text == "if") then
+                                depth = depth - 1
+                                if (depth <= 0) then
+                                    stmt_end = min(size(all_tokens), pos + 1)
+                                    exit
+                                end if
+                            end if
+                        end if
+                    end select
+                end if
+                stmt_end = pos
+                pos = pos + 1
+            end do
+        else
+            do i = stmt_start, size(all_tokens)
+                if (i > stmt_start .and. all_tokens(i)%line /= first_token%line) exit
+                stmt_end = i
+            end do
+        end if
+
+        stmt_size = stmt_end - stmt_start + 1
+        if (stmt_size <= 0) then
+            allocate (stmt_tokens(0))
+            return
+        end if
+
+        allocate (stmt_tokens(stmt_size + 1))
+        stmt_tokens(1:stmt_size) = all_tokens(stmt_start:stmt_end)
+        stmt_tokens(stmt_size + 1)%kind = TK_EOF
+        stmt_tokens(stmt_size + 1)%text = ""
+        stmt_tokens(stmt_size + 1)%line = first_token%line
+        stmt_tokens(stmt_size + 1)%column = first_token%column + 1
+    end subroutine collect_statement_tokens
+
+    subroutine maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
+                                              infer_recursive_flag)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        character(len=*), intent(in) :: procedure_name
+        logical, intent(inout), optional :: infer_recursive_flag
+        integer :: i
+
+        if (.not. present(infer_recursive_flag)) return
+        if (infer_recursive_flag) return
+
+        do i = 1, stmt_size
+            if (stmt_tokens(i)%kind == TK_IDENTIFIER) then
+                if (trim(stmt_tokens(i)%text) == trim(procedure_name)) then
+                    if (i < stmt_size) then
+                        if (stmt_tokens(i + 1)%kind == TK_OPERATOR .and. &
+                            stmt_tokens(i + 1)%text == "(") then
+                            infer_recursive_flag = .true.
+                            return
+                        end if
+                    end if
+                end if
+            end if
+        end do
+    end subroutine maybe_mark_recursive_from_body
+
+    integer function parse_body_statement_tokens(stmt_tokens, stmt_size, arena) &
+        result(stmt_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: first_token
+        character(len=:), allocatable :: token_lower
+        type(parser_state_t) :: block_parser
+        type(token_t) :: token
+
+        stmt_index = 0
+        first_token = 1
+        do while (first_token <= stmt_size)
+            select case (stmt_tokens(first_token)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE)
+                first_token = first_token + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (first_token <= stmt_size) then
+            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
+                token_lower = to_lower(stmt_tokens(first_token)%text)
+                if (trim(token_lower) == "if") then
+                    stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                end if
+            end if
+        end if
+
+        if (stmt_index <= 0) then
+            block_parser = create_parser_state(stmt_tokens)
+            do while (block_parser%current_token < first_token .and. &
+                      .not. block_parser%is_at_end())
+                token = block_parser%consume()
+            end do
+            if (.not. block_parser%is_at_end()) then
+                stmt_index = parse_statement_in_if_block(block_parser, arena, &
+                                                         stmt_tokens(max(1, &
+                                                                         first_token)))
+            else
+                stmt_index = 0
+            end if
+        end if
+    end function parse_body_statement_tokens
 
     function parse_interface_block(parser, arena, prefix_buffer) &
         result(interface_index)
