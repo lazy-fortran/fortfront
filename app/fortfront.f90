@@ -282,8 +282,8 @@ contains
             end if
 
             context%source_name = basename
-            context%module_name = trim(basename) // '_mod'
-            context%program_name = basename
+            context%module_name = basename
+            context%program_name = trim(basename) // '_app'
             context%has_filename = .true.
         else
             ! Generate unique name for stdin using PID
@@ -292,7 +292,7 @@ contains
             write(uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
 
             context%source_name = trim(uuid_str)
-            context%module_name = trim(uuid_str) // '_mod'
+            context%module_name = trim(uuid_str)
             context%program_name = 'main'
             context%has_filename = .false.
         end if
