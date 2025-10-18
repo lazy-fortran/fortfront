@@ -491,7 +491,9 @@ contains
 
         ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
-            code = code // ", allocatable"
+            if (index(to_lower_ascii_decl(trim(code)), 'allocatable') == 0) then
+                code = code // ", allocatable"
+            end if
         else if (node%inferred_type%kind > 0) then
             if (node%inferred_type%alloc_info%needs_allocatable_string) then
                 code = code // ", allocatable"
@@ -505,21 +507,29 @@ contains
 
         ! Add pointer if present
         if (node%is_pointer) then
-            code = code // ", pointer"
+            if (index(to_lower_ascii_decl(trim(code)), 'pointer') == 0) then
+                code = code // ", pointer"
+            end if
         end if
 
         ! Add target if present
         if (node%is_target) then
-            code = code // ", target"
+            if (index(to_lower_ascii_decl(trim(code)), 'target') == 0) then
+                code = code // ", target"
+            end if
         end if
 
         if (node%is_external) then
-            code = code // ", external"
+            if (index(to_lower_ascii_decl(trim(code)), 'external') == 0) then
+                code = code // ", external"
+            end if
         end if
 
         ! Add parameter if present
         if (node%is_parameter) then
-            code = code // ", parameter"
+            if (index(to_lower_ascii_decl(trim(code)), 'parameter') == 0) then
+                code = code // ", parameter"
+            end if
         end if
 
         has_dimension_attr = index(to_lower_ascii_decl(trim(type_str)), "dimension(") > 0

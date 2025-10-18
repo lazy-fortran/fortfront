@@ -15,8 +15,6 @@
 # These are commented out to avoid XPASS, but documented here for reference:
 # issue_1405_data_statement.lf      # Issue #1405: DATA statement dropped (fixed)
 # Array reallocation inference still requires follow-up
-test_209_complex.lf               # TODO: allocatable inference for mixed arrays
-test_209_mixed.lf                 # TODO: allocatable inference for mixed arrays
 # issue_1406_namelist.lf         # Issue #1406: NAMELIST declaration lost (XPASS: manual verification still fails)
 issue_1407_character_function.lf   # Issue #1407: Character function result mishandled
 # issue_1408_module_visibility.lf # Issue #1408: Module visibility clauses dropped (XPASS: manual inspection confirms loss)

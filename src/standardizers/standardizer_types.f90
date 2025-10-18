@@ -7,7 +7,8 @@ module standardizer_types
     use ast_nodes_loops
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
-use error_handling, only: result_t, success_result, create_error_result, ERROR_TYPE_SYSTEM
+    use error_handling, only: result_t, success_result, create_error_result, &
+                              ERROR_TYPE_SYSTEM
     implicit none
     private
 
@@ -111,7 +112,8 @@ contains
             else
                 ! Check if it's an intrinsic function
                 block
-              use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
+                    use intrinsic_registry, only: get_intrinsic_signature, &
+                                                  is_intrinsic_function
                     character(len=:), allocatable :: intrinsic_sig
                     logical :: is_intrinsic_func
 
@@ -151,10 +153,12 @@ contains
                         type(mono_type_t) :: element_type_args(1)
                         if (allocated(node%name)) then
                             ! Pattern matching for common array names and their element types
-                   if (index(node%name, "int") > 0 .or. index(node%name, "idx") > 0 .or. &
+                            if (index(node%name, "int") > 0 .or. index(node%name, &
+                                                                       "idx") > 0 .or. &
                                 index(node%name, "_i") > 0) then
                                 element_type_args(1) = create_mono_type(TINT)
-           else if (index(node%name, "real") > 0 .or. index(node%name, "float") > 0 .or. &
+                            else if (index(node%name, "real") > 0 .or. index(node%name, &
+                                                                       "float") > 0 .or. &
                                      index(node%name, "_r") > 0) then
                                 element_type_args(1) = create_mono_type(TREAL)
                             else
@@ -238,7 +242,8 @@ contains
                 if (array_node%element_indices(1) > 0 .and. &
                     array_node%element_indices(1) <= arena%size) then
                     if (allocated(arena%entries(array_node%element_indices(1))%node)) then
-                   select type (elem => arena%entries(array_node%element_indices(1))%node)
+                        select type (elem => &
+                                     arena%entries(array_node%element_indices(1))%node)
                         type is (do_loop_node)
                             has_implied = .true.
                         class default
@@ -266,7 +271,8 @@ contains
             ! For now, we'll handle simple integer literals
             if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
                 size = calculate_loop_size(arena, do_node%start_expr_index, &
-                                          do_node%end_expr_index, do_node%step_expr_index)
+                                           do_node%end_expr_index, &
+                                           do_node%step_expr_index)
             end if
         end select
     end function get_implied_do_size
@@ -378,7 +384,8 @@ contains
             else
                 select type (node => arena%entries(idx)%node)
                 type is (literal_node)
-                if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
+                    if (node%literal_kind == LITERAL_INTEGER .and. &
+                        allocated(node%value)) then
                         read (node%value, *, iostat=iostat) value
                         if (iostat /= 0) value = INVALID_INTEGER
                     else
@@ -393,7 +400,8 @@ contains
                             left_val = results(node%left_index)
                         if (node%right_index > 0 .and. node%right_index <= arena%size) &
                             right_val = results(node%right_index)
-                  if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
+                        if (left_val /= INVALID_INTEGER .and. right_val /= &
+                            INVALID_INTEGER) then
                             select case (node%operator)
                             case ("-")
                                 value = left_val - right_val
@@ -407,7 +415,8 @@ contains
                         end if
                     end if
                 type is (identifier_node)
-                    if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) then
+                    if (node%is_constant .and. node%constant_type == &
+                        LITERAL_INTEGER) then
                         value = node%constant_integer
                     else
                         value = INVALID_INTEGER
@@ -476,8 +485,10 @@ contains
                 if (.not. allocated(arena%entries(i)%node)) cycle
                 select type (assign_node => arena%entries(i)%node)
                 type is (assignment_node)
-                    if (assign_node%target_index <= 0 .or. assign_node%target_index > arena%size) cycle
-                    if (.not. allocated(arena%entries(assign_node%target_index)%node)) cycle
+                    if (assign_node%target_index <= 0 .or. assign_node%target_index > &
+                        arena%size) cycle
+                    if (.not. &
+                        allocated(arena%entries(assign_node%target_index)%node)) cycle
                     select type (target => arena%entries(assign_node%target_index)%node)
                     type is (identifier_node)
                         if (.not. allocated(target%name)) cycle
@@ -547,7 +558,8 @@ contains
                 end if
 
                 ! CRITICAL FIX: Provide fallback element type if inference failed
-                if (.not. allocated(elem_type_str) .or. len_trim(elem_type_str) == 0) then
+                if (.not. allocated(elem_type_str) .or. &
+                    len_trim(elem_type_str) == 0) then
                     elem_type_str = "integer"  ! Default fallback for array literals
                 end if
 
@@ -556,18 +568,21 @@ contains
                     ! Calculate the size from the implied do loop bounds
                     block
                         integer :: implied_size
-                        implied_size = get_implied_do_size(arena, node%element_indices(1))
+                        implied_size = get_implied_do_size(arena, &
+                                                           node%element_indices(1))
                         if (implied_size > 0) then
                             write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", implied_size, ")"
                         else
                             ! Can't determine size, use allocatable
-                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                            var_type = trim(elem_type_str) // &
+                                       ", dimension(:), allocatable"
                         end if
                     end block
                 else
                     ! Heuristic implied-do detection for modern syntax: [expr, i, start, end[, step]]
-                if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+                    if (allocated(node%syntax_style) .and. node%syntax_style == &
+                        "modern") then
                         if (allocated(node%element_indices)) then
                             if (size(node%element_indices) >= 4) then
                                 block
@@ -575,9 +590,11 @@ contains
                                     logical :: ok
                                     ok = .false.
                                     ! Second element should be an identifier (loop variable)
-         if (node%element_indices(2) > 0 .and. node%element_indices(2) <= arena%size) then
+                        if (node%element_indices(2) > 0 .and. node%element_indices(2) <= &
+                                        arena%size) then
                           if (allocated(arena%entries(node%element_indices(2))%node)) then
-                       select type (idnode => arena%entries(node%element_indices(2))%node)
+                                            select type (idnode => &
+                                              arena%entries(node%element_indices(2))%node)
                                             type is (identifier_node)
                                                 ok = .true.
                                             class default
@@ -586,29 +603,38 @@ contains
                                         end if
                                     end if
                                     if (ok) then
-                     start_val = get_integer_literal_value(arena, node%element_indices(3))
-                       end_val = get_integer_literal_value(arena, node%element_indices(4))
+                                        start_val = get_integer_literal_value(arena, &
+                                                                  node%element_indices(3))
+                                        end_val = get_integer_literal_value(arena, &
+                                                                  node%element_indices(4))
                                         if (size(node%element_indices) >= 5) then
-                      step_val = get_integer_literal_value(arena, node%element_indices(5))
+                                            step_val = get_integer_literal_value(arena, &
+                                                                  node%element_indices(5))
                                         else
                                             step_val = INVALID_INTEGER
                                         end if
-                   if (start_val /= INVALID_INTEGER .and. end_val /= INVALID_INTEGER) then
+                                       if (start_val /= INVALID_INTEGER .and. end_val /= &
+                                            INVALID_INTEGER) then
                                             if (step_val == INVALID_INTEGER) then
-      sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), 0)
-                                            else
                                 sz = calculate_loop_size(arena, node%element_indices(3), &
+                                                               node%element_indices(4), 0)
+                                            else
+                                                sz = calculate_loop_size(arena, &
+                                                                node%element_indices(3), &
                                                                 node%element_indices(4), &
                                                                   node%element_indices(5))
                                             end if
                                             if (sz > 0) then
-               write (var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
+                                     write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                                    ", dimension(", sz, ")"
                                             else
-                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                                                var_type = trim(elem_type_str) // &
+                                                           ", dimension(:), allocatable"
                                             end if
                                         else
                                             ! Non-literal bounds -> deferred shape allocatable
-                           var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                                            var_type = trim(elem_type_str) // &
+                                                       ", dimension(:), allocatable"
                                         end if
                                         return
                                     end if
@@ -619,30 +645,56 @@ contains
                     ! Regular array literal with explicit elements
                     ! Check if this is a nested array (all elements are arrays)
                     block
-                        logical :: is_nested
-                        integer :: inner_size, i
-                        type(mono_type_t) :: inner_type
-                        is_nested = .false.
-                        inner_size = 0
+                        logical :: has_array_element, all_literal_arrays
+                        integer :: inner_size, elem_idx, i
+                        has_array_element = .false.
+                        all_literal_arrays = .true.
+                        inner_size = -1
 
-                        ! Check if node has inferred type that's nested TARRAY
-                        if (node%inferred_type%kind == TARRAY) then
-                            if (node%inferred_type%has_args() .and. &
-                                node%inferred_type%get_args_count() > 0) then
-                                inner_type = node%inferred_type%get_arg(1)
-                                if (inner_type%kind == TARRAY) then
-                                    is_nested = .true.
-                                    inner_size = inner_type%size
-                                end if
-                            end if
+                        if (allocated(node%element_indices)) then
+                            do i = 1, size(node%element_indices)
+                                elem_idx = node%element_indices(i)
+                                if (elem_idx <= 0 .or. elem_idx > arena%size) cycle
+                                if (.not. allocated(arena%entries(elem_idx)%node)) cycle
+                                select type (arr_node => arena%entries(elem_idx)%node)
+                                type is (array_literal_node)
+                                    has_array_element = .true.
+                                    if (allocated(arr_node%element_indices)) then
+                                        if (size(arr_node%element_indices) > 0) then
+                                            if (inner_size < 0) then
+                                               inner_size = size(arr_node%element_indices)
+                                            else if (inner_size /= &
+                                                     size(arr_node%element_indices)) then
+                                                all_literal_arrays = .false.
+                                            end if
+                                        else
+                                            all_literal_arrays = .false.
+                                        end if
+                                    else
+                                        all_literal_arrays = .false.
+                                    end if
+                                type is (identifier_node)
+                                    if (arr_node%inferred_type%kind == TARRAY) then
+                                        has_array_element = .true.
+                                        all_literal_arrays = .false.
+                                    end if
+                                class default
+                                    ! Not an array element
+                                end select
+                            end do
                         end if
 
-                        if (is_nested .and. inner_size > 0) then
-                            ! Nested array - output 2D dimensions
-                            write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
-                          ", dimension(", size(node%element_indices), ",", inner_size, ")"
+                        if (has_array_element) then
+                            if (all_literal_arrays .and. inner_size > 0) then
+                                write (var_type, '(a,a,i0,a,i0,a)') &
+                                    trim(elem_type_str), &
+                                    ", dimension(", size(node%element_indices), ",", &
+                                    inner_size, ")"
+                            else
+                                var_type = trim(elem_type_str) // &
+                                           ", dimension(:), allocatable"
+                            end if
                         else
-                            ! Simple 1D array
                             write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", size(node%element_indices), ")"
                         end if
