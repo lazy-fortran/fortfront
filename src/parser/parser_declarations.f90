@@ -5,8 +5,8 @@ module parser_declarations
     use parser_declarations_type_spec_module, only: parse_type_specifier
     use parser_declarations_core_module, only: parse_declaration, &
                                                parse_multi_declaration, &
-                                               parse_declaration_with_result, &
-                                               parse_array_dimensions
+                                               parse_declaration_with_result
+    use parser_declaration_attributes_module, only: parse_array_dimensions
     use parser_declarations_derived_module, only: parse_derived_type_def, &
                                                   parse_derived_type_component
     implicit none
