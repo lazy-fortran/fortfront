@@ -194,12 +194,22 @@ contains
                                             end_expr_index=end_index, line=line, &
                                             column=column)
         end if
-        if (allocated(var_name)) deallocate (var_name)
+        if (allocated(var_name)) then
+            block
+                character(len=:), allocatable :: temp
+                call move_alloc(var_name, temp)
+            end block
+        end if
         return
 
     contains
         integer function fail_and_restore()
-            if (allocated(var_name)) deallocate (var_name)
+            if (allocated(var_name)) then
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(var_name, temp)
+                end block
+            end if
             parser%current_token = saved_pos
             fail_and_restore = 0
         end function fail_and_restore

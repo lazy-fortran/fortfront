@@ -10,7 +10,9 @@ module parser_forall_module
     use ast_factory, only: push_forall
     use ast_nodes_loops, only: forall_triplet_t
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, null_statement_callbacks, find_statement_end
+                                            statement_callbacks_t, &
+                                            null_statement_callbacks, &
+                                            find_statement_end
     implicit none
     private
 
@@ -158,40 +160,30 @@ contains
 
             ! Expect '='
             token = parser%peek()
-            if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
-                deallocate (triplets)
-                deallocate (body_indices)
-                return
-            end if
+            if (token%kind /= TK_OPERATOR .or. token%text /= "=") return
             token = parser%consume()
 
             ! Parse lower bound expression (stop before colon, comma, or closing paren)
             block
                 character(len=1), dimension(3) :: lower_terms
                 lower_terms = [":", ",", ")"]
-                triplets(triplet_count)%lower_expr_index = parse_expression_until(parser, arena, lower_terms)
+                triplets(triplet_count)%lower_expr_index = &
+                    parse_expression_until(parser, arena, lower_terms)
             end block
 
             token = parser%peek()
-            if (token%kind /= TK_OPERATOR .or. token%text /= ":") then
-                deallocate (triplets)
-                deallocate (body_indices)
-                return
-            end if
+            if (token%kind /= TK_OPERATOR .or. token%text /= ":") return
             token = parser%consume()
 
             ! Parse upper bound expression (stop before stride, comma, or closing paren)
             block
                 character(len=1), dimension(3) :: upper_terms
                 upper_terms = [":", ",", ")"]
-                triplets(triplet_count)%upper_expr_index = parse_expression_until(parser, arena, upper_terms)
+                triplets(triplet_count)%upper_expr_index = &
+                    parse_expression_until(parser, arena, upper_terms)
             end block
 
-            if (triplets(triplet_count)%upper_expr_index <= 0) then
-                deallocate (triplets)
-                deallocate (body_indices)
-                return
-            end if
+            if (triplets(triplet_count)%upper_expr_index <= 0) return
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ":") then
@@ -199,7 +191,8 @@ contains
                 block
                     character(len=1), dimension(2) :: stride_terms
                     stride_terms = [",", ")"]
-                    triplets(triplet_count)%stride_expr_index = parse_expression_until(parser, arena, stride_terms)
+                    triplets(triplet_count)%stride_expr_index = &
+                        parse_expression_until(parser, arena, stride_terms)
                 end block
             else
                 triplets(triplet_count)%stride_expr_index = 0
@@ -212,7 +205,8 @@ contains
                 token = parser%peek()
                 if (token%kind == TK_IDENTIFIER) then
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == TK_OPERATOR .and. &
+                        if (parser%tokens(parser%current_token + 1)%kind == &
+                            TK_OPERATOR .and. &
                             parser%tokens(parser%current_token + 1)%text == "=") then
                             cycle
                         end if
@@ -237,8 +231,7 @@ contains
         end if
 
         callbacks = build_forall_callbacks()
-        if (allocated(body_indices)) deallocate (body_indices)
-        allocate (body_indices(0))
+        body_indices = [integer ::]
 
         stmt_start = parser%current_token
         is_inline = .true.
@@ -282,9 +275,15 @@ contains
                                 body_indices = [body_indices, stmt_indices(k)]
                             end if
                         end do
-                        deallocate (stmt_indices)
+                        block
+                            integer, allocatable :: temp(:)
+                            call move_alloc(stmt_indices, temp)
+                        end block
                     end if
-                    deallocate (stmt_tokens)
+                    block
+                        type(token_t), allocatable, target :: temp(:)
+                        call move_alloc(stmt_tokens, temp)
+                    end block
                 end if
                 parser%current_token = stmt_end + 1
             end if
@@ -355,9 +354,15 @@ contains
                             body_indices = [body_indices, stmt_indices(k)]
                         end if
                     end do
-                    deallocate (stmt_indices)
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(stmt_indices, temp)
+                    end block
                 end if
-                deallocate (stmt_tokens)
+                block
+                    type(token_t), allocatable, target :: temp(:)
+                    call move_alloc(stmt_tokens, temp)
+                end block
 
                 parser%current_token = stmt_end + 1
             end do
@@ -396,7 +401,8 @@ contains
                                                triplets(1)%upper_expr_index, &
                                                triplets(1)%stride_expr_index, &
                                                mask_index=mask_index, &
-                                               body_indices=body_indices, line=line, column=column, &
+                                               body_indices=body_indices, line=line, &
+                                               column=column, &
                                                index_vars_all=index_names, &
                                                start_indices_all=lower_bounds, &
                                                end_indices_all=upper_bounds, &
@@ -406,7 +412,8 @@ contains
                                                triplets(1)%lower_expr_index, &
                                                triplets(1)%upper_expr_index, &
                                                triplets(1)%stride_expr_index, &
-                                               mask_index=mask_index, line=line, column=column, &
+                                               mask_index=mask_index, line=line, &
+                                               column=column, &
                                                index_vars_all=index_names, &
                                                start_indices_all=lower_bounds, &
                                                end_indices_all=upper_bounds, &
@@ -414,13 +421,6 @@ contains
                 end if
             end if
         end if
-
-        deallocate (triplets)
-        if (allocated(body_indices)) deallocate (body_indices)
-        if (allocated(index_names)) deallocate (index_names)
-        if (allocated(lower_bounds)) deallocate (lower_bounds)
-        if (allocated(upper_bounds)) deallocate (upper_bounds)
-        if (allocated(stride_bounds)) deallocate (stride_bounds)
 
     end function parse_forall
 

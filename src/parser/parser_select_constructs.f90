@@ -115,8 +115,7 @@ contains
         end do
 
         if (.not. success .or. size(value_indices) == 0) then
-            if (allocated(value_indices)) deallocate (value_indices)
-            allocate (value_indices(0))
+            value_indices = [integer ::]
             success = .false.
         end if
 
@@ -242,16 +241,12 @@ contains
                                 call parse_case_value_list(parser, arena, case_token, &
                                                            value_indices, values_ok)
                                 if (.not. values_ok) then
-                                    if (allocated(value_indices)) then
-                                        deallocate (value_indices)
-                                    end if
+                                    value_indices = [integer ::]
                                     select_index = 0
                                     return
                                 end if
                             else
-                                if (allocated(value_indices)) then
-                                    deallocate (value_indices)
-                                end if
+                                value_indices = [integer ::]
                                 select_index = 0
                                 return
                             end if
@@ -298,7 +293,8 @@ contains
                 else if (case_token%text == "end") then
                     ! Check for 'end select'
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "select") then
                         ! Found 'end select', consume both tokens and exit
                         case_token = parser%consume()  ! consume 'end'

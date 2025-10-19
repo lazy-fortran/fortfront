@@ -1,5 +1,6 @@
 module parser_assignment_module
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_EOF, TK_NUMBER, TK_STRING, &
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_EOF, TK_NUMBER, &
+                          TK_STRING, &
                           TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_range
@@ -28,18 +29,25 @@ contains
         is_multi_assignment = is_multi_var_assignment(parser)
 
         if (is_multi_assignment) then
-            call parse_multi_variable_assignment(parser, arena, stmt_index, extra_indices)
+            call parse_multi_variable_assignment(parser, arena, stmt_index, &
+                                                 extra_indices)
         else
             id_token = parser%consume()
             op_token = parser%peek()
 
-            if (allocated(assignment_op)) deallocate (assignment_op)
+            if (allocated(assignment_op)) then
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(assignment_op, temp)
+                end block
+            end if
 
             if (op_token%kind == TK_OPERATOR) then
                 select case (op_token%text)
                 case ("=")
                     op_token = parser%consume()
-                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                    target_index = push_identifier(arena, id_token%text, id_token%line, &
+                                                   id_token%column)
                     value_index = parse_range(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, value_index, &
@@ -47,11 +55,13 @@ contains
                     end if
                 case ("=>")
                     op_token = parser%consume()
-                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                    target_index = push_identifier(arena, id_token%text, id_token%line, &
+                                                   id_token%column)
                     value_index = parse_range(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                     id_token%line, id_token%column, operator_text=op_token%text)
+                                                     id_token%line, id_token%column, &
+                                                     operator_text=op_token%text)
                     end if
                 case ("(", "%")
                     block
@@ -189,7 +199,8 @@ contains
             token = parser%peek()
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
-                target_index = push_identifier(arena, token%text, token%line, token%column)
+                target_index = push_identifier(arena, token%text, token%line, &
+                                               token%column)
                 var_indices = [var_indices, target_index]
 
                 token = parser%peek()
@@ -214,10 +225,13 @@ contains
             token = parser%peek()
             if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
                 token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
-                (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
+                (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. &
+                                                  token%text &
+                                                  == '.false.'))) then
                 token = parser%consume()
                 literal_type = get_literal_type_from_token_kind(token%kind, token%text)
-                value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
+                value_index = push_literal(arena, token%text, literal_type, token%line, &
+                                           token%column)
                 value_indices = [value_indices, value_index]
 
                 token = parser%peek()
@@ -250,8 +264,10 @@ contains
             if (target_index > 0 .and. value_index > 0) then
                 assignment_indices = [assignment_indices, &
                                       push_assignment(arena, target_index, value_index, &
-                                                      parser%tokens(parser%current_token - 1)%line, &
-                                                      parser%tokens(parser%current_token - 1)%column)]
+                                                      parser%tokens(parser%current_token &
+                                                                    - 1)%line, &
+                                                      parser%tokens(parser%current_token &
+                                                                    - 1)%column)]
             end if
         end do
 
@@ -260,15 +276,14 @@ contains
 
             if (size(assignment_indices) > 1) then
                 if (present(extra_indices)) then
-                    if (allocated(extra_indices)) deallocate (extra_indices)
-                    allocate (extra_indices(size(assignment_indices) - 1))
                     extra_indices = assignment_indices(2:)
                 end if
             end if
         end if
     end subroutine parse_multi_variable_assignment
 
-    integer function get_literal_type_from_token_kind(token_kind, token_text) result(literal_type)
+    integer function get_literal_type_from_token_kind(token_kind, token_text) &
+        result(literal_type)
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
 

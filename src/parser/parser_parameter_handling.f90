@@ -53,7 +53,8 @@ contains
                             if (allocated(body_node%var_names)) then
                                 if (any(body_node%var_names == param_name)) then
                                     ! Update parameter node with attributes
-                                    if (body_node%has_intent .and. allocated(body_node%intent)) then
+                                    if (body_node%has_intent .and. &
+                                        allocated(body_node%intent)) then
                                         select case (body_node%intent)
                                         case ("in")
                                             param_node%intent_type = INTENT_IN
@@ -66,7 +67,8 @@ contains
                                     param_node%is_optional = body_node%is_optional
 
                                     ! Also update type if not already set
-                                    if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
+                                    if (param_node%type_name == "" .and. &
+                                        allocated(body_node%type_name)) then
                                         param_node%type_name = body_node%type_name
                                         param_node%kind_value = body_node%kind_value
                                         param_node%has_kind = body_node%has_kind
@@ -75,9 +77,11 @@ contains
                             end if
                         else
                             ! Single declaration
-                            if (allocated(body_node%var_name) .and. body_node%var_name == param_name) then
+                            if (allocated(body_node%var_name) .and. body_node%var_name &
+                                == param_name) then
                                 ! Update parameter node with attributes
-                                if (body_node%has_intent .and. allocated(body_node%intent)) then
+                                if (body_node%has_intent .and. &
+                                    allocated(body_node%intent)) then
                                     select case (body_node%intent)
                                     case ("in")
                                         param_node%intent_type = INTENT_IN
@@ -90,7 +94,8 @@ contains
                                 param_node%is_optional = body_node%is_optional
 
                                 ! Also update type if not already set
-                                if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
+                                if (param_node%type_name == "" .and. &
+                                    allocated(body_node%type_name)) then
                                     param_node%type_name = body_node%type_name
                                     param_node%kind_value = body_node%kind_value
                                     param_node%has_kind = body_node%has_kind
@@ -172,7 +177,8 @@ contains
                                 paren_count = paren_count + 1
                                 type_expr = type_expr // token%text
                                 token = parser%consume()
-                            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                            else if (token%kind == TK_OPERATOR .and. token%text &
+                                     == ")") then
                                 paren_count = paren_count - 1
                                 if (paren_count > 0) then
                                     type_expr = type_expr // token%text
@@ -237,7 +243,8 @@ contains
                                 token = parser%consume()
                             end if
                         end if
-                    else if (token%kind == TK_KEYWORD .and. token%text == "dimension") then
+                    else if (token%kind == TK_KEYWORD .and. token%text == &
+                             "dimension") then
                         ! Skip dimension attribute for now
                         token = parser%consume()
                         token = parser%peek()
@@ -246,7 +253,8 @@ contains
                             token = parser%consume()
                             do while (.not. parser%is_at_end())
                                 token = parser%peek()
-                                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                                if (token%kind == TK_OPERATOR .and. token%text &
+                                    == ")") then
                                     token = parser%consume()
                                     exit
                                 end if
@@ -268,7 +276,7 @@ contains
                 end if
 
                 ! Now collect all parameter names for this type
-                allocate (temp_params(0))
+                temp_params = [integer ::]
                 do while (.not. parser%is_at_end())
                     token = parser%peek()
 
@@ -293,27 +301,32 @@ contains
                                 ! Parse array dimensions
                                 do while (.not. parser%is_at_end())
                                     token = parser%peek()
-                                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                                    if (token%kind == TK_OPERATOR .and. token%text &
+                                        == ")") then
                                         token = parser%consume()  ! consume ')'
                                         exit
                                     end if
 
                                     ! Parse dimension expression (for now, create &
                                     ! identifier or literal nodes)
-                                    if (token%kind == TK_OPERATOR .and. token%text == ":") then
+                                    if (token%kind == TK_OPERATOR .and. token%text &
+                                        == ":") then
                                         ! Assumed shape (:)
                                         block
                                             integer :: dim_index
-                                            dim_index = push_identifier(arena, ":", token%line, token%column)
+                                            dim_index = push_identifier(arena, ":", &
+                                                                 token%line, token%column)
                                             dim_indices = [dim_indices, dim_index]
                                             dim_count = dim_count + 1
                                         end block
                                         token = parser%consume()
-                                    else if (token%kind == TK_OPERATOR .and. token%text == "*") then
+                                    else if (token%kind == TK_OPERATOR .and. token%text &
+                                             == "*") then
                                         ! Assumed size (*)
                                         block
                                             integer :: dim_index
-                                            dim_index = push_identifier(arena, "*", token%line, token%column)
+                                            dim_index = push_identifier(arena, "*", &
+                                                                 token%line, token%column)
                                             dim_indices = [dim_indices, dim_index]
                                             dim_count = dim_count + 1
                                         end block
@@ -322,8 +335,10 @@ contains
                                         ! Explicit size
                                         block
                                             integer :: dim_index
-                                            dim_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                                                     token%line, token%column)
+                                            dim_index = push_literal(arena, token%text, &
+                                                                     LITERAL_INTEGER, &
+                                                                     token%line, &
+                                                                     token%column)
                                             dim_indices = [dim_indices, dim_index]
                                             dim_count = dim_count + 1
                                         end block
@@ -332,7 +347,8 @@ contains
                                         ! Variable size
                                         block
                                             integer :: dim_index
-                                            dim_index = push_identifier(arena, token%text, token%line, token%column)
+                                            dim_index = push_identifier(arena, &
+                                                     token%text, token%line, token%column)
                                             dim_indices = [dim_indices, dim_index]
                                             dim_count = dim_count + 1
                                         end block
@@ -344,7 +360,8 @@ contains
 
                                     ! Check for comma (more dimensions)
                                     token = parser%peek()
-                                    if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                                    if (token%kind == TK_OPERATOR .and. token%text &
+                                        == ",") then
                                         token = parser%consume()  ! consume ','
                                     end if
                                 end do
@@ -352,14 +369,16 @@ contains
 
                             ! Create parameter declaration node with array info
                             if (dim_count > 0) then
-                                param_index = push_parameter_declaration(arena, param_name, current_type, &
-                                                                         current_kind, current_intent, &
-                                                                         current_is_optional, dim_indices, line, column)
+                                param_index = push_parameter_declaration(arena, &
+                                                               param_name, current_type, &
+                                                           current_kind, current_intent, &
+                                           current_is_optional, dim_indices, line, column)
                             else
-                                param_index = push_parameter_declaration(arena, param_name, current_type, &
-                                                                         current_kind, current_intent, &
-                                                                         current_is_optional, &
-                                                                         line=line, column=column)
+                                param_index = push_parameter_declaration(arena, &
+                                                               param_name, current_type, &
+                                                           current_kind, current_intent, &
+                                                                    current_is_optional, &
+                                                                 line=line, column=column)
                             end if
                             temp_params = [temp_params, param_index]
                         end block
@@ -373,8 +392,10 @@ contains
                                     type(token_t) :: next_token
                                     next_token = parser%tokens(parser%current_token + 1)
                                     if (next_token%kind == TK_KEYWORD .and. &
-                                        (next_token%text == "real" .or. next_token%text == "integer" .or. &
-                                         next_token%text == "logical" .or. next_token%text == "character")) then
+                                        (next_token%text == "real" .or. next_token%text &
+                                         == "integer" .or. &
+                                         next_token%text == "logical" .or. &
+                                         next_token%text == "character")) then
                                         ! This comma separates different type groups
                                         exit
                                     else
@@ -400,7 +421,6 @@ contains
                 ! Add collected params to main list
                 param_indices = [param_indices, temp_params]
                 param_count = param_count + size(temp_params)
-                deallocate (temp_params)
 
             else if (token%kind == TK_IDENTIFIER .and. .not. parsing_type_spec) then
                 ! Simple parameter without explicit type

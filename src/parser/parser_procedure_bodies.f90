@@ -191,7 +191,10 @@ contains
         ! Create subroutine node
         if (allocated(prefix_keywords)) then
             if (size(prefix_keywords) == 0) then
-                deallocate (prefix_keywords)
+                block
+                    character(len=16), allocatable :: temp(:)
+                    call move_alloc(prefix_keywords, temp)
+                end block
             end if
         end if
 
@@ -275,7 +278,7 @@ contains
             function_name = token%text
             token = parser%consume()
         else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, &
-                                                                            token)) then
+                                                                             token)) then
             function_name = token%text
             token = parser%consume()
         else

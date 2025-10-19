@@ -5,7 +5,9 @@ module parser_if_constructs_module
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, null_statement_callbacks, find_statement_end, &
+                                            statement_callbacks_t, &
+                                            null_statement_callbacks, &
+                                            find_statement_end, &
                                             extend_if_statement_end
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
@@ -121,7 +123,8 @@ contains
                     then_token = parser%peek()
 
                     if (then_token%kind == TK_KEYWORD) then
-                        if (then_token%text == "elseif" .or. then_token%text == "else if") then
+                        if (then_token%text == "elseif" .or. then_token%text == &
+                            "else if") then
                             ! Parse elseif block
                             block
                                 integer :: elseif_pair(2)
@@ -132,8 +135,10 @@ contains
                         else if (then_token%text == "else") then
                             ! Check if next token is "if" (for "else if")
                             if (parser%current_token + 1 <= size(parser%tokens)) then
-                                if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                                    parser%tokens(parser%current_token + 1)%text == "if") then
+                                if (parser%tokens(parser%current_token + 1)%kind == &
+                                    TK_KEYWORD .and. &
+                                    parser%tokens(parser%current_token + 1)%text &
+                                    == "if") then
                                     ! Parse as elseif block
                                     block
                                         integer :: elseif_pair(2)
@@ -158,7 +163,8 @@ contains
 
                             else_body_indices = parse_if_body(parser, arena, if_index)
                             exit
-                        else if (then_token%text == "endif" .or. then_token%text == "end if") then
+                        else if (then_token%text == "endif" .or. then_token%text == &
+                                 "end if") then
                             ! End of if statement
                             then_token = parser%consume()
                             exit
@@ -276,7 +282,8 @@ contains
                 if (paren_token%kind == TK_OPERATOR .and. paren_token%text == ")") then
                     paren_token = parser%consume()  ! consume the ')'
                     exit
-                else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == "then") then
+                else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == &
+                         "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
                 paren_token = parser%consume()
@@ -392,7 +399,8 @@ contains
                     if (first_stmt_token%kind == TK_KEYWORD) then
                         if (first_stmt_token%text == "if") then
                             stmt_end = extend_if_statement_end(parser%tokens, &
-                                                               parser%current_token, stmt_end)
+                                                               parser%current_token, &
+                                                               stmt_end)
                         end if
                     end if
                     if (stmt_end < parser%current_token) then
@@ -416,11 +424,11 @@ contains
                     callbacks = build_if_body_callbacks()
                     if (present(parent_index)) then
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                                  parent_index=parent_index, callbacks=callbacks, &
-                                                                  consumed_count=consumed_tokens)
+                                         parent_index=parent_index, callbacks=callbacks, &
+                                                           consumed_count=consumed_tokens)
                     else
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                                  callbacks=callbacks, consumed_count=consumed_tokens)
+                                      callbacks=callbacks, consumed_count=consumed_tokens)
                     end if
 
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
@@ -434,7 +442,10 @@ contains
 
                     parser%current_token = stmt_end + 1
 
-                    deallocate (stmt_tokens)
+                    block
+                        type(token_t), allocatable, target :: temp(:)
+                        call move_alloc(stmt_tokens, temp)
+                    end block
                 end block
             end do
         end block

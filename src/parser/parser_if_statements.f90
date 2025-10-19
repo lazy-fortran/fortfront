@@ -105,7 +105,6 @@ contains
 
         condition_parser = create_parser_state(condition_tokens)
         condition_index = parse_comparison(condition_parser, arena)
-        deallocate (condition_tokens)
     end function build_if_condition
 
     subroutine parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
@@ -164,8 +163,6 @@ contains
 
         call allocate_if_body_tokens(stmt_tokens, start_idx, end_idx, body_tokens)
         call parse_if_body_statements(body_tokens, arena, body_indices)
-
-        if (allocated(body_tokens)) deallocate (body_tokens)
     end function parse_if_body_tokens
 
     subroutine allocate_if_body_tokens(stmt_tokens, start_idx, end_idx, body_tokens)
@@ -282,8 +279,6 @@ contains
                 body_indices = [body_indices, stmt_index]
             end if
         end if
-
-        deallocate (line_tokens)
     end subroutine parse_if_body_line
 
     subroutine skip_if_body_line_padding(line_parser)

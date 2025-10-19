@@ -53,8 +53,11 @@ contains
                                 do i = 1, count
                                     new_temp_list(i) = temp_list(i)
                                 end do
-                                deallocate (temp_list)
-                                call move_alloc(new_temp_list, temp_list)
+                                block
+                                    character(len=64), allocatable :: old_temp_list(:)
+                                    call move_alloc(temp_list, old_temp_list)
+                                    call move_alloc(new_temp_list, temp_list)
+                                end block
                             end block
                         end if
 
@@ -77,7 +80,10 @@ contains
             allocate (character(len=0) :: identifier_list(0))
         end if
 
-        deallocate (temp_list)
+        block
+            character(len=64), allocatable :: old_temp_list(:)
+            if (allocated(temp_list)) call move_alloc(temp_list, old_temp_list)
+        end block
     end subroutine parse_identifier_list
 
     ! Helper to count letter ranges for allocation
@@ -153,7 +159,8 @@ contains
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .and. len_trim(token%text) == 1) then
                         token = parser%consume()  ! consume second letter
-                        letter_ranges(i) = trim(letter_ranges(i)) // "-" // trim(token%text)
+                        letter_ranges(i) = trim(letter_ranges(i)) // "-" // &
+                                           trim(token%text)
                     end if
                 end if
 
@@ -260,7 +267,8 @@ contains
                 if (trim(token%text) == "double") then
                     token = parser%consume()  ! consume 'double'
                     token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. trim(token%text) == "precision") then
+                    if (token%kind == TK_IDENTIFIER .and. trim(token%text) == &
+                        "precision") then
                         type_name = "double precision"
                     else
                         ! Put back the token
