@@ -1,0 +1,6 @@
+! Issue #1545: Complex literals with kind parameter were broken
+program test
+    implicit none
+    complex(kind=8) :: w = (1.0d0, 2.0d0)
+    print *, w
+end program test
