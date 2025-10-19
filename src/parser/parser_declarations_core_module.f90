@@ -3,8 +3,7 @@ module parser_declarations_core_module
                           TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_declaration, push_multi_declaration, &
-                           push_complex_literal, push_derived_type
+    use ast_factory, only: push_declaration, push_complex_literal, push_derived_type
     use parser_declarations_type_spec_support_module, only: type_specifier_t
     use parser_declarations_type_spec_module, only: parse_type_specifier
     use parser_result_types, only: parse_result_t, success_parse_result, &
@@ -183,35 +182,35 @@ contains
 
         if (type_spec%has_kind) then
             if (attr_info%has_global_dimensions) then
-                decl_index = push_multi_declaration( &
-                             arena, type_spec%type_name, var_names, &
-                             kind_value=type_spec%kind_value, &
-                             dimension_indices=attr_info%global_dimension_indices, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                decl_index = push_declaration( &
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    kind_value=type_spec%kind_value, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter)
             else
-                decl_index = push_multi_declaration( &
-                             arena, type_spec%type_name, var_names, &
-                             kind_value=type_spec%kind_value, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                decl_index = push_declaration( &
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    kind_value=type_spec%kind_value, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter)
             end if
         else
             if (attr_info%has_global_dimensions) then
-                decl_index = push_multi_declaration( &
-                             arena, type_spec%type_name, var_names, &
-                             dimension_indices=attr_info%global_dimension_indices, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                decl_index = push_declaration( &
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter)
             else
-                decl_index = push_multi_declaration( &
-                             arena, type_spec%type_name, var_names, &
-                             is_allocatable=attr_info%is_allocatable, &
-                             is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                decl_index = push_declaration( &
+                    arena, type_spec%type_name, trim_name_array(var_names), &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter)
             end if
         end if
 
@@ -347,27 +346,29 @@ contains
 
         if (type_spec%has_kind) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, name_buffer, &
-                         kind_value=type_spec%kind_value, &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter)
         else
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, name_buffer, &
-                         dimension_indices=dimension_indices, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter)
         end if
     end function create_dimensional_declaration
 
@@ -382,27 +383,57 @@ contains
 
         if (type_spec%has_kind) then
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, name_buffer, &
-                         kind_value=type_spec%kind_value, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                kind_value=type_spec%kind_value, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter)
         else
             decl_index = push_declaration( &
-                         arena, type_spec%type_name, name_buffer, &
-                         initializer_index=initializer_index, &
-                         is_allocatable=attr_info%is_allocatable, &
-                         is_pointer=attr_info%is_pointer, &
-                         is_target=attr_info%is_target, &
-                         intent_value=attr_info%intent, &
-                         is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                arena, type_spec%type_name, &
+                build_name_array(name_buffer), &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
+                is_parameter=attr_info%is_parameter)
         end if
     end function create_scalar_declaration
+    function build_name_array(name) result(names)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: names(:)
+
+        allocate (character(len=len_trim(name)) :: names(1))
+        names(1) = trim(name)
+    end function build_name_array
+
+    integer function name_maxlen(values) result(len_max)
+        character(len=*), intent(in) :: values(:)
+        integer :: i
+
+        len_max = 1
+        do i = 1, size(values)
+            len_max = max(len_max, len_trim(values(i)))
+        end do
+    end function name_maxlen
+
+    function trim_name_array(var_names) result(names)
+        character(len=*), intent(in) :: var_names(:)
+        character(len=:), allocatable :: names(:)
+        integer :: i
+
+        allocate (character(len=name_maxlen(var_names)) :: names(size(var_names)))
+        do i = 1, size(var_names)
+            names(i) = trim(var_names(i))
+        end do
+    end function trim_name_array
 
     subroutine register_declaration_annotation(decl_index, type_spec, attr_info, &
                                                name_buffer, dimension_indices)

@@ -402,82 +402,7 @@ contains
         integer, intent(in) :: base_expr
         type(array_parse_helpers_t), intent(in) :: helpers
         integer :: expr_index
-
-        expr_index = base_expr
-        if (.not. associated(helpers%parse_range)) return
-
-        block
-            integer, allocatable :: arg_indices(:)
-            type(token_t) :: paren
-            type(token_t) :: op_token
-            integer :: arg_count
-            character(len=:), allocatable :: name_for_call
-
-            arg_count = 0
-
-            paren = parser%consume()
-
-            op_token = parser%peek()
-            if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ")") then
-                block
-                    integer :: arg_index
-                    arg_index = helpers%parse_range(parser, arena)
-                    if (arg_index > 0) then
-                        arg_count = 1
-                        allocate (arg_indices(1))
-                        arg_indices(1) = arg_index
-
-                        do
-                            op_token = parser%peek()
-                            if (op_token%kind /= TK_OPERATOR .or. &
-                                op_token%text /= ",") exit
-
-                            op_token = parser%consume()
-                            arg_index = helpers%parse_range(parser, arena)
-                            if (arg_index > 0) then
-                                arg_indices = [arg_indices, arg_index]
-                                arg_count = arg_count + 1
-                            else
-                                exit
-                            end if
-                        end do
-                    end if
-                end block
-            end if
-
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == ")") then
-                paren = parser%consume()
-            end if
-
-            block
-                logical :: name_available
-                name_available = .false.
-                select type (node => arena%entries(expr_index)%node)
-                type is (component_access_node)
-                    if (allocated(node%component_name)) then
-                        name_for_call = node%component_name
-                        name_available = .true.
-                    end if
-                type is (identifier_node)
-                    if (allocated(node%name)) then
-                        name_for_call = node%name
-                        name_available = .true.
-                    end if
-                class default
-                    return
-                end select
-
-                if (.not. name_available) return
-            end block
-
-            if (.not. allocated(arg_indices)) then
-                allocate (arg_indices(0))
-            end if
-
-            expr_index = push_call_or_subscript_with_slice_detection( &
-                         arena, name_for_call, arg_indices, paren%line, paren%column)
-        end block
+        expr_index = apply_index_postfix(parser, arena, base_expr, helpers, ")")
     end function parse_array_indexing_postfix
 
     function parse_square_indexing_postfix(parser, arena, base_expr, helpers) &
@@ -487,70 +412,104 @@ contains
         integer, intent(in) :: base_expr
         type(array_parse_helpers_t), intent(in) :: helpers
         integer :: expr_index
+        expr_index = apply_index_postfix(parser, arena, base_expr, helpers, "]")
+    end function parse_square_indexing_postfix
+
+    function apply_index_postfix(parser, arena, base_expr, helpers, closing_char) &
+        result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        type(array_parse_helpers_t), intent(in) :: helpers
+        character(len=*), intent(in) :: closing_char
+        integer :: expr_index
+        type(token_t) :: open_token, close_token
+        integer, allocatable :: arg_indices(:)
+        character(len=:), allocatable :: call_name
 
         expr_index = base_expr
         if (.not. associated(helpers%parse_range)) return
+        open_token = parser%consume()
 
-        block
-            integer, allocatable :: arg_indices(:)
-            type(token_t) :: bracket
-            type(token_t) :: op_token
-            integer :: arg_count
-            character(len=:), allocatable :: name_for_call
+        call collect_index_arguments(parser, arena, helpers, closing_char, &
+                                     arg_indices, close_token)
+        if (.not. allocated(arg_indices)) return
 
-            arg_count = 0
-            bracket = parser%consume()
+        call extract_target_name(arena, expr_index, call_name)
+        if (.not. allocated(call_name)) return
 
-            op_token = parser%peek()
-            if (op_token%kind /= TK_OPERATOR .or. op_token%text /= "]") then
-                block
-                    integer :: arg_index
+        expr_index = push_call_or_subscript_with_slice_detection( &
+                     arena, call_name, arg_indices, close_token%line, &
+                     close_token%column)
+    end function apply_index_postfix
+
+    subroutine collect_index_arguments(parser, arena, helpers, closing_char, &
+                                       arg_indices, close_token)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_parse_helpers_t), intent(in) :: helpers
+        character(len=*), intent(in) :: closing_char
+        integer, allocatable, intent(out) :: arg_indices(:)
+        type(token_t), intent(out) :: close_token
+        type(token_t) :: token
+        integer :: arg_index
+
+        if (parser%is_at_end()) then
+            close_token = parser%peek()
+            return
+        end if
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= closing_char) then
+            arg_index = helpers%parse_range(parser, arena)
+            if (arg_index > 0) then
+                allocate (arg_indices(1))
+                arg_indices(1) = arg_index
+
+                do
+                    token = parser%peek()
+                    if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
+                    token = parser%consume()
                     arg_index = helpers%parse_range(parser, arena)
                     if (arg_index > 0) then
-                        arg_count = 1
-                        allocate (arg_indices(1))
-                        arg_indices(1) = arg_index
-
-                        do
-                            op_token = parser%peek()
-                            if (op_token%kind /= TK_OPERATOR .or. &
-                                op_token%text /= ",") exit
-
-                            op_token = parser%consume()
-                            arg_index = helpers%parse_range(parser, arena)
-                            if (arg_index > 0) then
-                                arg_indices = [arg_indices, arg_index]
-                                arg_count = arg_count + 1
-                            else
-                                exit
-                            end if
-                        end do
+                        arg_indices = [arg_indices, arg_index]
+                    else
+                        exit
                     end if
-                end block
+                end do
             end if
+        end if
 
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "]") then
-                bracket = parser%consume()
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == closing_char) then
+            close_token = parser%consume()
+        else
+            close_token = token
+        end if
+
+        if (.not. allocated(arg_indices)) then
+            allocate (arg_indices(0))
+        end if
+    end subroutine collect_index_arguments
+
+    subroutine extract_target_name(arena, expr_index, call_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=:), allocatable, intent(out) :: call_name
+
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (component_access_node)
+            if (allocated(node%component_name)) then
+                call_name = node%component_name
             end if
-
-            if (allocated(arg_indices)) then
-                select type (node => arena%entries(expr_index)%node)
-                type is (component_access_node)
-                    name_for_call = node%component_name
-                type is (identifier_node)
-                    name_for_call = node%name
-                class default
-                    return
-                end select
-
-                if (allocated(name_for_call)) then
-                    expr_index = push_call_or_subscript_with_slice_detection( &
-                                 arena, name_for_call, arg_indices, bracket%line, &
-                                 bracket%column)
-                end if
+        type is (identifier_node)
+            if (allocated(node%name)) then
+                call_name = node%name
             end if
-        end block
-    end function parse_square_indexing_postfix
+        end select
+    end subroutine extract_target_name
 
 end module parser_expression_arrays_module

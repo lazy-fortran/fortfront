@@ -7,10 +7,19 @@ module ast_factory_declarations
     private
 
     ! Public declaration node creation functions
-    public :: push_declaration, push_multi_declaration, push_parameter_declaration
+    public :: push_declaration, push_parameter_declaration
     public :: push_derived_type
 
 contains
+    integer function maxlen(values) result(len_max)
+        character(len=*), intent(in) :: values(:)
+        integer :: i
+        len_max = 0
+        do i = 1, size(values)
+            len_max = max(len_max, len_trim(values(i)))
+        end do
+        if (len_max <= 0) len_max = 1
+    end function maxlen
 
     subroutine initialize_declaration_details(decl, kind_value, dimension_indices, &
                                               initializer_index, is_allocatable, &
@@ -153,15 +162,15 @@ contains
     end function push_derived_type
 
     ! Create declaration node and add to stack
-    function push_declaration(arena, type_name, var_name, kind_value, &
-                              dimension_indices, &
-                              initializer_index, is_allocatable, is_pointer, &
-                              is_target, &
-                              is_external, intent_value, is_optional, is_parameter, &
-                              line, column, &
-                              parent_index) result(decl_index)
+    function push_declaration(arena, type_name, names, kind_value, &
+                              dimension_indices, initializer_index, &
+                              is_allocatable, is_pointer, is_target, &
+                              is_external, intent_value, is_optional, &
+                              is_parameter, line, column, parent_index) &
+        result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: type_name, var_name
+        character(len=*), intent(in) :: type_name
+        character(len=*), intent(in) :: names(:)
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
@@ -176,9 +185,16 @@ contains
         integer :: decl_index
         type(declaration_node) :: decl
 
-        ! Create declaration with index-based fields
         decl%type_name = type_name
-        decl%var_name = var_name
+        if (size(names) > 0) decl%var_name = names(1)
+
+        if (size(names) > 1) then
+            decl%is_multi_declaration = .true.
+            allocate (character(len=maxlen(names)) :: decl%var_names(size(names)))
+            decl%var_names = names
+        else
+            decl%is_multi_declaration = .false.
+        end if
 
         call initialize_declaration_details(decl, kind_value=kind_value, &
                                             dimension_indices=dimension_indices, &
@@ -195,64 +211,6 @@ contains
         call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
     end function push_declaration
-
-    ! Create multi-variable declaration node and add to stack
-    function push_multi_declaration(arena, type_name, var_names, kind_value, &
-                                    dimension_indices, &
-                                    initializer_index, is_allocatable, is_pointer, &
-                                    is_target, is_external, intent_value, &
-                                    is_optional, is_parameter, line, column, &
-                                    parent_index) result(decl_index)
-        type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: type_name
-        character(len=*), intent(in) :: var_names(:)
-        integer, intent(in), optional :: kind_value
-        integer, intent(in), optional :: dimension_indices(:)
-        integer, intent(in), optional :: initializer_index
-        logical, intent(in), optional :: is_allocatable
-        logical, intent(in), optional :: is_pointer
-        logical, intent(in), optional :: is_target
-        logical, intent(in), optional :: is_external
-        character(len=*), intent(in), optional :: intent_value
-        logical, intent(in), optional :: is_optional
-        logical, intent(in), optional :: is_parameter
-        integer, intent(in), optional :: line, column, parent_index
-        integer :: decl_index
-        type(declaration_node) :: decl
-        integer :: i
-
-        ! Create multi-variable declaration
-        decl%type_name = type_name
-        decl%is_multi_declaration = .true.
-
-        ! Set primary variable name to first variable
-        if (size(var_names) > 0) then
-            decl%var_name = trim(var_names(1))
-        end if
-
-        ! Allocate and copy variable names
-        allocate (character(len=100) :: decl%var_names(size(var_names)))
-        do i = 1, size(var_names)
-            decl%var_names(i) = trim(var_names(i))
-        end do
-
-        call initialize_declaration_details(decl, kind_value=kind_value, &
-                                            dimension_indices=dimension_indices, &
-                                            initializer_index=initializer_index, &
-                                            is_allocatable=is_allocatable, &
-                                            is_pointer=is_pointer, &
-                                            is_target=is_target, &
-                                            is_external=is_external, &
-                                            intent_value=intent_value, &
-                                            is_optional=is_optional, &
-                                            is_parameter=is_parameter, line=line, &
-                                            column=column)
-
-        ! Use the same node category as single declarations so downstream
-        ! codegen/standardizer logic treats both uniformly.
-        call arena%push(decl, "declaration", parent_index)
-        decl_index = arena%size
-    end function push_multi_declaration
 
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
