@@ -150,88 +150,34 @@ contains
         ! Build parameter map by matching parameter names to body declarations
         block
             type(parameter_info_t), allocatable :: param_map(:)
-            integer :: param_count, j
+            integer, allocatable :: param_indices(:)
+            integer, allocatable :: body_indices(:)
+            integer :: j
             logical :: has_implicit
 
-            param_count = 0
-            if (allocated(node%param_indices)) param_count = size(node%param_indices)
-
-            allocate (param_map(param_count))
-
-            ! Initialize parameter map from parameter names
-            do i = 1, param_count
-                ! Initialize entry
-                param_map(i)%name = ""
-                param_map(i)%intent_str = ""
-                param_map(i)%is_optional = .false.
-
-                if (node%param_indices(i) > 0 .and. &
-                    node%param_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (param_node => &
-                                     arena%entries(node%param_indices(i))%node)
-                        type is (identifier_node)
-                            param_map(i)%name = param_node%name
-                        type is (parameter_declaration_node)
-                            ! Get attributes directly from parameter node
-                            param_map(i)%name = param_node%name
-                            param_map(i)%intent_str = &
-                                intent_type_to_string(param_node%intent_type)
-                            param_map(i)%is_optional = param_node%is_optional
-                        end select
-                    end if
-                end if
-            end do
-
-            ! Find parameter attributes in body declarations
-            if (allocated(node%body_indices)) then
-                do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) > 0 .and. &
-                        node%body_indices(j) <= arena%size) then
-                        if (allocated(arena%entries(node%body_indices(j))%node)) then
-                            select type (body_node => &
-                                         arena%entries(node%body_indices(j))%node)
-                            type is (parameter_declaration_node)
-                                ! Find matching parameter in param_map
-                                do i = 1, param_count
-                                    if (allocated(param_map(i)%name) .and. &
-                                        param_map(i)%name == body_node%name) then
-                                        param_map(i)%intent_str = &
-                                            intent_type_to_string(body_node%intent_type)
-                                        param_map(i)%is_optional = &
-                                            body_node%is_optional
-                                    end if
-                                end do
-                            type is (declaration_node)
-                                ! Check if this declaration matches a parameter
-                                do i = 1, param_count
-                                    if (allocated(param_map(i)%name) .and. &
-                                        param_map(i)%name == body_node%var_name) then
-                                        ! Update intent if present
-                                        if (body_node%has_intent) then
-                                            param_map(i)%intent_str = body_node%intent
-                                        end if
-                                        ! Always update optional flag
-                                        param_map(i)%is_optional = &
-                                            body_node%is_optional
-                                    end if
-                                end do
-                            end select
-                        end if
-                    end if
-                end do
+            if (allocated(node%param_indices)) then
+                param_indices = node%param_indices
+            else
+                allocate (param_indices(0))
             end if
+
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+
+            call build_parameter_map(arena, param_indices, body_indices, param_map)
 
             ! Ensure pure/elemental functions default parameters to intent(in)
             if (allocated(node%prefix_keywords)) then
                 do j = 1, size(node%prefix_keywords)
                     select case (trim(node%prefix_keywords(j)))
                     case ("pure", "elemental")
-                        do i = 1, param_count
-                            if (allocated(param_map(i)%name)) then
-                                if (len_trim(param_map(i)%intent_str) == 0) then
-                                    param_map(i)%intent_str = "in"
-                                end if
+                        do i = 1, size(param_map)
+                            if (.not. allocated(param_map(i)%name)) cycle
+                            if (len_trim(param_map(i)%intent_str) == 0) then
+                                param_map(i)%intent_str = "in"
                             end if
                         end do
                     end select
@@ -240,20 +186,14 @@ contains
 
             ! Add implicit none to function (quality requirement for lazy Fortran)
             has_implicit = .false.
-            if (allocated(node%body_indices)) then
-                do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= &
-                        arena%size) then
-                        if (allocated(arena%entries(node%body_indices(j))%node)) then
-                            select type (body_node => &
-                                         arena%entries(node%body_indices(j))%node)
-                            type is (implicit_statement_node)
-                                if (body_node%is_none) has_implicit = .true.
-                            end select
-                        end if
-                    end if
-                end do
-            end if
+            do j = 1, size(body_indices)
+                if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+                if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+                select type (body_node => arena%entries(body_indices(j))%node)
+                type is (implicit_statement_node)
+                    if (body_node%is_none) has_implicit = .true.
+                end select
+            end do
             if (.not. has_implicit) then
                 code = code // "    implicit none" // new_line('A')
             end if
@@ -268,12 +208,8 @@ contains
             end block
 
             ! Generate body with indentation, declaration grouping, and parameter mapping
-            if (allocated(node%body_indices)) then
-                code = code // generate_grouped_body_with_params(arena, &
-                                                                 node%body_indices, &
-                                                                 1, &
-                                                                 param_map, node)
-            end if
+            code = code // generate_grouped_body_with_params(arena, body_indices, 1, &
+                                                             param_map, node)
         end block
 
         ! End function
@@ -365,89 +301,87 @@ contains
         ! Build parameter map by matching parameter names to body declarations
         block
             type(parameter_info_t), allocatable :: param_map(:)
-            integer :: param_count, j
+            integer, allocatable :: param_indices(:)
+            integer, allocatable :: body_indices(:)
 
-            param_count = 0
-            if (allocated(node%param_indices)) param_count = size(node%param_indices)
-
-            allocate (param_map(param_count))
-
-            ! Initialize parameter map from parameter names
-            do i = 1, param_count
-                ! Initialize entry
-                param_map(i)%name = ""
-                param_map(i)%intent_str = ""
-                param_map(i)%is_optional = .false.
-
-                if (node%param_indices(i) > 0 .and. &
-                    node%param_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (param_node => &
-                                     arena%entries(node%param_indices(i))%node)
-                        type is (identifier_node)
-                            param_map(i)%name = param_node%name
-                        type is (parameter_declaration_node)
-                            ! Get attributes directly from parameter node
-                            param_map(i)%name = param_node%name
-                            param_map(i)%intent_str = &
-                                intent_type_to_string(param_node%intent_type)
-                            param_map(i)%is_optional = param_node%is_optional
-                        end select
-                    end if
-                end if
-            end do
-
-            ! Find parameter attributes in body declarations
-            if (allocated(node%body_indices)) then
-                do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) > 0 .and. &
-                        node%body_indices(j) <= arena%size) then
-                        if (allocated(arena%entries(node%body_indices(j))%node)) then
-                            select type (body_node => &
-                                         arena%entries(node%body_indices(j))%node)
-                            type is (parameter_declaration_node)
-                                ! Find matching parameter in param_map
-                                do i = 1, param_count
-                                    if (allocated(param_map(i)%name) .and. &
-                                        param_map(i)%name == body_node%name) then
-                                        param_map(i)%intent_str = &
-                                            intent_type_to_string(body_node%intent_type)
-                                        param_map(i)%is_optional = &
-                                            body_node%is_optional
-                                    end if
-                                end do
-                            type is (declaration_node)
-                                ! Check if this declaration matches a parameter
-                                do i = 1, param_count
-                                    if (allocated(param_map(i)%name) .and. &
-                                        param_map(i)%name == body_node%var_name) then
-                                        ! Update intent if present
-                                        if (body_node%has_intent) then
-                                            param_map(i)%intent_str = body_node%intent
-                                        end if
-                                        ! Always update optional flag
-                                        param_map(i)%is_optional = &
-                                            body_node%is_optional
-                                    end if
-                                end do
-                            end select
-                        end if
-                    end if
-                end do
+            if (allocated(node%param_indices)) then
+                param_indices = node%param_indices
+            else
+                allocate (param_indices(0))
             end if
+
+            if (allocated(node%body_indices)) then
+                body_indices = node%body_indices
+            else
+                allocate (body_indices(0))
+            end if
+
+            call build_parameter_map(arena, param_indices, body_indices, param_map)
 
             ! Generate body with indentation, declaration grouping, and parameter mapping
-            if (allocated(node%body_indices)) then
-                code = code // generate_grouped_body_with_params(arena, &
-                                                                 node%body_indices, &
-                                                                 1, &
-                                                                 param_map, node)
-            end if
+            code = code // generate_grouped_body_with_params(arena, body_indices, 1, &
+                                                             param_map, node)
         end block
 
         ! End subroutine
         code = code // "end subroutine " // node%name
     end function generate_code_subroutine_def
+
+    subroutine build_parameter_map(arena, param_indices, body_indices, param_map)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
+        integer, intent(in) :: body_indices(:)
+        type(parameter_info_t), allocatable, intent(out) :: param_map(:)
+        integer :: param_count, i, j
+
+        param_count = size(param_indices)
+        allocate (param_map(param_count))
+
+        do i = 1, param_count
+            param_map(i)%name = ""
+            param_map(i)%intent_str = ""
+            param_map(i)%is_optional = .false.
+
+            if (param_indices(i) <= 0 .or. param_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(param_indices(i))%node)) cycle
+
+            select type (param_node => arena%entries(param_indices(i))%node)
+            type is (identifier_node)
+                param_map(i)%name = param_node%name
+            type is (parameter_declaration_node)
+                param_map(i)%name = param_node%name
+                param_map(i)%intent_str = intent_type_to_string(param_node%intent_type)
+                param_map(i)%is_optional = param_node%is_optional
+            end select
+        end do
+
+        do j = 1, size(body_indices)
+            if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+            if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+
+            select type (body_node => arena%entries(body_indices(j))%node)
+            type is (parameter_declaration_node)
+                do i = 1, param_count
+                    if (.not. allocated(param_map(i)%name)) cycle
+                    if (param_map(i)%name == body_node%name) then
+                        param_map(i)%intent_str = &
+                            intent_type_to_string(body_node%intent_type)
+                        param_map(i)%is_optional = body_node%is_optional
+                    end if
+                end do
+            type is (declaration_node)
+                do i = 1, param_count
+                    if (.not. allocated(param_map(i)%name)) cycle
+                    if (param_map(i)%name == body_node%var_name) then
+                        if (body_node%has_intent) then
+                            param_map(i)%intent_str = body_node%intent
+                        end if
+                        param_map(i)%is_optional = body_node%is_optional
+                    end if
+                end do
+            end select
+        end do
+    end subroutine build_parameter_map
 
     ! Generate code for declarations
     function generate_code_declaration(arena, node, node_index) result(code)
@@ -2069,7 +2003,8 @@ contains
                             param_type = param_node%type_name
                         else
                             param_type = mono_type_to_string( &
-                                         param_node%inferred_type, include_shape=.true., &
+                                         param_node%inferred_type, &
+                                         include_shape=.true., &
                                          fallback='real')
                             if (len_trim(param_type) == 0) param_type = 'real'
                         end if
