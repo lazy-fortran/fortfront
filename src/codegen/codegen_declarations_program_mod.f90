@@ -250,22 +250,17 @@ contains
 
     subroutine ensure_output_unit_use(code)
         character(len=:), allocatable, intent(inout) :: code
-        integer :: search_pos
-        integer :: iso_pos
-        integer :: line_start
-        integer :: line_end
-        integer :: header_end
-        integer :: comment_pos
         logical :: has_iso_line
-        logical :: iso_has_only
-        logical :: iso_has_output
-        character(len=:), allocatable :: prefix
-        character(len=:), allocatable :: suffix
-        character(len=:), allocatable :: iso_line
-        character(len=:), allocatable :: iso_comment
-        character(len=:), allocatable :: trimmed_line
 
-        has_iso_line = .false.
+        has_iso_line = try_augment_existing_iso_use(code)
+        if (.not. has_iso_line) call insert_new_iso_use(code)
+    end subroutine ensure_output_unit_use
+
+    logical function try_augment_existing_iso_use(code) result(found_iso)
+        character(len=:), allocatable, intent(inout) :: code
+        integer :: search_pos, iso_pos
+
+        found_iso = .false.
         search_pos = 1
 
         do
@@ -273,121 +268,176 @@ contains
             if (iso_pos == 0) exit
             iso_pos = search_pos + iso_pos - 1
 
-            line_start = iso_pos
-            do while (line_start > 1 .and. code(line_start - 1:line_start - 1) /= &
-                      new_line('A'))
-                line_start = line_start - 1
-            end do
+            call augment_iso_line_at_position(code, iso_pos, search_pos, found_iso)
+            if (found_iso) exit
 
-            line_end = iso_pos
-            do while (line_end <= len(code) .and. code(line_end:line_end) /= &
-                      new_line('A'))
-                line_end = line_end + 1
-            end do
+            if (search_pos <= 0 .or. search_pos > len(code)) exit
+        end do
+    end function try_augment_existing_iso_use
 
-            has_iso_line = .true.
+    subroutine augment_iso_line_at_position(code, iso_pos, search_pos, found_iso)
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(in) :: iso_pos
+        integer, intent(inout) :: search_pos
+        logical, intent(inout) :: found_iso
+        integer :: line_start, line_end
+        logical :: iso_has_only, iso_has_output
+        character(len=:), allocatable :: iso_line
 
-            if (line_end > len(code)) then
-                iso_line = code(line_start:)
-            else
-                iso_line = code(line_start:line_end - 1)
-            end if
+        call find_line_bounds(code, iso_pos, line_start, line_end)
+        found_iso = .true.
 
-            iso_has_only = index(to_lower(iso_line), 'only:') > 0
-            iso_has_output = index(to_lower(iso_line), 'output_unit') > 0
+        if (line_end > len(code)) then
+            iso_line = code(line_start:)
+        else
+            iso_line = code(line_start:line_end - 1)
+        end if
 
-            if (iso_has_only .and. .not. iso_has_output) then
-                if (line_start > 1) then
-                    prefix = code(1:line_start - 1)
-                else
-                    prefix = ''
-                end if
+        iso_has_only = index(to_lower(iso_line), 'only:') > 0
+        iso_has_output = index(to_lower(iso_line), 'output_unit') > 0
 
-                if (line_end <= len(code)) then
-                    if (line_end < len(code)) then
-                        suffix = code(line_end + 1:)
-                    else
-                        suffix = ''
-                    end if
-                else
-                    suffix = ''
-                end if
+        if (iso_has_only .and. .not. iso_has_output) then
+            call inject_output_unit_into_line(code, line_start, line_end, iso_line)
+            iso_has_output = .true.
+        end if
 
-                comment_pos = scan(iso_line, '!')
-                if (comment_pos > 0) then
-                    if (comment_pos > 1) then
-                        trimmed_line = iso_line(1:comment_pos - 1)
-                    else
-                        trimmed_line = ''
-                    end if
-                    iso_comment = iso_line(comment_pos:)
-                else
-                    trimmed_line = iso_line
-                    iso_comment = ''
-                end if
+        if (.not. iso_has_only .or. iso_has_output) then
+            search_pos = -1
+        else if (line_end <= len(code)) then
+            search_pos = line_end + 1
+        else
+            search_pos = -1
+        end if
+    end subroutine augment_iso_line_at_position
 
-                if (len_trim(trimmed_line) > 0) then
-                    trimmed_line = trimmed_line(1:len_trim(trimmed_line))
-                end if
+    subroutine find_line_bounds(code, position, line_start, line_end)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: position
+        integer, intent(out) :: line_start, line_end
 
-                iso_line = trimmed_line // ', output_unit'
-                if (len_trim(iso_comment) > 0) then
-                    iso_line = iso_line // ' ' // iso_comment
-                end if
-
-                code = prefix // iso_line // new_line('A') // suffix
-                iso_has_output = .true.
-            end if
-
-            if (.not. iso_has_only .or. iso_has_output) exit
-
-            if (line_end <= len(code)) then
-                search_pos = line_end + 1
-            else
-                exit
-            end if
+        line_start = position
+        do while (line_start > 1 .and. code(line_start - 1:line_start - 1) /= &
+                  new_line('A'))
+            line_start = line_start - 1
         end do
 
-        if (.not. has_iso_line) then
-            header_end = index(code, new_line('A'))
-            if (header_end <= 0) header_end = len(code)
+        line_end = position
+        do while (line_end <= len(code) .and. code(line_end:line_end) /= &
+                  new_line('A'))
+            line_end = line_end + 1
+        end do
+    end subroutine find_line_bounds
 
-            if (header_end > 0) then
-                prefix = code(1:header_end)
-            else
-                prefix = ''
-            end if
+    subroutine inject_output_unit_into_line(code, line_start, line_end, iso_line)
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(in) :: line_start, line_end
+        character(len=*), intent(in) :: iso_line
+        character(len=:), allocatable :: prefix, suffix, modified_line
 
-            if (header_end < len(code)) then
-                suffix = code(header_end + 1:)
+        call split_code_at_line(code, line_start, line_end, prefix, suffix)
+        modified_line = append_output_unit_to_iso_line(iso_line)
+        code = prefix // modified_line // new_line('A') // suffix
+    end subroutine inject_output_unit_into_line
+
+    subroutine split_code_at_line(code, line_start, line_end, prefix, suffix)
+        character(len=*), intent(in) :: code
+        integer, intent(in) :: line_start, line_end
+        character(len=:), allocatable, intent(out) :: prefix, suffix
+
+        if (line_start > 1) then
+            prefix = code(1:line_start - 1)
+        else
+            prefix = ''
+        end if
+
+        if (line_end <= len(code)) then
+            if (line_end < len(code)) then
+                suffix = code(line_end + 1:)
             else
                 suffix = ''
             end if
-
-            code = prefix // &
-                   '    use, intrinsic :: iso_fortran_env, only: output_unit' // &
-                   new_line('A') // suffix
+        else
+            suffix = ''
         end if
-    end subroutine ensure_output_unit_use
+    end subroutine split_code_at_line
+
+    function append_output_unit_to_iso_line(iso_line) result(modified_line)
+        character(len=*), intent(in) :: iso_line
+        character(len=:), allocatable :: modified_line
+        integer :: comment_pos
+        character(len=:), allocatable :: trimmed_line, iso_comment
+
+        comment_pos = scan(iso_line, '!')
+        if (comment_pos > 0) then
+            if (comment_pos > 1) then
+                trimmed_line = iso_line(1:comment_pos - 1)
+            else
+                trimmed_line = ''
+            end if
+            iso_comment = iso_line(comment_pos:)
+        else
+            trimmed_line = iso_line
+            iso_comment = ''
+        end if
+
+        if (len_trim(trimmed_line) > 0) then
+            trimmed_line = trimmed_line(1:len_trim(trimmed_line))
+        end if
+
+        modified_line = trimmed_line // ', output_unit'
+        if (len_trim(iso_comment) > 0) then
+            modified_line = modified_line // ' ' // iso_comment
+        end if
+    end function append_output_unit_to_iso_line
+
+    subroutine insert_new_iso_use(code)
+        character(len=:), allocatable, intent(inout) :: code
+        integer :: header_end
+        character(len=:), allocatable :: prefix, suffix
+
+        header_end = index(code, new_line('A'))
+        if (header_end <= 0) header_end = len(code)
+
+        if (header_end > 0) then
+            prefix = code(1:header_end)
+        else
+            prefix = ''
+        end if
+
+        if (header_end < len(code)) then
+            suffix = code(header_end + 1:)
+        else
+            suffix = ''
+        end if
+
+        code = prefix // &
+               '    use, intrinsic :: iso_fortran_env, only: output_unit' // &
+               new_line('A') // suffix
+    end subroutine insert_new_iso_use
 
     subroutine add_loop_variable_decls(code, body_code)
         character(len=:), allocatable, intent(inout) :: code
         character(len=:), allocatable, intent(inout) :: body_code
-        integer :: pos, start_pos, end_pos
-        integer :: impl_pos, insert_pos
-        character(len=:), allocatable :: before_code
-        character(len=:), allocatable :: after_code
         character(len=:), allocatable :: loop_vars(:)
-        character(len=:), allocatable :: name_buf
         integer :: n_vars
-        integer :: i
-        logical :: already_declared
 
         if (len(body_code) == 0) return
 
         allocate (character(len=32) :: loop_vars(20))
         loop_vars = ""
         n_vars = 0
+
+        call scan_for_loop_variables(body_code, loop_vars, n_vars)
+        call inject_loop_var_declarations(code, body_code, loop_vars, n_vars)
+
+        deallocate (loop_vars)
+    end subroutine add_loop_variable_decls
+
+    subroutine scan_for_loop_variables(body_code, loop_vars, n_vars)
+        character(len=*), intent(in) :: body_code
+        character(len=*), intent(inout) :: loop_vars(:)
+        integer, intent(inout) :: n_vars
+        integer :: pos, start_pos, end_pos
 
         pos = 1
         do while (pos <= len(body_code))
@@ -418,70 +468,110 @@ contains
                 pos = start_pos + 5
             end if
         end do
+    end subroutine scan_for_loop_variables
 
-        if (n_vars > 0 .or. (index(body_code, "[(") > 0 .and. index(body_code, &
-                                                                    ")]") > 0)) then
-            impl_pos = index(body_code, "implicit none")
-            if (impl_pos > 0) then
-                insert_pos = impl_pos + 13
-                do while (insert_pos <= len(body_code))
-                    if (body_code(insert_pos:insert_pos) == new_line('A')) then
-                        insert_pos = insert_pos + 1
-                        exit
-                    end if
-                    insert_pos = insert_pos + 1
-                end do
+    subroutine inject_loop_var_declarations(code, body_code, loop_vars, n_vars)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable, intent(inout) :: body_code
+        character(len=*), intent(in) :: loop_vars(:)
+        integer, intent(in) :: n_vars
+        integer :: impl_pos
 
-                before_code = body_code(1:insert_pos - 1)
-                after_code = body_code(insert_pos:)
+        if (n_vars == 0 .and. .not. (index(body_code, "[(") > 0 .and. &
+                                      index(body_code, ")]") > 0)) return
 
-                if (n_vars > 0) then
-                    do i = 1, n_vars
-                        name_buf = trim(loop_vars(i))
-                        already_declared = index(body_code, "integer :: "//name_buf) > 0
-                        if (.not. already_declared) then
-                            before_code = before_code // "    integer :: " // &
-                                          name_buf // new_line('A')
-                        end if
-                    end do
-                else
-                    if (index(body_code, "[(") > 0 .and. &
-                        index(body_code, ")]") > 0) then
-                        if (index(body_code, "integer :: i") == 0) then
-                            before_code = before_code // "    integer :: i" // &
-                                          new_line('A')
-                        end if
-                    end if
-                end if
+        impl_pos = index(body_code, "implicit none")
+        if (impl_pos > 0) then
+            call inject_decls_after_implicit(body_code, impl_pos, loop_vars, n_vars)
+        else
+            call inject_decls_before_body(code, body_code, loop_vars, n_vars)
+        end if
+    end subroutine inject_loop_var_declarations
 
-                body_code = before_code // after_code
-            else
-                if (n_vars > 0) then
-                    do i = 1, n_vars
-                        name_buf = trim(loop_vars(i))
-                        already_declared = index(body_code, "integer :: "//name_buf) > 0
-                        if (.not. already_declared) then
-                            already_declared = index(code, "integer :: "//name_buf) > 0
-                        end if
-                        if (.not. already_declared) then
-                            code = code // "    integer :: " // name_buf // &
-                                   new_line('A')
-                        end if
-                    end do
-                else
-                    if (index(body_code, "[(") > 0 .and. &
-                        index(body_code, ")]") > 0) then
-                        if (index(body_code, "integer :: i") == 0 .and. &
-                            index(code, "integer :: i") == 0) then
-                            code = code // "    integer :: i" // new_line('A')
-                        end if
-                    end if
-                end if
+    subroutine inject_decls_after_implicit(body_code, impl_pos, loop_vars, n_vars)
+        character(len=:), allocatable, intent(inout) :: body_code
+        integer, intent(in) :: impl_pos
+        character(len=*), intent(in) :: loop_vars(:)
+        integer, intent(in) :: n_vars
+        integer :: insert_pos, i
+        character(len=:), allocatable :: before_code, after_code, name_buf
+        logical :: already_declared
+
+        insert_pos = impl_pos + 13
+        do while (insert_pos <= len(body_code))
+            if (body_code(insert_pos:insert_pos) == new_line('A')) then
+                insert_pos = insert_pos + 1
+                exit
             end if
+            insert_pos = insert_pos + 1
+        end do
+
+        before_code = body_code(1:insert_pos - 1)
+        after_code = body_code(insert_pos:)
+
+        if (n_vars > 0) then
+            do i = 1, n_vars
+                name_buf = trim(loop_vars(i))
+                already_declared = index(body_code, "integer :: "//name_buf) > 0
+                if (.not. already_declared) then
+                    before_code = before_code // "    integer :: " // &
+                                  name_buf // new_line('A')
+                end if
+            end do
+        else
+            call add_default_loop_var_if_needed(body_code, before_code)
         end if
 
-        deallocate (loop_vars)
-    end subroutine add_loop_variable_decls
+        body_code = before_code // after_code
+    end subroutine inject_decls_after_implicit
+
+    subroutine inject_decls_before_body(code, body_code, loop_vars, n_vars)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=*), intent(in) :: body_code
+        character(len=*), intent(in) :: loop_vars(:)
+        integer, intent(in) :: n_vars
+        integer :: i
+        character(len=:), allocatable :: name_buf
+        logical :: already_declared
+
+        if (n_vars > 0) then
+            do i = 1, n_vars
+                name_buf = trim(loop_vars(i))
+                already_declared = index(body_code, "integer :: "//name_buf) > 0
+                if (.not. already_declared) then
+                    already_declared = index(code, "integer :: "//name_buf) > 0
+                end if
+                if (.not. already_declared) then
+                    code = code // "    integer :: " // name_buf // new_line('A')
+                end if
+            end do
+        else
+            call add_default_loop_var_to_code(code, body_code)
+        end if
+    end subroutine inject_decls_before_body
+
+    subroutine add_default_loop_var_if_needed(body_code, before_code)
+        character(len=*), intent(in) :: body_code
+        character(len=:), allocatable, intent(inout) :: before_code
+
+        if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
+            if (index(body_code, "integer :: i") == 0) then
+                before_code = before_code // "    integer :: i" // new_line('A')
+            end if
+        end if
+    end subroutine add_default_loop_var_if_needed
+
+    subroutine add_default_loop_var_to_code(code, body_code)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=*), intent(in) :: body_code
+
+        if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
+            if (index(body_code, "integer :: i") == 0 .and. &
+                index(code, "integer :: i") == 0) then
+                code = code // "    integer :: i" // new_line('A')
+            end if
+        end if
+    end subroutine add_default_loop_var_to_code
 
     logical function program_is_trivial_wrapper(arena, prog_index, name) &
         result(is_trivial)

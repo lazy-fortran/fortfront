@@ -609,107 +609,119 @@ contains
         type(function_def_node), intent(in) :: func
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=:), allocatable :: decl_code
-        integer :: i, param_idx, j, k
-        character(len=:), allocatable :: param_type
-        character(len=:), allocatable :: decl_line
+        integer :: i, param_idx
         logical :: has_declaration
 
         decl_code = ""
 
         if (.not. allocated(func%param_indices)) return
 
-        ! Check each parameter
         do i = 1, size(func%param_indices)
             param_idx = func%param_indices(i)
             if (param_idx <= 0 .or. param_idx > arena%size) cycle
             if (.not. allocated(arena%entries(param_idx)%node)) cycle
 
-            ! Check if parameter already has a declaration in body
-            has_declaration = .false.
-            if (allocated(func%body_indices)) then
-                block
-                    integer :: j, body_idx
-                    do j = 1, size(func%body_indices)
-                        body_idx = func%body_indices(j)
-                        if (body_idx <= 0 .or. body_idx > arena%size) cycle
-                        if (.not. allocated(arena%entries(body_idx)%node)) cycle
-                        select type (body_node => arena%entries(body_idx)%node)
-                        type is (declaration_node)
-                            if (i <= size(param_map)) then
-                                if (len_trim(param_map(i)%name) > 0) then
-                                    if (trim(body_node%var_name) == &
-                                        trim(param_map(i)%name)) then
-                                        has_declaration = .true.
-                                        exit
-                                    end if
-                                end if
-                                if (body_node%is_multi_declaration .and. &
-                                    allocated(body_node%var_names)) then
-                                    do k = 1, size(body_node%var_names)
-                                        if (trim(body_node%var_names(k)) == &
-                                            trim(param_map(i)%name)) then
-                                            has_declaration = .true.
-                                            exit
-                                        end if
-                                    end do
-                                    if (has_declaration) exit
-                                end if
-                            end if
-                        type is (parameter_declaration_node)
-                            if (i <= size(param_map)) then
-                                if (trim(body_node%name) == &
-                                    trim(param_map(i)%name)) then
-                                    has_declaration = .true.
-                                    exit
-                                end if
-                            end if
-                        end select
-                    end do
-                end block
-            end if
+            has_declaration = parameter_has_declaration(arena, func, param_map, i)
 
-            ! If no declaration, generate one from inferred type or parameter map
             if (.not. has_declaration .and. i <= size(param_map)) then
-                if (len_trim(param_map(i)%name) > 0) then
-                    select type (param_node => arena%entries(param_idx)%node)
-                    type is (identifier_node)
-                        param_type = mono_type_to_string( &
-                                     param_node%inferred_type, include_shape=.true., &
-                                     fallback='real')
-                        if (len_trim(param_type) == 0) param_type = 'real'
-                        decl_line = "    " // trim(param_type) // " :: " // &
-                                    trim(param_map(i)%name)
-                        decl_line = fix_character_len_placeholder(decl_line)
-                        decl_code = decl_code // decl_line // new_line('A')
-                    type is (parameter_declaration_node)
-                        ! Try type_name first, then inferred_type
-                        if (allocated(param_node%type_name) .and. &
-                            len_trim(param_node%type_name) > 0) then
-                            param_type = param_node%type_name
-                        else
-                            param_type = mono_type_to_string( &
-                                         param_node%inferred_type, &
-                                         include_shape=.true., &
-                                         fallback='real')
-                            if (len_trim(param_type) == 0) param_type = 'real'
-                        end if
-                        decl_line = "    " // trim(param_type) // " :: " // &
-                                    trim(param_map(i)%name)
-                        decl_line = fix_character_len_placeholder(decl_line)
-                        decl_code = decl_code // decl_line // new_line('A')
-                    class default
-                        ! For any other node type, try using the base inferred_type field
-                        param_type = mono_type_to_string( &
-                                     param_node%inferred_type, include_shape=.true., &
-                                     fallback='real')
-                        if (len_trim(param_type) == 0) param_type = 'real'
-                        decl_line = "    " // trim(param_type) // " :: " // &
-                                    trim(param_map(i)%name)
-                        decl_line = fix_character_len_placeholder(decl_line)
-                        decl_code = decl_code // decl_line // new_line('A')
-                    end select
-                end if
+                call append_parameter_declaration(arena, param_idx, param_map(i), &
+                                                  decl_code)
             end if
         end do
     end function collect_function_parameter_decls
+
+    logical function parameter_has_declaration(arena, func, param_map, param_idx) &
+        result(has_decl)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(parameter_info_t), intent(in) :: param_map(:)
+        integer, intent(in) :: param_idx
+        integer :: j, body_idx, k
+
+        has_decl = .false.
+        if (.not. allocated(func%body_indices)) return
+        if (param_idx > size(param_map)) return
+
+        do j = 1, size(func%body_indices)
+            body_idx = func%body_indices(j)
+            if (body_idx <= 0 .or. body_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(body_idx)%node)) cycle
+            select type (body_node => arena%entries(body_idx)%node)
+            type is (declaration_node)
+                if (len_trim(param_map(param_idx)%name) == 0) cycle
+                if (trim(body_node%var_name) == trim(param_map(param_idx)%name)) then
+                    has_decl = .true.
+                    return
+                end if
+                if (body_node%is_multi_declaration .and. &
+                    allocated(body_node%var_names)) then
+                    do k = 1, size(body_node%var_names)
+                        if (trim(body_node%var_names(k)) == &
+                            trim(param_map(param_idx)%name)) then
+                            has_decl = .true.
+                            return
+                        end if
+                    end do
+                end if
+            type is (parameter_declaration_node)
+                if (trim(body_node%name) == trim(param_map(param_idx)%name)) then
+                    has_decl = .true.
+                    return
+                end if
+            end select
+        end do
+    end function parameter_has_declaration
+
+    subroutine append_parameter_declaration(arena, param_idx, param_info, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_idx
+        type(parameter_info_t), intent(in) :: param_info
+        character(len=:), allocatable, intent(inout) :: decl_code
+        character(len=:), allocatable :: param_type, decl_line
+
+        if (len_trim(param_info%name) == 0) return
+
+        select type (param_node => arena%entries(param_idx)%node)
+        type is (identifier_node)
+            param_type = get_param_type_from_identifier(param_node)
+        type is (parameter_declaration_node)
+            param_type = get_param_type_from_param_decl(param_node)
+        class default
+            param_type = get_param_type_fallback(param_node)
+        end select
+
+        decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
+        decl_line = fix_character_len_placeholder(decl_line)
+        decl_code = decl_code // decl_line // new_line('A')
+    end subroutine append_parameter_declaration
+
+    function get_param_type_from_identifier(param_node) result(param_type)
+        type(identifier_node), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+
+        param_type = mono_type_to_string(param_node%inferred_type, &
+                                         include_shape=.true., fallback='real')
+        if (len_trim(param_type) == 0) param_type = 'real'
+    end function get_param_type_from_identifier
+
+    function get_param_type_from_param_decl(param_node) result(param_type)
+        type(parameter_declaration_node), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+
+        if (allocated(param_node%type_name) .and. &
+            len_trim(param_node%type_name) > 0) then
+            param_type = param_node%type_name
+        else
+            param_type = mono_type_to_string(param_node%inferred_type, &
+                                             include_shape=.true., fallback='real')
+            if (len_trim(param_type) == 0) param_type = 'real'
+        end if
+    end function get_param_type_from_param_decl
+
+    function get_param_type_fallback(param_node) result(param_type)
+        class(*), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+
+        param_type = 'real'
+    end function get_param_type_fallback
 end module codegen_declarations_subprogram_mod
