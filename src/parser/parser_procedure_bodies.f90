@@ -121,35 +121,7 @@ contains
                 end if
             end if
 
-            ! Handle nested procedures directly to avoid recursive call issues
-            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                block
-                    integer :: nested_index
-                    nested_index = parse_subroutine_in_module(parser, arena)
-                    if (nested_index > 0) then
-                        body_indices = [body_indices, nested_index]
-                    end if
-                end block
-            else if (token%kind == TK_KEYWORD .and. token%text == "function") then
-                block
-                    integer :: nested_index
-                    nested_index = parse_function_in_module(parser, arena)
-                    if (nested_index > 0) then
-                        body_indices = [body_indices, nested_index]
-                    end if
-                end block
-            else if (token%kind /= TK_NEWLINE) then
-                ! Parse basic statements for subroutine body (avoiding circular dependencies)
-                block
-                    integer :: stmt_index
-                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
-                    if (stmt_index > 0) then
-                        body_indices = [body_indices, stmt_index]
-                    end if
-                end block
-            else
-                token = parser%consume()  ! consume newline
-            end if
+            call append_body_item(parser, arena, token, body_indices)
         end do
 
         ! Create subroutine node
@@ -309,35 +281,7 @@ contains
                 exit  ! Don't consume, let the module parser handle it
             end if
 
-            ! Handle nested procedures directly to avoid recursive call issues
-            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                block
-                    integer :: nested_index
-                    nested_index = parse_subroutine_in_module(parser, arena)
-                    if (nested_index > 0) then
-                        body_indices = [body_indices, nested_index]
-                    end if
-                end block
-            else if (token%kind == TK_KEYWORD .and. token%text == "function") then
-                block
-                    integer :: nested_index
-                    nested_index = parse_function_in_module(parser, arena)
-                    if (nested_index > 0) then
-                        body_indices = [body_indices, nested_index]
-                    end if
-                end block
-            else if (token%kind /= TK_NEWLINE) then
-                ! Parse basic statements for subroutine body (avoiding circular dependencies)
-                block
-                    integer :: stmt_index
-                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
-                    if (stmt_index > 0) then
-                        body_indices = [body_indices, stmt_index]
-                    end if
-                end block
-            else
-                token = parser%consume()  ! consume newline
-            end if
+            call append_body_item(parser, arena, token, body_indices)
         end do
 
         ! Create function node
@@ -410,6 +354,34 @@ contains
             stmt_index = 0
         end select
     end function parse_basic_statement_in_subroutine
+
+    subroutine append_body_item(parser, arena, token, body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer :: nested_index, stmt_index
+        type(token_t) :: consumed_token
+
+        if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+            nested_index = parse_subroutine_in_module(parser, arena)
+            if (nested_index > 0) then
+                body_indices = [body_indices, nested_index]
+            end if
+        else if (token%kind == TK_KEYWORD .and. token%text == "function") then
+            nested_index = parse_function_in_module(parser, arena)
+            if (nested_index > 0) then
+                body_indices = [body_indices, nested_index]
+            end if
+        else if (token%kind /= TK_NEWLINE) then
+            stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            end if
+        else
+            consumed_token = parser%consume()
+        end if
+    end subroutine append_body_item
 
     ! Simple print statement parser for subroutine bodies
     function parse_simple_print_statement(parser, arena) result(stmt_index)
