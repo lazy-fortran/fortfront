@@ -559,27 +559,28 @@ contains
                                  arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         param_names(i) = param%name
-                        if (param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
+                        call apply_function_type(i, .false., "", .false., 0, &
+                                                 param%inferred_type%kind > 0, &
+                                                 param%inferred_type%to_string(), &
+                                                 .false., .false.)
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
                         fn_param_optional(i) = param%is_optional
                         if (allocated(param%type_name)) then
-                            fn_param_type(i) = trim(param%type_name)
-                            if (len_trim(fn_param_type(i)) > 0) &
-                                fn_param_type_inferred(i) = .false.
+                            call apply_function_type(i, .true., &
+                                                     trim(param%type_name), &
+                                                     param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, .false.)
+                        else
+                            call apply_function_type(i, .false., "", param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, .false.)
                         end if
-                        if ((.not. allocated(param%type_name) .or. &
-                             len_trim(param%type_name) == 0) .and. &
-                            param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
-                        fn_param_has_kind(i) = param%has_kind
-                        fn_param_kind_value(i) = param%kind_value
-                        fn_param_is_array(i) = param%is_array
                         select case (param%intent_type)
                         case (INTENT_IN)
                             fn_param_intent(i) = "in"
@@ -594,20 +595,22 @@ contains
                     type is (declaration_node)
                         param_names(i) = param%var_name
                         if (allocated(param%type_name)) then
-                            fn_param_type(i) = trim(param%type_name)
-                            if (len_trim(fn_param_type(i)) > 0) &
-                                fn_param_type_inferred(i) = .false.
+                            call apply_function_type(i, .true., &
+                                                     trim(param%type_name), &
+                                                     param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, &
+                                                     param%is_allocatable)
+                        else
+                            call apply_function_type(i, .false., "", param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, &
+                                                     param%is_allocatable)
                         end if
-                        if ((.not. allocated(param%type_name) .or. &
-                             len_trim(param%type_name) == 0) .and. &
-                            param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
-                        fn_param_has_kind(i) = param%has_kind
-                        fn_param_kind_value(i) = param%kind_value
-                        fn_param_is_array(i) = param%is_array
-                        fn_param_is_allocatable(i) = param%is_allocatable
                     class default
                         ! Try to get a reasonable default name
                         write (param_names(i), '(a,i0)') "param", i
@@ -624,9 +627,12 @@ contains
 
         if (allocated(func_def%body_indices)) then
             call synchronize_parameter_declarations(arena, func_def%body_indices, &
-                   param_names, param_names_found, fn_param_optional, fn_param_intent, &
-                                      "in", standardizer_type_standardization_enabled, &
-                 param_type=fn_param_type, param_type_inferred=fn_param_type_inferred, &
+                                    param_names, param_names_found, fn_param_optional, &
+                                                    fn_param_intent, &
+                                                    "in", &
+                                            standardizer_type_standardization_enabled, &
+                                                    param_type=fn_param_type, &
+                                           param_type_inferred=fn_param_type_inferred, &
                                                     param_has_kind=fn_param_has_kind, &
                                                  param_kind_value=fn_param_kind_value, &
                                                     param_is_array=fn_param_is_array, &
@@ -657,6 +663,38 @@ contains
                                               standardizer_type_standardization_enabled)
         end if
 
+    contains
+        subroutine apply_function_type(idx, type_present, type_text, has_kind_flag, &
+                                       kind_value, inferred_present, inferred_text, &
+                                       is_array_flag, is_alloc_flag)
+            integer, intent(in) :: idx
+            logical, intent(in) :: type_present
+            character(len=*), intent(in) :: type_text
+            logical, intent(in) :: has_kind_flag
+            integer, intent(in) :: kind_value
+            logical, intent(in) :: inferred_present
+            character(len=*), intent(in) :: inferred_text
+            logical, intent(in) :: is_array_flag
+            logical, intent(in) :: is_alloc_flag
+
+            if (type_present .and. len_trim(type_text) > 0) then
+                fn_param_type(idx) = trim(type_text)
+                fn_param_type_inferred(idx) = .false.
+            else if (inferred_present .and. len_trim(inferred_text) > 0) then
+                fn_param_type(idx) = trim(inferred_text)
+                fn_param_type_inferred(idx) = .false.
+            end if
+
+            fn_param_has_kind(idx) = has_kind_flag
+            if (has_kind_flag) then
+                fn_param_kind_value(idx) = kind_value
+            else
+                fn_param_kind_value(idx) = 0
+            end if
+
+            fn_param_is_array(idx) = is_array_flag
+            fn_param_is_allocatable(idx) = is_alloc_flag
+        end subroutine apply_function_type
     end subroutine standardize_function_parameters
 
     ! Add missing parameter declarations
@@ -1021,8 +1059,10 @@ contains
 
         if (allocated(sub_def%body_indices)) then
             call synchronize_parameter_declarations(arena, sub_def%body_indices, &
-                   param_names, param_names_found, sb_param_optional, sb_param_intent, &
-                                     "inout", standardizer_type_standardization_enabled)
+                                    param_names, param_names_found, sb_param_optional, &
+                                                    sb_param_intent, &
+                                                    "inout", &
+                                              standardizer_type_standardization_enabled)
         end if
 
         ! Add declarations for parameters not found

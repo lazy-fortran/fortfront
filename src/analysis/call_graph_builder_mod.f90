@@ -208,15 +208,8 @@ contains
                                         is_main=.true.)
             call add_symbol_entry(builder, node%name, node%name, 0, node_idx, &
                                   .true., symbol_id)
-            if (allocated(node%body_indices)) then
-                do i = size(node%body_indices), 1, -1
-                    call push_on_stack(arena, node%body_indices(i), symbol_id, stack, &
-                                       top, capacity)
-                end do
-            else
-                call push_children_on_stack(arena, node_idx, symbol_id, stack, top, &
-                                            capacity, children)
-            end if
+            call push_body_or_children(arena, node_idx, symbol_id, node%body_indices, &
+                                       stack, top, capacity, children)
         end select
     end subroutine handle_program_node
 
@@ -232,7 +225,6 @@ contains
         integer, allocatable, intent(inout) :: children(:)
         character(len=:), allocatable :: full_name
         integer :: symbol_id
-        integer :: i
 
         select type (node => arena%entries(node_idx)%node)
         type is (function_def_node)
@@ -240,15 +232,8 @@ contains
             call builder%graph%add_proc(full_name, node_idx, node%line, node%column)
             call add_symbol_entry(builder, node%name, full_name, scope_sym, node_idx, &
                                   .true., symbol_id)
-            if (allocated(node%body_indices)) then
-                do i = size(node%body_indices), 1, -1
-                    call push_on_stack(arena, node%body_indices(i), symbol_id, stack, &
-                                       top, capacity)
-                end do
-            else
-                call push_children_on_stack(arena, node_idx, symbol_id, stack, top, &
-                                            capacity, children)
-            end if
+            call push_body_or_children(arena, node_idx, symbol_id, node%body_indices, &
+                                       stack, top, capacity, children)
         end select
     end subroutine handle_function_node
 
@@ -264,7 +249,6 @@ contains
         integer, allocatable, intent(inout) :: children(:)
         character(len=:), allocatable :: full_name
         integer :: symbol_id
-        integer :: i
 
         select type (node => arena%entries(node_idx)%node)
         type is (subroutine_def_node)
@@ -272,15 +256,8 @@ contains
             call builder%graph%add_proc(full_name, node_idx, node%line, node%column)
             call add_symbol_entry(builder, node%name, full_name, scope_sym, node_idx, &
                                   .true., symbol_id)
-            if (allocated(node%body_indices)) then
-                do i = size(node%body_indices), 1, -1
-                    call push_on_stack(arena, node%body_indices(i), symbol_id, stack, &
-                                       top, capacity)
-                end do
-            else
-                call push_children_on_stack(arena, node_idx, symbol_id, stack, top, &
-                                            capacity, children)
-            end if
+            call push_body_or_children(arena, node_idx, symbol_id, node%body_indices, &
+                                       stack, top, capacity, children)
         end select
     end subroutine handle_subroutine_node
 
@@ -358,6 +335,32 @@ contains
                                         capacity, children)
         end select
     end subroutine handle_module_node
+
+    subroutine push_body_or_children(arena, node_idx, symbol_id, body_indices, stack, &
+                                     top, capacity, children)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_idx
+        integer, intent(in) :: symbol_id
+        integer, allocatable, intent(in), optional :: body_indices(:)
+        type(stack_item_t), allocatable, intent(inout) :: stack(:)
+        integer, intent(inout) :: top
+        integer, intent(inout) :: capacity
+        integer, allocatable, intent(inout) :: children(:)
+        integer :: i
+
+        if (present(body_indices)) then
+            if (allocated(body_indices)) then
+                do i = size(body_indices), 1, -1
+                    call push_on_stack(arena, body_indices(i), symbol_id, stack, top, &
+                                       capacity)
+                end do
+                return
+            end if
+        end if
+
+        call push_children_on_stack(arena, node_idx, symbol_id, stack, top, &
+                                    capacity, children)
+    end subroutine push_body_or_children
 
     subroutine push_on_stack(arena, idx, scope_value, stack, top, capacity)
         type(ast_arena_t), intent(in) :: arena
