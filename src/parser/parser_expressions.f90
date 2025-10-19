@@ -876,6 +876,16 @@ contains
             should_exit = .true.
             return
         end if
+        if (op_entry%symbol == "/") then
+            block
+                type(token_t) :: lookahead
+                lookahead = view_lookahead_token(view, parser, 1)
+                if (trim(lookahead%text) == ")") then
+                    should_exit = .true.
+                    return
+                end if
+            end block
+        end if
 
         if (op_entry%precedence < minimum_precedence) then
             should_exit = .true.
@@ -936,6 +946,14 @@ contains
             if (token_is_terminator(token, terminators)) exit main_loop
 
             if (expect_operand) then
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    if (is_legacy_array_literal_start(parser, view)) then
+                        call handle_operand_token(parser, arena, view, operands, &
+                                                  prefix_stack, token, &
+                                                  expect_operand)
+                        cycle
+                    end if
+                end if
                 if (is_prefix_operator_token(token)) then
                     call token_stack_push(prefix_stack, &
                                           view_consume_token(view, parser))
