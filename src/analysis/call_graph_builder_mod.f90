@@ -171,11 +171,21 @@ contains
         case ('call_or_subscript')
             call handle_call_or_subscript_node(builder, arena, node_idx, scope_sym)
         case ('assignment', 'assignment_node')
-            call handle_assignment_node(arena, node_idx, scope_sym, stack, top, &
-                                        capacity)
+            select type (node => arena%entries(node_idx)%node)
+            type is (assignment_node)
+                call push_on_stack(arena, node%value_index, scope_sym, stack, top, &
+                                   capacity)
+                call push_on_stack(arena, node%target_index, scope_sym, stack, top, &
+                                   capacity)
+            end select
         case ('binary_op', 'binary_op_node')
-            call handle_binary_op_node(arena, node_idx, scope_sym, stack, top, &
-                                       capacity)
+            select type (node => arena%entries(node_idx)%node)
+            type is (binary_op_node)
+                call push_on_stack(arena, node%right_index, scope_sym, stack, top, &
+                                   capacity)
+                call push_on_stack(arena, node%left_index, scope_sym, stack, top, &
+                                   capacity)
+            end select
         case ('module', 'module_node')
             call handle_module_node(builder, arena, node_idx, stack, top, capacity, &
                                     children)
@@ -323,41 +333,6 @@ contains
             end if
         end select
     end subroutine handle_call_or_subscript_node
-
-    subroutine handle_assignment_node(arena, node_idx, scope_sym, stack, top, &
-                                       capacity)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_idx
-        integer, intent(in) :: scope_sym
-        type(stack_item_t), allocatable, intent(inout) :: stack(:)
-        integer, intent(inout) :: top
-        integer, intent(inout) :: capacity
-
-        select type (node => arena%entries(node_idx)%node)
-        type is (assignment_node)
-            call push_on_stack(arena, node%value_index, scope_sym, stack, top, &
-                               capacity)
-            call push_on_stack(arena, node%target_index, scope_sym, stack, top, &
-                               capacity)
-        end select
-    end subroutine handle_assignment_node
-
-    subroutine handle_binary_op_node(arena, node_idx, scope_sym, stack, top, &
-                                      capacity)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_idx
-        integer, intent(in) :: scope_sym
-        type(stack_item_t), allocatable, intent(inout) :: stack(:)
-        integer, intent(inout) :: top
-        integer, intent(inout) :: capacity
-
-        select type (node => arena%entries(node_idx)%node)
-        type is (binary_op_node)
-            call push_on_stack(arena, node%right_index, scope_sym, stack, top, &
-                               capacity)
-            call push_on_stack(arena, node%left_index, scope_sym, stack, top, capacity)
-        end select
-    end subroutine handle_binary_op_node
 
     subroutine handle_module_node(builder, arena, node_idx, stack, top, capacity, &
                                    children)
