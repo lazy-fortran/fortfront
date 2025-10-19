@@ -1,7 +1,7 @@
-module codegen_declarations_variable_mod
+module codegen_declarations_core
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string
+                              intent_type_to_string, derived_type_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
                                    TDOUBLE, TDERIVED
@@ -14,11 +14,12 @@ module codegen_declarations_variable_mod
                                            reset_declaration_attributes, &
                                            set_declaration_intent, &
                                            append_declaration_attributes
-    use codegen_declarations_shared_mod, only: fix_character_len_placeholder
     implicit none
     private
     public :: generate_code_declaration
     public :: generate_code_parameter_declaration
+    public :: generate_code_derived_type
+    public :: fix_character_len_placeholder
 
 contains
 
@@ -358,4 +359,104 @@ contains
         dim_clause = dim_clause // ")"
     end function build_parameter_dimensions
 
-end module codegen_declarations_variable_mod
+    function generate_code_derived_type(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        code = build_derived_type_header(node)
+        code = code // collect_derived_components(arena, node)
+        code = code // "end type " // node%name
+    end function generate_code_derived_type
+
+    function build_derived_type_header(node) result(header)
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: header
+        character(len=:), allocatable :: clause
+
+        clause = derived_type_attribute_clause(node)
+        if (len_trim(clause) == 0) then
+            header = "type :: " // node%name // new_line('A')
+        else if (clause(1:1) == ",") then
+            header = "type" // clause // " :: " // node%name // new_line('A')
+        else
+            header = "type " // trim(clause) // " :: " // node%name // new_line('A')
+        end if
+    end function build_derived_type_header
+
+    function derived_type_attribute_clause(node) result(clause)
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: clause
+        integer :: i
+        integer :: trimmed_length
+
+        clause = ""
+        if (.not. node%has_attributes) return
+        if (.not. allocated(node%attribute_clause)) return
+
+        trimmed_length = len_trim(node%attribute_clause)
+        if (trimmed_length == 0) return
+
+        clause = ""
+        do i = 1, trimmed_length
+            clause = clause // node%attribute_clause(i:i)
+            if (node%attribute_clause(i:i) == "," .and. i < trimmed_length) then
+                if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
+                    node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
+                    clause = clause // " "
+                end if
+            end if
+        end do
+    end function derived_type_attribute_clause
+
+    function collect_derived_components(arena, node) result(component_block)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: component_block
+        character(len=:), allocatable :: component_code
+        integer :: i
+        integer :: component_index
+
+        component_block = ""
+        if (.not. allocated(node%component_indices)) return
+
+        do i = 1, size(node%component_indices)
+            component_index = node%component_indices(i)
+            if (component_index <= 0 .or. component_index > arena%size) cycle
+            if (.not. allocated(arena%entries(component_index)%node)) cycle
+
+            select type (child => arena%entries(component_index)%node)
+            type is (derived_type_node)
+                cycle
+            class default
+                component_code = generate_code_from_arena(arena, component_index)
+            end select
+
+            if (len_trim(component_code) == 0) cycle
+            component_block = component_block // "    " // component_code // &
+                              new_line('A')
+        end do
+    end function collect_derived_components
+
+    pure function fix_character_len_placeholder(text) result(out)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: out
+        integer :: pos
+
+        out = text
+
+        pos = index(out, "len=))")
+        do while (pos > 0)
+            out = out(:pos - 1) // "len=*" // out(pos + 5:)
+            pos = index(out, "len=))")
+        end do
+
+        pos = index(out, "len=)")
+        do while (pos > 0)
+            out = out(:pos - 1) // "len=*" // out(pos + 4:)
+            pos = index(out, "len=)")
+        end do
+    end function fix_character_len_placeholder
+
+end module codegen_declarations_core

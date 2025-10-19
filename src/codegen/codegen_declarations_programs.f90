@@ -1,37 +1,25 @@
-module codegen_declarations_program_mod
+module codegen_declarations_programs
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, identifier_node, literal_node, &
-                              assignment_node, array_literal_node, call_or_subscript_node
+                              assignment_node, array_literal_node, &
+                              call_or_subscript_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
-                              implicit_statement_node, use_statement_node
+                              implicit_statement_node, use_statement_node, &
+                              interface_block_node, module_procedure_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_data, only: declaration_node
+    use ast_nodes_data, only: declaration_node, module_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
-    use codegen_utilities, only: generate_grouped_body_context
+    use codegen_utilities, only: generate_grouped_body, generate_grouped_body_context
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_loop_vars_mod, only: add_loop_variable_decls
+    use codegen_declarations_inference, only: collect_program_variable_decls
     implicit none
     private
     public :: generate_code_program
-
-    integer, parameter :: program_decl_max_vars = 256
-
-    type :: program_decl_state_t
-        character(len=64) :: declared_names(program_decl_max_vars)
-        character(len=64) :: var_names(program_decl_max_vars)
-        character(len=64) :: var_types(program_decl_max_vars)
-        character(len=64) :: func_names(program_decl_max_vars)
-        character(len=64) :: func_types(program_decl_max_vars)
-        character(len=64) :: internal_funcs(program_decl_max_vars)
-        character(len=64) :: defined_func_names(program_decl_max_vars)
-        character(len=64) :: defined_func_types(program_decl_max_vars)
-        integer :: declared_count
-        integer :: var_count
-        integer :: func_count
-        integer :: internal_count
-        integer :: defined_func_count
-    end type program_decl_state_t
+    public :: generate_code_module
+    public :: generate_code_interface_block
+    public :: generate_code_module_procedure
 
 contains
 
@@ -214,7 +202,8 @@ contains
         end do
     end function has_prior_subroutine_with_name
 
-    subroutine assemble_program_header(arena, node, code, non_use_indices, non_use_count)
+    subroutine assemble_program_header(arena, node, code, non_use_indices, &
+                                       non_use_count)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: code
@@ -571,7 +560,8 @@ contains
                 end select
 
                 if (len(snippet) > 0) then
-                    if (len(trivia_code) > 0) trivia_code = trivia_code // new_line('A')
+                    if (len(trivia_code) > 0) trivia_code = trivia_code // &
+                                                            new_line('A')
                     trivia_code = trivia_code // snippet
                 end if
             end do
@@ -593,315 +583,174 @@ contains
     end function generate_grouped_body_with_context
 
     ! Collect variable declarations for undeclared identifiers in programs
-    function collect_program_variable_decls(arena, prog) result(decl_code)
+
+    function generate_code_module(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog
-        character(len=:), allocatable :: decl_code
-        type(program_decl_state_t) :: state
-
-        decl_code = ""
-        if (.not. allocated(prog%body_indices)) return
-
-        call initialize_program_decl_state(state)
-        call populate_defined_function_table(arena, state)
-        call collect_declared_symbols(arena, prog, state)
-        call collect_assignment_symbols(arena, prog, state)
-
-        if (state%var_count == 0 .and. state%func_count == 0) return
-
-        decl_code = emit_program_declarations(state)
-    end function collect_program_variable_decls
-
-    subroutine initialize_program_decl_state(state)
-        type(program_decl_state_t), intent(out) :: state
-
-        state%declared_names = ""
-        state%var_names = ""
-        state%var_types = ""
-        state%func_names = ""
-        state%func_types = ""
-        state%internal_funcs = ""
-        state%defined_func_names = ""
-        state%defined_func_types = ""
-        state%declared_count = 0
-        state%var_count = 0
-        state%func_count = 0
-        state%internal_count = 0
-        state%defined_func_count = 0
-    end subroutine initialize_program_decl_state
-
-    subroutine populate_defined_function_table(arena, state)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_decl_state_t), intent(inout) :: state
-
-        call build_function_return_type_table(arena, state%defined_func_names, &
-                                              state%defined_func_types, &
-                                              state%defined_func_count)
-    end subroutine populate_defined_function_table
-
-    subroutine collect_declared_symbols(arena, prog, state)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog
-        type(program_decl_state_t), intent(inout) :: state
-        integer :: i, j, idx
-
-        do i = 1, size(prog%body_indices)
-            idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-            select type (decl => arena%entries(idx)%node)
-            type is (declaration_node)
-                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
-                    do j = 1, size(decl%var_names)
-                        call record_declared_name(state, trim(decl%var_names(j)))
-                    end do
-                else
-                    call record_declared_name(state, trim(decl%var_name))
-                end if
-            type is (function_def_node)
-                call try_add_internal_function(state, trim(decl%name))
-            end select
-        end do
-    end subroutine collect_declared_symbols
-
-    subroutine record_declared_name(state, name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-
-        if (len_trim(name) == 0) return
-        if (state%declared_count >= program_decl_max_vars) return
-        state%declared_count = state%declared_count + 1
-        state%declared_names(state%declared_count) = name
-    end subroutine record_declared_name
-
-    subroutine try_add_internal_function(state, name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-
-        if (len_trim(name) == 0) return
-        if (state%internal_count >= program_decl_max_vars) return
-        if (exists_in_list(state%internal_funcs, state%internal_count, name)) return
-        state%internal_count = state%internal_count + 1
-        state%internal_funcs(state%internal_count) = name
-    end subroutine try_add_internal_function
-
-    subroutine collect_assignment_symbols(arena, prog, state)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog
-        type(program_decl_state_t), intent(inout) :: state
-        integer :: i, idx
-
-        do i = 1, size(prog%body_indices)
-            idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-            select type (stmt => arena%entries(idx)%node)
-            type is (assignment_node)
-                call process_assignment_target(arena, stmt, state)
-                call process_assignment_value(arena, stmt, state)
-            end select
-        end do
-    end subroutine collect_assignment_symbols
-
-    subroutine process_assignment_target(arena, stmt, state)
-        type(ast_arena_t), intent(in) :: arena
-        type(assignment_node), intent(in) :: stmt
-        type(program_decl_state_t), intent(inout) :: state
-        integer :: target_idx
-        character(len=:), allocatable :: name_buf
-        character(len=:), allocatable :: type_buf
-        character(len=:), allocatable :: func_return_type
-
-        target_idx = stmt%target_index
-        if (target_idx <= 0 .or. target_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_idx)%node)) return
-
-        select type (id => arena%entries(target_idx)%node)
-        type is (identifier_node)
-            name_buf = trim(id%name)
-            if (len_trim(name_buf) == 0) return
-            if (exists_in_list(state%declared_names, state%declared_count, &
-                               name_buf)) return
-            if (exists_in_list(state%var_names, state%var_count, name_buf)) return
-
-            type_buf = mono_type_to_string(id%inferred_type, include_shape=.true., &
-                                           fallback='real')
-            if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
-                func_return_type = infer_function_return_type_from_rhs(arena, &
-                                                                       stmt, state)
-                if (len_trim(func_return_type) > 0) type_buf = trim(func_return_type)
-            end if
-            if (len_trim(type_buf) == 0) type_buf = 'real'
-
-            call try_add_variable(state, name_buf, trim(type_buf))
-        end select
-    end subroutine process_assignment_target
-
-    function infer_function_return_type_from_rhs(arena, stmt, state) result(type_name)
-        type(ast_arena_t), intent(in) :: arena
-        type(assignment_node), intent(in) :: stmt
-        type(program_decl_state_t), intent(in) :: state
-        character(len=:), allocatable :: type_name
-        integer :: value_idx
-
-        type_name = ""
-        value_idx = stmt%value_index
-        if (value_idx <= 0 .or. value_idx > arena%size) return
-        if (.not. allocated(arena%entries(value_idx)%node)) return
-
-        select type (rhs => arena%entries(value_idx)%node)
-        type is (call_or_subscript_node)
-            if (len_trim(rhs%name) == 0) return
-            type_name = lookup_function_return_type(state%defined_func_names, &
-                                                    state%defined_func_types, &
-                                                    state%defined_func_count, rhs%name)
-        end select
-    end function infer_function_return_type_from_rhs
-
-    subroutine process_assignment_value(arena, stmt, state)
-        type(ast_arena_t), intent(in) :: arena
-        type(assignment_node), intent(in) :: stmt
-        type(program_decl_state_t), intent(inout) :: state
-        integer :: value_idx
-        character(len=:), allocatable :: type_buf
-        character(len=:), allocatable :: func_return_type
-        character(len=:), allocatable :: name_buf
-
-        value_idx = stmt%value_index
-        if (value_idx <= 0 .or. value_idx > arena%size) return
-        if (.not. allocated(arena%entries(value_idx)%node)) return
-
-        select type (val => arena%entries(value_idx)%node)
-        type is (call_or_subscript_node)
-            name_buf = trim(val%name)
-            if (len_trim(name_buf) == 0) return
-            type_buf = mono_type_to_string(val%inferred_type, include_shape=.true., &
-                                           fallback='real')
-            if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
-                func_return_type = &
-                    lookup_function_return_type(state%defined_func_names, &
-                                                state%defined_func_types, &
-                                                state%defined_func_count, &
-                                                name_buf)
-                if (len_trim(func_return_type) > 0) type_buf = trim(func_return_type)
-            end if
-            if (len_trim(type_buf) == 0) type_buf = 'real'
-            call try_add_function_reference(state, name_buf, trim(type_buf))
-        end select
-    end subroutine process_assignment_value
-
-    subroutine try_add_variable(state, name, type_name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: type_name
-
-        if (len_trim(name) == 0) return
-        if (state%var_count >= program_decl_max_vars) return
-        if (exists_in_list(state%var_names, state%var_count, name)) return
-        state%var_count = state%var_count + 1
-        state%var_names(state%var_count) = name
-        state%var_types(state%var_count) = type_name
-    end subroutine try_add_variable
-
-    subroutine try_add_function_reference(state, name, type_name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: type_name
-
-        if (len_trim(name) == 0) return
-        if (state%func_count >= program_decl_max_vars) return
-        if (exists_in_list(state%func_names, state%func_count, name)) return
-        state%func_count = state%func_count + 1
-        state%func_names(state%func_count) = name
-        state%func_types(state%func_count) = type_name
-    end subroutine try_add_function_reference
-
-    function emit_program_declarations(state) result(code)
-        type(program_decl_state_t), intent(in) :: state
+        type(module_node), intent(in) :: node
+        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        integer :: i
 
-        code = ""
-        do i = 1, state%var_count
-            code = code // "    " // trim(state%var_types(i)) // " :: " // &
-                   trim(state%var_names(i)) // new_line('A')
-        end do
+        code = build_module_header(arena, node)
+        code = code // collect_module_declarations(arena, node)
+        code = code // build_contains_section(arena, node)
+        code = code // "end module " // node%name
+    end function generate_code_module
 
-        do i = 1, state%func_count
-            if (exists_in_list(state%internal_funcs, state%internal_count, &
-                               trim(state%func_names(i)))) cycle
-            code = code // "    " // trim(state%func_types(i)) // &
-                   ", external :: " // trim(state%func_names(i)) // new_line('A')
-        end do
-    end function emit_program_declarations
-
-    ! Helper function to check if a name exists in a list
-    logical function exists_in_list(list, count, name)
-        character(len=*), intent(in) :: list(:)
-        integer, intent(in) :: count
-        character(len=*), intent(in) :: name
-        integer :: i
-
-        exists_in_list = .false.
-        do i = 1, count
-            if (trim(list(i)) == trim(name)) then
-                exists_in_list = .true.
-                return
-            end if
-        end do
-    end function exists_in_list
-
-    subroutine build_function_return_type_table(arena, func_names, func_types, count)
+    function build_module_header(arena, node) result(header)
         type(ast_arena_t), intent(in) :: arena
-        character(len=*), intent(inout) :: func_names(:)
-        character(len=*), intent(inout) :: func_types(:)
-        integer, intent(out) :: count
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: header
+
+        header = "module " // node%name // new_line('A')
+        if (.not. module_has_implicit_none(arena, node)) then
+            header = header // "    implicit none" // new_line('A')
+        end if
+    end function build_module_header
+
+    logical function module_has_implicit_none(arena, node) result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
         integer :: i
-        character(len=64) :: func_name
+        integer :: decl_index
 
-        count = 0
-        func_names = ""
-        func_types = ""
+        has_implicit = .false.
+        if (.not. allocated(node%declaration_indices)) return
 
-        do i = 1, arena%size
-            if (count >= size(func_names)) exit
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (func => arena%entries(i)%node)
-            type is (function_def_node)
-                if (.not. allocated(func%name)) cycle
-                func_name = trim(func%name)
-                if (len_trim(func_name) == 0) cycle
-                if (exists_in_list(func_names, count, func_name)) cycle
-                count = count + 1
-                func_names(count) = func_name
-                if (allocated(func%return_type)) then
-                    if (len_trim(func%return_type) > 0) then
-                        func_types(count) = trim(func%return_type)
+        do i = 1, size(node%declaration_indices)
+            decl_index = node%declaration_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+
+            select type (decl => arena%entries(decl_index)%node)
+            type is (implicit_statement_node)
+                if (decl%is_none) then
+                    has_implicit = .true.
+                    return
+                end if
+            type is (literal_node)
+                if (allocated(decl%value)) then
+                    if (index(decl%value, "implicit none") > 0) then
+                        has_implicit = .true.
+                        return
                     end if
                 end if
             end select
         end do
-    end subroutine build_function_return_type_table
+    end function module_has_implicit_none
 
-    function lookup_function_return_type(func_names, func_types, count, &
-                                         func_name) result(type_name)
-        character(len=*), intent(in) :: func_names(:)
-        character(len=*), intent(in) :: func_types(:)
-        integer, intent(in) :: count
-        character(len=*), intent(in) :: func_name
-        character(len=:), allocatable :: type_name
+    function collect_module_declarations(arena, node) result(body_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: body_code
+
+        if (.not. allocated(node%declaration_indices)) then
+            body_code = ""
+            return
+        end if
+
+        body_code = generate_grouped_body(arena, node%declaration_indices, 1)
+    end function collect_module_declarations
+
+    function build_contains_section(arena, node) result(section_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: section_code
+        character(len=:), allocatable :: procedure_code
         integer :: i
+        logical :: has_entries
+        logical :: has_more
 
-        type_name = ""
-        if (len_trim(func_name) == 0) return
+        section_code = ""
+        has_entries = .false.
 
-        do i = 1, count
-            if (trim(func_names(i)) == trim(func_name)) then
-                if (len_trim(func_types(i)) > 0) then
-                    type_name = trim(func_types(i))
-                end if
-                return
-            end if
+        if (.not. node%has_contains) return
+        if (.not. allocated(node%procedure_indices)) return
+
+        section_code = "contains" // new_line('A')
+
+        do i = 1, size(node%procedure_indices)
+            procedure_code = collect_contained_procedure(arena, &
+                                                         node%procedure_indices(i))
+            if (len(procedure_code) == 0) cycle
+            has_entries = .true.
+            has_more = i < size(node%procedure_indices)
+            section_code = section_code // format_contained_procedure( &
+                           procedure_code, has_more)
         end do
-    end function lookup_function_return_type
-end module codegen_declarations_program_mod
+
+        if (.not. has_entries) section_code = ""
+    end function build_contains_section
+
+    function collect_contained_procedure(arena, procedure_index) result(proc_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        character(len=:), allocatable :: proc_code
+
+        proc_code = ""
+        if (procedure_index <= 0 .or. procedure_index > arena%size) return
+        if (.not. allocated(arena%entries(procedure_index)%node)) return
+
+        proc_code = generate_code_from_arena(arena, procedure_index)
+    end function collect_contained_procedure
+
+    function format_contained_procedure(proc_code, has_more) result(formatted)
+        character(len=*), intent(in) :: proc_code
+        logical, intent(in) :: has_more
+        character(len=:), allocatable :: formatted
+
+        formatted = "    " // proc_code
+        if (has_more) then
+            formatted = formatted // new_line('A') // new_line('A')
+        else
+            formatted = formatted // new_line('A')
+        end if
+    end function format_contained_procedure
+
+    function generate_code_interface_block(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(interface_block_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: body_code
+
+        code = "interface"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+        code = code // new_line('A')
+
+        if (allocated(node%procedure_indices)) then
+            body_code = generate_grouped_body(arena, node%procedure_indices, 1)
+            if (len(body_code) > 0) code = code // body_code
+        end if
+
+        code = code // "end interface"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+    end function generate_code_interface_block
+
+    function generate_code_module_procedure(node) result(code)
+        type(module_procedure_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+        character(len=:), allocatable :: name_text
+        logical :: first_name
+
+        code = "module procedure"
+        first_name = .true.
+        if (allocated(node%procedure_names)) then
+            do i = 1, size(node%procedure_names)
+                if (.not. allocated(node%procedure_names(i)%s)) cycle
+                name_text = trim(node%procedure_names(i)%s)
+                if (len_trim(name_text) == 0) cycle
+                if (first_name) then
+                    code = code // " " // name_text
+                    first_name = .false.
+                else
+                    code = code // ", " // name_text
+                end if
+            end do
+        end if
+    end function generate_code_module_procedure
+end module codegen_declarations_programs
