@@ -6,6 +6,7 @@ module parser_namelist_shared_module
     private
 
     public :: consume_namelist_group
+    public :: append_name
 
 contains
 

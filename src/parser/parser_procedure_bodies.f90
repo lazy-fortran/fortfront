@@ -24,17 +24,11 @@ module parser_procedure_bodies_module
 
 contains
 
-    ! Safe subroutine parsing for module contexts (avoids circular dependencies)
-    recursive function parse_subroutine_in_module(parser, arena) result(sub_index)
+    subroutine parse_prefix_keywords(parser, prefix_keywords, has_recursive_keyword)
         type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: sub_index
+        character(len=16), allocatable, intent(out) :: prefix_keywords(:)
+        logical, intent(out) :: has_recursive_keyword
         type(token_t) :: token
-        character(len=:), allocatable :: subroutine_name
-        integer :: line, column
-        integer, allocatable :: param_indices(:), body_indices(:)
-        character(len=16), allocatable :: prefix_keywords(:)
-        logical :: has_recursive_keyword
 
         has_recursive_keyword = .false.
 
@@ -59,6 +53,21 @@ contains
                 exit
             end if
         end do
+    end subroutine parse_prefix_keywords
+
+    ! Safe subroutine parsing for module contexts (avoids circular dependencies)
+    recursive function parse_subroutine_in_module(parser, arena) result(sub_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: sub_index
+        type(token_t) :: token
+        character(len=:), allocatable :: subroutine_name
+        integer :: line, column
+        integer, allocatable :: param_indices(:), body_indices(:)
+        character(len=16), allocatable :: prefix_keywords(:)
+        logical :: has_recursive_keyword
+
+        call parse_prefix_keywords(parser, prefix_keywords, has_recursive_keyword)
 
         ! Consume subroutine keyword
         token = parser%peek()
@@ -161,31 +170,9 @@ contains
 
         ! Initialize
         return_type_str = ""
-        has_recursive_keyword = .false.
-        allocate (character(len=16) :: prefix_keywords(0))
 
         ! Optional prefix keywords before "function"
-        do
-            token = parser%peek()
-            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                select case (trim(to_lower(token%text)))
-                case ("recursive")
-                    has_recursive_keyword = .true.
-                    call append_prefix_token(prefix_keywords, "recursive")
-                    token = parser%consume()
-                case ("pure")
-                    call append_prefix_token(prefix_keywords, "pure")
-                    token = parser%consume()
-                case ("elemental")
-                    call append_prefix_token(prefix_keywords, "elemental")
-                    token = parser%consume()
-                case default
-                    exit
-                end select
-            else
-                exit
-            end if
-        end do
+        call parse_prefix_keywords(parser, prefix_keywords, has_recursive_keyword)
 
         ! Check if we have a return type before "function"
         call consume_optional_return_type(parser, return_type_str)

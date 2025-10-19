@@ -8,7 +8,7 @@ module parser_module_structures_module
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal, &
                            push_visibility_statement, push_namelist_statement
-    use parser_namelist_shared_module, only: consume_namelist_group
+    use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
                                    parser_is_at_type_definition
     use parser_procedure_definitions_module, only: parse_function_definition, &
@@ -342,27 +342,6 @@ contains
                                                    column=keyword_token%column, &
                                                    has_double_colon=has_double_colon)
         end if
-    contains
-        subroutine append_name(list, value)
-            character(len=:), allocatable, intent(inout) :: list(:)
-            character(len=*), intent(in) :: value
-            character(len=:), allocatable :: temp(:)
-            integer :: n, current_len, target_len
-
-            if (.not. allocated(list)) then
-                allocate (character(len=len_trim(value)) :: list(1))
-                list(1) = trim(value)
-            else
-                n = size(list)
-                current_len = len(list)
-                target_len = len_trim(value)
-                target_len = max(current_len, target_len)
-                allocate (character(len=target_len) :: temp(n + 1))
-                temp(1:n) = list
-                temp(n + 1) = trim(value)
-                call move_alloc(temp, list)
-            end if
-        end subroutine append_name
     end function parse_visibility_statement
 
     function parse_namelist_statement(parser, arena) result(stmt_index)
