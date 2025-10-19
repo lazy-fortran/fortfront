@@ -9,6 +9,7 @@ program test_call_graph_consolidation
 
     call test_internal_procedures()
     call test_module_and_program_scopes()
+    call test_recursive_function_detection()
 
     if (all_tests_passed) then
         print *, "All call graph consolidation tests PASSED!"
@@ -128,6 +129,58 @@ contains
         call assert_no_cycles(graph)
     end subroutine test_module_and_program_scopes
 
+    subroutine test_recursive_function_detection()
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        type(call_graph_t) :: graph
+        character(len=:), allocatable :: cycles(:)
+        integer :: root_index
+
+        print *, "Testing recursive function detection..."
+
+        source = '' // &
+                 "module recursion_mod" // new_line('a') // &
+                 "contains" // new_line('a') // &
+                 "    recursive function sum_to(n) result(total)" // new_line('a') // &
+                 "        integer :: n" // new_line('a') // &
+                 "        integer :: total" // new_line('a') // &
+                 "        if (n <= 0) then" // new_line('a') // &
+                 "            total = 0" // new_line('a') // &
+                 "        else" // new_line('a') // &
+                 "            total = n + sum_to(n - 1)" // new_line('a') // &
+                 "        end if" // new_line('a') // &
+                 "    end function sum_to" // new_line('a') // &
+                 "end module recursion_mod"
+
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= '') then
+            call report_failure('Lexing failed for recursive function test', error_msg)
+            return
+        end if
+
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, root_index, error_msg)
+        if (root_index <= 0) then
+            call report_failure('Parsing failed for recursive function test', error_msg)
+            return
+        end if
+
+        graph = build_call_graph(arena, root_index)
+        call assert_procedure(graph, 'recursion_mod::sum_to')
+        call assert_edge(graph, 'recursion_mod::sum_to', 'recursion_mod::sum_to')
+
+        cycles = get_recursive_cycles(graph)
+        if (size(cycles) /= 1) then
+            call report_failure('Unexpected recursive cycle count', &
+                                'Expected single cycle for recursion_mod::sum_to')
+            return
+        end if
+        if (trim(cycles(1)) /= 'recursion_mod::sum_to') then
+            call report_failure('Incorrect recursive cycle entry', cycles(1))
+        end if
+    end subroutine test_recursive_function_detection
+
     subroutine assert_procedure(graph, expected)
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: expected
@@ -142,7 +195,7 @@ contains
         character(len=*), intent(in) :: callee
         if (.not. edge_exists(graph, caller, callee)) then
             call report_failure('Missing call edge in call graph', &
-                                caller // ' -> ' // callee)
+                                caller//' -> '//callee)
         end if
     end subroutine assert_edge
 
@@ -196,7 +249,8 @@ contains
 
         do i = 1, graph%proc_count
             do j = i + 1, graph%proc_count
-                if (trim(graph%procedures(i)%name) == trim(graph%procedures(j)%name)) then
+                if (trim(graph%procedures(i)%name) == &
+                    trim(graph%procedures(j)%name)) then
                     call report_failure('Duplicate procedure detected', &
                                         trim(graph%procedures(i)%name))
                     return

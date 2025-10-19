@@ -122,7 +122,8 @@ contains
             if (graph%procedures(i)%name == name) then
                 ! Update existing procedure info if needed
                 if (present(is_main)) graph%procedures(i)%is_main_program = is_main
-                if (present(is_intrinsic)) graph%procedures(i)%is_intrinsic = is_intrinsic
+                if (present(is_intrinsic)) graph%procedures(i)%is_intrinsic = &
+                    is_intrinsic
                 if (present(is_external)) graph%procedures(i)%is_external = is_external
                 return
             end if
@@ -675,7 +676,8 @@ contains
                     call builder%graph%add_proc(full_name, item%node_index, &
                                                 node%line, node%column)
                     call add_symbol_entry(builder, node%name, full_name, &
-                                          parent_symbol, item%node_index, .true., symbol_id)
+                                          parent_symbol, item%node_index, &
+                                          .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i), symbol_id)
@@ -694,7 +696,8 @@ contains
                     call builder%graph%add_proc(full_name, item%node_index, &
                                                 node%line, node%column)
                     call add_symbol_entry(builder, node%name, full_name, &
-                                          parent_symbol, item%node_index, .true., symbol_id)
+                                          parent_symbol, item%node_index, &
+                                          .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i), symbol_id)
@@ -710,10 +713,14 @@ contains
                     if (item%scope_symbol > 0) then
                         caller_name = builder%symbol_table(item%scope_symbol)%full_name
                         resolved_symbol = resolve_procedure_symbol(builder, &
-                                                                   node%name, item%scope_symbol)
+                                                                   node%name, &
+                                                                   item%scope_symbol)
                         call add_call_with_resolution(builder, &
-                                                      item%scope_symbol, trim(caller_name), node%name, &
-                                                      resolved_symbol, item%node_index, node%line, &
+                                                      item%scope_symbol, &
+                                                      trim(caller_name), &
+                                                      node%name, &
+                                                      resolved_symbol, item%node_index, &
+                                                      node%line, &
                                                       node%column)
                     end if
                 end select
@@ -724,10 +731,14 @@ contains
                     if (item%scope_symbol > 0 .and. .not. node%is_array_access) then
                         caller_name = builder%symbol_table(item%scope_symbol)%full_name
                         resolved_symbol = resolve_procedure_symbol(builder, &
-                                                                   node%name, item%scope_symbol)
+                                                                   node%name, &
+                                                                   item%scope_symbol)
                         call add_call_with_resolution(builder, &
-                                                      item%scope_symbol, trim(caller_name), node%name, &
-                                                      resolved_symbol, item%node_index, node%line, &
+                                                      item%scope_symbol, &
+                                                      trim(caller_name), &
+                                                      node%name, &
+                                                      resolved_symbol, item%node_index, &
+                                                      node%line, &
                                                       node%column)
                     end if
                 end select
@@ -851,7 +862,8 @@ contains
 
     ! Record a call edge and track unresolved callees for later resolution
     subroutine add_call_with_resolution(builder, scope_symbol, caller_name, &
-                                        callee_simple, resolved_symbol, call_node, line, column)
+                                        callee_simple, resolved_symbol, call_node, &
+                                        line, column)
         type(call_graph_builder_t), intent(inout) :: builder
         integer, intent(in) :: scope_symbol
         character(len=*), intent(in) :: caller_name
@@ -1053,7 +1065,9 @@ contains
 
         subroutine ensure_aggregator()
             if (agg_symbol <= 0) then
-                call add_symbol_entry(builder, "__MULTI_UNIT__", "__MULTI_UNIT__", 0, 0, .true., agg_symbol)
+                call add_symbol_entry(builder, "__MULTI_UNIT__", &
+                                      "__MULTI_UNIT__", 0, 0, &
+                                      .true., agg_symbol)
             end if
             agg_proc_index = builder%graph%find_proc_index("__MULTI_UNIT__")
             if (agg_proc_index <= 0) then
@@ -1309,6 +1323,8 @@ contains
                     character(len=256) :: simple_name_trim
                     character(len=256) :: callee_trim
                     logical :: should_be_recursive
+                    logical :: declares_recursive
+                    integer :: def_node
 
                     parent_scope = proc_name
                     sep_pos = index(parent_scope, '::', back=.true.)
@@ -1321,6 +1337,7 @@ contains
                     parent_scope_trim = trim(parent_scope)
                     simple_name_trim = trim(simple_name)
                     should_be_recursive = .false.
+                    def_node = builder%graph%procedures(i)%definition_node
 
                     do j = 1, builder%graph%call_count
                         caller_trim = trim(builder%graph%calls(j)%caller)
@@ -1335,16 +1352,54 @@ contains
                         end if
                     end do
 
-                    if (should_be_recursive .and. &
-                        index(simple_name, 'factorial') > 0) then
-                        proc_symbol = find_symbol_by_full_name(builder, proc_name)
-                        call add_call_with_resolution(builder, proc_symbol, &
-                                                      proc_name, simple_name, proc_symbol, 0, 0, 0)
+                    proc_symbol = find_symbol_by_full_name(builder, proc_name)
+                    if (proc_symbol > 0) then
+                        if (def_node <= 0) then
+                            def_node = builder%symbol_table(proc_symbol)%node_index
+                        end if
+                    end if
+                    declares_recursive = procedure_declares_recursive(arena, def_node)
+                    if (declares_recursive) should_be_recursive = .true.
+
+                    if (should_be_recursive) then
+                        if (proc_symbol > 0) then
+                            call add_call_with_resolution(builder, proc_symbol, &
+                                                          proc_name, simple_name, &
+                                                          proc_symbol, 0, 0, 0)
+                        end if
                     end if
                 end block
             end if
         end do
     end subroutine detect_recursive_calls
+
+    pure logical function procedure_declares_recursive(arena, node_index) &
+        & result(is_recursive)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: i
+
+        is_recursive = .false.
+        if (node_index <= 0) return
+        if (node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (proc_node => arena%entries(node_index)%node)
+        type is (function_def_node)
+            if (proc_node%is_recursive) then
+                is_recursive = .true.
+                return
+            end if
+            if (.not. allocated(proc_node%prefix_keywords)) return
+            do i = 1, size(proc_node%prefix_keywords)
+                if (trim(proc_node%prefix_keywords(i)) == 'recursive') then
+                    is_recursive = .true.
+                    return
+                end if
+            end do
+        class default
+        end select
+    end function procedure_declares_recursive
 
     ! Type-bound procedures
     subroutine graph_add_procedure(this, name, def_node, line, column, &
