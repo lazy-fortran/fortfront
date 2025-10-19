@@ -688,10 +688,7 @@ contains
         allocate (expr_tokens(remaining_count))
         expr_tokens = tokens(parser%current_token:)
         value_index = parse_expression(expr_tokens, arena)
-        if (value_index <= 0) then
-            deallocate (expr_tokens)
-            return
-        end if
+        if (value_index <= 0) return
 
         if (present(parent_index)) then
             target_index = push_identifier(arena, id_token%text, id_token%line, &
@@ -703,7 +700,6 @@ contains
 
         stmt_index = push_assignment(arena, target_index, value_index, id_token%line, &
                                      id_token%column, parent_index)
-        deallocate (expr_tokens)
     end function parse_simple_assignment
 
     integer function parse_complex_assignment(parser, arena, parent_index, tokens, &
@@ -758,11 +754,7 @@ contains
         lhs_tokens(lhs_len)%column = id_token%column
 
         target_index = parse_expression(lhs_tokens, arena)
-        if (target_index <= 0) then
-            deallocate (lhs_tokens)
-            return
-        end if
-        deallocate (lhs_tokens)
+        if (target_index <= 0) return
 
         parser%current_token = left_end + 1
         if (parser%current_token <= size(parser%tokens)) then
@@ -778,7 +770,6 @@ contains
         allocate (rhs_tokens(remaining_count))
         rhs_tokens = tokens(parser%current_token:)
         value_index = parse_expression(rhs_tokens, arena)
-        deallocate (rhs_tokens)
         if (value_index <= 0) return
 
         stmt_index = push_assignment(arena, target_index, value_index, id_token%line, &

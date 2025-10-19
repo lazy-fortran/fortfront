@@ -94,7 +94,6 @@ contains
         integer, allocatable :: extra_indices(:)
 
         call parse_assignment_statement(parser, arena, assign_index, extra_indices)
-        if (allocated(extra_indices)) deallocate (extra_indices)
     end function parse_assignment_simple
 
     ! Skip unknown statement (utility function)

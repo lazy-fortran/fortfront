@@ -134,7 +134,7 @@ contains
 
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
                 if (allocated(pending_prefixes)) then
-                    deallocate (pending_prefixes)
+                    call reset_pending_prefixes()
                     call prefix_buffer%clear()
                 end if
                 stmt_index = route_control_flow(parser, arena)
@@ -150,14 +150,12 @@ contains
                     case ("contains")
                         token = parser%consume()
                         stmt_index = 0
-                        if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
-                        end if
+                        call reset_pending_prefixes()
                         call prefix_buffer%clear()
                     case ("function")
                         if (allocated(pending_prefixes)) then
                             call prefix_buffer%set(pending_prefixes)
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                         else
                             call prefix_buffer%clear()
                         end if
@@ -167,7 +165,7 @@ contains
                     case ("subroutine")
                         if (allocated(pending_prefixes)) then
                             call prefix_buffer%set(pending_prefixes)
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                         else
                             call prefix_buffer%clear()
                         end if
@@ -176,104 +174,104 @@ contains
                         call prefix_buffer%clear()
                     case ("implicit")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         call parse_simple_implicit(parser, arena, stmt_index)
                     case ("real", "integer", "logical", "character", "complex", &
                           "double", "class")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         call handle_variable_declaration(parser, arena, stmt_index)
                     case ("type")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         call handle_type_declaration(parser, arena, stmt_index)
                     case ("print")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_print_statement(parser, arena)
                     case ("data")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_data_statement(parser, arena)
                     case ("use")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_use_statement(parser, arena)
                     case ("write")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_write_statement(parser, arena)
                     case ("allocate")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_allocate_statement(parser, arena)
                     case ("deallocate")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_deallocate_statement(parser, arena)
                     case ("stop")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_stop_statement(parser, arena)
                     case ("go", "goto")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_goto_statement(parser, arena)
                     case ("error")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_error_stop_statement(parser, arena)
                     case ("return")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_return_statement(parser, arena)
                     case ("cycle")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_cycle_statement(parser, arena)
                     case ("exit")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_exit_statement(parser, arena)
                     case ("call")
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         stmt_index = parse_call_statement(parser, arena)
                     case default
                         if (allocated(pending_prefixes)) then
-                            deallocate (pending_prefixes)
+                            call reset_pending_prefixes()
                             call prefix_buffer%clear()
                         end if
                         token = parser%consume()
@@ -281,7 +279,7 @@ contains
                     end select
                 case (TK_IDENTIFIER)
                     if (allocated(pending_prefixes)) then
-                        deallocate (pending_prefixes)
+                        call reset_pending_prefixes()
                         call prefix_buffer%clear()
                     end if
                     if (trim(to_lower(token%text)) == 'class') then
@@ -307,10 +305,23 @@ contains
                     if (size(additional_execution_indices) > 0) then
                         body_indices = [body_indices, additional_execution_indices]
                     end if
-                    deallocate (additional_execution_indices)
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(additional_execution_indices, temp)
+                    end block
                 end if
             end if
         end do
+
+    contains
+        subroutine reset_pending_prefixes()
+            if (allocated(pending_prefixes)) then
+                block
+                    character(len=16), allocatable :: temp(:)
+                    call move_alloc(pending_prefixes, temp)
+                end block
+            end if
+        end subroutine reset_pending_prefixes
     end subroutine parse_program_body
 
     ! Parse a simple if statement with optional else block

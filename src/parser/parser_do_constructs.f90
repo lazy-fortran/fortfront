@@ -455,7 +455,10 @@ contains
                             else
                                 parser%current_token = stmt_end + 1
                             end if
-                            deallocate (stmt_tokens)
+                            block
+                                type(token_t), allocatable, target :: temp(:)
+                                call move_alloc(stmt_tokens, temp)
+                            end block
                             cycle
                         end if
 
@@ -469,7 +472,10 @@ contains
                         end do
                     end block
 
-                    deallocate (stmt_tokens)
+                    block
+                        type(token_t), allocatable, target :: temp(:)
+                        call move_alloc(stmt_tokens, temp)
+                    end block
                 end if
 
                 if (stmt_end + 1 <= size(parser%tokens)) then
@@ -639,7 +645,10 @@ contains
                         end do
                     end block
 
-                    deallocate (stmt_tokens)
+                    block
+                        type(token_t), allocatable, target :: temp(:)
+                        call move_alloc(stmt_tokens, temp)
+                    end block
                 end if
 
                 parser%current_token = stmt_end + 1
@@ -672,7 +681,12 @@ contains
             end if
         end if
 
-        if (allocated(body_indices)) deallocate (body_indices)
+        if (allocated(body_indices)) then
+            block
+                integer, allocatable :: temp(:)
+                call move_alloc(body_indices, temp)
+            end block
+        end if
     end function parse_do_while_from_do
 
 end module parser_do_constructs_module

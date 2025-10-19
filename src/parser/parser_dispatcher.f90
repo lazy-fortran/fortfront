@@ -183,7 +183,6 @@ contains
 
                             ! Store additional indices if any
                             if (size(decl_indices) > 1) then
-                                allocate (additional_indices(size(decl_indices) - 1))
                                 additional_indices = decl_indices(2:)
                             end if
                         else
@@ -416,7 +415,10 @@ contains
     ! Clear additional indices after use
     subroutine clear_additional_indices()
         if (allocated(additional_indices)) then
-            deallocate (additional_indices)
+            block
+                integer, allocatable :: temp(:)
+                call move_alloc(additional_indices, temp)
+            end block
         end if
     end subroutine clear_additional_indices
 
@@ -581,8 +583,12 @@ contains
             stmt_index = assignment_indices(1)
 
             if (size(assignment_indices) > 1) then
-                if (allocated(additional_indices)) deallocate (additional_indices)
-                allocate (additional_indices(size(assignment_indices) - 1))
+                if (allocated(additional_indices)) then
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(additional_indices, temp)
+                    end block
+                end if
                 additional_indices = assignment_indices(2:)
             end if
         end if

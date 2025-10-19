@@ -28,10 +28,11 @@ contains
         class(parser_prefix_buffer_t), intent(inout) :: this
 
         call ensure_initialized()
-        if (allocated(global_prefixes)) then
-            deallocate (global_prefixes)
-        end if
-        allocate (character(len=16) :: global_prefixes(0))
+        block
+            character(len=16), allocatable :: empty(:)
+            allocate (character(len=16) :: empty(0))
+            call move_alloc(empty, global_prefixes)
+        end block
     end subroutine prefix_buffer_clear
 
     subroutine prefix_buffer_set(this, prefixes)
@@ -42,11 +43,12 @@ contains
         call this%clear()
         if (allocated(prefixes)) then
             if (size(prefixes) > 0) then
-                if (allocated(global_prefixes)) then
-                    deallocate (global_prefixes)
-                end if
-                allocate (character(len=16) :: global_prefixes(size(prefixes)))
-                global_prefixes = prefixes
+                block
+                    character(len=16), allocatable :: new_prefixes(:)
+                    allocate (character(len=16) :: new_prefixes(size(prefixes)))
+                    new_prefixes = prefixes
+                    call move_alloc(new_prefixes, global_prefixes)
+                end block
             end if
         end if
     end subroutine prefix_buffer_set
