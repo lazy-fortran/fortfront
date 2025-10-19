@@ -130,6 +130,20 @@ contains
         end do
     end function locate_variable
 
+    pure integer function find_index(values, target) result(position)
+        integer, intent(in) :: values(:)
+        integer, intent(in) :: target
+        integer :: i
+
+        position = 0
+        do i = 1, size(values)
+            if (values(i) == target) then
+                position = i
+                exit
+            end if
+        end do
+    end function find_index
+
     logical function variable_requires_allocatable(name, assigned_vars, &
                                                    assignment_counts, var_count, &
                                                    is_parameter) result(needs_alloc)
@@ -350,9 +364,6 @@ contains
         integer, intent(in) :: prog_index
         type(node_stack_t) :: stack
         integer :: current_index
-        logical :: needs_split
-        logical :: is_parameter
-        logical :: needs_alloc
 
         call stack_init(stack)
         call stack_push(stack, stmt_index)
@@ -363,28 +374,10 @@ contains
 
             select type (stmt => arena%entries(current_index)%node)
             type is (declaration_node)
-                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                    call handle_multi_variable_declaration_allocatable( &
-                        arena, current_index, assigned_vars, assignment_counts, &
-                        var_count, prog_index, needs_split)
-
-                    if (needs_split) then
-                        call split_multi_variable_declaration(arena, current_index, &
-                                                              assigned_vars, &
-                                                              assignment_counts, &
-                                                              var_count, prog_index)
-                    end if
-                else
-                    is_parameter = is_procedure_parameter(arena, current_index)
-                    needs_alloc = variable_requires_allocatable( &
-                                  stmt%var_name, assigned_vars, assignment_counts, &
-                                  var_count, is_parameter)
-                    if (needs_alloc) then
-                        if (apply_allocatable_attributes(stmt)) then
-                            arena%entries(current_index)%node = stmt
-                        end if
-                    end if
-                end if
+                call process_declaration_allocatable(arena, current_index, stmt, &
+                                                     assigned_vars, &
+                                                     assignment_counts, var_count, &
+                                                     prog_index)
             type is (do_loop_node)
                 if (allocated(stmt%body_indices)) then
                     call stack_push_many(stack, stmt%body_indices)
@@ -402,6 +395,45 @@ contains
         end do
     end subroutine mark_declarations_allocatable
 
+    subroutine process_declaration_allocatable(arena, decl_index, stmt, &
+                                               assigned_vars, assignment_counts, &
+                                               var_count, prog_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        type(declaration_node), intent(inout) :: stmt
+        character(len=64), intent(in) :: assigned_vars(:)
+        integer, intent(in) :: assignment_counts(:)
+        integer, intent(in) :: var_count
+        integer, intent(in) :: prog_index
+        logical :: needs_split
+        logical :: needs_alloc
+        logical :: is_parameter
+
+        if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+            call handle_multi_variable_declaration_allocatable( &
+                arena, decl_index, assigned_vars, assignment_counts, var_count, &
+                prog_index, needs_split)
+
+            if (needs_split) then
+                call split_multi_variable_declaration(arena, decl_index, &
+                                                      assigned_vars, &
+                                                      assignment_counts, var_count, &
+                                                      prog_index)
+            end if
+        else
+            is_parameter = is_procedure_parameter(arena, decl_index)
+            needs_alloc = variable_requires_allocatable(stmt%var_name, &
+                                                        assigned_vars, &
+                                                        assignment_counts, var_count, &
+                                                        is_parameter)
+            if (needs_alloc) then
+                if (apply_allocatable_attributes(stmt)) then
+                    arena%entries(decl_index)%node = stmt
+                end if
+            end if
+        end if
+    end subroutine process_declaration_allocatable
+
     ! Handle multi-variable declarations for allocatable marking
     subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
                                                              assigned_vars, &
@@ -415,53 +447,40 @@ contains
         integer, intent(in) :: var_count
         integer, intent(in) :: prog_index
         logical, intent(out) :: needs_split
-        integer :: i, j
-        logical :: found_allocatable, found_non_allocatable
+        integer :: i
+        logical :: found_allocatable, found_non_allocatable, is_parameter
+        integer :: idx
 
         needs_split = .false.
-        found_allocatable = .false.
-        found_non_allocatable = .false.
+        found_allocatable = .false.; found_non_allocatable = .false.
 
-        if (decl_index <= 0 .or. decl_index > arena%size) return
-        if (.not. allocated(arena%entries(decl_index)%node)) return
+        if (.not. node_is_active(arena, decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
-            if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
-                ! Check each variable in the multi-declaration
-                do i = 1, size(decl%var_names)
-                    do j = 1, var_count
-                        if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                            if (assignment_counts(j) >= 2 .or. &
-                                is_procedure_parameter(arena, decl_index)) then
-                                found_allocatable = .true.
-                            else
-                                found_non_allocatable = .true.
-                            end if
-                            exit
-                        end if
-                    end do
-                    ! If we didn't find it in assigned vars, it doesn't need allocatable
-                    if (j > var_count) then
-                        found_non_allocatable = .true.
-                    end if
-                end do
+            if (.not. (decl%is_multi_declaration .and. allocated(decl%var_names))) return
 
-                ! If some variables need allocatable and others don't, we need to split
-                needs_split = (found_allocatable .and. found_non_allocatable)
-
-                ! If all variables in the declaration need allocatable, mark the whole
-                ! multi-declaration as allocatable (no split needed)
-                ! Only arrays or character types can switch to allocatable
-                if (found_allocatable .and. .not. found_non_allocatable) then
-                    block
-                        type(declaration_node) :: tmp
-                        tmp = decl
-                        if (apply_allocatable_attributes(tmp)) then
-                            arena%entries(decl_index)%node = tmp
-                        end if
-                    end block
+            is_parameter = is_procedure_parameter(arena, decl_index)
+            do i = 1, size(decl%var_names)
+                idx = locate_variable(decl%var_names(i), assigned_vars, var_count)
+                if (idx <= 0) then
+                    found_non_allocatable = .true.
+                else if (assignment_counts(idx) >= 2 .or. is_parameter) then
+                    found_allocatable = .true.
+                else
+                    found_non_allocatable = .true.
                 end if
+            end do
+
+            needs_split = (found_allocatable .and. found_non_allocatable)
+            if (found_allocatable .and. .not. found_non_allocatable) then
+                block
+                    type(declaration_node) :: tmp
+                    tmp = decl
+                    if (apply_allocatable_attributes(tmp)) then
+                        arena%entries(decl_index)%node = tmp
+                    end if
+                end block
             end if
         end select
     end subroutine handle_multi_variable_declaration_allocatable
@@ -551,55 +570,42 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index, old_decl_index
         integer, intent(in) :: new_alloc_index, new_non_alloc_index
-        integer :: i, old_pos, new_size, j
+        integer :: old_pos, new_size, insert_pos
         integer, allocatable :: new_body_indices(:)
 
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. node_is_active(arena, prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
 
-            ! Find position of old declaration
-            old_pos = 0
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) == old_decl_index) then
-                    old_pos = i
-                    exit
-                end if
-            end do
+            old_pos = find_index(prog%body_indices, old_decl_index)
+            if (old_pos == 0) return
 
-            if (old_pos == 0) return  ! Old declaration not found
-
-            ! Calculate new size
-            new_size = size(prog%body_indices) - 1  ! Remove old
+            new_size = size(prog%body_indices) - 1
             if (new_alloc_index > 0) new_size = new_size + 1
             if (new_non_alloc_index > 0) new_size = new_size + 1
 
             allocate (new_body_indices(new_size))
 
-            ! Copy indices before old position
-            do i = 1, old_pos - 1
-                new_body_indices(i) = prog%body_indices(i)
-            end do
+            if (old_pos > 1) then
+                new_body_indices(1:old_pos - 1) = prog%body_indices(1:old_pos - 1)
+            end if
 
-            j = old_pos
-            ! Insert new declarations
+            insert_pos = old_pos
             if (new_alloc_index > 0) then
-                new_body_indices(j) = new_alloc_index
-                j = j + 1
+                new_body_indices(insert_pos) = new_alloc_index
+                insert_pos = insert_pos + 1
             end if
             if (new_non_alloc_index > 0) then
-                new_body_indices(j) = new_non_alloc_index
-                j = j + 1
+                new_body_indices(insert_pos) = new_non_alloc_index
+                insert_pos = insert_pos + 1
             end if
 
-            ! Copy remaining indices
-            do i = old_pos + 1, size(prog%body_indices)
-                new_body_indices(j) = prog%body_indices(i)
-                j = j + 1
-            end do
+            if (old_pos < size(prog%body_indices)) then
+                new_body_indices(insert_pos:new_size) = &
+                    prog%body_indices(old_pos + 1:size(prog%body_indices))
+            end if
 
             prog%body_indices = new_body_indices
             arena%entries(prog_index)%node = prog
@@ -654,75 +660,95 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         character(len=64), allocatable :: string_vars_needing_allocatable(:)
-        integer :: var_count, i, j
+        integer :: var_count
 
         ! First pass: collect variables that need allocatable strings
         allocate (string_vars_needing_allocatable(100))
         var_count = 0
 
         if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                    arena%size) then
-                    call collect_string_vars_needing_allocatable( &
-                        arena, prog%body_indices(i), string_vars_needing_allocatable, &
-                        var_count)
-                end if
-            end do
+            call collect_program_string_targets(arena, prog%body_indices, &
+                                                string_vars_needing_allocatable, &
+                                                var_count)
         end if
 
-        ! Second pass: mark the corresponding declarations
         if (var_count > 0 .and. allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if this declaration needs to be marked
-                            do j = 1, var_count
-                                if (trim(stmt%var_name) == &
-                                    trim(string_vars_needing_allocatable(j))) then
-                                    if (allocated(stmt%type_name)) then
-                                        if (has_explicit_character_length( &
-                                            stmt%type_name)) then
-                                            stmt%inferred_type%alloc_info% &
-                                                needs_allocatable_string = .false.
-                                            cycle
-                                        end if
-                                    end if
-                                    ! Guard: only mark character declarations
-                                    ! as allocatable strings.
-                                    ! Do not convert non-character types.
-                                    if (trim(stmt%type_name) == 'character' .or. &
-                                        stmt%inferred_type%kind == TCHAR) then
-                                        if (stmt%inferred_type%kind > 0) then
-                                            stmt%inferred_type%alloc_info% &
-                                                needs_allocatable_string = .true.
-                                            ! Clear type_name so inferred_type applies
-                                            stmt%type_name = ""
-                                        else
-                                            ! Create inferred_type for declaration
-                                            stmt%inferred_type%kind = TCHAR
-                                            ! Unknown size for allocatable
-                                            stmt%inferred_type%size = 0
-                                            stmt%inferred_type%alloc_info% &
-                                                needs_allocatable_string = .true.
-                                            ! Clear type_name so inferred_type applies
-                                            stmt%type_name = ""
-                                        end if
-                                    end if
-                                    exit
-                                end if
-                            end do
-                        end select
-                    end if
-                end if
-            end do
+            call apply_string_allocatable_marks(arena, prog%body_indices, &
+                                                string_vars_needing_allocatable, &
+                                                var_count)
         end if
 
         deallocate (string_vars_needing_allocatable)
     end subroutine mark_allocatable_for_string_length_changes
+
+    subroutine collect_program_string_targets(arena, body_indices, targets, &
+                                              target_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=64), intent(inout) :: targets(:)
+        integer, intent(inout) :: target_count
+        integer :: i
+
+        do i = 1, size(body_indices)
+            if (.not. node_is_active(arena, body_indices(i))) cycle
+            call collect_string_vars_needing_allocatable(arena, body_indices(i), &
+                                                         targets, target_count)
+        end do
+    end subroutine collect_program_string_targets
+
+    subroutine apply_string_allocatable_marks(arena, body_indices, targets, &
+                                              target_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=64), intent(in) :: targets(:)
+        integer, intent(in) :: target_count
+        integer :: i
+
+        do i = 1, size(body_indices)
+            if (.not. node_is_active(arena, body_indices(i))) cycle
+            select type (stmt => arena%entries(body_indices(i))%node)
+            type is (declaration_node)
+                call mark_string_declaration(stmt, targets, target_count)
+            end select
+        end do
+    end subroutine apply_string_allocatable_marks
+
+    subroutine mark_string_declaration(stmt, target_names, var_count)
+        type(declaration_node), intent(inout) :: stmt
+        character(len=64), intent(in) :: target_names(:)
+        integer, intent(in) :: var_count
+        integer :: idx
+        character(len=64) :: type_name_trim
+        logical :: is_character_decl
+
+        if (var_count <= 0) return
+
+        idx = locate_variable(stmt%var_name, target_names, var_count)
+        if (idx <= 0) return
+
+        type_name_trim = ""
+        if (allocated(stmt%type_name)) then
+            type_name_trim = trim(stmt%type_name)
+            if (has_explicit_character_length(stmt%type_name)) then
+                stmt%inferred_type%alloc_info%needs_allocatable_string = .false.
+                return
+            end if
+        end if
+
+        is_character_decl = (type_name_trim == 'character' .or. &
+                             stmt%inferred_type%kind == TCHAR)
+        if (.not. is_character_decl) return
+
+        if (stmt%inferred_type%kind > 0) then
+            stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+            stmt%type_name = ""
+        else
+            stmt%inferred_type%kind = TCHAR
+            stmt%inferred_type%size = 0
+            stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+            stmt%type_name = ""
+        end if
+    end subroutine mark_string_declaration
 
     ! Recursively collect variables that need allocatable strings
     subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
