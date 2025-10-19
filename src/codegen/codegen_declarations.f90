@@ -25,6 +25,10 @@ module codegen_declarations
                                  normalize_character_type_param
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
+    use declaration_attribute_utils, only: declaration_attribute_info_t, &
+                                           reset_declaration_attributes, &
+                                           set_declaration_intent, &
+                                           append_declaration_attributes
     implicit none
     private
 
@@ -393,6 +397,7 @@ contains
         integer :: i, j
         logical :: standardize_types_enabled
         logical :: has_dimension_attr
+        type(declaration_attribute_info_t) :: attr_info
 
         ! Get type standardization setting
         call get_type_standardization(standardize_types_enabled)
@@ -481,53 +486,25 @@ contains
             end if
         end if
 
-        ! Add intent if present
+        call reset_declaration_attributes(attr_info)
         if (node%has_intent .and. allocated(node%intent)) then
-            code = code // ", intent(" // node%intent // ")"
+            call set_declaration_intent(attr_info, node%intent)
         end if
-
-        ! Add allocatable if present or if string needs allocatable
-        if (node%is_allocatable) then
-            if (index(to_lower(trim(code)), 'allocatable') == 0) then
-                code = code // ", allocatable"
-            end if
-        else if (node%inferred_type%kind > 0) then
-            if (node%inferred_type%alloc_info%needs_allocatable_string) then
-                code = code // ", allocatable"
+        attr_info%is_allocatable = node%is_allocatable
+        if (.not. attr_info%is_allocatable) then
+            if (node%inferred_type%kind > 0) then
+                if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                    attr_info%is_allocatable = .true.
+                end if
             end if
         end if
+        attr_info%is_optional = node%is_optional
+        attr_info%is_pointer = node%is_pointer
+        attr_info%is_target = node%is_target
+        attr_info%is_external = node%is_external
+        attr_info%is_parameter = node%is_parameter
 
-        ! Add optional if present
-        if (node%is_optional) then
-            code = code // ", optional"
-        end if
-
-        ! Add pointer if present
-        if (node%is_pointer) then
-            if (index(to_lower(trim(code)), 'pointer') == 0) then
-                code = code // ", pointer"
-            end if
-        end if
-
-        ! Add target if present
-        if (node%is_target) then
-            if (index(to_lower(trim(code)), 'target') == 0) then
-                code = code // ", target"
-            end if
-        end if
-
-        if (node%is_external) then
-            if (index(to_lower(trim(code)), 'external') == 0) then
-                code = code // ", external"
-            end if
-        end if
-
-        ! Add parameter if present
-        if (node%is_parameter) then
-            if (index(to_lower(trim(code)), 'parameter') == 0) then
-                code = code // ", parameter"
-            end if
-        end if
+        call append_declaration_attributes(code, attr_info)
 
         has_dimension_attr = index(to_lower(trim(type_str)), "dimension(") > 0
 
@@ -609,6 +586,7 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: intent_str
         integer :: j
+        type(declaration_attribute_info_t) :: attr_info
 
         ! Check if this node has a parent that needs just the name (parameter list)
         ! vs full declaration (in body). For now, generate full declaration when
@@ -625,16 +603,13 @@ contains
                        trim(adjustl(int_to_string(node%kind_value))) // ")"
             end if
 
-            ! Add intent attribute
             intent_str = intent_type_to_string(node%intent_type)
+            call reset_declaration_attributes(attr_info)
             if (len_trim(intent_str) > 0) then
-                code = code // ", intent(" // intent_str // ")"
+                call set_declaration_intent(attr_info, intent_str)
             end if
-
-            ! Add optional attribute
-            if (node%is_optional) then
-                code = code // ", optional"
-            end if
+            attr_info%is_optional = node%is_optional
+            call append_declaration_attributes(code, attr_info)
 
             code = code // " :: " // node%name
 

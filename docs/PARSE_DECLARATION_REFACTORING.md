@@ -107,7 +107,7 @@ subroutine parse_declaration_attributes(parser, arena, attr_info)
 - Handles all standard Fortran attributes
 - Complex attribute parsing: `intent(in)`, `dimension(10,20)`
 - Comma-separated attribute lists
-- Structured result in `declaration_attributes_t`
+- Structured result in `declaration_attribute_info_t`
 - Safety loop limit to prevent infinite parsing
 
 ## Refactored `parse_declaration` Function (37 lines)
