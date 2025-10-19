@@ -7,10 +7,65 @@ module ast_factory_declarations
     private
 
     ! Public declaration node creation functions
-    public :: push_declaration, push_multi_declaration, push_parameter_declaration
+    public :: push_declaration, push_parameter_declaration
     public :: push_derived_type
 
 contains
+    integer function maxlen(values) result(len_max)
+        character(len=*), intent(in) :: values(:)
+        integer :: i
+        len_max = 0
+        do i = 1, size(values)
+            len_max = max(len_max, len_trim(values(i)))
+        end do
+        if (len_max <= 0) len_max = 1
+    end function maxlen
+
+    pure subroutine assign_kind_metadata(has_kind, kind_value, input_kind)
+        logical, intent(out) :: has_kind
+        integer, intent(out) :: kind_value
+        integer, intent(in), optional :: input_kind
+
+        if (present(input_kind)) then
+            if (input_kind > 0) then
+                has_kind = .true.
+                kind_value = input_kind
+            else
+                has_kind = .false.
+                kind_value = 0
+            end if
+        else
+            has_kind = .false.
+            kind_value = 0
+        end if
+    end subroutine assign_kind_metadata
+
+    subroutine assign_dimension_metadata(is_array, target_indices, input_indices)
+        logical, intent(out) :: is_array
+        integer, allocatable, intent(inout) :: target_indices(:)
+        integer, intent(in), optional :: input_indices(:)
+
+        if (allocated(target_indices)) deallocate (target_indices)
+
+        if (present(input_indices)) then
+            if (size(input_indices) > 0) then
+                is_array = .true.
+                allocate (target_indices, source=input_indices)
+            else
+                is_array = .false.
+            end if
+        else
+            is_array = .false.
+        end if
+    end subroutine assign_dimension_metadata
+
+    pure logical function resolve_optional_flag(optional_value, default_value) result(flag)
+        logical, intent(in), optional :: optional_value
+        logical, intent(in) :: default_value
+
+        flag = default_value
+        if (present(optional_value)) flag = optional_value
+    end function resolve_optional_flag
 
     subroutine initialize_declaration_details(decl, kind_value, dimension_indices, &
                                               initializer_index, is_allocatable, &
@@ -30,13 +85,7 @@ contains
         logical, intent(in), optional :: is_parameter
         integer, intent(in), optional :: line, column
 
-        if (present(kind_value)) then
-            decl%kind_value = kind_value
-            decl%has_kind = .true.
-        else
-            decl%kind_value = 0
-            decl%has_kind = .false.
-        end if
+        call assign_kind_metadata(decl%has_kind, decl%kind_value, kind_value)
 
         if (present(initializer_index)) then
             if (initializer_index > 0) then
@@ -51,36 +100,13 @@ contains
             decl%has_initializer = .false.
         end if
 
-        if (present(dimension_indices)) then
-            decl%is_array = .true.
-            allocate (decl%dimension_indices, source=dimension_indices)
-        else
-            decl%is_array = .false.
-        end if
+        call assign_dimension_metadata(decl%is_array, decl%dimension_indices, &
+                                       dimension_indices)
 
-        if (present(is_allocatable)) then
-            decl%is_allocatable = is_allocatable
-        else
-            decl%is_allocatable = .false.
-        end if
-
-        if (present(is_pointer)) then
-            decl%is_pointer = is_pointer
-        else
-            decl%is_pointer = .false.
-        end if
-
-        if (present(is_target)) then
-            decl%is_target = is_target
-        else
-            decl%is_target = .false.
-        end if
-
-        if (present(is_external)) then
-            decl%is_external = is_external
-        else
-            decl%is_external = .false.
-        end if
+        decl%is_allocatable = resolve_optional_flag(is_allocatable, .false.)
+        decl%is_pointer = resolve_optional_flag(is_pointer, .false.)
+        decl%is_target = resolve_optional_flag(is_target, .false.)
+        decl%is_external = resolve_optional_flag(is_external, .false.)
 
         if (present(intent_value)) then
             decl%intent = intent_value
@@ -89,17 +115,8 @@ contains
             decl%has_intent = .false.
         end if
 
-        if (present(is_optional)) then
-            decl%is_optional = is_optional
-        else
-            decl%is_optional = .false.
-        end if
-
-        if (present(is_parameter)) then
-            decl%is_parameter = is_parameter
-        else
-            decl%is_parameter = .false.
-        end if
+        decl%is_optional = resolve_optional_flag(is_optional, .false.)
+        decl%is_parameter = resolve_optional_flag(is_parameter, .false.)
 
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
@@ -153,15 +170,15 @@ contains
     end function push_derived_type
 
     ! Create declaration node and add to stack
-    function push_declaration(arena, type_name, var_name, kind_value, &
-                              dimension_indices, &
-                              initializer_index, is_allocatable, is_pointer, &
-                              is_target, &
-                              is_external, intent_value, is_optional, is_parameter, &
-                              line, column, &
-                              parent_index) result(decl_index)
+    function push_declaration(arena, type_name, names, kind_value, &
+                              dimension_indices, initializer_index, &
+                              is_allocatable, is_pointer, is_target, &
+                              is_external, intent_value, is_optional, &
+                              is_parameter, line, column, parent_index) &
+        result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: type_name, var_name
+        character(len=*), intent(in) :: type_name
+        character(len=*), intent(in) :: names(:)
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
@@ -176,9 +193,16 @@ contains
         integer :: decl_index
         type(declaration_node) :: decl
 
-        ! Create declaration with index-based fields
         decl%type_name = type_name
-        decl%var_name = var_name
+        if (size(names) > 0) decl%var_name = names(1)
+
+        if (size(names) > 1) then
+            decl%is_multi_declaration = .true.
+            allocate (character(len=maxlen(names)) :: decl%var_names(size(names)))
+            decl%var_names = names
+        else
+            decl%is_multi_declaration = .false.
+        end if
 
         call initialize_declaration_details(decl, kind_value=kind_value, &
                                             dimension_indices=dimension_indices, &
@@ -195,64 +219,6 @@ contains
         call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
     end function push_declaration
-
-    ! Create multi-variable declaration node and add to stack
-    function push_multi_declaration(arena, type_name, var_names, kind_value, &
-                                    dimension_indices, &
-                                    initializer_index, is_allocatable, is_pointer, &
-                                    is_target, is_external, intent_value, &
-                                    is_optional, is_parameter, line, column, &
-                                    parent_index) result(decl_index)
-        type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: type_name
-        character(len=*), intent(in) :: var_names(:)
-        integer, intent(in), optional :: kind_value
-        integer, intent(in), optional :: dimension_indices(:)
-        integer, intent(in), optional :: initializer_index
-        logical, intent(in), optional :: is_allocatable
-        logical, intent(in), optional :: is_pointer
-        logical, intent(in), optional :: is_target
-        logical, intent(in), optional :: is_external
-        character(len=*), intent(in), optional :: intent_value
-        logical, intent(in), optional :: is_optional
-        logical, intent(in), optional :: is_parameter
-        integer, intent(in), optional :: line, column, parent_index
-        integer :: decl_index
-        type(declaration_node) :: decl
-        integer :: i
-
-        ! Create multi-variable declaration
-        decl%type_name = type_name
-        decl%is_multi_declaration = .true.
-
-        ! Set primary variable name to first variable
-        if (size(var_names) > 0) then
-            decl%var_name = trim(var_names(1))
-        end if
-
-        ! Allocate and copy variable names
-        allocate (character(len=100) :: decl%var_names(size(var_names)))
-        do i = 1, size(var_names)
-            decl%var_names(i) = trim(var_names(i))
-        end do
-
-        call initialize_declaration_details(decl, kind_value=kind_value, &
-                                            dimension_indices=dimension_indices, &
-                                            initializer_index=initializer_index, &
-                                            is_allocatable=is_allocatable, &
-                                            is_pointer=is_pointer, &
-                                            is_target=is_target, &
-                                            is_external=is_external, &
-                                            intent_value=intent_value, &
-                                            is_optional=is_optional, &
-                                            is_parameter=is_parameter, line=line, &
-                                            column=column)
-
-        ! Use the same node category as single declarations so downstream
-        ! codegen/standardizer logic treats both uniformly.
-        call arena%push(decl, "declaration", parent_index)
-        decl_index = arena%size
-    end function push_multi_declaration
 
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
@@ -271,8 +237,12 @@ contains
         param%name = name
         param%type_name = type_name
 
-        if (present(kind_value) .and. kind_value > 0) then
-            param%kind_value = kind_value
+        if (present(kind_value)) then
+            if (kind_value > 0) then
+                param%kind_value = kind_value
+            else
+                param%kind_value = 0
+            end if
         else
             param%kind_value = 0
         end if
@@ -283,23 +253,10 @@ contains
             param%intent_type = INTENT_NONE
         end if
 
-        if (present(is_optional)) then
-            param%is_optional = is_optional
-        else
-            param%is_optional = .false.
-        end if
+        param%is_optional = resolve_optional_flag(is_optional, .false.)
 
-        ! Handle array dimensions
-        if (present(dimension_indices)) then
-            if (size(dimension_indices) > 0) then
-                param%is_array = .true.
-                allocate (param%dimension_indices, source=dimension_indices)
-            else
-                param%is_array = .false.
-            end if
-        else
-            param%is_array = .false.
-        end if
+        call assign_dimension_metadata(param%is_array, param%dimension_indices, &
+                                       dimension_indices)
 
         if (present(line)) param%line = line
         if (present(column)) param%column = column

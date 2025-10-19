@@ -7,8 +7,10 @@ module frontend_mixed_constructs
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: mixed_construct_container_node, create_mixed_construct_container
-    use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
+    use ast_nodes_data, only: mixed_construct_container_node, &
+                              create_mixed_construct_container
+    use mixed_construct_detector, only: detect_mixed_constructs, &
+                                        mixed_construct_result_t
 
     implicit none
     private
@@ -20,7 +22,8 @@ module frontend_mixed_constructs
 contains
 
     ! Parse mixed constructs (Issue #511 support)
-    subroutine parse_mixed_constructs(tokens, arena, mixed_result, prog_index, error_msg)
+    subroutine parse_mixed_constructs(tokens, arena, mixed_result, &
+                                      prog_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(mixed_construct_result_t), intent(in) :: mixed_result
@@ -49,7 +52,8 @@ contains
                 range_tokens = tokens(range_start:range_end)
 
                 ! Parse this declaration range
-                call parse_declaration_range(range_tokens, arena, stmt_index, error_msg)
+                call parse_declaration_range(range_tokens, arena, &
+                                             stmt_index, error_msg)
 
                 if (len_trim(error_msg) > 0) then
                     return
@@ -85,7 +89,8 @@ contains
 
         ! Create the mixed construct container
         prog_index = create_mixed_construct_container_arena(arena, module_name, &
-                                                            implicit_indices, explicit_indices)
+                                                            implicit_indices, &
+                                                            explicit_indices)
     end subroutine parse_mixed_constructs
 
     ! Parse declaration range
@@ -95,37 +100,20 @@ contains
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
 
-        type(token_t), allocatable, target :: stmt_tokens(:)
-        type(parser_prefix_buffer_t) :: prefix_buffer
-
-        error_msg = ""
-
-        if (size(tokens) == 0) then
-            stmt_index = 0
-            return
-        end if
-
-        ! Add EOF token if not present
-        if (tokens(size(tokens))%kind /= TK_EOF) then
-            allocate (stmt_tokens(size(tokens) + 1))
-            stmt_tokens(1:size(tokens)) = tokens
-            stmt_tokens(size(tokens) + 1)%kind = TK_EOF
-            stmt_tokens(size(tokens) + 1)%text = ""
-            stmt_tokens(size(tokens) + 1)%line = tokens(size(tokens))%line
-            stmt_tokens(size(tokens) + 1)%column = tokens(size(tokens))%column + 1
-        else
-            allocate (stmt_tokens(size(tokens)))
-            stmt_tokens = tokens
-        end if
-
-        ! Parse the declaration using statement dispatcher
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
-
-        deallocate (stmt_tokens)
+        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
     end subroutine parse_declaration_range
 
     ! Parse program range
     subroutine parse_program_range(tokens, arena, stmt_index, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        character(len=*), intent(out) :: error_msg
+
+        call parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
+    end subroutine parse_program_range
+
+    subroutine parse_tokens_with_dispatcher(tokens, arena, stmt_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -141,7 +129,6 @@ contains
             return
         end if
 
-        ! Add EOF token if not present
         if (tokens(size(tokens))%kind /= TK_EOF) then
             allocate (stmt_tokens(size(tokens) + 1))
             stmt_tokens(1:size(tokens)) = tokens
@@ -154,15 +141,16 @@ contains
             stmt_tokens = tokens
         end if
 
-        ! Parse the program using statement dispatcher
         stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
 
         deallocate (stmt_tokens)
-    end subroutine parse_program_range
+    end subroutine parse_tokens_with_dispatcher
 
     ! Create mixed construct container in arena
     function create_mixed_construct_container_arena(arena, module_name, &
-                                                    implicit_indices, explicit_indices) result(container_index)
+                                                    implicit_indices, &
+                                                    explicit_indices) &
+        result(container_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         integer, intent(in) :: implicit_indices(:)
@@ -173,7 +161,8 @@ contains
 
         ! Create the mixed construct container node
         container_node = create_mixed_construct_container(module_name, &
-                                                          implicit_indices, explicit_indices)
+                                                          implicit_indices, &
+                                                          explicit_indices)
 
         ! Add to arena using standard push method
         call arena%push(container_node, "mixed_construct_container", 0)

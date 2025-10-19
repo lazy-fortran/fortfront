@@ -36,6 +36,140 @@ contains
         enabled = standardizer_type_standardization_enabled
     end subroutine get_standardizer_type_standardization
 
+    ! Shared helper to synchronize parameter declarations in function/subroutine bodies
+    subroutine synchronize_parameter_declarations(arena, body_indices, param_names, &
+                                                  param_names_found, param_optional, &
+                                                  param_intent, default_intent, &
+                                                  standardize_types, param_type, &
+                                                  param_type_inferred, &
+                                                  param_has_kind, &
+                                                  param_kind_value, param_is_array, &
+                                                  param_is_allocatable)
+        use ast_nodes_data, only: declaration_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: param_names(:)
+        integer, intent(inout) :: param_names_found(:)
+        logical, intent(in) :: param_optional(:)
+        character(len=*), intent(inout) :: param_intent(:)
+        character(len=*), intent(in) :: default_intent
+        logical, intent(in) :: standardize_types
+        character(len=*), intent(inout), optional :: param_type(:)
+        logical, intent(inout), optional :: param_type_inferred(:)
+        logical, intent(inout), optional :: param_has_kind(:)
+        integer, intent(inout), optional :: param_kind_value(:)
+        logical, intent(inout), optional :: param_is_array(:)
+        logical, intent(inout), optional :: param_is_allocatable(:)
+
+        integer :: i, current_index, n_params, param_idx, j, pidx
+        logical :: is_param_decl, matched_multi
+        character(len=16) :: stmt_intent
+
+        n_params = size(param_names)
+        if (n_params == 0) return
+
+        do i = 1, size(body_indices)
+            current_index = body_indices(i)
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (stmt => arena%entries(current_index)%node)
+            type is (declaration_node)
+                is_param_decl = .false.
+                param_idx = 0
+                do j = 1, n_params
+                    if (trim(param_names(j)) == trim(stmt%var_name)) then
+                        is_param_decl = .true.
+                        param_idx = j
+                        exit
+                    end if
+                end do
+
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    matched_multi = .false.
+                    stmt_intent = ""
+                    do j = 1, size(stmt%var_names)
+                        pidx = find_param_index(trim(stmt%var_names(j)))
+                        if (pidx > 0) then
+                            call record_match(pidx, stmt, stmt_intent, current_index)
+                            matched_multi = .true.
+                        end if
+                    end do
+                    if (matched_multi) then
+                        call apply_type_standardization(stmt)
+                        if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
+                        stmt%intent = stmt_intent
+                        stmt%has_intent = .true.
+                        arena%entries(current_index)%node = stmt
+                    end if
+                else if (is_param_decl) then
+                    stmt_intent = ""
+                    call record_match(param_idx, stmt, stmt_intent, current_index)
+                    call apply_type_standardization(stmt)
+                    if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
+                    stmt%intent = stmt_intent
+                    stmt%has_intent = .true.
+                    arena%entries(current_index)%node = stmt
+                end if
+            end select
+        end do
+
+    contains
+
+        integer function find_param_index(name) result(index)
+            character(len=*), intent(in) :: name
+            integer :: k
+            index = 0
+            do k = 1, n_params
+                if (trim(param_names(k)) == trim(name)) then
+                    index = k
+                    return
+                end if
+            end do
+        end function find_param_index
+
+        subroutine record_match(pidx, stmt, stmt_intent, arena_index)
+            integer, intent(in) :: pidx
+            type(declaration_node), intent(inout) :: stmt
+            character(len=*), intent(inout) :: stmt_intent
+            integer, intent(in) :: arena_index
+
+            if (len_trim(param_intent(pidx)) == 0) param_intent(pidx) = default_intent
+            if (len_trim(stmt_intent) == 0) stmt_intent = param_intent(pidx)
+
+            if (param_optional(pidx)) stmt%is_optional = .true.
+            param_names_found(pidx) = arena_index
+
+            if (present(param_type)) then
+                if (allocated(stmt%type_name)) then
+                    param_type(pidx) = trim(stmt%type_name)
+                    if (present(param_type_inferred)) then
+                        if (len_trim(param_type(pidx)) > 0) &
+                            param_type_inferred(pidx) = .false.
+                    end if
+                end if
+            end if
+            if (present(param_has_kind)) param_has_kind(pidx) = stmt%has_kind
+            if (present(param_kind_value)) param_kind_value(pidx) = stmt%kind_value
+            if (present(param_is_array)) param_is_array(pidx) = stmt%is_array
+            if (present(param_is_allocatable)) &
+                param_is_allocatable(pidx) = stmt%is_allocatable
+        end subroutine record_match
+
+        subroutine apply_type_standardization(stmt)
+            type(declaration_node), intent(inout) :: stmt
+            if (.not. standardize_types) return
+            if (allocated(stmt%type_name)) then
+                if (trim(stmt%type_name) == "real") then
+                    stmt%type_name = "real"
+                    stmt%has_kind = .true.
+                    stmt%kind_value = 8
+                end if
+            end if
+        end subroutine apply_type_standardization
+
+    end subroutine synchronize_parameter_declarations
+
     ! Standardize function and subroutine definitions
     subroutine standardize_subprograms(arena, prog)
         type(ast_arena_t), intent(inout) :: arena
@@ -49,7 +183,8 @@ contains
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (function_def_node)
-                        call standardize_function_def(arena, stmt, prog%body_indices(i))
+                        call standardize_function_def(arena, stmt, &
+                                                      prog%body_indices(i))
                     type is (subroutine_def_node)
                         call standardize_subroutine_def(arena, stmt, &
                                                         prog%body_indices(i))
@@ -69,7 +204,7 @@ contains
         character(len=:), allocatable :: return_type_str
         logical :: standardizer_type_standardization_enabled
 
-     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         ! Standardize return type
         if (allocated(func_def%return_type)) then
@@ -135,22 +270,23 @@ contains
             len_trim(func_def%result_variable) == 0) then
             if (allocated(func_def%body_indices)) then
                 do i = 1, size(func_def%body_indices)
-                    if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= &
+                    if (func_def%body_indices(i) > 0 .and. &
+                        func_def%body_indices(i) <= &
                         arena%size) then
-                        if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                       if (allocated(arena%entries(func_def%body_indices(i))%node)) then
                             select type (stmt => &
                                          arena%entries(func_def%body_indices(i))%node)
                             type is (assignment_node)
                                 if (stmt%target_index > 0 .and. stmt%target_index <= &
                                     arena%size) then
-                                if (allocated(arena%entries(stmt%target_index)%node)) then
-                                    select type (t => &
-                                                 arena%entries(stmt%target_index)%node)
-                                    type is (identifier_node)
-                                        res_name = t%name
-                                        exit
-                                    end select
-                                end if
+                              if (allocated(arena%entries(stmt%target_index)%node)) then
+                                        select type (t => &
+                                                  arena%entries(stmt%target_index)%node)
+                                        type is (identifier_node)
+                                            res_name = t%name
+                                            exit
+                                        end select
+                                    end if
                                 end if
                             end select
                         end if
@@ -368,10 +504,8 @@ contains
         logical, allocatable :: fn_param_is_allocatable(:)
         logical, allocatable :: fn_param_type_inferred(:)
 
-        integer :: i, j, n_params, n_body, param_idx
-        character(len=64) :: param_name
+        integer :: i, j, n_params, n_body
         character(len=64), allocatable :: param_names(:)
-        logical :: is_param_decl, param_updated
         logical :: standardizer_type_standardization_enabled
         logical :: requires_intent_in
 
@@ -379,7 +513,7 @@ contains
         n_params = size(func_def%param_indices)
         if (n_params == 0) return
 
-     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         ! Get parameter names
         allocate (param_names(n_params))
@@ -421,30 +555,32 @@ contains
             if (func_def%param_indices(i) > 0 .and. func_def%param_indices(i) <= &
                 arena%size) then
                 if (allocated(arena%entries(func_def%param_indices(i))%node)) then
-                    select type (param => arena%entries(func_def%param_indices(i))%node)
+                    select type (param => &
+                                 arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         param_names(i) = param%name
-                        if (param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
+                        call apply_function_type(i, .false., "", .false., 0, &
+                                                 param%inferred_type%kind > 0, &
+                                                 param%inferred_type%to_string(), &
+                                                 .false., .false.)
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
                         fn_param_optional(i) = param%is_optional
                         if (allocated(param%type_name)) then
-                            fn_param_type(i) = trim(param%type_name)
-                            if (len_trim(fn_param_type(i)) > 0) &
-                                fn_param_type_inferred(i) = .false.
+                            call apply_function_type(i, .true., &
+                                                     trim(param%type_name), &
+                                                     param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, .false.)
+                        else
+                            call apply_function_type(i, .false., "", param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, .false.)
                         end if
-                        if ((.not. allocated(param%type_name) .or. &
-                             len_trim(param%type_name) == 0) .and. &
-                            param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
-                        fn_param_has_kind(i) = param%has_kind
-                        fn_param_kind_value(i) = param%kind_value
-                        fn_param_is_array(i) = param%is_array
                         select case (param%intent_type)
                         case (INTENT_IN)
                             fn_param_intent(i) = "in"
@@ -459,20 +595,22 @@ contains
                     type is (declaration_node)
                         param_names(i) = param%var_name
                         if (allocated(param%type_name)) then
-                            fn_param_type(i) = trim(param%type_name)
-                            if (len_trim(fn_param_type(i)) > 0) &
-                                fn_param_type_inferred(i) = .false.
+                            call apply_function_type(i, .true., &
+                                                     trim(param%type_name), &
+                                                     param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, &
+                                                     param%is_allocatable)
+                        else
+                            call apply_function_type(i, .false., "", param%has_kind, &
+                                                     param%kind_value, &
+                                                     param%inferred_type%kind > 0, &
+                                                     param%inferred_type%to_string(), &
+                                                     param%is_array, &
+                                                     param%is_allocatable)
                         end if
-                        if ((.not. allocated(param%type_name) .or. &
-                             len_trim(param%type_name) == 0) .and. &
-                            param%inferred_type%kind > 0) then
-                            fn_param_type(i) = trim(param%inferred_type%to_string())
-                            fn_param_type_inferred(i) = .false.
-                        end if
-                        fn_param_has_kind(i) = param%has_kind
-                        fn_param_kind_value(i) = param%kind_value
-                        fn_param_is_array(i) = param%is_array
-                        fn_param_is_allocatable(i) = param%is_allocatable
                     class default
                         ! Try to get a reasonable default name
                         write (param_names(i), '(a,i0)') "param", i
@@ -487,121 +625,18 @@ contains
             end if
         end do
 
-        ! Update existing parameter declarations and track what we find
         if (allocated(func_def%body_indices)) then
-            do i = 1, size(func_def%body_indices)
-                if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(func_def%body_indices(i))%node)) then
-                        select type (stmt => &
-                                     arena%entries(func_def%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if this declaration is for a parameter
-                            is_param_decl = .false.
-                            param_idx = 0
-                            do j = 1, n_params
-                                if (stmt%var_name == param_names(j)) then
-                                    is_param_decl = .true.
-                                    param_idx = j
-                                    exit
-                                end if
-                            end do
-
-                            if (stmt%is_multi_declaration .and. &
-                                allocated(stmt%var_names)) then
-                                block
-                                    logical :: matched_multi
-                                    integer :: pidx, k
-                                    character(len=8) :: stmt_intent
-
-                                    matched_multi = .false.
-                                    stmt_intent = ""
-                                    do j = 1, size(stmt%var_names)
-                                        pidx = 0
-                                        do k = 1, n_params
-                                            if (trim(stmt%var_names(j)) == &
-                                                trim(param_names(k))) then
-                                                pidx = k
-                                                exit
-                                            end if
-                                        end do
-                                        if (pidx > 0) then
-                                            matched_multi = .true.
-                                            if (len_trim(fn_param_intent(pidx)) == 0) then
-                                                fn_param_intent(pidx) = "in"
-                                            end if
-                                            if (fn_param_optional(pidx)) &
-                                                stmt%is_optional = .true.
-                                            if (len_trim(stmt_intent) == 0) stmt_intent &
-                                                = fn_param_intent(pidx)
-                                            param_names_found(pidx) = &
-                                                func_def%body_indices(i)
-                                            if (allocated(stmt%type_name)) then
-                                                fn_param_type(pidx) = &
-                                                    trim(stmt%type_name)
-                                               if (len_trim(fn_param_type(pidx)) > 0) then
-                                                    fn_param_type_inferred(pidx) = .false.
-                                                end if
-                                            end if
-                                            fn_param_has_kind(pidx) = stmt%has_kind
-                                            fn_param_kind_value(pidx) = stmt%kind_value
-                                            fn_param_is_array(pidx) = stmt%is_array
-                                            fn_param_is_allocatable(pidx) = &
-                                                stmt%is_allocatable
-                                        end if
-                                    end do
-                                    if (matched_multi) then
-                                        if (stmt%type_name == "real") then
-                                       if (standardizer_type_standardization_enabled) then
-                                                stmt%type_name = "real"
-                                                stmt%has_kind = .true.
-                                                stmt%kind_value = 8
-                                            end if
-                                        end if
-                                        if (len_trim(stmt_intent) == 0) &
-                                            stmt_intent = "in"
-                                        stmt%intent = stmt_intent
-                                        stmt%has_intent = .true.
-                                       arena%entries(func_def%body_indices(i))%node = stmt
-                                    end if
-                                end block
-                            else if (is_param_decl) then
-                                ! Update the declaration to have intent(in) and preserve/enhance type
-                                if (stmt%type_name == "real") then
-                                    if (standardizer_type_standardization_enabled) then
-                                        stmt%type_name = "real"
-                                        stmt%has_kind = .true.
-                                        stmt%kind_value = 8
-                                    end if
-                                    ! Keep integer, logical, character as-is
-                                end if
-                                if (len_trim(fn_param_intent(param_idx)) > 0) then
-                                    stmt%intent = fn_param_intent(param_idx)
-                                    stmt%has_intent = .true.
-                                else
-                                    stmt%intent = "in"
-                                    stmt%has_intent = .true.
-                                end if
-                                if (fn_param_optional(param_idx)) &
-                                    stmt%is_optional = .true.
-                                param_names_found(param_idx) = func_def%body_indices(i)
-                                if (allocated(stmt%type_name)) then
-                                    fn_param_type(param_idx) = trim(stmt%type_name)
-                                    if (len_trim(fn_param_type(param_idx)) > 0) then
-                                        fn_param_type_inferred(param_idx) = .false.
-                                    end if
-                                end if
-                                fn_param_has_kind(param_idx) = stmt%has_kind
-                                fn_param_kind_value(param_idx) = stmt%kind_value
-                                fn_param_is_array(param_idx) = stmt%is_array
-                                fn_param_is_allocatable(param_idx) = stmt%is_allocatable
-                                ! Update in arena
-                                arena%entries(func_def%body_indices(i))%node = stmt
-                            end if
-                        end select
-                    end if
-                end if
-            end do
+            call synchronize_parameter_declarations(arena, func_def%body_indices, &
+                                    param_names, param_names_found, fn_param_optional, &
+                                                    fn_param_intent, &
+                                                    "in", &
+                                            standardizer_type_standardization_enabled, &
+                                                    param_type=fn_param_type, &
+                                           param_type_inferred=fn_param_type_inferred, &
+                                                    param_has_kind=fn_param_has_kind, &
+                                                 param_kind_value=fn_param_kind_value, &
+                                                    param_is_array=fn_param_is_array, &
+                                           param_is_allocatable=fn_param_is_allocatable)
         end if
 
         ! Add declarations for parameters not found
@@ -614,7 +649,7 @@ contains
                                                     fn_param_is_array, &
                                                     fn_param_is_allocatable, &
                                                     fn_param_type_inferred, &
-                                                standardizer_type_standardization_enabled)
+                                              standardizer_type_standardization_enabled)
 
         if (requires_intent_in) then
             call rebuild_parameter_declarations(arena, func_def, func_index, &
@@ -625,9 +660,41 @@ contains
                                                 fn_param_is_array, &
                                                 fn_param_is_allocatable, &
                                                 fn_param_type_inferred, &
-                                                standardizer_type_standardization_enabled)
+                                              standardizer_type_standardization_enabled)
         end if
 
+    contains
+        subroutine apply_function_type(idx, type_present, type_text, has_kind_flag, &
+                                       kind_value, inferred_present, inferred_text, &
+                                       is_array_flag, is_alloc_flag)
+            integer, intent(in) :: idx
+            logical, intent(in) :: type_present
+            character(len=*), intent(in) :: type_text
+            logical, intent(in) :: has_kind_flag
+            integer, intent(in) :: kind_value
+            logical, intent(in) :: inferred_present
+            character(len=*), intent(in) :: inferred_text
+            logical, intent(in) :: is_array_flag
+            logical, intent(in) :: is_alloc_flag
+
+            if (type_present .and. len_trim(type_text) > 0) then
+                fn_param_type(idx) = trim(type_text)
+                fn_param_type_inferred(idx) = .false.
+            else if (inferred_present .and. len_trim(inferred_text) > 0) then
+                fn_param_type(idx) = trim(inferred_text)
+                fn_param_type_inferred(idx) = .false.
+            end if
+
+            fn_param_has_kind(idx) = has_kind_flag
+            if (has_kind_flag) then
+                fn_param_kind_value(idx) = kind_value
+            else
+                fn_param_kind_value(idx) = 0
+            end if
+
+            fn_param_is_array(idx) = is_array_flag
+            fn_param_is_allocatable(idx) = is_alloc_flag
+        end subroutine apply_function_type
     end subroutine standardize_function_parameters
 
     ! Add missing parameter declarations
@@ -744,7 +811,8 @@ contains
 
     end subroutine add_missing_parameter_declarations_ext
 
-    subroutine rebuild_parameter_declarations(arena, func_def, func_index, param_names, &
+    subroutine rebuild_parameter_declarations(arena, func_def, func_index, &
+                                              param_names, &
                                               param_optional, param_type, &
                                               param_has_kind, param_kind_value, &
                                               param_is_array, &
@@ -929,17 +997,15 @@ contains
         integer, allocatable :: param_names_found(:)
         logical, allocatable :: sb_param_optional(:)
         character(len=8), allocatable :: sb_param_intent(:)
-        integer :: i, j, n_params, n_body, param_idx
-        character(len=64) :: param_name
+        integer :: i, j, n_params, n_body
         character(len=64), allocatable :: param_names(:)
-        logical :: is_param_decl, param_updated
         logical :: standardizer_type_standardization_enabled
 
         if (.not. allocated(sub_def%param_indices)) return
         n_params = size(sub_def%param_indices)
         if (n_params == 0) return
 
-     call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         ! Get parameter names
         allocate (param_names(n_params))
@@ -991,98 +1057,12 @@ contains
             end if
         end do
 
-        ! Update existing parameter declarations and track what we find
         if (allocated(sub_def%body_indices)) then
-            do i = 1, size(sub_def%body_indices)
-                if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(sub_def%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if this declaration is for a parameter
-                            is_param_decl = .false.
-                            param_idx = 0
-                            do j = 1, n_params
-                                if (stmt%var_name == param_names(j)) then
-                                    is_param_decl = .true.
-                                    param_idx = j
-                                    exit
-                                end if
-                            end do
-
-                            if (stmt%is_multi_declaration .and. &
-                                allocated(stmt%var_names)) then
-                                block
-                                    logical :: matched_multi
-                                    integer :: pidx, k
-                                    character(len=8) :: stmt_intent
-
-                                    matched_multi = .false.
-                                    stmt_intent = ""
-                                    do j = 1, size(stmt%var_names)
-                                        pidx = 0
-                                        do k = 1, n_params
-                                            if (trim(stmt%var_names(j)) == &
-                                                trim(param_names(k))) then
-                                                pidx = k
-                                                exit
-                                            end if
-                                        end do
-                                        if (pidx > 0) then
-                                            matched_multi = .true.
-                                            if (len_trim(sb_param_intent(pidx)) == 0) then
-                                                sb_param_intent(pidx) = "inout"
-                                            end if
-                                            if (sb_param_optional(pidx)) &
-                                                stmt%is_optional = .true.
-                                            if (len_trim(stmt_intent) == 0) stmt_intent &
-                                                = sb_param_intent(pidx)
-                                            param_names_found(pidx) = &
-                                                sub_def%body_indices(i)
-                                        end if
-                                    end do
-                                    if (matched_multi) then
-                                        if (stmt%type_name == "real") then
-                                       if (standardizer_type_standardization_enabled) then
-                                                stmt%type_name = "real"
-                                                stmt%has_kind = .true.
-                                                stmt%kind_value = 8
-                                            end if
-                                        end if
-                                        if (len_trim(stmt_intent) == 0) &
-                                            stmt_intent = "inout"
-                                        stmt%intent = stmt_intent
-                                        stmt%has_intent = .true.
-                                        arena%entries(sub_def%body_indices(i))%node = stmt
-                                    end if
-                                end block
-                            else if (is_param_decl) then
-                                ! Update the declaration to have appropriate intent and preserve/enhance type
-                                if (stmt%type_name == "real") then
-                                    if (standardizer_type_standardization_enabled) then
-                                        stmt%type_name = "real"
-                                        stmt%has_kind = .true.
-                                        stmt%kind_value = 8
-                                    end if
-                                    ! Keep integer, logical, character as-is
-                                end if
-                                ! Default to intent(inout) for subroutine parameters
-                                if (len_trim(sb_param_intent(param_idx)) > 0) then
-                                    stmt%intent = sb_param_intent(param_idx)
-                                else
-                                    stmt%intent = "inout"
-                                end if
-                                stmt%has_intent = .true.
-                                if (sb_param_optional(param_idx)) &
-                                    stmt%is_optional = .true.
-                                param_names_found(param_idx) = sub_def%body_indices(i)
-                                ! Update in arena
-                                arena%entries(sub_def%body_indices(i))%node = stmt
-                            end if
-                        end select
-                    end if
-                end if
-            end do
+            call synchronize_parameter_declarations(arena, sub_def%body_indices, &
+                                    param_names, param_names_found, sb_param_optional, &
+                                                    sb_param_intent, &
+                                                    "inout", &
+                                              standardizer_type_standardization_enabled)
         end if
 
         ! Add declarations for parameters not found
@@ -1093,7 +1073,7 @@ contains
                                                                n_params, &
                                                                sb_param_optional, &
                                                                sb_param_intent, &
-                                                standardizer_type_standardization_enabled)
+                                              standardizer_type_standardization_enabled)
 
     end subroutine standardize_subroutine_parameters
 
@@ -1142,7 +1122,8 @@ contains
                 if (param_names_found(i) == 0) then
                     ! Create declaration for this parameter
                     call infer_parameter_type(param_names(i), param_decl%type_name, &
-                                              param_decl%has_kind, param_decl%kind_value)
+                                              param_decl%has_kind, &
+                                              param_decl%kind_value)
                     if (param_decl%type_name == "real" .and. type_std_enabled) then
                         param_decl%has_kind = .true.
                         param_decl%kind_value = 8
@@ -1200,7 +1181,8 @@ contains
             select case (first_char)
             case ('i', 'j', 'k', 'l', 'm', 'n')
                 type_name = "integer"
-            case ('x', 'y', 'z', 'r', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'o', 'p', &
+            case ('x', 'y', 'z', 'r', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', &
+                  'o', 'p', &
                   'q', 's', 't', 'u', 'v', 'w')
                 type_name = "real"
             case default

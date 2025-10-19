@@ -34,7 +34,8 @@ module fortfront
                         compilation_options_t, format_options_t, &
                         parse_tokens_safe, parse_result_with_index_t
     use frontend_tooling_api, only: tooling_parse_options_t, &
-                                    tooling_load_ast_from_string, tooling_load_ast_from_file
+                                    tooling_load_ast_from_string, &
+                                    tooling_load_ast_from_file
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
@@ -89,9 +90,11 @@ module fortfront
     use lexer_core, only: token_t, tokenize_core
 
     ! Re-export type system
-    use type_system_unified, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
+    use type_system_unified, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, &
+                                   TLOGICAL, &
                                    TFUN, TARRAY, TVAR, &
-                                   type_args_allocated, type_args_size, type_args_element
+                                   type_args_allocated, type_args_size, &
+                                   type_args_element
 
     ! Re-export scope management
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
@@ -102,14 +105,16 @@ module fortfront
     use ast_introspection, only: visit_node_at, get_node_type_id, has_semantic_info, &
                                  get_node_source_location, &
                                  get_node_type_kind, get_node_type_details, &
-                                 get_node_type_id_from_arena, get_node_source_location_from_arena
+                                 get_node_type_id_from_arena, &
+                                 get_node_source_location_from_arena
 
     ! Re-export AST traversal and visitor functionality
     use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
                              traverse_preorder, traverse_postorder, &
                              is_program_node, is_assignment_node, is_binary_op_node, &
                              is_function_def_node, is_subroutine_def_node, &
-                             is_identifier_node, is_literal_node, is_declaration_node, &
+                             is_identifier_node, is_literal_node, &
+                             is_declaration_node, &
                              is_if_node, is_do_loop_node, is_do_while_node, &
                              is_call_or_subscript_node, is_subroutine_call_node, &
                              is_print_statement_node, is_use_statement_node, &
@@ -127,19 +132,25 @@ module fortfront
                                  cg_is_procedure_used => is_procedure_used
 
     ! Variable usage tracking for issue #16
-    use variable_usage_tracker_module, only: variable_usage_info_t, expression_visitor_t, &
-                                             create_variable_usage_info, get_variables_in_expression, &
-                                             get_identifiers_in_subtree, visit_expression_nodes, &
-                                             is_variable_used_in_expression, count_variable_usage
+    use variable_usage_tracker_module, only: variable_usage_info_t, &
+                                             expression_visitor_t, &
+                                             create_variable_usage_info, &
+                                             get_variables_in_expression, &
+                                             get_identifiers_in_subtree, &
+                                             visit_expression_nodes, &
+                                             is_variable_used_in_expression, &
+                                             count_variable_usage
 
     ! Performance optimization for issue #15
     use ast_performance_module, only: ast_cache_entry_t, memory_stats_t, &
                                       cache_ast, load_cached_ast, clear_ast_cache, &
                                       is_cache_valid, get_cache_stats, &
-                                      release_ast_memory, compact_arena, get_memory_stats, &
+                                      release_ast_memory, compact_arena, &
+                                      get_memory_stats, &
                                       update_ast_range, supports_incremental_update, &
                                       lock_arena, unlock_arena, is_arena_locked, &
-                                      deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
+                                      deep_copy_arena, deep_copy_semantic_context, &
+                                      compute_arena_hash
 
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
@@ -158,27 +169,16 @@ module fortfront
                                get_node_type, find_nodes_by_type, ast_to_json, &
                                get_arena_stats, analyze_program, get_type_for_node, &
                                get_diagnostics, semantic_info_to_json, get_max_depth, &
-                               get_node_as_program, get_node_as_assignment, get_node_as_function_def, &
-                               get_children, traverse_ast, traverse_node, get_node_range
+                               get_node_as_program, get_node_as_assignment, &
+                               get_node_as_function_def, &
+                               get_children, traverse_ast, traverse_node, &
+                               get_node_range
+    use fortfront_node_constants
 
     ! Re-export types from fortfront_types
     use fortfront_types, only: symbol_info_t, symbol_reference_t, scope_info_t, &
                                source_location_t, source_range_t, &
-                               type_info_t, diagnostic_t, function_signature_t, &
-                               DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT, &
-                               NODE_PROGRAM, NODE_FUNCTION_DEF, NODE_ASSIGNMENT, NODE_BINARY_OP, &
-                               NODE_IDENTIFIER, NODE_LITERAL, NODE_ARRAY_LITERAL, NODE_CALL_OR_SUBSCRIPT, &
-                               NODE_SUBROUTINE_DEF, NODE_SUBROUTINE_CALL, NODE_DECLARATION, &
-                               NODE_PARAMETER_DECLARATION, NODE_IF, NODE_DO_LOOP, NODE_DO_WHILE, &
-                               NODE_SELECT_CASE, NODE_CASE_BLOCK, NODE_MODULE, NODE_USE_STATEMENT, &
-                               NODE_PRINT_STATEMENT, NODE_WRITE_STATEMENT, NODE_READ_STATEMENT, &
-                               NODE_ALLOCATE_STATEMENT, NODE_DEALLOCATE_STATEMENT, NODE_STOP, &
-                               NODE_RETURN, NODE_GOTO, NODE_ERROR_STOP, NODE_CYCLE, NODE_EXIT, &
-                               NODE_WHERE, NODE_INTERFACE_BLOCK, NODE_DERIVED_TYPE, &
-                               NODE_POINTER_ASSIGNMENT, NODE_FORALL, NODE_CASE_RANGE, &
-                               NODE_CASE_DEFAULT, NODE_COMPLEX_LITERAL, NODE_INCLUDE_STATEMENT, &
-                               NODE_CONTAINS, NODE_FORMAT_DESCRIPTOR, NODE_COMMENT, &
-                               NODE_IMPLICIT_STATEMENT, NODE_UNKNOWN
+                               type_info_t, diagnostic_t, function_signature_t
 
     ! Call graph and control-flow utilities (lean re-export)
     use call_graph_module, only: build_call_graph_from_arena => build_call_graph, &

@@ -28,6 +28,26 @@ module ast_traversal
 
 contains
 
+    subroutine traverse_procedure_def_indices(arena, param_indices, body_indices, &
+                                               visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: param_indices(:), body_indices(:)
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+
+        if (allocated(param_indices)) then
+            do i = 1, size(param_indices)
+                call traverse_node(arena, param_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (allocated(body_indices)) then
+            do i = 1, size(body_indices)
+                call traverse_node(arena, body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_procedure_def_indices
+
     ! Main traversal entry point
     subroutine traverse_ast(arena, root_index, visitor)
         type(ast_arena_t), intent(in) :: arena
@@ -468,17 +488,9 @@ contains
         type(function_def_node), intent(in) :: n
         class(ast_visitor_t), intent(inout) :: visitor
         logical, intent(in) :: is_preorder
-        integer :: i
-        if (allocated(n%param_indices)) then
-            do i = 1, size(n%param_indices)
-                call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
-            end do
-        end if
-        if (allocated(n%body_indices)) then
-            do i = 1, size(n%body_indices)
-                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-            end do
-        end if
+
+        call traverse_procedure_def_indices(arena, n%param_indices, n%body_indices, &
+                                             visitor, is_preorder)
     end subroutine traverse_function_def_children
 
     subroutine traverse_subroutine_def_children(arena, n, visitor, is_preorder)
@@ -486,17 +498,9 @@ contains
         type(subroutine_def_node), intent(in) :: n
         class(ast_visitor_t), intent(inout) :: visitor
         logical, intent(in) :: is_preorder
-        integer :: i
-        if (allocated(n%param_indices)) then
-            do i = 1, size(n%param_indices)
-                call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
-            end do
-        end if
-        if (allocated(n%body_indices)) then
-            do i = 1, size(n%body_indices)
-                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-            end do
-        end if
+
+        call traverse_procedure_def_indices(arena, n%param_indices, n%body_indices, &
+                                             visitor, is_preorder)
     end subroutine traverse_subroutine_def_children
 
     subroutine traverse_call_or_subscript_children(arena, n, visitor, is_preorder)

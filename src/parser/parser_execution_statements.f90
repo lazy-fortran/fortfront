@@ -28,6 +28,7 @@ module parser_execution_statements_module
     use parser_statement_data_module, only: parse_data_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
+    use parser_implicit_shared_module, only: parse_simple_implicit_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement
@@ -241,7 +242,7 @@ contains
             call flush_pending_prefixes()
             select case (lowered)
             case ("implicit")
-                call parse_simple_implicit(parser_ref, arena_ref, stmt_index)
+                call parse_simple_implicit_statement(parser_ref, arena_ref, stmt_index)
             case ("real", "integer", "logical", "character", "complex", "double", &
                   "class")
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
@@ -339,39 +340,6 @@ contains
     ! Parse a simple assignment statement or multi-variable assignment
     ! Parse a simple variable declaration
     ! Parse a simple implicit statement
-    subroutine parse_simple_implicit(parser, arena, stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(out) :: stmt_index
-        type(token_t) :: implicit_token, none_token
-        character(len=:), allocatable :: implicit_type
-
-        stmt_index = 0
-
-        ! Get implicit keyword
-        implicit_token = parser%consume()
-
-        ! Check for 'none'
-        none_token = parser%peek()
-        if (none_token%kind == TK_KEYWORD .and. none_token%text == "none") then
-            none_token = parser%consume()
-            implicit_type = "none"
-        else
-            implicit_type = "default"
-        end if
-
-        ! Create implicit statement node
-        if (implicit_type == "none") then
-            stmt_index = push_implicit_statement(arena, .true., &
-                                                 line=implicit_token%line, &
-                                                 column=implicit_token%column)
-        else
-            stmt_index = push_implicit_statement(arena, .false., &
-                                                 line=implicit_token%line, &
-                                                 column=implicit_token%column)
-        end if
-    end subroutine parse_simple_implicit
-
     ! Handle single vs multi-variable declarations (duplicate of dispatcher logic)
     subroutine handle_variable_declaration(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
