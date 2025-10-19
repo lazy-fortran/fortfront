@@ -97,33 +97,6 @@ contains
                                         syntax_style=style)
     end function parse_simple_array_elements
 
-    function parse_stride_component(parser, arena, helpers) result(stride_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        type(array_parse_helpers_t), intent(in) :: helpers
-        integer :: stride_index
-        type(token_t) :: op_token
-        type(token_t) :: next_tok
-
-        stride_index = 0
-        if (.not. associated(helpers%parse_logical_eqv)) return
-
-        if (.not. parser%is_at_end()) then
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
-                op_token = parser%consume()
-                if (.not. parser%is_at_end()) then
-                    next_tok = parser%peek()
-                    if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                               (next_tok%text == ")" .or. next_tok%text == "," .or. &
-                                next_tok%text == "]" .or. next_tok%text == ";"))) then
-                        stride_index = helpers%parse_logical_eqv(parser, arena)
-                    end if
-                end if
-            end if
-        end if
-    end function parse_stride_component
-
     function parse_legacy_array_literal(parser, arena, helpers) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
