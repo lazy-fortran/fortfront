@@ -34,20 +34,34 @@ contains
         type(declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: init_code, type_str
-        integer :: i, j
         logical :: standardize_types_enabled
         logical :: has_dimension_attr
         type(declaration_attribute_info_t) :: attr_info
 
-        ! Get type standardization setting
         call get_type_standardization(standardize_types_enabled)
+        code = resolve_declaration_type(node, standardize_types_enabled)
+        has_dimension_attr = index(to_lower(trim(code)), "dimension(") > 0
 
-        ! Determine the type string
+        code = fix_character_len_placeholder(code)
+        code = apply_kind_modifier(node, code)
+
+        call populate_declaration_attributes(node, attr_info)
+        call append_declaration_attributes(code, attr_info)
+
+        code = code // " :: " // build_declaration_entity_list(arena, node, &
+                                                               has_dimension_attr)
+        code = code // build_declaration_initializer(arena, node)
+        code = fix_character_len_placeholder(code)
+    end function generate_code_declaration
+
+    function resolve_declaration_type(node, standardize_types_enabled) result(type_str)
+        type(declaration_node), intent(in) :: node
+        logical, intent(in) :: standardize_types_enabled
+        character(len=:), allocatable :: type_str
+
         if (len_trim(node%type_name) > 0) then
             type_str = node%type_name
         else if (node%inferred_type%kind > 0) then
-            ! Handle type inference
             select case (node%inferred_type%kind)
             case (TINT)
                 type_str = "integer"
@@ -64,8 +78,6 @@ contains
                     type_str = "character(len=" // &
                         trim(adjustl(int_to_string(node%inferred_type%size))) // ")"
                 else
-                    ! For zero-length or unknown strings, use explicit length 0
-                    ! character(*) is only valid in parameter declarations
                     type_str = "character(len=0)"
                 end if
             case (TLOGICAL)
@@ -75,36 +87,18 @@ contains
             case (TDOUBLE)
                 type_str = "double precision"
             case (TDERIVED)
-                ! For derived types, use the type name from the node
                 if (len_trim(node%type_name) > 0) then
                     type_str = node%type_name
                 else
-                    type_str = "type(unknown_t)"  ! Fallback for derived types
+                    type_str = "type(unknown_t)"
                 end if
             case default
-                type_str = "real"  ! Default to real
+                type_str = "real"
             end select
         else
-            type_str = "real"  ! Default fallback
+            type_str = "real"
         end if
 
-        if (is_character_type_string(type_str)) then
-            if (index(to_lower(trim(type_str)), "len=)") > 0) then
-                if (node%has_kind) then
-                    select case (node%kind_value)
-                    case (-1)
-                        type_str = "character(len=*)"
-                    case default
-                        if (node%kind_value > 0) then
-                            type_str = "character(len=" // &
-                                trim(adjustl(int_to_string(node%kind_value))) // ")"
-                        end if
-                    end select
-                end if
-            end if
-        end if
-
-        ! Normalize character type representations to preserve length specifiers
         if (is_character_type_string(type_str) .or. node%inferred_type%kind == &
             TCHAR) then
             type_str = normalize_character_type(node, type_str)
@@ -115,17 +109,40 @@ contains
             type_str = "character(len=*)"
         end select
 
-        ! Generate basic declaration
-        code = type_str
-        code = fix_character_len_placeholder(code)
+        if (.not. is_character_type_string(type_str)) return
 
-        ! Add kind if present and valid (>0) for non-character types
-        if (node%has_kind .and. node%kind_value > 0) then
-            if (.not. is_character_type_string(code)) then
-                code = code // "(" // &
-                       trim(adjustl(int_to_string(node%kind_value))) // ")"
+        if (index(to_lower(trim(type_str)), "len=)") > 0) then
+            if (node%has_kind) then
+                select case (node%kind_value)
+                case (-1)
+                    type_str = "character(len=*)"
+                case default
+                    if (node%kind_value > 0) then
+                        type_str = "character(len=" // &
+                            trim(adjustl(int_to_string(node%kind_value))) // ")"
+                    end if
+                end select
             end if
         end if
+    end function resolve_declaration_type
+
+    function apply_kind_modifier(node, type_code) result(result_type)
+        type(declaration_node), intent(in) :: node
+        character(len=*), intent(in) :: type_code
+        character(len=:), allocatable :: result_type
+
+        result_type = type_code
+        if (.not. node%has_kind) return
+        if (node%kind_value <= 0) return
+        if (is_character_type_string(result_type)) return
+
+        result_type = result_type // "(" // &
+                      trim(adjustl(int_to_string(node%kind_value))) // ")"
+    end function apply_kind_modifier
+
+    subroutine populate_declaration_attributes(node, attr_info)
+        type(declaration_node), intent(in) :: node
+        type(declaration_attribute_info_t), intent(out) :: attr_info
 
         call reset_declaration_attributes(attr_info)
         if (node%has_intent .and. allocated(node%intent)) then
@@ -144,80 +161,86 @@ contains
         attr_info%is_target = node%is_target
         attr_info%is_external = node%is_external
         attr_info%is_parameter = node%is_parameter
+    end subroutine populate_declaration_attributes
 
-        call append_declaration_attributes(code, attr_info)
+    function build_declaration_entity_list(arena, node, has_dimension_attr) &
+        result(entities)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_node), intent(in) :: node
+        logical, intent(in) :: has_dimension_attr
+        character(len=:), allocatable :: entities
+        integer :: i
 
-        has_dimension_attr = index(to_lower(trim(type_str)), "dimension(") > 0
-
-        ! Add variable names - handle both single and multi declarations
-        code = code // " :: "
+        entities = ""
         if (node%is_multi_declaration .and. allocated(node%var_names)) then
-            ! Multi-variable declaration
             do i = 1, size(node%var_names)
-                if (i > 1) code = code // ", "
-                code = code // trim(node%var_names(i))
-                ! Add dimensions per variable if needed
-                if (node%is_array .and. allocated(node%dimension_indices) .and. &
-                    .not. has_dimension_attr) then
-                    code = trim(code)
-                    code = code // "("
-                    do j = 1, size(node%dimension_indices)
-                        if (j > 1) code = code // ","
-                        if (node%dimension_indices(j) > 0 .and. &
-                            node%dimension_indices(j) <= arena%size) then
-                            code = code // generate_code_from_arena(arena, &
-                                                                node%dimension_indices(j))
-                        else
-                            code = code // ":"  ! Default for unspecified dimensions
-                        end if
-                    end do
-                    code = code // ")"
+                if (i > 1) entities = entities // ", "
+                entities = entities // trim(node%var_names(i))
+                if (node%is_array .and. allocated(node%dimension_indices)) then
+                    if (.not. has_dimension_attr) then
+                        entities = trim(entities) // &
+                                   build_dimension_clause(arena, node%dimension_indices)
+                    end if
                 end if
             end do
         else
-            ! Single variable declaration
-            code = code // node%var_name
-
-            ! Add array dimensions if present
-            if (node%is_array .and. allocated(node%dimension_indices) .and. &
-                .not. has_dimension_attr) then
-                ! Generate dimension expressions
-                code = trim(code)
-                code = code // "("
-                do i = 1, size(node%dimension_indices)
-                    if (i > 1) code = code // ","
-                    if (node%dimension_indices(i) > 0 .and. &
-                        node%dimension_indices(i) <= arena%size) then
-                        ! Valid arena index
-                        code = code // generate_code_from_arena(arena, &
-                                                                node%dimension_indices(i))
-                    else if (node%dimension_indices(i) > arena%size) then
-                        ! Direct integer value (for inferred dimensions)
-                        code = code // int_to_string(node%dimension_indices(i))
-                    else
-                        code = code // ":"  ! Default for unspecified dimensions (allocatable)
-                    end if
-                end do
-                code = code // ")"
-            end if
-        end if
-
-        ! Add initializer if present
-        if (node%initializer_index > 0 .and. node%initializer_index <= arena%size) then
-            init_code = generate_code_from_arena(arena, node%initializer_index)
-            if (node%is_pointer) then
-                if (to_lower(trim(init_code)) == "null") then
-                    init_code = "null()"
+            entities = node%var_name
+            if (node%is_array .and. allocated(node%dimension_indices)) then
+                if (.not. has_dimension_attr) then
+                    entities = trim(entities) // &
+                               build_dimension_clause(arena, node%dimension_indices)
                 end if
-                code = code // " => " // init_code
-            else
-                code = code // " = " // init_code
             end if
         end if
+    end function build_declaration_entity_list
 
-        code = fix_character_len_placeholder(code)
+    function build_dimension_clause(arena, dimension_indices) result(clause)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: dimension_indices(:)
+        character(len=:), allocatable :: clause
+        integer :: i, dim_index
 
-    end function generate_code_declaration
+        if (size(dimension_indices) == 0) then
+            clause = ""
+            return
+        end if
+
+        clause = "("
+        do i = 1, size(dimension_indices)
+            if (i > 1) clause = clause // ","
+            dim_index = dimension_indices(i)
+            if (dim_index > 0 .and. dim_index <= arena%size) then
+                clause = clause // generate_code_from_arena(arena, dim_index)
+            else if (dim_index > arena%size) then
+                clause = clause // int_to_string(dim_index)
+            else
+                clause = clause // ":"
+            end if
+        end do
+        clause = clause // ")"
+    end function build_dimension_clause
+
+    function build_declaration_initializer(arena, node) result(initializer)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_node), intent(in) :: node
+        character(len=:), allocatable :: initializer
+        character(len=:), allocatable :: init_code
+
+        initializer = ""
+
+        if (node%initializer_index <= 0) return
+        if (node%initializer_index > arena%size) return
+        if (.not. allocated(arena%entries(node%initializer_index)%node)) return
+
+        init_code = generate_code_from_arena(arena, node%initializer_index)
+
+        if (node%is_pointer) then
+            if (to_lower(trim(init_code)) == "null") init_code = "null()"
+            initializer = " => " // init_code
+        else
+            initializer = " = " // init_code
+        end if
+    end function build_declaration_initializer
 
     ! Generate code for parameter declarations
     function generate_code_parameter_declaration(arena, node, node_index) result(code)
@@ -448,8 +471,8 @@ contains
                     type is (derived_type_node)
                         cycle
                     class default
-                        component_code = generate_code_from_arena(arena, &
-                                                                node%component_indices(i))
+                        component_code = generate_code_from_arena( &
+                                         arena, node%component_indices(i))
                     end select
                     if (len_trim(component_code) == 0) cycle
                     code = code // "    " // component_code // new_line('A')
