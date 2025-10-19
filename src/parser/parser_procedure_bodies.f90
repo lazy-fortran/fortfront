@@ -77,46 +77,7 @@ contains
         end if
 
         ! Parse parameters (simplified - no type info)
-        allocate (param_indices(0))
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
-
-            ! Parse parameter names only
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    token = parser%consume()  ! consume ')'
-                    exit
-                end if
-
-                if (token%kind == TK_IDENTIFIER) then
-                    ! Create simple parameter node
-                    block
-                        integer :: param_index
-                        block
-                            integer, allocatable :: empty_dims(:)
-                            allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, &
-                                                                     token%text, &
-                                                                     "", 0, &
-                                                                     0, .false., &
-                                                                     empty_dims, &
-                                                                     token%line, &
-                                                                     token%column)
-                        end block
-                        param_indices = [param_indices, param_index]
-                    end block
-                    token = parser%consume()
-                end if
-
-                ! Skip commas
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()
-                end if
-            end do
-        end if
+        call parse_simple_parameter_list(parser, arena, param_indices)
 
         ! Parse subroutine body until "end subroutine" (simplified)
         allocate (body_indices(0))
@@ -286,46 +247,7 @@ contains
         end if
 
         ! Parse parameters (simplified - no type info)
-        allocate (param_indices(0))
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            token = parser%consume()  ! consume '('
-
-            ! Parse parameter names only
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    token = parser%consume()  ! consume ')'
-                    exit
-                end if
-
-                if (token%kind == TK_IDENTIFIER) then
-                    ! Create simple parameter node
-                    block
-                        integer :: param_index
-                        block
-                            integer, allocatable :: empty_dims(:)
-                            allocate (empty_dims(0))
-                            param_index = push_parameter_declaration(arena, &
-                                                                     token%text, &
-                                                                     "", 0, &
-                                                                     0, .false., &
-                                                                     empty_dims, &
-                                                                     token%line, &
-                                                                     token%column)
-                        end block
-                        param_indices = [param_indices, param_index]
-                    end block
-                    token = parser%consume()
-                end if
-
-                ! Skip commas
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()
-                end if
-            end do
-        end if
+        call parse_simple_parameter_list(parser, arena, param_indices)
 
         ! Skip result clause if present
         token = parser%peek()
@@ -701,6 +623,58 @@ contains
     end function parse_simple_assignment_statement
 
     ! Parse simple right-hand side expression (handles binary operations)
+    subroutine parse_simple_parameter_list(parser, arena, param_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(out) :: param_indices(:)
+        type(token_t) :: token
+        integer, allocatable :: local_indices(:)
+
+        allocate (local_indices(0))
+
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "(")) then
+            call move_alloc(local_indices, param_indices)
+            return
+        end if
+
+        token = parser%consume()
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            if (token%kind == TK_IDENTIFIER) then
+                block
+                    integer :: param_index
+                    block
+                        integer, allocatable :: empty_dims(:)
+                        allocate (empty_dims(0))
+                        param_index = push_parameter_declaration(arena, token%text, &
+                                                                 "", 0, 0, .false., &
+                                                                 empty_dims, &
+                                                                 token%line, &
+                                                                 token%column)
+                    end block
+                    local_indices = [local_indices, param_index]
+                end block
+                token = parser%consume()
+            else
+                token = parser%consume()
+            end if
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            end if
+        end do
+
+        call move_alloc(local_indices, param_indices)
+    end subroutine parse_simple_parameter_list
+
     function parse_simple_rhs_expression(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
