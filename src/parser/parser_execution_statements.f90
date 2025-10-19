@@ -25,7 +25,7 @@ module parser_execution_statements_module
                                                 parse_exit_statement
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
-    use parser_statement_core_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
     use ast_arena_modern, only: ast_arena_t

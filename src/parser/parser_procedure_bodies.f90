@@ -12,7 +12,7 @@ module parser_procedure_bodies_module
                            push_literal, push_binary_op
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
-    use parser_statement_core_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     implicit none
     private
@@ -277,8 +277,8 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
             token = parser%consume()
-        else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, &
-                                                                             token)) then
+        else if (token%kind == TK_KEYWORD .and. &
+                 keyword_can_be_function_name(parser, token)) then
             function_name = token%text
             token = parser%consume()
         else
