@@ -16,12 +16,39 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: unused_names(:)
         logical, allocatable :: is_called(:)
-        integer :: i, j, unused_count, sep_pos
         character(len=256), allocatable :: temp_names(:)
-        character(len=256) :: simple_name
+        integer :: unused_count
+        integer :: i
 
         allocate (is_called(graph%proc_count))
         is_called = .false.
+
+        call mark_always_used_procs(graph, is_called)
+
+        do i = 1, graph%call_count
+            call mark_called_procedures(graph, graph%calls(i)%callee, is_called)
+        end do
+
+        unused_count = count(.not. is_called)
+        if (unused_count == 0) then
+            allocate (character(len=1) :: unused_names(0))
+            return
+        end if
+
+        allocate (temp_names(unused_count))
+        call collect_unused_simple_names(graph, is_called, temp_names)
+
+        allocate (character(len=maxval(len_trim(temp_names))) :: &
+                  unused_names(unused_count))
+        do i = 1, unused_count
+            unused_names(i) = trim(temp_names(i))
+        end do
+    end function find_unused_procedures
+
+    subroutine mark_always_used_procs(graph, is_called)
+        type(call_graph_t), intent(in) :: graph
+        logical, intent(inout) :: is_called(:)
+        integer :: i
 
         do i = 1, graph%proc_count
             if (graph%procedures(i)%is_main_program .or. &
@@ -29,56 +56,63 @@ contains
                 is_called(i) = .true.
             end if
         end do
+    end subroutine mark_always_used_procs
 
-        do i = 1, graph%call_count
-            simple_name = graph%calls(i)%callee
-            sep_pos = index(simple_name, "::", back=.true.)
-            if (sep_pos > 0) simple_name = simple_name(sep_pos + 2:)
+    subroutine mark_called_procedures(graph, callee_name, is_called)
+        type(call_graph_t), intent(in) :: graph
+        character(len=*), intent(in) :: callee_name
+        logical, intent(inout) :: is_called(:)
+        integer :: j
+        character(len=:), allocatable :: simple_callee
 
-            do j = 1, graph%proc_count
-                block
-                    character(len=256) :: proc_simple_name
-                    integer :: proc_sep_pos
-                    proc_simple_name = graph%procedures(j)%name
-                    proc_sep_pos = index(proc_simple_name, "::", back=.true.)
-                    if (proc_sep_pos > 0) then
-                        proc_simple_name = proc_simple_name(proc_sep_pos + 2:)
-                    end if
-                    if (proc_simple_name == simple_name) then
-                        is_called(j) = .true.
-                        exit
-                    end if
-                end block
-            end do
+        simple_callee = simple_name_of(callee_name)
+        do j = 1, graph%proc_count
+            if (names_match(graph%procedures(j)%name, simple_callee)) then
+                is_called(j) = .true.
+            end if
         end do
+    end subroutine mark_called_procedures
 
-        unused_count = 0
+    subroutine collect_unused_simple_names(graph, is_called, temp_names)
+        type(call_graph_t), intent(in) :: graph
+        logical, intent(in) :: is_called(:)
+        character(len=256), intent(out) :: temp_names(:)
+        integer :: i
+        integer :: pos
+
+        pos = 0
         do i = 1, graph%proc_count
-            if (.not. is_called(i)) unused_count = unused_count + 1
+            if (is_called(i)) cycle
+            pos = pos + 1
+            temp_names(pos) = simple_name_of(graph%procedures(i)%name)
         end do
+    end subroutine collect_unused_simple_names
 
-        if (unused_count > 0) then
-            allocate (temp_names(unused_count))
-            j = 0
-            do i = 1, graph%proc_count
-                if (.not. is_called(i)) then
-                    j = j + 1
-                    simple_name = graph%procedures(i)%name
-                    sep_pos = index(simple_name, "::", back=.true.)
-                    if (sep_pos > 0) simple_name = simple_name(sep_pos + 2:)
-                    temp_names(j) = simple_name
-                end if
-            end do
+    pure function simple_name_of(name) result(simple_name)
+        character(len=*), intent(in) :: name
+        character(len=256) :: simple_name
+        integer :: sep
 
-            allocate (character(len=maxval(len_trim(temp_names))) :: &
-                      unused_names(unused_count))
-            do i = 1, unused_count
-                unused_names(i) = trim(temp_names(i))
-            end do
-        else
-            allocate (character(len=1) :: unused_names(0))
+        simple_name = trim(name)
+        sep = index(simple_name, '::', back=.true.)
+        if (sep > 0) simple_name = simple_name(sep + 2:)
+        simple_name = trim(simple_name)
+    end function simple_name_of
+
+    pure logical function names_match(full_name, target_simple)
+        character(len=*), intent(in) :: full_name
+        character(len=*), intent(in) :: target_simple
+
+        character(len=256) :: candidate
+
+        if (trim(full_name) == trim(target_simple)) then
+            names_match = .true.
+            return
         end if
-    end function find_unused_procedures
+
+        candidate = simple_name_of(full_name)
+        names_match = trim(candidate) == trim(target_simple)
+    end function names_match
 
     function get_callers(graph, procedure_name) result(caller_names)
         type(call_graph_t), intent(in) :: graph
@@ -326,7 +360,8 @@ contains
         end if
     end function find_recursive_cycles
 
-    subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, cycles, cycle_count)
+    subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, cycles, &
+                                cycle_count)
         type(call_graph_t), intent(in) :: graph
         integer, intent(in) :: proc_idx
         logical, intent(inout) :: visited(:), in_stack(:)
