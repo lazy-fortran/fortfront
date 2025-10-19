@@ -52,6 +52,11 @@ contains
             return
         end if
 
+        if (program_is_trivial_wrapper(arena, node_index, node%name)) then
+            code = collect_trivial_program_trivia(arena, node_index)
+            return
+        end if
+
         code = "program " // node%name // new_line('A')
 
         call assemble_program_header(arena, node, code, non_use_indices, &
@@ -101,64 +106,112 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable :: code
-        integer :: i
+        integer :: i, child_index
 
         code = ""
         if (.not. allocated(node%body_indices)) return
 
         do i = 1, size(node%body_indices)
-            if (node%body_indices(i) <= 0 .or. node%body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
-            select type (child => arena%entries(node%body_indices(i))%node)
+            child_index = node%body_indices(i)
+            if (child_index <= 0 .or. child_index > arena%size) cycle
+            if (.not. allocated(arena%entries(child_index)%node)) cycle
+
+            select type (child => arena%entries(child_index)%node)
             type is (program_node)
-                if (program_is_trivial_wrapper(arena, node%body_indices(i), &
-                                               child%name)) then
-                    block
-                        character(len=:), allocatable :: trivia_code
-                        trivia_code = collect_trivial_program_trivia(arena, &
-                                                                     node%body_indices(i))
-                        if (len_trim(trivia_code) > 0) then
-                            if (len(code) > 0) code = code // new_line('A') // &
-                                                      new_line('A')
-                            code = code // trivia_code
-                        end if
-                    end block
-                    cycle
-                end if
+                if (append_trivial_program(arena, code, child_index, child%name)) cycle
             type is (subroutine_def_node)
-                if (.not. allocated(child%body_indices) .or. &
-                    size(child%body_indices) == 0) then
-                    if (.not. allocated(child%param_indices) .or. &
-                        size(child%param_indices) == 0) then
-                        block
-                            integer :: j
-                            logical :: is_duplicate
-                            is_duplicate = .false.
-                            do j = 1, i - 1
-                                if (node%body_indices(j) <= 0 .or. &
-                                    node%body_indices(j) > arena%size) cycle
-                                if (.not. allocated( &
-                                    arena%entries(node%body_indices(j))%node)) cycle
-                                select type (prev => &
-                                             arena%entries(node%body_indices(j))%node)
-                                type is (subroutine_def_node)
-                                    if (prev%name == child%name) then
-                                        is_duplicate = .true.
-                                        exit
-                                    end if
-                                end select
-                            end do
-                            if (is_duplicate) cycle
-                        end block
-                    end if
-                end if
+                if (skip_duplicate_empty_subroutine(arena, node, child, i)) cycle
             end select
-            if (len(code) > 0) then
-                code = code // new_line('A') // new_line('A')
-            end if
-            code = code // generate_code_from_arena(arena, node%body_indices(i))
+
+            if (len(code) > 0) code = code // new_line('A') // new_line('A')
+            code = code // generate_code_from_arena(arena, child_index)
         end do
     end function generate_multi_unit_program
+
+    logical function append_trivial_program(arena, code, program_index, name)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(in) :: program_index
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: snippet
+
+        snippet = gather_trivial_program_trivia(arena, program_index, name)
+        if (len_trim(snippet) == 0) then
+            append_trivial_program = .false.
+            return
+        end if
+
+        if (len(code) > 0) code = code // new_line('A') // new_line('A')
+        code = code // snippet
+        append_trivial_program = .true.
+    end function append_trivial_program
+
+    function gather_trivial_program_trivia(arena, body_index, name) result(snippet)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: snippet
+
+        snippet = ""
+        if (.not. program_is_trivial_wrapper(arena, body_index, name)) return
+
+        snippet = collect_trivial_program_trivia(arena, body_index)
+    end function gather_trivial_program_trivia
+
+    logical function skip_duplicate_empty_subroutine(arena, node, child, position) &
+        result(skip)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        type(subroutine_def_node), intent(in) :: child
+        integer, intent(in) :: position
+
+        if (subroutine_has_body_or_params(child)) then
+            skip = .false.
+        else
+            skip = has_prior_subroutine_with_name(arena, node, child%name, position)
+        end if
+    end function skip_duplicate_empty_subroutine
+
+    logical function subroutine_has_body_or_params(child) result(has_entries)
+        type(subroutine_def_node), intent(in) :: child
+
+        has_entries = .false.
+        if (allocated(child%body_indices)) then
+            if (size(child%body_indices) > 0) then
+                has_entries = .true.
+                return
+            end if
+        end if
+
+        if (allocated(child%param_indices)) then
+            has_entries = size(child%param_indices) > 0
+        end if
+    end function subroutine_has_body_or_params
+
+    logical function has_prior_subroutine_with_name(arena, node, name, position) &
+        result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: position
+        integer :: j, idx
+
+        found = .false.
+        if (.not. allocated(node%body_indices)) return
+
+        do j = 1, position - 1
+            idx = node%body_indices(j)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (prev => arena%entries(idx)%node)
+            type is (subroutine_def_node)
+                if (prev%name == name) then
+                    found = .true.
+                    return
+                end if
+            end select
+        end do
+    end function has_prior_subroutine_with_name
 
     subroutine assemble_program_header(arena, node, code, non_use_indices, non_use_count)
         type(ast_arena_t), intent(in) :: arena
@@ -167,61 +220,90 @@ contains
         integer, allocatable, intent(out) :: non_use_indices(:)
         integer, intent(out) :: non_use_count
         logical :: has_implicit
-        logical :: is_use_stmt
         character(len=:), allocatable :: use_statements_code
         character(len=:), allocatable :: extra_decls
-        integer :: i
 
-        has_implicit = .false.
-        use_statements_code = ""
-        non_use_count = 0
+        call gather_program_header_entries(arena, node, has_implicit, &
+                                           use_statements_code, non_use_indices, &
+                                           non_use_count)
 
-        if (allocated(node%body_indices)) then
-            allocate (non_use_indices(size(node%body_indices)))
-            do i = 1, size(node%body_indices)
-                if (node%body_indices(i) <= 0 .or. node%body_indices(i) > &
-                    arena%size) cycle
-                if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
-                is_use_stmt = .false.
-                select type (ib => arena%entries(node%body_indices(i))%node)
-                type is (use_statement_node)
-                    is_use_stmt = .true.
-                    use_statements_code = use_statements_code // "    " // &
-                                          generate_code_from_arena( &
-                                          arena, node%body_indices(i)) // new_line('A')
-                type is (implicit_statement_node)
-                    if (ib%is_none) has_implicit = .true.
-                    non_use_count = non_use_count + 1
-                    non_use_indices(non_use_count) = node%body_indices(i)
-                type is (literal_node)
-                    if (allocated(ib%value)) then
-                        if (index(ib%value, 'implicit none') > 0) has_implicit = .true.
-                    end if
-                    non_use_count = non_use_count + 1
-                    non_use_indices(non_use_count) = node%body_indices(i)
-                class default
-                    non_use_count = non_use_count + 1
-                    non_use_indices(non_use_count) = node%body_indices(i)
-                end select
-                if (is_use_stmt) cycle
-            end do
-        else
-            allocate (non_use_indices(0))
-        end if
-
-        if (len(use_statements_code) > 0) then
-            code = code // use_statements_code
-        end if
+        if (len(use_statements_code) > 0) code = code // use_statements_code
 
         if (.not. has_implicit) then
             code = code // "    implicit none" // new_line('A')
         end if
 
         extra_decls = collect_program_variable_decls(arena, node)
-        if (len_trim(extra_decls) > 0) then
-            code = code // extra_decls
-        end if
+        if (len_trim(extra_decls) > 0) code = code // extra_decls
     end subroutine assemble_program_header
+
+    subroutine gather_program_header_entries(arena, node, has_implicit, &
+                                             use_statements_code, non_use_indices, &
+                                             non_use_count)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        logical, intent(out) :: has_implicit
+        character(len=:), allocatable, intent(out) :: use_statements_code
+        integer, allocatable, intent(out) :: non_use_indices(:)
+        integer, intent(out) :: non_use_count
+        integer :: i
+
+        has_implicit = .false.
+        use_statements_code = ""
+        non_use_count = 0
+
+        if (.not. allocated(node%body_indices)) then
+            allocate (non_use_indices(0))
+            return
+        end if
+
+        allocate (non_use_indices(size(node%body_indices)))
+
+        do i = 1, size(node%body_indices)
+            call categorize_header_entry(arena, node%body_indices(i), has_implicit, &
+                                         use_statements_code, non_use_indices, &
+                                         non_use_count)
+        end do
+    end subroutine gather_program_header_entries
+
+    subroutine categorize_header_entry(arena, body_index, has_implicit, &
+                                       use_statements_code, non_use_indices, &
+                                       non_use_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        logical, intent(inout) :: has_implicit
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        integer, intent(inout) :: non_use_indices(:)
+        integer, intent(inout) :: non_use_count
+        logical :: is_use_stmt
+        character(len=:), allocatable :: use_code
+
+        if (body_index <= 0 .or. body_index > arena%size) return
+        if (.not. allocated(arena%entries(body_index)%node)) return
+
+        is_use_stmt = .false.
+
+        select type (ib => arena%entries(body_index)%node)
+        type is (use_statement_node)
+            is_use_stmt = .true.
+            use_code = generate_code_from_arena(arena, body_index)
+            use_statements_code = use_statements_code // "    " // use_code // &
+                                  new_line('A')
+        type is (implicit_statement_node)
+            if (ib%is_none) has_implicit = .true.
+        type is (literal_node)
+            if (allocated(ib%value)) then
+                if (index(ib%value, 'implicit none') > 0) has_implicit = .true.
+            end if
+        end select
+
+        if (is_use_stmt) return
+
+        non_use_count = non_use_count + 1
+        if (non_use_count <= size(non_use_indices)) then
+            non_use_indices(non_use_count) = body_index
+        end if
+    end subroutine categorize_header_entry
 
     subroutine append_program_body(arena, node, code, non_use_indices, non_use_count, &
                                    context_has_executable_before_contains)
@@ -478,7 +560,7 @@ contains
         integer :: impl_pos
 
         if (n_vars == 0 .and. .not. (index(body_code, "[(") > 0 .and. &
-                                      index(body_code, ")]") > 0)) return
+                                     index(body_code, ")]") > 0)) return
 
         impl_pos = index(body_code, "implicit none")
         if (impl_pos > 0) then
@@ -672,59 +754,89 @@ contains
         character(len=*), intent(in) :: section
         character(len=*), intent(inout) :: loop_vars(:)
         integer, intent(inout) :: n_vars
-        integer :: pos, eq_pos, comma_pos
-        character(len=32) :: var_name
-        logical :: already_added
-        integer :: i
+        integer :: pos, eq_pos
 
-        ! Look for patterns like "i=1," or "j=1," or "k=1,"
         pos = 1
-        do while (pos < len_trim(section))
-            eq_pos = index(section(pos:), "=")
-            if (eq_pos == 0) exit
-            eq_pos = pos + eq_pos - 1
-
-            ! Look backwards from = to find variable name
-            if (eq_pos > 1) then
-                ! Find the start of the variable name
-                i = eq_pos - 1
-                do while (i > 0)
-                    if (section(i:i) == ' ' .or. section(i:i) == ',' .or. &
-                        section(i:i) == '(') then
-                        exit
-                    end if
-                    i = i - 1
-                end do
-
-                ! Extract variable name
-                var_name = adjustl(trim(section(i + 1:eq_pos - 1)))
-
-                ! Check if it looks like a loop variable (single letter or simple name)
-                if (len_trim(var_name) > 0 .and. len_trim(var_name) <= 8) then
-                    ! Check if it's a number after =
-                    comma_pos = index(section(eq_pos + 1:), ",")
-                    if (comma_pos > 0) then
-                        ! This looks like a loop variable
-                        ! Check if already in list
-                        already_added = .false.
-                        do i = 1, n_vars
-                            if (trim(loop_vars(i)) == trim(var_name)) then
-                                already_added = .true.
-                                exit
-                            end if
-                        end do
-
-                        if (.not. already_added .and. n_vars < size(loop_vars)) then
-                            n_vars = n_vars + 1
-                            loop_vars(n_vars) = trim(var_name)
-                        end if
-                    end if
-                end if
-            end if
-
+        do
+            eq_pos = find_next_equal(section, pos)
+            if (eq_pos <= 0) exit
+            call try_register_loop_var(section, eq_pos, loop_vars, n_vars)
             pos = eq_pos + 1
         end do
     end subroutine extract_loop_vars_from_section
+
+    integer function find_next_equal(section, start_pos) result(position)
+        character(len=*), intent(in) :: section
+        integer, intent(in) :: start_pos
+        integer :: local_pos
+
+        position = 0
+        if (start_pos < 1 .or. start_pos > len_trim(section)) return
+
+        local_pos = index(section(start_pos:), "=")
+        if (local_pos == 0) return
+
+        position = start_pos + local_pos - 1
+    end function find_next_equal
+
+    subroutine try_register_loop_var(section, eq_pos, loop_vars, n_vars)
+        character(len=*), intent(in) :: section
+        integer, intent(in) :: eq_pos
+        character(len=*), intent(inout) :: loop_vars(:)
+        integer, intent(inout) :: n_vars
+        character(len=:), allocatable :: var_name
+
+        var_name = extract_loop_var_name(section, eq_pos)
+        if (len_trim(var_name) == 0) return
+        if (len_trim(var_name) > 8) return
+        if (.not. has_loop_range_after(section, eq_pos)) return
+
+        call add_loop_variable(loop_vars, n_vars, var_name)
+    end subroutine try_register_loop_var
+
+    function extract_loop_var_name(section, eq_pos) result(var_name)
+        character(len=*), intent(in) :: section
+        integer, intent(in) :: eq_pos
+        character(len=:), allocatable :: var_name
+        integer :: i, start_pos
+
+        var_name = ""
+        if (eq_pos <= 1) return
+
+        start_pos = eq_pos - 1
+        do i = start_pos, 1, -1
+            if (section(i:i) == ' ' .or. section(i:i) == ',' .or. &
+                section(i:i) == '(') then
+                exit
+            end if
+            start_pos = i - 1
+        end do
+
+        var_name = adjustl(trim(section(start_pos + 1:eq_pos - 1)))
+    end function extract_loop_var_name
+
+    logical function has_loop_range_after(section, eq_pos) result(has_range)
+        character(len=*), intent(in) :: section
+        integer, intent(in) :: eq_pos
+
+        has_range = index(section(eq_pos + 1:), ",") > 0
+    end function has_loop_range_after
+
+    subroutine add_loop_variable(loop_vars, n_vars, var_name)
+        character(len=*), intent(inout) :: loop_vars(:)
+        integer, intent(inout) :: n_vars
+        character(len=*), intent(in) :: var_name
+        integer :: i
+
+        do i = 1, n_vars
+            if (trim(loop_vars(i)) == trim(var_name)) return
+        end do
+
+        if (n_vars >= size(loop_vars)) return
+
+        n_vars = n_vars + 1
+        loop_vars(n_vars) = trim(var_name)
+    end subroutine add_loop_variable
 
     ! Collect variable declarations for undeclared identifiers in programs
     function collect_program_variable_decls(arena, prog) result(decl_code)

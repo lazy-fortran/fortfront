@@ -58,73 +58,102 @@ contains
         type(declaration_node), intent(in) :: node
         logical, intent(in) :: standardize_types_enabled
         character(len=:), allocatable :: type_str
+        logical :: treat_as_character
+
+        type_str = select_declared_type(node, standardize_types_enabled)
+
+        treat_as_character = is_character_type_string(type_str) .or. &
+                             node%inferred_type%kind == TCHAR
+        if (.not. treat_as_character) return
+
+        type_str = normalize_character_type(node, type_str)
+        type_str = normalize_character_length(node, type_str)
+    end function resolve_declaration_type
+
+    function select_declared_type(node, standardize_types_enabled) result(type_str)
+        type(declaration_node), intent(in) :: node
+        logical, intent(in) :: standardize_types_enabled
+        character(len=:), allocatable :: type_str
 
         if (len_trim(node%type_name) > 0) then
             type_str = node%type_name
-        else if (node%inferred_type%kind > 0) then
-            select case (node%inferred_type%kind)
-            case (TINT)
-                type_str = "integer"
-            case (TREAL)
-                if (standardize_types_enabled) then
-                    type_str = "real(8)"
-                else
-                    type_str = "real"
-                end if
-            case (TCHAR)
-                if (node%inferred_type%alloc_info%needs_allocatable_string) then
-                    type_str = "character(len=:)"
-                else if (node%inferred_type%size > 0) then
-                    type_str = "character(len=" // &
-                        trim(adjustl(int_to_string(node%inferred_type%size))) // ")"
-                else
-                    type_str = "character(len=0)"
-                end if
-            case (TLOGICAL)
-                type_str = "logical"
-            case (TCOMPLEX)
-                type_str = "complex"
-            case (TDOUBLE)
-                type_str = "double precision"
-            case (TDERIVED)
-                if (len_trim(node%type_name) > 0) then
-                    type_str = node%type_name
-                else
-                    type_str = "type(unknown_t)"
-                end if
-            case default
-                type_str = "real"
-            end select
-        else
+            return
+        end if
+
+        if (node%inferred_type%kind <= 0) then
             type_str = "real"
+            return
         end if
 
-        if (is_character_type_string(type_str) .or. node%inferred_type%kind == &
-            TCHAR) then
-            type_str = normalize_character_type(node, type_str)
-        end if
+        select case (node%inferred_type%kind)
+        case (TINT)
+            type_str = "integer"
+        case (TREAL)
+            if (standardize_types_enabled) then
+                type_str = "real(8)"
+            else
+                type_str = "real"
+            end if
+        case (TCHAR)
+            type_str = select_character_type(node)
+        case (TLOGICAL)
+            type_str = "logical"
+        case (TCOMPLEX)
+            type_str = "complex"
+        case (TDOUBLE)
+            type_str = "double precision"
+        case (TDERIVED)
+            type_str = merge(node%type_name, "type(unknown_t)", &
+                             len_trim(node%type_name) > 0)
+        case default
+            type_str = "real"
+        end select
+    end function select_declared_type
 
-        select case (trim(type_str))
+    function select_character_type(node) result(type_str)
+        type(declaration_node), intent(in) :: node
+        character(len=:), allocatable :: type_str
+
+        if (node%inferred_type%alloc_info%needs_allocatable_string) then
+            type_str = "character(len=:)"
+        else if (node%inferred_type%size > 0) then
+            type_str = "character(len=" // &
+                trim(adjustl(int_to_string(node%inferred_type%size))) // ")"
+        else
+            type_str = "character(len=0)"
+        end if
+    end function select_character_type
+
+    function normalize_character_length(node, type_str) result(adjusted)
+        type(declaration_node), intent(in) :: node
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: adjusted
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: kind_text
+
+        adjusted = type_str
+
+        select case (trim(adjusted))
         case ("character(len=))", "character(len=)")
-            type_str = "character(len=*)"
+            adjusted = "character(len=*)"
         end select
 
-        if (.not. is_character_type_string(type_str)) return
+        if (.not. is_character_type_string(adjusted)) return
 
-        if (index(to_lower(trim(type_str)), "len=)") > 0) then
-            if (node%has_kind) then
-                select case (node%kind_value)
-                case (-1)
-                    type_str = "character(len=*)"
-                case default
-                    if (node%kind_value > 0) then
-                        type_str = "character(len=" // &
-                            trim(adjustl(int_to_string(node%kind_value))) // ")"
-                    end if
-                end select
+        lowered = to_lower(trim(adjusted))
+        if (index(lowered, "len=)") == 0) return
+        if (.not. node%has_kind) return
+
+        select case (node%kind_value)
+        case (-1)
+            adjusted = "character(len=*)"
+        case default
+            if (node%kind_value > 0) then
+                kind_text = trim(adjustl(int_to_string(node%kind_value)))
+                adjusted = "character(len=" // kind_text // ")"
             end if
-        end if
-    end function resolve_declaration_type
+        end select
+    end function normalize_character_length
 
     function apply_kind_modifier(node, type_code) result(result_type)
         type(declaration_node), intent(in) :: node
@@ -248,53 +277,90 @@ contains
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: intent_str
-        integer :: j
-        type(declaration_attribute_info_t) :: attr_info
 
-        ! Check if this node has a parent that needs just the name (parameter list)
-        ! vs full declaration (in body). For now, generate full declaration when
-        ! the node has type and attributes.
-        if (len_trim(node%type_name) > 0) then
-            ! Generate full declaration (when in body)
-            code = node%type_name
-
-            if (is_character_type_string(code)) then
-                code = normalize_character_type_param(code, node%has_kind, &
-                                                      node%kind_value)
-            else if (node%has_kind .and. node%kind_value > 0) then
-                code = code // "(" // &
-                       trim(adjustl(int_to_string(node%kind_value))) // ")"
-            end if
-
-            intent_str = intent_type_to_string(node%intent_type)
-            call reset_declaration_attributes(attr_info)
-            if (len_trim(intent_str) > 0) then
-                call set_declaration_intent(attr_info, intent_str)
-            end if
-            attr_info%is_optional = node%is_optional
-            call append_declaration_attributes(code, attr_info)
-
-            code = code // " :: " // node%name
-
-            ! Add dimensions if present
-            if (allocated(node%dimension_indices) .and. &
-                size(node%dimension_indices) > 0) then
-                code = code // "("
-                do j = 1, size(node%dimension_indices)
-                    if (j > 1) code = code // ", "
-                    code = code // generate_code_from_arena(arena, &
-                                                            node%dimension_indices(j))
-                end do
-                code = code // ")"
-            end if
+        if (parameter_requires_full_declaration(node)) then
+            code = build_parameter_declaration(arena, node)
         else
-            ! Just emit the name (when in parameter list)
             code = node%name
         end if
 
         code = fix_character_len_placeholder(code)
     end function generate_code_parameter_declaration
+
+    logical function parameter_requires_full_declaration(node) result(required)
+        type(parameter_declaration_node), intent(in) :: node
+
+        required = len_trim(node%type_name) > 0
+    end function parameter_requires_full_declaration
+
+    function build_parameter_declaration(arena, node) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(parameter_declaration_node), intent(in) :: node
+        character(len=:), allocatable :: decl_code
+        character(len=:), allocatable :: type_code
+        type(declaration_attribute_info_t) :: attr_info
+
+        type_code = format_parameter_type(node)
+
+        call populate_parameter_attributes(node, attr_info)
+        call append_declaration_attributes(type_code, attr_info)
+
+        decl_code = type_code // " :: " // node%name
+        decl_code = decl_code // build_parameter_dimensions(arena, node)
+    end function build_parameter_declaration
+
+    function format_parameter_type(node) result(type_code)
+        type(parameter_declaration_node), intent(in) :: node
+        character(len=:), allocatable :: type_code
+
+        type_code = node%type_name
+
+        if (is_character_type_string(type_code)) then
+            type_code = normalize_character_type_param(type_code, node%has_kind, &
+                                                       node%kind_value)
+            return
+        end if
+
+        if (node%has_kind .and. node%kind_value > 0) then
+            type_code = type_code // "(" // &
+                trim(adjustl(int_to_string(node%kind_value))) // ")"
+        end if
+    end function format_parameter_type
+
+    subroutine populate_parameter_attributes(node, attr_info)
+        type(parameter_declaration_node), intent(in) :: node
+        type(declaration_attribute_info_t), intent(out) :: attr_info
+        character(len=:), allocatable :: intent_str
+
+        call reset_declaration_attributes(attr_info)
+
+        intent_str = intent_type_to_string(node%intent_type)
+        if (len_trim(intent_str) > 0) then
+            call set_declaration_intent(attr_info, intent_str)
+        end if
+
+        attr_info%is_optional = node%is_optional
+    end subroutine populate_parameter_attributes
+
+    function build_parameter_dimensions(arena, node) result(dim_clause)
+        type(ast_arena_t), intent(in) :: arena
+        type(parameter_declaration_node), intent(in) :: node
+        character(len=:), allocatable :: dim_clause
+        integer :: j
+
+        dim_clause = ""
+
+        if (.not. allocated(node%dimension_indices)) return
+        if (size(node%dimension_indices) == 0) return
+
+        dim_clause = "("
+        do j = 1, size(node%dimension_indices)
+            if (j > 1) dim_clause = dim_clause // ", "
+            dim_clause = dim_clause // generate_code_from_arena(arena, &
+                                                                node%dimension_indices(j))
+        end do
+        dim_clause = dim_clause // ")"
+    end function build_parameter_dimensions
 
     ! Generate code for modules
     function generate_code_module(arena, node, node_index) result(code)
@@ -302,78 +368,121 @@ contains
         type(module_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: body_code
-        integer :: i
-        logical :: has_implicit
 
-        ! Module header
-        code = "module " // node%name // new_line('A')
-
-        ! Ensure module includes implicit none (quality requirement for lazy Fortran)
-        has_implicit = .false.
-        if (allocated(node%declaration_indices)) then
-            do i = 1, size(node%declaration_indices)
-                if (node%declaration_indices(i) > 0 .and. &
-                    node%declaration_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(node%declaration_indices(i))%node)) then
-                        select type (decl => &
-                                     arena%entries(node%declaration_indices(i))%node)
-                        type is (implicit_statement_node)
-                            if (decl%is_none) then
-                                has_implicit = .true.
-                                exit
-                            end if
-                        type is (literal_node)
-                            if (allocated(decl%value)) then
-                                if (index(decl%value, 'implicit none') > 0) then
-                                    has_implicit = .true.
-                                    exit
-                                end if
-                            end if
-                        end select
-                    end if
-                end if
-            end do
-        end if
-        if (.not. has_implicit) then
-            code = code // "    implicit none" // new_line('A')
-        end if
-
-        ! Generate module declarations
-        if (allocated(node%declaration_indices)) then
-            body_code = generate_grouped_body(arena, node%declaration_indices, 1)
-            if (len(body_code) > 0) then
-                code = code // body_code
-            end if
-        end if
-
-        ! Check for contains section
-        if (node%has_contains .and. allocated(node%procedure_indices)) then
-            code = code // "contains" // new_line('A')
-
-            ! Generate contained procedures
-            do i = 1, size(node%procedure_indices)
-                if (node%procedure_indices(i) > 0 .and. &
-                    node%procedure_indices(i) <= arena%size) then
-                    body_code = generate_code_from_arena(arena, &
-                                                         node%procedure_indices(i))
-                    if (len(body_code) > 0) then
-                        ! Add proper indentation for contained procedures
-                        code = code // "    " // body_code
-                        if (i < size(node%procedure_indices)) then
-                            code = code // new_line('A') // new_line('A')
-                        else
-                            code = code // new_line('A')
-                        end if
-                    end if
-                end if
-            end do
-        end if
-
-        ! Module end
+        code = build_module_header(arena, node)
+        code = code // collect_module_declarations(arena, node)
+        code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
     end function generate_code_module
+
+    function build_module_header(arena, node) result(header)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: header
+
+        header = "module " // node%name // new_line('A')
+        if (.not. module_has_implicit_none(arena, node)) then
+            header = header // "    implicit none" // new_line('A')
+        end if
+    end function build_module_header
+
+    logical function module_has_implicit_none(arena, node) result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        integer :: i, decl_index
+
+        has_implicit = .false.
+        if (.not. allocated(node%declaration_indices)) return
+
+        do i = 1, size(node%declaration_indices)
+            decl_index = node%declaration_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+
+            select type (decl => arena%entries(decl_index)%node)
+            type is (implicit_statement_node)
+                if (decl%is_none) then
+                    has_implicit = .true.
+                    return
+                end if
+            type is (literal_node)
+                if (allocated(decl%value)) then
+                    if (index(decl%value, 'implicit none') > 0) then
+                        has_implicit = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function module_has_implicit_none
+
+    function collect_module_declarations(arena, node) result(body_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: body_code
+
+        if (.not. allocated(node%declaration_indices)) then
+            body_code = ""
+            return
+        end if
+
+        body_code = generate_grouped_body(arena, node%declaration_indices, 1)
+    end function collect_module_declarations
+
+    function build_contains_section(arena, node) result(section_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        character(len=:), allocatable :: section_code
+        character(len=:), allocatable :: procedure_code
+        integer :: i
+        logical :: has_entries
+        logical :: has_more
+
+        section_code = ""
+        has_entries = .false.
+
+        if (.not. node%has_contains) return
+        if (.not. allocated(node%procedure_indices)) return
+
+        section_code = "contains" // new_line('A')
+
+        do i = 1, size(node%procedure_indices)
+            procedure_code = collect_contained_procedure(arena, &
+                                                         node%procedure_indices(i))
+            if (len(procedure_code) == 0) cycle
+            has_entries = .true.
+            has_more = i < size(node%procedure_indices)
+            section_code = section_code // format_contained_procedure( &
+                           procedure_code, has_more)
+        end do
+
+        if (.not. has_entries) section_code = ""
+    end function build_contains_section
+
+    function collect_contained_procedure(arena, procedure_index) result(proc_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        character(len=:), allocatable :: proc_code
+
+        proc_code = ""
+        if (procedure_index <= 0 .or. procedure_index > arena%size) return
+        if (.not. allocated(arena%entries(procedure_index)%node)) return
+
+        proc_code = generate_code_from_arena(arena, procedure_index)
+    end function collect_contained_procedure
+
+    function format_contained_procedure(proc_code, has_more) result(formatted)
+        character(len=*), intent(in) :: proc_code
+        logical, intent(in) :: has_more
+        character(len=:), allocatable :: formatted
+
+        formatted = "    " // proc_code
+        if (has_more) then
+            formatted = formatted // new_line('A') // new_line('A')
+        else
+            formatted = formatted // new_line('A')
+        end if
+    end function format_contained_procedure
 
     function generate_code_interface_block(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -429,58 +538,76 @@ contains
         type(derived_type_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: component_code
-        character(len=:), allocatable :: header_clause
-        integer :: i
 
-        ! Type definition header
-        if (node%has_attributes .and. allocated(node%attribute_clause) .and. &
-            len_trim(node%attribute_clause) > 0) then
-            header_clause = ""
-            do i = 1, len_trim(node%attribute_clause)
-                header_clause = header_clause // node%attribute_clause(i:i)
-                if (node%attribute_clause(i:i) == "," .and. i < &
-                    len_trim(node%attribute_clause)) then
-                    if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
-                        node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
-                        header_clause = header_clause // " "
-                    end if
-                end if
-            end do
-
-            if (header_clause(1:1) == ",") then
-                code = "type" // header_clause // " :: " // node%name // &
-                       new_line('A')
-            else
-                code = "type " // trim(header_clause) // " :: " // node%name // &
-                       new_line('A')
-            end if
-        else
-            code = "type :: " // node%name // new_line('A')
-        end if
-
-        ! Generate components
-        if (allocated(node%component_indices)) then
-            do i = 1, size(node%component_indices)
-                if (node%component_indices(i) > 0 .and. &
-                    node%component_indices(i) <= arena%size) then
-                    if (.not. &
-                        allocated(arena%entries(node%component_indices(i))%node)) cycle
-                    select type (child => &
-                                 arena%entries(node%component_indices(i))%node)
-                    type is (derived_type_node)
-                        cycle
-                    class default
-                        component_code = generate_code_from_arena( &
-                                         arena, node%component_indices(i))
-                    end select
-                    if (len_trim(component_code) == 0) cycle
-                    code = code // "    " // component_code // new_line('A')
-                end if
-            end do
-        end if
-
-        ! Type definition end
+        code = build_derived_type_header(node)
+        code = code // collect_derived_components(arena, node)
         code = code // "end type " // node%name
     end function generate_code_derived_type
+
+    function build_derived_type_header(node) result(header)
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: header
+        character(len=:), allocatable :: clause
+
+        clause = derived_type_attribute_clause(node)
+        if (len_trim(clause) == 0) then
+            header = "type :: " // node%name // new_line('A')
+        else if (clause(1:1) == ",") then
+            header = "type" // clause // " :: " // node%name // new_line('A')
+        else
+            header = "type " // trim(clause) // " :: " // node%name // new_line('A')
+        end if
+    end function build_derived_type_header
+
+    function derived_type_attribute_clause(node) result(clause)
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: clause
+        integer :: i, trimmed_length
+
+        clause = ""
+        if (.not. node%has_attributes) return
+        if (.not. allocated(node%attribute_clause)) return
+
+        trimmed_length = len_trim(node%attribute_clause)
+        if (trimmed_length == 0) return
+
+        clause = ""
+        do i = 1, trimmed_length
+            clause = clause // node%attribute_clause(i:i)
+            if (node%attribute_clause(i:i) == "," .and. i < trimmed_length) then
+                if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
+                    node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
+                    clause = clause // " "
+                end if
+            end if
+        end do
+    end function derived_type_attribute_clause
+
+    function collect_derived_components(arena, node) result(component_block)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: component_block
+        character(len=:), allocatable :: component_code
+        integer :: i, component_index
+
+        component_block = ""
+        if (.not. allocated(node%component_indices)) return
+
+        do i = 1, size(node%component_indices)
+            component_index = node%component_indices(i)
+            if (component_index <= 0 .or. component_index > arena%size) cycle
+            if (.not. allocated(arena%entries(component_index)%node)) cycle
+
+            select type (child => arena%entries(component_index)%node)
+            type is (derived_type_node)
+                cycle
+            class default
+                component_code = generate_code_from_arena(arena, component_index)
+            end select
+
+            if (len_trim(component_code) == 0) cycle
+            component_block = component_block // "    " // component_code // &
+                              new_line('A')
+        end do
+    end function collect_derived_components
 end module codegen_declarations_declaration_mod
