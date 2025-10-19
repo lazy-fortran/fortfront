@@ -214,8 +214,12 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Generate goto statement code
-        code = "go to 999"  ! Basic goto statement
+        ! Generate goto statement with actual label
+        if (allocated(node%label)) then
+            code = "go to " // trim(node%label)
+        else
+            code = "go to 999"  ! Fallback for invalid goto
+        end if
     end function generate_code_goto
 
     ! Generate code for error termination statements
