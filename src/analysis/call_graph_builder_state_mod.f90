@@ -1,5 +1,6 @@
 module call_graph_builder_state_mod
     use call_graph_core_mod, only: call_graph_t, create_call_graph
+    use call_graph_constants_mod, only: initial_symbol_table_capacity
     implicit none
     private
 
@@ -46,7 +47,7 @@ contains
         type(call_graph_builder_t) :: builder
 
         builder%graph = create_call_graph()
-        allocate (builder%symbol_table(256))
+        allocate (builder%symbol_table(initial_symbol_table_capacity))
         if (arena_size > 0) then
             allocate (builder%node_symbol_map(arena_size))
             builder%node_symbol_map = 0
@@ -71,7 +72,7 @@ contains
         type(symbol_entry_t), allocatable :: temp_table(:)
 
         if (.not. allocated(builder%symbol_table)) then
-            allocate (builder%symbol_table(256))
+            allocate (builder%symbol_table(initial_symbol_table_capacity))
         else if (builder%symbol_count >= size(builder%symbol_table)) then
             allocate (temp_table(max(1, size(builder%symbol_table) * 2)))
             if (builder%symbol_count > 0) then
