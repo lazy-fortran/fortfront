@@ -118,7 +118,8 @@ contains
         open (newunit=unit_num, file=trimmed, status='old', action='readwrite', &
             & iostat=ios)
         if (ios /= 0) then
-            open (newunit=unit_num, file=trimmed, status='old', action='read', iostat=ios)
+            open (newunit=unit_num, file=trimmed, status='old', action='read', &
+                  iostat=ios)
         end if
         if (ios == 0) then
             close (unit_num, status='delete', iostat=ios)
@@ -253,15 +254,17 @@ contains
                             if (len(executable_path) == 0) then
                                 ! Fallback: take first found fortfront.exe
                                 read (unit_num, '(A)', iostat=exit_code) search_output
-                                if (exit_code == 0 .and. len_trim(search_output) > 0) then
+                                if (exit_code == 0 .and. &
+                                    len_trim(search_output) > 0) then
                                     inquire (file=trim(search_output), exist=file_exists)
-                                    if (file_exists) executable_path = trim(search_output)
+                                    if (file_exists) executable_path = &
+                                        trim(search_output)
                                 end if
                             end if
                             close (unit_num)
                         end if
-                        call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
-                            & exitstat=exit_code)
+                  call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', &
+                                  & exitstat=exit_code)
                     end if
                     if (len(executable_path) > 0) return
                 end do
@@ -468,7 +471,8 @@ contains
         end if
 
         ! Prepare a CRLF-ended input file (convert from LF)
-        call write_text_file('test_input_crlf_src.lf', 'print *, ''test'''//new_line('a'))
+        call write_text_file('test_input_crlf_src.lf', &
+                             'print *, ''test'''//new_line('a'))
         call execute_command_line('bash -lc "sed ''s/$/\\r/'' test_input_crlf_src.lf > test_input_crlf.lf"', &
                                   exitstat=exit_code)
         if (exit_code /= 0) then
@@ -551,7 +555,8 @@ contains
             return
         end if
 
-        call write_text_file('test_input_pipe_win.lf', 'print *, ''test'''//new_line('a'))
+        call write_text_file('test_input_pipe_win.lf', &
+                             'print *, ''test'''//new_line('a'))
         command = build_pipe_command(executable_path, 'test_input_pipe_win.lf', &
                                      'test_output_pipe_win.txt', &
                                          & 'test_error_pipe_win.txt', .true.)
@@ -559,7 +564,8 @@ contains
 
         success = (run_status == 0)
         if (success) then
-            open (unit=16, file='test_output_pipe_win.txt', status='old', action='read', &
+            open (unit=16, file='test_output_pipe_win.txt', status='old', &
+                action='read', &
                 & iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
@@ -601,11 +607,11 @@ contains
     end subroutine test_basic_io_windows_pipe
 
     subroutine test_error_handling()
-        integer :: exit_code, run_status
+        integer :: exit_code, run_status, unit_num
         character(len=512) :: command
         character(len=256) :: line
         character(len=:), allocatable :: executable_path
-        logical :: success
+        logical :: success, error_file_exists, has_error_output
 
         call test_start("Error handling")
 
@@ -624,31 +630,51 @@ contains
                                      'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
 
-        ! Clean up test files
-        call cleanup_file('test_invalid.lf')
-        call cleanup_file('test_output2.txt')
-        call cleanup_file('test_error2.txt')
+        ! Invalid source input should surface a non-zero exit with diagnostics
+        success = (run_status /= 0)
+        error_file_exists = .false.
+        has_error_output = .false.
 
-        ! Invalid source input should not crash; current design returns 0
-        success = (run_status == 0)
+        inquire (file='test_error2.txt', exist=error_file_exists)
+        if (error_file_exists) then
+            open (newunit=unit_num, file='test_error2.txt', status='old', &
+                & action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read (unit_num, '(A)', end=275, iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (len_trim(line) == 0) cycle
+                    if (index(line, '[SYNTAX_ERROR]') > 0 .or. &
+                        index(line, '[VALIDATION') > 0 .or. &
+                        index(line, '[PARSER_') > 0 .or. &
+                        index(line, '[UNRECOGNIZED_INPUT]') > 0 .or. &
+                        index(line, 'No output generated') > 0) then
+                        has_error_output = .true.
+                        exit
+                    end if
+                end do
+275             close (unit_num)
+            end if
+        end if
+        success = success .and. has_error_output
 
         call test_result(success)
         if (.not. success) then
             print *, "  Error handling failed"
             print *, "  Exit code: ", run_status
-            open (unit=97, file='test_error2.txt', status='old', action='read', &
-                & iostat=exit_code)
-            if (exit_code == 0) then
-                do
-                    read (97, '(A)', end=298, iostat=exit_code) line
-                    if (exit_code /= 0) exit
-                    if (len_trim(line) > 0) then
-                        print *, '  TRACE: ', trim(line)
-                    end if
-                end do
-298             close (97)
+            if (.not. has_error_output) then
+                if (.not. error_file_exists) then
+                    print *, "  Missing CLI diagnostics; expected error output"
+                else
+                    print *, "  CLI error output did not contain diagnostics"
+                end if
             end if
         end if
+
+        ! Clean up test files
+        call cleanup_file('test_invalid.lf')
+        call cleanup_file('test_output2.txt')
+        call cleanup_file('test_error2.txt')
     end subroutine test_error_handling
 
     subroutine test_invalid_flag_exit_code()
@@ -825,7 +851,8 @@ contains
         if (is_windows) then
             call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
             command = build_pipe_command(executable_path, 'test_func.lf', &
-                                         'test_out_func.txt', 'test_err_func.txt', .true.)
+                                         'test_out_func.txt', &
+                                         'test_err_func.txt', .true.)
         else
             command = 'bash -lc "echo \"func add(x, y) = x + y\" | ' // &
                       timeout_wrapper('20') // executable_path // &
