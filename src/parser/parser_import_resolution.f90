@@ -38,61 +38,18 @@ contains
         rename_capacity = 0
 
         ! Parse first identifier
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            local_name = trimmed_or_empty(token%text)
+        call parse_single_identifier_with_rename(parser)
 
+        ! Parse additional identifiers (comma-separated)
+        do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "=>") then
-                token = parser%consume()  ! consume '=>'
-                token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
-                    token = parser%consume()
-                    remote_name = trimmed_or_empty(token%text)
-                    call append_rename_pair(local_name, remote_name)
-                else
-                    ! Malformed rename - treat as simple identifier
-                    call append_only(local_name)
-                end if
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()  ! consume ','
+                call parse_single_identifier_with_rename(parser)
             else
-                call append_only(local_name)
+                exit  ! Not a comma, end of list
             end if
-
-            ! Parse additional identifiers (comma-separated)
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER) then
-                        token = parser%consume()
-                        local_name = trimmed_or_empty(token%text)
-
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == "=>") then
-                            token = parser%consume()
-                            token = parser%peek()
-                            if (token%kind == TK_IDENTIFIER) then
-                                token = parser%consume()
-                                remote_name = trimmed_or_empty(token%text)
-                                call append_rename_pair(local_name, remote_name)
-                            else
-                                ! Malformed rename - treat as simple identifier
-                                call append_only(local_name)
-                            end if
-                        else
-                            ! Simple identifier entry
-                            call append_only(local_name)
-                        end if
-                    else
-                        exit  ! Not an identifier after comma
-                    end if
-                else
-                    exit  ! Not a comma, end of list
-                end if
-            end do
-        end if
+        end do
 
         ! Copy to final array with exact size
         if (count > 0) then
@@ -177,6 +134,34 @@ contains
             rename_count = rename_count + 1
             rename_temp(rename_count) = string_t(remote)
         end subroutine append_rename_pair
+
+        subroutine parse_single_identifier_with_rename(parser)
+            type(parser_state_t), intent(inout) :: parser
+            type(token_t) :: token
+            character(len=:), allocatable :: local_name, remote_name
+
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER) then
+                token = parser%consume()
+                local_name = trimmed_or_empty(token%text)
+
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "=>") then
+                    token = parser%consume()  ! consume '=>'
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER) then
+                        token = parser%consume()
+                        remote_name = trimmed_or_empty(token%text)
+                        call append_rename_pair(local_name, remote_name)
+                    else
+                        ! Malformed rename - treat as simple identifier
+                        call append_only(local_name)
+                    end if
+                else
+                    call append_only(local_name)
+                end if
+            end if
+        end subroutine parse_single_identifier_with_rename
 
         function trimmed_or_empty(text) result(clean)
             character(len=*), intent(in) :: text
