@@ -284,9 +284,9 @@ contains
         token = parser%peek()
         if (token%text == "=" .or. token%text == "=>") then
             token = parser%consume()
-            if (type_spec%type_name == "complex") then
+            if (type_spec%base_keyword == "complex") then
                 initializer_index = handle_complex_initializer( &
-                                    parser, arena, type_spec%type_name)
+                                    parser, arena, type_spec%base_keyword)
             else
                 initializer_index = parse_comparison(parser, arena)
             end if
@@ -738,9 +738,9 @@ contains
         token = parser%peek()
         if (token%text == "=" .or. token%text == "=>") then
             token = parser%consume()
-            if (type_spec%type_name == "complex") then
+            if (type_spec%base_keyword == "complex") then
                 init_index = handle_complex_initializer( &
-                             parser, arena, type_spec%type_name)
+                             parser, arena, type_spec%base_keyword)
             else
                 init_index = parse_comparison(parser, arena)
             end if
