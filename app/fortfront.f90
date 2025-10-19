@@ -293,7 +293,7 @@ contains
 
     subroutine configure_context_from_file(filename, context)
         character(len=:), allocatable, intent(in) :: filename
-        type(transform_context_t), intent(inout) :: context
+        type(transform_context_t), intent(out) :: context
         character(len=:), allocatable :: basename, extension
 
         call split_filename(filename, basename, extension)
@@ -312,7 +312,7 @@ contains
 
     subroutine configure_context_from_stdin(input_text, context)
         character(len=*), intent(in) :: input_text
-        type(transform_context_t), intent(inout) :: context
+        type(transform_context_t), intent(out) :: context
         character(len=32) :: uuid_str
         integer :: pid, timestamp
 
