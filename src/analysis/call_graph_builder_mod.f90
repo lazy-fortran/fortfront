@@ -126,12 +126,9 @@ contains
         case ('program', 'program_node')
             call handle_program_node(builder, arena, node_idx, stack, top, &
                                      capacity, children)
-        case ('function_def', 'function')
-            call handle_function_node(builder, arena, node_idx, scope_sym, stack, &
-                                      top, capacity, children)
-        case ('subroutine_def', 'subroutine')
-            call handle_subroutine_node(builder, arena, node_idx, scope_sym, stack, &
-                                        top, capacity, children)
+        case ('function_def', 'function', 'subroutine_def', 'subroutine')
+            call handle_procedure_node(builder, arena, node_idx, scope_sym, stack, top, &
+                                       capacity, children)
         case ('subroutine_call', 'call')
             call handle_call_node(builder, arena, node_idx, scope_sym)
         case ('call_or_subscript')
@@ -213,8 +210,8 @@ contains
         end select
     end subroutine handle_program_node
 
-    subroutine handle_function_node(builder, arena, node_idx, scope_sym, stack, top, &
-                                    capacity, children)
+    subroutine handle_procedure_node(builder, arena, node_idx, scope_sym, stack, top, &
+                                     capacity, children)
         type(call_graph_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
@@ -228,38 +225,24 @@ contains
 
         select type (node => arena%entries(node_idx)%node)
         type is (function_def_node)
-            full_name = compute_full_name(builder, scope_sym, node%name)
-            call builder%graph%add_proc(full_name, node_idx, node%line, node%column)
-            call add_symbol_entry(builder, node%name, full_name, scope_sym, node_idx, &
-                                  .true., symbol_id)
-            call push_body_or_children(arena, node_idx, symbol_id, node%body_indices, &
-                                       stack, top, capacity, children)
-        end select
-    end subroutine handle_function_node
-
-    subroutine handle_subroutine_node(builder, arena, node_idx, scope_sym, stack, &
-                                      top, capacity, children)
-        type(call_graph_builder_t), intent(inout) :: builder
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_idx
-        integer, intent(in) :: scope_sym
-        type(stack_item_t), allocatable, intent(inout) :: stack(:)
-        integer, intent(inout) :: top
-        integer, intent(inout) :: capacity
-        integer, allocatable, intent(inout) :: children(:)
-        character(len=:), allocatable :: full_name
-        integer :: symbol_id
-
-        select type (node => arena%entries(node_idx)%node)
+            call process_routine(node%name, node%line, node%column, node%body_indices)
         type is (subroutine_def_node)
-            full_name = compute_full_name(builder, scope_sym, node%name)
-            call builder%graph%add_proc(full_name, node_idx, node%line, node%column)
-            call add_symbol_entry(builder, node%name, full_name, scope_sym, node_idx, &
-                                  .true., symbol_id)
-            call push_body_or_children(arena, node_idx, symbol_id, node%body_indices, &
-                                       stack, top, capacity, children)
+            call process_routine(node%name, node%line, node%column, node%body_indices)
         end select
-    end subroutine handle_subroutine_node
+    contains
+        subroutine process_routine(name, line, column, body_indices)
+            character(len=*), intent(in) :: name
+            integer, intent(in) :: line, column
+            integer, allocatable, intent(in) :: body_indices(:)
+
+            full_name = compute_full_name(builder, scope_sym, name)
+            call builder%graph%add_proc(full_name, node_idx, line, column)
+            call add_symbol_entry(builder, name, full_name, scope_sym, node_idx, &
+                                  .true., symbol_id)
+            call push_body_or_children(arena, node_idx, symbol_id, body_indices, &
+                                       stack, top, capacity, children)
+        end subroutine process_routine
+    end subroutine handle_procedure_node
 
     subroutine handle_call_node(builder, arena, node_idx, scope_sym)
         type(call_graph_builder_t), intent(inout) :: builder
