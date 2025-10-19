@@ -13,6 +13,9 @@ module parser_declarations
     use error_handling, only: ERROR_PARSER
     use ast_factory, only: push_multi_declaration, push_declaration, push_identifier
     use parser_type_hooks_module, only: register_type_annotation
+    use declaration_attribute_utils, only: declaration_attribute_info_t, &
+                                           reset_declaration_attributes, &
+                                           set_declaration_intent
     use string_utils_mod, only: int_to_string
     implicit none
     private
@@ -42,20 +45,6 @@ module parser_declarations
         logical :: has_character_length = .false.
         character(len=:), allocatable :: character_length_expr
     end type type_specifier_t
-
-    ! Declaration attributes result type for structured attribute information
-    type, public :: declaration_attributes_t
-        logical :: is_allocatable = .false.
-        logical :: is_pointer = .false.
-        logical :: is_target = .false.
-        logical :: is_parameter = .false.
-        logical :: is_external = .false.
-        logical :: is_optional = .false.
-        logical :: has_intent = .false.
-        logical :: has_global_dimensions = .false.
-        character(len=:), allocatable :: intent
-        integer, allocatable :: global_dimension_indices(:)
-    end type declaration_attributes_t
 
 contains
 
@@ -1087,19 +1076,11 @@ contains
     subroutine parse_declaration_attributes(parser, arena, attr_info)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        type(declaration_attributes_t), intent(out) :: attr_info
+        type(declaration_attribute_info_t), intent(out) :: attr_info
 
         type(token_t) :: token
 
-        ! Initialize attributes
-        attr_info%is_allocatable = .false.
-        attr_info%is_pointer = .false.
-        attr_info%is_target = .false.
-        attr_info%is_parameter = .false.
-        attr_info%is_external = .false.
-        attr_info%is_optional = .false.
-        attr_info%has_intent = .false.
-        attr_info%has_global_dimensions = .false.
+        call reset_declaration_attributes(attr_info)
 
         ! Parse basic attributes (simplified)
         do while (.not. parser%is_at_end())
@@ -1142,16 +1123,13 @@ contains
                                 token = parser%peek()
                                 select case (token%text)
                                 case ("in")
-                                    attr_info%intent = "in"
-                                    attr_info%has_intent = .true.
+                                    call set_declaration_intent(attr_info, "in")
                                     token = parser%consume()
                                 case ("out")
-                                    attr_info%intent = "out"
-                                    attr_info%has_intent = .true.
+                                    call set_declaration_intent(attr_info, "out")
                                     token = parser%consume()
                                 case ("inout")
-                                    attr_info%intent = "inout"
-                                    attr_info%has_intent = .true.
+                                    call set_declaration_intent(attr_info, "inout")
                                     token = parser%consume()
                                 end select
                                 ! consume closing paren
@@ -1188,7 +1166,7 @@ contains
 
         type(token_t) :: token
         type(type_specifier_t) :: type_spec
-        type(declaration_attributes_t) :: attr_info
+        type(declaration_attribute_info_t) :: attr_info
         integer :: initializer_index
         character(len=:), allocatable :: var_name
         integer, allocatable :: local_dimension_indices(:)
@@ -1590,7 +1568,7 @@ contains
 
         type(token_t) :: token, next_token
         type(type_specifier_t) :: type_spec
-        type(declaration_attributes_t) :: attr_info
+        type(declaration_attribute_info_t) :: attr_info
         character(len=64), allocatable :: var_names(:)
         integer, allocatable :: per_var_dims(:, :)  ! Store dimensions per variable
         logical, allocatable :: has_dims(:)  ! Track which vars have dimensions
