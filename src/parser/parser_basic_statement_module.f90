@@ -240,7 +240,10 @@ contains
                         end do
                     end block
 
-                    deallocate (stmt_tokens)
+                    block
+                        type(token_t), allocatable, target :: temp(:)
+                        call move_alloc(stmt_tokens, temp)
+                    end block
                 end if
 
                 next_index = stmt_end + 1

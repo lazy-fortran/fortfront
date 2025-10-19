@@ -118,7 +118,6 @@ contains
         integer :: last_token
 
         if (size(input_tokens) == 0) then
-            if (allocated(output_tokens)) deallocate (output_tokens)
             return
         end if
 
@@ -128,10 +127,7 @@ contains
             first_token = first_token + 1
         end do
 
-        if (first_token > size(input_tokens)) then
-            if (allocated(output_tokens)) deallocate (output_tokens)
-            return
-        end if
+        if (first_token > size(input_tokens)) return
 
         last_token = size(input_tokens)
         do while (last_token >= first_token .and. &
@@ -139,7 +135,6 @@ contains
             last_token = last_token - 1
         end do
 
-        if (allocated(output_tokens)) deallocate (output_tokens)
         allocate (output_tokens(last_token - first_token + 1))
         output_tokens = input_tokens(first_token:last_token)
     end subroutine trim_token_sequence
@@ -168,7 +163,10 @@ contains
         if (depth /= 0) return
 
         if (size(tokens) == 2) then
-            deallocate (tokens)
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(tokens, temp)
+            end block
         else
             tokens = tokens(2:size(tokens) - 1)
         end if
@@ -178,13 +176,22 @@ contains
         type(type_specifier_t), intent(inout) :: type_spec
 
         if (allocated(type_spec%derived_type_tokens)) then
-            deallocate (type_spec%derived_type_tokens)
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(type_spec%derived_type_tokens, temp)
+            end block
         end if
         if (allocated(type_spec%derived_parameter_tokens)) then
-            deallocate (type_spec%derived_parameter_tokens)
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(type_spec%derived_parameter_tokens, temp)
+            end block
         end if
         if (allocated(type_spec%derived_parameter_nodes)) then
-            deallocate (type_spec%derived_parameter_nodes)
+            block
+                integer, allocatable :: temp(:)
+                call move_alloc(type_spec%derived_parameter_nodes, temp)
+            end block
         end if
         type_spec%derived_type_name = ""
         type_spec%derived_type_module = ""
@@ -209,8 +216,12 @@ contains
         type_spec%line = token%line
         type_spec%column = token%column
         type_spec%has_character_length = .false.
-        if (allocated(type_spec%character_length_expr)) deallocate &
-            (type_spec%character_length_expr)
+        if (allocated(type_spec%character_length_expr)) then
+            block
+                character(len=:), allocatable :: temp
+                call move_alloc(type_spec%character_length_expr, temp)
+            end block
+        end if
     end subroutine initialize_type_specifier
 
     subroutine split_derived_type_name_and_params(tokens, name_tokens, param_tokens)
@@ -219,9 +230,6 @@ contains
         type(token_t), allocatable, intent(out) :: param_tokens(:)
         integer :: i
         logical :: name_complete
-
-        if (allocated(name_tokens)) deallocate (name_tokens)
-        if (allocated(param_tokens)) deallocate (param_tokens)
 
         name_complete = .false.
         do i = 1, size(tokens)
@@ -349,13 +357,14 @@ contains
 
         call strip_outer_parentheses(working)
         call trim_token_sequence(working, trimmed_working)
-        if (allocated(working)) deallocate (working)
         if (.not. allocated(trimmed_working)) return
-        working = trimmed_working
-        if (allocated(trimmed_working)) deallocate (trimmed_working)
+        call move_alloc(trimmed_working, working)
 
         if (allocated(type_spec%derived_parameter_nodes)) then
-            deallocate (type_spec%derived_parameter_nodes)
+            block
+                integer, allocatable :: temp(:)
+                call move_alloc(type_spec%derived_parameter_nodes, temp)
+            end block
         end if
 
         depth = 0
@@ -406,13 +415,28 @@ contains
                 call append_int(type_spec%derived_parameter_nodes, expr_index)
             end if
 
-            if (allocated(parser_tokens)) deallocate (parser_tokens)
-            if (allocated(cleaned)) deallocate (cleaned)
+            if (allocated(parser_tokens)) then
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(parser_tokens, temp)
+                end block
+            end if
+            if (allocated(cleaned)) then
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(cleaned, temp)
+                end block
+            end if
             call reset_current()
         end subroutine finalize_parameter
 
         subroutine reset_current()
-            if (allocated(current)) deallocate (current)
+            if (allocated(current)) then
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(current, temp)
+                end block
+            end if
         end subroutine reset_current
 
     end subroutine process_derived_type_parameters
@@ -428,15 +452,26 @@ contains
         call set_derived_type_name_info(type_spec, name_tokens, arena)
         if (.not. type_spec%is_derived_type) then
             if (allocated(type_spec%derived_parameter_tokens)) then
-                deallocate (type_spec%derived_parameter_tokens)
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(type_spec%derived_parameter_tokens, temp)
+                end block
             end if
-            if (allocated(param_tokens)) deallocate (param_tokens)
+            if (allocated(param_tokens)) then
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(param_tokens, temp)
+                end block
+            end if
             return
         end if
         call process_derived_type_parameters(type_spec, param_tokens, arena)
 
         if (allocated(type_spec%derived_parameter_tokens)) then
-            deallocate (type_spec%derived_parameter_tokens)
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(type_spec%derived_parameter_tokens, temp)
+            end block
         end if
         if (allocated(param_tokens)) then
             allocate (type_spec%derived_parameter_tokens(size(param_tokens)))
@@ -477,7 +512,12 @@ contains
         invalid_definition = .false.
         found_double_colon = .false.
         if (present(attribute_clause)) then
-            if (allocated(attribute_clause)) deallocate (attribute_clause)
+            if (allocated(attribute_clause)) then
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(attribute_clause, temp)
+                end block
+            end if
         end if
 
         do while (.not. parser%is_at_end())
@@ -550,14 +590,32 @@ contains
                         end do
                         attribute_clause = trim(adjustl(sanitized))
                     end if
-                    if (allocated(sanitized)) deallocate (sanitized)
-                    if (allocated(clause_text)) deallocate (clause_text)
-                    deallocate (cleaned)
+                    if (allocated(sanitized)) then
+                        block
+                            character(len=:), allocatable :: temp
+                            call move_alloc(sanitized, temp)
+                        end block
+                    end if
+                    if (allocated(clause_text)) then
+                        block
+                            character(len=:), allocatable :: temp
+                            call move_alloc(clause_text, temp)
+                        end block
+                    end if
+                    block
+                        type(token_t), allocatable :: temp(:)
+                        call move_alloc(cleaned, temp)
+                    end block
                 end if
             end if
         end if
 
-        if (allocated(attr_tokens)) deallocate (attr_tokens)
+        if (allocated(attr_tokens)) then
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(attr_tokens, temp)
+            end block
+        end if
     end subroutine skip_type_definition_attributes
 
     logical function parser_is_at_type_definition(parser) result(is_type_def)
@@ -694,8 +752,12 @@ contains
             type_spec%kind_value = -1
             token = parser%consume()
             type_spec%has_character_length = .true.
-            if (allocated(type_spec%character_length_expr)) deallocate &
-                (type_spec%character_length_expr)
+            if (allocated(type_spec%character_length_expr)) then
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(type_spec%character_length_expr, temp)
+                end block
+            end if
             type_spec%character_length_expr = "*"
         case default
             if (token%kind == TK_NUMBER) then
@@ -703,8 +765,12 @@ contains
                 type_spec%has_kind = .true.
                 token = parser%consume()
                 type_spec%has_character_length = .true.
-                if (allocated(type_spec%character_length_expr)) deallocate &
-                    (type_spec%character_length_expr)
+                if (allocated(type_spec%character_length_expr)) then
+                    block
+                        character(len=:), allocatable :: temp
+                        call move_alloc(type_spec%character_length_expr, temp)
+                    end block
+                end if
                 type_spec%character_length_expr = trim(adjustl(token%text))
             end if
         end select
@@ -767,8 +833,6 @@ contains
         type(token_t) :: token
         integer :: depth
 
-        if (allocated(tokens)) deallocate (tokens)
-
         depth = 0
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -821,10 +885,18 @@ contains
             if (param_end >= param_start) then
                 param_tokens = parser%tokens(param_start:param_end)
                 call trim_token_sequence(param_tokens, cleaned_tokens)
-                if (allocated(param_tokens)) deallocate (param_tokens)
+                if (allocated(param_tokens)) then
+                    block
+                        type(token_t), allocatable :: temp(:)
+                        call move_alloc(param_tokens, temp)
+                    end block
+                end if
                 if (allocated(cleaned_tokens)) then
                     param_text = trim(adjustl(tokens_to_text(cleaned_tokens)))
-                    deallocate (cleaned_tokens)
+                    block
+                        type(token_t), allocatable :: temp(:)
+                        call move_alloc(cleaned_tokens, temp)
+                    end block
                     if (len_trim(param_text) > 0) then
                         if (.not. first_param) collected_text = collected_text // ", "
                         collected_text = collected_text // param_text
@@ -850,7 +922,6 @@ contains
         type(token_t) :: token
         integer :: depth
 
-        if (allocated(tokens)) deallocate (tokens)
         depth = 0
 
         do while (.not. parser%is_at_end())
@@ -898,19 +969,29 @@ contains
                 call trim_token_sequence(value_tokens, cleaned)
                 if (allocated(cleaned)) then
                     value_text = trim(adjustl(tokens_to_text(cleaned)))
-                    deallocate (cleaned)
+                    block
+                        type(token_t), allocatable :: temp(:)
+                        call move_alloc(cleaned, temp)
+                    end block
                 else
                     value_text = ""
                 end if
-                deallocate (value_tokens)
+                block
+                    type(token_t), allocatable :: temp(:)
+                    call move_alloc(value_tokens, temp)
+                end block
             else
                 value_text = ""
             end if
 
             if (len_trim(value_text) > 0) then
                 type_spec%has_character_length = .true.
-                if (allocated(type_spec%character_length_expr)) deallocate &
-                    (type_spec%character_length_expr)
+                if (allocated(type_spec%character_length_expr)) then
+                    block
+                        character(len=:), allocatable :: temp
+                        call move_alloc(type_spec%character_length_expr, temp)
+                    end block
+                end if
                 type_spec%character_length_expr = trim(value_text)
 
                 if (trim(value_text) == "*") then
@@ -1034,7 +1115,10 @@ contains
             collected_text = tokens_to_text(collected_tokens)
             type_spec%type_name = trim(type_spec%base_keyword) // "(" // &
                 trim(adjustl(collected_text)) // ")"
-            deallocate (collected_tokens)
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(collected_tokens, temp)
+            end block
         else
             type_spec%type_name = trim(type_spec%base_keyword) // "()"
         end if
@@ -1251,7 +1335,6 @@ contains
                                             allocate (temp_names(old_size * 2))
                                             temp_names(1:old_size) = &
                                                 var_names(1:old_size)
-                                            deallocate (var_names)
                                             call move_alloc(temp_names, var_names)
                                         end block
                                     end if
@@ -1631,7 +1714,6 @@ contains
                     temp_dims(1:old_size, :) = per_var_dims(1:old_size, :)
                     temp_has(1:old_size) = has_dims(1:old_size)
                     temp_init(1:old_size) = init_indices(1:old_size)
-                    deallocate (var_names, per_var_dims, has_dims, init_indices)
                     call move_alloc(temp_names, var_names)
                     call move_alloc(temp_dims, per_var_dims)
                     call move_alloc(temp_has, has_dims)
@@ -1921,7 +2003,10 @@ contains
             if (len_trim(header_attributes) > 0) then
                 has_header_attrs = .true.
             else
-                deallocate (header_attributes)
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(header_attributes, temp)
+                end block
             end if
         end if
 

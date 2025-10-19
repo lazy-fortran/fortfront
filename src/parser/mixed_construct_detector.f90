@@ -81,17 +81,33 @@ contains
 
         ! Resize arrays to actual size
         if (result%num_implicit_ranges > 0) then
-            result%implicit_ranges = result%implicit_ranges(1:result%num_implicit_ranges, :)
+            block
+                integer, allocatable :: trimmed(:, :)
+                allocate (trimmed(result%num_implicit_ranges, 2))
+                trimmed = result%implicit_ranges(1:result%num_implicit_ranges, :)
+                call move_alloc(trimmed, result%implicit_ranges)
+            end block
         else
-            deallocate (result%implicit_ranges)
-            allocate (result%implicit_ranges(0, 2))
+            block
+                integer, allocatable :: empty(:, :)
+                allocate (empty(0, 2))
+                call move_alloc(empty, result%implicit_ranges)
+            end block
         end if
 
         if (result%num_explicit_ranges > 0) then
-            result%explicit_ranges = result%explicit_ranges(1:result%num_explicit_ranges, :)
+            block
+                integer, allocatable :: trimmed(:, :)
+                allocate (trimmed(result%num_explicit_ranges, 2))
+                trimmed = result%explicit_ranges(1:result%num_explicit_ranges, :)
+                call move_alloc(trimmed, result%explicit_ranges)
+            end block
         else
-            deallocate (result%explicit_ranges)
-            allocate (result%explicit_ranges(0, 2))
+            block
+                integer, allocatable :: empty(:, :)
+                allocate (empty(0, 2))
+                call move_alloc(empty, result%explicit_ranges)
+            end block
         end if
     end subroutine detect_mixed_constructs
 
@@ -162,7 +178,8 @@ contains
                         depth = depth + 1
                     else if (trim(tokens(i)%text) == "end") then
                         ! Check next token for "type"
-                        if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD .and. &
+                        if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == &
+                            TK_KEYWORD .and. &
                             trim(tokens(i + 1)%text) == "type") then
                             if (depth == 0) then
                                 end_pos = i + 1

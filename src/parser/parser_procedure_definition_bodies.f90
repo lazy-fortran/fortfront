@@ -112,8 +112,6 @@ contains
         stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena)
 
         parser%current_token = stmt_end + 1
-
-        if (allocated(stmt_tokens)) deallocate (stmt_tokens)
     end subroutine parse_body_statement
 
     subroutine collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &

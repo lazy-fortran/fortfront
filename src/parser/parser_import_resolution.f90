@@ -123,9 +123,6 @@ contains
             allocate (character(len=0) :: rename_list(0))
         end if
 
-        if (allocated(only_temp)) deallocate (only_temp)
-        if (allocated(rename_temp)) deallocate (rename_temp)
-
     contains
 
         subroutine ensure_only_capacity(required)
@@ -136,12 +133,11 @@ contains
             if (capacity >= required) return
             new_capacity = max(4, capacity)
             do while (new_capacity < required)
-                new_capacity = max(4, new_capacity*2)
+                new_capacity = max(4, new_capacity * 2)
             end do
             allocate (new_array(new_capacity))
             if (capacity > 0 .and. allocated(only_temp)) then
                 new_array(1:count) = only_temp(1:count)
-                deallocate (only_temp)
             end if
             call move_alloc(new_array, only_temp)
             capacity = new_capacity
@@ -155,12 +151,11 @@ contains
             if (rename_capacity >= required) return
             new_capacity = max(4, rename_capacity)
             do while (new_capacity < required)
-                new_capacity = max(4, new_capacity*2)
+                new_capacity = max(4, new_capacity * 2)
             end do
             allocate (new_array(new_capacity))
             if (rename_capacity > 0 .and. allocated(rename_temp)) then
                 new_array(1:rename_count) = rename_temp(1:rename_count)
-                deallocate (rename_temp)
             end if
             call move_alloc(new_array, rename_temp)
             rename_capacity = new_capacity
@@ -257,7 +252,12 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
             module_name = token%text
-            if (allocated(url_spec)) deallocate (url_spec)
+            if (allocated(url_spec)) then
+                block
+                    character(len=:), allocatable :: temp
+                    call move_alloc(url_spec, temp)
+                end block
+            end if
         else if (token%kind == TK_STRING) then
             ! Go-style import with URL
             token = parser%consume()

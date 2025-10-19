@@ -5,7 +5,9 @@ module parser_array_constructs_module
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, null_statement_callbacks, find_statement_end
+                                            statement_callbacks_t, &
+                                            null_statement_callbacks, &
+                                            find_statement_end
     use parser_basic_statement_module, only: parse_statement_body
     use parser_if_constructs_module, only: parse_if, parse_if_condition
     use parser_select_constructs_module, only: parse_select_case
@@ -140,7 +142,6 @@ contains
                 where_index = push_where(arena, mask_expr_index, where_body_indices, &
                                          line=line, column=column)
 
-                deallocate (where_body_indices)
                 return
             end if
         else
@@ -168,7 +169,8 @@ contains
                     end if
                 end if
                 elsewhere_body_indices = parse_statement_body(parser, arena, &
-                                                              where_end_keywords, callbacks)
+                                                              where_end_keywords, &
+                                                              callbacks)
 
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
@@ -250,7 +252,6 @@ contains
                     token = parser%consume()
                 else if (token%kind == TK_OPERATOR .and. token%text == "=") then
                     if (parser%current_token + 1 > size(parser%tokens)) then
-                        deallocate (associations)
                         assoc_index = 0
                         return
                     end if
@@ -259,7 +260,6 @@ contains
                         next_token = parser%tokens(parser%current_token + 1)
                         if (next_token%kind /= TK_OPERATOR .or. &
                             next_token%text /= ">") then
-                            deallocate (associations)
                             assoc_index = 0
                             return
                         end if
@@ -267,7 +267,6 @@ contains
                     token = parser%consume()
                     token = parser%consume()
                 else
-                    deallocate (associations)
                     assoc_index = 0
                     return
                 end if
@@ -276,8 +275,12 @@ contains
                 expr_index = parse_expression( &
                              parser%tokens(parser%current_token:), arena)
                 if (expr_index <= 0) then
-                    deallocate (associations)
-                    if (allocated(body_indices)) deallocate (body_indices)
+                    if (allocated(body_indices)) then
+                        block
+                            integer, allocatable :: temp(:)
+                            call move_alloc(body_indices, temp)
+                        end block
+                    end if
                     assoc_index = 0
                     return
                 end if
@@ -342,7 +345,6 @@ contains
                 token = parser%consume()
                 exit
             else
-                deallocate (associations)
                 assoc_index = 0
                 return
             end if
@@ -441,7 +443,10 @@ contains
 
                 parser%current_token = stmt_end + 1
 
-                deallocate (stmt_tokens)
+                block
+                    type(token_t), allocatable, target :: temp(:)
+                    call move_alloc(stmt_tokens, temp)
+                end block
             end block
         end do
 
@@ -468,8 +473,6 @@ contains
             assoc_index = 0
         end if
 
-        deallocate (associations)
-        deallocate (body_indices)
     end function parse_associate
 
 end module parser_array_constructs_module
