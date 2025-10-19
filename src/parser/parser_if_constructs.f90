@@ -8,7 +8,8 @@ module parser_if_constructs_module
                                             statement_callbacks_t, &
                                             null_statement_callbacks, &
                                             find_statement_end, &
-                                            extend_if_statement_end
+                                            extend_if_statement_end, &
+                                            allocate_stmt_tokens_with_eof
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
@@ -410,11 +411,8 @@ contains
                     remaining_count = stmt_end - parser%current_token + 1
                     if (remaining_count <= 0) exit
 
-                    allocate (stmt_tokens(remaining_count + 1))
-                    stmt_tokens(1:remaining_count) = &
-                        parser%tokens(parser%current_token:stmt_end)
-                    stmt_tokens(remaining_count + 1)%kind = TK_EOF
-                    stmt_tokens(remaining_count + 1)%text = ""
+                    call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
+                                                       parser%current_token, stmt_end)
                     last_token_index = stmt_end
                     stmt_tokens(remaining_count + 1)%line = &
                         parser%tokens(last_token_index)%line

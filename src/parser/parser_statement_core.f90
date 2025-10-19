@@ -23,6 +23,7 @@ module parser_statement_core_module
     public :: statement_callbacks_t, null_statement_callbacks
     public :: parse_basic_statement_core, find_statement_end, extend_if_statement_end
     public :: parse_data_statement
+    public :: allocate_stmt_tokens_with_eof
     private :: parse_namelist_statement
 
 contains
@@ -832,5 +833,19 @@ contains
         parser%current_token = max(1, parser%current_token)
         call parser%error(trim(message))
     end subroutine report_unparsed_statement
+
+    subroutine allocate_stmt_tokens_with_eof(stmt_tokens, source_tokens, &
+                                             current_token, stmt_end)
+        type(token_t), allocatable, intent(out) :: stmt_tokens(:)
+        type(token_t), intent(in) :: source_tokens(:)
+        integer, intent(in) :: current_token, stmt_end
+        integer :: remaining_count
+
+        remaining_count = stmt_end - current_token + 1
+        allocate (stmt_tokens(remaining_count + 1))
+        stmt_tokens(1:remaining_count) = source_tokens(current_token:stmt_end)
+        stmt_tokens(remaining_count + 1)%kind = TK_EOF
+        stmt_tokens(remaining_count + 1)%text = ""
+    end subroutine allocate_stmt_tokens_with_eof
 
 end module parser_statement_core_module
