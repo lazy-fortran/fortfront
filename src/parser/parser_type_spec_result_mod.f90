@@ -114,6 +114,61 @@ contains
         end do
     end subroutine split_derived_type_name_and_params
 
+    pure function compact_name_text(name_tokens) result(name_text)
+        type(token_t), intent(in) :: name_tokens(:)
+        character(len=:), allocatable :: name_text
+        integer :: i
+
+        name_text = ""
+        do i = 1, size(name_tokens)
+            if (.not. is_trivia_token(name_tokens(i))) then
+                name_text = name_text//trim(name_tokens(i)%text)
+            end if
+        end do
+    end function compact_name_text
+
+    pure subroutine split_module_and_base(name_text, module_name, base_name)
+        character(len=*), intent(in) :: name_text
+        character(len=:), allocatable, intent(out) :: module_name
+        character(len=:), allocatable, intent(out) :: base_name
+        integer :: last_sep
+        integer :: i
+
+        module_name = ""
+        base_name = ""
+        last_sep = 0
+
+        do i = 1, len(name_text) - 1
+            if (name_text(i:i + 1) == "::") last_sep = i
+        end do
+
+        if (last_sep > 0) then
+            module_name = trim(adjustl(name_text(:last_sep - 1)))
+            base_name = trim(adjustl(name_text(last_sep + 2:)))
+        else
+            base_name = trim(adjustl(name_text))
+        end if
+    end subroutine split_module_and_base
+
+    subroutine find_identifier_reference(name_tokens, line_ref, column_ref, &
+                                         found_identifier)
+        type(token_t), intent(in) :: name_tokens(:)
+        integer, intent(inout) :: line_ref
+        integer, intent(inout) :: column_ref
+        logical, intent(out) :: found_identifier
+        integer :: i
+
+        found_identifier = .false.
+        do i = size(name_tokens), 1, -1
+            if (name_tokens(i)%kind == TK_IDENTIFIER) then
+                line_ref = name_tokens(i)%line
+                column_ref = name_tokens(i)%column
+                found_identifier = .true.
+                exit
+            end if
+        end do
+    end subroutine find_identifier_reference
+
     subroutine set_derived_type_name_info(type_spec, name_tokens, arena)
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t), allocatable, intent(in) :: name_tokens(:)
@@ -123,16 +178,10 @@ contains
         character(len=:), allocatable :: name_text
         integer :: line_ref
         integer :: column_ref
-        integer :: last_sep
-        integer :: i
         logical :: found_identifier
 
-        module_name = ""
-        base_name = ""
         line_ref = type_spec%line
         column_ref = type_spec%column
-        found_identifier = .false.
-
         if (.not. allocated(name_tokens)) then
             type_spec%is_derived_type = .false.
             type_spec%derived_type_name = ""
@@ -140,40 +189,16 @@ contains
             return
         end if
 
-        name_text = ""
-        do i = 1, size(name_tokens)
-            if (.not. is_trivia_token(name_tokens(i))) then
-                name_text = name_text // trim(name_tokens(i)%text)
-            end if
-        end do
-
+        name_text = compact_name_text(name_tokens)
         if (len(name_text) == 0) then
             type_spec%derived_type_name = ""
             type_spec%derived_type_module = ""
             return
         end if
 
-        last_sep = 0
-        do i = 1, len(name_text) - 1
-            if (name_text(i:i + 1) == "::") last_sep = i
-        end do
-
-        if (last_sep > 0) then
-            module_name = trim(adjustl(name_text(:last_sep - 1)))
-            base_name = trim(adjustl(name_text(last_sep + 2:)))
-        else
-            module_name = ""
-            base_name = trim(adjustl(name_text))
-        end if
-
-        do i = size(name_tokens), 1, -1
-            if (name_tokens(i)%kind == TK_IDENTIFIER) then
-                line_ref = name_tokens(i)%line
-                column_ref = name_tokens(i)%column
-                found_identifier = .true.
-                exit
-            end if
-        end do
+        call split_module_and_base(name_text, module_name, base_name)
+        call find_identifier_reference(name_tokens, line_ref, column_ref, &
+                                       found_identifier)
 
         if (len_trim(base_name) > 0) then
             if (trim(adjustl(base_name)) == "*") then
