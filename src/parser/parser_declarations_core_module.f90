@@ -10,11 +10,11 @@ module parser_declarations_core_module
     use parser_result_types, only: parse_result_t, success_parse_result, &
                                    error_parse_result
     use error_handling, only: ERROR_PARSER
-    use parser_expressions_module, only: parse_comparison, parse_range
+    use parser_expressions_module, only: parse_comparison
     use parser_type_hooks_module, only: register_type_annotation
-    use declaration_attribute_utils, only: declaration_attribute_info_t, &
-                                           reset_declaration_attributes, &
-                                           set_declaration_intent
+    use parser_declaration_attributes_module, only: parse_declaration_attributes, &
+                                                    parse_array_dimensions
+    use declaration_attribute_utils, only: declaration_attribute_info_t
     implicit none
     private
 
@@ -24,153 +24,6 @@ module parser_declarations_core_module
     public :: parse_array_dimensions
 
 contains
-
-    subroutine parse_declaration_attributes(parser, arena, attr_info)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        type(declaration_attribute_info_t), intent(out) :: attr_info
-
-        logical :: handled_attribute
-        type(token_t) :: token
-
-        call reset_declaration_attributes(attr_info)
-
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%text /= ",") then
-                exit
-            end if
-
-            token = parser%consume()
-            handled_attribute = parse_single_declaration_attribute(parser, &
-                                                                   arena, attr_info)
-            if (.not. handled_attribute) then
-                exit
-            end if
-        end do
-    end subroutine parse_declaration_attributes
-
-    logical function parse_single_declaration_attribute(parser, arena, attr_info) &
-        result(handled)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        type(declaration_attribute_info_t), intent(inout) :: attr_info
-
-        type(token_t) :: token
-
-        handled = .false.
-
-        if (parser%is_at_end()) then
-            return
-        end if
-
-        token = parser%peek()
-
-        select case (token%text)
-        case ("allocatable")
-            attr_info%is_allocatable = .true.
-            token = parser%consume()
-            handled = .true.
-        case ("pointer")
-            attr_info%is_pointer = .true.
-            token = parser%consume()
-            handled = .true.
-        case ("parameter")
-            attr_info%is_parameter = .true.
-            token = parser%consume()
-            handled = .true.
-        case ("external")
-            attr_info%is_external = .true.
-            token = parser%consume()
-            handled = .true.
-        case ("dimension")
-            token = parser%consume()
-            call handle_dimension_attribute(parser, arena, attr_info, handled)
-        case ("intent")
-            token = parser%consume()
-            call handle_intent_attribute(parser, attr_info, handled)
-        case ("optional")
-            attr_info%is_optional = .true.
-            token = parser%consume()
-            handled = .true.
-        case ("target")
-            attr_info%is_target = .true.
-            token = parser%consume()
-            handled = .true.
-        case default
-            handled = .false.
-        end select
-    end function parse_single_declaration_attribute
-
-    subroutine handle_dimension_attribute(parser, arena, attr_info, handled)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        type(declaration_attribute_info_t), intent(inout) :: attr_info
-        logical, intent(out) :: handled
-
-        type(token_t) :: token
-
-        handled = .true.
-
-        if (parser%is_at_end()) then
-            return
-        end if
-
-        token = parser%peek()
-        if (token%text /= "(") then
-            return
-        end if
-
-        token = parser%consume()
-        call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
-        attr_info%has_global_dimensions = .true.
-    end subroutine handle_dimension_attribute
-
-    subroutine handle_intent_attribute(parser, attr_info, handled)
-        type(parser_state_t), intent(inout) :: parser
-        type(declaration_attribute_info_t), intent(inout) :: attr_info
-        logical, intent(out) :: handled
-
-        type(token_t) :: token
-
-        handled = .true.
-
-        if (parser%is_at_end()) then
-            return
-        end if
-
-        token = parser%peek()
-        if (token%text /= "(") then
-            return
-        end if
-
-        token = parser%consume()
-        if (parser%is_at_end()) then
-            return
-        end if
-
-        token = parser%peek()
-        select case (token%text)
-        case ("in")
-            call set_declaration_intent(attr_info, "in")
-            token = parser%consume()
-        case ("out")
-            call set_declaration_intent(attr_info, "out")
-            token = parser%consume()
-        case ("inout")
-            call set_declaration_intent(attr_info, "inout")
-            token = parser%consume()
-        case default
-            return
-        end select
-
-        if (.not. parser%is_at_end()) then
-            token = parser%peek()
-            if (token%text == ")") then
-                token = parser%consume()
-            end if
-        end if
-    end subroutine handle_intent_attribute
 
     function parse_declaration(parser, arena) result(decl_index)
         type(parser_state_t), intent(inout) :: parser
@@ -599,52 +452,6 @@ contains
             parse_res = error_parse_result("Failed to parse declaration", ERROR_PARSER)
         end if
     end function parse_declaration_with_result
-
-    ! Parse array dimensions (e.g., (:), (10), (1:n))
-    subroutine parse_array_dimensions(parser, arena, dimension_indices)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer, allocatable, intent(out) :: dimension_indices(:)
-
-        integer, parameter :: max_dims = 10
-        integer :: temp_indices(max_dims)
-        integer :: dim_count, range_index
-        type(token_t) :: token
-
-        dim_count = 0
-
-        ! Parse dimension list until closing parenthesis
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%text == ")") then
-                token = parser%consume()
-                exit
-            end if
-
-            ! Parse dimension specification
-            range_index = parse_range(parser, arena)
-            if (range_index > 0 .and. dim_count < max_dims) then
-                dim_count = dim_count + 1
-                temp_indices(dim_count) = range_index
-            end if
-
-            ! Check for comma
-            token = parser%peek()
-            if (token%text == ",") then
-                token = parser%consume()
-            else if (token%text /= ")") then
-                exit
-            end if
-        end do
-
-        ! Allocate exact size needed
-        if (dim_count > 0) then
-            allocate (dimension_indices(dim_count))
-            dimension_indices = temp_indices(1:dim_count)
-        else
-            allocate (dimension_indices(0))
-        end if
-    end subroutine parse_array_dimensions
 
     ! Helper function to detect and convert complex literals
     function handle_complex_initializer(parser, arena, type_name) result(complex_index)
