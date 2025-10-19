@@ -1,6 +1,6 @@
 program test_cli_io_large_input
-    use, intrinsic :: iso_fortran_env, only: error_unit
-    use cli_io, only: read_all_stdin_or_file
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                                                                iostat_eor
     implicit none
 
     character(len=:), allocatable :: text
@@ -32,5 +32,9 @@ program test_cli_io_large_input
     ! Cleanup
     open (newunit=u, file=fname, status='old', action='read')
     close (u, status='delete')
-end program test_cli_io_large_input
 
+contains
+
+    include '../common/cli_io_reader.inc'
+
+end program test_cli_io_large_input

@@ -1,6 +1,5 @@
 program test_all_examples
     use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
-    use executable_finder, only: find_fortfront_executable
     implicit none
 
     integer :: test_count, pass_count, fail_count, skip_count
@@ -23,7 +22,7 @@ program test_all_examples
     call verify_shell_helpers(is_windows)
 
     ! Find fortfront executable (avoid fpm run overhead)
-    fortfront_exe = find_fortfront_executable()
+    fortfront_exe = find_fortfront_executable(is_windows)
     if (len(fortfront_exe) == 0) then
         print *, "ERROR: Could not locate fortfront executable"
         print *, "Please run 'fpm build' before running tests"
@@ -98,6 +97,118 @@ program test_all_examples
     end if
 
 contains
+
+    function find_fortfront_executable(is_windows) result(executable_path)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: executable_path
+        logical :: file_exists
+        character(len=500) :: candidate_path
+        integer :: exit_code, unit_num, ios, r, i
+        character(len=256) :: search_output
+        character(len=64), allocatable :: roots(:)
+        character(len=50), dimension(20) :: build_patterns
+
+        executable_path = ''
+        if (is_windows) then
+            allocate (roots(5))
+            roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', &
+                     '..\\..\\..\\..']
+            do r = 1, size(roots)
+                call execute_command_line( &
+                    'cmd /C where /R '//trim(roots(r))// &
+                    ' fortfront.exe > fortfront_search_win.txt', &
+                    exitstat=exit_code)
+                if (exit_code == 0) then
+                    open (newunit=unit_num, file='fortfront_search_win.txt', &
+                          status='old', action='read', iostat=ios)
+                    if (ios == 0) then
+                        do
+                            read (unit_num, '(A)', iostat=ios) search_output
+                            if (ios /= 0) exit
+                            if (len_trim(search_output) > 0) then
+                                inquire (file=trim(search_output), exist=file_exists)
+                                if (file_exists) then
+                                    executable_path = trim(search_output)
+                                    if (index(adjustl(search_output), &
+                                              'app\\fortfront.exe') > 0) exit
+                                end if
+                            end if
+                        end do
+                        if (len(executable_path) == 0) then
+                            rewind (unit_num)
+                            read (unit_num, '(A)', iostat=ios) search_output
+                            if (ios == 0 .and. len_trim(search_output) > 0) then
+                                inquire (file=trim(search_output), exist=file_exists)
+                                if (file_exists) executable_path = trim(search_output)
+                            end if
+                        end if
+                        close (unit_num)
+                    end if
+                    call execute_command_line( &
+                        'cmd /C del /F /Q fortfront_search_win.txt', &
+                        exitstat=exit_code)
+                end if
+                if (len(executable_path) > 0) exit
+            end do
+            if (len(executable_path) > 0) return
+            candidate_path = 'app\\fortfront.exe'
+            inquire (file=candidate_path, exist=file_exists)
+            if (file_exists) executable_path = trim(candidate_path)
+            return
+        end if
+
+        call execute_command_line( &
+            'find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
+            exitstat=exit_code)
+        if (exit_code == 0) then
+            open (newunit=unit_num, file='fortfront_search.txt', status='old', &
+                  action='read', iostat=ios)
+            if (ios == 0) then
+                read (unit_num, '(A)', iostat=ios) search_output
+                close (unit_num)
+                call execute_command_line('rm -f fortfront_search.txt', &
+                                          exitstat=exit_code)
+                if (ios == 0 .and. len_trim(search_output) > 0) then
+                    inquire (file=trim(search_output), exist=file_exists)
+                    if (file_exists) then
+                        executable_path = trim(search_output)
+                        return
+                    end if
+                end if
+            end if
+        end if
+
+        build_patterns = [ &
+                         'build/gfortran_266FF454AB2555FE/app/fortfront   ', &
+                         'build/gfortran_9ABCD662468F5A74/app/fortfront   ', &
+                         'build/gfortran_C79DEB301B8081FC/app/fortfront   ', &
+                         'build/gfortran_C523F0F8A99FF060/app/fortfront   ', &
+                         'build/gfortran_1F2DC83CBD1DC595/app/fortfront   ', &
+                         'build/gfortran_35CFD5CFC35942D6/app/fortfront   ', &
+                         'build/gfortran_4AE9E4ED7A89B913/app/fortfront   ', &
+                         'build/gfortran_66DBF6172AF51040/app/fortfront   ', &
+                         'build/gfortran_A56298966DD7666C/app/fortfront   ', &
+                         'build/gfortran_E3D58E6D75301430/app/fortfront   ', &
+                         'build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ', &
+                         './build/gfortran_266FF454AB2555FE/app/fortfront ', &
+                         './build/gfortran_9ABCD662468F5A74/app/fortfront ', &
+                         './build/gfortran_C79DEB301B8081FC/app/fortfront ', &
+                         './build/gfortran_C523F0F8A99FF060/app/fortfront ', &
+                         'fortfront                                       ', &
+                         './fortfront                                     ', &
+                         'app/fortfront                                   ', &
+                         './app/fortfront                                 ', &
+                         '../fortfront                                    ']
+
+        do i = 1, size(build_patterns)
+            candidate_path = trim(build_patterns(i))
+            inquire (file=candidate_path, exist=file_exists)
+            if (file_exists) then
+                executable_path = trim(candidate_path)
+                return
+            end if
+        end do
+    end function find_fortfront_executable
 
     function check_if_windows() result(is_win)
         logical :: is_win

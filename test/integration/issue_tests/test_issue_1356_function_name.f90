@@ -1,7 +1,8 @@
 program test_issue_1356_function_name
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                                                                iostat_eor
     use frontend, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
-    use cli_io, only: read_all_stdin_or_file
     implicit none
 
     character(len=:), allocatable :: input_text
@@ -57,6 +58,8 @@ program test_issue_1356_function_name
     print *, 'PASS: issue_1356 function inference retains integer types'
 
 contains
+
+    include '../../common/cli_io_reader.inc'
 
     subroutine read_example(path, content)
         character(len=*), intent(in) :: path

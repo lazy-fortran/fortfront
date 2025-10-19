@@ -1,6 +1,5 @@
 program test_expression_iterative
     use frontend, only: compile_source, compilation_options_t
-    use temp_file_helper, only: get_temp_filepath
     implicit none
 
     logical :: all_passed
@@ -22,6 +21,33 @@ program test_expression_iterative
     end if
 
 contains
+
+    function get_temp_filepath(basename) result(path)
+        character(len=*), intent(in) :: basename
+        character(len=:), allocatable :: path
+        character(len=256) :: envtmp
+        integer :: ios, last
+        character(len=:), allocatable :: prefix
+
+        call get_environment_variable('TMPDIR', envtmp, status=ios)
+        if (ios /= 0 .or. len_trim(envtmp) == 0) then
+            call get_environment_variable('TEMP', envtmp, status=ios)
+        end if
+        if (ios /= 0 .or. len_trim(envtmp) == 0) then
+            call get_environment_variable('TMP', envtmp, status=ios)
+        end if
+        if (ios /= 0 .or. len_trim(envtmp) == 0) envtmp = '.'
+
+        last = len_trim(envtmp)
+        if (last == 0) then
+            prefix = '.'
+        else if (envtmp(last:last) == '/' .or. envtmp(last:last) == '\') then
+            prefix = trim(envtmp)
+        else
+            prefix = trim(envtmp) // '/'
+        end if
+        path = prefix // trim(basename)
+    end function get_temp_filepath
 
     subroutine emit_open_parens(u, depth)
         implicit none
@@ -324,7 +350,8 @@ contains
                     end if
                 end do
                 if (index(collapsed, 'value=(0-2)**2+3') == 0) then
-                    print *, '  FAIL: Mixed precedence expression not normalized as expected'
+                    print *, &
+                        '  FAIL: Mixed precedence expression not normalized as expected'
                     test_mixed_precedence_output = .false.
                 end if
             end if
