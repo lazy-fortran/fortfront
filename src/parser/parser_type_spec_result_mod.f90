@@ -122,7 +122,7 @@ contains
         name_text = ""
         do i = 1, size(name_tokens)
             if (.not. is_trivia_token(name_tokens(i))) then
-                name_text = name_text // trim(name_tokens(i)%text)
+                name_text = name_text//trim(name_tokens(i)%text)
             end if
         end do
     end function compact_name_text
