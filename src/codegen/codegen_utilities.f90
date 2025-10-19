@@ -1057,54 +1057,47 @@ contains
         end do
     end function find_parameter_info
 
+    logical function check_param_indices_for_name(arena, param_indices, var_name) &
+        result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
+        character(len=*), intent(in) :: var_name
+        integer :: i
+
+        found = .false.
+        do i = 1, size(param_indices)
+            if (param_indices(i) > 0 .and. param_indices(i) <= arena%size) then
+                if (allocated(arena%entries(param_indices(i))%node)) then
+                    select type (param_node => arena%entries(param_indices(i))%node)
+                    type is (identifier_node)
+                        if (param_node%name == var_name) then
+                            found = .true.
+                            return
+                        end if
+                    end select
+                end if
+            end if
+        end do
+    end function check_param_indices_for_name
+
     ! Check if a variable name is a function parameter
     function is_function_parameter(var_name, arena, proc_node) result(is_param)
         character(len=*), intent(in) :: var_name
         type(ast_arena_t), intent(in) :: arena
         class(ast_node), intent(in) :: proc_node
         logical :: is_param
-        integer :: i
 
         is_param = .false.
 
         select type (proc_node)
         type is (function_def_node)
             if (.not. allocated(proc_node%param_indices)) return
-
-            do i = 1, size(proc_node%param_indices)
-                if (proc_node%param_indices(i) > 0 .and. &
-                    proc_node%param_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
-                        select type (param_node => &
-                                     arena%entries(proc_node%param_indices(i))%node)
-                        type is (identifier_node)
-                            if (param_node%name == var_name) then
-                                is_param = .true.
-                                return
-                            end if
-                        end select
-                    end if
-                end if
-            end do
-
+            is_param = check_param_indices_for_name(arena, proc_node%param_indices, &
+                                                    var_name)
         type is (subroutine_def_node)
             if (.not. allocated(proc_node%param_indices)) return
-
-            do i = 1, size(proc_node%param_indices)
-                if (proc_node%param_indices(i) > 0 .and. &
-                    proc_node%param_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
-                        select type (param_node => &
-                                     arena%entries(proc_node%param_indices(i))%node)
-                        type is (identifier_node)
-                            if (param_node%name == var_name) then
-                                is_param = .true.
-                                return
-                            end if
-                        end select
-                    end if
-                end if
-            end do
+            is_param = check_param_indices_for_name(arena, proc_node%param_indices, &
+                                                    var_name)
         end select
     end function is_function_parameter
 
