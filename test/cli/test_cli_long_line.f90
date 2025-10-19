@@ -1,6 +1,6 @@
 program test_cli_long_line
-    use, intrinsic :: iso_fortran_env, only: error_unit
-    use cli_io, only: read_all_stdin_or_file
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                                                                iostat_eor
     implicit none
 
     character(len=:), allocatable :: tmpfile, text
@@ -26,7 +26,8 @@ program test_cli_long_line
     end if
 
     if (len(text) /= N + 1) then
-        write (error_unit, '(A,I0,A,I0)') 'Length mismatch: got ', len(text), ' expected ', N + 1
+        write (error_unit, '(A,I0,A,I0)') 'Length mismatch: got ', len(text), &
+            ' expected ', N + 1
         stop 1
     end if
 
@@ -46,6 +47,8 @@ program test_cli_long_line
 
 contains
 
+    include '../common/cli_io_reader.inc'
+
     subroutine make_tmpfile(path)
         character(len=:), allocatable, intent(out) :: path
         character(len=256) :: envtmp
@@ -63,7 +66,8 @@ contains
             envtmp = '.'
         end if
 
-        path = trim(envtmp) // '/ff_long_line_test_' // to_str(int(1000000 * rand())) // '.txt'
+        path = trim(envtmp) // '/ff_long_line_test_' // to_str(int(1000000 * &
+                                                                   rand())) // '.txt'
     end subroutine make_tmpfile
 
     subroutine cleanup_tmpfile(path)
