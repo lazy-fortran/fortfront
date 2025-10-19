@@ -16,6 +16,7 @@ module parser_module_structures_module
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_types, only: LITERAL_STRING
+    use parser_implicit_shared_module, only: parse_simple_implicit_statement
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -398,33 +399,8 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
-        type(token_t) :: implicit_token, none_token
-        character(len=:), allocatable :: implicit_type
 
-        stmt_index = 0
-
-        ! Get implicit keyword
-        implicit_token = parser%consume()
-
-        ! Check for 'none'
-        none_token = parser%peek()
-        if (none_token%kind == TK_KEYWORD .and. none_token%text == "none") then
-            none_token = parser%consume()
-            implicit_type = "none"
-        else
-            implicit_type = "default"
-        end if
-
-        ! Create implicit statement node
-        if (implicit_type == "none") then
-            stmt_index = push_implicit_statement(arena, .true., &
-                                                 line=implicit_token%line, &
-                                                 column=implicit_token%column)
-        else
-            stmt_index = push_implicit_statement(arena, .false., &
-                                                 line=implicit_token%line, &
-                                                 column=implicit_token%column)
-        end if
+        call parse_simple_implicit_statement(parser, arena, stmt_index)
     end subroutine parse_simple_implicit_in_module
 
     ! Temporary helper to skip procedure bodies during refactoring
