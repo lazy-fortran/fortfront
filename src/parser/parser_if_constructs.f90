@@ -9,7 +9,8 @@ module parser_if_constructs_module
                                             null_statement_callbacks, &
                                             find_statement_end, &
                                             extend_if_statement_end, &
-                                            allocate_stmt_tokens_with_eof
+                                            allocate_stmt_tokens_with_eof, &
+                                            skip_whitespace_and_semicolons
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
@@ -334,20 +335,7 @@ contains
             do while (.not. parser%is_at_end() .and. safety_counter < 10000)
                 safety_counter = safety_counter + 1
 
-                do while (parser%current_token <= size(parser%tokens))
-                    select case (parser%tokens(parser%current_token)%kind)
-                    case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                        parser%current_token = parser%current_token + 1
-                    case (TK_OPERATOR)
-                        if (parser%tokens(parser%current_token)%text == ";") then
-                            parser%current_token = parser%current_token + 1
-                        else
-                            exit
-                        end if
-                    case default
-                        exit
-                    end select
-                end do
+                call skip_whitespace_and_semicolons(parser)
                 if (parser%current_token > size(parser%tokens)) exit
 
                 token = parser%peek()

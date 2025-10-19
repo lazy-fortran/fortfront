@@ -24,6 +24,7 @@ module parser_statement_core_module
     public :: parse_basic_statement_core, find_statement_end, extend_if_statement_end
     public :: parse_data_statement
     public :: allocate_stmt_tokens_with_eof
+    public :: skip_whitespace_and_semicolons
     private :: parse_namelist_statement
 
 contains
@@ -847,5 +848,24 @@ contains
         stmt_tokens(remaining_count + 1)%kind = TK_EOF
         stmt_tokens(remaining_count + 1)%text = ""
     end subroutine allocate_stmt_tokens_with_eof
+
+    subroutine skip_whitespace_and_semicolons(parser)
+        type(parser_state_t), intent(inout) :: parser
+
+        do while (parser%current_token <= size(parser%tokens))
+            select case (parser%tokens(parser%current_token)%kind)
+            case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                parser%current_token = parser%current_token + 1
+            case (TK_OPERATOR)
+                if (parser%tokens(parser%current_token)%text == ";") then
+                    parser%current_token = parser%current_token + 1
+                else
+                    exit
+                end if
+            case default
+                exit
+            end select
+        end do
+    end subroutine skip_whitespace_and_semicolons
 
 end module parser_statement_core_module
