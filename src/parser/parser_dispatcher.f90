@@ -30,9 +30,10 @@ module parser_dispatcher_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node
     use uid_generator, only: generate_uid
-    use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use ast_types, only: LITERAL_STRING
     use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
+    use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     use parser_expressions_module, only: parse_expression, parse_range
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     implicit none
@@ -468,124 +469,28 @@ contains
         is_multi_var_assignment_dispatcher = .false.
     end function is_multi_var_assignment_dispatcher
 
-    ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
+    ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" via shared helper
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
-        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
-                             LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
-        integer, allocatable :: var_indices(:)  ! Store identifier indices directly
-        integer, allocatable :: value_indices(:)  ! Store literal indices directly
-        integer :: num_vars, num_values, i
-        type(token_t) :: token
-        integer :: target_index, value_index, literal_type
-        integer :: assignment_line, assignment_column
         integer, allocatable :: assignment_indices(:)
 
-        stmt_index = 0
-        allocate (var_indices(0))
-        allocate (value_indices(0))
-        allocate (assignment_indices(0))
+        call parse_multi_variable_assignment_core(parser, arena, stmt_index, &
+                                                  assignment_indices)
 
-        ! Parse left-hand side variables (a, b, c)
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_IDENTIFIER) then
-                token = parser%consume()
-                ! Create identifier node immediately
-                target_index = push_identifier(arena, token%text, token%line, &
-                                               token%column)
-                var_indices = [var_indices, target_index]
-
-                ! Check for comma or equals
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume comma
-                    cycle
-                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                    token = parser%consume()  ! consume equals
-                    exit
-                else
-                    ! Error condition
-                    return
-                end if
-            else
-                return
+        if (stmt_index == 0) then
+            call clear_additional_indices()
+            if (allocated(assignment_indices)) then
+                block
+                    integer, allocatable :: temp(:)
+                    call move_alloc(assignment_indices, temp)
+                end block
             end if
-        end do
+            return
+        end if
 
-        num_vars = size(var_indices)
-        if (num_vars == 0) return
-
-        ! Parse right-hand side values (1, 2, 3)
-        do while (.not. parser%is_at_end())
-            ! Parse a value expression (could be literal, variable, etc.)
-            token = parser%peek()
-            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
-                token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
-                (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. &
-                                                  token%text == &
-                                                  '.false.'))) then
-                token = parser%consume()
-                ! Determine literal type based on token kind
-                literal_type = &
-                    get_literal_type_from_token_kind_dispatcher(token%kind, &
-                                                                token%text)
-                ! Create literal node immediately
-                value_index = push_literal(arena, token%text, literal_type, &
-                                           token%line, &
-                                           token%column)
-                value_indices = [value_indices, value_index]
-
-                ! Check for comma or end
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume comma
-                    cycle
-                else
-                    ! End of expression list
-                    exit
-                end if
-            else if (token%kind == TK_NEWLINE .or. parser%is_at_end()) then
-                exit
-            else
-                ! Try to consume the token and exit
-                token = parser%consume()
-                exit
-            end if
-        end do
-
-        num_values = size(value_indices)
-
-        ! Create individual assignment statements
-        ! For each variable, assign corresponding value (or last value if fewer values)
-        do i = 1, num_vars
-            if (i <= num_values) then
-                ! Use corresponding value
-                target_index = var_indices(i)
-                value_index = value_indices(i)
-            else
-                ! Use last value if not enough values provided
-                target_index = var_indices(i)
-                value_index = value_indices(num_values)
-            end if
-
-            if (target_index > 0 .and. value_index > 0) then
-                assignment_line = parser%tokens(parser%current_token - 1)%line
-                assignment_column = parser%tokens(parser%current_token - 1)%column
-                assignment_indices = [assignment_indices, &
-                                      push_assignment(arena, target_index, &
-                                                      value_index, assignment_line, &
-                                                      assignment_column)]
-            end if
-        end do
-
-        ! Return first assignment index and store rest in additional_indices
-        if (size(assignment_indices) > 0) then
-            stmt_index = assignment_indices(1)
-
+        if (allocated(assignment_indices)) then
             if (size(assignment_indices) > 1) then
                 if (allocated(additional_indices)) then
                     block
@@ -597,54 +502,14 @@ contains
             end if
         end if
 
+        if (allocated(assignment_indices)) then
+            block
+                integer, allocatable :: temp(:)
+                call move_alloc(assignment_indices, temp)
+            end block
+        end if
+
     end subroutine parse_multi_variable_assignment_dispatcher
-
-    ! Helper function to determine literal type from token kind (dispatcher version)
-    function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) &
-        result(literal_type)
-        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
-                             LITERAL_LOGICAL
-        integer, intent(in) :: token_kind
-        character(len=*), intent(in) :: token_text
-        integer :: literal_type
-
-        select case (token_kind)
-        case (TK_NUMBER)
-            ! Check if it contains a decimal point or exponent
-            if (index(token_text, '.') > 0 .or. index(token_text, 'e') > 0 .or. &
-                index(token_text, 'E') > 0 .or. index(token_text, 'd') > 0 .or. &
-                index(token_text, 'D') > 0) then
-                literal_type = LITERAL_REAL
-            else
-                literal_type = LITERAL_INTEGER
-            end if
-        case (TK_STRING)
-            literal_type = LITERAL_STRING
-        case (TK_OPERATOR)
-            ! For logical literals (.true., .false.)
-            if (token_text == '.true.' .or. token_text == '.false.') then
-                literal_type = LITERAL_LOGICAL
-            else
-                literal_type = LITERAL_STRING  ! Default fallback
-            end if
-        case (TK_KEYWORD)
-            ! Lexer classifies .true./.false. as keywords in our pipeline
-            if (token_text == '.true.' .or. token_text == '.false.') then
-                literal_type = LITERAL_LOGICAL
-            else
-                ! Other keywords are not literals
-                literal_type = LITERAL_STRING
-            end if
-        case default
-            ! For identifiers and other tokens, check for boolean literals
-            if (token_text == 'true' .or. token_text == 'false') then
-                literal_type = LITERAL_LOGICAL
-            else
-                literal_type = LITERAL_STRING
-            end if
-        end select
-    end function get_literal_type_from_token_kind_dispatcher
 
     logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                 stmt_index)
