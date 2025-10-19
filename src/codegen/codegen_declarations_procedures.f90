@@ -1,4 +1,4 @@
-module codegen_declarations_subprogram_mod
+module codegen_declarations_procedures
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string
@@ -8,7 +8,13 @@ module codegen_declarations_subprogram_mod
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: parameter_info_t, generate_grouped_body_with_params
-    use codegen_declarations_shared_mod, only: fix_character_len_placeholder
+    use codegen_declarations_core, only: fix_character_len_placeholder
+    use codegen_declarations_inference, only: build_parameter_map, &
+                                              derive_character_return_type, &
+                                              character_len_references_params, &
+                                              has_character_len_result_decl, &
+                                              is_character_len_declaration, &
+                                              is_deferred_character_return
     implicit none
     private
     public :: generate_code_function_def
@@ -65,7 +71,8 @@ contains
         end if
 
         if (len_trim(return_type_code) > 0) then
-            signature = signature // trim(return_type_code) // " function " // node%name
+            signature = signature // trim(return_type_code) // " function " &
+                        // node%name
         else
             signature = signature // "function " // node%name
         end if
@@ -335,7 +342,8 @@ contains
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
 
-        body = generate_grouped_body_with_params(arena, body_indices, 1, param_map, node)
+        body = generate_grouped_body_with_params(arena, body_indices, 1, &
+                                                 param_map, node)
     end function build_subroutine_body_section
 
     logical function should_omit_return_type(arena, node, return_type_code) &
@@ -380,256 +388,6 @@ contains
             end select
         end do
     end function should_omit_return_type
-
-    subroutine build_parameter_map(arena, param_indices, body_indices, param_map)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: param_indices(:)
-        integer, intent(in) :: body_indices(:)
-        type(parameter_info_t), allocatable, intent(out) :: param_map(:)
-        integer :: param_count
-
-        param_count = size(param_indices)
-        allocate (param_map(param_count))
-
-        call seed_parameter_map_from_params(arena, param_indices, param_map)
-        call merge_parameter_details_from_body(arena, body_indices, param_map)
-    end subroutine build_parameter_map
-
-    subroutine seed_parameter_map_from_params(arena, param_indices, param_map)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: param_indices(:)
-        type(parameter_info_t), intent(inout) :: param_map(:)
-        integer :: i, idx
-
-        do i = 1, size(param_indices)
-            param_map(i)%name = ""
-            param_map(i)%intent_str = ""
-            param_map(i)%is_optional = .false.
-
-            idx = param_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-
-            select type (param_node => arena%entries(idx)%node)
-            type is (identifier_node)
-                param_map(i)%name = param_node%name
-            type is (parameter_declaration_node)
-                param_map(i)%name = param_node%name
-                param_map(i)%intent_str = intent_type_to_string(param_node%intent_type)
-                param_map(i)%is_optional = param_node%is_optional
-            end select
-        end do
-    end subroutine seed_parameter_map_from_params
-
-    subroutine merge_parameter_details_from_body(arena, body_indices, param_map)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_indices(:)
-        type(parameter_info_t), intent(inout) :: param_map(:)
-        integer :: j, idx
-        character(len=:), allocatable :: intent_str
-
-        do j = 1, size(body_indices)
-            idx = body_indices(j)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-
-            select type (body_node => arena%entries(idx)%node)
-            type is (parameter_declaration_node)
-                intent_str = intent_type_to_string(body_node%intent_type)
-                call update_parameter_entry(param_map, body_node%name, intent_str, &
-                                            .true., body_node%is_optional)
-            type is (declaration_node)
-                call update_parameter_entry(param_map, body_node%var_name, &
-                                            body_node%intent, body_node%has_intent, &
-                                            body_node%is_optional)
-            end select
-        end do
-    end subroutine merge_parameter_details_from_body
-
-    subroutine update_parameter_entry(param_map, name, intent_value, has_intent, &
-                                      is_optional)
-        type(parameter_info_t), intent(inout) :: param_map(:)
-        character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: intent_value
-        logical, intent(in) :: has_intent
-        logical, intent(in) :: is_optional
-        integer :: i
-
-        do i = 1, size(param_map)
-            if (.not. allocated(param_map(i)%name)) cycle
-            if (trim(param_map(i)%name) /= trim(name)) cycle
-
-            if (has_intent) param_map(i)%intent_str = intent_value
-            param_map(i)%is_optional = is_optional
-            return
-        end do
-    end subroutine update_parameter_entry
-
-    subroutine derive_character_return_type(arena, node, override)
-        type(ast_arena_t), intent(in) :: arena
-        type(function_def_node), intent(in) :: node
-        character(len=:), allocatable, intent(out) :: override
-        character(len=:), allocatable :: lowered
-        character(len=:), allocatable :: target_name
-        integer :: i, decl_index
-
-        override = ""
-
-        if (allocated(node%return_type)) then
-            lowered = to_lower(trim(node%return_type))
-            if (index(lowered, "character(len=:), allocatable") == 0) return
-        else
-            return
-        end if
-
-        if (allocated(node%result_variable)) then
-            if (len_trim(node%result_variable) > 0) then
-                target_name = trim(node%result_variable)
-            else
-                target_name = trim(node%name)
-            end if
-        else
-            target_name = trim(node%name)
-        end if
-
-        if (.not. allocated(node%body_indices)) return
-        do i = 1, size(node%body_indices)
-            decl_index = node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
-            select type (stmt => arena%entries(decl_index)%node)
-            type is (declaration_node)
-                if (len_trim(stmt%var_name) == 0) cycle
-                if (trim(stmt%var_name) /= target_name) cycle
-                if (.not. allocated(stmt%type_name)) cycle
-                lowered = to_lower(trim(stmt%type_name))
-                if (index(lowered, "len=") > 0) then
-                    if (.not. character_len_references_params(arena, node, &
-                                                              stmt%type_name)) then
-                        override = trim(stmt%type_name)
-                        return
-                    end if
-                end if
-            end select
-        end do
-    end subroutine derive_character_return_type
-
-    logical function character_len_references_params(arena, node, type_spec) &
-        result(refs_params)
-        type(ast_arena_t), intent(in) :: arena
-        type(function_def_node), intent(in) :: node
-        character(len=*), intent(in) :: type_spec
-        integer :: len_pos, paren_pos, i
-        character(len=:), allocatable :: len_expr
-        character(len=:), allocatable :: param_name
-
-        refs_params = .false.
-        len_pos = index(type_spec, 'len=')
-        if (len_pos == 0) return
-
-        paren_pos = index(type_spec(len_pos:), ')')
-        if (paren_pos == 0) return
-
-        len_expr = type_spec(len_pos + 4:len_pos + paren_pos - 2)
-        if (.not. allocated(node%param_indices)) return
-
-        do i = 1, size(node%param_indices)
-            if (node%param_indices(i) <= 0 .or. node%param_indices(i) > &
-                arena%size) cycle
-            if (.not. allocated(arena%entries(node%param_indices(i))%node)) cycle
-
-            select type (param_node => arena%entries(node%param_indices(i))%node)
-            type is (identifier_node)
-                param_name = trim(param_node%name)
-            type is (parameter_declaration_node)
-                param_name = trim(param_node%name)
-            type is (declaration_node)
-                param_name = trim(param_node%var_name)
-            class default
-                cycle
-            end select
-
-            if (index(len_expr, trim(param_name)) > 0) then
-                refs_params = .true.
-                return
-            end if
-        end do
-    end function character_len_references_params
-
-    pure logical function is_deferred_character_return(text) result(is_deferred)
-        character(len=*), intent(in) :: text
-        character(len=:), allocatable :: lowered
-
-        lowered = to_lower(trim(text))
-        is_deferred = (index(lowered, 'character') == 1) .and. &
-                      (index(lowered, 'len=:') > 0)
-        if (is_deferred) then
-            if (index(lowered, 'allocatable') == 0) then
-                is_deferred = .false.
-            end if
-        end if
-    end function is_deferred_character_return
-
-    logical function has_character_len_result_decl(arena, node) result(has_decl)
-        type(ast_arena_t), intent(in) :: arena
-        type(function_def_node), intent(in) :: node
-        character(len=:), allocatable :: target_name
-        integer :: i, decl_index, name_idx
-        character(len=:), allocatable :: lowered
-
-        has_decl = .false.
-
-        if (allocated(node%result_variable)) then
-            target_name = trim(node%result_variable)
-        else if (allocated(node%name)) then
-            target_name = trim(node%name)
-        else
-            target_name = ''
-        end if
-
-        if (len_trim(target_name) == 0) return
-        if (.not. allocated(node%body_indices)) return
-
-        do i = 1, size(node%body_indices)
-            decl_index = node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
-            select type (stmt => arena%entries(decl_index)%node)
-            type is (declaration_node)
-                if (is_character_len_declaration(stmt%type_name)) then
-                    if (trim(stmt%var_name) == target_name) then
-                        has_decl = .true.
-                        return
-                    end if
-                    if (stmt%is_multi_declaration .and. &
-                        allocated(stmt%var_names)) then
-                        do name_idx = 1, size(stmt%var_names)
-                            if (trim(stmt%var_names(name_idx)) == target_name) then
-                                has_decl = .true.
-                                return
-                            end if
-                        end do
-                    end if
-                end if
-            end select
-        end do
-    end function has_character_len_result_decl
-
-    pure logical function is_character_len_declaration(type_name) result(matches)
-        character(len=*), intent(in) :: type_name
-        character(len=:), allocatable :: lowered
-
-        lowered = to_lower(trim(type_name))
-        if (len_trim(lowered) == 0) then
-            matches = .false.
-            return
-        end if
-
-        matches = (index(lowered, 'character') == 1) .and. &
-                  (index(lowered, 'len=') > 0) .and. &
-                  (index(lowered, 'len=*') == 0) .and. &
-                  (index(lowered, 'len=:') == 0)
-    end function is_character_len_declaration
 
     ! Collect parameter declarations for undeclared function parameters
     function collect_function_parameter_decls(arena, func, param_map) result(decl_code)
@@ -752,4 +510,4 @@ contains
 
         param_type = 'real'
     end function get_param_type_fallback
-end module codegen_declarations_subprogram_mod
+end module codegen_declarations_procedures
