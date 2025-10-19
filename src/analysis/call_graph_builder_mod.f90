@@ -10,6 +10,7 @@ module call_graph_builder_mod
     use call_graph_builder_postprocess_mod, only: handle_missing_nested_procedures
     use call_graph_builder_postprocess_mod, only: detect_recursive_calls
     use call_graph_builder_postprocess_mod, only: normalize_program_scopes
+    use call_graph_constants_mod, only: max_proc_name_len
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
                               call_or_subscript_node
@@ -288,7 +289,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
         integer, intent(in) :: scope_sym
-        character(len=256) :: caller_name
+        character(len=max_proc_name_len) :: caller_name
         integer :: resolved_symbol
 
         select type (node => arena%entries(node_idx)%node)
@@ -309,7 +310,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
         integer, intent(in) :: scope_sym
-        character(len=256) :: caller_name
+        character(len=max_proc_name_len) :: caller_name
         integer :: resolved_symbol
 
         select type (node => arena%entries(node_idx)%node)

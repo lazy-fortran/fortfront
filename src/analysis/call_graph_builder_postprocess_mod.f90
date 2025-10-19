@@ -8,6 +8,7 @@ module call_graph_builder_postprocess_mod
     use call_graph_builder_state_mod, only: extract_simple_name
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use call_graph_constants_mod, only: max_proc_name_len
     implicit none
     private
 
@@ -32,8 +33,8 @@ contains
         integer :: callee_symbol
         integer :: parent_symbol
         integer :: new_symbol
-        character(len=256) :: caller_name
-        character(len=256) :: callee_name
+        character(len=max_proc_name_len) :: caller_name
+        character(len=max_proc_name_len) :: callee_name
         character(len=:), allocatable :: simple_callee
         character(len=:), allocatable :: inferred_full_name
 
