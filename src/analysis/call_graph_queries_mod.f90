@@ -1,5 +1,6 @@
 module call_graph_queries_mod
     use call_graph_core_mod, only: call_graph_t
+    use call_graph_constants_mod, only: max_proc_name_len
     implicit none
     private
 
@@ -16,7 +17,7 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: unused_names(:)
         logical, allocatable :: is_called(:)
-        character(len=256), allocatable :: temp_names(:)
+        character(len=max_proc_name_len), allocatable :: temp_names(:)
         integer :: unused_count
         integer :: i
 
@@ -76,7 +77,7 @@ contains
     subroutine collect_unused_simple_names(graph, is_called, temp_names)
         type(call_graph_t), intent(in) :: graph
         logical, intent(in) :: is_called(:)
-        character(len=256), intent(out) :: temp_names(:)
+        character(len=max_proc_name_len), intent(out) :: temp_names(:)
         integer :: i
         integer :: pos
 
@@ -90,7 +91,7 @@ contains
 
     pure function simple_name_of(name) result(simple_name)
         character(len=*), intent(in) :: name
-        character(len=256) :: simple_name
+        character(len=max_proc_name_len) :: simple_name
         integer :: sep
 
         simple_name = trim(name)
@@ -103,7 +104,7 @@ contains
         character(len=*), intent(in) :: full_name
         character(len=*), intent(in) :: target_simple
 
-        character(len=256) :: candidate
+        character(len=max_proc_name_len) :: candidate
 
         if (trim(full_name) == trim(target_simple)) then
             names_match = .true.
@@ -118,9 +119,9 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: caller_names(:)
-        character(len=256), allocatable :: temp_names(:)
+        character(len=max_proc_name_len), allocatable :: temp_names(:)
         integer :: i, count, sep_pos
-        character(len=256) :: simple_callee
+        character(len=max_proc_name_len) :: simple_callee
 
         allocate (temp_names(graph%call_count))
         count = 0
@@ -133,7 +134,7 @@ contains
             if (graph%calls(i)%callee == procedure_name .or. &
                 trim(simple_callee) == procedure_name) then
                 block
-                    character(len=256) :: extracted_caller
+                    character(len=max_proc_name_len) :: extracted_caller
                     extracted_caller = graph%calls(i)%caller
                     sep_pos = index(extracted_caller, "::", back=.true.)
                     if (sep_pos > 0) &
@@ -162,9 +163,9 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: callee_names(:)
-        character(len=256), allocatable :: temp_names(:)
+        character(len=max_proc_name_len), allocatable :: temp_names(:)
         integer :: i, count, sep_pos
-        character(len=256) :: simple_caller
+        character(len=max_proc_name_len) :: simple_caller
 
         allocate (temp_names(graph%call_count))
         count = 0
@@ -177,7 +178,7 @@ contains
             if (graph%calls(i)%caller == procedure_name .or. &
                 trim(simple_caller) == procedure_name) then
                 block
-                    character(len=256) :: extracted_callee
+                    character(len=max_proc_name_len) :: extracted_callee
                     extracted_callee = graph%calls(i)%callee
                     sep_pos = index(extracted_callee, "::", back=.true.)
                     if (sep_pos > 0) &
@@ -207,7 +208,7 @@ contains
         character(len=*), intent(in) :: procedure_name
         logical :: is_used
         integer :: i, sep_pos
-        character(len=256) :: simple_name, simple_callee
+        character(len=max_proc_name_len) :: simple_name, simple_callee
 
         do i = 1, graph%proc_count
             simple_name = graph%procedures(i)%name
@@ -241,7 +242,7 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: proc_names(:)
         integer :: i, max_len, sep_pos
-        character(len=256) :: simple_name
+        character(len=max_proc_name_len) :: simple_name
 
         if (graph%proc_count > 0) then
             max_len = 0
@@ -330,7 +331,7 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: cycles(:)
 
-        character(len=256), allocatable :: temp_cycles(:)
+        character(len=max_proc_name_len), allocatable :: temp_cycles(:)
         logical, allocatable :: visited(:), in_stack(:)
         integer :: cycle_count, i
 
@@ -365,7 +366,7 @@ contains
         type(call_graph_t), intent(in) :: graph
         integer, intent(in) :: proc_idx
         logical, intent(inout) :: visited(:), in_stack(:)
-        character(len=256), intent(inout) :: cycles(:)
+        character(len=max_proc_name_len), intent(inout) :: cycles(:)
         integer, intent(inout) :: cycle_count
 
         type :: dfs_frame_t
@@ -378,7 +379,7 @@ contains
         type(dfs_frame_t) :: frame
         integer :: top, capacity
         integer :: i, callee_idx
-        character(len=256) :: caller_name
+        character(len=max_proc_name_len) :: caller_name
         logical :: found
 
         capacity = 64
