@@ -688,9 +688,11 @@ contains
 
         call fallback_module_dir_search(module_dir)
 
-        sep = path_separator_for('fortfront_modules')
-        if (module_directory_has_module('fortfront_modules', sep)) then
-            module_dir = 'fortfront_modules'
+        if (len_trim(module_dir) == 0) then
+            sep = path_separator_for('fortfront_modules')
+            if (module_directory_has_module('fortfront_modules', sep)) then
+                module_dir = 'fortfront_modules'
+            end if
         end if
     end function get_module_directory
 
