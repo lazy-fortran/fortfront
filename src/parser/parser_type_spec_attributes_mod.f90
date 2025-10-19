@@ -164,41 +164,73 @@ contains
         end if
     end subroutine skip_type_definition_attributes
 
-    logical function parser_is_at_type_definition(parser) result(is_type_def)
+    logical function type_keyword_at_cursor(parser) result(has_type_keyword)
         type(parser_state_t), intent(in) :: parser
-        integer :: pos
+        type(token_t) :: token
+
+        has_type_keyword = .false.
+        if (.not. associated(parser%tokens)) return
+        if (parser%current_token < 1) return
+        if (parser%current_token > size(parser%tokens)) return
+
+        token = parser%tokens(parser%current_token)
+        if (trim(to_lower(token%text)) /= "type") return
+
+        if (parser%current_token > 1) then
+            token = parser%tokens(parser%current_token - 1)
+            if (token%kind == TK_KEYWORD) then
+                if (trim(to_lower(token%text)) == "end") return
+            end if
+        end if
+
+        has_type_keyword = .true.
+    end function type_keyword_at_cursor
+
+    logical function advance_parenthesized_tokens(parser, pos) result(success)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(inout) :: pos
         integer :: depth
+        integer :: token_count
+        type(token_t) :: token
+
+        success = .false.
+        token_count = size(parser%tokens)
+        depth = 1
+        pos = pos + 1
+
+        do while (pos <= token_count .and. depth > 0)
+            token = parser%tokens(pos)
+            if (token%kind == TK_OPERATOR) then
+                select case (token%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    depth = depth - 1
+                end select
+            end if
+            pos = pos + 1
+        end do
+
+        if (depth == 0) then
+            success = .true.
+        else
+            pos = token_count + 1
+        end if
+    end function advance_parenthesized_tokens
+
+    logical function scan_type_attribute_sequence(parser, start_pos) &
+        result(is_type_def)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(in) :: start_pos
+        integer :: pos
         integer :: token_count
         type(token_t) :: token
         character(len=:), allocatable :: last_attribute
         character(len=:), allocatable :: normalized_attribute
 
         is_type_def = .false.
-        if (.not. associated(parser%tokens)) then
-            return
-        end if
-
-        if (parser%current_token < 1 .or. parser%current_token > &
-            size(parser%tokens)) then
-            return
-        end if
-
-        token = parser%tokens(parser%current_token)
-        if (trim(to_lower(token%text)) /= "type") then
-            return
-        end if
-
-        if (parser%current_token > 1) then
-            token = parser%tokens(parser%current_token - 1)
-            if (token%kind == TK_KEYWORD) then
-                if (trim(to_lower(token%text)) == "end") then
-                    return
-                end if
-            end if
-        end if
-
         token_count = size(parser%tokens)
-        pos = parser%current_token + 1
+        pos = start_pos
         last_attribute = ""
 
         do while (pos <= token_count)
@@ -215,31 +247,15 @@ contains
                     is_type_def = .true.
                     return
                 case ("(")
-                    if (len_trim(last_attribute) > 0) then
-                        normalized_attribute = to_lower(trim(adjustl(last_attribute)))
-                        select case (normalized_attribute)
-                        case ("extends", "bind")
-                            depth = 1
-                            pos = pos + 1
-                            do while (pos <= token_count .and. depth > 0)
-                                token = parser%tokens(pos)
-                                if (token%kind == TK_OPERATOR) then
-                                    select case (token%text)
-                                    case ("(")
-                                        depth = depth + 1
-                                    case (")")
-                                        depth = depth - 1
-                                    end select
-                                end if
-                                pos = pos + 1
-                            end do
-                            last_attribute = ""
-                        case default
-                            return
-                        end select
-                    else
+                    if (len_trim(last_attribute) == 0) return
+                    normalized_attribute = to_lower(trim(adjustl(last_attribute)))
+                    select case (normalized_attribute)
+                    case ("extends", "bind")
+                        if (.not. advance_parenthesized_tokens(parser, pos)) return
+                        last_attribute = ""
+                    case default
                         return
-                    end if
+                    end select
                 case default
                     return
                 end select
@@ -255,6 +271,17 @@ contains
                 return
             end select
         end do
+    end function scan_type_attribute_sequence
+
+    logical function parser_is_at_type_definition(parser) result(is_type_def)
+        type(parser_state_t), intent(in) :: parser
+        integer :: pos
+
+        is_type_def = .false.
+        if (.not. type_keyword_at_cursor(parser)) return
+
+        pos = parser%current_token + 1
+        is_type_def = scan_type_attribute_sequence(parser, pos)
     end function parser_is_at_type_definition
 
 end module parser_type_spec_attributes_mod
