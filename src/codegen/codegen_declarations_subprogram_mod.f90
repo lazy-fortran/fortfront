@@ -22,175 +22,321 @@ contains
         type(function_def_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: return_type_code, params_code, body_code
-        character(len=:), allocatable :: return_type_override
-        integer :: i
+
+        code = compose_function_signature(arena, node)
+        code = code // new_line('A')
+        code = code // build_function_body_section(arena, node)
+        code = code // "end function " // node%name
+    end function generate_code_function_def
+
+    function compose_function_signature(arena, node) result(signature)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: signature
+        character(len=:), allocatable :: prefix
+        character(len=:), allocatable :: return_type_code
+        character(len=:), allocatable :: params_clause
+        character(len=:), allocatable :: result_clause
         logical :: recursive_in_prefix
 
-        ! Start function definition with optional recursive keyword and return type
-        code = ""
+        prefix = gather_function_prefix(node, recursive_in_prefix)
+        if (node%is_recursive .and. .not. recursive_in_prefix) then
+            if (len_trim(prefix) > 0) then
+                prefix = "recursive " // trim(prefix)
+            else
+                prefix = "recursive"
+            end if
+        end if
+
+        return_type_code = derive_function_return_type(arena, node)
+
+        if (allocated(node%param_indices)) then
+            params_clause = build_parameter_clause(arena, node%param_indices)
+        else
+            params_clause = "()"
+        end if
+
+        result_clause = build_function_result_clause(node)
+
+        if (len_trim(prefix) > 0) then
+            signature = trim(prefix) // " "
+        else
+            signature = ""
+        end if
+
+        if (len_trim(return_type_code) > 0) then
+            signature = signature // trim(return_type_code) // " function " // node%name
+        else
+            signature = signature // "function " // node%name
+        end if
+
+        signature = signature // params_clause // result_clause
+    end function compose_function_signature
+
+    function gather_function_prefix(node, recursive_in_prefix) result(prefix)
+        type(function_def_node), intent(in) :: node
+        logical, intent(out) :: recursive_in_prefix
+        character(len=:), allocatable :: prefix
+        integer :: i
+        character(len=:), allocatable :: term
+
+        prefix = ""
         recursive_in_prefix = .false.
+
+        if (.not. allocated(node%prefix_keywords)) return
+
+        do i = 1, size(node%prefix_keywords)
+            term = node%prefix_keywords(i)
+            if (len_trim(term) == 0) cycle
+            if (len(prefix) > 0) prefix = prefix // " "
+            prefix = prefix // trim(term)
+            if (trim(term) == "recursive") recursive_in_prefix = .true.
+        end do
+    end function gather_function_prefix
+
+    function derive_function_return_type(arena, node) result(return_type_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: return_type_code
+        character(len=:), allocatable :: override
+
         return_type_code = ""
+
         if (allocated(node%return_type)) then
             return_type_code = trim(node%return_type)
         end if
 
-        call derive_character_return_type(arena, node, return_type_override)
-        if (len_trim(return_type_override) > 0) then
-            return_type_code = return_type_override
+        call derive_character_return_type(arena, node, override)
+        if (len_trim(override) > 0) return_type_code = override
+
+        if (len_trim(return_type_code) == 0) return
+
+        if (should_omit_return_type(arena, node, return_type_code)) then
+            return_type_code = ""
+            return
         end if
 
-        if (len_trim(return_type_code) > 0) then
-            if (should_omit_return_type(arena, node, return_type_code)) then
-                return_type_code = ""
-            else
-                return_type_code = fix_character_len_placeholder(return_type_code)
-            end if
+        return_type_code = fix_character_len_placeholder(return_type_code)
+
+        if (.not. is_deferred_character_return(return_type_code)) return
+        if (has_character_len_result_decl(arena, node)) return_type_code = ""
+    end function derive_function_return_type
+
+    function build_parameter_clause(arena, param_indices) result(clause)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
+        character(len=:), allocatable :: clause
+        integer :: i
+
+        if (size(param_indices) == 0) then
+            clause = "()"
+            return
         end if
 
-        if (len_trim(return_type_code) > 0) then
-            if (is_deferred_character_return(return_type_code)) then
-                if (has_character_len_result_decl(arena, node)) then
-                    return_type_code = ""
-                end if
-            end if
+        clause = "("
+        do i = 1, size(param_indices)
+            if (i > 1) clause = clause // ", "
+            clause = clause // derive_parameter_name(arena, param_indices(i), i)
+        end do
+        clause = clause // ")"
+    end function build_parameter_clause
+
+    function derive_parameter_name(arena, param_index, fallback_index) result(name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        integer, intent(in) :: fallback_index
+        character(len=:), allocatable :: name
+
+        name = "param" // trim(adjustl(int_to_string(fallback_index)))
+
+        if (param_index <= 0 .or. param_index > arena%size) return
+        if (.not. allocated(arena%entries(param_index)%node)) return
+
+        select type (param_node => arena%entries(param_index)%node)
+        type is (identifier_node)
+            name = param_node%name
+        type is (parameter_declaration_node)
+            name = param_node%name
+        type is (declaration_node)
+            name = param_node%var_name
+        end select
+    end function derive_parameter_name
+
+    function build_function_result_clause(node) result(result_clause)
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: result_clause
+        character(len=:), allocatable :: result_name
+
+        result_clause = ""
+        if (.not. allocated(node%result_variable)) return
+        if (len_trim(node%result_variable) == 0) return
+
+        result_name = node%result_variable
+        if (allocated(node%name)) then
+            if (trim(result_name) == trim(node%name)) return
         end if
 
+        result_clause = " result(" // result_name // ")"
+    end function build_function_result_clause
+
+    function build_function_body_section(arena, node) result(body)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: body
+        type(parameter_info_t), allocatable :: param_map(:)
+        integer, allocatable :: param_indices(:)
+        integer, allocatable :: body_indices(:)
+
+        if (allocated(node%param_indices)) then
+            param_indices = node%param_indices
+        else
+            allocate (param_indices(0))
+        end if
+
+        if (allocated(node%body_indices)) then
+            body_indices = node%body_indices
+        else
+            allocate (body_indices(0))
+        end if
+
+        call build_parameter_map(arena, param_indices, body_indices, param_map)
         if (allocated(node%prefix_keywords)) then
-            do i = 1, size(node%prefix_keywords)
-                if (len_trim(node%prefix_keywords(i)) > 0) then
-                    code = code // trim(node%prefix_keywords(i)) // " "
-                    if (trim(node%prefix_keywords(i)) == "recursive") then
-                        recursive_in_prefix = .true.
+            call apply_default_intents(node%prefix_keywords, param_map)
+        end if
+
+        body = maybe_add_function_implicit_none(arena, body_indices)
+        body = body // collect_function_parameter_decls(arena, node, param_map)
+        body = body // generate_grouped_body_with_params(arena, body_indices, 1, &
+                                                         param_map, node)
+    end function build_function_body_section
+
+    function maybe_add_function_implicit_none(arena, body_indices) result(prolog)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=:), allocatable :: prolog
+        integer :: j
+
+        prolog = ""
+        do j = 1, size(body_indices)
+            if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+            if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+            select type (body_node => arena%entries(body_indices(j))%node)
+            type is (implicit_statement_node)
+                if (body_node%is_none) return
+            end select
+        end do
+        prolog = "    implicit none" // new_line('A')
+    end function maybe_add_function_implicit_none
+
+    subroutine apply_default_intents(prefix_keywords, param_map)
+        character(len=*), intent(in) :: prefix_keywords(:)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: i, j
+
+        do j = 1, size(prefix_keywords)
+            select case (trim(prefix_keywords(j)))
+            case ("pure", "elemental")
+                do i = 1, size(param_map)
+                    if (.not. allocated(param_map(i)%name)) cycle
+                    if (len_trim(param_map(i)%intent_str) == 0) then
+                        param_map(i)%intent_str = "in"
                     end if
-                end if
-            end do
-        end if
-        if (node%is_recursive .and. .not. recursive_in_prefix) then
-            code = "recursive " // code
-        end if
-
-        if (len_trim(return_type_code) > 0) then
-            if (len(code) > 0) then
-                code = code // return_type_code // " function " // node%name
-            else
-                code = return_type_code // " function " // node%name
-            end if
-        else
-            if (len(code) > 0) then
-                code = code // "function " // node%name
-            else
-                code = "function " // node%name
-            end if
-        end if
-
-        ! Generate parameters (names only)
-        if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
-            code = code // "("
-            do i = 1, size(node%param_indices)
-                if (i > 1) code = code // ", "
-                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (p => arena%entries(node%param_indices(i))%node)
-                        type is (identifier_node)
-                            code = code // p%name
-                        type is (parameter_declaration_node)
-                            code = code // p%name
-                        type is (declaration_node)
-                            code = code // p%var_name
-                        class default
-                            code = code // "param" // trim(adjustl(int_to_string(i)))
-                        end select
-                    end if
-                end if
-            end do
-            code = code // ")"
-        else
-            code = code // "()"
-        end if
-
-        ! Add result clause if present (but NOT if result name equals function name)
-        if (allocated(node%result_variable) .and. &
-            len_trim(node%result_variable) > 0) then
-            ! Don't add result() clause if result variable name equals function name
-            ! (Fortran doesn't allow result(foo) for function foo - just use typed function signature)
-            if (.not. (allocated(node%name) .and. trim(node%result_variable) == &
-                       trim(node%name))) then
-                code = code // " result(" // node%result_variable // ")"
-            end if
-        end if
-
-        code = code // new_line('A')
-
-        ! Build parameter map by matching parameter names to body declarations
-        block
-            type(parameter_info_t), allocatable :: param_map(:)
-            integer, allocatable :: param_indices(:)
-            integer, allocatable :: body_indices(:)
-            integer :: j
-            logical :: has_implicit
-
-            if (allocated(node%param_indices)) then
-                param_indices = node%param_indices
-            else
-                allocate (param_indices(0))
-            end if
-
-            if (allocated(node%body_indices)) then
-                body_indices = node%body_indices
-            else
-                allocate (body_indices(0))
-            end if
-
-            call build_parameter_map(arena, param_indices, body_indices, param_map)
-
-            ! Ensure pure/elemental functions default parameters to intent(in)
-            if (allocated(node%prefix_keywords)) then
-                do j = 1, size(node%prefix_keywords)
-                    select case (trim(node%prefix_keywords(j)))
-                    case ("pure", "elemental")
-                        do i = 1, size(param_map)
-                            if (.not. allocated(param_map(i)%name)) cycle
-                            if (len_trim(param_map(i)%intent_str) == 0) then
-                                param_map(i)%intent_str = "in"
-                            end if
-                        end do
-                    end select
                 end do
+            end select
+        end do
+    end subroutine apply_default_intents
+
+    ! Generate code for subroutine definitions
+    function generate_code_subroutine_def(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        code = compose_subroutine_signature(arena, node)
+        code = code // new_line('A')
+        code = code // build_subroutine_body_section(arena, node)
+        code = code // "end subroutine " // node%name
+    end function generate_code_subroutine_def
+
+    function compose_subroutine_signature(arena, node) result(signature)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: node
+        character(len=:), allocatable :: signature
+        character(len=:), allocatable :: prefix
+        character(len=:), allocatable :: params_clause
+        logical :: recursive_in_prefix
+
+        prefix = gather_subroutine_prefix(node, recursive_in_prefix)
+        if (node%is_recursive .and. .not. recursive_in_prefix) then
+            if (len_trim(prefix) > 0) then
+                prefix = "recursive " // trim(prefix)
+            else
+                prefix = "recursive"
             end if
+        end if
 
-            ! Add implicit none to function (quality requirement for lazy Fortran)
-            has_implicit = .false.
-            do j = 1, size(body_indices)
-                if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
-                if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
-                select type (body_node => arena%entries(body_indices(j))%node)
-                type is (implicit_statement_node)
-                    if (body_node%is_none) has_implicit = .true.
-                end select
-            end do
-            if (.not. has_implicit) then
-                code = code // "    implicit none" // new_line('A')
-            end if
+        if (allocated(node%param_indices)) then
+            params_clause = build_parameter_clause(arena, node%param_indices)
+        else
+            params_clause = "()"
+        end if
 
-            ! Add declarations for any undeclared parameters
-            block
-                character(len=:), allocatable :: param_decls
-                param_decls = collect_function_parameter_decls(arena, node, param_map)
-                if (len_trim(param_decls) > 0) then
-                    code = code // param_decls
-                end if
-            end block
+        if (len_trim(prefix) > 0) then
+            signature = trim(prefix) // " subroutine " // node%name // params_clause
+        else
+            signature = "subroutine " // node%name // params_clause
+        end if
+    end function compose_subroutine_signature
 
-            ! Generate body with indentation, declaration grouping, and parameter mapping
-            code = code // generate_grouped_body_with_params(arena, body_indices, 1, &
-                                                             param_map, node)
-        end block
+    function gather_subroutine_prefix(node, recursive_in_prefix) result(prefix)
+        type(subroutine_def_node), intent(in) :: node
+        logical, intent(out) :: recursive_in_prefix
+        character(len=:), allocatable :: prefix
+        integer :: i
+        character(len=:), allocatable :: term
 
-        ! End function
-        code = code // "end function " // node%name
-    end function generate_code_function_def
+        prefix = ""
+        recursive_in_prefix = .false.
+
+        if (.not. allocated(node%prefix_keywords)) return
+
+        do i = 1, size(node%prefix_keywords)
+            term = node%prefix_keywords(i)
+            if (len_trim(term) == 0) cycle
+            if (len(prefix) > 0) prefix = prefix // " "
+            prefix = prefix // trim(term)
+            if (trim(term) == "recursive") recursive_in_prefix = .true.
+        end do
+    end function gather_subroutine_prefix
+
+    function build_subroutine_body_section(arena, node) result(body)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: node
+        character(len=:), allocatable :: body
+        type(parameter_info_t), allocatable :: param_map(:)
+        integer, allocatable :: param_indices(:)
+        integer, allocatable :: body_indices(:)
+
+        if (allocated(node%param_indices)) then
+            param_indices = node%param_indices
+        else
+            allocate (param_indices(0))
+        end if
+
+        if (allocated(node%body_indices)) then
+            body_indices = node%body_indices
+        else
+            allocate (body_indices(0))
+        end if
+
+        call build_parameter_map(arena, param_indices, body_indices, param_map)
+        if (allocated(node%prefix_keywords)) then
+            call apply_default_intents(node%prefix_keywords, param_map)
+        end if
+
+        body = generate_grouped_body_with_params(arena, body_indices, 1, param_map, node)
+    end function build_subroutine_body_section
 
     logical function should_omit_return_type(arena, node, return_type_code) &
         result(omit)
@@ -234,105 +380,6 @@ contains
             end select
         end do
     end function should_omit_return_type
-
-    ! Generate code for subroutine definitions
-    function generate_code_subroutine_def(arena, node, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        type(subroutine_def_node), intent(in) :: node
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        integer :: i
-        logical :: recursive_in_prefix
-
-        recursive_in_prefix = .false.
-        code = ""
-
-        if (allocated(node%prefix_keywords)) then
-            do i = 1, size(node%prefix_keywords)
-                if (len_trim(node%prefix_keywords(i)) == 0) cycle
-                code = code // trim(node%prefix_keywords(i)) // " "
-                if (trim(node%prefix_keywords(i)) == "recursive") then
-                    recursive_in_prefix = .true.
-                end if
-            end do
-        end if
-        if (node%is_recursive .and. .not. recursive_in_prefix) then
-            code = "recursive " // code
-        end if
-
-        ! Start subroutine definition
-        code = code // "subroutine " // node%name
-
-        ! Generate parameters (names only)
-        if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
-            code = code // "("
-            do i = 1, size(node%param_indices)
-                if (i > 1) code = code // ", "
-                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= &
-                    arena%size) then
-                    if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (p => arena%entries(node%param_indices(i))%node)
-                        type is (identifier_node)
-                            code = code // p%name
-                        type is (parameter_declaration_node)
-                            code = code // p%name
-                        type is (declaration_node)
-                            code = code // p%var_name
-                        class default
-                            code = code // "param" // trim(adjustl(int_to_string(i)))
-                        end select
-                    end if
-                end if
-            end do
-            code = code // ")"
-        else
-            code = code // "()"
-        end if
-        code = code // new_line('A')
-
-        ! Build parameter map by matching parameter names to body declarations
-        block
-            type(parameter_info_t), allocatable :: param_map(:)
-            integer, allocatable :: param_indices(:)
-            integer, allocatable :: body_indices(:)
-            integer :: j
-
-            if (allocated(node%param_indices)) then
-                param_indices = node%param_indices
-            else
-                allocate (param_indices(0))
-            end if
-
-            if (allocated(node%body_indices)) then
-                body_indices = node%body_indices
-            else
-                allocate (body_indices(0))
-            end if
-
-            call build_parameter_map(arena, param_indices, body_indices, param_map)
-
-            if (allocated(node%prefix_keywords)) then
-                do j = 1, size(node%prefix_keywords)
-                    select case (trim(node%prefix_keywords(j)))
-                    case ("pure", "elemental")
-                        do i = 1, size(param_map)
-                            if (.not. allocated(param_map(i)%name)) cycle
-                            if (len_trim(param_map(i)%intent_str) == 0) then
-                                param_map(i)%intent_str = "in"
-                            end if
-                        end do
-                    end select
-                end do
-            end if
-
-            ! Generate body with indentation, declaration grouping, and parameter mapping
-            code = code // generate_grouped_body_with_params(arena, body_indices, 1, &
-                                                             param_map, node)
-        end block
-
-        ! End subroutine
-        code = code // "end subroutine " // node%name
-    end function generate_code_subroutine_def
 
     subroutine build_parameter_map(arena, param_indices, body_indices, param_map)
         type(ast_arena_t), intent(in) :: arena
