@@ -10,6 +10,7 @@ program test_call_graph_consolidation
     call test_internal_procedures()
     call test_module_and_program_scopes()
     call test_recursive_function_detection()
+    call test_recursive_subroutine_detection()
 
     if (all_tests_passed) then
         print *, "All call graph consolidation tests PASSED!"
@@ -180,6 +181,58 @@ contains
             call report_failure('Incorrect recursive cycle entry', cycles(1))
         end if
     end subroutine test_recursive_function_detection
+
+    subroutine test_recursive_subroutine_detection()
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        type(call_graph_t) :: graph
+        character(len=:), allocatable :: cycles(:)
+        integer :: root_index
+
+        print *, "Testing recursive subroutine detection..."
+
+        source = '' // &
+                 "module recursion_mod" // new_line('a') // &
+                 "contains" // new_line('a') // &
+                 "    recursive subroutine countdown(n)" // new_line('a') // &
+                 "        integer, intent(in) :: n" // new_line('a') // &
+                 "        if (n > 0) then" // new_line('a') // &
+                 "            call countdown(n - 1)" // new_line('a') // &
+                 "        end if" // new_line('a') // &
+                 "    end subroutine countdown" // new_line('a') // &
+                 "end module recursion_mod"
+
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= '') then
+            call report_failure('Lexing failed for recursive subroutine test', &
+                                error_msg)
+            return
+        end if
+
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, root_index, error_msg)
+        if (root_index <= 0) then
+            call report_failure('Parsing failed for recursive subroutine test', &
+                                error_msg)
+            return
+        end if
+
+        graph = build_call_graph(arena, root_index)
+        call assert_procedure(graph, 'recursion_mod::countdown')
+        call assert_edge(graph, 'recursion_mod::countdown', &
+                         'recursion_mod::countdown')
+
+        cycles = get_recursive_cycles(graph)
+        if (size(cycles) /= 1) then
+            call report_failure('Unexpected recursive cycle count', &
+                                'Expected single cycle for recursion_mod::countdown')
+            return
+        end if
+        if (trim(cycles(1)) /= 'recursion_mod::countdown') then
+            call report_failure('Incorrect recursive cycle entry', cycles(1))
+        end if
+    end subroutine test_recursive_subroutine_detection
 
     subroutine assert_procedure(graph, expected)
         type(call_graph_t), intent(in) :: graph

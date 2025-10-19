@@ -557,18 +557,29 @@ contains
         character(len=:), allocatable :: subroutine_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
+        character(len=16), allocatable :: prefix_keywords(:)
+        logical :: has_recursive_keyword
+        logical :: infer_recursive_from_body
 
+        has_recursive_keyword = .false.
+        infer_recursive_from_body = .false.
+        call parse_function_prefix_keywords(parser, prefix_buffer, &
+                                            prefix_keywords=prefix_keywords, &
+                                            has_recursive_keyword=has_recursive_keyword)
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
         call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
-                                  body_indices)
+                                  body_indices, infer_recursive_from_body)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)
+        call ensure_recursive_prefix(has_recursive_keyword, &
+                                     infer_recursive_from_body, prefix_keywords)
 
         sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
-                                        body_indices, &
-                                        line, column)
+                                        body_indices, line, column, &
+                                        is_recursive=has_recursive_keyword, &
+                                        prefix_keywords=prefix_keywords)
     end function parse_subroutine_definition
 
     subroutine parse_parameter_list(parser, arena, param_indices)

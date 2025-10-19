@@ -114,8 +114,16 @@ contains
                 end select
             end do
         type is (subroutine_def_node)
-            ! Note: subroutine_def_node does not store prefix keywords directly
-            ! in our AST, so fall back to scanning its body declarations.
+            if (allocated(proc_node%prefix_keywords)) then
+                do i = 1, size(proc_node%prefix_keywords)
+                    keyword = to_lower(trim(proc_node%prefix_keywords(i)))
+                    select case (keyword)
+                    case ('pure', 'elemental')
+                        has_prefix = .true.
+                        return
+                    end select
+                end do
+            end if
             if (allocated(proc_node%body_indices)) then
                 if (body_has_special_prefix(arena, proc_node%body_indices)) then
                     has_prefix = .true.

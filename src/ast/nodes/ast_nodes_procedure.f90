@@ -36,7 +36,9 @@ module ast_nodes_procedure
     type, extends(ast_node), public :: subroutine_def_node
         character(len=:), allocatable :: name
         integer, allocatable :: param_indices(:)
+        character(len=16), allocatable :: prefix_keywords(:)
         integer, allocatable :: body_indices(:)
+        logical :: is_recursive = .false.
     contains
         procedure :: accept => subroutine_def_accept
         procedure :: to_json => subroutine_def_to_json
@@ -138,6 +140,7 @@ contains
         if (allocated(this%body_indices)) then
             call json%add(obj, 'body_indices', this%body_indices)
         end if
+        call json%add(obj, 'is_recursive', this%is_recursive)
         call json%add(parent, obj)
     end subroutine subroutine_def_to_json
 
@@ -157,7 +160,9 @@ contains
         ! Copy derived class fields
         lhs%name = rhs%name
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
+        if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
+        lhs%is_recursive = rhs%is_recursive
     end subroutine subroutine_def_assign
 
     ! Implementation for subroutine_call_node
@@ -241,11 +246,14 @@ contains
     end function create_function_def
 
     function create_subroutine_def(name, param_indices, body_indices, &
-                                   line, column) result(node)
+                                   line, column, prefix_keywords, is_recursive) &
+        result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column
+        character(len=16), intent(in), optional :: prefix_keywords(:)
+        logical, intent(in), optional :: is_recursive
         type(subroutine_def_node) :: node
 
         node%uid = generate_uid()
@@ -262,6 +270,14 @@ contains
         end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
+        if (present(prefix_keywords)) then
+            if (size(prefix_keywords) > 0) then
+                node%prefix_keywords = prefix_keywords
+            end if
+        end if
+        if (present(is_recursive)) then
+            node%is_recursive = is_recursive
+        end if
     end function create_subroutine_def
 
     ! Helper functions for unified procedure interface
