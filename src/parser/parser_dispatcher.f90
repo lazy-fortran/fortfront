@@ -25,7 +25,7 @@ module parser_dispatcher_module
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
-    use parser_statement_core_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement
     use parser_control_flow_router_module, only: route_control_flow
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node
@@ -47,7 +47,8 @@ module parser_dispatcher_module
 contains
 
     ! Parse a statement by dispatching to appropriate parsing module
-    function parse_statement_dispatcher(tokens, arena, prefix_buffer) result(stmt_index)
+    function parse_statement_dispatcher(tokens, arena, prefix_buffer) &
+        result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -480,6 +481,7 @@ contains
         integer :: num_vars, num_values, i
         type(token_t) :: token
         integer :: target_index, value_index, literal_type
+        integer :: assignment_line, assignment_column
         integer, allocatable :: assignment_indices(:)
 
         stmt_index = 0
@@ -528,10 +530,12 @@ contains
                                                   '.false.'))) then
                 token = parser%consume()
                 ! Determine literal type based on token kind
-                literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, &
-                                                                           token%text)
+                literal_type = &
+                    get_literal_type_from_token_kind_dispatcher(token%kind, &
+                                                                token%text)
                 ! Create literal node immediately
-                value_index = push_literal(arena, token%text, literal_type, token%line, &
+                value_index = push_literal(arena, token%text, literal_type, &
+                                           token%line, &
                                            token%column)
                 value_indices = [value_indices, value_index]
 
@@ -569,12 +573,12 @@ contains
             end if
 
             if (target_index > 0 .and. value_index > 0) then
+                assignment_line = parser%tokens(parser%current_token - 1)%line
+                assignment_column = parser%tokens(parser%current_token - 1)%column
                 assignment_indices = [assignment_indices, &
-                                      push_assignment(arena, target_index, value_index, &
-                                                      parser%tokens(parser%current_token &
-                                                                    - 1)%line, &
-                                                    parser%tokens(parser%current_token - &
-                                                                    1)%column)]
+                                      push_assignment(arena, target_index, &
+                                                      value_index, assignment_line, &
+                                                      assignment_column)]
             end if
         end do
 
@@ -642,7 +646,8 @@ contains
         end select
     end function get_literal_type_from_token_kind_dispatcher
 
-    logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, stmt_index)
+    logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+                                                stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer

@@ -19,7 +19,7 @@ module parser_statement_utilities_module
                                                parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
-    use parser_statement_core_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, push_literal
     use ast_factory
@@ -53,7 +53,8 @@ contains
                 stmt_index = parse_data_statement(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
-            case ("integer", "real", "logical", "character", "complex", "double", "type")
+            case ("integer", "real", "logical", "character", "complex", &
+                  "double", "type")
                 stmt_index = parse_declaration(parser, arena)
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)
