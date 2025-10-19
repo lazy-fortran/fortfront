@@ -879,9 +879,7 @@ contains
         integer, intent(in) :: var_count
         logical, intent(in) :: has_any_initializer
         integer, allocatable, intent(out) :: decl_indices(:)
-        integer :: i
         integer :: decl_index
-        integer, allocatable :: var_dims(:)
 
         if (var_count <= 0) then
             allocate (decl_indices(0))
@@ -890,25 +888,9 @@ contains
 
         if (requires_individual_declarations(has_dims, has_any_initializer, &
                                              var_count)) then
-            allocate (decl_indices(var_count))
-            do i = 1, var_count
-                if (has_dims(i)) then
-                    call extract_variable_dimensions(per_var_dims, i, var_dims)
-                    decl_indices(i) = add_single_declaration( &
-                                      arena, type_spec, attr_info, var_names(i), &
-                                      init_indices(i), .true., var_dims)
-                    if (allocated(var_dims)) then
-                        block
-                            integer, allocatable :: temp(:)
-                            call move_alloc(var_dims, temp)
-                        end block
-                    end if
-                else
-                    decl_indices(i) = add_single_declaration( &
-                                      arena, type_spec, attr_info, var_names(i), &
-                                      init_indices(i), .false.)
-                end if
-            end do
+            call emit_individual_declarations( &
+                arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
+                init_indices, var_count, decl_indices)
         else
             decl_index = emit_multi_declaration( &
                          arena, type_spec, attr_info, var_names(1:var_count))
@@ -920,6 +902,43 @@ contains
             end if
         end if
     end subroutine finalize_multi_declaration
+
+    subroutine emit_individual_declarations(arena, type_spec, attr_info, &
+                                            var_names, per_var_dims, has_dims, &
+                                            init_indices, var_count, decl_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        type(type_specifier_t), intent(in) :: type_spec
+        type(declaration_attribute_info_t), intent(in) :: attr_info
+        character(len=64), allocatable, intent(inout) :: var_names(:)
+        integer, allocatable, intent(inout) :: per_var_dims(:, :)
+        logical, allocatable, intent(inout) :: has_dims(:)
+        integer, allocatable, intent(inout) :: init_indices(:)
+        integer, intent(in) :: var_count
+        integer, allocatable, intent(out) :: decl_indices(:)
+        integer :: i
+        integer, allocatable :: var_dims(:)
+
+        allocate (decl_indices(var_count))
+
+        do i = 1, var_count
+            if (has_dims(i)) then
+                call extract_variable_dimensions(per_var_dims, i, var_dims)
+                decl_indices(i) = add_single_declaration( &
+                                  arena, type_spec, attr_info, var_names(i), &
+                                  init_indices(i), .true., var_dims)
+                if (allocated(var_dims)) then
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(var_dims, temp)
+                    end block
+                end if
+            else
+                decl_indices(i) = add_single_declaration( &
+                                  arena, type_spec, attr_info, var_names(i), &
+                                  init_indices(i), .false.)
+            end if
+        end do
+    end subroutine emit_individual_declarations
 
     logical function requires_individual_declarations( &
         has_dims, has_any_initializer, var_count) result(needs_split)
