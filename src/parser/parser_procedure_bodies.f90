@@ -30,8 +30,39 @@ contains
         character(len=:), allocatable :: subroutine_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
+        character(len=16), allocatable :: prefix_keywords(:)
+        logical :: has_recursive_keyword
+
+        has_recursive_keyword = .false.
+
+        do
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                select case (trim(to_lower(token%text)))
+                case ("recursive")
+                    has_recursive_keyword = .true.
+                    call append_prefix_keyword(prefix_keywords, "recursive")
+                    token = parser%consume()
+                case ("pure")
+                    call append_prefix_keyword(prefix_keywords, "pure")
+                    token = parser%consume()
+                case ("elemental")
+                    call append_prefix_keyword(prefix_keywords, "elemental")
+                    token = parser%consume()
+                case default
+                    exit
+                end select
+            else
+                exit
+            end if
+        end do
 
         ! Consume subroutine keyword
+        token = parser%peek()
+        if (.not. (token%kind == TK_KEYWORD .and. token%text == "subroutine")) then
+            sub_index = 0
+            return
+        end if
         token = parser%consume()
         line = token%line
         column = token%column
@@ -158,9 +189,23 @@ contains
         end do
 
         ! Create subroutine node
-        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
-                                        body_indices, &
-                                        line, column)
+        if (allocated(prefix_keywords)) then
+            if (size(prefix_keywords) == 0) then
+                deallocate (prefix_keywords)
+            end if
+        end if
+
+        if (allocated(prefix_keywords)) then
+            sub_index = push_subroutine_def(arena, subroutine_name, &
+                                            param_indices, body_indices, &
+                                            line, column, &
+                                            is_recursive=has_recursive_keyword, &
+                                            prefix_keywords=prefix_keywords)
+        else
+            sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
+                                            body_indices, line, column, &
+                                            is_recursive=has_recursive_keyword)
+        end if
     end function parse_subroutine_in_module
 
     ! Safe function parsing for module contexts (avoids circular dependencies)

@@ -1397,6 +1397,18 @@ contains
                     return
                 end if
             end do
+        type is (subroutine_def_node)
+            if (proc_node%is_recursive) then
+                is_recursive = .true.
+                return
+            end if
+            if (.not. allocated(proc_node%prefix_keywords)) return
+            do i = 1, size(proc_node%prefix_keywords)
+                if (trim(proc_node%prefix_keywords(i)) == 'recursive') then
+                    is_recursive = .true.
+                    return
+                end if
+            end do
         class default
         end select
     end function procedure_declares_recursive

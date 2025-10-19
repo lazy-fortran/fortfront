@@ -45,16 +45,39 @@ contains
 
     ! Create subroutine definition node and add to stack
     function push_subroutine_def(arena, name, param_indices, body_indices, &
-                                 line, column, parent_index) result(sub_index)
+                                 line, column, parent_index, is_recursive, &
+                                 prefix_keywords) result(sub_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        logical, intent(in), optional :: is_recursive
+        character(len=16), intent(in), optional :: prefix_keywords(:)
         integer :: sub_index
         type(subroutine_def_node) :: sub_def
 
-        sub_def = create_subroutine_def(name, param_indices, body_indices, line, column)
+        if (present(prefix_keywords)) then
+            if (present(is_recursive)) then
+                sub_def = create_subroutine_def(name, param_indices, body_indices, &
+                                                line, column, &
+                                                prefix_keywords=prefix_keywords, &
+                                                is_recursive=is_recursive)
+            else
+                sub_def = create_subroutine_def(name, param_indices, body_indices, &
+                                                line, column, &
+                                                prefix_keywords=prefix_keywords)
+            end if
+        else
+            if (present(is_recursive)) then
+                sub_def = create_subroutine_def(name, param_indices, body_indices, &
+                                                line, column, &
+                                                is_recursive=is_recursive)
+            else
+                sub_def = create_subroutine_def(name, param_indices, body_indices, &
+                                                line, column)
+            end if
+        end if
         call arena%push(sub_def, "subroutine_def", parent_index)
         sub_index = arena%size
     end function push_subroutine_def

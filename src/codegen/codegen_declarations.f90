@@ -269,11 +269,27 @@ contains
         type(subroutine_def_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: params_code
         integer :: i
+        logical :: recursive_in_prefix
+
+        recursive_in_prefix = .false.
+        code = ""
+
+        if (allocated(node%prefix_keywords)) then
+            do i = 1, size(node%prefix_keywords)
+                if (len_trim(node%prefix_keywords(i)) == 0) cycle
+                code = code // trim(node%prefix_keywords(i)) // " "
+                if (trim(node%prefix_keywords(i)) == "recursive") then
+                    recursive_in_prefix = .true.
+                end if
+            end do
+        end if
+        if (node%is_recursive .and. .not. recursive_in_prefix) then
+            code = "recursive " // code
+        end if
 
         ! Start subroutine definition
-        code = "subroutine " // node%name
+        code = code // "subroutine " // node%name
 
         ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
@@ -307,6 +323,7 @@ contains
             type(parameter_info_t), allocatable :: param_map(:)
             integer, allocatable :: param_indices(:)
             integer, allocatable :: body_indices(:)
+            integer :: j
 
             if (allocated(node%param_indices)) then
                 param_indices = node%param_indices
@@ -321,6 +338,20 @@ contains
             end if
 
             call build_parameter_map(arena, param_indices, body_indices, param_map)
+
+            if (allocated(node%prefix_keywords)) then
+                do j = 1, size(node%prefix_keywords)
+                    select case (trim(node%prefix_keywords(j)))
+                    case ("pure", "elemental")
+                        do i = 1, size(param_map)
+                            if (.not. allocated(param_map(i)%name)) cycle
+                            if (len_trim(param_map(i)%intent_str) == 0) then
+                                param_map(i)%intent_str = "in"
+                            end if
+                        end do
+                    end select
+                end do
+            end if
 
             ! Generate body with indentation, declaration grouping, and parameter mapping
             code = code // generate_grouped_body_with_params(arena, body_indices, 1, &
