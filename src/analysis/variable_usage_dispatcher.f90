@@ -49,6 +49,34 @@ contains
         end if
     end subroutine ensure_stack_capacity
 
+    logical function validate_node_index(arena, node_index) result(is_valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_valid = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        is_valid = .true.
+    end function validate_node_index
+
+    logical function validate_node_with_type(arena, node_index, expected_type) &
+        result(is_valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: expected_type
+
+        is_valid = .false.
+
+        if (.not. validate_node_index(arena, node_index)) return
+        if (node_index > size(arena%entries)) return
+
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= expected_type) return
+
+        is_valid = .true.
+    end function validate_node_with_type
+
     subroutine push_node(ctx, node_index)
         type(traversal_context_t), intent(inout) :: ctx
         integer, intent(in) :: node_index
@@ -186,9 +214,7 @@ contains
 
         integer :: i, j
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (if_node)
@@ -236,9 +262,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (do_while_node)
@@ -348,9 +372,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (declaration_node)
@@ -374,9 +396,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (print_statement_node)
@@ -399,9 +419,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (case_block_node)
@@ -431,9 +449,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (do_loop_node)
@@ -470,9 +486,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "subroutine_call" .and. &
@@ -507,9 +521,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "write_statement") then
@@ -544,9 +556,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "read_statement") then
@@ -581,17 +591,8 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (node_index > size(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-
-        ! Verify node type matches expectation
-        if (arena%entries(node_index)%node_type /= "allocate_statement") then
-            ! Node type mismatch - this shouldn't happen if called correctly
+        if (.not. validate_node_with_type(arena, node_index, "allocate_statement")) &
             return
-        end if
 
         select type (node => arena%entries(node_index)%node)
         type is (allocate_statement_node)
@@ -633,17 +634,8 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (node_index > size(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-
-        ! Verify node type matches expectation
-        if (arena%entries(node_index)%node_type /= "deallocate_statement") then
-            ! Node type mismatch - this shouldn't happen if called correctly
+        if (.not. validate_node_with_type(arena, node_index, "deallocate_statement")) &
             return
-        end if
 
         select type (node => arena%entries(node_index)%node)
         type is (deallocate_statement_node)
@@ -672,10 +664,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (associate_node)
@@ -705,10 +694,7 @@ contains
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (subroutine_def_node)
@@ -727,10 +713,7 @@ contains
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (function_def_node)
@@ -829,9 +812,7 @@ contains
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "assignment") then
@@ -858,9 +839,7 @@ contains
 
         integer :: i
 
-        ! Validate node index bounds
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (program_node)

@@ -8,11 +8,13 @@ module semantic_analyzer
                                    compose_substitutions, occurs_check, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY, &
                                    TCOMPLEX, TDOUBLE, TDERIVED, &
-                                   type_args_allocated, type_args_size, type_args_element
+                                   type_args_allocated, type_args_size, &
+                                   type_args_element
     use scope_manager
     use ast_arena_modern, only: ast_arena_t
     use semantic_inference_helpers, only: check_implicit_none
-    use semantic_validation_utils, only: validate_array_bounds, check_shape_conformance, &
+    use semantic_validation_utils, only: validate_array_bounds, &
+                                         check_shape_conformance, &
                                          update_identifier_type_in_arena, int_to_str
     use semantic_function_analysis, only: infer_type_from_usage_context, &
                                           analyze_function_parameters, &
@@ -38,6 +40,7 @@ module semantic_analyzer
                                           process_declaration_variables
     use parser_type_hooks_module, only: type_annotation_t, consume_type_annotations, &
                                         has_type_annotations
+    use semantic_annotation_utils, only: type_from_annotation
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
@@ -48,7 +51,8 @@ module semantic_analyzer
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
                                  where_node, where_stmt_node, forall_node, &
                                  select_case_node, case_block_node, &
-                                 associate_node, association_t, cycle_node, exit_node, &
+                                 associate_node, association_t, cycle_node, &
+                                 exit_node, &
                                  stop_node, return_node, elsewhere_clause_t
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
@@ -140,7 +144,8 @@ contains
         real_to_real = create_fun_type(real_type, real_type)
 
         ! Create polymorphic type scheme (no type variables to generalize)
-        builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=real_to_real)
+        builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                          mono=real_to_real)
 
         call ctx%scopes%define("exp", builtin_scheme)
 
@@ -210,7 +215,9 @@ contains
                                 if (node%is_multi_declaration .and. &
                                     allocated(node%var_names)) then
                                     do j = 1, size(node%var_names)
-                                        call ctx%scopes%define(node%var_names(j), scheme)
+                                        call &
+                                            ctx%scopes%define(node%var_names(j), &
+                                                              scheme)
                                     end do
                                 else if (allocated(node%var_name)) then
                                     call ctx%scopes%define(node%var_name, scheme)
@@ -233,7 +240,8 @@ contains
                 end if
             end do
         end if
-        call check_undefined_variables_generic(ctx%scopes, ctx%errors, ctx%strict_mode, &
+        call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
+                                               ctx%strict_mode, &
                                                arena, prog_index)
     end subroutine analyze_program_node_arena
 
@@ -377,14 +385,16 @@ contains
                 call finalize_node(node_index, local_type)
             type is (binary_op_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%right_index)
                 call push_child(expr%left_index)
             type is (call_or_subscript_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%arg_indices)) then
@@ -394,7 +404,8 @@ contains
                 end if
             type is (program_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%body_indices)) then
@@ -407,7 +418,8 @@ contains
                 call finalize_node(node_index, local_type)
             type is (subroutine_call_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%arg_indices)) then
@@ -417,7 +429,8 @@ contains
                 end if
             type is (function_def_node)
                 call analyze_function_parameters( &
-                    arena, expr, param_types, param_names, this%scopes, this%next_var_id)
+                    arena, expr, param_types, param_names, this%scopes, &
+                    this%next_var_id)
                 return_type = determine_function_return_type( &
                               arena, expr, param_names, param_types, this%next_var_id)
                 call create_function_scope( &
@@ -427,7 +440,8 @@ contains
                 post_frame%leave_scope = .true.
                 post_frame%has_cached_type = .true.
                 post_frame%cached_type = return_type
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 if (allocated(param_types)) then
                     post_frame%param_types = param_types
                 else
@@ -443,14 +457,16 @@ contains
                 end if
             type is (assignment_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%target_index)
                 call push_child(expr%value_index)
             type is (array_literal_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%element_indices)) then
@@ -460,7 +476,8 @@ contains
                 end if
             type is (do_loop_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
@@ -475,7 +492,8 @@ contains
                 call handle_declaration(expr, node_index)
             type is (if_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%then_body_indices)) then
@@ -486,7 +504,8 @@ contains
                 call push_child(expr%condition_index)
             type is (do_while_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%body_indices)) then
@@ -497,7 +516,8 @@ contains
                 call push_child(expr%condition_index)
             type is (where_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%where_body_indices)) then
@@ -508,7 +528,8 @@ contains
                 call push_child(expr%mask_expr_index)
             type is (where_stmt_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%assignment_index)
@@ -522,7 +543,8 @@ contains
                     end do
                 end if
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
                 post_frame%has_cached_type = .true.
@@ -535,7 +557,8 @@ contains
                 end if
             type is (select_case_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%case_indices)) then
@@ -546,7 +569,8 @@ contains
                 call push_child(expr%selector_index)
             type is (associate_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
                 call push_frame_local(post_frame)
@@ -575,7 +599,8 @@ contains
                 end if
             type is (stop_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%stop_code_index)
@@ -590,7 +615,8 @@ contains
                 call finalize_node(node_index, local_type)
             class default
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
             end select
@@ -795,7 +821,8 @@ contains
 
         typ = ctx%apply_subst_to_type(arena%entries(index)%node%inferred_type)
         if (typ%kind == TVAR) then
-            if (len_trim(typ%var%name) == 0) typ%var%name = "v" // int_to_str(typ%var%id)
+            if (len_trim(typ%var%name) == 0) typ%var%name = "v" // &
+                                                            int_to_str(typ%var%id)
         end if
         arena%entries(index)%node%inferred_type = typ
     end function get_inferred_type_from_arena
@@ -904,7 +931,8 @@ contains
         ! Analyze function body with parameters and result in scope
         if (allocated(func_node%body_indices)) then
             do i = 1, size(func_node%body_indices)
-                typ = get_inferred_type_from_arena(ctx, arena, func_node%body_indices(i))
+                typ = get_inferred_type_from_arena(ctx, arena, &
+                                                   func_node%body_indices(i))
             end do
         end if
 
@@ -980,48 +1008,6 @@ contains
         end do
     end function semantic_get_type_hint
 
-    subroutine type_from_annotation(annotation, var_type)
-        type(type_annotation_t), intent(in) :: annotation
-        type(mono_type_t), intent(out) :: var_type
-        integer :: kind_id
-        character(len=:), allocatable :: lowered
-
-        lowered = adjustl(to_lower(trim(annotation%type_name)))
-        select case (lowered)
-        case ("integer")
-            kind_id = TINT
-        case ("real")
-            kind_id = TREAL
-        case ("character")
-            kind_id = TCHAR
-        case ("logical")
-            kind_id = TLOGICAL
-        case ("complex")
-            kind_id = TCOMPLEX
-        case ("double precision")
-            kind_id = TDOUBLE
-        case default
-            if (index(lowered, "type(") == 1) then
-                kind_id = TDERIVED
-            else
-                kind_id = TREAL
-            end if
-        end select
-
-        var_type = create_mono_type(kind_id)
-
-        if (annotation%has_kind) then
-            if (kind_id == TCHAR) then
-                if (annotation%kind_value > 0) then
-                    var_type%size = annotation%kind_value
-                else if (annotation%kind_value == -1) then
-                    var_type%size = -1
-                end if
-            end if
-            var_type%kind = kind_id
-        end if
-    end subroutine type_from_annotation
-
     ! Infer type of literal
     function infer_literal(ctx, lit) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
@@ -1091,7 +1077,8 @@ contains
                 ! Create polymorphic type scheme and add to scope for future use
                 block
                     type(poly_type_t) :: new_scheme
-                    new_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=typ)
+                    new_scheme = create_poly_type(forall_vars=[type_var_t &
+                                                               ::], mono=typ)
                     call ctx%scopes%define(ident%name, new_scheme)
                 end block
             end if
@@ -1299,7 +1286,8 @@ contains
 
         ! Use extracted assignment processing
         call process_assignment_inference( &
-            arena, assignment, assignment_index, lhs_index, expr_typ, updated_expr_typ, &
+            arena, assignment, assignment_index, lhs_index, expr_typ, &
+                updated_expr_typ, &
             ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
                 & ctx%parser_type_hints)
 

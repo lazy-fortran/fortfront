@@ -46,6 +46,41 @@ contains
         end do
     end subroutine parse_derived_type_parameters
 
+    subroutine parse_type_name_and_parameters(parser, arena, type_name, &
+                                              has_parameters, param_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out) :: type_name
+        logical, intent(out) :: has_parameters
+        integer, allocatable, intent(out) :: param_indices(:)
+        type(token_t) :: token
+
+        has_parameters = .false.
+
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) then
+            type_name = "unnamed_type"
+            return
+        end if
+
+        token = parser%consume()
+        type_name = token%text
+
+        ! Check for parameters after type name
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            has_parameters = .true.
+            token = parser%consume()  ! consume '('
+            call parse_derived_type_parameters(parser, arena, param_indices)
+
+            ! Consume ')'
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
+        end if
+    end subroutine parse_type_name_and_parameters
+
     function parse_derived_type(parser, arena) result(type_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -68,47 +103,13 @@ contains
         if (token%kind == TK_OPERATOR .and. token%text == "::") then
             ! Consume ::
             token = parser%consume()
-
-            ! Get type name
-            token = parser%peek()
-            if (token%kind == TK_IDENTIFIER) then
-                token = parser%consume()
-                type_name = token%text
-
-                ! Check for parameters after type name
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                    has_parameters = .true.
-                    token = parser%consume()  ! consume '('
-                    call parse_derived_type_parameters(parser, arena, param_indices)
-
-                    ! Consume ')'
-                    token = parser%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                        token = parser%consume()
-                    end if
-                end if
-            else
-                type_name = "unnamed_type"
-            end if
+            ! Get type name and parameters
+            call parse_type_name_and_parameters(parser, arena, type_name, &
+                                                has_parameters, param_indices)
         else if (token%kind == TK_IDENTIFIER) then
             ! Direct type name
-            token = parser%consume()
-            type_name = token%text
-
-            ! Check for parameters after type name
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                has_parameters = .true.
-                token = parser%consume()  ! consume '('
-                call parse_derived_type_parameters(parser, arena, param_indices)
-
-                ! Consume ')'
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    token = parser%consume()
-                end if
-            end if
+            call parse_type_name_and_parameters(parser, arena, type_name, &
+                                                has_parameters, param_indices)
         else
             type_name = "unnamed_type"
         end if

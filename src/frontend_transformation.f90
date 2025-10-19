@@ -55,14 +55,14 @@ module frontend_transformation
     end type format_options_t
 
     ! Input mode enumeration
-    integer, parameter :: INPUT_MODE_LAZY = 1      ! Lazy Fortran (.lf files)
+    integer, parameter :: INPUT_MODE_LAZY = 1  ! Lazy Fortran (.lf files)
     integer, parameter :: INPUT_MODE_STANDARD = 2  ! Standard Fortran (.f90, .f, etc.)
 
     ! Context for transformation (source name, wrapping strategy)
     type :: transform_context_t
         character(len=:), allocatable :: source_name  ! filename without extension or "stdin"
         character(len=:), allocatable :: module_name  ! for wrapping functions
-        character(len=:), allocatable :: program_name ! for wrapping main code
+        character(len=:), allocatable :: program_name  ! for wrapping main code
         logical :: has_filename = .false.  ! true if from file, false if stdin
         integer :: input_mode = INPUT_MODE_LAZY  ! INPUT_MODE_LAZY or INPUT_MODE_STANDARD
     end type transform_context_t
@@ -105,9 +105,9 @@ contains
         end if
 
         if (contains_binary_data(input)) then
-            error_msg = '[INVALID_INPUT] Input appears to be binary data'// &
-     &                new_line('A')//'  Source: <binary data omitted>'// &
-     &                new_line('A')//'  Suggestion: Provide plain-text Fortran source'
+            error_msg = '[INVALID_INPUT] Input appears to be binary data' // &
+     &                new_line('A') // '  Source: <binary data omitted>' // &
+     &                new_line('A') // '  Suggestion: Provide plain-text Fortran source'
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
             return
@@ -176,7 +176,7 @@ contains
                 if (allocated(lead)) then
                     if (len_trim(lead) > 0) then
                         if (len_trim(output) > 0) then
-                            output = trim(lead)//new_line('A')//trim(output)
+                            output = trim(lead) // new_line('A') // trim(output)
                         else
                             output = trim(lead)
                         end if
@@ -331,7 +331,7 @@ contains
                 character(len=:), allocatable :: lead
                 lead = extract_leading_comment_block(input)
                 if (allocated(lead) .and. len_trim(lead) > 0) then
-                    output = trim(lead)//new_line('A')//trim(output)
+                    output = trim(lead) // new_line('A') // trim(output)
                 end if
             end block
         end if
@@ -350,7 +350,7 @@ contains
         else if (text(text_len:text_len) == new_line('A')) then
             with_newline = text
         else
-            with_newline = text//new_line('A')
+            with_newline = text // new_line('A')
         end if
     end function ensure_trailing_newline
 
@@ -457,7 +457,8 @@ contains
 
         if (has_implicit_none .or. has_program .or. has_module) then
             mode = INPUT_MODE_STANDARD
-        else if (has_subroutine .or. (has_function_keyword .and. has_end_function)) then
+        else if (has_subroutine .or. (has_function_keyword .and. &
+                                      has_end_function)) then
             mode = INPUT_MODE_STANDARD
         else
             mode = INPUT_MODE_LAZY
@@ -476,9 +477,9 @@ contains
     subroutine create_minimal_program(output)
         character(len=:), allocatable, intent(out) :: output
 
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "end program main" // new_line('A')
     end subroutine create_minimal_program
 
     ! Run lexical analysis
@@ -501,10 +502,10 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
@@ -522,11 +523,11 @@ contains
         if (error_msg /= "") then
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
             ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-            output = "program main"//new_line('A')// &
-                     "    implicit none"//new_line('A')// &
-                     "    ! COMPILATION FAILED"//new_line('A')// &
-                     "    ! Original code could not be parsed"//new_line('A')// &
-                     "end program main"//new_line('A')
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "    ! COMPILATION FAILED" // new_line('A') // &
+                     "    ! Original code could not be parsed" // new_line('A') // &
+                     "end program main" // new_line('A')
             ! error_msg already contains the error details for stderr
             ! Reuse shared arena: do not destroy here
         end if
@@ -573,7 +574,8 @@ contains
                     & "Warning: Parsing issues detected but continuing: ", error_msg
                 error_msg = ""  ! Clear error to continue processing
             else
-                call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
+                call handle_parsing_error(compiler_arena, prog_index, &
+                                          error_msg, output)
                 return
             end if
         end if
@@ -609,11 +611,11 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -626,12 +628,12 @@ contains
         error_msg = "Parsing succeeded but no valid program unit was created"
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-                 "    ! Original code could not be structured as a program"// &
-                 new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+                 "    ! Original code could not be structured as a program" // &
+                 new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
@@ -714,10 +716,11 @@ contains
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-                    error_msg = error_msg//new_line('a')//"  - "// &
+                    error_msg = error_msg // new_line('a') // "  - " // &
                         & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg//new_line('a')//"    Suggestion: "// &
+                        error_msg = error_msg // new_line('a') // &
+                            "    Suggestion: " // &
                             & ctx%errors%errors(i)%suggestion
                     end if
                 end if
@@ -726,8 +729,9 @@ contains
 
         ! Add summary if there are more errors
         if (total_errors > 3) then
-           write (buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
-            error_msg = error_msg//new_line('a')//trim(buffer)
+            write (buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), &
+                " more error(s)"
+            error_msg = error_msg // new_line('a') // trim(buffer)
         end if
     end function get_detailed_semantic_errors
 
@@ -796,7 +800,8 @@ contains
             do i = 1, size(root_prog%body_indices)
                 if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > &
                     & arena%size) cycle
-               if (.not. allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
+                if (.not. &
+                    allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
                 select type (child => arena%entries(root_prog%body_indices(i))%node)
                 type is (program_node)
                     if (trim(child%name) /= "__MULTI_UNIT__") then
@@ -1021,7 +1026,8 @@ contains
             type is (function_def_node)
                 write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
             type is (subroutine_def_node)
-                write (error_unit, '(A,I0,2X,A)') '  subroutine idx', i, trim(node%name)
+                write (error_unit, '(A,I0,2X,A)') '  subroutine idx', i, &
+                    trim(node%name)
             type is (declaration_node)
                 write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, &
                     & trim(node%type_name), &
@@ -1176,9 +1182,9 @@ contains
             case ('!')
                 ! Comment line: collect until newline
                 saw_comment = .true.
-                if (len(block_text) > 0) block_text = block_text//new_line('A')
+                if (len(block_text) > 0) block_text = block_text // new_line('A')
                 do while (i <= n .and. src(i:i) /= new_line('A'))
-                    block_text = block_text//src(i:i)
+                    block_text = block_text // src(i:i)
                     i = i + 1
                 end do
                 ! Trim trailing spaces from collected line
@@ -1187,7 +1193,7 @@ contains
                 if (i <= n .and. src(i:i) == new_line('A')) i = i + 1
             case (char(10))  ! newline encountered at line start
                 if (saw_comment) then
-                    if (len(block_text) > 0) block_text = block_text//new_line('A')
+                    if (len(block_text) > 0) block_text = block_text // new_line('A')
                 end if
                 i = i + 1
             case default
@@ -1246,16 +1252,11 @@ contains
         end do
     end subroutine analyze_ast_content
 
-    ! Wrap procedures in a module (AST manipulation, no strings!)
-    subroutine wrap_ast_in_module_only(arena, root_index, context)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(inout) :: root_index
-        type(transform_context_t), intent(in) :: context
-        type(module_node) :: mod
-        integer :: i, mod_index
-        integer, allocatable :: proc_indices(:)
+    subroutine collect_procedure_indices(arena, proc_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(out) :: proc_indices(:)
+        integer :: i
 
-        ! Find all procedure nodes
         allocate (proc_indices(0))
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
@@ -1266,19 +1267,38 @@ contains
                 proc_indices = [proc_indices, i]
             end select
         end do
+    end subroutine collect_procedure_indices
 
-        if (size(proc_indices) == 0) return
+    subroutine create_module_with_procedures(arena, context, proc_indices, mod_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(transform_context_t), intent(in) :: context
+        integer, intent(in) :: proc_indices(:)
+        integer, intent(out) :: mod_index
+        type(module_node) :: mod
 
-        ! Create module node
         mod%name = context%module_name
         mod%has_contains = .true.
         mod%procedure_indices = proc_indices
         mod%line = 1
         mod%column = 1
-
-        ! Push module to arena
         call arena%push(mod, "module", 0)
         mod_index = arena%size
+    end subroutine create_module_with_procedures
+
+! Wrap procedures in a module (AST manipulation, no strings!)
+    subroutine wrap_ast_in_module_only(arena, root_index, context)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        type(transform_context_t), intent(in) :: context
+        type(module_node) :: mod
+        integer :: i, mod_index
+        integer, allocatable :: proc_indices(:)
+
+        call collect_procedure_indices(arena, proc_indices)
+
+        if (size(proc_indices) == 0) return
+
+        call create_module_with_procedures(arena, context, proc_indices, mod_index)
 
         ! Update parent indices of procedures
         do i = 1, size(proc_indices)
@@ -1300,28 +1320,11 @@ contains
         integer :: i, mod_index, use_index
         integer, allocatable :: proc_indices(:), new_body(:)
 
-        ! Find all procedure nodes and extract from program
-        allocate (proc_indices(0))
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (node => arena%entries(i)%node)
-            type is (function_def_node)
-                proc_indices = [proc_indices, i]
-            type is (subroutine_def_node)
-                proc_indices = [proc_indices, i]
-            end select
-        end do
+        call collect_procedure_indices(arena, proc_indices)
 
         if (size(proc_indices) == 0) return
 
-        ! Create module with procedures
-        mod%name = context%module_name
-        mod%has_contains = .true.
-        mod%procedure_indices = proc_indices
-        mod%line = 1
-        mod%column = 1
-        call arena%push(mod, "module", 0)
-        mod_index = arena%size
+        call create_module_with_procedures(arena, context, proc_indices, mod_index)
 
         ! Update procedure parent indices
         do i = 1, size(proc_indices)

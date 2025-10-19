@@ -6,7 +6,7 @@ module ast_factory_statements
                               visibility_statement_node, namelist_statement_node, &
                               include_statement_node, &
                               end_statement_node, allocate_statement_node, &
-                              deallocate_statement_node
+                              deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
                                  cycle_node, exit_node
     use ast_nodes_io, only: io_implied_do_node
@@ -34,7 +34,8 @@ contains
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
-        logical, intent(in), optional :: has_double_colon, is_intrinsic, is_non_intrinsic
+        logical, intent(in), optional :: has_double_colon, is_intrinsic, &
+                                         is_non_intrinsic
         integer, intent(in), optional :: line, column, parent_index
         integer :: use_index
         type(use_statement_node) :: use_stmt
@@ -70,7 +71,8 @@ contains
     end function push_use_statement
 
     function push_visibility_statement(arena, is_private, names, line, column, &
-                                       parent_index, has_double_colon) result(vis_index)
+                                       parent_index, has_double_colon) &
+        result(vis_index)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: is_private
         character(len=*), intent(in), optional :: names(:)
@@ -170,36 +172,11 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: implicit_index
         type(implicit_statement_node) :: implicit_stmt
-        integer :: i, dash_pos
 
-        implicit_stmt%uid = generate_uid()
-        implicit_stmt%is_none = is_none
-        if (present(type_name)) implicit_stmt%type_spec%type_name = type_name
-        if (present(has_kind)) implicit_stmt%type_spec%has_kind = has_kind
-        if (present(kind_value)) implicit_stmt%type_spec%kind_value = kind_value
-        if (present(has_length)) implicit_stmt%type_spec%has_length = has_length
-        if (present(length_value)) implicit_stmt%type_spec%length_value = length_value
-        if (present(letter_ranges)) then
-            if (size(letter_ranges) > 0) then
-                allocate (implicit_stmt%letter_specs(size(letter_ranges)))
-                do i = 1, size(letter_ranges)
-                    dash_pos = index(letter_ranges(i), '-')
-                    if (dash_pos > 0) then
-                        implicit_stmt%letter_specs(i)%start_letter = &
-                            letter_ranges(i) (1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = &
-                            letter_ranges(i) (dash_pos + 1:dash_pos + 1)
-                    else
-                        implicit_stmt%letter_specs(i)%start_letter = &
-                            letter_ranges(i) (1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = &
-                            letter_ranges(i) (1:1)
-                    end if
-                end do
-            end if
-        end if
-        if (present(line)) implicit_stmt%line = line
-        if (present(column)) implicit_stmt%column = column
+        implicit_stmt = create_implicit_statement(is_none, type_name, kind_value, &
+                                                  has_kind, length_value, &
+                                                  has_length, letter_ranges, &
+                                                  line, column)
         call arena%push(implicit_stmt, "implicit_statement", parent_index)
         implicit_index = arena%size
     end function push_implicit_statement
@@ -321,7 +298,8 @@ contains
     end function push_cycle
 
     ! Create EXIT statement node and add to stack
-    function push_exit(arena, loop_label, line, column, parent_index) result(exit_index)
+    function push_exit(arena, loop_label, line, column, parent_index) &
+        result(exit_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: loop_label
         integer, intent(in), optional :: line, column, parent_index
@@ -365,7 +343,8 @@ contains
 
         if (present(stat_var_index)) alloc_stmt%stat_var_index = stat_var_index
         if (present(errmsg_var_index)) alloc_stmt%errmsg_var_index = errmsg_var_index
-        if (present(source_expr_index)) alloc_stmt%source_expr_index = source_expr_index
+        if (present(source_expr_index)) alloc_stmt%source_expr_index = &
+            source_expr_index
         if (present(mold_expr_index)) alloc_stmt%mold_expr_index = mold_expr_index
         if (present(line)) alloc_stmt%line = line
         if (present(column)) alloc_stmt%column = column

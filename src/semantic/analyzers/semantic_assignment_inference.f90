@@ -16,6 +16,8 @@ module semantic_assignment_inference
     ! No direct dependency on function analysis here
     use error_handling, only: error_collection_t
     use parser_type_hooks_module, only: type_annotation_t
+    use semantic_annotation_utils, only: type_from_annotation
+    use semantic_declaration_utils, only: fetch_declaration_type
     use lexer_core, only: to_lower
     use string_utils_mod, only: int_to_string
     implicit none
@@ -28,7 +30,8 @@ contains
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
                                             lhs_index, expr_typ, updated_expr_typ, &
-                                     scopes, errors, strict_mode, next_var_id, type_hints)
+                                            scopes, errors, strict_mode, next_var_id, &
+                                            type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index, lhs_index
@@ -57,9 +60,12 @@ contains
                         ! define it in scope before deciding it's undefined. This protects
                         ! multi-variable declarations with initializers and re-ordered nodes.
                         if (present(type_hints)) then
-           call ensure_declared_from_arena_local(scopes, arena, lhs_node%name, type_hints)
+                            call ensure_declared_from_arena_local(scopes, arena, &
+                                                                  lhs_node%name, &
+                                                                  type_hints)
                         else
-                       call ensure_declared_from_arena_local(scopes, arena, lhs_node%name)
+                            call ensure_declared_from_arena_local(scopes, arena, &
+                                                                  lhs_node%name)
                         end if
                         call scopes%lookup(lhs_node%name, existing_scheme)
                     end if
@@ -73,15 +79,18 @@ contains
 
                     ! Handle allocatable character detection
                     if (updated_expr_typ%kind == TCHAR) then
-                   call handle_character_allocation(arena, assignment, updated_expr_typ, &
+                        call handle_character_allocation(arena, assignment, &
+                                                         updated_expr_typ, &
                                                          lhs_node%name)
                     end if
 
                     ! Update all identifier nodes in the arena with the inferred type
-              call update_identifier_type_in_arena(arena, lhs_node%name, updated_expr_typ)
+                    call update_identifier_type_in_arena(arena, lhs_node%name, &
+                                                         updated_expr_typ)
 
                     ! Generalize the expression type and define/update in scope
-             scheme = create_poly_type(forall_vars=[type_var_t ::], mono=updated_expr_typ)
+                    scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                              mono=updated_expr_typ)
                     call scopes%define(lhs_node%name, scheme)
                 type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, lhs_node, &
@@ -93,8 +102,6 @@ contains
 
     ! Local helper: best-effort define symbol from any declaration present in the arena
     subroutine ensure_declared_from_arena_local(scopes, arena, name, type_hints)
-        use ast_nodes_data, only: declaration_node
-        use semantic_inference_helpers, only: process_declaration_variables
         type(scope_stack_t), intent(inout) :: scopes
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
@@ -108,7 +115,8 @@ contains
                 do j = 1, size(type_hints(i)%var_names)
                     if (trim(type_hints(i)%var_names(j)) == trim(name)) then
                         call type_from_annotation(type_hints(i), decl_type)
-                    scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
+                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                                  mono=decl_type)
                         call scopes%define(name, scheme)
                         return
                     end if
@@ -116,73 +124,12 @@ contains
             end do
         end if
 
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (node => arena%entries(i)%node)
-            type is (declaration_node)
-                if (allocated(node%var_name)) then
-                    if (trim(node%var_name) == trim(name)) then
-                        call process_declaration_variables(node, decl_type)
-                    scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
-                        call scopes%define(name, scheme)
-                        return
-                    end if
-                end if
-                if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                    do j = 1, size(node%var_names)
-                        if (trim(node%var_names(j)) == trim(name)) then
-                            call process_declaration_variables(node, decl_type)
-                    scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
-                            call scopes%define(name, scheme)
-                            return
-                        end if
-                    end do
-                end if
-            end select
-        end do
-    end subroutine ensure_declared_from_arena_local
-
-    subroutine type_from_annotation(annotation, var_type)
-        type(type_annotation_t), intent(in) :: annotation
-        type(mono_type_t), intent(out) :: var_type
-        integer :: kind_id
-        character(len=:), allocatable :: lowered
-
-        lowered = adjustl(to_lower(trim(annotation%type_name)))
-        select case (lowered)
-        case ("integer")
-            kind_id = TINT
-        case ("real")
-            kind_id = TREAL
-        case ("character")
-            kind_id = TCHAR
-        case ("logical")
-            kind_id = TLOGICAL
-        case ("complex")
-            kind_id = TCOMPLEX
-        case ("double precision")
-            kind_id = TDOUBLE
-        case default
-            if (index(lowered, "type(") == 1) then
-                kind_id = TDERIVED
-            else
-                kind_id = TREAL
-            end if
-        end select
-
-        var_type = create_mono_type(kind_id)
-
-        if (annotation%has_kind) then
-            if (kind_id == TCHAR) then
-                if (annotation%kind_value > 0) then
-                    var_type%size = annotation%kind_value
-                else if (annotation%kind_value == -1) then
-                    var_type%size = -1
-                end if
-            end if
-            var_type%kind = kind_id
+        if (fetch_declaration_type(arena, name, decl_type)) then
+            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
+            call scopes%define(name, scheme)
+            return
         end if
-    end subroutine type_from_annotation
+    end subroutine ensure_declared_from_arena_local
 
     ! Handle character allocation detection for string concatenation
     subroutine handle_character_allocation(arena, assignment, expr_typ, var_name)
@@ -277,7 +224,8 @@ contains
     end subroutine handle_array_assignment
 
     ! Determine inferred dimension size from an index expression
-    integer function infer_dimension_size_from_index(arena, assignment_index, expr_index) result(dim_size)
+    integer function infer_dimension_size_from_index(arena, assignment_index, &
+                                                     expr_index) result(dim_size)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: assignment_index, expr_index
 
@@ -287,7 +235,8 @@ contains
 
         select type (arg_node => arena%entries(expr_index)%node)
         type is (identifier_node)
-          dim_size = find_loop_extent_for_variable(arena, assignment_index, arg_node%name)
+            dim_size = find_loop_extent_for_variable(arena, assignment_index, &
+                                                     arg_node%name)
         type is (literal_node)
             dim_size = 0
         class default
@@ -296,7 +245,8 @@ contains
     end function infer_dimension_size_from_index
 
     ! Traverse parent nodes to find the loop bounds for a given index variable
-    integer function find_loop_extent_for_variable(arena, start_index, var_name) result(extent)
+    integer function find_loop_extent_for_variable(arena, start_index, var_name) &
+        result(extent)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: start_index
         character(len=*), intent(in) :: var_name
@@ -316,8 +266,10 @@ contains
                 type is (do_loop_node)
                     if (allocated(loop_node%var_name)) then
                         if (trim(loop_node%var_name) == trim(var_name)) then
-                         extent = calculate_loop_size(arena, loop_node%start_expr_index, &
-                                      loop_node%end_expr_index, loop_node%step_expr_index)
+                            extent = calculate_loop_size(arena, &
+                                                         loop_node%start_expr_index, &
+                                                         loop_node%end_expr_index, &
+                                                         loop_node%step_expr_index)
                             if (extent < 0) extent = 0
                             return
                         end if
@@ -349,15 +301,22 @@ contains
                     if (body_pos > 1) then
                         do body_idx = body_pos - 1, 1, -1
                             candidate_idx = container%body_indices(body_idx)
-                            if (candidate_idx <= 0 .or. candidate_idx > arena%size) cycle
-                            if (.not. allocated(arena%entries(candidate_idx)%node)) cycle
+                            if (candidate_idx <= 0 .or. candidate_idx > &
+                                arena%size) cycle
+                            if (.not. &
+                                allocated(arena%entries(candidate_idx)%node)) cycle
 
-                           select type (sibling_loop => arena%entries(candidate_idx)%node)
+                            select type (sibling_loop => &
+                                         arena%entries(candidate_idx)%node)
                             type is (do_loop_node)
                                 if (allocated(sibling_loop%var_name)) then
-                                   if (trim(sibling_loop%var_name) == trim(var_name)) then
-                      extent = calculate_loop_size(arena, sibling_loop%start_expr_index, &
-                                sibling_loop%end_expr_index, sibling_loop%step_expr_index)
+                                    if (trim(sibling_loop%var_name) == &
+                                        trim(var_name)) then
+                                        extent = calculate_loop_size( &
+                                                 arena, &
+                                                 sibling_loop%start_expr_index, &
+                                                 sibling_loop%end_expr_index, &
+                                                 sibling_loop%step_expr_index)
                                         if (extent < 0) extent = 0
                                         if (extent > 0) return
                                     end if
@@ -378,8 +337,10 @@ contains
             type is (do_loop_node)
                 if (allocated(loop_node%var_name)) then
                     if (trim(loop_node%var_name) == trim(var_name)) then
-                        extent = calculate_loop_size(arena, loop_node%start_expr_index, &
-                                      loop_node%end_expr_index, loop_node%step_expr_index)
+                        extent = calculate_loop_size(arena, &
+                                                     loop_node%start_expr_index, &
+                                                     loop_node%end_expr_index, &
+                                                     loop_node%step_expr_index)
                         if (extent < 0) extent = 0
                         if (extent > 0) return
                     end if
@@ -407,7 +368,8 @@ contains
             allocate (args(1))
             args(1) = current_type
             if (dim_sizes(idx) > 0) then
-             current_type = create_mono_type(TARRAY, args=args, array_size=dim_sizes(idx))
+                current_type = create_mono_type(TARRAY, args=args, &
+                                                array_size=dim_sizes(idx))
             else
                 current_type = create_mono_type(TARRAY, args=args)
                 current_type%alloc_info%is_allocatable = .true.
@@ -419,7 +381,8 @@ contains
         array_type = current_type
     end function build_array_type_from_dims
 
-    function build_array_declaration_string(element_type, dim_sizes) result(decl_string)
+    function build_array_declaration_string(element_type, dim_sizes) &
+        result(decl_string)
         type(mono_type_t), intent(in) :: element_type
         integer, intent(in) :: dim_sizes(:)
         character(len=:), allocatable :: decl_string

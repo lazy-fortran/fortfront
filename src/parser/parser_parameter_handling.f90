@@ -28,6 +28,33 @@ module parser_parameter_handling_module
 
 contains
 
+    subroutine update_parameter_from_declaration(param_node, body_node)
+        type(parameter_declaration_node), intent(inout) :: param_node
+        type(declaration_node), intent(in) :: body_node
+
+        ! Update intent
+        if (body_node%has_intent .and. allocated(body_node%intent)) then
+            select case (body_node%intent)
+            case ("in")
+                param_node%intent_type = INTENT_IN
+            case ("out")
+                param_node%intent_type = INTENT_OUT
+            case ("inout")
+                param_node%intent_type = INTENT_INOUT
+            end select
+        end if
+
+        ! Update optional flag
+        param_node%is_optional = body_node%is_optional
+
+        ! Update type if not already set
+        if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
+            param_node%type_name = body_node%type_name
+            param_node%kind_value = body_node%kind_value
+            param_node%has_kind = body_node%has_kind
+        end if
+    end subroutine update_parameter_from_declaration
+
     ! Merge parameter attributes from declaration nodes into parameter nodes
     subroutine merge_parameter_attributes(arena, param_indices, body_indices)
         type(ast_arena_t), intent(inout) :: arena
@@ -62,55 +89,14 @@ contains
                             ! Check multi-declaration var_names
                             if (allocated(body_node%var_names)) then
                                 if (any(body_node%var_names == param_name)) then
-                                    ! Update parameter node with attributes
-                                    if (body_node%has_intent .and. &
-                                        allocated(body_node%intent)) then
-                                        select case (body_node%intent)
-                                        case ("in")
-                                            param_node%intent_type = INTENT_IN
-                                        case ("out")
-                                            param_node%intent_type = INTENT_OUT
-                                        case ("inout")
-                                            param_node%intent_type = INTENT_INOUT
-                                        end select
-                                    end if
-                                    param_node%is_optional = body_node%is_optional
-
-                                    ! Also update type if not already set
-                                    if (param_node%type_name == "" .and. &
-                                        allocated(body_node%type_name)) then
-                                        param_node%type_name = body_node%type_name
-                                        param_node%kind_value = body_node%kind_value
-                                        param_node%has_kind = body_node%has_kind
-                                    end if
+                                    call update_parameter_from_declaration(param_node, body_node)
                                 end if
                             end if
                         else
                             ! Single declaration
                             if (allocated(body_node%var_name) .and. &
-                                body_node%var_name &
-                                == param_name) then
-                                ! Update parameter node with attributes
-                                if (body_node%has_intent .and. &
-                                    allocated(body_node%intent)) then
-                                    select case (body_node%intent)
-                                    case ("in")
-                                        param_node%intent_type = INTENT_IN
-                                    case ("out")
-                                        param_node%intent_type = INTENT_OUT
-                                    case ("inout")
-                                        param_node%intent_type = INTENT_INOUT
-                                    end select
-                                end if
-                                param_node%is_optional = body_node%is_optional
-
-                                ! Also update type if not already set
-                                if (param_node%type_name == "" .and. &
-                                    allocated(body_node%type_name)) then
-                                    param_node%type_name = body_node%type_name
-                                    param_node%kind_value = body_node%kind_value
-                                    param_node%has_kind = body_node%has_kind
-                                end if
+                                body_node%var_name == param_name) then
+                                call update_parameter_from_declaration(param_node, body_node)
                             end if
                         end if
                     end select

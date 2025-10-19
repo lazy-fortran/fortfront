@@ -12,20 +12,8 @@ module fortfront_utils
     use ast_nodes_procedure, only: function_def_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
-    use fortfront_types, only: source_range_t, diagnostic_t, &
-                               NODE_PROGRAM, NODE_FUNCTION_DEF, NODE_ASSIGNMENT, NODE_BINARY_OP, &
-                               NODE_IDENTIFIER, NODE_LITERAL, NODE_ARRAY_LITERAL, NODE_CALL_OR_SUBSCRIPT, &
-                               NODE_SUBROUTINE_DEF, NODE_SUBROUTINE_CALL, NODE_DECLARATION, &
-                               NODE_PARAMETER_DECLARATION, NODE_IF, NODE_DO_LOOP, NODE_DO_WHILE, &
-                               NODE_SELECT_CASE, NODE_CASE_BLOCK, NODE_MODULE, NODE_USE_STATEMENT, &
-                               NODE_PRINT_STATEMENT, NODE_WRITE_STATEMENT, NODE_READ_STATEMENT, &
-                               NODE_ALLOCATE_STATEMENT, NODE_DEALLOCATE_STATEMENT, NODE_STOP, &
-                               NODE_RETURN, NODE_GOTO, NODE_ERROR_STOP, NODE_CYCLE, NODE_EXIT, &
-                               NODE_WHERE, NODE_INTERFACE_BLOCK, NODE_DERIVED_TYPE, &
-                               NODE_POINTER_ASSIGNMENT, NODE_FORALL, NODE_CASE_RANGE, &
-                               NODE_CASE_DEFAULT, NODE_COMPLEX_LITERAL, NODE_INCLUDE_STATEMENT, &
-                               NODE_CONTAINS, NODE_FORMAT_DESCRIPTOR, NODE_COMMENT, &
-                               NODE_IMPLICIT_STATEMENT, NODE_UNKNOWN
+    use fortfront_types, only: source_range_t, diagnostic_t
+    use fortfront_node_constants
 
     implicit none
     private
@@ -270,7 +258,8 @@ contains
                 if (arena%entries(node_index)%node%inferred_type%kind > 0) then
                     allocate (node_type)
                     ! Manual deep copy to avoid issues with assignment operator
-                    associate (src_type => arena%entries(node_index)%node%inferred_type)
+                    associate (src_type => &
+                               arena%entries(node_index)%node%inferred_type)
                         node_type%kind = src_type%kind
                         node_type%size = src_type%size
                         node_type%var%id = src_type%var%id
@@ -310,7 +299,8 @@ contains
         ! Build proper JSON from semantic context
         json_string = '{"semantic_context": {' // &
                       '"type_registry": {"initialized": true}, ' // &
-                      '"has_errors": ' // merge('true ', 'false', ctx%has_errors()) // ', ' // &
+                      '"has_errors": ' // merge('true ', 'false', ctx%has_errors()) &
+                      // ', ' // &
                       '"phase": "complete"}}'
     end subroutine semantic_info_to_json
 
@@ -333,7 +323,8 @@ contains
     end function get_max_depth
 
     ! Recursively compute depth
-    recursive function compute_depth(arena, node_index, current_depth) result(max_depth)
+    recursive function compute_depth(arena, node_index, current_depth) &
+        result(max_depth)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(in) :: current_depth

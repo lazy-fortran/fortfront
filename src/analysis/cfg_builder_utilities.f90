@@ -13,6 +13,18 @@ module cfg_builder_utilities
 
 contains
 
+    function validate_node_index(arena, node_index) result(is_valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_valid
+
+        is_valid = .false.
+        if (.not. allocated(arena%entries)) return
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        is_valid = .true.
+    end function validate_node_index
+
     ! Helper function to check allocate statement exception parameters
     subroutine check_allocate_exception_params(arena, node_index, has_stat, has_errmsg)
         type(ast_arena_t), intent(in) :: arena
@@ -22,10 +34,7 @@ contains
         has_stat = .false.
         has_errmsg = .false.
 
-        ! Validate arena and indices
-        if (.not. allocated(arena%entries)) return
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Check node type before accessing fields
         if (arena%entries(node_index)%node_type == "allocate_statement" .or. &
@@ -47,10 +56,7 @@ contains
         has_stat = .false.
         has_errmsg = .false.
 
-        ! Validate arena and indices
-        if (.not. allocated(arena%entries)) return
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         ! Check node type before accessing fields
         if (arena%entries(node_index)%node_type == "deallocate_statement" .or. &
@@ -73,10 +79,7 @@ contains
         has_err = .false.
         has_end = .false.
 
-        ! Validate arena and indices
-        if (.not. allocated(arena%entries)) return
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. validate_node_index(arena, node_index)) return
 
         select case (arena%entries(node_index)%node_type)
         case ("read_statement", "read_node")

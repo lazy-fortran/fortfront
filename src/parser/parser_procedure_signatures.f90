@@ -4,7 +4,9 @@ module parser_procedure_signatures_module
     use parser_state_module, only: parser_state_t
     use parser_parameter_handling_module, only: parse_typed_parameters, &
                                                 merge_parameter_attributes
-    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
+    use parser_procedure_shared_module, only: consume_optional_return_type, &
+                                              keyword_can_be_function_name
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -70,7 +72,7 @@ contains
         integer :: i
 
         do i = 1, size(pending_prefixes)
-            call append_prefix_keyword(prefix_keywords, pending_prefixes(i))
+            call append_prefix_token(prefix_keywords, pending_prefixes(i))
             if (trim(pending_prefixes(i)) == "recursive") then
                 has_recursive_keyword = .true.
             end if
@@ -96,13 +98,13 @@ contains
             select case (trim(lowered_text))
             case ("recursive")
                 has_recursive_keyword = .true.
-                call append_prefix_keyword(prefix_keywords, "recursive")
+                call append_prefix_token(prefix_keywords, "recursive")
                 token = parser%consume()
             case ("pure")
-                call append_prefix_keyword(prefix_keywords, "pure")
+                call append_prefix_token(prefix_keywords, "pure")
                 token = parser%consume()
             case ("elemental")
-                call append_prefix_keyword(prefix_keywords, "elemental")
+                call append_prefix_token(prefix_keywords, "elemental")
                 token = parser%consume()
             case default
                 exit
@@ -122,14 +124,7 @@ contains
         return_type_str = ""
         is_valid = .true.
 
-        token = parser%peek()
-        if (token%kind == TK_KEYWORD) then
-            select case (trim(to_lower(token%text)))
-            case ("real", "integer", "logical", "character")
-                return_type_str = token%text
-                token = parser%consume()
-            end select
-        end if
+        call consume_optional_return_type(parser, return_type_str)
 
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "function") then
@@ -225,7 +220,7 @@ contains
         if (.not. infer_recursive_from_body) return
 
         has_recursive_keyword = .true.
-        call append_prefix_keyword(prefix_keywords, "recursive")
+        call append_prefix_token(prefix_keywords, "recursive")
     end subroutine ensure_recursive_prefix
 
     subroutine parse_subroutine_header(parser, subroutine_name, line, column)
@@ -247,57 +242,5 @@ contains
             subroutine_name = "unnamed_subroutine"
         end if
     end subroutine parse_subroutine_header
-
-    subroutine append_prefix_keyword(prefixes, value)
-        character(len=16), allocatable, intent(inout) :: prefixes(:)
-        character(len=*), intent(in) :: value
-        integer :: n, i
-        character(len=16), allocatable :: temp(:)
-        logical :: already_present
-
-        already_present = .false.
-        if (allocated(prefixes)) then
-            do i = 1, size(prefixes)
-                if (trim(prefixes(i)) == trim(value)) then
-                    already_present = .true.
-                    exit
-                end if
-            end do
-        else
-            allocate (character(len=16) :: prefixes(0))
-        end if
-
-        if (already_present) return
-
-        n = size(prefixes)
-        allocate (character(len=16) :: temp(n + 1))
-        if (n > 0) temp(1:n) = prefixes
-        temp(n + 1) = trim(value)
-        call move_alloc(temp, prefixes)
-    end subroutine append_prefix_keyword
-
-    logical function keyword_can_be_function_name(parser, token) result(can_use)
-        type(parser_state_t), intent(in) :: parser
-        type(token_t), intent(in) :: token
-        type(token_t) :: lookahead
-        character(len=len(token%text)) :: token_lower
-        character(len=:), allocatable :: next_lower
-        integer :: next_index
-
-        token_lower = to_lower(token%text)
-        can_use = .false.
-
-        select case (trim(token_lower))
-        case ("double")
-            next_index = parser%current_token + 1
-            lookahead = parser%get_token_at_index(next_index)
-            next_lower = to_lower(trim(lookahead%text))
-            if (next_lower /= "precision") then
-                can_use = .true.
-            end if
-        case default
-            can_use = .false.
-        end select
-    end function keyword_can_be_function_name
 
 end module parser_procedure_signatures_module

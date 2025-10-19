@@ -6,10 +6,12 @@ module semantic_undefined_variable_checker
                               call_or_subscript_node, array_literal_node, program_node
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
-    use type_system_unified, only: poly_type_t, mono_type_t, create_poly_type, type_var_t
-    use semantic_inference_helpers, only: process_declaration_variables
+    use type_system_unified, only: poly_type_t, mono_type_t, &
+                                   create_poly_type, type_var_t
+    use semantic_declaration_utils, only: fetch_declaration_type
     use scope_manager, only: scope_stack_t
-    use error_handling, only: create_error_result, ERROR_SEMANTIC, result_t, error_collection_t
+    use error_handling, only: create_error_result, ERROR_SEMANTIC, result_t, &
+                              error_collection_t
     implicit none
     private
 
@@ -18,7 +20,8 @@ module semantic_undefined_variable_checker
 contains
 
     ! Generic implementation that works with any context type
-    subroutine check_undefined_variables_generic(scopes, errors, strict_mode, arena, prog_index)
+    subroutine check_undefined_variables_generic(scopes, errors, strict_mode, arena, &
+                                                 prog_index)
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
         logical, intent(in) :: strict_mode
@@ -70,11 +73,12 @@ contains
                         cycle
                     end if
                     error_result = create_error_result( &
-                                   "Undefined variable '" // node%name // "'", &
+                                   "Undefined variable '"//node%name//"'", &
                                    ERROR_SEMANTIC, &
                                    component="semantic_analyzer", &
                                    context="check_undefined_variables", &
-                                   suggestion="Declare the variable before using it or remove 'implicit none'" &
+                                   suggestion="Declare the variable before using it"// &
+                                   " or remove 'implicit none'" &
                                    )
                     call errors%add_result(error_result)
                 end if
@@ -157,28 +161,9 @@ contains
     logical function is_declared_in_arena(arena, name) result(found)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
-        integer :: i, j
-        found = .false.
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (node => arena%entries(i)%node)
-            type is (declaration_node)
-                if (allocated(node%var_name)) then
-                    if (trim(node%var_name) == trim(name)) then
-                        found = .true.
-                        return
-                    end if
-                end if
-                if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                    do j = 1, size(node%var_names)
-                        if (trim(node%var_names(j)) == trim(name)) then
-                            found = .true.
-                            return
-                        end if
-                    end do
-                end if
-            end select
-        end do
+        type(mono_type_t) :: decl_type
+
+        found = fetch_declaration_type(arena, name, decl_type)
     end function is_declared_in_arena
 
     ! Helper: define a symbol in scope using declaration type from arena
@@ -186,33 +171,13 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
-        integer :: i, j
         type(mono_type_t) :: decl_type
         type(poly_type_t) :: scheme
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (node => arena%entries(i)%node)
-            type is (declaration_node)
-                if (allocated(node%var_name)) then
-                    if (trim(node%var_name) == trim(name)) then
-                        call process_declaration_variables(node, decl_type)
-                        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
-                        call scopes%define(name, scheme)
-                        return
-                    end if
-                end if
-                if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                    do j = 1, size(node%var_names)
-                        if (trim(node%var_names(j)) == trim(name)) then
-                            call process_declaration_variables(node, decl_type)
-                            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
-                            call scopes%define(name, scheme)
-                            return
-                        end if
-                    end do
-                end if
-            end select
-        end do
+
+        if (fetch_declaration_type(arena, name, decl_type)) then
+            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
+            call scopes%define(name, scheme)
+        end if
     end subroutine define_from_arena
 
 end module semantic_undefined_variable_checker

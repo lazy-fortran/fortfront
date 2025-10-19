@@ -527,9 +527,10 @@ contains
         end if
     end function is_function_start
 
-    function is_end_function(tokens, pos) result(is_end)
+    function is_end_construct(tokens, pos, construct_name) result(is_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
+        character(len=*), intent(in) :: construct_name
         logical :: is_end
 
         is_end = .false.
@@ -537,10 +538,18 @@ contains
             if (tokens(pos)%kind == TK_KEYWORD .and. &
                 tokens(pos)%text == "end" .and. &
                 tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "function") then
+                tokens(pos + 1)%text == construct_name) then
                 is_end = .true.
             end if
         end if
+    end function is_end_construct
+
+    function is_end_function(tokens, pos) result(is_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: is_end
+
+        is_end = is_end_construct(tokens, pos, "function")
     end function is_end_function
 
     function is_do_loop_start(tokens, pos) result(is_start)
@@ -593,15 +602,7 @@ contains
         integer, intent(in) :: pos
         logical :: is_end
 
-        is_end = .false.
-        if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "do") then
-                is_end = .true.
-            end if
-        end if
+        is_end = is_end_construct(tokens, pos, "do")
     end function is_end_do
 
     function is_end_select(tokens, pos) result(is_end)
@@ -609,15 +610,7 @@ contains
         integer, intent(in) :: pos
         logical :: is_end
 
-        is_end = .false.
-        if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "select") then
-                is_end = .true.
-            end if
-        end if
+        is_end = is_end_construct(tokens, pos, "select")
     end function is_end_select
 
     function is_if_then_start(tokens, pos) result(is_start)
@@ -638,15 +631,7 @@ contains
         integer, intent(in) :: pos
         logical :: is_end
 
-        is_end = .false.
-        if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "if") then
-                is_end = .true.
-            end if
-        end if
+        is_end = is_end_construct(tokens, pos, "if")
     end function is_end_if
 
     function is_type_start(tokens, pos) result(is_start)
@@ -667,15 +652,7 @@ contains
         integer, intent(in) :: pos
         logical :: is_end
 
-        is_end = .false.
-        if (pos < size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. &
-                tokens(pos)%text == "end" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                tokens(pos + 1)%text == "type") then
-                is_end = .true.
-            end if
-        end if
+        is_end = is_end_construct(tokens, pos, "type")
     end function is_end_type
 
 end module frontend_parsing

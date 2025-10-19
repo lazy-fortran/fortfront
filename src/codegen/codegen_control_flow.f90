@@ -20,6 +20,35 @@ module codegen_control_flow
 
 contains
 
+    subroutine append_do_loop_body_and_end(arena, body_indices, indent_level, &
+                                           code, end_keyword)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        integer, intent(in) :: indent_level
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=*), intent(in), optional :: end_keyword
+        character(len=:), allocatable :: body_code, end_stmt
+
+        if (present(end_keyword)) then
+            end_stmt = end_keyword
+        else
+            end_stmt = "end do"
+        end if
+
+        if (allocated(body_indices)) then
+            body_code = generate_grouped_body_internal( &
+                        arena, body_indices, indent_level + 1)
+            if (len(body_code) > 0) then
+                code = code // new_line('A') // body_code
+                code = code // repeat("    ", indent_level) // end_stmt
+            else
+                code = code // new_line('A') // repeat("    ", indent_level) // end_stmt
+            end if
+        else
+            code = code // new_line('A') // repeat("    ", indent_level) // end_stmt
+        end if
+    end subroutine append_do_loop_body_and_end
+
     ! Generate code for if statements
     function generate_code_if(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -132,21 +161,7 @@ contains
         end if
 
         ! Generate body
-        if (allocated(node%body_indices)) then
-            body_code = generate_grouped_body_internal( &
-                        arena, node%body_indices, indent_level + 1)
-            if (len(body_code) > 0) then
-                code = code // new_line('A') // body_code
-                ! body_code ends with a newline; avoid inserting an extra blank line
-                code = code // repeat("    ", indent_level) // "end do"
-            else
-                ! Empty body: ensure end do is on the next line
-                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
-            end if
-        else
-            ! No body array provided
-            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
-        end if
+        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, code)
     end function generate_code_do_loop
 
     ! Generate code for do while loops
@@ -171,18 +186,7 @@ contains
         code = "do while (" // cond_code // ")"
 
         ! Generate body
-        if (allocated(node%body_indices)) then
-            body_code = generate_grouped_body_internal( &
-                        arena, node%body_indices, indent_level + 1)
-            if (len(body_code) > 0) then
-                code = code // new_line('A') // body_code
-                code = code // repeat("    ", indent_level) // "end do"
-            else
-                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
-            end if
-        else
-            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
-        end if
+        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, code)
     end function generate_code_do_while
 
     ! Generate code for select case statements

@@ -246,43 +246,12 @@ contains
         end do
     end function program_has_variable_declarations
 
-    ! Find where to insert declarations (after use statements)
-    function find_declaration_insertion_point(arena, prog) result(pos)
+    integer function find_prefix_end(arena, prog, mode) result(pos)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
-        integer :: pos
+        integer, intent(in) :: mode
         integer :: i
-
-        pos = 1  ! Default to beginning
-        if (.not. allocated(prog%body_indices)) return
-
-        ! Find the last use statement
-        do i = 1, size(prog%body_indices)
-            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
-                if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                    select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (use_statement_node)
-                        pos = i + 1  ! Insert after this use statement
-                    type is (comment_node)
-                        cycle
-                    type is (blank_line_node)
-                        cycle
-                    class default
-                        ! First non-use, non-comment statement, stop looking
-                        exit
-                    end select
-                end if
-            end if
-        end do
-
-    end function find_declaration_insertion_point
-
-    ! Find the position after existing declaration header statements
-    function find_declaration_header_end(arena, prog) result(pos)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog
-        integer :: pos
-        integer :: i
+        logical :: keep_scanning
 
         pos = 1
         if (.not. allocated(prog%body_indices)) return
@@ -290,25 +259,50 @@ contains
         do i = 1, size(prog%body_indices)
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    keep_scanning = .false.
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (use_statement_node)
-                        pos = i + 1
-                    type is (implicit_statement_node)
-                        pos = i + 1
-                    type is (declaration_node)
-                        pos = i + 1
-                    type is (parameter_declaration_node)
-                        pos = i + 1
+                        keep_scanning = .true.
                     type is (comment_node)
-                        pos = i + 1
+                        keep_scanning = (mode >= 1)
                     type is (blank_line_node)
-                        pos = i + 1
+                        keep_scanning = (mode >= 1)
+                    type is (implicit_statement_node)
+                        keep_scanning = (mode >= 2)
+                    type is (declaration_node)
+                        keep_scanning = (mode >= 2)
+                    type is (parameter_declaration_node)
+                        keep_scanning = (mode >= 2)
                     class default
-                        exit
+                        keep_scanning = .false.
                     end select
+
+                    if (keep_scanning) then
+                        pos = i + 1
+                    else
+                        exit
+                    end if
                 end if
             end if
         end do
+    end function find_prefix_end
+
+    ! Find where to insert declarations (after use statements)
+    function find_declaration_insertion_point(arena, prog) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: pos
+
+        pos = find_prefix_end(arena, prog, 1)
+    end function find_declaration_insertion_point
+
+    ! Find the position after existing declaration header statements
+    function find_declaration_header_end(arena, prog) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: pos
+
+        pos = find_prefix_end(arena, prog, 2)
     end function find_declaration_header_end
 
     ! Standardize existing declarations (e.g., real -> real(8))

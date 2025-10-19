@@ -84,21 +84,8 @@ contains
         type(function_def_node), intent(in) :: node
         logical, intent(out) :: recursive_in_prefix
         character(len=:), allocatable :: prefix
-        integer :: i
-        character(len=:), allocatable :: term
 
-        prefix = ""
-        recursive_in_prefix = .false.
-
-        if (.not. allocated(node%prefix_keywords)) return
-
-        do i = 1, size(node%prefix_keywords)
-            term = node%prefix_keywords(i)
-            if (len_trim(term) == 0) cycle
-            if (len(prefix) > 0) prefix = prefix // " "
-            prefix = prefix // trim(term)
-            if (trim(term) == "recursive") recursive_in_prefix = .true.
-        end do
+        prefix = gather_prefix(node%prefix_keywords, recursive_in_prefix)
     end function gather_function_prefix
 
     function derive_function_return_type(arena, node) result(return_type_code)
@@ -194,17 +181,8 @@ contains
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
 
-        if (allocated(node%param_indices)) then
-            param_indices = node%param_indices
-        else
-            allocate (param_indices(0))
-        end if
-
-        if (allocated(node%body_indices)) then
-            body_indices = node%body_indices
-        else
-            allocate (body_indices(0))
-        end if
+        call copy_indices(node%param_indices, param_indices)
+        call copy_indices(node%body_indices, body_indices)
 
         call build_parameter_map(arena, param_indices, body_indices, param_map)
         if (allocated(node%prefix_keywords)) then
@@ -300,22 +278,30 @@ contains
         type(subroutine_def_node), intent(in) :: node
         logical, intent(out) :: recursive_in_prefix
         character(len=:), allocatable :: prefix
+
+        prefix = gather_prefix(node%prefix_keywords, recursive_in_prefix)
+    end function gather_subroutine_prefix
+
+    function gather_prefix(prefix_keywords, recursive_in_prefix) result(prefix)
+        character(len=*), allocatable, intent(in) :: prefix_keywords(:)
+        logical, intent(out) :: recursive_in_prefix
+        character(len=:), allocatable :: prefix
         integer :: i
         character(len=:), allocatable :: term
 
         prefix = ""
         recursive_in_prefix = .false.
 
-        if (.not. allocated(node%prefix_keywords)) return
+        if (.not. allocated(prefix_keywords)) return
 
-        do i = 1, size(node%prefix_keywords)
-            term = node%prefix_keywords(i)
+        do i = 1, size(prefix_keywords)
+            term = prefix_keywords(i)
             if (len_trim(term) == 0) cycle
             if (len(prefix) > 0) prefix = prefix // " "
             prefix = prefix // trim(term)
             if (trim(term) == "recursive") recursive_in_prefix = .true.
         end do
-    end function gather_subroutine_prefix
+    end function gather_prefix
 
     function build_subroutine_body_section(arena, node) result(body)
         type(ast_arena_t), intent(in) :: arena
@@ -325,17 +311,8 @@ contains
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
 
-        if (allocated(node%param_indices)) then
-            param_indices = node%param_indices
-        else
-            allocate (param_indices(0))
-        end if
-
-        if (allocated(node%body_indices)) then
-            body_indices = node%body_indices
-        else
-            allocate (body_indices(0))
-        end if
+        call copy_indices(node%param_indices, param_indices)
+        call copy_indices(node%body_indices, body_indices)
 
         call build_parameter_map(arena, param_indices, body_indices, param_map)
         if (allocated(node%prefix_keywords)) then
@@ -345,6 +322,18 @@ contains
         body = generate_grouped_body_with_params(arena, body_indices, 1, &
                                                  param_map, node)
     end function build_subroutine_body_section
+
+    subroutine copy_indices(source, target)
+        integer, allocatable, intent(in) :: source(:)
+        integer, allocatable, intent(out) :: target(:)
+
+        if (allocated(source)) then
+            allocate (target(size(source)))
+            target = source
+        else
+            allocate (target(0))
+        end if
+    end subroutine copy_indices
 
     logical function should_omit_return_type(arena, node, return_type_code) &
         result(omit)
