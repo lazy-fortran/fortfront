@@ -386,20 +386,31 @@ contains
         integer, intent(in) :: param_indices(:)
         integer, intent(in) :: body_indices(:)
         type(parameter_info_t), allocatable, intent(out) :: param_map(:)
-        integer :: param_count, i, j
+        integer :: param_count
 
         param_count = size(param_indices)
         allocate (param_map(param_count))
 
-        do i = 1, param_count
+        call seed_parameter_map_from_params(arena, param_indices, param_map)
+        call merge_parameter_details_from_body(arena, body_indices, param_map)
+    end subroutine build_parameter_map
+
+    subroutine seed_parameter_map_from_params(arena, param_indices, param_map)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: i, idx
+
+        do i = 1, size(param_indices)
             param_map(i)%name = ""
             param_map(i)%intent_str = ""
             param_map(i)%is_optional = .false.
 
-            if (param_indices(i) <= 0 .or. param_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(param_indices(i))%node)) cycle
+            idx = param_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
 
-            select type (param_node => arena%entries(param_indices(i))%node)
+            select type (param_node => arena%entries(idx)%node)
             type is (identifier_node)
                 param_map(i)%name = param_node%name
             type is (parameter_declaration_node)
@@ -408,34 +419,51 @@ contains
                 param_map(i)%is_optional = param_node%is_optional
             end select
         end do
+    end subroutine seed_parameter_map_from_params
+
+    subroutine merge_parameter_details_from_body(arena, body_indices, param_map)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: j, idx
+        character(len=:), allocatable :: intent_str
 
         do j = 1, size(body_indices)
-            if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
-            if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+            idx = body_indices(j)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
 
-            select type (body_node => arena%entries(body_indices(j))%node)
+            select type (body_node => arena%entries(idx)%node)
             type is (parameter_declaration_node)
-                do i = 1, param_count
-                    if (.not. allocated(param_map(i)%name)) cycle
-                    if (param_map(i)%name == body_node%name) then
-                        param_map(i)%intent_str = &
-                            intent_type_to_string(body_node%intent_type)
-                        param_map(i)%is_optional = body_node%is_optional
-                    end if
-                end do
+                intent_str = intent_type_to_string(body_node%intent_type)
+                call update_parameter_entry(param_map, body_node%name, intent_str, &
+                                            .true., body_node%is_optional)
             type is (declaration_node)
-                do i = 1, param_count
-                    if (.not. allocated(param_map(i)%name)) cycle
-                    if (param_map(i)%name == body_node%var_name) then
-                        if (body_node%has_intent) then
-                            param_map(i)%intent_str = body_node%intent
-                        end if
-                        param_map(i)%is_optional = body_node%is_optional
-                    end if
-                end do
+                call update_parameter_entry(param_map, body_node%var_name, &
+                                            body_node%intent, body_node%has_intent, &
+                                            body_node%is_optional)
             end select
         end do
-    end subroutine build_parameter_map
+    end subroutine merge_parameter_details_from_body
+
+    subroutine update_parameter_entry(param_map, name, intent_value, has_intent, &
+                                      is_optional)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: intent_value
+        logical, intent(in) :: has_intent
+        logical, intent(in) :: is_optional
+        integer :: i
+
+        do i = 1, size(param_map)
+            if (.not. allocated(param_map(i)%name)) cycle
+            if (trim(param_map(i)%name) /= trim(name)) cycle
+
+            if (has_intent) param_map(i)%intent_str = intent_value
+            param_map(i)%is_optional = is_optional
+            return
+        end do
+    end subroutine update_parameter_entry
 
     subroutine derive_character_return_type(arena, node, override)
         type(ast_arena_t), intent(in) :: arena
