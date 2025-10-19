@@ -1,0 +1,323 @@
+module parser_procedure_definition_bodies_module
+    use string_utils_mod, only: to_lower
+    use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, &
+                          TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
+    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_if_statements_module, only: parse_if_statement_tokens
+    use parser_statement_utilities_module, only: parse_statement_in_if_block
+    use ast_arena_modern, only: ast_arena_t
+    implicit none
+    private
+
+    public :: parse_procedure_body
+
+contains
+
+    subroutine parse_procedure_body(parser, arena, procedure_name, end_keyword, &
+                                    body_indices, infer_recursive_flag)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: end_keyword
+        integer, allocatable, intent(out) :: body_indices(:)
+        logical, intent(inout), optional :: infer_recursive_flag
+
+        type(token_t) :: token
+        integer :: stmt_index
+
+        allocate (body_indices(0))
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+
+            if (check_procedure_end(parser, token, end_keyword, procedure_name)) exit
+
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+                cycle
+            end if
+
+            call parse_body_statement(parser, arena, token, procedure_name, &
+                                      infer_recursive_flag, stmt_index)
+
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            end if
+        end do
+    end subroutine parse_procedure_body
+
+    logical function check_procedure_end(parser, first_token, end_keyword, &
+                                         procedure_name) result(is_end)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: end_keyword
+        character(len=*), intent(in) :: procedure_name
+        type(token_t), allocatable, target :: all_tokens(:)
+        integer :: next_idx
+        type(token_t) :: token_local
+
+        is_end = .false.
+        if (first_token%kind /= TK_KEYWORD) return
+        if (first_token%text /= "end") return
+
+        if (associated(parser%tokens)) then
+            allocate (all_tokens(size(parser%tokens)))
+            all_tokens = parser%tokens
+        else
+            allocate (all_tokens(0))
+        end if
+
+        next_idx = parser%current_token + 1
+        if (next_idx > size(all_tokens)) return
+
+        if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
+            all_tokens(next_idx)%text == end_keyword) then
+            token_local = parser%consume()
+            token_local = parser%consume()
+            if (.not. parser%is_at_end()) then
+                token_local = parser%peek()
+                if (token_local%kind == TK_IDENTIFIER .and. &
+                    token_local%text == procedure_name) then
+                    token_local = parser%consume()
+                end if
+            end if
+            is_end = .true.
+        end if
+    end function check_procedure_end
+
+    subroutine parse_body_statement(parser, arena, first_token, procedure_name, &
+                                    infer_recursive_flag, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: procedure_name
+        logical, intent(inout), optional :: infer_recursive_flag
+        integer, intent(out) :: stmt_index
+
+        type(token_t), allocatable, target :: stmt_tokens(:)
+        integer :: stmt_size
+        integer :: stmt_end
+
+        call collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
+                                      stmt_end)
+
+        if (stmt_size <= 0) then
+            stmt_index = 0
+            return
+        end if
+
+        call maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
+                                            infer_recursive_flag)
+
+        stmt_index = parse_body_statement_tokens(stmt_tokens, stmt_size, arena)
+
+        parser%current_token = stmt_end + 1
+
+        if (allocated(stmt_tokens)) deallocate (stmt_tokens)
+    end subroutine parse_body_statement
+
+    subroutine collect_statement_tokens(parser, first_token, stmt_tokens, stmt_size, &
+                                        stmt_end)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: first_token
+        type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
+        integer, intent(out) :: stmt_size
+        integer, intent(out) :: stmt_end
+
+        type(token_t), allocatable, target :: all_tokens(:)
+        integer :: stmt_start
+
+        call copy_parser_tokens(parser, all_tokens)
+
+        stmt_start = parser%current_token
+        if (is_if_statement_start(first_token)) then
+            stmt_end = locate_if_statement_end(all_tokens, stmt_start)
+        else
+            stmt_end = locate_single_line_end(all_tokens, stmt_start, &
+                                              first_token%line)
+        end if
+
+        stmt_size = stmt_end - stmt_start + 1
+        if (stmt_size <= 0) then
+            allocate (stmt_tokens(0))
+            return
+        end if
+
+        call copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
+                                  stmt_tokens)
+    end subroutine collect_statement_tokens
+
+    subroutine copy_parser_tokens(parser, tokens)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t), allocatable, intent(out), target :: tokens(:)
+
+        if (associated(parser%tokens)) then
+            allocate (tokens(size(parser%tokens)))
+            tokens = parser%tokens
+        else
+            allocate (tokens(0))
+        end if
+    end subroutine copy_parser_tokens
+
+    logical function is_if_statement_start(first_token) result(is_if_start)
+        type(token_t), intent(in) :: first_token
+
+        is_if_start = first_token%kind == TK_KEYWORD
+        if (is_if_start) is_if_start = first_token%text == "if"
+    end function is_if_statement_start
+
+    integer function locate_if_statement_end(all_tokens, stmt_start) result(stmt_end)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: stmt_start
+
+        integer :: pos
+        integer :: depth
+        logical :: preceded_by_end
+        logical :: preceded_by_else
+
+        stmt_end = stmt_start
+        depth = 0
+        pos = stmt_start
+
+        do while (pos <= size(all_tokens))
+            if (all_tokens(pos)%kind == TK_KEYWORD) then
+                select case (all_tokens(pos)%text)
+                case ("if")
+                    preceded_by_end = .false.
+                    preceded_by_else = .false.
+                    if (pos > 1) then
+                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
+                            preceded_by_end = all_tokens(pos - 1)%text == "end"
+                            preceded_by_else = all_tokens(pos - 1)%text == "else"
+                        end if
+                    end if
+                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                        depth = depth + 1
+                    end if
+                case ("end")
+                    if (pos < size(all_tokens)) then
+                        if (all_tokens(pos + 1)%kind == TK_KEYWORD) then
+                            if (all_tokens(pos + 1)%text == "if") then
+                                depth = depth - 1
+                                if (depth <= 0) then
+                                    stmt_end = min(size(all_tokens), pos + 1)
+                                    return
+                                end if
+                            end if
+                        end if
+                    end if
+                end select
+            end if
+            stmt_end = pos
+            pos = pos + 1
+        end do
+    end function locate_if_statement_end
+
+    integer function locate_single_line_end(all_tokens, stmt_start, line_number) &
+        result(stmt_end)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: stmt_start
+        integer, intent(in) :: line_number
+
+        integer :: pos
+
+        stmt_end = stmt_start
+        do pos = stmt_start, size(all_tokens)
+            if (pos > stmt_start) then
+                if (all_tokens(pos)%line /= line_number) exit
+            end if
+            stmt_end = pos
+        end do
+    end function locate_single_line_end
+
+    subroutine copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
+                                    stmt_tokens)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        type(token_t), intent(in) :: first_token
+        type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
+
+        integer :: stmt_size
+
+        stmt_size = stmt_end - stmt_start + 1
+        allocate (stmt_tokens(stmt_size + 1))
+        stmt_tokens(1:stmt_size) = all_tokens(stmt_start:stmt_end)
+        stmt_tokens(stmt_size + 1)%kind = TK_EOF
+        stmt_tokens(stmt_size + 1)%text = ""
+        stmt_tokens(stmt_size + 1)%line = first_token%line
+        stmt_tokens(stmt_size + 1)%column = first_token%column + 1
+    end subroutine copy_statement_slice
+
+    subroutine maybe_mark_recursive_from_body(stmt_tokens, stmt_size, procedure_name, &
+                                              infer_recursive_flag)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        character(len=*), intent(in) :: procedure_name
+        logical, intent(inout), optional :: infer_recursive_flag
+        integer :: i
+
+        if (.not. present(infer_recursive_flag)) return
+        if (infer_recursive_flag) return
+
+        do i = 1, stmt_size
+            if (stmt_tokens(i)%kind == TK_IDENTIFIER) then
+                if (trim(stmt_tokens(i)%text) == trim(procedure_name)) then
+                    if (i < stmt_size) then
+                        if (stmt_tokens(i + 1)%kind == TK_OPERATOR .and. &
+                            stmt_tokens(i + 1)%text == "(") then
+                            infer_recursive_flag = .true.
+                            return
+                        end if
+                    end if
+                end if
+            end if
+        end do
+    end subroutine maybe_mark_recursive_from_body
+
+    integer function parse_body_statement_tokens(stmt_tokens, stmt_size, arena) &
+        result(stmt_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        integer, intent(in) :: stmt_size
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: first_token
+        character(len=:), allocatable :: token_lower
+        type(parser_state_t) :: block_parser
+        type(token_t) :: token
+
+        stmt_index = 0
+        first_token = 1
+        do while (first_token <= stmt_size)
+            select case (stmt_tokens(first_token)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE)
+                first_token = first_token + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (first_token <= stmt_size) then
+            if (stmt_tokens(first_token)%kind == TK_KEYWORD) then
+                token_lower = to_lower(stmt_tokens(first_token)%text)
+                if (trim(token_lower) == "if") then
+                    stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                end if
+            end if
+        end if
+
+        if (stmt_index <= 0) then
+            block_parser = create_parser_state(stmt_tokens)
+            do while (block_parser%current_token < first_token .and. &
+                      .not. block_parser%is_at_end())
+                token = block_parser%consume()
+            end do
+            if (.not. block_parser%is_at_end()) then
+                stmt_index = parse_statement_in_if_block(block_parser, arena, &
+                                                         stmt_tokens(max(1, &
+                                                                         first_token)))
+            else
+                stmt_index = 0
+            end if
+        end if
+    end function parse_body_statement_tokens
+
+end module parser_procedure_definition_bodies_module
