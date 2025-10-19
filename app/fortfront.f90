@@ -283,58 +283,70 @@ contains
         character(len=:), allocatable, intent(in) :: filename
         character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
+
+        if (from_file .and. allocated(filename)) then
+            call configure_context_from_file(filename, context)
+        else
+            call configure_context_from_stdin(input_text, context)
+        end if
+    end subroutine create_transform_context
+
+    subroutine configure_context_from_file(filename, context)
+        character(len=:), allocatable, intent(in) :: filename
+        type(transform_context_t), intent(inout) :: context
         character(len=:), allocatable :: basename, extension
-        integer :: dot_pos, slash_pos
+
+        call split_filename(filename, basename, extension)
+
+        if (extension == '.lf') then
+            context%input_mode = INPUT_MODE_LAZY
+        else
+            context%input_mode = INPUT_MODE_STANDARD
+        end if
+
+        context%source_name = basename
+        context%module_name = basename
+        context%program_name = 'main'
+        context%has_filename = .true.
+    end subroutine configure_context_from_file
+
+    subroutine configure_context_from_stdin(input_text, context)
+        character(len=*), intent(in) :: input_text
+        type(transform_context_t), intent(inout) :: context
         character(len=32) :: uuid_str
         integer :: pid, timestamp
 
-        if (from_file .and. allocated(filename)) then
-            ! Extract basename and extension from filename
-            basename = trim(filename)
+        context%input_mode = detect_input_mode_from_content(input_text)
 
-            ! Remove directory path (handle both Unix / and Windows \)
-            slash_pos = max(index(basename, '/', back=.true.), &
-                            index(basename, '\', back=.true.))
-            if (slash_pos > 0) then
-                basename = basename(slash_pos + 1:)
-            end if
+        call get_pid_impl(pid)
+        call get_timestamp_impl(timestamp)
+        write (uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
 
-            ! Extract extension
-            dot_pos = index(basename, '.', back=.true.)
-            if (dot_pos > 1) then
-                extension = basename(dot_pos:)
-                basename = basename(1:dot_pos - 1)
-            else
-                extension = ''
-            end if
+        context%source_name = trim(uuid_str)
+        context%module_name = trim(uuid_str)
+        context%program_name = 'main'
+        context%has_filename = .false.
+    end subroutine configure_context_from_stdin
 
-            ! Determine input mode based on file extension
-            if (extension == '.lf') then
-                context%input_mode = INPUT_MODE_LAZY
-            else
-                ! All other extensions (.f90, .f, .for, etc.) are standard Fortran
-                context%input_mode = INPUT_MODE_STANDARD
-            end if
+    subroutine split_filename(filename, basename, extension)
+        character(len=:), allocatable, intent(in) :: filename
+        character(len=:), allocatable, intent(out) :: basename
+        character(len=:), allocatable, intent(out) :: extension
+        integer :: slash_pos, dot_pos
 
-            context%source_name = basename
-            context%module_name = basename
-            context%program_name = 'main'
-            context%has_filename = .true.
+        basename = trim(filename)
+        slash_pos = max(index(basename, '/', back=.true.), &
+                        index(basename, '\', back=.true.))
+        if (slash_pos > 0) basename = basename(slash_pos + 1:)
+
+        dot_pos = index(basename, '.', back=.true.)
+        if (dot_pos > 1) then
+            extension = basename(dot_pos:)
+            basename = basename(1:dot_pos - 1)
         else
-            ! Stdin: detect mode from content
-            context%input_mode = detect_input_mode_from_content(input_text)
-
-            ! Generate unique name for stdin using PID
-            call get_pid_impl(pid)
-            call get_timestamp_impl(timestamp)
-            write (uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
-
-            context%source_name = trim(uuid_str)
-            context%module_name = trim(uuid_str)
-            context%program_name = 'main'
-            context%has_filename = .false.
+            extension = ''
         end if
-    end subroutine create_transform_context
+    end subroutine split_filename
 
     subroutine get_pid_impl(pid)
         integer, intent(out) :: pid
@@ -409,6 +421,7 @@ contains
         integer, intent(out) :: status
         character(len=:), allocatable :: buffer, tmp_text
         integer :: total_size, capacity, ios, chunk_size
+        logical :: exit_inner_loop, reached_end
 
         status = 0
         capacity = INITIAL_CAPACITY
@@ -420,37 +433,13 @@ contains
         do
             do
                 read (unit_num, '(A)', advance='no', iostat=ios, size=chunk_size) buffer
-                select case (ios)
-                case (iostat_end)
-                    if (chunk_size > 0) then
-                        call append_chunk(buffer(1:chunk_size), text, total_size, &
-                                          capacity, status)
-                        if (status /= 0) return
-                    end if
-                    exit
-                case (iostat_eor)
-                    if (chunk_size > 0) then
-                        call append_chunk(buffer(1:chunk_size), text, total_size, &
-                                          capacity, status)
-                        if (status /= 0) return
-                    end if
-                    call append_newline(text, total_size, capacity, status)
-                    if (status /= 0) return
-                    exit
-                case (0)
-                    if (chunk_size > 0) then
-                        call append_chunk(buffer(1:chunk_size), text, total_size, &
-                                          capacity, status)
-                        if (status /= 0) return
-                    end if
-                case default
-                    write (error_unit, '(A,I0,A)') &
-                        'Error reading input (iostat=', ios, ')'
-                    status = 3
-                    return
-                end select
+                call process_read_result(ios, chunk_size, buffer, text, total_size, &
+                                         capacity, status, exit_inner_loop, &
+                                         reached_end)
+                if (status /= 0) return
+                if (exit_inner_loop) exit
             end do
-            if (ios == iostat_end) exit
+            if (reached_end) exit
         end do
 
         if (total_size == 0) then
@@ -461,6 +450,53 @@ contains
         end if
         call move_alloc(tmp_text, text)
     end subroutine read_all_from_unit
+
+    subroutine append_when_data(chunk, chunk_size, text, total_size, capacity, status)
+        character(len=*), intent(in) :: chunk
+        integer, intent(in) :: chunk_size
+        character(len=:), allocatable, intent(inout) :: text
+        integer, intent(inout) :: total_size, capacity
+        integer, intent(inout) :: status
+
+        if (status /= 0) return
+        if (chunk_size <= 0) return
+
+        call append_chunk(chunk(1:chunk_size), text, total_size, capacity, status)
+    end subroutine append_when_data
+
+    subroutine process_read_result(ios, chunk_size, buffer, text, total_size, &
+                                   capacity, status, exit_inner_loop, reached_end)
+        integer, intent(in) :: ios
+        integer, intent(in) :: chunk_size
+        character(len=*), intent(in) :: buffer
+        character(len=:), allocatable, intent(inout) :: text
+        integer, intent(inout) :: total_size, capacity
+        integer, intent(inout) :: status
+        logical, intent(out) :: exit_inner_loop
+        logical, intent(out) :: reached_end
+
+        exit_inner_loop = .false.
+        reached_end = .false.
+
+        select case (ios)
+        case (iostat_end)
+            exit_inner_loop = .true.
+            reached_end = .true.
+            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+        case (iostat_eor)
+            exit_inner_loop = .true.
+            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            if (status /= 0) return
+            call append_newline(text, total_size, capacity, status)
+        case (0)
+            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+        case default
+            write (error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
+            status = 3
+            exit_inner_loop = .true.
+            reached_end = .true.
+        end select
+    end subroutine process_read_result
 
     subroutine append_chunk(chunk, text, total_size, capacity, status)
         character(len=*), intent(in) :: chunk
