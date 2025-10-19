@@ -202,20 +202,85 @@ contains
         end if
     end subroutine set_derived_type_name_info
 
+    subroutine parse_single_parameter(current, type_spec, arena)
+        type(token_t), allocatable, intent(in) :: current(:)
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), allocatable :: cleaned(:)
+        type(token_t), allocatable :: parser_tokens(:)
+        type(token_t) :: eof_token
+        type(parser_state_t) :: param_parser
+        integer :: expr_index
+
+        if (.not. allocated(current)) return
+        call trim_token_sequence(current, cleaned)
+        if (.not. allocated(cleaned)) return
+
+        allocate (parser_tokens(size(cleaned) + 1))
+        parser_tokens(1:size(cleaned)) = cleaned
+        eof_token%kind = TK_EOF
+        eof_token%text = ""
+        parser_tokens(size(cleaned) + 1) = eof_token
+
+        param_parser = create_parser_state(parser_tokens)
+        expr_index = parse_comparison(param_parser, arena)
+        if (expr_index > 0) then
+            call append_int(type_spec%derived_parameter_nodes, expr_index)
+        end if
+
+        block
+            type(token_t), allocatable :: temp(:)
+            if (allocated(parser_tokens)) call move_alloc(parser_tokens, temp)
+            if (allocated(cleaned)) call move_alloc(cleaned, temp)
+        end block
+    end subroutine parse_single_parameter
+
+    subroutine split_parameters(working, type_spec, arena)
+        type(token_t), allocatable, intent(in) :: working(:)
+        type(type_specifier_t), intent(inout) :: type_spec
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), allocatable :: current(:)
+        integer :: depth
+        integer :: i
+
+        depth = 0
+        do i = 1, size(working)
+            if (working(i)%kind == TK_OPERATOR) then
+                select case (working(i)%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth > 0) depth = depth - 1
+                case (",")
+                    if (depth == 0) then
+                        call parse_single_parameter(current, type_spec, arena)
+                        if (allocated(current)) then
+                            block
+                                type(token_t), allocatable :: temp(:)
+                                call move_alloc(current, temp)
+                            end block
+                        end if
+                        cycle
+                    end if
+                end select
+            end if
+            call append_token(current, working(i))
+        end do
+        call parse_single_parameter(current, type_spec, arena)
+        if (allocated(current)) then
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(current, temp)
+            end block
+        end if
+    end subroutine split_parameters
+
     subroutine process_derived_type_parameters(type_spec, param_tokens, arena)
         type(type_specifier_t), intent(inout) :: type_spec
         type(token_t), allocatable, intent(in) :: param_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), allocatable :: working(:)
         type(token_t), allocatable :: trimmed_working(:)
-        type(token_t), allocatable :: current(:)
-        type(token_t), allocatable :: cleaned(:)
-        type(token_t), allocatable :: parser_tokens(:)
-        type(token_t) :: eof_token
-        type(parser_state_t) :: param_parser
-        integer :: depth
-        integer :: i
-        integer :: expr_index
 
         if (.not. allocated(param_tokens)) return
 
@@ -234,24 +299,7 @@ contains
             end block
         end if
 
-        depth = 0
-        do i = 1, size(working)
-            if (working(i)%kind == TK_OPERATOR) then
-                select case (working(i)%text)
-                case ("(")
-                    depth = depth + 1
-                case (")")
-                    if (depth > 0) depth = depth - 1
-                case (",")
-                    if (depth == 0) then
-                        call finalize_parameter()
-                        cycle
-                    end if
-                end select
-            end if
-            call append_token(current, working(i))
-        end do
-        call finalize_parameter()
+        call split_parameters(working, type_spec, arena)
 
         if (allocated(type_spec%derived_parameter_nodes)) then
             type_spec%has_derived_type_parameters = &
@@ -259,53 +307,6 @@ contains
         else
             type_spec%has_derived_type_parameters = .false.
         end if
-
-    contains
-
-        subroutine finalize_parameter()
-            if (.not. allocated(current)) return
-            call trim_token_sequence(current, cleaned)
-            if (.not. allocated(cleaned)) then
-                call reset_current()
-                return
-            end if
-
-            allocate (parser_tokens(size(cleaned) + 1))
-            parser_tokens(1:size(cleaned)) = cleaned
-            eof_token%kind = TK_EOF
-            eof_token%text = ""
-            parser_tokens(size(cleaned) + 1) = eof_token
-
-            param_parser = create_parser_state(parser_tokens)
-            expr_index = parse_comparison(param_parser, arena)
-            if (expr_index > 0) then
-                call append_int(type_spec%derived_parameter_nodes, expr_index)
-            end if
-
-            if (allocated(parser_tokens)) then
-                block
-                    type(token_t), allocatable :: temp(:)
-                    call move_alloc(parser_tokens, temp)
-                end block
-            end if
-            if (allocated(cleaned)) then
-                block
-                    type(token_t), allocatable :: temp(:)
-                    call move_alloc(cleaned, temp)
-                end block
-            end if
-            call reset_current()
-        end subroutine finalize_parameter
-
-        subroutine reset_current()
-            if (allocated(current)) then
-                block
-                    type(token_t), allocatable :: temp(:)
-                    call move_alloc(current, temp)
-                end block
-            end if
-        end subroutine reset_current
-
     end subroutine process_derived_type_parameters
 
     subroutine analyze_derived_type_tokens(type_spec, tokens, arena)
