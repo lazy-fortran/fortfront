@@ -120,25 +120,20 @@ contains
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: caller_names(:)
         character(len=max_proc_name_len), allocatable :: temp_names(:)
-        integer :: i, count, sep_pos
+        integer :: i, count
         character(len=max_proc_name_len) :: simple_callee
 
         allocate (temp_names(graph%call_count))
         count = 0
 
         do i = 1, graph%call_count
-            simple_callee = graph%calls(i)%callee
-            sep_pos = index(simple_callee, "::", back=.true.)
-            if (sep_pos > 0) simple_callee = simple_callee(sep_pos + 2:)
+            simple_callee = simple_name_of(graph%calls(i)%callee)
 
             if (graph%calls(i)%callee == procedure_name .or. &
                 trim(simple_callee) == procedure_name) then
                 block
                     character(len=max_proc_name_len) :: extracted_caller
-                    extracted_caller = graph%calls(i)%caller
-                    sep_pos = index(extracted_caller, "::", back=.true.)
-                    if (sep_pos > 0) &
-                        extracted_caller = extracted_caller(sep_pos + 2:)
+                    extracted_caller = simple_name_of(graph%calls(i)%caller)
 
                     if (.not. any(temp_names(1:count) == trim(extracted_caller))) then
                         count = count + 1
@@ -164,25 +159,20 @@ contains
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: callee_names(:)
         character(len=max_proc_name_len), allocatable :: temp_names(:)
-        integer :: i, count, sep_pos
+        integer :: i, count
         character(len=max_proc_name_len) :: simple_caller
 
         allocate (temp_names(graph%call_count))
         count = 0
 
         do i = 1, graph%call_count
-            simple_caller = graph%calls(i)%caller
-            sep_pos = index(simple_caller, "::", back=.true.)
-            if (sep_pos > 0) simple_caller = simple_caller(sep_pos + 2:)
+            simple_caller = simple_name_of(graph%calls(i)%caller)
 
             if (graph%calls(i)%caller == procedure_name .or. &
                 trim(simple_caller) == procedure_name) then
                 block
                     character(len=max_proc_name_len) :: extracted_callee
-                    extracted_callee = graph%calls(i)%callee
-                    sep_pos = index(extracted_callee, "::", back=.true.)
-                    if (sep_pos > 0) &
-                        extracted_callee = extracted_callee(sep_pos + 2:)
+                    extracted_callee = simple_name_of(graph%calls(i)%callee)
 
                     if (.not. any(temp_names(1:count) == trim(extracted_callee))) then
                         count = count + 1
@@ -207,13 +197,11 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: procedure_name
         logical :: is_used
-        integer :: i, sep_pos
+        integer :: i
         character(len=max_proc_name_len) :: simple_name, simple_callee
 
         do i = 1, graph%proc_count
-            simple_name = graph%procedures(i)%name
-            sep_pos = index(simple_name, "::", back=.true.)
-            if (sep_pos > 0) simple_name = simple_name(sep_pos + 2:)
+            simple_name = simple_name_of(graph%procedures(i)%name)
 
             if ((graph%procedures(i)%name == procedure_name .or. &
                  trim(simple_name) == procedure_name) .and. &
@@ -224,9 +212,7 @@ contains
         end do
 
         do i = 1, graph%call_count
-            simple_callee = graph%calls(i)%callee
-            sep_pos = index(simple_callee, "::", back=.true.)
-            if (sep_pos > 0) simple_callee = simple_callee(sep_pos + 2:)
+            simple_callee = simple_name_of(graph%calls(i)%callee)
 
             if (graph%calls(i)%callee == procedure_name .or. &
                 trim(simple_callee) == procedure_name) then
@@ -241,16 +227,14 @@ contains
     function get_all_procedures(graph) result(proc_names)
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: proc_names(:)
-        integer :: i, max_len, sep_pos
+        integer :: i, max_len
         character(len=max_proc_name_len) :: simple_name
 
         if (graph%proc_count > 0) then
             max_len = 0
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then
-                    simple_name = graph%procedures(i)%name
-                    sep_pos = index(simple_name, "::", back=.true.)
-                    if (sep_pos > 0) simple_name = simple_name(sep_pos + 2:)
+                    simple_name = simple_name_of(graph%procedures(i)%name)
                     max_len = max(max_len, len_trim(simple_name))
                 end if
             end do
@@ -258,9 +242,7 @@ contains
             allocate (character(len=max_len) :: proc_names(graph%proc_count))
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then
-                    simple_name = graph%procedures(i)%name
-                    sep_pos = index(simple_name, "::", back=.true.)
-                    if (sep_pos > 0) simple_name = simple_name(sep_pos + 2:)
+                    simple_name = simple_name_of(graph%procedures(i)%name)
                     proc_names(i) = trim(simple_name)
                 else
                     proc_names(i) = ""
