@@ -257,6 +257,22 @@ contains
         code = "exit"
     end function generate_code_exit
 
+    subroutine append_rename_list_to_clause(rename_list, only_clause)
+        type(string_t), allocatable, intent(in) :: rename_list(:)
+        character(len=:), allocatable, intent(inout) :: only_clause
+        character(len=:), allocatable :: rename_entry
+        integer :: i
+
+        do i = 1, size(rename_list), 2
+            if (i + 1 > size(rename_list)) exit
+            if (.not. allocated(rename_list(i)%s)) cycle
+            if (.not. allocated(rename_list(i + 1)%s)) cycle
+            rename_entry = rename_list(i)%s // " => " // rename_list(i + 1)%s
+            if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
+            only_clause = only_clause // rename_entry
+        end do
+    end subroutine append_rename_list_to_clause
+
     ! Generate code for use statements
     function generate_code_use_statement(node) result(code)
         type(use_statement_node), intent(in) :: node
@@ -304,15 +320,7 @@ contains
                 end do
             end if
             if (allocated(node%rename_list)) then
-                do i = 1, size(node%rename_list), 2
-                    if (i + 1 > size(node%rename_list)) exit
-                    if (.not. allocated(node%rename_list(i)%s)) cycle
-                    if (.not. allocated(node%rename_list(i + 1)%s)) cycle
-                    rename_entry = node%rename_list(i)%s // " => " // &
-                                   node%rename_list(i + 1)%s
-                    if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
-                    only_clause = only_clause // rename_entry
-                end do
+                call append_rename_list_to_clause(node%rename_list, only_clause)
             end if
             if (len_trim(only_clause) > 0) then
                 code = code // ", only: " // trim(only_clause)
@@ -321,15 +329,7 @@ contains
             end if
         else if (allocated(node%rename_list)) then
             ! Fallback: emit rename list under only clause even if flag missing
-            do i = 1, size(node%rename_list), 2
-                if (i + 1 > size(node%rename_list)) exit
-                if (.not. allocated(node%rename_list(i)%s)) cycle
-                if (.not. allocated(node%rename_list(i + 1)%s)) cycle
-                rename_entry = node%rename_list(i)%s // " => " // &
-                               node%rename_list(i + 1)%s
-                if (len_trim(only_clause) > 0) only_clause = only_clause // ", "
-                only_clause = only_clause // rename_entry
-            end do
+            call append_rename_list_to_clause(node%rename_list, only_clause)
             if (len_trim(only_clause) > 0) then
                 code = code // ", only: " // trim(only_clause)
             end if
