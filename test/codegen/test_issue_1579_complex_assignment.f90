@@ -11,10 +11,11 @@ program test_issue_1579_complex_assignment
 
     source = 'program test_complex' // new_line('a') // &
              '    implicit none' // new_line('a') // &
-             '    complex :: z1, z2, result' // new_line('a') // &
+             '    complex :: z1, z2, result, zsum' // new_line('a') // &
              '    z1 = (3.0, 4.0)' // new_line('a') // &
              '    z2 = (1.0, 2.0)' // new_line('a') // &
              '    result = z1 + z2' // new_line('a') // &
+             '    zsum = (3.0, 4.0) + z2' // new_line('a') // &
              'end program test_complex'
 
     call transform_lazy_fortran_string(source, output, error_msg)
@@ -38,6 +39,15 @@ program test_issue_1579_complex_assignment
         end if
         if (index(output, 'z2 = 1.0d0') > 0) then
             success = .false.
+        end if
+        if (index(output, 'zsum = (3.0d0, 4.0d0) + z2') == 0) then
+            if (index(output, 'zsum = (3.0d0,4.0d0) + z2') == 0) then
+                if (index(output, 'zsum = (3.0d0, 4.0d0)+z2') == 0) then
+                    if (index(output, 'zsum = (3.0d0,4.0d0)+z2') == 0) then
+                        success = .false.
+                    end if
+                end if
+            end if
         end if
     end if
 

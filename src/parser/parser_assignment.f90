@@ -3,7 +3,7 @@ module parser_assignment_module
                           TK_STRING, &
                           TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_range, parse_comparison
+    use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_identifier, push_literal, &
                             push_complex_literal
@@ -51,7 +51,7 @@ contains
                     target_index = push_identifier(arena, id_token%text, &
                                                    id_token%line, &
                                                    id_token%column)
-                    value_index = try_parse_complex_literal_or_expression(parser, arena)
+                    value_index = parse_range(parser, arena)
                     if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, &
                                                      value_index, &
@@ -220,57 +220,5 @@ contains
             end if
         end if
     end subroutine parse_multi_variable_assignment
-
-    function try_parse_complex_literal_or_expression(parser, arena) result(expr_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: expr_index
-        type(token_t) :: token, comma_token, close_paren
-        integer :: real_part_index, imag_part_index
-        integer :: saved_pos
-
-        expr_index = 0
-        saved_pos = parser%current_token
-
-        token = parser%peek()
-        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            expr_index = parse_range(parser, arena)
-            return
-        end if
-
-        token = parser%consume()
-        real_part_index = parse_comparison(parser, arena)
-        if (real_part_index <= 0) then
-            parser%current_token = saved_pos
-            expr_index = parse_range(parser, arena)
-            return
-        end if
-
-        comma_token = parser%peek()
-        if (comma_token%kind /= TK_OPERATOR .or. comma_token%text /= ",") then
-            parser%current_token = saved_pos
-            expr_index = parse_range(parser, arena)
-            return
-        end if
-
-        comma_token = parser%consume()
-        imag_part_index = parse_comparison(parser, arena)
-        if (imag_part_index <= 0) then
-            parser%current_token = saved_pos
-            expr_index = parse_range(parser, arena)
-            return
-        end if
-
-        close_paren = parser%peek()
-        if (close_paren%kind /= TK_OPERATOR .or. close_paren%text /= ")") then
-            parser%current_token = saved_pos
-            expr_index = parse_range(parser, arena)
-            return
-        end if
-
-        close_paren = parser%consume()
-        expr_index = push_complex_literal(arena, real_part_index, imag_part_index, &
-                                          token%line, token%column)
-    end function try_parse_complex_literal_or_expression
 
 end module parser_assignment_module

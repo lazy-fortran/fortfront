@@ -7,7 +7,7 @@ module parser_expressions_module
     use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_loops, only: do_loop_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
-                           push_range_expression
+                           push_range_expression, push_complex_literal
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expression_helpers_module, only: parse_number_literal, &
                                                 parse_string_literal, &
@@ -310,6 +310,64 @@ contains
         end if
     end function is_legacy_array_literal_start
 
+    function try_parse_complex_literal(parser, arena, view) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        integer :: expr_index
+        integer :: saved_pos
+        type(token_t) :: open_paren
+        type(token_t) :: comma_token
+        type(token_t) :: close_paren
+        integer :: real_part_index
+        integer :: imag_part_index
+
+        expr_index = 0
+        saved_pos = parser%current_token
+
+        open_paren = view_peek_token(view, parser)
+        if (open_paren%kind /= TK_OPERATOR) return
+        if (trim(open_paren%text) /= "(") return
+
+        open_paren = view_consume_token(view, parser)
+        real_part_index = parse_comparison(parser, arena)
+        if (real_part_index <= 0) then
+            parser%current_token = saved_pos
+            return
+        end if
+
+        comma_token = view_peek_token(view, parser)
+        if (comma_token%kind /= TK_OPERATOR) then
+            parser%current_token = saved_pos
+            return
+        end if
+        if (trim(comma_token%text) /= ",") then
+            parser%current_token = saved_pos
+            return
+        end if
+
+        comma_token = view_consume_token(view, parser)
+        imag_part_index = parse_comparison(parser, arena)
+        if (imag_part_index <= 0) then
+            parser%current_token = saved_pos
+            return
+        end if
+
+        close_paren = view_peek_token(view, parser)
+        if (close_paren%kind /= TK_OPERATOR) then
+            parser%current_token = saved_pos
+            return
+        end if
+        if (trim(close_paren%text) /= ")") then
+            parser%current_token = saved_pos
+            return
+        end if
+
+        close_paren = view_consume_token(view, parser)
+        expr_index = push_complex_literal(arena, real_part_index, imag_part_index, &
+                                          open_paren%line, open_paren%column)
+    end function try_parse_complex_literal
+
     function parse_operand_base(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -546,10 +604,27 @@ contains
                         cycle
                     end if
                 end if
+
                 if (is_prefix_operator_token(token)) then
                     call token_stack_push(prefix_stack, &
                                           view_consume_token(view, parser))
                     cycle
+                end if
+
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    block
+                        integer :: complex_index
+                        complex_index = try_parse_complex_literal(parser, arena, view)
+                        if (complex_index > 0) then
+                            complex_index = apply_prefix_stack(arena, prefix_stack, &
+                                                               complex_index)
+                            complex_index = parse_postfix_ops(parser, arena, view, &
+                                                              complex_index)
+                            call operand_stack_push(operands, complex_index)
+                            expect_operand = .false.
+                            cycle
+                        end if
+                    end block
                 end if
 
                 if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
@@ -567,8 +642,7 @@ contains
                 end if
 
                 call handle_operand_token(parser, arena, view, operands, &
-                                          prefix_stack, &
-                                          token, expect_operand)
+                                          prefix_stack, token, expect_operand)
                 cycle
             else
                 call handle_infix_operator(parser, view, operators, operands, arena, &
