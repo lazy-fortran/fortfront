@@ -162,9 +162,10 @@ contains
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg
         type(compilation_options_t) :: options
-        integer :: unit, iostat, i, count, start, pos
+        integer :: unit, iostat, i, minus_count
         character(len=512) :: line
         logical :: found_expr
+        character(len=:), allocatable :: collapsed
 
         print *, "Testing deep unary minus chains..."
         test_deep_unary_minus_chain = .true.
@@ -200,18 +201,21 @@ contains
         end if
 
         found_expr = .false.
-        count = 0
+        minus_count = 0
         do
             read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(trim(line), 'value =') > 0) then
                 found_expr = .true.
-                start = 1
-                do
-                    pos = index(line(start:), '0 -')
-                    if (pos == 0) exit
-                    count = count + 1
-                    start = start + pos
+                collapsed = ''
+                do i = 1, len_trim(line)
+                    if (line(i:i) /= ' ' .and. line(i:i) /= char(9)) then
+                        collapsed = collapsed // line(i:i)
+                    end if
+                end do
+                minus_count = 0
+                do i = 1, len(collapsed)
+                    if (collapsed(i:i) == '-') minus_count = minus_count + 1
                 end do
             end if
         end do
@@ -220,9 +224,9 @@ contains
         if (.not. found_expr) then
             print *, '  FAIL: Did not find unary expression in output'
             test_deep_unary_minus_chain = .false.
-        else if (count /= depth) then
+        else if (minus_count /= depth) then
             print *, '  FAIL: Expected', depth, 'unary minus expansions but found', &
-                count
+                minus_count
             test_deep_unary_minus_chain = .false.
         else
             print *, '  PASS: Deep unary minus chain expanded iteratively'
@@ -349,7 +353,7 @@ contains
                         collapsed = collapsed // line(i:i)
                     end if
                 end do
-                if (index(collapsed, 'value=(0-2)**2+3') == 0) then
+                if (index(collapsed, 'value=(-2)**2+3') == 0) then
                     print *, &
                         '  FAIL: Mixed precedence expression not normalized as expected'
                     test_mixed_precedence_output = .false.

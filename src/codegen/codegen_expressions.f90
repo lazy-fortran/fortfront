@@ -108,6 +108,7 @@ contains
         character(len=:), allocatable :: fortran_operator
         character(len=:), allocatable :: left_op, right_op
         logical :: left_paren, right_paren
+        logical :: unary_minus
 
         ! Generate operands
         if (node%left_index > 0) then
@@ -149,8 +150,17 @@ contains
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
             end if
 
-            ! Detect unary minus (represented as 0 - value) and format as -value
-            if (trim(fortran_operator) == "-" .and. is_zero_literal(arena, node%left_index)) then
+            unary_minus = (trim(fortran_operator) == "-") .and. &
+                is_zero_literal(arena, node%left_index)
+            if (unary_minus) then
+                right_paren = .false.
+                right_op = get_node_operator(arena, node%right_index)
+                if (len_trim(right_op) > 0) right_paren = &
+                    needs_parentheses("-", trim(right_op), .false.)
+                right_code = trim(adjustl(right_code))
+                if (right_paren .and. len_trim(right_code) > 0) then
+                    right_code = "(" // right_code // ")"
+                end if
                 code = "-" // right_code
                 return
             end if
