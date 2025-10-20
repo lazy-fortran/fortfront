@@ -193,7 +193,8 @@ contains
                              is_external=attr_info%is_external, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                             is_parameter=attr_info%is_parameter, &
+                             is_save=attr_info%is_save)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
@@ -201,7 +202,8 @@ contains
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
                              is_external=attr_info%is_external, &
-                             is_parameter=attr_info%is_parameter)
+                             is_parameter=attr_info%is_parameter, &
+                             is_save=attr_info%is_save)
             end if
         else
             if (attr_info%has_global_dimensions) then
@@ -211,14 +213,16 @@ contains
                              is_allocatable=attr_info%is_allocatable, &
                              is_external=attr_info%is_external, &
                              is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                             is_parameter=attr_info%is_parameter, &
+                             is_save=attr_info%is_save)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
                              is_external=attr_info%is_external, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
-                             is_parameter=attr_info%is_parameter)
+                             is_parameter=attr_info%is_parameter, &
+                             is_save=attr_info%is_save)
             end if
         end if
 
@@ -365,7 +369,8 @@ contains
                          is_external=attr_info%is_external, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                         is_parameter=attr_info%is_parameter, &
+                         is_save=attr_info%is_save)
         else
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -378,7 +383,8 @@ contains
                          is_external=attr_info%is_external, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                         is_parameter=attr_info%is_parameter, &
+                         is_save=attr_info%is_save)
         end if
     end function create_dimensional_declaration
 
@@ -403,7 +409,8 @@ contains
                          is_external=attr_info%is_external, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                         is_parameter=attr_info%is_parameter, &
+                         is_save=attr_info%is_save)
         else
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -415,7 +422,8 @@ contains
                          is_external=attr_info%is_external, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
-                         is_parameter=attr_info%is_parameter)
+                         is_parameter=attr_info%is_parameter, &
+                         is_save=attr_info%is_save)
         end if
     end function create_scalar_declaration
     function build_name_array(name) result(names)
