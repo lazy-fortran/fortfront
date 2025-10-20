@@ -167,6 +167,7 @@ contains
         do
             peek_token = parser%peek()
             if (peek_token%text == "]") then
+                current = parser%consume()  ! Consume the closing bracket
                 exit
             else if (peek_token%text == "(") then
                 saved_pos = parser%current_token
@@ -199,6 +200,7 @@ contains
             if (current%text == ",") then
                 current = parser%consume()
             else if (current%text == "]") then
+                current = parser%consume()  ! Consume the closing bracket
                 exit
             else
                 expr_index = 0
