@@ -8,6 +8,7 @@ module codegen_declarations_inference
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: parameter_info_t
+    use intrinsic_registry, only: is_intrinsic_function
     implicit none
     private
     public :: build_parameter_map
@@ -354,7 +355,13 @@ contains
                     call record_declared_name(state, trim(decl%var_name))
                 end if
             type is (function_def_node)
-                call try_add_internal_function(state, trim(decl%name))
+                ! Function definitions handled elsewhere
+            type is (call_or_subscript_node)
+                if (allocated(decl%name)) then
+                    if (is_intrinsic_function(trim(decl%name))) then
+                        call try_add_internal_function(state, trim(decl%name))
+                    end if
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
@@ -525,6 +532,7 @@ contains
         do i = 1, state%func_count
             if (exists_in_list(state%internal_funcs, state%internal_count, &
                                trim(state%func_names(i)))) cycle
+            if (is_intrinsic_function(trim(state%func_names(i)))) cycle
             code = code // "    " // trim(state%func_types(i)) // &
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
