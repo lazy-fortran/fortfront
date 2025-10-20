@@ -1,6 +1,6 @@
 module parser_declarations_core_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, &
-                          TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT
+                          TK_KEYWORD, TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_declaration, push_complex_literal, push_derived_type
@@ -49,7 +49,9 @@ contains
 
         identifier_token = parser%consume()
         if (identifier_token%kind /= TK_IDENTIFIER) then
-            return
+            if (.not. try_promote_keyword_identifier(parser, identifier_token)) then
+                return
+            end if
         end if
 
         handled_multi = handle_multi_variable_declaration( &
@@ -137,7 +139,9 @@ contains
 
             token = parser%consume()
             if (token%kind /= TK_IDENTIFIER) then
-                exit
+                if (.not. try_promote_keyword_identifier(parser, token)) then
+                    exit
+                end if
             end if
 
             var_count = var_count + 1
@@ -572,6 +576,77 @@ contains
             arena, type_spec, attr_info, var_names, per_var_dims, has_dims, &
             init_indices, var_count, has_any_initializer, decl_indices)
     end function parse_multi_declaration
+
+    logical function try_promote_keyword_identifier(parser, token) result(promoted)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(inout) :: token
+        type(token_t) :: next_token
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: next_lower
+        integer :: index
+
+        promoted = .false.
+        if (token%kind /= TK_KEYWORD) then
+            return
+        end if
+
+        lowered = to_lower(trim(token%text))
+        if (lowered /= "end") then
+            return
+        end if
+
+        next_token = peek_next_nontrivial_token(parser)
+        if (next_token%kind == TK_KEYWORD) then
+            next_lower = to_lower(trim(next_token%text))
+            select case (next_lower)
+            case ("type", "module", "subroutine", "function", "program", &
+                  "interface", "procedure", "select", "if", "do", "forall", &
+                  "where", "associate", "block", "team", "critical", &
+                  "blockdata")
+                return
+            end select
+        end if
+
+        if (.not. associated(parser%tokens)) then
+            return
+        end if
+
+        index = parser%current_token - 1
+        if (index < 1 .or. index > size(parser%tokens)) then
+            return
+        end if
+
+        parser%tokens(index)%kind = TK_IDENTIFIER
+        token%kind = TK_IDENTIFIER
+        promoted = .true.
+    end function try_promote_keyword_identifier
+
+    function peek_next_nontrivial_token(parser) result(next_token)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: next_token
+        integer :: pos
+
+        next_token%kind = TK_EOF
+        next_token%text = ""
+
+        if (.not. associated(parser%tokens)) then
+            return
+        end if
+
+        pos = parser%current_token
+        do while (pos >= 1 .and. pos <= size(parser%tokens))
+            next_token = parser%tokens(pos)
+            select case (next_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                pos = pos + 1
+            case default
+                return
+            end select
+        end do
+
+        next_token%kind = TK_EOF
+        next_token%text = ""
+    end function peek_next_nontrivial_token
 
     subroutine initialize_multi_state(var_names, per_var_dims, has_dims, &
                                       init_indices)

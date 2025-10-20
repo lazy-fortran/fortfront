@@ -3,7 +3,8 @@ module frontend_parsing
     ! Now serves as a compatibility layer over split modules
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN, &
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_UNKNOWN, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
@@ -13,7 +14,8 @@ module frontend_parsing
     use iso_fortran_env, only: error_unit
     use frontend_utilities, only: int_to_str
     use parser_do_constructs_module, only: ensure_if_do_registration
-    use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
+    use mixed_construct_detector, only: detect_mixed_constructs, &
+                                        mixed_construct_result_t
     use error_handling, only: result_t
 
     ! Import from split modules
@@ -84,50 +86,54 @@ contains
         integer :: debug_status
         logical :: debug_units
         character(len=:), allocatable :: start_text, end_text
+        type(token_t), allocatable :: tokens_local(:)
 
         error_msg = ""
         prog_index = 0
 
         call ensure_if_do_registration()
 
+        tokens_local = tokens
+        call normalize_keyword_identifiers(tokens_local)
+
         call get_environment_variable( &
             'FORTFRONT_DEBUG_DUMP_AST', debug_flag, status=debug_status)
         debug_units = (debug_status == 0 .and. len_trim(debug_flag) > 0)
 
         ! Check for mixed constructs first (Issue #511)
-        call detect_mixed_constructs(tokens, mixed_result)
+        call detect_mixed_constructs(tokens_local, mixed_result)
         if (mixed_result%has_mixed_constructs) then
-            call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, &
+            call parse_mixed_constructs(tokens_local, arena, mixed_result, prog_index, &
                                         error_msg)
             return
         end if
 
         ! Detect explicit program units
-        has_explicit_program = detect_explicit_program_unit(tokens)
+        has_explicit_program = detect_explicit_program_unit(tokens_local)
 
         ! Find and parse program units
         allocate (unit_indices(0))
         unit_count = 0
         i = 1
 
-        do while (i <= size(tokens))
-            if (tokens(i)%kind == TK_EOF) exit
+        do while (i <= size(tokens_local))
+            if (tokens_local(i)%kind == TK_EOF) exit
 
             ! Find program unit boundary
-            call find_program_unit_boundary(tokens, i, unit_start, unit_end)
+            call find_program_unit_boundary(tokens_local, i, unit_start, unit_end)
 
             if (unit_end >= unit_start) then
-                call process_program_unit(tokens, unit_start, unit_end, arena, &
+                call process_program_unit(tokens_local, unit_start, unit_end, arena, &
                                           unit_index, has_explicit_program)
 
                 if (debug_units) then
                     start_text = ''
                     end_text = ''
-                    if (unit_start >= 1 .and. unit_start <= size(tokens)) then
-                        start_text = tokens(unit_start)%text
+                    if (unit_start >= 1 .and. unit_start <= size(tokens_local)) then
+                        start_text = tokens_local(unit_start)%text
                     end if
-                    if (unit_end >= 1 .and. unit_end <= size(tokens)) then
-                        end_text = tokens(unit_end)%text
+                    if (unit_end >= 1 .and. unit_end <= size(tokens_local)) then
+                        end_text = tokens_local(unit_end)%text
                     end if
                     write (error_unit, '(A,3I6,2X,A,1X,A)') &
                         'DEBUG parse unit bounds:', unit_start, unit_end, unit_index, &
@@ -190,6 +196,108 @@ contains
             parse_result%result%error_message = ""
         end if
     end function parse_tokens_safe
+
+    subroutine normalize_keyword_identifiers(tokens)
+        type(token_t), intent(inout) :: tokens(:)
+        integer :: i
+        type(token_t) :: prev_token
+        type(token_t) :: next_token
+        character(len=:), allocatable :: lowered
+
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_KEYWORD) cycle
+
+            lowered = to_lower(trim(tokens(i)%text))
+            if (lowered /= "end") cycle
+
+            prev_token = find_previous_nontrivial_token(tokens, i)
+            if (.not. token_precedes_identifier(prev_token)) cycle
+
+            next_token = find_next_nontrivial_token(tokens, i)
+            if (token_is_block_keyword(next_token)) cycle
+
+            tokens(i)%kind = TK_IDENTIFIER
+        end do
+    end subroutine normalize_keyword_identifiers
+
+    function find_previous_nontrivial_token(tokens, pos) result(prev_token)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        type(token_t) :: prev_token
+        integer :: i
+
+        prev_token%kind = TK_EOF
+        prev_token%text = ""
+
+        if (pos <= 1) return
+
+        do i = pos - 1, 1, -1
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                prev_token = tokens(i)
+                return
+            end select
+        end do
+    end function find_previous_nontrivial_token
+
+    function find_next_nontrivial_token(tokens, pos) result(next_token)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        type(token_t) :: next_token
+        integer :: i
+
+        next_token%kind = TK_EOF
+        next_token%text = ""
+
+        if (pos >= size(tokens)) return
+
+        do i = pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                next_token = tokens(i)
+                return
+            end select
+        end do
+    end function find_next_nontrivial_token
+
+    logical function token_precedes_identifier(token) result(is_valid)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        is_valid = .false.
+
+        if (token%kind /= TK_OPERATOR) then
+            return
+        end if
+
+        lowered = trim(token%text)
+        select case (lowered)
+        case ("%", "::", ",", "=", "=>")
+            is_valid = .true.
+        end select
+    end function token_precedes_identifier
+
+    logical function token_is_block_keyword(token) result(is_block)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        is_block = .false.
+        if (token%kind /= TK_KEYWORD) then
+            return
+        end if
+
+        lowered = to_lower(trim(token%text))
+        select case (lowered)
+        case ("type", "module", "subroutine", "function", "program", "interface", &
+              "procedure", "select", "if", "do", "forall", "where", "associate", &
+              "block", "team", "critical", "blockdata")
+            is_block = .true.
+        end select
+    end function token_is_block_keyword
 
     ! Detect explicit program unit
     function detect_explicit_program_unit(tokens) result(has_explicit_program_unit)
@@ -521,7 +629,8 @@ contains
 
         is_start = .false.
         if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "function") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == &
+                "function") then
                 is_start = .true.
             end if
         end if
