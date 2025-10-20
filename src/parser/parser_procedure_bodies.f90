@@ -17,6 +17,7 @@ module parser_procedure_bodies_module
     use parser_prefix_buffer_module, only: append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
+    use parser_do_constructs_module, only: parse_do_loop
     implicit none
     private
 
@@ -327,6 +328,9 @@ contains
             case ("function")
                 ! Handle nested function definitions
                 stmt_index = parse_function_in_module(parser, arena)
+            case ("do")
+                ! Handle DO loops
+                stmt_index = parse_do_loop(parser, arena)
             case default
                 ! Unknown keyword - consume it
                 token = parser%consume()
@@ -360,7 +364,14 @@ contains
             if (nested_index > 0) then
                 body_indices = [body_indices, nested_index]
             end if
+        else if (token%kind == TK_KEYWORD .and. token%text == "do") then
+            ! Handle DO loops directly
+            stmt_index = parse_do_loop(parser, arena)
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            end if
         else if (token%kind /= TK_NEWLINE) then
+            ! Parse other statements using the basic statement parser
             stmt_index = parse_basic_statement_in_subroutine(parser, arena)
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]

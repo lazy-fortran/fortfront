@@ -4,6 +4,7 @@ module parser_procedure_definition_bodies_module
                           TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_statements_module, only: parse_if_statement_tokens
+    use parser_do_constructs_module, only: parse_do_loop
     use parser_statement_utilities_module, only: parse_statement_in_if_block
     use ast_arena_modern, only: ast_arena_t
     implicit none
@@ -129,7 +130,8 @@ contains
 
         stmt_start = parser%current_token
         if (is_if_statement_start(first_token)) then
-            stmt_end = locate_if_statement_end(all_tokens, stmt_start)
+            stmt_end = locate_block_statement_end(all_tokens, stmt_start, &
+                                                  first_token%text)
         else
             stmt_end = locate_single_line_end(all_tokens, stmt_start, &
                                               first_token%line)
@@ -161,12 +163,17 @@ contains
         type(token_t), intent(in) :: first_token
 
         is_if_start = first_token%kind == TK_KEYWORD
-        if (is_if_start) is_if_start = first_token%text == "if"
+        if (is_if_start) then
+            is_if_start = first_token%text == "if" .or. &
+                          first_token%text == "do"
+        end if
     end function is_if_statement_start
 
-    integer function locate_if_statement_end(all_tokens, stmt_start) result(stmt_end)
+    integer function locate_block_statement_end(all_tokens, stmt_start, &
+                                                stmt_type) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
+        character(len=*), intent(in) :: stmt_type
 
         integer :: pos
         integer :: depth
@@ -174,28 +181,61 @@ contains
         logical :: preceded_by_else
 
         stmt_end = stmt_start
-        depth = 0
         pos = stmt_start
+
+        ! Set initial depth based on statement type
+        if (stmt_type == "do") then
+            depth = 1  ! We're already at the "do" keyword
+            pos = stmt_start + 1  ! Skip the initial "do" token
+        else
+            depth = 0
+            pos = stmt_start
+        end if
 
         do while (pos <= size(all_tokens))
             if (all_tokens(pos)%kind == TK_KEYWORD) then
-                select case (all_tokens(pos)%text)
+                select case (stmt_type)
                 case ("if")
-                    preceded_by_end = .false.
-                    preceded_by_else = .false.
-                    if (pos > 1) then
-                        if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                            preceded_by_end = all_tokens(pos - 1)%text == "end"
-                            preceded_by_else = all_tokens(pos - 1)%text == "else"
+                    select case (all_tokens(pos)%text)
+                    case ("if")
+                        preceded_by_end = .false.
+                        preceded_by_else = .false.
+                        if (pos > 1) then
+                            if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
+                                preceded_by_end = all_tokens(pos - 1)%text == "end"
+                                preceded_by_else = all_tokens(pos - 1)%text == "else"
+                            end if
                         end if
-                    end if
-                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                        if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                            depth = depth + 1
+                        end if
+                    case ("end")
+                        if (pos < size(all_tokens)) then
+                            if (all_tokens(pos + 1)%kind == TK_KEYWORD) then
+                                if (all_tokens(pos + 1)%text == "if") then
+                                    depth = depth - 1
+                                    if (depth <= 0) then
+                                        stmt_end = min(size(all_tokens), pos + 1)
+                                        return
+                                    end if
+                                end if
+                            end if
+                        end if
+                    end select
+                case ("do")
+                    select case (all_tokens(pos)%text)
+                    case ("do")
                         depth = depth + 1
-                    end if
-                case ("end")
-                    if (pos < size(all_tokens)) then
-                        if (all_tokens(pos + 1)%kind == TK_KEYWORD) then
-                            if (all_tokens(pos + 1)%text == "if") then
+                    case ("enddo", "end do")
+                        depth = depth - 1
+                        if (depth <= 0) then
+                            stmt_end = min(size(all_tokens), pos)
+                            return
+                        end if
+                    case ("end")
+                        if (pos + 1 <= size(all_tokens)) then
+                            if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                                all_tokens(pos + 1)%text == "do") then
                                 depth = depth - 1
                                 if (depth <= 0) then
                                     stmt_end = min(size(all_tokens), pos + 1)
@@ -203,13 +243,13 @@ contains
                                 end if
                             end if
                         end if
-                    end if
+                    end select
                 end select
             end if
             stmt_end = pos
             pos = pos + 1
         end do
-    end function locate_if_statement_end
+    end function locate_block_statement_end
 
     integer function locate_single_line_end(all_tokens, stmt_start, line_number) &
         result(stmt_end)
@@ -298,6 +338,8 @@ contains
                 token_lower = to_lower(stmt_tokens(first_token)%text)
                 if (trim(token_lower) == "if") then
                     stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
+                else if (trim(token_lower) == "do") then
+                    stmt_index = parse_do_statement_tokens(stmt_tokens, arena)
                 end if
             end if
         end if
@@ -317,5 +359,17 @@ contains
             end if
         end if
     end function parse_body_statement_tokens
+
+    integer function parse_do_statement_tokens(stmt_tokens, arena) result(do_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t) :: do_parser
+
+        ! Create a parser state from the tokens
+        do_parser = create_parser_state(stmt_tokens)
+
+        ! Parse the DO loop using the existing DO loop parser
+        do_index = parse_do_loop(do_parser, arena)
+    end function parse_do_statement_tokens
 
 end module parser_procedure_definition_bodies_module
