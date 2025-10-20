@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 31
+        integer, parameter :: NUM_INTRINSICS = 32
         integer :: i
 
         if (registry_initialized) return
@@ -177,6 +177,12 @@ contains
                                  name="shape", return_type="integer_array", &
                                  arg_types="array", &
                                  description="Array shape")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="reshape", return_type="array", &
+                                 arg_types="array,integer_array", &
+                                 description="Reshape array to new dimensions")
 
         ! String functions
         i = i + 1

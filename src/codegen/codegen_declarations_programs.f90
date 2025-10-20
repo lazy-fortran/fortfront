@@ -32,6 +32,7 @@ contains
         integer, allocatable :: non_use_indices(:)
         integer :: non_use_count
         logical :: context_has_executable_before_contains
+        character(len=:), allocatable :: extra_decl_code
 
         context_has_executable_before_contains = &
             has_executable_before_contains(arena, node)
@@ -49,10 +50,11 @@ contains
         code = "program " // node%name // new_line('A')
 
         call assemble_program_header(arena, node, code, non_use_indices, &
-                                     non_use_count)
+                                     non_use_count, extra_decl_code)
 
         call append_program_body(arena, node, code, non_use_indices, &
-                                 non_use_count, context_has_executable_before_contains)
+                                 non_use_count, extra_decl_code, &
+                                 context_has_executable_before_contains)
 
         if (allocated(non_use_indices)) then
             deallocate (non_use_indices)
@@ -203,12 +205,13 @@ contains
     end function has_prior_subroutine_with_name
 
     subroutine assemble_program_header(arena, node, code, non_use_indices, &
-                                       non_use_count)
+                                       non_use_count, extra_decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: code
         integer, allocatable, intent(out) :: non_use_indices(:)
         integer, intent(out) :: non_use_count
+        character(len=:), allocatable, intent(out) :: extra_decl_code
         logical :: has_implicit
         character(len=:), allocatable :: use_statements_code
         character(len=:), allocatable :: extra_decls
@@ -223,8 +226,15 @@ contains
             code = code // "    implicit none" // new_line('A')
         end if
 
+        extra_decl_code = ""
         extra_decls = collect_program_variable_decls(arena, node)
-        if (len_trim(extra_decls) > 0) code = code // extra_decls
+        if (len_trim(extra_decls) > 0) then
+            if (.not. has_implicit) then
+                code = code // extra_decls
+            else
+                extra_decl_code = extra_decls
+            end if
+        end if
     end subroutine assemble_program_header
 
     subroutine gather_program_header_entries(arena, node, has_implicit, &
@@ -296,12 +306,13 @@ contains
     end subroutine categorize_header_entry
 
     subroutine append_program_body(arena, node, code, non_use_indices, non_use_count, &
-                                   context_has_executable_before_contains)
+                                   extra_decl_code, context_has_executable_before_contains)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: code
         integer, intent(in) :: non_use_indices(:)
         integer, intent(in) :: non_use_count
+        character(len=*), intent(in) :: extra_decl_code
         logical, intent(in) :: context_has_executable_before_contains
         character(len=:), allocatable :: body_code
 
@@ -311,6 +322,8 @@ contains
                     arena, non_use_indices(1:non_use_count), 1, &
                     context_has_executable_before_contains)
 
+        call insert_program_decls(code, body_code, extra_decl_code)
+
         if (index(body_code, 'output_unit') > 0) then
             call ensure_output_unit_use(code)
         end if
@@ -319,6 +332,43 @@ contains
 
         code = code // body_code
     end subroutine append_program_body
+
+    subroutine insert_program_decls(code, body_code, extra_decl_code)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable, intent(inout) :: body_code
+        character(len=*), intent(in) :: extra_decl_code
+        integer :: impl_pos, insert_pos
+        character(len=:), allocatable :: before_code, after_code
+
+        if (len_trim(extra_decl_code) == 0) return
+        if (len(body_code) == 0) then
+            code = code // extra_decl_code
+            return
+        end if
+
+        impl_pos = index(body_code, 'implicit none')
+        if (impl_pos > 0) then
+            insert_pos = impl_pos + len('implicit none')
+            do while (insert_pos <= len(body_code))
+                if (body_code(insert_pos:insert_pos) == new_line('A')) then
+                    insert_pos = insert_pos + 1
+                    exit
+                end if
+                insert_pos = insert_pos + 1
+            end do
+
+            if (insert_pos <= len(body_code)) then
+                before_code = body_code(1:insert_pos - 1)
+                after_code = body_code(insert_pos:)
+            else
+                before_code = body_code
+                after_code = ''
+            end if
+            body_code = before_code // extra_decl_code // after_code
+        else
+            code = code // extra_decl_code
+        end if
+    end subroutine insert_program_decls
 
     subroutine ensure_output_unit_use(code)
         character(len=:), allocatable, intent(inout) :: code

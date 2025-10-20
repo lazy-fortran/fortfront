@@ -2,12 +2,14 @@ module codegen_declarations_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node, program_node
+    use ast_nodes_misc, only: contains_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string
     use ast_nodes_procedure, only: function_def_node
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: parameter_info_t
+    use intrinsic_registry, only: is_intrinsic_function
     implicit none
     private
     public :: build_parameter_map
@@ -339,12 +341,17 @@ contains
         type(program_node), intent(in) :: prog
         type(program_decl_state_t), intent(inout) :: state
         integer :: i, j, idx
+        logical :: contains_seen
+
+        contains_seen = .false.
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
             if (idx <= 0 .or. idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
+            type is (contains_node)
+                contains_seen = .true.
             type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     do j = 1, size(decl%var_names)
@@ -354,7 +361,15 @@ contains
                     call record_declared_name(state, trim(decl%var_name))
                 end if
             type is (function_def_node)
-                call try_add_internal_function(state, trim(decl%name))
+                if (contains_seen .and. allocated(decl%name)) then
+                    call try_add_internal_function(state, trim(decl%name))
+                end if
+            type is (call_or_subscript_node)
+                if (allocated(decl%name)) then
+                    if (is_intrinsic_function(trim(decl%name))) then
+                        call try_add_internal_function(state, trim(decl%name))
+                    end if
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
@@ -525,6 +540,7 @@ contains
         do i = 1, state%func_count
             if (exists_in_list(state%internal_funcs, state%internal_count, &
                                trim(state%func_names(i)))) cycle
+            if (is_intrinsic_function(trim(state%func_names(i)))) cycle
             code = code // "    " // trim(state%func_types(i)) // &
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
