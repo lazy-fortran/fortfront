@@ -1,0 +1,9 @@
+! Minimal reproducer: DO loop inside subroutine dropped
+subroutine test()
+    integer :: i
+    do i = 1, 3
+        print *, i
+    end do
+end subroutine test
+
+call test()
