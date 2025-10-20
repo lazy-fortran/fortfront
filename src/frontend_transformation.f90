@@ -314,8 +314,10 @@ contains
         call analyze_ast_content(shared_arena%ast, prog_index, has_functions, &
                                  has_subroutines, has_main_code)
 
-        ! Wrap AST based on content
-        if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
+        ! Check if there's already a module in the AST - if so, no wrapping needed
+        if (has_existing_module_in_ast(shared_arena%ast)) then
+            ! Don't wrap - preserve existing module structure
+        else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
             call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
         else if ((has_functions .or. has_subroutines) .and. has_main_code) then
             call wrap_ast_in_module_and_program(shared_arena%ast, prog_index, context)
@@ -1252,6 +1254,25 @@ contains
         end do
     end subroutine analyze_ast_content
 
+    ! Check if AST already contains a module node
+    function has_existing_module_in_ast(arena) result(has_module)
+        type(ast_arena_t), intent(in) :: arena
+        logical :: has_module
+        integer :: i
+
+        has_module = .false.
+
+        ! Scan all nodes in arena for a module node
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (module_node)
+                has_module = .true.
+                exit
+            end select
+        end do
+    end function has_existing_module_in_ast
+
     subroutine collect_procedure_indices(arena, proc_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(out) :: proc_indices(:)
@@ -1275,8 +1296,28 @@ contains
         integer, intent(in) :: proc_indices(:)
         integer, intent(out) :: mod_index
         type(module_node) :: mod
+        character(len=:), allocatable :: original_module_name
+        integer :: i
 
-        mod%name = context%module_name
+        ! Check if there's already a module in the AST and preserve its name
+        original_module_name = ""
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (module_node)
+                if (len(original_module_name) == 0) then
+                    original_module_name = node%name
+                    exit
+                end if
+            end select
+        end do
+
+        if (len(original_module_name) > 0) then
+            mod%name = original_module_name
+        else
+            mod%name = context%module_name
+        end if
+
         mod%has_contains = .true.
         mod%procedure_indices = proc_indices
         mod%line = 1
