@@ -69,34 +69,41 @@
         logical, intent(out) :: in_function, in_subroutine, in_module, in_do_loop, &
                                in_select_case, in_if_block
         integer, intent(out) :: nesting_level
+        integer :: check_pos
+
+        ! Skip numeric label if present
+        check_pos = start_pos
+        if (check_pos <= size(tokens) .and. tokens(check_pos)%kind == TK_NUMBER) then
+            check_pos = check_pos + 1
+        end if
 
         ! Look for function definition patterns
-        if (is_function_start(tokens, start_pos)) then
+        if (is_function_start(tokens, check_pos)) then
             in_function = .true.
             nesting_level = 1
-        else if (is_subroutine_start(tokens, start_pos)) then
+        else if (is_subroutine_start(tokens, check_pos)) then
             in_subroutine = .true.
             nesting_level = 1
-        else if (is_module_start(tokens, start_pos)) then
+        else if (is_module_start(tokens, check_pos)) then
             in_module = .true.
             nesting_level = 1
-        else if (is_program_start(tokens, start_pos)) then
+        else if (is_program_start(tokens, check_pos)) then
             ! Handle explicit program blocks
             in_module = .true.  ! Reuse module logic for program blocks
             nesting_level = 1
-        else if (is_do_while_start(tokens, start_pos)) then
+        else if (is_do_while_start(tokens, check_pos)) then
             in_do_loop = .true.
             nesting_level = 1
-        else if (is_do_loop_start(tokens, start_pos)) then
+        else if (is_do_loop_start(tokens, check_pos)) then
             in_do_loop = .true.
             nesting_level = 1
-        else if (is_select_case_start(tokens, start_pos)) then
+        else if (is_select_case_start(tokens, check_pos)) then
             in_select_case = .true.
             nesting_level = 1
-        else if (is_if_then_start(tokens, start_pos)) then
+        else if (is_if_then_start(tokens, check_pos)) then
             in_if_block = .true.
             nesting_level = 1
-        else if (is_type_start(tokens, start_pos)) then
+        else if (is_type_start(tokens, check_pos)) then
             ! Treat type definitions similar to modules - they are multiline constructs
             in_module = .true.
             nesting_level = 1

@@ -116,6 +116,25 @@ contains
             end if
 
             stmt_index = 0
+
+            ! Check for numeric statement label like 10  i = i + 1
+            if (token%kind == TK_NUMBER) then
+                ! Consume the label and get next token
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD) then
+                    lowered = trim(to_lower(token%text))
+                else
+                    lowered = ""
+                end if
+            end if
+
+            ! After potentially consuming label, check for end program again
+            if (token%kind == TK_KEYWORD .and. end_program_encountered(token)) then
+                call consume_end_program(parser)
+                exit
+            end if
+
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
                 call flush_pending_prefixes()
                 stmt_index = route_control_flow(parser, arena)
