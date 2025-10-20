@@ -470,19 +470,25 @@ contains
         lower_word = to_lower(word)
 
         select case (trim(lower_word))
-        case ('program', 'end', 'endif', 'function', 'subroutine', 'if', &
-              'then', 'else', &
+        case ('program', 'end', 'function', 'subroutine', 'if', &
+              'then', 'else', 'goto', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
-              'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
+              'intent', 'in', 'out', 'use', 'module', 'contains', &
               'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
               'abstract', &
               'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', &
               'read', 'write', 'call', &
               'allocate', 'deallocate', &
-              'select', 'case', 'default', 'where', 'elsewhere', 'endwhere', &
-              'associate', 'endassociate', 'forall', 'endforall')
+              'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &
+              'enum', 'file', 'submodule', 'rank', &
+              'elseif', 'elsewhere', 'inout', 'blockdata', 'doubleprecision', 'doublecomplex', &
+              'selectcase', &
+              'endif', 'enddo', 'endwhere', 'endforall', 'endassociate', 'endblock', &
+              'endblockdata', 'endenum', 'endfile', 'endfunction', 'endinterface', &
+              'endmodule', 'endprogram', 'endselect', 'endsubmodule', 'endsubroutine', &
+              'endtype')
             keyword = .true.
         case default
             keyword = .false.

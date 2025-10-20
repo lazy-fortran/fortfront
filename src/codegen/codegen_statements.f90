@@ -42,6 +42,13 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
 
+        ! Emit statement label if present (for GOTO targets)
+        if (allocated(node%stmt_label)) then
+            code = node%stmt_label // " "
+        else
+            code = ""
+        end if
+
         ! Generate left-hand side
         if (node%target_index > 0 .and. node%target_index <= arena%size) then
             left_code = generate_code_from_arena(arena, node%target_index)
@@ -58,9 +65,9 @@ contains
 
         ! Build assignment
         if (allocated(node%operator) .and. node%operator == "=>") then
-            code = left_code // " => " // right_code
+            code = code // left_code // " => " // right_code
         else
-            code = left_code // " = " // right_code
+            code = code // left_code // " = " // right_code
         end if
     end function generate_code_assignment
 
@@ -214,8 +221,12 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Generate goto statement code
-        code = "go to 999"  ! Basic goto statement
+        ! Generate goto statement with actual label
+        if (allocated(node%label)) then
+            code = "go to " // trim(node%label)
+        else
+            code = "go to 999"  ! Fallback for invalid goto
+        end if
     end function generate_code_goto
 
     ! Generate code for error termination statements

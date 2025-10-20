@@ -1,7 +1,8 @@
 module parser_control_statements_module
     ! Parser module for control flow statement types (stop, return, goto, cycle, exit, error_stop)
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, &
+                          to_lower
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
@@ -105,30 +106,41 @@ contains
         integer :: line, column
         character(len=:), allocatable :: label
 
-        ! Consume 'go' keyword
+        ! Consume 'go' or 'goto' keyword
         token = parser%peek()
         line = token%line
         column = token%column
-        token = parser%consume()
 
-        ! Expect 'to' keyword
-        token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "to") then
+        select case (trim(to_lower(token%text)))
+        case ("goto")
             token = parser%consume()
-
-            ! Expect label (number or identifier)
             token = parser%peek()
             if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
-                label = token%text
+                label = trim(token%text)
                 token = parser%consume()
             else
-                ! Invalid goto - missing label
                 label = ""
             end if
-        else
-            ! Invalid goto - missing 'to'
-            label = ""
-        end if
+        case default
+            token = parser%consume()
+
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD .and. trim(to_lower(token%text)) == "to") then
+                token = parser%consume()
+
+                token = parser%peek()
+                if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+                    label = trim(token%text)
+                    token = parser%consume()
+                else
+                    ! Invalid goto - missing label
+                    label = ""
+                end if
+            else
+                ! Invalid goto - missing 'to'
+                label = ""
+            end if
+        end select
 
         ! Validate that we have a proper label
         if (.not. allocated(label) .or. len_trim(label) == 0) then

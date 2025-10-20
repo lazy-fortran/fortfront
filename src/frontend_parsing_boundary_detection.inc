@@ -69,34 +69,41 @@
         logical, intent(out) :: in_function, in_subroutine, in_module, in_do_loop, &
                                in_select_case, in_if_block
         integer, intent(out) :: nesting_level
+        integer :: check_pos
+
+        ! Skip numeric label if present
+        check_pos = start_pos
+        if (check_pos <= size(tokens) .and. tokens(check_pos)%kind == TK_NUMBER) then
+            check_pos = check_pos + 1
+        end if
 
         ! Look for function definition patterns
-        if (is_function_start(tokens, start_pos)) then
+        if (is_function_start(tokens, check_pos)) then
             in_function = .true.
             nesting_level = 1
-        else if (is_subroutine_start(tokens, start_pos)) then
+        else if (is_subroutine_start(tokens, check_pos)) then
             in_subroutine = .true.
             nesting_level = 1
-        else if (is_module_start(tokens, start_pos)) then
+        else if (is_module_start(tokens, check_pos)) then
             in_module = .true.
             nesting_level = 1
-        else if (is_program_start(tokens, start_pos)) then
+        else if (is_program_start(tokens, check_pos)) then
             ! Handle explicit program blocks
             in_module = .true.  ! Reuse module logic for program blocks
             nesting_level = 1
-        else if (is_do_while_start(tokens, start_pos)) then
+        else if (is_do_while_start(tokens, check_pos)) then
             in_do_loop = .true.
             nesting_level = 1
-        else if (is_do_loop_start(tokens, start_pos)) then
+        else if (is_do_loop_start(tokens, check_pos)) then
             in_do_loop = .true.
             nesting_level = 1
-        else if (is_select_case_start(tokens, start_pos)) then
+        else if (is_select_case_start(tokens, check_pos)) then
             in_select_case = .true.
             nesting_level = 1
-        else if (is_if_then_start(tokens, start_pos)) then
+        else if (is_if_then_start(tokens, check_pos)) then
             in_if_block = .true.
             nesting_level = 1
-        else if (is_type_start(tokens, start_pos)) then
+        else if (is_type_start(tokens, check_pos)) then
             ! Treat type definitions similar to modules - they are multiline constructs
             in_module = .true.
             nesting_level = 1
@@ -129,7 +136,7 @@
 
             ! Store i before check_end_constructs (which may modify it)
             i_before = i
-            
+
             ! Check for end constructs
             call check_end_constructs(tokens, i, unit_end, in_function, &
                                     in_subroutine, in_module, in_do_loop, &
@@ -137,7 +144,7 @@
 
             ! Stop when we've closed all nested constructs
             if (nesting_level == 0) exit
-            
+
             ! If check_end_constructs didn't advance i, do it ourselves
             if (i == i_before) then
                 unit_end = i
@@ -204,16 +211,28 @@
                 unit_end = i  ! Include the subroutine name
                 i = i + 1     ! Skip the subroutine name
             end if
-        else if (in_module .and. (is_end_module(tokens, i) .or. is_end_type(tokens, i))) then
+        else if (in_module .and. (is_end_module(tokens, i) .or. is_end_type(tokens, i) .or. &
+                                  is_end_program_here(tokens, i))) then
             nesting_level = nesting_level - 1
-            ! For modules: include "end module" tokens and optional module name
-            ! For types: include "end type" tokens and optional type name
-            unit_end = i + 1  ! Include both "end" and "module"/"type" tokens
-            i = i + 2  ! Skip both "end" and "module"/"type" tokens
-            ! Check for optional module/type name after "end module"/"end type"
-            if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
-                unit_end = i  ! Include the module/type name
-                i = i + 1     ! Skip the module/type name
+            ! Check if endprogram is single keyword or two
+            if (tokens(i)%text == "endprogram" .or. tokens(i)%text == "endmodule" .or. &
+                tokens(i)%text == "endtype") then
+                unit_end = i
+                i = i + 1
+                ! Check for optional name
+                if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
+                    unit_end = i
+                    i = i + 1
+                end if
+            else
+                ! Two tokens: "end program/module/type"
+                unit_end = i + 1
+                i = i + 2
+                ! Check for optional name
+                if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
+                    unit_end = i
+                    i = i + 1
+                end if
             end if
         else if (in_do_loop .and. is_end_do(tokens, i)) then
             nesting_level = nesting_level - 1
@@ -238,6 +257,26 @@
             i = i + 1
         end if
     end subroutine check_end_constructs
+
+    ! Check for end program
+    logical function is_end_program_here(tokens, pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+
+        is_end_program_here = .false.
+        if (pos < 1 .or. pos > size(tokens)) return
+
+        ! Check for "end program" or "endprogram"
+        if (tokens(pos)%kind == TK_KEYWORD) then
+            if (tokens(pos)%text == "endprogram") then
+                is_end_program_here = .true.
+            else if (tokens(pos)%text == "end" .and. pos + 1 <= size(tokens) .and. &
+                    tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                    tokens(pos + 1)%text == "program") then
+                is_end_program_here = .true.
+            end if
+        end if
+    end function is_end_program_here
 
     ! Handle single line construct
     subroutine handle_single_line_construct(tokens, start_pos, unit_start, unit_end, &
