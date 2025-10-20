@@ -62,7 +62,8 @@ contains
         end if
 
         ! Check for numeric label 100
-        if (index(output, '100 continue') == 0 .and. index(output, '100continue') == 0) then
+        if (index(output, '100 continue') == 0 .and. &
+            index(output, '100continue') == 0) then
             print *, '  FAIL: label 100 missing in output'
             test_simple_goto_preservation = .false.
         else
