@@ -81,6 +81,10 @@ contains
             attr_info%is_optional = .true.
             token = parser%consume()
             handled = .true.
+        case ("save")
+            attr_info%is_save = .true.
+            token = parser%consume()
+            handled = .true.
         case ("target")
             attr_info%is_target = .true.
             token = parser%consume()

@@ -54,6 +54,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_parameter = .false.  ! Whether parameter
         ! attribute is present (for constants)
+        logical :: is_save = .false.  ! Whether save
+        ! attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -171,6 +173,7 @@ contains
         lhs%is_target = rhs%is_target
         lhs%is_external = rhs%is_external
         lhs%is_parameter = rhs%is_parameter
+        lhs%is_save = rhs%is_save
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if

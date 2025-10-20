@@ -71,7 +71,7 @@ contains
                                               initializer_index, is_allocatable, &
                                               is_pointer, &
                                               is_target, is_external, intent_value, &
-                                              is_optional, is_parameter, line, column)
+                                              is_optional, is_parameter, is_save, line, column)
         type(declaration_node), intent(inout) :: decl
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
@@ -83,6 +83,7 @@ contains
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
+        logical, intent(in), optional :: is_save
         integer, intent(in), optional :: line, column
 
         call assign_kind_metadata(decl%has_kind, decl%kind_value, kind_value)
@@ -117,6 +118,7 @@ contains
 
         decl%is_optional = resolve_optional_flag(is_optional, .false.)
         decl%is_parameter = resolve_optional_flag(is_parameter, .false.)
+        decl%is_save = resolve_optional_flag(is_save, .false.)
 
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
@@ -174,7 +176,7 @@ contains
                               dimension_indices, initializer_index, &
                               is_allocatable, is_pointer, is_target, &
                               is_external, intent_value, is_optional, &
-                              is_parameter, line, column, parent_index) &
+                              is_parameter, is_save, line, column, parent_index) &
         result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
@@ -189,6 +191,7 @@ contains
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
+        logical, intent(in), optional :: is_save
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
         type(declaration_node) :: decl
@@ -213,7 +216,8 @@ contains
                                             is_external=is_external, &
                                             intent_value=intent_value, &
                                             is_optional=is_optional, &
-                                            is_parameter=is_parameter, line=line, &
+                                            is_parameter=is_parameter, &
+                                            is_save=is_save, line=line, &
                                             column=column)
 
         call arena%push(decl, "declaration", parent_index)
