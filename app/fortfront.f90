@@ -8,6 +8,7 @@ program fortfront_cli
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
+    use lexer_core, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
     implicit none
 
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -254,6 +255,7 @@ program fortfront_cli
         flush (output_unit)
     end if
 
+    
     ! Handle errors: print diagnostics and return non-zero exit
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
@@ -278,6 +280,27 @@ program fortfront_cli
 
 contains
 
+    function extract_module_name_from_source(source) result(module_name)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable :: module_name
+        type(token_t), allocatable :: tokens(:)
+        integer :: i
+
+        allocate (character(len=0) :: module_name)
+
+        ! Tokenize the source code
+        call tokenize_core(source, tokens)
+
+        ! Look for module start and extract name
+        do i = 1, size(tokens) - 1
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "module" .and. &
+                tokens(i + 1)%kind == TK_IDENTIFIER) then
+                module_name = tokens(i + 1)%text
+                exit
+            end if
+        end do
+    end function extract_module_name_from_source
+
     subroutine create_transform_context(from_file, filename, input_text, context)
         logical, intent(in) :: from_file
         character(len=:), allocatable, intent(in) :: filename
@@ -294,10 +317,13 @@ contains
     subroutine configure_context_from_file(filename, context)
         character(len=:), allocatable, intent(in) :: filename
         type(transform_context_t), intent(out) :: context
-        character(len=:), allocatable :: basename, extension
+        character(len=:), allocatable :: basename, extension, source_content, actual_module_name
+        integer :: unit_num, io_stat, file_size
+        character(len=MAX_INPUT_SIZE) :: buffer
 
         call split_filename(filename, basename, extension)
 
+        
         if (extension == '.lf') then
             context%input_mode = INPUT_MODE_LAZY
         else
@@ -306,6 +332,7 @@ contains
 
         context%source_name = basename
         context%module_name = basename
+
         context%program_name = 'main'
         context%has_filename = .true.
     end subroutine configure_context_from_file
