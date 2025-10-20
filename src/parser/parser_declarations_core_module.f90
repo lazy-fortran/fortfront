@@ -48,7 +48,7 @@ contains
         call skip_declaration_separator(parser)
 
         identifier_token = parser%consume()
-        if (identifier_token%kind /= TK_IDENTIFIER) then
+        if (identifier_token%kind /= TK_IDENTIFIER .and. identifier_token%kind /= TK_KEYWORD) then
             return
         end if
 
