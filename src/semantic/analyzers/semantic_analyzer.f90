@@ -53,7 +53,8 @@ module semantic_analyzer
                                  select_case_node, case_block_node, &
                                  associate_node, association_t, cycle_node, &
                                  exit_node, &
-                                 stop_node, return_node, elsewhere_clause_t
+                                 stop_node, return_node, continue_node, &
+                                 elsewhere_clause_t
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
@@ -613,6 +614,9 @@ contains
             type is (return_node)
                 local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
                 call finalize_node(node_index, local_type)
+            type is (continue_node)
+                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
+                call finalize_node(node_index, local_type)
             class default
                 post_frame = current
                 if (allocated(post_frame%param_types)) deallocate &
@@ -1070,7 +1074,7 @@ contains
                 ! Create fresh type variable for continued analysis
                 typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
             else
-                ! Lazy Fortran mode: auto-declare undefined variables with type inference
+                ! Lazy mode: auto-declare undefined variables with inferred type
                 ! Try to infer the type from context or create a fresh type variable
                 typ = infer_type_from_usage_context(ident%name, ctx%next_var_id)
 
@@ -1128,7 +1132,10 @@ contains
         else
             ! Arithmetic operators
             typ = get_common_type(left_typ, right_typ)
-            if (typ%kind == 0) then; call ctx%unify(left_typ, right_typ); typ = left_typ; end if
+            if (typ%kind == 0) then
+                call ctx%unify(left_typ, right_typ)
+                typ = left_typ
+            end if
         end if
 
         ! Store inferred type in node
@@ -1297,7 +1304,8 @@ contains
         call set_node_inferred_type(arena, assignment_index, typ)
     end function infer_assignment
 
-    ! Best-effort: if a declaration for the given name exists in the arena, define it in scope
+    ! If a declaration for the given name exists in the arena, define it
+    ! in the current scope
     subroutine ensure_declared_from_arena(ctx, arena, name)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena

@@ -81,8 +81,8 @@ contains
         type is (assignment_node)
             select type (n2 => node2)
             type is (assignment_node)
-                ! Assignment nodes don't have direct left/right members in the current implementation
-                ! They have indices instead
+                ! Assignment nodes don't have direct left/right members
+                ! in the current implementation. They have indices instead
                 is_same = .false.
             end select
         type is (identifier_node)
@@ -220,8 +220,8 @@ contains
         character(len=:), allocatable :: dim_code
 
         name_with_dims = param_node%name
-        ! Note: parameter_declaration_node doesn't have dimension_indices in current implementation
-        ! This is a placeholder for future enhancement
+        ! parameter_declaration_node currently lacks dimension_indices
+        ! so this remains a placeholder for future enhancement
     end function build_param_name_with_dims
 
     ! Generate grouped declaration statement
@@ -288,7 +288,8 @@ contains
 
                     type is (function_def_node)
                         if (in_contains_section .and. i > 1) then
-                            code = code // new_line('A')  ! Extra blank line between procedures
+                            ! Insert blank line between contains procedures
+                            code = code // new_line('A')
                         end if
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
@@ -296,7 +297,8 @@ contains
 
                     type is (subroutine_def_node)
                         if (in_contains_section .and. i > 1) then
-                            code = code // new_line('A')  ! Extra blank line between procedures
+                            ! Insert blank line between contains procedures
+                            code = code // new_line('A')
                         end if
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
@@ -356,6 +358,11 @@ contains
                         i = i + 1
 
                     type is (return_node)
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        code = code // indent_lines(stmt_code, indent) // new_line('A')
+                        i = i + 1
+
+                    type is (continue_node)
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_lines(stmt_code, indent) // new_line('A')
                         i = i + 1
@@ -449,8 +456,9 @@ contains
             end if
         end select
 
-        ! First pass: collect parameter declarations from body to get types and attributes
-        ! Always scan body for parameter declarations (attributes might come from body, not param list)
+        ! First pass: collect parameter declarations from the body to capture
+        ! types and attributes. Attributes may appear inside the body rather
+        ! than the signature.
         if (size(param_map) > 0) then
             do i = 1, size(body_indices)
                 if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
@@ -485,7 +493,8 @@ contains
                                     end do
 
                                     if (found_params) then
-                                        ! Generate declaration for all parameters in this multi-declaration
+                                        ! Parameter declarations
+                                        ! generated for this block
                                         type_name = trim(node%type_name)
                                         if (is_character_type_string(type_name)) then
                                             type_name = &
@@ -534,7 +543,8 @@ contains
 
                                         code = code // new_line('A')
 
-                                        ! Also emit a declaration for non-parameter variables (locals)
+                                        ! Emit declarations for
+                                        ! non-parameter local variables
                                         block
                                             character(len=:), allocatable :: &
                                                 nonparam_list
@@ -578,7 +588,8 @@ contains
                                                     code = code // "(" // &
                                     trim(adjustl(int_to_string(node%kind_value))) // ")"
                                                 end if
-                                                ! Intentionally do NOT add intent/optional for non-parameters
+                                                ! Skip intent/optional for
+                                                ! locals that are not parameters
                                                 code = code // " :: " // &
                                                        nonparam_list &
                                                        // new_line('A')
@@ -593,7 +604,8 @@ contains
                                 param_idx = find_parameter_info(param_map, &
                                                                 node%var_name)
                                 if (param_idx > 0) then
-                                    ! Generate the declaration with parameter attributes from the declaration node
+                                    ! Use declaration node
+                                    ! attributes when emitting
                                     type_name = trim(node%type_name)
                                     if (is_character_type_string(type_name)) then
                                         type_name = &
@@ -645,10 +657,12 @@ contains
                                 end if
                             end if
                         type is (parameter_declaration_node)
-                            ! Check if this parameter_declaration_node is for a parameter
+                            ! Determine if this node is
+                            ! a parameter declaration
                             param_idx = find_parameter_info(param_map, node%name)
                             if (param_idx > 0) then
-                                ! Generate the declaration with attributes from parameter_declaration_node
+                                ! Emit declaration using
+                                ! parameter_declaration_node data
                                 type_name = trim(node%type_name)
                                 if (is_character_type_string(type_name)) then
                                     type_name = &
@@ -670,7 +684,8 @@ contains
                                     trim(adjustl(int_to_string(node%kind_value))) // ")"
                                 end if
 
-                                ! Use attributes from the parameter_declaration_node itself
+                                ! Apply attributes stored
+                                ! on parameter_declaration_node
                                 if (len_trim(param_map(param_idx)%intent_str) > 0) then
                                     code = code // ", intent(" // &
                                            param_map(param_idx)%intent_str // ")"
@@ -703,7 +718,8 @@ contains
             end do
         end if
 
-        ! Second pass: generate body, filtering out parameter declarations and result variable declarations
+        ! Second pass emits body without
+        ! parameter and result declarations
         allocate (filtered_indices(size(body_indices)))
         filtered_count = 0
 
@@ -717,7 +733,8 @@ contains
                         if (size(param_map) > 0) then
                             if (node%is_multi_declaration .and. &
                                 allocated(node%var_names)) then
-                                ! Check if any variable in multi-declaration is a parameter
+                                ! Determine if any variable is
+                                ! a parameter in this list
                                 do var_idx = 1, size(node%var_names)
                                     param_idx = find_parameter_info(param_map, &
                                                           trim(node%var_names(var_idx)))
@@ -736,9 +753,9 @@ contains
                             end if
                         end if
 
-                        ! Skip result variable declaration if return type is in signature,
-                        ! unless the declaration carries attributes that cannot be expressed
-                        ! in the function statement (e.g., array shape or allocatable flag).
+                        ! Skip result declaration when
+                        ! signature covers it unless
+                        ! extra attributes demand one
                         if (.not. should_skip .and. has_return_type_in_signature) then
                             if (len_trim(result_var_name) > 0) then
                                 has_dimensions = &
@@ -758,7 +775,8 @@ contains
                                 if (.not. keep_result_decl) then
                                     if (node%is_multi_declaration .and. &
                                         allocated(node%var_names)) then
-                                        ! Check if any variable in multi-declaration is the result variable
+                                        ! Determine if any variable
+                                        ! is the result symbol here
                                         do var_idx = 1, size(node%var_names)
                                             if (trim(node%var_names(var_idx)) == &
                                                 result_var_name) then
@@ -907,7 +925,7 @@ contains
                 end do
 
                 ! Generate grouped declaration
-                ! Avoid MERGE on character of unequal lengths; build intent string explicitly
+                ! Avoid MERGE for unequal character lengths; build intent manually
                 block
                     character(len=:), allocatable :: intent_str
                     if (first_node%has_intent) then

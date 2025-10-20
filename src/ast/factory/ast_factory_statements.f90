@@ -8,7 +8,7 @@ module ast_factory_statements
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
-                                 cycle_node, exit_node
+                                 cycle_node, exit_node, continue_node
     use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
@@ -17,7 +17,7 @@ module ast_factory_statements
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement
     public :: push_end_statement
-    public :: push_stop, push_return, push_goto, push_error_stop
+    public :: push_stop, push_return, push_continue, push_goto, push_error_stop
     public :: push_cycle, push_exit
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
@@ -244,15 +244,34 @@ contains
         return_index = arena%size
     end function push_return
 
+    function push_continue(arena, line, column, parent_index) result(continue_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: continue_index
+        type(continue_node) :: continue_stmt
+
+        continue_stmt%uid = generate_uid()
+        if (present(line)) continue_stmt%line = line
+        if (present(column)) continue_stmt%column = column
+
+        call arena%push(continue_stmt, "continue_node", parent_index)
+        continue_index = arena%size
+    end function push_continue
+
     ! Create GOTO statement node and add to stack
-    function push_goto(arena, label, line, column, parent_index) result(goto_index)
+    function push_goto(arena, label, label_list, selector_index, line, column, &
+                       parent_index) result(goto_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: label
+        character(len=*), intent(in), optional :: label_list
+        integer, intent(in), optional :: selector_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: goto_index
         type(goto_node) :: goto_stmt
         goto_stmt%uid = generate_uid()
         if (present(label)) goto_stmt%label = label
+        if (present(label_list)) goto_stmt%label_list = label_list
+        if (present(selector_index)) goto_stmt%selector_index = selector_index
         if (present(line)) goto_stmt%line = line
         if (present(column)) goto_stmt%column = column
 
