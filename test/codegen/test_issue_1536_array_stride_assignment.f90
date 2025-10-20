@@ -7,7 +7,8 @@ program test_issue_1536_array_stride_assignment
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
-    source = "integer :: arr(10) = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" // new_line('a') // &
+    source = "integer :: arr(10) = [1, 2, 3, 4, 5, 6, 7, 8," // &
+             " 9, 10]" // new_line('a') // &
              "arr(1:9:2) = 0" // new_line('a') // &
              "print *, arr"
 
@@ -20,7 +21,8 @@ program test_issue_1536_array_stride_assignment
         end if
     end if
 
-    if (index(output, 'arr(1:9:2) = 0') > 0 .or. index(output, 'arr(1:9:2)=0') > 0) then
+    if (index(output, 'arr(1:9:2) = 0') > 0 .or. &
+        index(output, 'arr(1:9:2)=0') > 0) then
         print *, 'PASS: array stride assignment preserved'
     else
         print *, 'FAIL: array stride assignment missing in output'
