@@ -204,7 +204,7 @@ contains
                 if (node%is_array .and. allocated(node%dimension_indices)) then
                     if (.not. has_dimension_attr) then
                         entities = trim(entities) // build_dimension_clause( &
-                                   arena, node%dimension_indices)
+                                   arena, node%dimension_indices, node%is_allocatable)
                     end if
                 end if
             end do
@@ -213,15 +213,17 @@ contains
             if (node%is_array .and. allocated(node%dimension_indices)) then
                 if (.not. has_dimension_attr) then
                     entities = trim(entities) // build_dimension_clause( &
-                               arena, node%dimension_indices)
+                               arena, node%dimension_indices, node%is_allocatable)
                 end if
             end if
         end if
     end function build_declaration_entity_list
 
-    function build_dimension_clause(arena, dimension_indices) result(clause)
+    function build_dimension_clause(arena, dimension_indices, is_allocatable) &
+        result(clause)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: dimension_indices(:)
+        logical, intent(in) :: is_allocatable
         character(len=:), allocatable :: clause
         integer :: i
         integer :: dim_index
@@ -234,13 +236,17 @@ contains
         clause = "("
         do i = 1, size(dimension_indices)
             if (i > 1) clause = clause // ","
-            dim_index = dimension_indices(i)
-            if (dim_index > 0 .and. dim_index <= arena%size) then
-                clause = clause // generate_code_from_arena(arena, dim_index)
-            else if (dim_index > arena%size) then
-                clause = clause // int_to_string(dim_index)
-            else
+            if (is_allocatable) then
                 clause = clause // ":"
+            else
+                dim_index = dimension_indices(i)
+                if (dim_index > 0 .and. dim_index <= arena%size) then
+                    clause = clause // generate_code_from_arena(arena, dim_index)
+                else if (dim_index > arena%size) then
+                    clause = clause // int_to_string(dim_index)
+                else
+                    clause = clause // ":"
+                end if
             end if
         end do
         clause = clause // ")"
