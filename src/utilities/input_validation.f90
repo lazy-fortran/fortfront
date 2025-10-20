@@ -456,6 +456,14 @@ contains
                             end_module_count = end_module_count + 1
                         end select
                     end if
+                case ("endprogram")
+                    end_program_count = end_program_count + 1
+                case ("endfunction")
+                    end_function_count = end_function_count + 1
+                case ("endsubroutine")
+                    end_subroutine_count = end_subroutine_count + 1
+                case ("endmodule")
+                    end_module_count = end_module_count + 1
                 end select
             end if
         end do

@@ -27,6 +27,9 @@ module ast_base
         ! Unique identifier for CST/AST bidirectional linking
         type(uid_t) :: uid
 
+        ! Statement label (for GOTO targets, like 10  i = i + 1)
+        character(len=:), allocatable :: stmt_label
+
         ! Constant folding information
         logical :: is_constant = .false.  ! True if this node is a compile-time constant
         logical :: constant_logical  ! For logical constants

@@ -604,7 +604,7 @@ contains
                 if (associated(callbacks%parse_do_loop)) then
                     stmt_index = callbacks%parse_do_loop(parser, arena)
                 end if
-            case ("select")
+            case ("select", "selectcase")
                 if (associated(callbacks%parse_select_case)) then
                     stmt_index = callbacks%parse_select_case(parser, arena)
                 end if
@@ -642,7 +642,7 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
-            case ("go")
+            case ("go", "goto")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")
                 stmt_index = parse_error_stop_statement(parser, arena)
@@ -659,9 +659,18 @@ contains
         integer, intent(in), optional :: parent_index
         type(token_t), intent(in) :: tokens(:)
         type(token_t) :: id_token, op_token
+        character(len=:), allocatable :: lowered_identifier
 
         stmt_index = 0
         id_token = parser%consume()
+        lowered_identifier = trim(to_lower(id_token%text))
+        if (lowered_identifier == "goto") then
+            ! Rewind to allow the goto parser to consume the identifier
+            parser%current_token = max(1, parser%current_token - 1)
+            stmt_index = parse_goto_statement(parser, arena)
+            return
+        end if
+
         op_token = parser%peek()
 
         if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then

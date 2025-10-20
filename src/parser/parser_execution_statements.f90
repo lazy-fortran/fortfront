@@ -31,7 +31,7 @@ module parser_execution_statements_module
     use parser_implicit_shared_module, only: parse_simple_implicit_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
-                           push_declaration, push_implicit_statement
+                           push_declaration, push_implicit_statement, push_goto
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     implicit none
     private
@@ -98,6 +98,7 @@ contains
         type(parser_prefix_buffer_t) :: prefix_buffer
         character(len=16), allocatable :: pending_prefixes(:)
         character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: stmt_label
         integer :: stmt_index
 
         call prefix_buffer%clear()
@@ -116,6 +117,29 @@ contains
             end if
 
             stmt_index = 0
+            ! Clear label for this statement
+            if (allocated(stmt_label)) deallocate (stmt_label)
+
+            ! Check for numeric statement label like 10  i = i + 1
+            if (token%kind == TK_NUMBER) then
+                ! Save the label text
+                stmt_label = trim(token%text)
+                ! Consume the label and get next token
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD) then
+                    lowered = trim(to_lower(token%text))
+                else
+                    lowered = ""
+                end if
+            end if
+
+            ! After potentially consuming label, check for end program again
+            if (token%kind == TK_KEYWORD .and. end_program_encountered(token)) then
+                call consume_end_program(parser)
+                exit
+            end if
+
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
                 call flush_pending_prefixes()
                 stmt_index = route_control_flow(parser, arena)
@@ -130,6 +154,15 @@ contains
                 case default
                     call consume_misc(parser)
                 end select
+            end if
+
+            ! Set label on the created statement node if we have one
+            if (stmt_index > 0 .and. allocated(stmt_label)) then
+                if (stmt_index <= arena%size) then
+                    if (allocated(arena%entries(stmt_index)%node)) then
+                        arena%entries(stmt_index)%node%stmt_label = stmt_label
+                    end if
+                end if
             end if
 
             call append_statement(stmt_index, body_indices)
@@ -154,6 +187,14 @@ contains
             type(token_t), intent(in) :: current_token
             is_end = .false.
             if (current_token%kind /= TK_KEYWORD) return
+
+            ! Handle "endprogram" (single keyword)
+            if (current_token%text == "endprogram") then
+                is_end = .true.
+                return
+            end if
+
+            ! Handle "end program" (two keywords)
             if (current_token%text /= "end") return
             if (parser%current_token + 1 > size(parser%tokens)) return
             if (parser%tokens(parser%current_token + 1)%kind /= TK_KEYWORD) return
@@ -164,8 +205,15 @@ contains
         subroutine consume_end_program(parser_ref)
             type(parser_state_t), intent(inout) :: parser_ref
             type(token_t) :: local_token
+
+            ! Consume "endprogram" or "end" "program"
             local_token = parser_ref%consume()
-            local_token = parser_ref%consume()
+            if (local_token%text /= "endprogram") then
+                ! Must be "end", consume "program" next
+                local_token = parser_ref%consume()
+            end if
+
+            ! Check for optional program name
             local_token = parser_ref%peek()
             if (local_token%kind == TK_IDENTIFIER) then
                 local_token = parser_ref%consume()
@@ -290,11 +338,26 @@ contains
             type(ast_arena_t), intent(inout) :: arena_ref
             type(token_t), intent(in) :: current_token
             character(len=:), allocatable :: lowered_identifier
+            type(token_t) :: next_token
 
             call flush_pending_prefixes()
             lowered_identifier = trim(to_lower(current_token%text))
             if (lowered_identifier == "class") then
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
+            else if (lowered_identifier == "goto") then
+                ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
+                ! Parser is pointing AT the goto token (caller peeked but didn't consume)
+                next_token = parser_ref%consume()  ! Consume "goto"
+                next_token = parser_ref%peek()
+                if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+                    stmt_index = push_goto(arena_ref, trim(next_token%text), &
+                                          current_token%line, current_token%column)
+                    next_token = parser_ref%consume()  ! Consume the label
+                else
+                    ! Invalid goto - missing label
+                    stmt_index = push_goto(arena_ref, "INVALID_LABEL", &
+                                          current_token%line, current_token%column)
+                end if
             else
                 call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
                                                 additional_execution_indices)
