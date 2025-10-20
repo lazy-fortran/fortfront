@@ -80,9 +80,11 @@ program fortfront_cli
                             if (is_file) then
                                 if (len_trim(optval) == 0) then
                                     if (i < num_args) then
-                                        call get_command_argument(i + 1, length=next_len)
+                                        call get_command_argument(i + 1, &
+                                                                  length=next_len)
                                         allocate (character(len=next_len) :: next_arg)
-                                        call get_command_argument(i + 1, value=next_arg)
+                                        call get_command_argument(i + 1, &
+                                                                  value=next_arg)
                                         if (len_trim(next_arg) == 0 .or. &
                                             next_arg(1:1) == '-') then
                                             write (error_unit, '(A)') &
@@ -177,7 +179,8 @@ program fortfront_cli
         write (output_unit, '(A)') ''
         write (output_unit, '(A)') 'EXAMPLES:'
         write (output_unit, '(A)') '    fortfront input.lf        # Transpile file'
-        write (output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
+        write (output_unit, '(A)') &
+            '    cat input.lf | fortfront  # Transpile from stdin'
         write (output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
         write (output_unit, '(A)') &
             '    fortfront -- -file.lf     # Filename begins with a hyphen'
@@ -255,7 +258,6 @@ program fortfront_cli
         flush (output_unit)
     end if
 
-    
     ! Handle errors: print diagnostics and return non-zero exit
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
@@ -306,9 +308,19 @@ contains
         character(len=:), allocatable, intent(in) :: filename
         character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
+        character(len=:), allocatable :: actual_module_name
 
         if (from_file .and. allocated(filename)) then
             call configure_context_from_file(filename, context)
+            if (len_trim(input_text) > 0) then
+                actual_module_name = extract_module_name_from_source(input_text)
+                if (allocated(actual_module_name)) then
+                    if (len_trim(actual_module_name) > 0) then
+                        context%module_name = trim(actual_module_name)
+                    end if
+                    deallocate (actual_module_name)
+                end if
+            end if
         else
             call configure_context_from_stdin(input_text, context)
         end if
@@ -317,13 +329,10 @@ contains
     subroutine configure_context_from_file(filename, context)
         character(len=:), allocatable, intent(in) :: filename
         type(transform_context_t), intent(out) :: context
-        character(len=:), allocatable :: basename, extension, source_content, actual_module_name
-        integer :: unit_num, io_stat, file_size
-        character(len=MAX_INPUT_SIZE) :: buffer
+        character(len=:), allocatable :: basename, extension
 
         call split_filename(filename, basename, extension)
 
-        
         if (extension == '.lf') then
             context%input_mode = INPUT_MODE_LAZY
         else
@@ -459,7 +468,8 @@ contains
 
         do
             do
-                read (unit_num, '(A)', advance='no', iostat=ios, size=chunk_size) buffer
+                read (unit_num, '(A)', advance='no', iostat=ios, &
+                      size=chunk_size) buffer
                 call process_read_result(ios, chunk_size, buffer, text, total_size, &
                                          capacity, status, exit_inner_loop, &
                                          reached_end)
@@ -509,14 +519,17 @@ contains
         case (iostat_end)
             exit_inner_loop = .true.
             reached_end = .true.
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
         case (iostat_eor)
             exit_inner_loop = .true.
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
             if (status /= 0) return
             call append_newline(text, total_size, capacity, status)
         case (0)
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
         case default
             write (error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
             status = 3

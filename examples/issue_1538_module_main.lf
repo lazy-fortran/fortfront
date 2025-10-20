@@ -3,11 +3,11 @@ module math_utils
     implicit none
 contains
     function square(x)
-        real, intent(in) :: x
-        real :: square
+        real(8), intent(in) :: x
+        real(8) :: square
         square = x * x
     end function square
 end module math_utils
 
 use math_utils
-print *, square(5.0)
+print *, square(5.0d0)
