@@ -263,8 +263,9 @@ contains
                         node_type%kind = src_type%kind
                         node_type%size = src_type%size
                         node_type%var%id = src_type%var%id
-                        node_type%var%name = src_type%var%name  ! Fixed-size character copy
-                        ! Unified arena API handles args internally - no manual copying needed
+                        node_type%var%name = src_type%var%name
+                        ! Arena API handles arguments internally.
+                        ! Fixed-size copy covers the name.
                     end associate
                     found = .true.
                 end if
@@ -411,6 +412,8 @@ contains
             node_type = NODE_STOP
         case ("return_node", "return")
             node_type = NODE_RETURN
+        case ("continue_node", "continue")
+            node_type = NODE_CONTINUE
         case ("goto_node", "goto")
             node_type = NODE_GOTO
         case ("error_stop_node", "error_stop")

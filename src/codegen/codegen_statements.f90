@@ -20,6 +20,7 @@ module codegen_statements
     public :: generate_code_read_statement
     public :: generate_code_termination
     public :: generate_code_return
+    public :: generate_code_continue
     public :: generate_code_goto
     public :: generate_code_error_termination
     public :: generate_code_cycle
@@ -34,6 +35,20 @@ module codegen_statements
     public :: generate_code_deallocate_statement
 
 contains
+    pure subroutine prepend_stmt_label(code, label)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable, intent(in) :: label
+
+        if (.not. allocated(code)) code = ""
+        if (allocated(label)) then
+            if (len(code) > 0) then
+                code = label // " " // code
+            else
+                code = label
+            end if
+        end if
+    end subroutine prepend_stmt_label
+
     ! Generate code for assignment statements
     function generate_code_assignment(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -41,13 +56,6 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
-
-        ! Emit statement label if present (for GOTO targets)
-        if (allocated(node%stmt_label)) then
-            code = node%stmt_label // " "
-        else
-            code = ""
-        end if
 
         ! Generate left-hand side
         if (node%target_index > 0 .and. node%target_index <= arena%size) then
@@ -65,10 +73,12 @@ contains
 
         ! Build assignment
         if (allocated(node%operator) .and. node%operator == "=>") then
-            code = code // left_code // " => " // right_code
+            code = left_code // " => " // right_code
         else
-            code = code // left_code // " = " // right_code
+            code = left_code // " = " // right_code
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_assignment
 
     ! Generate code for subroutine calls
@@ -87,15 +97,18 @@ contains
             args_code = ""
             do i = 1, size(node%arg_indices)
                 if (i > 1) args_code = args_code // ", "
-                if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
-                    args_code = args_code // generate_code_from_arena(arena, &
-                                                                      node%arg_indices(i))
+                if (node%arg_indices(i) > 0 .and. &
+                    node%arg_indices(i) <= arena%size) then
+                    args_code = args_code // &
+                        generate_code_from_arena(arena, node%arg_indices(i))
                 end if
             end do
             code = code // "(" // args_code // ")"
         else
             code = code // "()"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_subroutine_call
 
     ! Generate code for print statements
@@ -119,10 +132,10 @@ contains
         if (allocated(node%expression_indices)) then
             do i = 1, size(node%expression_indices)
                 if (i > 1) args_code = args_code // ", "
-                if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= &
-                    arena%size) then
-                    args_code = args_code // generate_code_from_arena( &
-                                arena, node%expression_indices(i))
+                if (node%expression_indices(i) > 0 .and. &
+                    node%expression_indices(i) <= arena%size) then
+                    args_code = args_code // &
+                        generate_code_from_arena(arena, node%expression_indices(i))
                 end if
             end do
         end if
@@ -131,6 +144,8 @@ contains
         if (len(args_code) > 0) then
             code = code // ", " // args_code
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_print_statement
 
     ! Generate code for write statements
@@ -161,10 +176,11 @@ contains
         if (allocated(node%arg_indices)) then
             do i = 1, size(node%arg_indices)
                 if (i > 1) args_code = args_code // ", "
-                if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
+                if (node%arg_indices(i) > 0 .and. &
+                    node%arg_indices(i) <= arena%size) then
                     ! Use recursive code generation for proper expression handling
-                    args_code = args_code // generate_code_from_arena(arena, &
-                                                                      node%arg_indices(i))
+                    args_code = args_code // &
+                        generate_code_from_arena(arena, node%arg_indices(i))
                 end if
             end do
         end if
@@ -174,6 +190,8 @@ contains
         if (len(args_code) > 0) then
             code = code // " " // args_code
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_write_statement
 
     ! Generate code for read statements
@@ -185,6 +203,8 @@ contains
 
         ! Generate read statement code
         code = "read(*, *)"  ! Basic read statement
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_read_statement
 
     ! Generate code for termination statements
@@ -202,6 +222,8 @@ contains
         else
             code = "call exit(1) ! Program termination"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_termination
 
     ! Generate code for return statements
@@ -212,7 +234,20 @@ contains
         character(len=:), allocatable :: code
 
         code = "return"
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_return
+
+    function generate_code_continue(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(continue_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        code = "continue"
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_continue
 
     ! Generate code for goto statements
     function generate_code_goto(arena, node, node_index) result(code)
@@ -232,6 +267,8 @@ contains
         else
             code = "go to 999"  ! Fallback for invalid goto
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_goto
 
     ! Generate code for error termination statements
@@ -249,6 +286,8 @@ contains
         else
             code = "call exit(2) ! Error termination"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_error_termination
 
     ! Generate code for cycle statements
@@ -260,6 +299,8 @@ contains
 
         ! Simplified placeholder implementation
         code = "cycle"
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_cycle
 
     ! Generate code for exit statements
@@ -271,6 +312,8 @@ contains
 
         ! Simplified placeholder implementation
         code = "exit"
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_exit
 
     subroutine append_rename_list_to_clause(rename_list, only_clause)
@@ -350,6 +393,8 @@ contains
                 code = code // ", only: " // trim(only_clause)
             end if
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_use_statement
 
     function generate_code_visibility_statement(node) result(code)
@@ -374,6 +419,8 @@ contains
         else if (node%has_double_colon) then
             code = code // " ::"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_visibility_statement
 
     function generate_code_namelist_statement(node) result(code)
@@ -401,6 +448,8 @@ contains
         else
             code = "namelist /" // trim(node%group_name) // "/"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_namelist_statement
 
     ! Generate code for implicit statements
@@ -410,6 +459,8 @@ contains
 
         ! Generate implicit statement code
         code = "implicit none"  ! Standard implicit none statement
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_implicit_statement
 
     ! Generate code for comment nodes
@@ -422,6 +473,8 @@ contains
         else
             code = "!"
         end if
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_comment
 
     ! Generate code for blank line nodes
@@ -453,7 +506,8 @@ contains
         if (allocated(node%var_indices)) then
             do i = 1, size(node%var_indices)
                 if (i > 1) args = args // ", "
-                if (node%var_indices(i) > 0 .and. node%var_indices(i) <= arena%size) then
+                if (node%var_indices(i) > 0 .and. &
+                    node%var_indices(i) <= arena%size) then
                     var_code = generate_code_from_arena(arena, node%var_indices(i))
                 else
                     var_code = ""
@@ -483,24 +537,30 @@ contains
         end if
 
         ! Optional keyword arguments
-        if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
-            args = args // ", stat=" // generate_code_from_arena(arena, &
-                                                                 node%stat_var_index)
+        if (node%stat_var_index > 0 .and. &
+            node%stat_var_index <= arena%size) then
+            args = args // ", stat=" // &
+                generate_code_from_arena(arena, node%stat_var_index)
         end if
-        if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
-            args = args // ", errmsg=" // generate_code_from_arena(arena, &
-                                                                   node%errmsg_var_index)
+        if (node%errmsg_var_index > 0 .and. &
+            node%errmsg_var_index <= arena%size) then
+            args = args // ", errmsg=" // &
+                generate_code_from_arena(arena, node%errmsg_var_index)
         end if
-        if (node%source_expr_index > 0 .and. node%source_expr_index <= arena%size) then
-            args = args // ", source=" // generate_code_from_arena(arena, &
-                                                                   node%source_expr_index)
+        if (node%source_expr_index > 0 .and. &
+            node%source_expr_index <= arena%size) then
+            args = args // ", source=" // &
+                generate_code_from_arena(arena, node%source_expr_index)
         end if
-        if (node%mold_expr_index > 0 .and. node%mold_expr_index <= arena%size) then
-            args = args // ", mold=" // generate_code_from_arena(arena, &
-                                                                 node%mold_expr_index)
+        if (node%mold_expr_index > 0 .and. &
+            node%mold_expr_index <= arena%size) then
+            args = args // ", mold=" // &
+                generate_code_from_arena(arena, node%mold_expr_index)
         end if
 
         code = "allocate(" // args // ")"
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_allocate_statement
 
     ! Generate code for deallocate statements
@@ -517,22 +577,27 @@ contains
         if (allocated(node%var_indices)) then
             do i = 1, size(node%var_indices)
                 if (i > 1) args = args // ", "
-                if (node%var_indices(i) > 0 .and. node%var_indices(i) <= arena%size) then
-                    args = args // generate_code_from_arena(arena, node%var_indices(i))
-                end if
+        if (node%var_indices(i) > 0 .and. &
+            node%var_indices(i) <= arena%size) then
+            args = args // generate_code_from_arena(arena, node%var_indices(i))
+        end if
             end do
         end if
 
-        if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
-            args = args // ", stat=" // generate_code_from_arena(arena, &
-                                                                 node%stat_var_index)
+        if (node%stat_var_index > 0 .and. &
+            node%stat_var_index <= arena%size) then
+            args = args // ", stat=" // &
+                generate_code_from_arena(arena, node%stat_var_index)
         end if
-        if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
-            args = args // ", errmsg=" // generate_code_from_arena(arena, &
-                                                                   node%errmsg_var_index)
+        if (node%errmsg_var_index > 0 .and. &
+            node%errmsg_var_index <= arena%size) then
+            args = args // ", errmsg=" // &
+                generate_code_from_arena(arena, node%errmsg_var_index)
         end if
 
         code = "deallocate(" // args // ")"
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_deallocate_statement
 
 end module codegen_statements

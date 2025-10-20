@@ -74,8 +74,8 @@ contains
         end if
 
         ! Check labels are preserved
-        if (index(output, '100') > 0 .and. index(output, '200') > 0 .and. &
-            index(output, '300') > 0 .and. index(output, '999') > 0) then
+        if (index(output, '100 print') > 0 .and. index(output, '200 print') > 0 .and. &
+            index(output, '300 print') > 0 .and. index(output, '999 continue') > 0) then
             print *, '  PASS: all labels preserved'
         else
             print *, '  FAIL: labels missing'

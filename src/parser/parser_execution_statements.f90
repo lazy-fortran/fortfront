@@ -21,6 +21,7 @@ module parser_execution_statements_module
                                                 parse_goto_statement, &
                                                 parse_error_stop_statement, &
                                                 parse_return_statement, &
+                                                parse_continue_statement, &
                                                 parse_cycle_statement, &
                                                 parse_exit_statement
     use parser_control_flow_router_module, only: route_control_flow, &
@@ -316,6 +317,8 @@ contains
                 stmt_index = parse_error_stop_statement(parser_ref, arena_ref)
             case ("return")
                 stmt_index = parse_return_statement(parser_ref, arena_ref)
+            case ("continue")
+                stmt_index = parse_continue_statement(parser_ref, arena_ref)
             case ("cycle")
                 stmt_index = parse_cycle_statement(parser_ref, arena_ref)
             case ("exit")
@@ -346,18 +349,24 @@ contains
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
             else if (lowered_identifier == "goto") then
                 ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
-                ! Parser is pointing AT the goto token (caller peeked but didn't consume)
+                ! Parser is at the goto token; caller already
+                ! peeked without consuming it
                 next_token = parser_ref%consume()  ! Consume "goto"
                 next_token = parser_ref%peek()
-                if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+                if (next_token%kind == TK_NUMBER .or. &
+                    next_token%kind == TK_IDENTIFIER) then
                     stmt_index = push_goto(arena_ref, label=trim(next_token%text), &
-                                           line=current_token%line, column=current_token%column)
+                                           line=current_token%line, &
+                                           column=current_token%column)
                     next_token = parser_ref%consume()  ! Consume the label
                 else
                     ! Invalid goto - missing label
                     stmt_index = push_goto(arena_ref, label="INVALID_LABEL", &
-                                           line=current_token%line, column=current_token%column)
+                                           line=current_token%line, &
+                                           column=current_token%column)
                 end if
+            else if (lowered_identifier == "continue") then
+                stmt_index = parse_continue_statement(parser_ref, arena_ref)
             else
                 call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
                                                 additional_execution_indices)

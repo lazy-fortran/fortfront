@@ -57,7 +57,7 @@ module fortfront
     use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
                                  case_range_node, case_default_node, where_node, &
                                  cycle_node, exit_node, goto_node, error_stop_node, &
-                                 stop_node, return_node
+                                 stop_node, return_node, continue_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
                             read_statement_node, format_descriptor_node

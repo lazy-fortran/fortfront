@@ -8,10 +8,10 @@ module ast_nodes_transfer
 
     ! Public types
     public :: cycle_node, exit_node, stop_node, return_node
-    public :: goto_node, error_stop_node
+    public :: goto_node, error_stop_node, continue_node
     ! Constructors migrated from ast_core
     public :: create_cycle, create_exit, create_stop, create_return
-    public :: create_goto, create_error_stop
+    public :: create_goto, create_error_stop, create_continue
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
@@ -55,10 +55,19 @@ module ast_nodes_transfer
         generic :: assignment(=) => assign
     end type return_node
 
+    ! Continue statement node
+    type, extends(ast_node) :: continue_node
+    contains
+        procedure :: accept => continue_accept
+        procedure :: to_json => continue_to_json
+        procedure :: assign => continue_assign
+        generic :: assignment(=) => assign
+    end type continue_node
+
     ! Goto statement node
     type, extends(ast_node) :: goto_node
         character(len=:), allocatable :: label  ! Target label (simple goto)
-        character(len=:), allocatable :: label_list  ! Comma-separated labels (computed goto)
+        character(len=:), allocatable :: label_list  ! Comma-separated labels
         integer :: selector_index = 0  ! Expression index for computed goto selector
     contains
         procedure :: accept => goto_accept
@@ -267,6 +276,47 @@ contains
         if (present(column)) node%column = column
     end function create_return
 
+    subroutine continue_accept(this, visitor)
+        class(continue_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine continue_accept
+
+    subroutine continue_to_json(this, json, parent)
+        class(continue_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'continue')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(parent, obj)
+    end subroutine continue_to_json
+
+    subroutine continue_assign(lhs, rhs)
+        class(continue_node), intent(inout) :: lhs
+        class(continue_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+    end subroutine continue_assign
+
+    function create_continue(line, column) result(node)
+        integer, intent(in), optional :: line, column
+        type(continue_node) :: node
+
+        node%uid = generate_uid()
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_continue
+
     ! Goto statement implementations
     subroutine goto_accept(this, visitor)
         class(goto_node), intent(in) :: this
@@ -284,8 +334,10 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (allocated(this%label)) call json%add(obj, 'label', this%label)
-        if (allocated(this%label_list)) call json%add(obj, 'label_list', this%label_list)
-        if (this%selector_index > 0) call json%add(obj, 'selector_index', this%selector_index)
+        if (allocated(this%label_list)) call json%add(obj, 'label_list', &
+                                                     this%label_list)
+        if (this%selector_index > 0) call json%add(obj, 'selector_index', &
+                                                  this%selector_index)
         call json%add(parent, obj)
     end subroutine goto_to_json
 
@@ -356,7 +408,8 @@ contains
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
     end subroutine error_stop_assign
 
-    function create_error_stop(error_code_index, error_message, line, column) result(node)
+    function create_error_stop(error_code_index, error_message, line, column) &
+        result(node)
         integer, intent(in), optional :: error_code_index
         character(len=*), intent(in), optional :: error_message
         integer, intent(in), optional :: line, column

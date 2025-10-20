@@ -8,7 +8,7 @@ module ast_factory_statements
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
-                                 cycle_node, exit_node
+                                 cycle_node, exit_node, continue_node
     use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
@@ -17,7 +17,7 @@ module ast_factory_statements
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement
     public :: push_end_statement
-    public :: push_stop, push_return, push_goto, push_error_stop
+    public :: push_stop, push_return, push_continue, push_goto, push_error_stop
     public :: push_cycle, push_exit
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
@@ -243,6 +243,20 @@ contains
         call arena%push(return_stmt, "return_node", parent_index)
         return_index = arena%size
     end function push_return
+
+    function push_continue(arena, line, column, parent_index) result(continue_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: continue_index
+        type(continue_node) :: continue_stmt
+
+        continue_stmt%uid = generate_uid()
+        if (present(line)) continue_stmt%line = line
+        if (present(column)) continue_stmt%column = column
+
+        call arena%push(continue_stmt, "continue_node", parent_index)
+        continue_index = arena%size
+    end function push_continue
 
     ! Create GOTO statement node and add to stack
     function push_goto(arena, label, label_list, selector_index, line, column, &
