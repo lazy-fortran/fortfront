@@ -1,0 +1,11 @@
+! Minimal reproducer: CYCLE and EXIT dropped from loops
+integer :: i, sum
+
+sum = 0
+do i = 1, 10
+    if (i == 3) cycle
+    if (i > 7) exit
+    sum = sum + i
+end do
+
+print *, "Sum:", sum
