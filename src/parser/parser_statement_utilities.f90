@@ -38,6 +38,27 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
         integer :: stmt_index
+        character(len=:), allocatable :: lowered_text
+        type(token_t) :: next_token
+
+        ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
+        lowered_text = trim(to_lower(token%text))
+        if (lowered_text == "goto") then
+            ! Parser is pointing AT the goto token (caller peeked but didn't consume)
+            ! Consume it here, then parse the label
+            next_token = parser%consume()  ! Consume "goto"
+            next_token = parser%peek()
+            if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+                stmt_index = push_goto(arena, trim(next_token%text), &
+                                      token%line, token%column)
+                next_token = parser%consume()  ! Consume the label
+            else
+                ! Invalid goto - missing label
+                stmt_index = push_goto(arena, "INVALID_LABEL", &
+                                      token%line, token%column)
+            end if
+            return
+        end if
 
         ! Simplified statement parsing for if blocks
         select case (token%kind)
@@ -203,7 +224,15 @@ contains
                                else_body_indices=else_body_indices, &
                                line=if_token%line, column=if_token%column)
         else
-            ! Single-line if statement
+            ! Single-line if statement - not fully supported, skip to end of line
+            ! Consume tokens until newline to avoid endless loop
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
+                    exit
+                end if
+                token = parser%consume()
+            end do
             if_index = push_literal(arena, "! Single-line if not yet supported", &
                                     LITERAL_STRING, if_token%line, if_token%column)
         end if

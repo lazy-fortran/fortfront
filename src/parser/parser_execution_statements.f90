@@ -31,7 +31,7 @@ module parser_execution_statements_module
     use parser_implicit_shared_module, only: parse_simple_implicit_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
-                           push_declaration, push_implicit_statement
+                           push_declaration, push_implicit_statement, push_goto
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     implicit none
     private
@@ -290,11 +290,26 @@ contains
             type(ast_arena_t), intent(inout) :: arena_ref
             type(token_t), intent(in) :: current_token
             character(len=:), allocatable :: lowered_identifier
+            type(token_t) :: next_token
 
             call flush_pending_prefixes()
             lowered_identifier = trim(to_lower(current_token%text))
             if (lowered_identifier == "class") then
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
+            else if (lowered_identifier == "goto") then
+                ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
+                ! Parser is pointing AT the goto token (caller peeked but didn't consume)
+                next_token = parser_ref%consume()  ! Consume "goto"
+                next_token = parser_ref%peek()
+                if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+                    stmt_index = push_goto(arena_ref, trim(next_token%text), &
+                                          current_token%line, current_token%column)
+                    next_token = parser_ref%consume()  ! Consume the label
+                else
+                    ! Invalid goto - missing label
+                    stmt_index = push_goto(arena_ref, "INVALID_LABEL", &
+                                          current_token%line, current_token%column)
+                end if
             else
                 call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
                                                 additional_execution_indices)
