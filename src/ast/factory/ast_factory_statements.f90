@@ -245,14 +245,19 @@ contains
     end function push_return
 
     ! Create GOTO statement node and add to stack
-    function push_goto(arena, label, line, column, parent_index) result(goto_index)
+    function push_goto(arena, label, label_list, selector_index, line, column, &
+                       parent_index) result(goto_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: label
+        character(len=*), intent(in), optional :: label_list
+        integer, intent(in), optional :: selector_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: goto_index
         type(goto_node) :: goto_stmt
         goto_stmt%uid = generate_uid()
         if (present(label)) goto_stmt%label = label
+        if (present(label_list)) goto_stmt%label_list = label_list
+        if (present(selector_index)) goto_stmt%selector_index = selector_index
         if (present(line)) goto_stmt%line = line
         if (present(column)) goto_stmt%column = column
 

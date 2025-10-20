@@ -219,10 +219,15 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(goto_node), intent(in) :: node
         integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
+        character(len=:), allocatable :: code, selector_code
 
-        ! Generate goto statement with actual label
-        if (allocated(node%label)) then
+        ! Check if computed GOTO
+        if (allocated(node%label_list) .and. node%selector_index > 0) then
+            ! Computed GOTO: go to (label_list), selector
+            selector_code = generate_code_from_arena(arena, node%selector_index)
+            code = "go to (" // trim(node%label_list) // "), " // trim(selector_code)
+        else if (allocated(node%label)) then
+            ! Simple GOTO
             code = "go to " // trim(node%label)
         else
             code = "go to 999"  ! Fallback for invalid goto

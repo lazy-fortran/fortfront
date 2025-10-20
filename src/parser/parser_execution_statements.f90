@@ -350,13 +350,13 @@ contains
                 next_token = parser_ref%consume()  ! Consume "goto"
                 next_token = parser_ref%peek()
                 if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
-                    stmt_index = push_goto(arena_ref, trim(next_token%text), &
-                                          current_token%line, current_token%column)
+                    stmt_index = push_goto(arena_ref, label=trim(next_token%text), &
+                                           line=current_token%line, column=current_token%column)
                     next_token = parser_ref%consume()  ! Consume the label
                 else
                     ! Invalid goto - missing label
-                    stmt_index = push_goto(arena_ref, "INVALID_LABEL", &
-                                          current_token%line, current_token%column)
+                    stmt_index = push_goto(arena_ref, label="INVALID_LABEL", &
+                                           line=current_token%line, column=current_token%column)
                 end if
             else
                 call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &

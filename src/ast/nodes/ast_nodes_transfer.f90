@@ -57,7 +57,9 @@ module ast_nodes_transfer
 
     ! Goto statement node
     type, extends(ast_node) :: goto_node
-        character(len=:), allocatable :: label  ! Target label
+        character(len=:), allocatable :: label  ! Target label (simple goto)
+        character(len=:), allocatable :: label_list  ! Comma-separated labels (computed goto)
+        integer :: selector_index = 0  ! Expression index for computed goto selector
     contains
         procedure :: accept => goto_accept
         procedure :: to_json => goto_to_json
@@ -282,6 +284,8 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (allocated(this%label)) call json%add(obj, 'label', this%label)
+        if (allocated(this%label_list)) call json%add(obj, 'label_list', this%label_list)
+        if (this%selector_index > 0) call json%add(obj, 'selector_index', this%selector_index)
         call json%add(parent, obj)
     end subroutine goto_to_json
 
@@ -298,6 +302,8 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
+        if (allocated(rhs%label_list)) lhs%label_list = rhs%label_list
+        lhs%selector_index = rhs%selector_index
     end subroutine goto_assign
 
     function create_goto(label, line, column) result(node)
