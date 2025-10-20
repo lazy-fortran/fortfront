@@ -14,7 +14,8 @@ module parser_execution_statements_module
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_assignment_module, only: parse_assignment_statement
     use parser_utils, only: analyze_declaration_structure
-    use parser_io_statements_module, only: parse_print_statement, parse_write_statement
+    use parser_io_statements_module, only: parse_print_statement, &
+                                           parse_write_statement, parse_format_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, &
@@ -305,6 +306,8 @@ contains
                 stmt_index = parse_use_statement(parser_ref, arena_ref)
             case ("write")
                 stmt_index = parse_write_statement(parser_ref, arena_ref)
+            case ("format")
+                stmt_index = parse_format_statement(parser_ref, arena_ref)
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser_ref, arena_ref)
             case ("deallocate")

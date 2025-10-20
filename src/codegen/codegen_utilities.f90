@@ -352,6 +352,11 @@ contains
                         code = code // indent_lines(stmt_code, indent) // new_line('A')
                         i = i + 1
 
+                    type is (format_statement_node)
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        code = code // indent_lines(stmt_code, indent) // new_line('A')
+                        i = i + 1
+
                     type is (goto_node)
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_lines(stmt_code, indent) // new_line('A')

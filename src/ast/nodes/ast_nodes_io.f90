@@ -91,6 +91,16 @@ module ast_nodes_io
         generic :: assignment(=) => assign
     end type format_descriptor_node
 
+    ! Format statement node
+    type, extends(ast_node), public :: format_statement_node
+        character(len=:), allocatable :: format_spec
+    contains
+        procedure :: accept => format_statement_accept
+        procedure :: to_json => format_statement_to_json
+        procedure :: assign => format_statement_assign
+        generic :: assignment(=) => assign
+    end type format_statement_node
+
 contains
 
     ! Stub implementations for print_statement_node
@@ -315,6 +325,43 @@ contains
         lhs%is_literal = rhs%is_literal
         if (allocated(rhs%literal_text)) lhs%literal_text = rhs%literal_text
     end subroutine format_descriptor_assign
+
+    ! Format statement implementations
+    subroutine format_statement_accept(this, visitor)
+        class(format_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine format_statement_accept
+
+    subroutine format_statement_to_json(this, json, parent)
+        class(format_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'format_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%format_spec)) then
+            call json%add(obj, 'format_spec', this%format_spec)
+        end if
+        call json%add(parent, obj)
+    end subroutine format_statement_to_json
+
+    subroutine format_statement_assign(lhs, rhs)
+        class(format_statement_node), intent(inout) :: lhs
+        class(format_statement_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+    end subroutine format_statement_assign
 
     ! Factory functions
     function create_print_statement(expression_indices, format_spec, &

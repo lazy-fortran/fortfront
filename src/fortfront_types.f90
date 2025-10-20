@@ -86,6 +86,7 @@ module fortfront_types
     integer, parameter :: NODE_FORMAT_DESCRIPTOR = 41
     integer, parameter :: NODE_COMMENT = 42
     integer, parameter :: NODE_IMPLICIT_STATEMENT = 43
+    integer, parameter :: NODE_FORMAT_STATEMENT = 44
     integer, parameter :: NODE_CONTINUE = 45
     integer, parameter :: NODE_UNKNOWN = 99
 
