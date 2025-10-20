@@ -49,13 +49,13 @@ contains
             next_token = parser%consume()  ! Consume "goto"
             next_token = parser%peek()
             if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
-                stmt_index = push_goto(arena, trim(next_token%text), &
-                                      token%line, token%column)
+                stmt_index = push_goto(arena, label=trim(next_token%text), &
+                                       line=token%line, column=token%column)
                 next_token = parser%consume()  ! Consume the label
             else
                 ! Invalid goto - missing label
-                stmt_index = push_goto(arena, "INVALID_LABEL", &
-                                      token%line, token%column)
+                stmt_index = push_goto(arena, label="INVALID_LABEL", &
+                                       line=token%line, column=token%column)
             end if
             return
         end if

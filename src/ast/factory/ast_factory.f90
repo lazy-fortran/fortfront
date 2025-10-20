@@ -1,5 +1,6 @@
 module ast_factory
-    ! REFACTORED ast_factory module - split into specialized modules for architectural compliance
+    ! Refactored ast_factory module
+    ! Split into specialized modules for architectural compliance
     !
     ! This module now re-exports all functions from the specialized modules to maintain
     ! full backward compatibility with existing code.
@@ -52,8 +53,9 @@ module ast_factory
     use ast_factory_statements, only: &
         push_use_statement, push_visibility_statement, push_namelist_statement, &
         push_implicit_statement, push_include_statement, &
-        push_end_statement, push_stop, push_return, push_goto, push_error_stop, &
-        push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
+        push_end_statement, push_stop, push_return, push_continue, push_goto, &
+        push_error_stop, push_cycle, push_exit, push_allocate, push_deallocate, &
+        push_io_implied_do
 
     implicit none
     private
@@ -99,7 +101,8 @@ module ast_factory
     ! Statement nodes
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement
-    public :: push_end_statement, push_stop, push_return, push_goto, push_error_stop
+    public :: push_end_statement, push_stop, push_return, push_continue, push_goto, &
+              push_error_stop
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
 
     ! Note: No module body needed - all functionality is provided by re-exported modules

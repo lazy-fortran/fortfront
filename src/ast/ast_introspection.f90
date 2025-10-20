@@ -170,15 +170,18 @@ contains
             type_id = 43  ! NODE_IMPLICIT_STATEMENT
         type is (module_procedure_node)
             type_id = 44  ! NODE_MODULE_PROCEDURE
+        type is (continue_node)
+            type_id = 45  ! NODE_CONTINUE
         class default
             ! Log warning for debugging purposes
-            write (error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
+            write (error_unit, '(A)') "Warning: Unknown node type in get_node_type_id"
             type_id = 99  ! NODE_UNKNOWN
         end select
     end function get_node_type_id
 
     ! Get source location for any node (issue #12 requirement)
-    ! Note: Returns a simple type that matches the existing source_location_t in fortfront.f90
+    ! Returns a simple type that matches the existing source_location_t
+    ! definition in fortfront.f90
     subroutine get_node_source_location(node, line, column)
         class(ast_node), intent(in) :: node
         integer, intent(out) :: line, column

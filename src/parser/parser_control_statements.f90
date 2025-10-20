@@ -1,18 +1,20 @@
 module parser_control_statements_module
-    ! Parser module for control flow statement types (stop, return, goto, cycle, exit, error_stop)
+    ! Parser module for control flow statements such as stop, return,
+    ! goto, cycle, exit, and error stop
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, &
-                          to_lower
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE, to_lower
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_stop, push_return, push_end_statement, push_goto, &
-                           push_error_stop, push_cycle, push_exit
+    use ast_factory, only: push_stop, push_return, push_continue, push_end_statement, &
+                           push_goto, push_error_stop, push_cycle, push_exit
     use ast_factory
     implicit none
     private
 
-    public :: parse_stop_statement, parse_return_statement, parse_end_statement
+    public :: parse_stop_statement, parse_return_statement, parse_continue_statement, &
+              parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement
 
@@ -77,6 +79,25 @@ contains
                                    parent_index=parent_index)
     end function parse_return_statement
 
+    function parse_continue_statement(parser, arena, parent_index) &
+        result(continue_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        integer :: continue_index
+
+        type(token_t) :: token
+        integer :: line, column
+
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        continue_index = push_continue(arena, line=line, column=column, &
+                                       parent_index=parent_index)
+    end function parse_continue_statement
+
     function parse_end_statement(parser, arena, parent_index) result(end_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -103,19 +124,66 @@ contains
         integer :: goto_index
 
         type(token_t) :: token
-        integer :: line, column
-        character(len=:), allocatable :: label
+        integer :: line, column, selector_index
+        character(len=:), allocatable :: label, label_list, label_item
+        logical :: is_computed
 
         ! Consume 'go' or 'goto' keyword
         token = parser%peek()
         line = token%line
         column = token%column
+        is_computed = .false.
+        selector_index = 0
+        label_list = ""
 
         select case (trim(to_lower(token%text)))
         case ("goto")
             token = parser%consume()
             token = parser%peek()
-            if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+
+            ! Check for computed GOTO: goto (label_list), selector
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                is_computed = .true.
+                token = parser%consume()
+
+                ! Parse label list
+                do
+                    token = parser%peek()
+                    if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+                        label_item = trim(token%text)
+                        if (len_trim(label_list) > 0) then
+                            label_list = label_list // ", " // label_item
+                        else
+                            label_list = label_item
+                        end if
+                        token = parser%consume()
+
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                            token = parser%consume()
+                        else
+                            exit
+                        end if
+                    else
+                        exit
+                    end if
+                end do
+
+                ! Consume closing parenthesis
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()
+
+                    ! Consume comma before selector expression
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()
+
+                        ! Parse selector expression
+                        selector_index = parse_comparison(parser, arena)
+                    end if
+                end if
+            else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
                 label = trim(token%text)
                 token = parser%consume()
             else
@@ -129,27 +197,78 @@ contains
                 token = parser%consume()
 
                 token = parser%peek()
-                if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+                ! Check for computed GOTO: go to (label_list), selector
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    is_computed = .true.
+                    token = parser%consume()
+
+                    ! Parse label list
+                    do
+                        token = parser%peek()
+                        if (token%kind == TK_NUMBER .or. &
+                            token%kind == TK_IDENTIFIER) then
+                            label_item = trim(token%text)
+                            if (len_trim(label_list) > 0) then
+                                label_list = label_list // ", " // label_item
+                            else
+                                label_list = label_item
+                            end if
+                            token = parser%consume()
+
+                            token = parser%peek()
+                            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                                token = parser%consume()
+                            else
+                                exit
+                            end if
+                        else
+                            exit
+                        end if
+                    end do
+
+                    ! Consume closing parenthesis
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                        token = parser%consume()
+
+                        ! Consume comma before selector expression
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                            token = parser%consume()
+
+                            ! Parse selector expression
+                            selector_index = parse_comparison(parser, arena)
+                        end if
+                    end if
+                else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
                     label = trim(token%text)
                     token = parser%consume()
                 else
-                    ! Invalid goto - missing label
                     label = ""
                 end if
             else
-                ! Invalid goto - missing 'to'
                 label = ""
             end if
         end select
 
-        ! Validate that we have a proper label
-        if (.not. allocated(label) .or. len_trim(label) == 0) then
-            ! Invalid GOTO statement - create a placeholder with error indication
-            label = "INVALID_LABEL"
-        end if
-
         ! Create GOTO node
-        goto_index = push_goto(arena, label, line=line, column=column)
+        if (is_computed) then
+            if (len_trim(label_list) > 0 .and. selector_index > 0) then
+                goto_index = push_goto(arena, label_list=label_list, &
+                                       selector_index=selector_index, line=line, &
+                                       column=column)
+            else
+                ! Invalid computed GOTO
+                goto_index = push_goto(arena, label="INVALID_LABEL", line=line, &
+                                       column=column)
+            end if
+        else
+            ! Simple GOTO
+            if (.not. allocated(label) .or. len_trim(label) == 0) then
+                label = "INVALID_LABEL"
+            end if
+            goto_index = push_goto(arena, label=label, line=line, column=column)
+        end if
     end function parse_goto_statement
 
     function parse_error_stop_statement(parser, arena) result(error_stop_index)
