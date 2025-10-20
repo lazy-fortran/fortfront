@@ -80,6 +80,24 @@ contains
         end if
     end function generate_code_identifier
 
+    ! Check if a node is a zero literal (used to detect unary minus as 0 - x)
+    function is_zero_literal(arena, node_index) result(is_zero)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_zero
+
+        is_zero = .false.
+        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (n => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (allocated(n%value)) then
+                is_zero = (trim(n%value) == "0")
+            end if
+        end select
+    end function is_zero_literal
+
     ! Generate code for binary operations
     function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -129,6 +147,12 @@ contains
             if (node%operator == "+" .and. is_string_concatenation(left_code, &
                                                                    right_code)) then
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
+            end if
+
+            ! Detect unary minus (represented as 0 - value) and format as -value
+            if (trim(fortran_operator) == "-" .and. is_zero_literal(arena, node%left_index)) then
+                code = "-" // right_code
+                return
             end if
 
             ! Determine child operators to decide on parentheses
