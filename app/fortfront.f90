@@ -8,6 +8,7 @@ program fortfront_cli
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
+    use lexer_core, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
     implicit none
 
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -79,9 +80,11 @@ program fortfront_cli
                             if (is_file) then
                                 if (len_trim(optval) == 0) then
                                     if (i < num_args) then
-                                        call get_command_argument(i + 1, length=next_len)
+                                        call get_command_argument(i + 1, &
+                                                                  length=next_len)
                                         allocate (character(len=next_len) :: next_arg)
-                                        call get_command_argument(i + 1, value=next_arg)
+                                        call get_command_argument(i + 1, &
+                                                                  value=next_arg)
                                         if (len_trim(next_arg) == 0 .or. &
                                             next_arg(1:1) == '-') then
                                             write (error_unit, '(A)') &
@@ -176,7 +179,8 @@ program fortfront_cli
         write (output_unit, '(A)') ''
         write (output_unit, '(A)') 'EXAMPLES:'
         write (output_unit, '(A)') '    fortfront input.lf        # Transpile file'
-        write (output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
+        write (output_unit, '(A)') &
+            '    cat input.lf | fortfront  # Transpile from stdin'
         write (output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
         write (output_unit, '(A)') &
             '    fortfront -- -file.lf     # Filename begins with a hyphen'
@@ -278,14 +282,45 @@ program fortfront_cli
 
 contains
 
+    function extract_module_name_from_source(source) result(module_name)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable :: module_name
+        type(token_t), allocatable :: tokens(:)
+        integer :: i
+
+        allocate (character(len=0) :: module_name)
+
+        ! Tokenize the source code
+        call tokenize_core(source, tokens)
+
+        ! Look for module start and extract name
+        do i = 1, size(tokens) - 1
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "module" .and. &
+                tokens(i + 1)%kind == TK_IDENTIFIER) then
+                module_name = tokens(i + 1)%text
+                exit
+            end if
+        end do
+    end function extract_module_name_from_source
+
     subroutine create_transform_context(from_file, filename, input_text, context)
         logical, intent(in) :: from_file
         character(len=:), allocatable, intent(in) :: filename
         character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
+        character(len=:), allocatable :: actual_module_name
 
         if (from_file .and. allocated(filename)) then
             call configure_context_from_file(filename, context)
+            if (len_trim(input_text) > 0) then
+                actual_module_name = extract_module_name_from_source(input_text)
+                if (allocated(actual_module_name)) then
+                    if (len_trim(actual_module_name) > 0) then
+                        context%module_name = trim(actual_module_name)
+                    end if
+                    deallocate (actual_module_name)
+                end if
+            end if
         else
             call configure_context_from_stdin(input_text, context)
         end if
@@ -306,6 +341,7 @@ contains
 
         context%source_name = basename
         context%module_name = basename
+
         context%program_name = 'main'
         context%has_filename = .true.
     end subroutine configure_context_from_file
@@ -432,7 +468,8 @@ contains
 
         do
             do
-                read (unit_num, '(A)', advance='no', iostat=ios, size=chunk_size) buffer
+                read (unit_num, '(A)', advance='no', iostat=ios, &
+                      size=chunk_size) buffer
                 call process_read_result(ios, chunk_size, buffer, text, total_size, &
                                          capacity, status, exit_inner_loop, &
                                          reached_end)
@@ -482,14 +519,17 @@ contains
         case (iostat_end)
             exit_inner_loop = .true.
             reached_end = .true.
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
         case (iostat_eor)
             exit_inner_loop = .true.
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
             if (status /= 0) return
             call append_newline(text, total_size, capacity, status)
         case (0)
-            call append_when_data(buffer, chunk_size, text, total_size, capacity, status)
+            call append_when_data(buffer, chunk_size, text, total_size, &
+                                  capacity, status)
         case default
             write (error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
             status = 3
