@@ -5,7 +5,8 @@ module parser_assignment_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier, push_literal
+    use ast_factory, only: push_assignment, push_identifier, push_literal, &
+                            push_complex_literal
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
@@ -219,4 +220,5 @@ contains
             end if
         end if
     end subroutine parse_multi_variable_assignment
+
 end module parser_assignment_module
