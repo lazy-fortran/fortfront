@@ -186,6 +186,7 @@ contains
                              arena, type_spec%type_name, trim_name_array(var_names), &
                              kind_value=type_spec%kind_value, &
                              dimension_indices=attr_info%global_dimension_indices, &
+                             is_external=attr_info%is_external, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter)
