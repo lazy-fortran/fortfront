@@ -154,6 +154,14 @@ contains
             type(token_t), intent(in) :: current_token
             is_end = .false.
             if (current_token%kind /= TK_KEYWORD) return
+
+            ! Handle "endprogram" (single keyword)
+            if (current_token%text == "endprogram") then
+                is_end = .true.
+                return
+            end if
+
+            ! Handle "end program" (two keywords)
             if (current_token%text /= "end") return
             if (parser%current_token + 1 > size(parser%tokens)) return
             if (parser%tokens(parser%current_token + 1)%kind /= TK_KEYWORD) return
@@ -164,8 +172,15 @@ contains
         subroutine consume_end_program(parser_ref)
             type(parser_state_t), intent(inout) :: parser_ref
             type(token_t) :: local_token
+
+            ! Consume "endprogram" or "end" "program"
             local_token = parser_ref%consume()
-            local_token = parser_ref%consume()
+            if (local_token%text /= "endprogram") then
+                ! Must be "end", consume "program" next
+                local_token = parser_ref%consume()
+            end if
+
+            ! Check for optional program name
             local_token = parser_ref%peek()
             if (local_token%kind == TK_IDENTIFIER) then
                 local_token = parser_ref%consume()

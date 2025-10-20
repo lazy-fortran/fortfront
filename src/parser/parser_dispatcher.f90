@@ -56,7 +56,7 @@ contains
         integer :: stmt_index
         character(len=:), allocatable :: lowered_keyword
         type(parser_state_t) :: parser
-        type(token_t) :: first_token
+        type(token_t) :: first_token, second_token
         integer :: target_index, value_index
 
         parser = create_parser_state(tokens)
@@ -103,7 +103,7 @@ contains
                 stmt_index = parse_stop_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
-            case ("go")
+            case ("go", "goto")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")
                 stmt_index = parse_error_stop_statement(parser, arena)
@@ -125,6 +125,8 @@ contains
             lowered_keyword = to_lower(trim(first_token%text))
             if (lowered_keyword == "class") then
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+            else if (lowered_keyword == "goto") then
+                stmt_index = parse_goto_statement(parser, arena)
             else
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                      stmt_index)) then
