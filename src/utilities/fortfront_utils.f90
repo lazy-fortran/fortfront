@@ -444,6 +444,8 @@ contains
             node_type = NODE_CONTAINS
         case ("format_descriptor_node", "format_descriptor")
             node_type = NODE_FORMAT_DESCRIPTOR
+        case ("format_statement_node", "format_statement")
+            node_type = NODE_FORMAT_STATEMENT
         case ("comment_node", "comment")
             node_type = NODE_COMMENT
         case ("implicit_statement_node", "implicit_statement")

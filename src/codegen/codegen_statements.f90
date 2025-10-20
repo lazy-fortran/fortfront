@@ -18,6 +18,7 @@ module codegen_statements
     public :: generate_code_print_statement
     public :: generate_code_write_statement
     public :: generate_code_read_statement
+    public :: generate_code_format_statement
     public :: generate_code_termination
     public :: generate_code_return
     public :: generate_code_continue
@@ -206,6 +207,22 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_read_statement
+
+    ! Generate code for format statements
+    function generate_code_format_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(format_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        if (allocated(node%format_spec)) then
+            code = "format " // trim(node%format_spec)
+        else
+            code = "format (*)"
+        end if
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_format_statement
 
     ! Generate code for termination statements
     function generate_code_termination(arena, node, node_index) result(code)

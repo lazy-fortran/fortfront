@@ -91,6 +91,8 @@ contains
             code = generate_code_write_statement(arena, node, node_index)
         type is (read_statement_node)
             code = generate_code_read_statement(arena, node, node_index)
+        type is (format_statement_node)
+            code = generate_code_format_statement(arena, node, node_index)
         type is (stop_node)
             code = generate_code_termination(arena, node, node_index)
         type is (return_node)

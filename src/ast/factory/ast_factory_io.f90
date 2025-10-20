@@ -1,6 +1,7 @@
 module ast_factory_io
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_io, only: print_statement_node, write_statement_node, read_statement_node
+    use ast_nodes_io, only: print_statement_node, write_statement_node, &
+                            read_statement_node, format_statement_node
     implicit none
     private
 
@@ -10,6 +11,7 @@ module ast_factory_io
     public :: push_read_statement_with_all_specifiers
     public :: push_write_statement_with_iostat, push_write_statement_with_format
     public :: push_write_statement_with_runtime_format
+    public :: push_format_statement
 
 contains
 
@@ -216,5 +218,21 @@ contains
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
     end function push_write_statement_with_runtime_format
+
+    function push_format_statement(arena, format_spec, line, column, &
+                                    parent_index) result(format_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: format_spec
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: format_index
+        type(format_statement_node) :: format_stmt
+
+        format_stmt%format_spec = format_spec
+        if (present(line)) format_stmt%line = line
+        if (present(column)) format_stmt%column = column
+
+        call arena%push(format_stmt, "format_statement", parent_index)
+        format_index = arena%size
+    end function push_format_statement
 
 end module ast_factory_io

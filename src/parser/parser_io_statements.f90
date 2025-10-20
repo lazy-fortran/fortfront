@@ -7,12 +7,13 @@ module parser_io_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_print_statement, push_write_statement, &
-                           push_read_statement
+                           push_read_statement, push_format_statement
     use ast_factory
     implicit none
     private
 
     public :: parse_print_statement, parse_write_statement, parse_read_statement
+    public :: parse_format_statement
 
 contains
 
@@ -30,6 +31,9 @@ contains
             format_spec = token%text
             token = parser%consume()
         else if (token%kind == TK_IDENTIFIER) then
+            format_spec = token%text
+            token = parser%consume()
+        else if (token%kind == TK_NUMBER) then
             format_spec = token%text
             token = parser%consume()
         else
@@ -375,5 +379,60 @@ contains
         read_index = push_read_statement(arena, unit_spec, var_indices, &
                                          format_spec, line, column)
     end function parse_read_statement
+
+    function parse_format_statement(parser, arena) result(format_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: format_index
+
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: format_spec
+        integer :: paren_depth
+
+        token = parser%peek()
+        line = token%line
+        column = token%column
+
+        if (token%kind /= TK_KEYWORD .or. token%text /= "format") then
+            format_index = 0
+            return
+        end if
+
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            write (error_unit, *) &
+                "Error: Expected '(' after 'format' at line ", token%line
+            format_index = 0
+            return
+        end if
+
+        format_spec = "("
+        token = parser%consume()
+        paren_depth = 1
+
+        do while (.not. parser%is_at_end() .and. paren_depth > 0)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                paren_depth = paren_depth + 1
+                format_spec = format_spec // "("
+                token = parser%consume()
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                paren_depth = paren_depth - 1
+                format_spec = format_spec // ")"
+                token = parser%consume()
+                if (paren_depth == 0) exit
+            else if (token%kind == TK_NEWLINE) then
+                exit
+            else
+                format_spec = format_spec // trim(token%text)
+                token = parser%consume()
+            end if
+        end do
+
+        format_index = push_format_statement(arena, format_spec, line, column)
+    end function parse_format_statement
 
 end module parser_io_statements_module
