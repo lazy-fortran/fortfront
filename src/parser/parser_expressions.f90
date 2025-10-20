@@ -319,6 +319,7 @@ contains
         type(token_t) :: open_paren
         type(token_t) :: comma_token
         type(token_t) :: close_paren
+        type(token_t) :: next_token
         integer :: real_part_index
         integer :: imag_part_index
 
@@ -330,6 +331,13 @@ contains
         if (trim(open_paren%text) /= "(") return
 
         open_paren = view_consume_token(view, parser)
+
+        next_token = view_peek_token(view, parser)
+        if (next_token%kind == TK_OPERATOR .and. trim(next_token%text) == "(") then
+            parser%current_token = saved_pos
+            return
+        end if
+
         real_part_index = parse_comparison(parser, arena)
         if (real_part_index <= 0) then
             parser%current_token = saved_pos
