@@ -126,6 +126,8 @@ contains
             type_id = 21  ! NODE_WRITE_STATEMENT
         type is (read_statement_node)
             type_id = 22  ! NODE_READ_STATEMENT
+        type is (format_statement_node)
+            type_id = 44  ! NODE_FORMAT_STATEMENT
         type is (allocate_statement_node)
             type_id = 23  ! NODE_ALLOCATE_STATEMENT
         type is (deallocate_statement_node)
