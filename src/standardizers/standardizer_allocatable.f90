@@ -177,22 +177,41 @@ contains
         integer, intent(inout) :: assignment_counts(:)
         integer, intent(inout) :: var_count
         integer :: idx
+        character(len=64) :: var_name
 
         if (.not. node_is_active(arena, stmt%target_index)) return
 
+        var_name = ""
+
+        ! Extract variable name from different target types
         select type (target => arena%entries(stmt%target_index)%node)
         type is (identifier_node)
-            idx = locate_variable(target%name, assigned_vars, var_count)
+            ! Simple assignment: x = value
+            var_name = target%name
+        type is (call_or_subscript_node)
+            ! Array element assignment: arr(0) = value
+            ! Only count the base array name for whole-array reassignments, not element access
+            ! Array element access like arr(0) should NOT trigger allocatable behavior
+            ! This is a key fix: element assignments preserve explicit bounds
+            var_name = ""
+        class default
+            ! Other assignment target types - ignore for allocatable tracking
+            var_name = ""
+        end select
+
+        ! Only track assignments that could require allocatable behavior
+        if (len_trim(var_name) > 0) then
+            idx = locate_variable(var_name, assigned_vars, var_count)
             if (idx == 0) then
                 if (var_count < size(assigned_vars)) then
                     var_count = var_count + 1
-                    assigned_vars(var_count) = target%name
+                    assigned_vars(var_count) = var_name
                     assignment_counts(var_count) = 1
                 end if
             else
                 assignment_counts(idx) = assignment_counts(idx) + 1
             end if
-        end select
+        end if
     end subroutine record_assignment
 
     subroutine record_string_variable(target, var_list, var_count)
@@ -817,13 +836,19 @@ contains
             is_character = .true.
         end if
 
+        ! Apply allocatable attributes only when explicitly needed:
+        ! - For character strings (deferred length)
+        ! - For arrays when this function is called (after proper assignment tracking)
         if (decl%is_array) then
+            ! This function should only be called for arrays that truly need allocatable
+            ! The assignment tracking logic now properly excludes array element assignments
             decl%is_allocatable = .true.
+            ! Convert to deferred shape for allocatable arrays
             if (allocated(decl%dimension_indices)) then
                 deallocate (decl%dimension_indices)
             end if
             allocate (decl%dimension_indices(1))
-            decl%dimension_indices(1) = 0
+            decl%dimension_indices(1) = 0  ! Deferred shape (:)
             apply_allocatable_attributes = .true.
         else if (is_character) then
             decl%is_allocatable = .true.
