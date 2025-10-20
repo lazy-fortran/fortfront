@@ -98,6 +98,7 @@ contains
         type(parser_prefix_buffer_t) :: prefix_buffer
         character(len=16), allocatable :: pending_prefixes(:)
         character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: stmt_label
         integer :: stmt_index
 
         call prefix_buffer%clear()
@@ -116,9 +117,13 @@ contains
             end if
 
             stmt_index = 0
+            ! Clear label for this statement
+            if (allocated(stmt_label)) deallocate (stmt_label)
 
             ! Check for numeric statement label like 10  i = i + 1
             if (token%kind == TK_NUMBER) then
+                ! Save the label text
+                stmt_label = trim(token%text)
                 ! Consume the label and get next token
                 token = parser%consume()
                 token = parser%peek()
@@ -149,6 +154,15 @@ contains
                 case default
                     call consume_misc(parser)
                 end select
+            end if
+
+            ! Set label on the created statement node if we have one
+            if (stmt_index > 0 .and. allocated(stmt_label)) then
+                if (stmt_index <= arena%size) then
+                    if (allocated(arena%entries(stmt_index)%node)) then
+                        arena%entries(stmt_index)%node%stmt_label = stmt_label
+                    end if
+                end if
             end if
 
             call append_statement(stmt_index, body_indices)

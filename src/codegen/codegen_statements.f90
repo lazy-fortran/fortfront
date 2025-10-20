@@ -42,6 +42,13 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
 
+        ! Emit statement label if present (for GOTO targets)
+        if (allocated(node%stmt_label)) then
+            code = node%stmt_label // " "
+        else
+            code = ""
+        end if
+
         ! Generate left-hand side
         if (node%target_index > 0 .and. node%target_index <= arena%size) then
             left_code = generate_code_from_arena(arena, node%target_index)
@@ -58,9 +65,9 @@ contains
 
         ! Build assignment
         if (allocated(node%operator) .and. node%operator == "=>") then
-            code = left_code // " => " // right_code
+            code = code // left_code // " => " // right_code
         else
-            code = left_code // " = " // right_code
+            code = code // left_code // " = " // right_code
         end if
     end function generate_code_assignment
 

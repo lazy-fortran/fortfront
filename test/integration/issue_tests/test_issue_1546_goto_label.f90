@@ -84,12 +84,11 @@ contains
             print *, '  PASS: goto statement present'
         end if
 
-        ! Check for numeric label (this is a known limitation - labels not yet implemented)
+        ! Check for numeric label
         if (index(output, '10  i = i + 1') == 0 .and. &
             index(output, '10 i = i + 1') == 0) then
-            print *, '  TODO: numeric labels not yet implemented in codegen'
-            ! Don't fail the test for this known limitation
-            ! test_goto_label_preservation = .false.
+            print *, '  FAIL: numeric label missing in output'
+            test_goto_label_preservation = .false.
         else
             print *, '  PASS: numeric label preserved'
         end if
