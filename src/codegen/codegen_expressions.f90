@@ -80,6 +80,24 @@ contains
         end if
     end function generate_code_identifier
 
+    ! Check if a node is a zero literal (used to detect unary minus as 0 - x)
+    function is_zero_literal(arena, node_index) result(is_zero)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_zero
+
+        is_zero = .false.
+        if (node_index <= 0 .or. node_index > arena%compat_size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (n => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (allocated(n%value)) then
+                is_zero = (trim(n%value) == "0")
+            end if
+        end select
+    end function is_zero_literal
+
     ! Generate code for binary operations
     function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -90,6 +108,7 @@ contains
         character(len=:), allocatable :: fortran_operator
         character(len=:), allocatable :: left_op, right_op
         logical :: left_paren, right_paren
+        logical :: unary_minus
 
         ! Generate operands
         if (node%left_index > 0) then
@@ -129,6 +148,21 @@ contains
             if (node%operator == "+" .and. is_string_concatenation(left_code, &
                                                                    right_code)) then
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
+            end if
+
+            unary_minus = (trim(fortran_operator) == "-") .and. &
+                is_zero_literal(arena, node%left_index)
+            if (unary_minus) then
+                right_paren = .false.
+                right_op = get_node_operator(arena, node%right_index)
+                if (len_trim(right_op) > 0) right_paren = &
+                    needs_parentheses("-", trim(right_op), .false.)
+                right_code = trim(adjustl(right_code))
+                if (right_paren .and. len_trim(right_code) > 0) then
+                    right_code = "(" // right_code // ")"
+                end if
+                code = "-" // right_code
+                return
             end if
 
             ! Determine child operators to decide on parentheses
