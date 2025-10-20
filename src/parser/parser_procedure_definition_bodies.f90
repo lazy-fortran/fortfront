@@ -130,7 +130,8 @@ contains
 
         stmt_start = parser%current_token
         if (is_if_statement_start(first_token)) then
-            stmt_end = locate_block_statement_end(all_tokens, stmt_start, first_token%text)
+            stmt_end = locate_block_statement_end(all_tokens, stmt_start, &
+                                                  first_token%text)
         else
             stmt_end = locate_single_line_end(all_tokens, stmt_start, &
                                               first_token%line)
@@ -162,10 +163,14 @@ contains
         type(token_t), intent(in) :: first_token
 
         is_if_start = first_token%kind == TK_KEYWORD
-        if (is_if_start) is_if_start = first_token%text == "if" .or. first_token%text == "do"
+        if (is_if_start) then
+            is_if_start = first_token%text == "if" .or. &
+                          first_token%text == "do"
+        end if
     end function is_if_statement_start
 
-    integer function locate_block_statement_end(all_tokens, stmt_start, stmt_type) result(stmt_end)
+    integer function locate_block_statement_end(all_tokens, stmt_start, &
+                                                stmt_type) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
         integer, intent(in) :: stmt_start
         character(len=*), intent(in) :: stmt_type
