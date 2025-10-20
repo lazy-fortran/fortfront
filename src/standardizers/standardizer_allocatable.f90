@@ -146,18 +146,27 @@ contains
 
     logical function variable_requires_allocatable(name, assigned_vars, &
                                                    assignment_counts, var_count, &
-                                                   is_parameter) result(needs_alloc)
+                                                   is_parameter, is_array) result(needs_alloc)
         character(len=*), intent(in) :: name
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
         integer, intent(in) :: var_count
         logical, intent(in) :: is_parameter
+        logical, intent(in), optional :: is_array
         integer :: idx
 
         idx = locate_variable(name, assigned_vars, var_count)
         needs_alloc = .false.
         if (idx <= 0) return
-        needs_alloc = (assignment_counts(idx) >= 2 .or. is_parameter)
+
+        ! Only mark as allocatable for multiple assignments if it's an array
+        ! Scalars should never be marked allocatable just due to multiple assignments
+        if (present(is_array) .and. is_array) then
+            needs_alloc = (assignment_counts(idx) >= 2 .or. is_parameter)
+        else
+            ! For scalars, only mark as allocatable if it's a parameter
+            needs_alloc = is_parameter
+        end if
     end function variable_requires_allocatable
 
     subroutine record_assignment(arena, stmt, assigned_vars, assignment_counts, &
@@ -425,7 +434,7 @@ contains
             needs_alloc = variable_requires_allocatable(stmt%var_name, &
                                                         assigned_vars, &
                                                         assignment_counts, var_count, &
-                                                        is_parameter)
+                                                        is_parameter, stmt%is_array)
             if (needs_alloc) then
                 if (apply_allocatable_attributes(stmt)) then
                     arena%entries(decl_index)%node = stmt
@@ -516,7 +525,7 @@ contains
                 needs_allocatable = variable_requires_allocatable( &
                                     decl%var_names(i), assigned_vars, &
                                     assignment_counts, &
-                                    var_count, is_parameter)
+                                    var_count, is_parameter, decl%is_array)
                 call append_split_declaration(arena, decl, decl%var_names(i), &
                                               needs_allocatable, prog_index, &
                                               new_indices, new_count)
