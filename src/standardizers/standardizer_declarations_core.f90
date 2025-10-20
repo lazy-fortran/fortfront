@@ -7,6 +7,7 @@ module standardizer_declarations_core
     use ast_nodes_core
     use ast_nodes_data
     use ast_nodes_misc
+    use ast_nodes_bounds, only: range_expression_node
     use ast_nodes_procedure
     use ast_nodes_loops
     use ast_nodes_control
@@ -694,30 +695,47 @@ contains
         integer, allocatable :: dimensions(:)
         character(len=100) :: dims_str
         logical :: has_explicit_bounds
+        integer :: dim_idx
 
-        ! Check if declaration already has explicit bounds from parsing
+        ! Check if declaration already has explicit bounds coming from parsing
         has_explicit_bounds = .false.
         if (allocated(decl_node%dimension_indices)) then
-            ! If dimension_indices point to valid range expressions, preserve them
-            ! This fixes the issue where explicit bounds like 0:4 were being lost
-            do i = 1, size(decl_node%dimension_indices)
-                if (decl_node%dimension_indices(i) > 0 .and. &
-                    decl_node%dimension_indices(i) <= arena%size) then
-                    ! Valid AST node reference - likely a range expression with explicit bounds
-                    has_explicit_bounds = .true.
-                    exit
-                end if
-            end do
+            if (size(decl_node%dimension_indices) > 0) then
+                has_explicit_bounds = .true.
+                do i = 1, size(decl_node%dimension_indices)
+                    dim_idx = decl_node%dimension_indices(i)
+                    if (dim_idx <= 0) then
+                        has_explicit_bounds = .false.
+                        exit
+                    else if (dim_idx > arena%size) then
+                        cycle
+                    else if (.not. allocated(arena%entries(dim_idx)%node)) then
+                        has_explicit_bounds = .false.
+                        exit
+                    else
+                        select type (dim_node => arena%entries(dim_idx)%node)
+                        type is (range_expression_node)
+                            if (dim_node%start_index <= 0 .or. &
+                                dim_node%end_index <= 0) then
+                                has_explicit_bounds = .false.
+                                exit
+                            end if
+                        class default
+                            cycle
+                        end select
+                    end if
+                end do
+            end if
         end if
 
         if (has_explicit_bounds) then
             ! Preserve existing dimension information from parsing phase
             decl_node%is_array = .true.
-            decl_node%is_allocatable = .false.  ! Keep explicit bounds, don't make allocatable
+            decl_node%is_allocatable = .false.  ! Explicit bounds stay non-allocatable
             return
         end if
 
-        ! Extract dimension value(s) - only for cases without explicit bounds from parsing
+        ! Extract dimension values only when parsing did not provide explicit bounds
         paren_pos = index(var_type(dim_pos:), ')')
         if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
             dims_str = var_type(dim_pos + 10:dim_pos + paren_pos - 2)

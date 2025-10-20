@@ -189,10 +189,8 @@ contains
             ! Simple assignment: x = value
             var_name = target%name
         type is (call_or_subscript_node)
-            ! Array element assignment: arr(0) = value
-            ! Only count the base array name for whole-array reassignments, not element access
-            ! Array element access like arr(0) should NOT trigger allocatable behavior
-            ! This is a key fix: element assignments preserve explicit bounds
+            ! Element assignments like arr(0)=... should not trigger allocatable
+            ! handling. Whole-array reassignments use identifier targets.
             var_name = ""
         class default
             ! Other assignment target types - ignore for allocatable tracking
@@ -837,11 +835,11 @@ contains
         end if
 
         ! Apply allocatable attributes only when explicitly needed:
-        ! - For character strings (deferred length)
-        ! - For arrays when this function is called (after proper assignment tracking)
+        ! - character strings with deferred length
+        ! - arrays flagged by assignment tracking
         if (decl%is_array) then
-            ! This function should only be called for arrays that truly need allocatable
-            ! The assignment tracking logic now properly excludes array element assignments
+            ! Assignment tracking now excludes element writes, so this path only
+            ! runs for arrays that must be deferred shape.
             decl%is_allocatable = .true.
             ! Convert to deferred shape for allocatable arrays
             if (allocated(decl%dimension_indices)) then
