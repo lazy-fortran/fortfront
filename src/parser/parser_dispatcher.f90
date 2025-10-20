@@ -34,6 +34,7 @@ module parser_dispatcher_module
     use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
+    use parser_assignment_module, only: parse_assignment_statement
     use parser_expressions_module, only: parse_expression, parse_range
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     implicit none
@@ -217,44 +218,20 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
-        type(token_t) :: id_token, op_token
-        integer :: target_index, value_index
-        logical :: is_multi_assignment
+        integer, allocatable :: extra_indices(:)
 
-        ! Check if this is a multi-variable assignment before consuming tokens
-        is_multi_assignment = is_multi_var_assignment_dispatcher(parser)
+        ! Delegate to full assignment parser which handles subscripts, components, etc
+        call parse_assignment_statement(parser, arena, stmt_index, extra_indices)
 
-        if (is_multi_assignment) then
-            call parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
-        else
-            ! Handle single assignment or expression
-            id_token = parser%consume()
-            op_token = parser%peek()
-
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
-                op_token = parser%consume()
-
-                ! Create target identifier
-                target_index = push_identifier(arena, id_token%text, id_token%line, &
-                                               id_token%column)
-
-                ! Parse value expression
-                value_index = parse_range(parser, arena)
-
-                ! Create assignment
-                if (value_index > 0) then
-                    stmt_index = push_assignment(arena, target_index, value_index, &
-                                                 id_token%line, id_token%column)
-                else
-                    stmt_index = push_literal(arena, "! Error: missing value", &
-                                              LITERAL_STRING, id_token%line, &
-                                              id_token%column)
-                end if
-            else
-                ! Not an assignment: avoid emitting bare identifiers as statements
-                ! Return 0 to skip stray tokens like prefixes (e.g., "Simple test:")
-                stmt_index = 0
+        ! Store additional indices from multi-assignment if any
+        if (allocated(extra_indices) .and. size(extra_indices) > 0) then
+            if (allocated(additional_indices)) then
+                block
+                    integer, allocatable :: temp(:)
+                    call move_alloc(additional_indices, temp)
+                end block
             end if
+            additional_indices = extra_indices
         end if
 
     end function parse_assignment_or_expression
@@ -426,92 +403,6 @@ contains
         end if
     end subroutine clear_additional_indices
 
-    ! Check if the current position is a multi-variable assignment (dispatcher version)
-    logical function is_multi_var_assignment_dispatcher(parser)
-        type(parser_state_t), intent(in) :: parser
-        integer :: pos
-        type(token_t) :: token
-
-        is_multi_var_assignment_dispatcher = .false.
-        pos = parser%current_token
-
-        ! Look ahead for pattern: identifier, comma, identifier, ..., =
-        do while (pos <= size(parser%tokens))
-            token = parser%tokens(pos)
-
-            if (token%kind == TK_IDENTIFIER) then
-                pos = pos + 1
-                if (pos > size(parser%tokens)) exit
-
-                token = parser%tokens(pos)
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    ! Found comma after identifier, continue looking
-                    is_multi_var_assignment_dispatcher = .true.
-                    pos = pos + 1
-                    cycle
-                else if (token%kind == TK_OPERATOR .and. token%text == "=" .and. &
-                         is_multi_var_assignment_dispatcher) then
-                    ! Found = and we already saw a comma, this is multi-var assignment
-                    return
-                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                    ! Found = but no comma, this is single assignment
-                    is_multi_var_assignment_dispatcher = .false.
-                    return
-                else
-                    ! Something else, not an assignment
-                    is_multi_var_assignment_dispatcher = .false.
-                    return
-                end if
-            else
-                ! Not identifier, exit
-                exit
-            end if
-        end do
-
-        is_multi_var_assignment_dispatcher = .false.
-    end function is_multi_var_assignment_dispatcher
-
-    ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" via shared helper
-    subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(out) :: stmt_index
-        integer, allocatable :: assignment_indices(:)
-
-        call parse_multi_variable_assignment_core(parser, arena, stmt_index, &
-                                                  assignment_indices)
-
-        if (stmt_index == 0) then
-            call clear_additional_indices()
-            if (allocated(assignment_indices)) then
-                block
-                    integer, allocatable :: temp(:)
-                    call move_alloc(assignment_indices, temp)
-                end block
-            end if
-            return
-        end if
-
-        if (allocated(assignment_indices)) then
-            if (size(assignment_indices) > 1) then
-                if (allocated(additional_indices)) then
-                    block
-                        integer, allocatable :: temp(:)
-                        call move_alloc(additional_indices, temp)
-                    end block
-                end if
-                additional_indices = assignment_indices(2:)
-            end if
-        end if
-
-        if (allocated(assignment_indices)) then
-            block
-                integer, allocatable :: temp(:)
-                call move_alloc(assignment_indices, temp)
-            end block
-        end if
-
-    end subroutine parse_multi_variable_assignment_dispatcher
 
     logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                 stmt_index)
