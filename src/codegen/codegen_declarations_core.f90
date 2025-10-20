@@ -185,6 +185,7 @@ contains
         attr_info%is_target = node%is_target
         attr_info%is_external = node%is_external
         attr_info%is_parameter = node%is_parameter
+        attr_info%is_save = node%is_save
     end subroutine populate_declaration_attributes
 
     function build_declaration_entity_list(arena, node, has_dimension_attr) &
