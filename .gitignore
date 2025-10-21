@@ -11,6 +11,9 @@ packages/*/
 /*.f90
 /*.lf
 /*.json
+/*_out.f90
+/*.mod
+/*.txt
 
 # CMake build artifacts
 cmake_test/
