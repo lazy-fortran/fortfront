@@ -24,6 +24,7 @@ module semantic_assignment_inference
     private
 
     public :: process_assignment_inference
+    public :: ensure_var_declared_from_arena
 
 contains
 
@@ -433,5 +434,50 @@ contains
             base_type = 'real'
         end select
     end function get_base_type_name
+
+    subroutine ensure_var_declared_from_arena(arena, name, scopes, &
+                                               generalize_fn, next_var_id)
+        use ast_nodes_data, only: declaration_node
+        use semantic_inference_helpers, only: process_declaration_variables
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        type(scope_stack_t), intent(inout) :: scopes
+        interface
+            function generalize_fn(t) result(s)
+                import :: mono_type_t, poly_type_t
+                type(mono_type_t), intent(in) :: t
+                type(poly_type_t) :: s
+            end function generalize_fn
+        end interface
+        integer, intent(inout) :: next_var_id
+        integer :: i, j
+        type(poly_type_t) :: scheme
+        type(mono_type_t) :: decl_type
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (declaration_node)
+                if (allocated(node%var_name)) then
+                    if (trim(node%var_name) == trim(name)) then
+                        call process_declaration_variables(node, decl_type)
+                        scheme = generalize_fn(decl_type)
+                        call scopes%define(name, scheme)
+                        return
+                    end if
+                end if
+                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                    do j = 1, size(node%var_names)
+                        if (trim(node%var_names(j)) == trim(name)) then
+                            call process_declaration_variables(node, decl_type)
+                            scheme = generalize_fn(decl_type)
+                            call scopes%define(name, scheme)
+                            return
+                        end if
+                    end do
+                end if
+            end select
+        end do
+    end subroutine ensure_var_declared_from_arena
 
 end module semantic_assignment_inference

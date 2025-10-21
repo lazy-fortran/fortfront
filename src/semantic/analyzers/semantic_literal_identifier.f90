@@ -1,0 +1,98 @@
+module semantic_literal_identifier
+    ! Literal and identifier type inference
+    use type_system_unified, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
+                                   create_mono_type, create_type_var, create_poly_type, &
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL
+    use scope_manager
+    use error_handling, only: error_collection_t, result_t, create_error_result, &
+                              ERROR_SEMANTIC
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use ast_nodes_core, only: literal_node, identifier_node
+    use semantic_function_analysis, only: infer_type_from_usage_context
+    implicit none
+    private
+
+    public :: infer_literal_type
+    public :: infer_identifier_type
+
+contains
+
+    function infer_literal_type(lit) result(typ)
+        type(literal_node), intent(in) :: lit
+        type(mono_type_t) :: typ
+
+        select case (lit%literal_kind)
+        case (LITERAL_INTEGER)
+            typ = create_mono_type(TINT)
+        case (LITERAL_REAL)
+            typ = create_mono_type(TREAL)
+        case (LITERAL_STRING)
+            if (allocated(lit%value) .and. len(lit%value) >= 2) then
+                typ = create_mono_type(TCHAR, char_size=len(lit%value) - 2)
+            else
+                typ = create_mono_type(TCHAR, char_size=0)
+            end if
+        case (LITERAL_LOGICAL)
+            typ = create_mono_type(TLOGICAL)
+        case default
+            typ = create_mono_type(TREAL)
+        end select
+    end function infer_literal_type
+
+    function infer_identifier_type(ident, scopes, errors, strict_mode, next_var_id) &
+        result(typ)
+        type(identifier_node), intent(in) :: ident
+        type(scope_stack_t), intent(inout) :: scopes
+        type(error_collection_t), intent(inout) :: errors
+        logical, intent(in) :: strict_mode
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: typ
+        type(poly_type_t), allocatable :: scheme
+        type(result_t) :: error_result
+
+        if (.not. allocated(ident%name) .or. len_trim(ident%name) == 0) then
+            typ = create_mono_type(TVAR, var=create_type_var(next_var_id, ""))
+            next_var_id = next_var_id + 1
+            return
+        end if
+
+        call scopes%lookup(ident%name, scheme)
+
+        if (allocated(scheme)) then
+            typ = instantiate_scheme_simple(scheme, next_var_id)
+        else
+            if (strict_mode) then
+                error_result = create_error_result( &
+                    "Undefined variable '"//ident%name//"' in strict mode", &
+                    ERROR_SEMANTIC, &
+                    component="semantic_literal_identifier", &
+                    context="infer_identifier_type", &
+                    suggestion="Declare 'integer :: "//ident%name// &
+                    "' or drop 'implicit none' for lazy Fortran mode")
+                call errors%add_result(error_result)
+
+                typ = create_mono_type(TVAR, var=create_type_var(next_var_id, ""))
+                next_var_id = next_var_id + 1
+            else
+                typ = infer_type_from_usage_context(ident%name, next_var_id)
+
+                block
+                    type(poly_type_t) :: new_scheme
+                    new_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=typ)
+                    call scopes%define(ident%name, new_scheme)
+                end block
+            end if
+        end if
+    end function infer_identifier_type
+
+    function instantiate_scheme_simple(scheme, next_var_id) result(typ)
+        type(poly_type_t), intent(in) :: scheme
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: typ
+        type(poly_type_t) :: mutable_scheme
+
+        mutable_scheme = scheme
+        typ = mutable_scheme%get_mono()
+    end function instantiate_scheme_simple
+
+end module semantic_literal_identifier
