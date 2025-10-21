@@ -47,6 +47,34 @@ module standardizer_declarations_core
 
 contains
 
+    logical function is_legacy_comment(node)
+        type(comment_node), intent(in) :: node
+        character(len=:), allocatable :: lowered_text
+
+        is_legacy_comment = .false.
+        if (.not. allocated(node%text)) return
+
+        lowered_text = to_lower(adjustl(trim(node%text)))
+        if (len_trim(lowered_text) >= 11) then
+            if (index(lowered_text, "equivalence") == 1) then
+                is_legacy_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 6) then
+            if (index(lowered_text, "common") == 1) then
+                is_legacy_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 5) then
+            if (index(lowered_text, "block") == 1) then
+                is_legacy_comment = .true.
+                return
+            end if
+        end if
+    end function is_legacy_comment
+
     ! Get type standardization setting
     subroutine get_standardizer_type_standardization(enabled)
         logical, intent(out) :: enabled
@@ -63,7 +91,6 @@ contains
         integer, allocatable :: declaration_indices(:)
         integer :: i, j, implicit_insert_pos, header_insert_pos
         integer :: n_declarations, total_extra
-        integer :: header_copy_end, separator_start
 
         if (.not. allocated(prog%body_indices)) return
 
@@ -97,42 +124,30 @@ contains
         ! Create new body indices with optional implicit none and declarations
         total_extra = n_declarations
         if (implicit_none_index > 0) total_extra = total_extra + 1
+
+        ! Early return if nothing to add
+        if (total_extra == 0) return
+
         allocate (new_body_indices(size(prog%body_indices) + total_extra))
 
-        ! Copy use statements
+        ! Copy all statements before new declarations insertion point
+        ! This includes USE statements, existing declarations, and legacy statements
         j = 1
-        if (implicit_insert_pos > 1) then
-            do i = 1, implicit_insert_pos - 1
+        if (header_insert_pos > 1) then
+            do i = 1, header_insert_pos - 1
+                if (i == implicit_insert_pos .and. implicit_none_index > 0) then
+                    new_body_indices(j) = implicit_none_index
+                    j = j + 1
+                end if
                 new_body_indices(j) = prog%body_indices(i)
                 j = j + 1
             end do
         end if
 
-        ! Insert implicit none if we created one
-        if (implicit_none_index > 0) then
+        ! Insert implicit none if we created one and haven't inserted it yet
+        if (implicit_none_index > 0 .and. implicit_insert_pos >= header_insert_pos) then
             new_body_indices(j) = implicit_none_index
             j = j + 1
-        end if
-
-        ! Determine header statements to retain before new declarations
-        header_copy_end = header_insert_pos - 1
-        if (header_copy_end >= implicit_insert_pos) then
-            do while (header_copy_end >= implicit_insert_pos)
-                if (.not. is_header_separator(header_copy_end)) exit
-                header_copy_end = header_copy_end - 1
-            end do
-        else
-            header_copy_end = implicit_insert_pos - 1
-        end if
-        separator_start = header_copy_end + 1
-        if (separator_start < implicit_insert_pos) separator_start = implicit_insert_pos
-
-        ! Copy retained header statements (uses are already handled)
-        if (header_copy_end >= implicit_insert_pos) then
-            do i = implicit_insert_pos, header_copy_end
-                new_body_indices(j) = prog%body_indices(i)
-                j = j + 1
-            end do
         end if
 
         ! Insert newly generated declarations, if any
@@ -140,14 +155,6 @@ contains
             new_body_indices(j) = declaration_indices(i)
             j = j + 1
         end do
-
-        ! Reinsert trailing separators (comments/blank lines) between header and body
-        if (separator_start <= header_insert_pos - 1) then
-            do i = separator_start, header_insert_pos - 1
-                new_body_indices(j) = prog%body_indices(i)
-                j = j + 1
-            end do
-        end if
 
         ! Copy remaining statements
         if (header_insert_pos <= size(prog%body_indices)) then
@@ -162,30 +169,6 @@ contains
 
         ! Update the arena entry
         arena%entries(prog_index)%node = prog
-
-    contains
-
-        logical function is_header_separator(pos)
-            integer, intent(in) :: pos
-            integer :: node_index
-
-            is_header_separator = .false.
-            if (.not. allocated(prog%body_indices)) return
-            if (pos < 1 .or. pos > size(prog%body_indices)) return
-
-            node_index = prog%body_indices(pos)
-            if (node_index <= 0 .or. node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
-
-            select type (stmt => arena%entries(node_index)%node)
-            type is (comment_node)
-                is_header_separator = .true.
-            type is (blank_line_node)
-                is_header_separator = .true.
-            class default
-                is_header_separator = .false.
-            end select
-        end function is_header_separator
 
     end subroutine insert_variable_declarations
 
@@ -265,7 +248,11 @@ contains
                     type is (use_statement_node)
                         keep_scanning = .true.
                     type is (comment_node)
-                        keep_scanning = (mode >= 1)
+                        if (is_legacy_comment(stmt)) then
+                            keep_scanning = (mode >= 2)
+                        else
+                            keep_scanning = (mode >= 1)
+                        end if
                     type is (blank_line_node)
                         keep_scanning = (mode >= 1)
                     type is (implicit_statement_node)

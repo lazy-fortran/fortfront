@@ -205,6 +205,34 @@ contains
         end do
     end function has_prior_subroutine_with_name
 
+    logical function is_legacy_statement_comment(node)
+        type(comment_node), intent(in) :: node
+        character(len=:), allocatable :: lowered_text
+
+        is_legacy_statement_comment = .false.
+        if (.not. allocated(node%text)) return
+
+        lowered_text = to_lower(adjustl(trim(node%text)))
+        if (len_trim(lowered_text) >= 11) then
+            if (index(lowered_text, "equivalence") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 6) then
+            if (index(lowered_text, "common") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 5) then
+            if (index(lowered_text, "block") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+    end function is_legacy_statement_comment
+
     subroutine assemble_program_header(arena, node, code, non_use_indices, &
                                        non_use_count, extra_decl_code)
         type(ast_arena_t), intent(in) :: arena
@@ -311,7 +339,7 @@ contains
             use_statements_code = use_statements_code // "    " // stmt_code // &
                                   new_line('A')
         type is (comment_node)
-            if (non_use_count == 0) then
+            if (non_use_count == 0 .or. is_legacy_statement_comment(ib)) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
                 call append_header_trivia(stmt_code, use_statements_code, &

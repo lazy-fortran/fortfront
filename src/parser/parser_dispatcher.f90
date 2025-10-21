@@ -520,7 +520,7 @@ contains
 
         block
             type(comment_node) :: comment
-            comment%text = "    " // trim(text)
+            comment%text = trim(text)
             comment%line = line
             comment%column = column
             comment%uid = generate_uid()
