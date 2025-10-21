@@ -13,6 +13,7 @@ module parser_forall_module
                                             statement_callbacks_t, &
                                             null_statement_callbacks, &
                                             find_statement_end
+    use parser_utilities, only: consume_token
     implicit none
     private
 
@@ -501,11 +502,5 @@ contains
                                    end_indices_all=upper_bounds, &
                                    stride_indices_all=stride_bounds)
     end function build_forall_node
-
-    subroutine consume_token(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: ignored_token
-        ignored_token = parser%consume()
-    end subroutine consume_token
 
 end module parser_forall_module

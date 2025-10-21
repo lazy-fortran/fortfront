@@ -14,6 +14,7 @@ module parser_declarations_core_module
     use parser_declaration_attributes_module, only: parse_declaration_attributes, &
                                                     parse_array_dimensions
     use declaration_attribute_utils, only: declaration_attribute_info_t
+    use parser_utilities, only: peek_next_nontrivial_token
     implicit none
     private
 
@@ -628,33 +629,6 @@ contains
         token%kind = TK_IDENTIFIER
         promoted = .true.
     end function try_promote_keyword_identifier
-
-    function peek_next_nontrivial_token(parser) result(next_token)
-        type(parser_state_t), intent(in) :: parser
-        type(token_t) :: next_token
-        integer :: pos
-
-        next_token%kind = TK_EOF
-        next_token%text = ""
-
-        if (.not. associated(parser%tokens)) then
-            return
-        end if
-
-        pos = parser%current_token
-        do while (pos >= 1 .and. pos <= size(parser%tokens))
-            next_token = parser%tokens(pos)
-            select case (next_token%kind)
-            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                pos = pos + 1
-            case default
-                return
-            end select
-        end do
-
-        next_token%kind = TK_EOF
-        next_token%text = ""
-    end function peek_next_nontrivial_token
 
     subroutine initialize_multi_state(var_names, per_var_dims, has_dims, &
                                       init_indices)
