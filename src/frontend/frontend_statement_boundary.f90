@@ -3,7 +3,7 @@ module frontend_statement_boundary
     ! Handles finding statement boundaries and inline construct detection
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-                          TK_OPERATOR, TK_WHITESPACE
+                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT
 
     implicit none
     private
@@ -21,7 +21,7 @@ contains
         idx = start_index
         do while (idx <= size(tokens))
             select case (tokens(idx)%kind)
-            case (TK_WHITESPACE)
+            case (TK_WHITESPACE, TK_COMMENT)
                 idx = idx + 1
             case default
                 return
@@ -305,8 +305,9 @@ contains
                           == ";")) then
                     stmt_end = i - 1
                     exit
+                else if (tokens(i)%kind /= TK_COMMENT) then
+                    stmt_end = i
                 end if
-                stmt_end = i
             end do
         end if
 
