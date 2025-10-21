@@ -9,7 +9,7 @@ module frontend_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, block_data_node
     use ast_factory, only: push_program
     use iso_fortran_env, only: error_unit
     use frontend_utilities, only: int_to_str
@@ -163,6 +163,9 @@ contains
                     prog_index = unit_indices(1)
                 type is (module_node)
                     ! Do not wrap a lone module in a synthetic program
+                    prog_index = unit_indices(1)
+                type is (block_data_node)
+                    ! Do not wrap a lone BLOCK DATA in a synthetic program
                     prog_index = unit_indices(1)
                 class default
                     prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
@@ -448,6 +451,12 @@ contains
         if (start_pos <= size(tokens)) then
             if (tokens(start_pos)%kind == TK_KEYWORD) then
                 unit_type = to_lower(trim(tokens(start_pos)%text))
+                if (unit_type == "block" .and. start_pos + 1 <= size(tokens)) then
+                    if (tokens(start_pos + 1)%kind == TK_KEYWORD .and. &
+                        to_lower(trim(tokens(start_pos + 1)%text)) == "data") then
+                        unit_type = "blockdata"
+                    end if
+                end if
             end if
         end if
 
@@ -590,6 +599,30 @@ contains
                             end select
                         end if
                     end select
+                end if
+                unit_end = i
+            end do
+        else if (unit_type == "blockdata") then
+            ! For BLOCK DATA units, find "end block data"
+            do i = start_pos + 2, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD .and. &
+                         to_lower(trim(tokens(i)%text)) == "end") then
+                    if (i + 2 <= size(tokens)) then
+                        if (tokens(i + 1)%kind == TK_KEYWORD .and. &
+                            to_lower(trim(tokens(i + 1)%text)) == "block" .and. &
+                            tokens(i + 2)%kind == TK_KEYWORD .and. &
+                            to_lower(trim(tokens(i + 2)%text)) == "data") then
+                            unit_end = i + 2
+                            if (i + 3 <= size(tokens) .and. &
+                                tokens(i + 3)%kind == TK_IDENTIFIER) then
+                                unit_end = i + 3
+                            end if
+                            exit
+                        end if
+                    end if
                 end if
                 unit_end = i
             end do

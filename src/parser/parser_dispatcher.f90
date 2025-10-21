@@ -12,6 +12,7 @@ module parser_dispatcher_module
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
                                                parse_include_statement, parse_module
+    use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
     use parser_definition_statements_module, only: parse_function_definition, &
@@ -94,6 +95,14 @@ contains
                 stmt_index = parse_interface_block(parser, arena, prefix_buffer)
             case ("module")
                 stmt_index = parse_module(parser, arena)
+            case ("block")
+                if (parser%current_token + 1 <= size(parser%tokens) .and. &
+                    parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                    parser%tokens(parser%current_token + 1)%text == "data") then
+                    stmt_index = parse_block_data(parser, arena)
+                else
+                    stmt_index = route_control_flow(parser, arena)
+                end if
             case ("program")
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
@@ -119,7 +128,7 @@ contains
                 stmt_index = parse_end_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
-            case ("equivalence", "common", "block")
+            case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(parser, arena, lowered_keyword)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &

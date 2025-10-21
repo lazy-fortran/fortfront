@@ -20,11 +20,12 @@ module frontend_program_units
     ! Public program unit parsing interface
     public :: parse_program_unit, parse_module_unit, parse_function_unit
     public :: parse_subroutine_unit, parse_type_unit, parse_explicit_program_unit
-    public :: parse_implicit_main_program
+    public :: parse_implicit_main_program, parse_block_data_unit
     public :: not_meaningful_program_unit, has_any_non_comment_content, has_executable_statements
 
     ! Helper functions for unit detection
-    public :: is_function_start, is_subroutine_start, is_module_start, is_program_start, is_type_start
+    public :: is_function_start, is_subroutine_start, is_module_start, is_program_start, &
+              is_type_start, is_block_data_start
 
 contains
 
@@ -52,6 +53,9 @@ contains
             unit_index = parse_module_unit(tokens, arena)
         else if (is_program_start(tokens, 1)) then
             unit_index = parse_explicit_program_unit(tokens, arena)
+        else if (is_block_data_start(tokens, 1)) then
+            ! Parse BLOCK DATA unit
+            unit_index = parse_block_data_unit(tokens, arena)
         else if (is_type_start(tokens, 1)) then
             ! Type definitions should be parsed as structured constructs
             unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
@@ -131,6 +135,17 @@ contains
         ! Parse type definition using statement dispatcher (which handles parser creation)
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_type_unit
+
+    ! Parse BLOCK DATA unit
+    function parse_block_data_unit(tokens, arena) result(unit_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
+
+        ! Parse BLOCK DATA using statement dispatcher
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+    end function parse_block_data_unit
 
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program) &
@@ -280,5 +295,19 @@ contains
             end if
         end if
     end function is_type_start
+
+    function is_block_data_start(tokens, pos) result(is_start)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: is_start
+
+        is_start = .false.
+        if (pos <= size(tokens) - 1) then
+            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "block" .and. &
+                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "data") then
+                is_start = .true.
+            end if
+        end if
+    end function is_block_data_start
 
 end module frontend_program_units
