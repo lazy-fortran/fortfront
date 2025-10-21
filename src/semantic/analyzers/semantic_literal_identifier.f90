@@ -1,9 +1,10 @@
 module semantic_literal_identifier
     ! Literal and identifier type inference
-    use type_system_unified, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
-                                   create_mono_type, create_type_var, create_poly_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL
-    use scope_manager
+    use type_system_unified, only: type_env_t, type_var_t, mono_type_t, &
+                                   poly_type_t, create_mono_type, create_type_var, &
+                                   create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+                                   TLOGICAL
+    use scope_manager, only: scope_stack_t
     use error_handling, only: error_collection_t, result_t, create_error_result, &
                               ERROR_SEMANTIC
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL

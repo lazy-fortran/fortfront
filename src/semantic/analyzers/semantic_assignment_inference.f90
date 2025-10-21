@@ -57,9 +57,9 @@ contains
                     call scopes%lookup(lhs_node%name, existing_scheme)
 
                     if (.not. allocated(existing_scheme)) then
-                        ! Fallback: if this identifier is declared somewhere in the arena,
-                        ! define it in scope before deciding it's undefined. This protects
-                        ! multi-variable declarations with initializers and re-ordered nodes.
+                        ! Fallback: if the arena has a declaration, define it in scope
+                        ! before flagging it undefined. Handles multi-var inits and
+                        ! re-ordered nodes.
                         if (present(type_hints)) then
                             call ensure_declared_from_arena_local(scopes, arena, &
                                                                   lhs_node%name, &

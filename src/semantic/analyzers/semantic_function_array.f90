@@ -6,7 +6,7 @@ module semantic_function_array
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY, &
                                    type_args_allocated, type_args_size, &
                                    type_args_element
-    use scope_manager
+    use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node
     use ast_nodes_procedure, only: function_def_node
