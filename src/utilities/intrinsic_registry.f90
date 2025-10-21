@@ -41,8 +41,8 @@ contains
             if (trim(to_lower(intrinsic_functions(i)%name)) == &
                 trim(to_lower(name))) then
                 is_intrinsic = .true.
-                signature = intrinsic_functions(i)%return_type//"("// &
-                            intrinsic_functions(i)%arg_types//")"
+                signature = intrinsic_functions(i)%return_type // "(" // &
+                            intrinsic_functions(i)%arg_types // ")"
                 return
             end if
         end do
@@ -69,16 +69,33 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 32
+        integer, parameter :: NUM_INTRINSICS = 34
         integer :: i
 
         if (registry_initialized) return
 
-        ! Allocate exact space for intrinsic functions
         allocate (intrinsic_functions(NUM_INTRINSICS))
         i = 0
 
-        ! Mathematical functions
+        call register_mathematical_intrinsics(i)
+        call register_type_conversion_intrinsics(i)
+        call register_array_intrinsics(i)
+        call register_string_intrinsics(i)
+        call register_variadic_intrinsics(i)
+        call register_inquiry_intrinsics(i)
+
+        if (i /= NUM_INTRINSICS) then
+            write (error_unit, '(A)') &
+                "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
+            write (error_unit, '(A)') "in initialization - registry may be incomplete"
+        end if
+
+        registry_initialized = .true.
+    end subroutine initialize_intrinsic_registry
+
+    subroutine register_mathematical_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="sin", return_type="real", arg_types="real", &
@@ -128,8 +145,11 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="atan", return_type="real", arg_types="real", &
                                  description="Arc tangent function")
+    end subroutine register_mathematical_intrinsics
 
-        ! Type conversion functions
+    subroutine register_type_conversion_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="int", return_type="integer", arg_types="real", &
@@ -158,8 +178,11 @@ contains
                                  name="ceiling", return_type="integer", &
                                  arg_types="real", &
                                  description="Ceiling function")
+    end subroutine register_type_conversion_intrinsics
 
-        ! Array functions
+    subroutine register_array_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="size", return_type="integer", &
@@ -174,6 +197,18 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="maxval", return_type="numeric", &
+                                 arg_types="array", &
+                                 description="Array maximum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="minval", return_type="numeric", &
+                                 arg_types="array", &
+                                 description="Array minimum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="shape", return_type="integer_array", &
                                  arg_types="array", &
                                  description="Array shape")
@@ -183,8 +218,11 @@ contains
                                  name="reshape", return_type="array", &
                                  arg_types="array,integer_array", &
                                  description="Reshape array to new dimensions")
+    end subroutine register_array_intrinsics
 
-        ! String functions
+    subroutine register_string_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="len", return_type="integer", &
@@ -220,8 +258,11 @@ contains
                                  name="index", return_type="integer", &
                                  arg_types="character,character", &
                                  description="Substring position")
+    end subroutine register_string_intrinsics
 
-        ! Variadic functions
+    subroutine register_variadic_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="min", return_type="numeric", &
@@ -245,8 +286,11 @@ contains
                                  name="modulo", return_type="numeric", &
                                  arg_types="numeric,numeric", &
                                  description="Modulo function")
+    end subroutine register_variadic_intrinsics
 
-        ! Inquiry functions
+    subroutine register_inquiry_intrinsics(i)
+        integer, intent(inout) :: i
+
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="present", return_type="logical", &
@@ -263,18 +307,9 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="allocated", return_type="logical", &
                                  arg_types="allocatable", &
-                               description="Check if allocatable variable is allocated")
-
-        ! Validate we used all allocated slots
-        if (i /= NUM_INTRINSICS) then
-            write (error_unit, '(A)') &
-                "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
-            write (error_unit, '(A)') "in initialization - registry may be incomplete"
-            ! Continue with partial registry rather than crashing
-        end if
-
-        registry_initialized = .true.
-    end subroutine initialize_intrinsic_registry
+                                 description="Check if allocatable variable is "// &
+                                 "allocated")
+    end subroutine register_inquiry_intrinsics
 
     ! Helper function to convert string to lowercase
 
