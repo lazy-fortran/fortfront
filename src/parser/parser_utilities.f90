@@ -3,7 +3,8 @@ module parser_utilities
     ! Contains helper functions for identifier lists, letter ranges, and type specs
 
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module
 
     implicit none
@@ -11,7 +12,8 @@ module parser_utilities
 
     ! Public utility functions
     public :: parse_identifier_list, parse_letter_ranges, parse_character_type_spec, &
-              parse_kind_specification, is_type_specification, skip_to_end_of_line
+              parse_kind_specification, is_type_specification, skip_to_end_of_line, &
+              peek_next_nontrivial_token, consume_token
 
 contains
 
@@ -107,7 +109,8 @@ contains
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
                     token = parser%consume()  ! consume '-'
                     token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. len_trim(token%text) == 1) then
+                    if (token%kind == TK_IDENTIFIER .and. &
+                        len_trim(token%text) == 1) then
                         token = parser%consume()  ! consume second letter
                     end if
                 end if
@@ -157,7 +160,8 @@ contains
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
                     token = parser%consume()  ! consume '-'
                     token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. len_trim(token%text) == 1) then
+                    if (token%kind == TK_IDENTIFIER .and. &
+                        len_trim(token%text) == 1) then
                         token = parser%consume()  ! consume second letter
                         letter_ranges(i) = trim(letter_ranges(i)) // "-" // &
                                            trim(token%text)
@@ -199,7 +203,7 @@ contains
                     token = parser%consume()  ! consume '='
                     token = parser%peek()
 
-                    if (token%kind == TK_LITERAL) then
+                    if (token%kind == TK_NUMBER) then
                         token = parser%consume()
                         length_value = token%text
                         has_length = .true.
@@ -233,7 +237,7 @@ contains
             token = parser%consume()  ! consume '('
             token = parser%peek()
 
-            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_LITERAL) then
+            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_NUMBER) then
                 token = parser%consume()
                 kind_value = token%text
                 has_kind = .true.
@@ -299,5 +303,40 @@ contains
             token = parser%consume()
         end do
     end subroutine skip_to_end_of_line
+
+    ! Peek at the next non-trivial token
+    function peek_next_nontrivial_token(parser) result(next_token)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: next_token
+        integer :: pos
+
+        next_token%kind = TK_EOF
+        next_token%text = ""
+
+        if (.not. associated(parser%tokens)) then
+            return
+        end if
+
+        pos = parser%current_token
+        do while (pos >= 1 .and. pos <= size(parser%tokens))
+            next_token = parser%tokens(pos)
+            select case (next_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                pos = pos + 1
+            case default
+                return
+            end select
+        end do
+
+        next_token%kind = TK_EOF
+        next_token%text = ""
+    end function peek_next_nontrivial_token
+
+    ! Consume a token and discard it
+    subroutine consume_token(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: ignored_token
+        ignored_token = parser%consume()
+    end subroutine consume_token
 
 end module parser_utilities
