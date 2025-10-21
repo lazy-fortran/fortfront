@@ -10,7 +10,8 @@ module parser_execution_statements_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
                                    parse_derived_type_def, parser_is_at_type_definition
     use parser_definition_statements_module, only: parse_function_definition, &
-                                                   parse_subroutine_definition
+                                                   parse_subroutine_definition, &
+                                                   parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_assignment_module, only: parse_assignment_statement
     use parser_utils, only: analyze_declaration_structure
@@ -330,6 +331,8 @@ contains
                 stmt_index = parse_exit_statement(parser_ref, arena_ref)
             case ("call")
                 stmt_index = parse_call_statement(parser_ref, arena_ref)
+            case ("interface")
+                stmt_index = parse_interface_block(parser_ref, arena_ref, prefix_buffer)
             case ("dimension")
                 block
                     type(token_t) :: ignored_token

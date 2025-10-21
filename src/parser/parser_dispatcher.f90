@@ -17,6 +17,7 @@ module parser_dispatcher_module
     use parser_definition_statements_module, only: parse_function_definition, &
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
+    use parser_procedure_definitions_module, only: init_interface_procedure_parser
     use parser_control_statements_module, only: &
         parse_stop_statement, parse_return_statement, parse_goto_statement, &
         parse_error_stop_statement, parse_cycle_statement, parse_exit_statement, &
@@ -59,6 +60,8 @@ contains
         type(parser_state_t) :: parser
         type(token_t) :: first_token, second_token
         integer :: target_index, value_index
+
+        call init_interface_procedure_parser()
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
