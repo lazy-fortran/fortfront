@@ -261,7 +261,7 @@ contains
         type(token_t) :: token
         integer, allocatable :: arg_indices(:)
         integer :: line, column
-        character(len=:), allocatable :: unit_spec, format_spec
+        character(len=:), allocatable :: unit_spec, format_spec, namelist_group
 
         ! Check if we're at write keyword
         token = parser%peek()
@@ -294,12 +294,38 @@ contains
             return
         end if
 
-        ! Check for format specifier (optional)
+        ! Check for format specifier or namelist (optional)
         format_spec = ""
+        namelist_group = ""
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
             token = parser%consume()  ! consume comma
-            call parse_format_specifier(parser, format_spec)
+
+            ! Check if next token is 'nml' keyword
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .and. token%text == "nml") then
+                token = parser%consume()  ! consume 'nml'
+
+                ! Expect '=' after 'nml'
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = parser%consume()  ! consume '='
+
+                    ! Parse namelist group name
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER) then
+                        namelist_group = token%text
+                        token = parser%consume()
+                    else
+                        write (error_unit, *) &
+                            "Error: Expected namelist group name after 'nml=' at line ", &
+                            token%line
+                    end if
+                end if
+            else
+                ! Parse format specifier
+                call parse_format_specifier(parser, format_spec)
+            end if
         end if
 
         ! Expect closing parenthesis
@@ -317,7 +343,7 @@ contains
 
         ! Create write statement node with parsed arguments
         write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                           format_spec, line, column)
+                                           format_spec, namelist_group, line, column)
     end function parse_write_statement
 
     function parse_read_statement(parser, arena) result(read_index)
