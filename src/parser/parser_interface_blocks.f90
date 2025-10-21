@@ -11,6 +11,20 @@ module parser_interface_blocks_module
     private
 
     public :: parse_interface_block
+    public :: parse_interface_procedure
+    public :: set_interface_procedure_parser
+
+    abstract interface
+        function interface_proc_parser_t(parser, arena, prefix_buffer) result(proc_idx)
+            import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+            integer :: proc_idx
+        end function interface_proc_parser_t
+    end interface
+
+    procedure(interface_proc_parser_t), pointer :: proc_parser_callback => null()
 
 contains
 
@@ -35,6 +49,16 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (handle_interface_end(parser, token)) exit
+
+            stmt_index = 0
+            if (try_parse_interface_procedure(parser, arena, prefix_buffer, token, &
+                                              stmt_index)) then
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
+                cycle
+            end if
+
             if (process_interface_body_token(parser, arena, token, body_indices)) cycle
 
             call parser%error("Unexpected token '"//trim(token%text)// &
@@ -45,6 +69,48 @@ contains
         interface_index = push_interface_block(arena, interface_name, body_indices, &
                                                line, column)
     end function parse_interface_block
+
+    logical function try_parse_interface_procedure(parser, arena, prefix_buffer, &
+                                                   token, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: token
+        integer, intent(out) :: stmt_index
+
+        character(len=:), allocatable :: lowered_text
+
+        handled = .false.
+        stmt_index = 0
+
+        if (token%kind /= TK_KEYWORD) return
+
+        lowered_text = to_lower(token%text)
+        if (trim(lowered_text) /= "subroutine" .and. &
+            trim(lowered_text) /= "function") return
+
+        stmt_index = parse_interface_procedure(parser, arena, prefix_buffer)
+        handled = .true.
+    end function try_parse_interface_procedure
+
+    function parse_interface_procedure(parser, arena, prefix_buffer) &
+        result(proc_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer :: proc_index
+
+        if (associated(proc_parser_callback)) then
+            proc_index = proc_parser_callback(parser, arena, prefix_buffer)
+        else
+            proc_index = 0
+        end if
+    end function parse_interface_procedure
+
+    subroutine set_interface_procedure_parser(parser_func)
+        procedure(interface_proc_parser_t) :: parser_func
+        proc_parser_callback => parser_func
+    end subroutine set_interface_procedure_parser
 
     subroutine begin_interface_block(parser, interface_name, line, column)
         type(parser_state_t), intent(inout) :: parser
