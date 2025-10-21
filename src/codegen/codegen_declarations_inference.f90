@@ -356,12 +356,21 @@ contains
             type is (use_statement_node)
                 if (use_stmt%has_only .and. allocated(use_stmt%only_list)) then
                     do j = 1, size(use_stmt%only_list)
+                        if (.not. allocated(use_stmt%only_list(j)%s)) cycle
                         call record_use_associated_name(state, &
                                                         trim(use_stmt%only_list(j)%s))
                     end do
                 else if (allocated(use_stmt%module_name)) then
                     module_name = trim(use_stmt%module_name)
                     call collect_module_symbols(arena, module_name, state)
+                end if
+
+                if (allocated(use_stmt%rename_list)) then
+                    do j = 1, size(use_stmt%rename_list), 2
+                        if (.not. allocated(use_stmt%rename_list(j)%s)) cycle
+                        call record_use_associated_name(state, &
+                                                        trim(use_stmt%rename_list(j)%s))
+                    end do
                 end if
             end select
         end do
