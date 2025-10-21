@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SNAPSHOTS_DIR="$SCRIPT_DIR/snapshots"
+CASES_DIR="$SNAPSHOTS_DIR/cases"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 FORTFRONT="$(find "$PROJECT_ROOT/build" -name "fortfront" -type f 2>/dev/null | head -1)"
 
@@ -27,7 +28,7 @@ OPTIONS:
     -h, --help  Show this help message
 
 WORKFLOW:
-    1. Add test: Create .lf or .f90 file in test/snapshots/
+    1. Add test: Create .lf or .f90 file in test/snapshots/cases/
     2. Generate expected: Run with --update to create .expected file
     3. Review: Check git diff to verify expected output is correct
     4. Commit: Add both input and .expected files
@@ -73,6 +74,11 @@ if [[ ! -d "$SNAPSHOTS_DIR" ]]; then
     exit 1
 fi
 
+if [[ ! -d "$CASES_DIR" ]]; then
+    echo "Error: snapshots cases directory not found at $CASES_DIR" >&2
+    exit 1
+fi
+
 run_snapshot_test() {
     local input_file="$1"
     local basename="${input_file%.*}"
@@ -93,7 +99,7 @@ run_snapshot_test() {
                 cat "$actual_file"
             fi
             FAILED=$((FAILED + 1))
-            return 1
+            return 0
         fi
     fi
 
@@ -106,7 +112,7 @@ run_snapshot_test() {
             echo "FAIL: $(basename "$input_file") - no expected file found"
             echo "      Run with --update to generate expected output"
             FAILED=$((FAILED + 1))
-            return 1
+            return 0
         fi
 
         if diff -u "$expected_file" "$actual_file" > /dev/null 2>&1; then
@@ -123,17 +129,17 @@ run_snapshot_test() {
                 diff -u "$expected_file" "$actual_file" || true
             fi
             FAILED=$((FAILED + 1))
-            return 1
+            return 0
         fi
     fi
 }
 
-cd "$SNAPSHOTS_DIR"
+cd "$CASES_DIR"
 
 input_files=($(find . -maxdepth 1 \( -name "*.lf" -o -name "*.f90" \) | sort))
 
 if [[ ${#input_files[@]} -eq 0 ]]; then
-    echo "No snapshot test files found in $SNAPSHOTS_DIR"
+    echo "No snapshot test files found in $CASES_DIR"
     exit 0
 fi
 
@@ -149,7 +155,7 @@ done
 if [[ $UPDATE_MODE -eq 1 ]]; then
     echo ""
     echo "Updated ${#input_files[@]} snapshot(s)"
-    echo "Review changes with: git diff test/snapshots/"
+    echo "Review changes with: git diff test/snapshots/cases/"
 else
     echo ""
     echo "=== Snapshot Test Results ==="

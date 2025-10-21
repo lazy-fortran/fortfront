@@ -4,7 +4,7 @@ This directory contains snapshot tests for the fortfront transpiler. Snapshot te
 
 ## Structure
 
-Each test consists of two files:
+Each test resides in the `cases/` subdirectory and consists of two files:
 - Input file: `.lf` or `.f90` file containing Fortran code
 - Expected output: `.expected` file containing the transpiled result
 
@@ -23,9 +23,9 @@ Each test consists of two files:
 
 ## Adding New Tests
 
-1. Create input file in `test/snapshots/`:
+1. Create input file in `test/snapshots/cases/`:
    ```bash
-   echo 'x = 5' > test/snapshots/my_test.lf
+   echo 'x = 5' > test/snapshots/cases/my_test.lf
    ```
 
 2. Generate expected output:
@@ -35,12 +35,12 @@ Each test consists of two files:
 
 3. Review the generated `.expected` file:
    ```bash
-   git diff test/snapshots/
+   git diff test/snapshots/cases/
    ```
 
 4. If correct, commit both files:
    ```bash
-   git add test/snapshots/my_test.lf test/snapshots/my_test.expected
+   git add test/snapshots/cases/my_test.lf test/snapshots/cases/my_test.expected
    git commit -m "test: add snapshot test for feature X"
    ```
 
@@ -62,7 +62,7 @@ When you modify the transpiler and output format changes:
 
 4. Review with git diff to ensure changes are correct:
    ```bash
-   git diff test/snapshots/
+   git diff test/snapshots/cases/
    ```
 
 5. Commit the updated `.expected` files
