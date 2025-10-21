@@ -20,11 +20,14 @@ module parser_type_hooks_module
     public :: register_type_annotation
     public :: consume_type_annotations
     public :: has_type_annotations
+    public :: update_type_annotation_entry
 
 contains
 
-    subroutine register_type_annotation(decl_index, type_name, var_names, has_kind, kind_value, &
-                              is_parameter, is_allocatable, is_pointer, dimension_indices)
+    subroutine register_type_annotation(decl_index, type_name, var_names, has_kind, &
+                                        kind_value, &
+                                        is_parameter, is_allocatable, is_pointer, &
+                                        dimension_indices)
         integer, intent(in) :: decl_index
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -52,7 +55,8 @@ contains
         do i = 1, size(var_names)
             max_len = max(max_len, len_trim(var_names(i)))
         end do
-     allocate (character(len=max_len) :: registry(entry_index)%var_names(size(var_names)))
+        allocate (character(len=max_len) :: &
+                  registry(entry_index)%var_names(size(var_names)))
         do i = 1, size(var_names)
             registry(entry_index)%var_names(i) = adjustl(trim(var_names(i)))
         end do
@@ -90,7 +94,8 @@ contains
         if (present(dimension_indices)) then
             registry(entry_index)%has_dimensions = .true.
             if (size(dimension_indices) > 0) then
-               allocate (registry(entry_index)%dimension_indices(size(dimension_indices)))
+                allocate &
+                    (registry(entry_index)%dimension_indices(size(dimension_indices)))
                 registry(entry_index)%dimension_indices = dimension_indices
             else
                 allocate (registry(entry_index)%dimension_indices(0))
@@ -118,5 +123,57 @@ contains
 
         call move_alloc(registry, entries)
     end subroutine consume_type_annotations
+
+    subroutine update_type_annotation_entry(decl_index, var_names, has_dimensions, &
+                                            dimension_indices)
+        integer, intent(in) :: decl_index
+        character(len=*), intent(in), optional :: var_names(:)
+        logical, intent(in), optional :: has_dimensions
+        integer, intent(in), optional :: dimension_indices(:)
+        integer :: i, j, max_len
+
+        if (.not. allocated(registry)) return
+
+        do i = 1, size(registry)
+            if (registry(i)%decl_index /= decl_index) cycle
+
+            if (present(var_names)) then
+                max_len = 1
+                do j = 1, size(var_names)
+                    max_len = max(max_len, len_trim(var_names(j)))
+                end do
+                if (allocated(registry(i)%var_names)) then
+                    deallocate (registry(i)%var_names)
+                end if
+                allocate (character(len=max_len) :: &
+                          registry(i)%var_names(size(var_names)))
+                do j = 1, size(var_names)
+                    registry(i)%var_names(j) = adjustl(trim(var_names(j)))
+                end do
+            end if
+
+            if (present(dimension_indices)) then
+                registry(i)%has_dimensions = .true.
+                if (allocated(registry(i)%dimension_indices)) then
+                    deallocate (registry(i)%dimension_indices)
+                end if
+                if (size(dimension_indices) > 0) then
+                    allocate (registry(i)%dimension_indices(size(dimension_indices)))
+                    registry(i)%dimension_indices = dimension_indices
+                else
+                    allocate (registry(i)%dimension_indices(0))
+                end if
+            else if (present(has_dimensions)) then
+                registry(i)%has_dimensions = has_dimensions
+                if (.not. has_dimensions) then
+                    if (allocated(registry(i)%dimension_indices)) then
+                        deallocate (registry(i)%dimension_indices)
+                    end if
+                end if
+            end if
+
+            return
+        end do
+    end subroutine update_type_annotation_entry
 
 end module parser_type_hooks_module
