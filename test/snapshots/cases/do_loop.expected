@@ -1,0 +1,10 @@
+program main
+    implicit none
+    integer :: sum
+    integer :: i
+    sum = 0
+    do i = 1, 10
+        sum = sum + i 
+    end do
+    print *, sum
+end program main

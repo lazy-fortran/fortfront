@@ -1,0 +1,6 @@
+function double(x)
+    result = x * 2
+end function
+
+val = double(5)
+print *, val
