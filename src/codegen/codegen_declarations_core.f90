@@ -34,14 +34,14 @@ contains
 
         call get_type_standardization(standardize_types_enabled)
         code = resolve_declaration_type(node, standardize_types_enabled)
-        has_dimension_attr = index(to_lower(trim(code)), "dimension(") > 0
 
         code = fix_character_len_placeholder(code)
         code = apply_kind_modifier(node, code)
 
         call populate_declaration_attributes(node, attr_info)
-        call append_declaration_attributes(code, attr_info)
+        call append_declaration_attributes(code, attr_info, arena)
 
+        has_dimension_attr = index(to_lower(trim(code)), "dimension(") > 0
         code = code // " :: " // build_declaration_entity_list(arena, node, &
                                                                has_dimension_attr)
         code = code // build_declaration_initializer(arena, node)
@@ -186,6 +186,16 @@ contains
         attr_info%is_external = node%is_external
         attr_info%is_parameter = node%is_parameter
         attr_info%is_save = node%is_save
+        if (node%is_array .and. allocated(node%dimension_indices) .and. &
+            .not. node%is_multi_declaration .and. .not. node%is_allocatable .and. &
+            node%has_intent) then
+            if (size(node%dimension_indices) > 0) then
+                attr_info%has_global_dimensions = .true.
+                allocate (attr_info%global_dimension_indices(size( &
+                          node%dimension_indices)))
+                attr_info%global_dimension_indices = node%dimension_indices
+            end if
+        end if
     end subroutine populate_declaration_attributes
 
     function build_declaration_entity_list(arena, node, has_dimension_attr) &
@@ -306,7 +316,7 @@ contains
         type_code = format_parameter_type(node)
 
         call populate_parameter_attributes(node, attr_info)
-        call append_declaration_attributes(type_code, attr_info)
+        call append_declaration_attributes(type_code, attr_info, arena)
 
         decl_code = type_code // " :: " // node%name
         decl_code = decl_code // build_parameter_dimensions(arena, node)

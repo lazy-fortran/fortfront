@@ -130,8 +130,9 @@ contains
         end if
 
         found_multidim_array = .false.
-        if ((index(output, 'matrix(') > 0 .and. index(output, ',') > 0) .or. &
-            (index(output, 'tensor(') > 0 .and. index(output, ',') > 0)) then
+        if ((index(output, 'matrix(') > 0 .or. index(output, 'dimension(m') > 0) .and. &
+            (index(output, 'tensor(') > 0 .or. index(output, 'dimension(m, n, 3)') > 0 .or. &
+             index(output, 'dimension(m,n,3)') > 0)) then
             found_multidim_array = .true.
         end if
 
@@ -139,6 +140,8 @@ contains
             print *, '  PASS: Multi-dimensional array declarations preserved'
         else
             print *, '  FAIL: Multi-dimensional array dimensions lost'
+            print *, '  Output:'
+            print *, trim(output)
             test_multidim_array_with_params = .false.
         end if
 
