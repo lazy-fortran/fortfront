@@ -3,10 +3,12 @@ module frontend_statement_processing
     ! Handles parsing of all statements into a program structure
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN, &
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_UNKNOWN, &
                           TK_WHITESPACE, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                        get_additional_indices, clear_additional_indices
+                                        get_additional_indices, &
+                                        clear_additional_indices
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -27,6 +29,113 @@ module frontend_statement_processing
     public :: find_statement_boundary
 
 contains
+
+    pure integer function next_significant_token_index(tokens, start_index) &
+        result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+
+        idx = start_index
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+            case default
+                return
+            end select
+        end do
+        idx = 0
+    end function next_significant_token_index
+
+    pure logical function inline_where_parenthetical(tokens, start_index) &
+        result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer :: idx
+        integer :: depth
+
+        is_inline = .false.
+        depth = 1
+        idx = start_index
+        do while (idx <= size(tokens) .and. depth > 0)
+            if (tokens(idx)%kind == TK_OPERATOR) then
+                select case (tokens(idx)%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    depth = depth - 1
+                end select
+            else if (tokens(idx)%kind == TK_EOF) then
+                return
+            end if
+            idx = idx + 1
+        end do
+        if (depth > 0) return
+
+        idx = next_significant_token_index(tokens, idx)
+        if (idx == 0) return
+        select case (tokens(idx)%kind)
+        case (TK_NEWLINE, TK_EOF)
+            return
+        case default
+            is_inline = .true.
+        end select
+    end function inline_where_parenthetical
+
+    pure logical function inline_where_colon_variant(tokens, start_index) &
+        result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer :: idx
+        integer :: colon_index
+
+        is_inline = .false.
+        colon_index = 0
+        idx = start_index
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_NEWLINE, TK_EOF)
+                return
+            case (TK_OPERATOR)
+                if (tokens(idx)%text == ":") then
+                    colon_index = idx + 1
+                    exit
+                end if
+            end select
+            idx = idx + 1
+        end do
+
+        if (colon_index == 0) return
+
+        idx = next_significant_token_index(tokens, colon_index)
+        if (idx == 0) return
+        select case (tokens(idx)%kind)
+        case (TK_NEWLINE, TK_EOF)
+            return
+        case default
+            is_inline = .true.
+        end select
+    end function inline_where_colon_variant
+
+    pure logical function is_inline_where_statement(tokens, where_index) &
+        result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: where_index
+        integer :: first_token
+
+        is_inline = .false.
+        if (where_index < 1 .or. where_index > size(tokens)) return
+
+        first_token = next_significant_token_index(tokens, where_index + 1)
+        if (first_token == 0) return
+
+        if (tokens(first_token)%kind == TK_OPERATOR .and. &
+            tokens(first_token)%text == "(") then
+            is_inline = inline_where_parenthetical(tokens, first_token + 1)
+        else
+            is_inline = inline_where_colon_variant(tokens, first_token)
+        end if
+    end function is_inline_where_statement
 
     ! Parse all statements into a program block
     function parse_all_statements(tokens, arena) result(prog_index)
@@ -60,7 +169,8 @@ contains
                     end if
                 end do
                 if (look_ahead <= size(tokens)) then
-                call find_statement_boundary(tokens, look_ahead, merged_start, merged_end)
+                    call find_statement_boundary(tokens, look_ahead, merged_start, &
+                                                 merged_end)
                     if (merged_start == look_ahead) then
                         if (tokens(merged_start)%kind == TK_KEYWORD .and. &
                             (tokens(merged_start)%text == "function" .or. &
@@ -72,7 +182,8 @@ contains
             end if
 
             if (tokens(stmt_start)%kind == TK_COMMENT) then
-                call process_comment_statement(tokens, stmt_start, arena, prefix_buffer, stmt_index, body_indices)
+                call process_comment_statement(tokens, stmt_start, arena, &
+                                               prefix_buffer, stmt_index, body_indices)
             else
                 call process_regular_statement(tokens, stmt_start, stmt_end, arena, &
                                                prefix_buffer, stmt_index, body_indices)
@@ -83,11 +194,13 @@ contains
         end do
 
         ! Create final program structure
-        call create_final_program_structure(arena, body_indices, stmt_count, prog_index)
+        call create_final_program_structure(arena, body_indices, stmt_count, &
+                                            prog_index)
     end function parse_all_statements
 
     ! Process comment statement
-    subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, body_indices)
+    subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, &
+                                         body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: i
         type(ast_arena_t), intent(inout) :: arena
@@ -110,8 +223,6 @@ contains
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
-
-        deallocate (stmt_tokens)
     end subroutine process_comment_statement
 
     ! Process regular statement
@@ -185,7 +296,8 @@ contains
             stmt_tokens(stmt_end - local_start + 2)%kind = TK_EOF
             stmt_tokens(stmt_end - local_start + 2)%text = ""
             stmt_tokens(stmt_end - local_start + 2)%line = tokens(stmt_end)%line
-            stmt_tokens(stmt_end - local_start + 2)%column = tokens(stmt_end)%column + 1
+            stmt_tokens(stmt_end - local_start + 2)%column = &
+                tokens(stmt_end)%column + 1
         end block
 
         ! Note: stmt_tokens already allocated and filled in the block above
@@ -205,8 +317,6 @@ contains
                 call clear_additional_indices()
             end block
         end if
-
-        deallocate (stmt_tokens)
     end subroutine process_regular_statement
 
     ! Create final program structure from parsed statements
@@ -234,7 +344,8 @@ contains
     end subroutine create_final_program_structure
 
     ! Handle multiple program units
-    subroutine handle_multiple_program_units(arena, body_indices, prog_index, error_msg)
+    subroutine handle_multiple_program_units(arena, body_indices, &
+                                             prog_index, error_msg)
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         integer, intent(out) :: prog_index
@@ -275,7 +386,8 @@ contains
             end if
         else
             ! Multiple units - create container
-      prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
+            prog_index = push_program(arena, "__MULTI_UNIT__", &
+                                      valid_units(1:valid_count), 1, 1)
         end if
 
         deallocate (valid_units)
@@ -310,7 +422,8 @@ contains
 
         select type (prog_node => node)
         type is (program_node)
-         if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
+            if ((prog_node%name == "main" .or. prog_node%name == &
+                 "__IMPLICIT_MAIN__") .and. &
                 size(prog_node%body_indices) == 0) then
                 is_empty = .true.
             end if
@@ -346,7 +459,8 @@ contains
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
                   (tokens(stmt_start)%kind == TK_NEWLINE .or. &
-           (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
+                   (tokens(stmt_start)%kind == TK_OPERATOR .and. &
+                    tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do
 
@@ -361,7 +475,8 @@ contains
             case ("if")
                 ! Check if it's if/then (multi-line) by looking ahead
                 do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
-                    if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "then") then
+                    if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == &
+                        "then") then
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
@@ -376,20 +491,22 @@ contains
                 is_multiline_construct = .true.
                 nesting_level = 1
             case ("where")
-                ! Check if it's where construct (has newline before end where)
-                do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
-                    if (tokens(i)%kind == TK_NEWLINE) then
-                        ! Might be multi-line where construct
-                        is_multiline_construct = .true.
-                        nesting_level = 1
-                        exit
-                    else if (tokens(i)%kind == TK_KEYWORD .and. &
-                        (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
-                        is_multiline_construct = .true.
-                        nesting_level = 1
-                        exit
-                    end if
-                end do
+                if (.not. is_inline_where_statement(tokens, stmt_start)) then
+                    do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
+                        if (tokens(i)%kind == TK_NEWLINE) then
+                            ! Multi-line where construct without inline body
+                            is_multiline_construct = .true.
+                            nesting_level = 1
+                            exit
+                        else if (tokens(i)%kind == TK_KEYWORD .and. &
+                                 (tokens(i)%text == "end" .or. &
+                                  tokens(i)%text == "elsewhere")) then
+                            is_multiline_construct = .true.
+                            nesting_level = 1
+                            exit
+                        end if
+                    end do
+                end if
             end select
         end if
 
@@ -411,7 +528,9 @@ contains
                             block
                                 integer :: j
                                 do j = i + 1, min(i + 20, size(tokens))
-                     if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                                    if (tokens(j)%kind == TK_KEYWORD .and. &
+                                        tokens(j)%text == &
+                                        "then") then
                                         nesting_level = nesting_level + 1
                                         exit
                                     else if (tokens(j)%kind == TK_NEWLINE) then
@@ -438,12 +557,16 @@ contains
                                     stmt_end = i
                                     exit
                                 end if
-                      else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
-                   tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
-                                    stmt_end = i + 1
-                                    exit
+                            else if (tokens(i)%text == "end") then
+                                if (i + 1 <= size(tokens)) then
+                                    if (tokens(i + 1)%kind == TK_KEYWORD .and. &
+                                        tokens(i + 1)%text == "if") then
+                                        nesting_level = nesting_level - 1
+                                        if (nesting_level == 0) then
+                                            stmt_end = i + 1
+                                            exit
+                                        end if
+                                    end if
                                 end if
                             end if
                         end if
@@ -459,27 +582,34 @@ contains
 
                     ! Check for two-word end constructs
                     if (tokens(i)%text == "end") then
-                    if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
-                if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
-                            nesting_level = nesting_level - 1
-                            if (nesting_level == 0) then
-                                stmt_end = i + 1
-                                exit
-                            end if
-   else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
-                            nesting_level = nesting_level - 1
-                            if (nesting_level == 0) then
-                                stmt_end = i + 1
-                                exit
-                            end if
-     else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
-                            nesting_level = nesting_level - 1
-                            if (nesting_level == 0) then
-                                stmt_end = i + 1
-                                exit
+                        if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == &
+                            TK_KEYWORD) then
+                            if (tokens(i + 1)%text == "do" .and. &
+                                tokens(stmt_start)%text &
+                                == "do") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    stmt_end = i + 1
+                                    exit
+                                end if
+                            else if (tokens(i + 1)%text == "select" .and. &
+                                     tokens(stmt_start)%text == &
+                                     "select") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    stmt_end = i + 1
+                                    exit
+                                end if
+                            else if (tokens(i + 1)%text == "where" .and. &
+                                     tokens(stmt_start)%text == &
+                                     "where") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    stmt_end = i + 1
+                                    exit
+                                end if
                             end if
                         end if
-                    end if
                     end if
                 end if
 
@@ -492,7 +622,8 @@ contains
                     stmt_end = i - 1
                     exit
                 else if (tokens(i)%kind == TK_NEWLINE .or. &
-                         (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == ";")) then
+                         (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text &
+                          == ";")) then
                     stmt_end = i - 1
                     exit
                 else if (tokens(i)%kind /= TK_COMMENT) then
@@ -506,7 +637,8 @@ contains
         if (stmt_end < stmt_start) stmt_end = stmt_start
     end subroutine find_statement_boundary
 
-   logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
+    logical function is_prefix_only_statement(tokens, start_idx, end_idx) &
+        result(is_prefix)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
         integer :: idx
