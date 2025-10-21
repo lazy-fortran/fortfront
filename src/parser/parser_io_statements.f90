@@ -261,7 +261,7 @@ contains
         type(token_t) :: token
         integer, allocatable :: arg_indices(:)
         integer :: line, column
-        character(len=:), allocatable :: unit_spec, format_spec
+        character(len=:), allocatable :: unit_spec, format_spec, namelist_group
 
         ! Check if we're at write keyword
         token = parser%peek()
@@ -294,12 +294,39 @@ contains
             return
         end if
 
-        ! Check for format specifier (optional)
-        format_spec = ""
+        ! Check for format specifier or namelist (optional)
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
             token = parser%consume()  ! consume comma
-            call parse_format_specifier(parser, format_spec)
+
+            ! Check if next token is 'nml' keyword
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .and. token%text == "nml") then
+                token = parser%consume()  ! consume 'nml'
+
+                ! Expect '=' after 'nml'
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = parser%consume()  ! consume '='
+
+                    ! Parse namelist group name
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER) then
+                        namelist_group = token%text
+                        token = parser%consume()
+                    else
+                        write (error_unit, *) &
+                            "Error: Expected namelist group name after 'nml=' at line ", &
+                            token%line
+                    end if
+                end if
+            else
+                ! Parse format specifier
+                call parse_format_specifier(parser, format_spec)
+                if (allocated(format_spec)) then
+                    if (len(format_spec) == 0) deallocate (format_spec)
+                end if
+            end if
         end if
 
         ! Expect closing parenthesis
@@ -316,8 +343,18 @@ contains
         call parse_argument_list(parser, arena, arg_indices)
 
         ! Create write statement node with parsed arguments
-        write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                           format_spec, line, column)
+        if (allocated(namelist_group)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               namelist_group=namelist_group, &
+                                               line=line, column=column)
+        else if (allocated(format_spec)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               format_spec=format_spec, &
+                                               line=line, column=column)
+        else
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               line=line, column=column)
+        end if
     end function parse_write_statement
 
     function parse_read_statement(parser, arena) result(read_index)

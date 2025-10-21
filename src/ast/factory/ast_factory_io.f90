@@ -39,11 +39,13 @@ contains
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, &
-                                  line, column, parent_index) result(write_index)
+                                  namelist_group, line, column, parent_index) &
+        result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: arg_indices(:)
         character(len=*), intent(in), optional :: format_spec
+        character(len=*), intent(in), optional :: namelist_group
         integer, intent(in), optional :: line, column, parent_index
         integer :: write_index
         type(write_statement_node) :: write_stmt
@@ -54,7 +56,12 @@ contains
                 write_stmt%arg_indices = arg_indices
             end if
         end if
-        if (present(format_spec)) write_stmt%format_spec = format_spec
+        if (present(format_spec)) then
+            if (len(format_spec) > 0) write_stmt%format_spec = format_spec
+        end if
+        if (present(namelist_group)) then
+            if (len(namelist_group) > 0) write_stmt%namelist_group = namelist_group
+        end if
         if (present(line)) write_stmt%line = line
         if (present(column)) write_stmt%column = column
 
