@@ -16,7 +16,7 @@ module ast_nodes_data
     ! Public factory functions
     public :: create_declaration, create_derived_type, create_mixed_construct_container
     ! Constructors migrated from ast_core
-    public :: create_module
+    public :: create_module, create_block_data
 
     ! Public utility functions
     public :: intent_type_to_string
@@ -98,6 +98,17 @@ module ast_nodes_data
         procedure :: assign => module_assign
         generic :: assignment(=) => assign
     end type module_node
+
+    ! BLOCK DATA node
+    type, extends(ast_node), public :: block_data_node
+        character(len=:), allocatable :: name  ! BLOCK DATA name (optional)
+        integer, allocatable :: statement_indices(:)  ! Statement indices
+    contains
+        procedure :: accept => block_data_accept
+        procedure :: to_json => block_data_to_json
+        procedure :: assign => block_data_assign
+        generic :: assignment(=) => assign
+    end type block_data_node
 
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
@@ -290,6 +301,36 @@ contains
         lhs%has_contains = rhs%has_contains
     end subroutine module_assign
 
+    ! Stub implementations for block_data_node
+    subroutine block_data_accept(this, visitor)
+        class(block_data_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine block_data_accept
+
+    subroutine block_data_to_json(this, json, parent)
+        class(block_data_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+    end subroutine block_data_to_json
+
+    subroutine block_data_assign(lhs, rhs)
+        class(block_data_node), intent(inout) :: lhs
+        class(block_data_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%statement_indices)) then
+            lhs%statement_indices = rhs%statement_indices
+        end if
+    end subroutine block_data_assign
+
     ! Stub implementations for derived_type_node
     subroutine derived_type_accept(this, visitor)
         class(derived_type_node), intent(in) :: this
@@ -369,6 +410,27 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_module
+
+    ! Constructor for block data node
+    function create_block_data(name, statement_indices, line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: statement_indices(:)
+        integer, intent(in), optional :: line, column
+        type(block_data_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+
+        if (present(statement_indices)) then
+            if (size(statement_indices) > 0) then
+                node%statement_indices = statement_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_block_data
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, &

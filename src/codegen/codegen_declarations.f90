@@ -7,7 +7,8 @@ module codegen_declarations
     use codegen_declarations_programs, only: generate_code_module, &
                                              generate_code_interface_block, &
                                              generate_code_module_procedure, &
-                                             generate_code_program
+                                             generate_code_program, &
+                                             generate_code_block_data
     implicit none
     private
     public :: generate_code_function_def
@@ -15,6 +16,7 @@ module codegen_declarations
     public :: generate_code_declaration
     public :: generate_code_parameter_declaration
     public :: generate_code_module
+    public :: generate_code_block_data
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
     public :: generate_code_derived_type

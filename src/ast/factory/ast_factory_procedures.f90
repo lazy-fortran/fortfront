@@ -5,7 +5,7 @@ module ast_factory_procedures
                                    create_function_def, create_subroutine_def
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
                               create_module_procedure
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, block_data_node
     use ast_base, only: string_t
     implicit none
     private
@@ -13,7 +13,7 @@ module ast_factory_procedures
     ! Public procedure node creation functions
     public :: push_function_def, push_subroutine_def, push_interface_block
     public :: push_module_procedure
-    public :: push_module, push_module_structured
+    public :: push_module, push_module_structured, push_block_data
 
 contains
 
@@ -170,5 +170,28 @@ contains
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size
     end function push_module_structured
+
+    function push_block_data(arena, name, statement_indices, line, column, &
+                            parent_index) result(block_data_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: statement_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: block_data_index
+        type(block_data_node) :: bd_node
+
+        bd_node%uid = generate_uid()
+        bd_node%name = name
+        if (present(statement_indices)) then
+            if (size(statement_indices) > 0) then
+                bd_node%statement_indices = statement_indices
+            end if
+        end if
+        bd_node%line = line
+        bd_node%column = column
+
+        call arena%push(bd_node, "block_data_node", parent_index)
+        block_data_index = arena%size
+    end function push_block_data
 
 end module ast_factory_procedures

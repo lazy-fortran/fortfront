@@ -7,7 +7,7 @@ module codegen_declarations_programs
                               implicit_statement_node, use_statement_node, &
                               interface_block_node, module_procedure_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_data, only: declaration_node, module_node
+    use ast_nodes_data, only: declaration_node, module_node, block_data_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: generate_grouped_body, generate_grouped_body_context
@@ -19,6 +19,7 @@ module codegen_declarations_programs
     private
     public :: generate_code_program
     public :: generate_code_module
+    public :: generate_code_block_data
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
 
@@ -767,6 +768,35 @@ contains
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
     end function generate_code_module
+
+    function generate_code_block_data(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(block_data_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: body_code
+        integer :: i
+
+        code = "block data"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+        code = code // new_line('A')
+
+        if (allocated(node%statement_indices)) then
+            do i = 1, size(node%statement_indices)
+                body_code = generate_code_from_arena(arena, node%statement_indices(i))
+                if (len(body_code) > 0) then
+                    code = code // "    " // body_code // new_line('A')
+                end if
+            end do
+        end if
+
+        code = code // "end block data"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+    end function generate_code_block_data
 
     function build_module_header(arena, node) result(header)
         type(ast_arena_t), intent(in) :: arena

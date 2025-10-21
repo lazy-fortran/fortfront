@@ -12,6 +12,7 @@ module parser_dispatcher_module
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
                                                parse_include_statement, parse_module
+    use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
     use parser_definition_statements_module, only: parse_function_definition, &
@@ -94,6 +95,38 @@ contains
                 stmt_index = parse_interface_block(parser, arena, prefix_buffer)
             case ("module")
                 stmt_index = parse_module(parser, arena)
+            case ("block")
+                block
+                    integer :: lookahead
+                    logical :: is_block_data
+                    type(token_t) :: lookahead_token
+
+                    is_block_data = .false.
+                    lookahead = parser%current_token + 1
+
+                    do while (lookahead <= size(parser%tokens))
+                        lookahead_token = parser%tokens(lookahead)
+                        select case (lookahead_token%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead = lookahead + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            if (to_lower(trim(lookahead_token%text)) == "data") then
+                                is_block_data = .true.
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                        lookahead = lookahead + 1
+                    end do
+
+                    if (is_block_data) then
+                        stmt_index = parse_block_data(parser, arena)
+                    else
+                        stmt_index = route_control_flow(parser, arena)
+                    end if
+                end block
             case ("program")
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
@@ -119,7 +152,7 @@ contains
                 stmt_index = parse_end_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
-            case ("equivalence", "common", "block")
+            case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(parser, arena, lowered_keyword)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
@@ -189,7 +222,8 @@ contains
                         ! Multi-variable declaration - use parse_multi_declaration
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            stmt_index = decl_indices(1)  ! Return first declaration index
+                            ! Return first declaration index
+                            stmt_index = decl_indices(1)
 
                             ! Store additional indices if any
                             if (size(decl_indices) > 1) then
