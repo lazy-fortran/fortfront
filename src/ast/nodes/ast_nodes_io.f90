@@ -42,6 +42,7 @@ module ast_nodes_io
         character(len=:), allocatable :: unit_spec  ! Unit specifier
         ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec  ! Optional format
+        character(len=:), allocatable :: namelist_group  ! Optional namelist group
         integer, allocatable :: arg_indices(:)  ! Arguments to write
         integer :: iostat_var_index = 0  ! Optional iostat variable index
         integer :: err_label_index = 0  ! Optional err label index
@@ -203,6 +204,7 @@ contains
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%namelist_group)) lhs%namelist_group = rhs%namelist_group
         if (allocated(rhs%arg_indices)) then
             if (allocated(lhs%arg_indices)) deallocate (lhs%arg_indices)
             allocate (lhs%arg_indices(size(rhs%arg_indices)))
