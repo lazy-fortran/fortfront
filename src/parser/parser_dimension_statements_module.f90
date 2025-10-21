@@ -1,6 +1,6 @@
 module parser_dimension_statements_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR, &
-        & TK_WHITESPACE, TK_COMMENT, TK_NEWLINE
+        & TK_WHITESPACE, TK_COMMENT, TK_NEWLINE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, module_node
@@ -26,6 +26,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(token_t) :: token
         character(len=:), allocatable :: var_name
+        character(len=:), allocatable :: lowered_keyword
         integer, allocatable :: dimension_indices(:)
         logical :: applied
 
@@ -33,6 +34,17 @@ contains
         if (parser%is_at_end()) return
 
         call skip_trivia(parser)
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD) then
+                lowered_keyword = to_lower(token%text)
+                if (trim(lowered_keyword) == "dimension") then
+                    token = parser%consume()
+                    call skip_trivia(parser)
+                end if
+            end if
+        end if
 
         if (.not. parser%is_at_end()) then
             token = parser%peek()
