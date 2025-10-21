@@ -16,15 +16,16 @@ program test_issue_1621_intent_out_shape_inference
              '' // new_line('a') // &
              '  subroutine interpolation(n1,n2,a1,a2,output)' // new_line('a') // &
              '    !' // new_line('a') // &
-             '    integer,                   intent(in)    :: n1,n2' // new_line('a') // &
-             '    real,dimension(n1,n2),     intent(in)    :: a1,a2' // new_line('a') // &
-             '    real,dimension(n1,n2),     intent(out)   :: output' // new_line('a') // &
+             '    integer,               intent(in)    :: n1,n2' // new_line('a') // &
+             '    real,dimension(n1),    intent(in)    :: a1' // new_line('a') // &
+             '    real,dimension(n2),    intent(in)    :: a2' // new_line('a') // &
+             '    real,dimension(n1,n2), intent(out)   :: output' // new_line('a') // &
              '' // new_line('a') // &
              '    integer :: i,j' // new_line('a') // &
              '' // new_line('a') // &
              '    do j=1,n2' // new_line('a') // &
              '      do i=1,n1' // new_line('a') // &
-             '         output(i,j)=(a1(i,j)+a2(i,j))/2' // new_line('a') // &
+             '         output(i,j)=(a1(i)+a2(j))/2' // new_line('a') // &
              '      enddo' // new_line('a') // &
              '    enddo' // new_line('a') // &
              '' // new_line('a') // &
@@ -49,23 +50,28 @@ program test_issue_1621_intent_out_shape_inference
         stop 1
     end if
 
-    if (index(transformed, 'dimension(n1, n2)') == 0 .and. &
-        index(transformed, 'dimension(n1,n2)') == 0) then
-        print *, 'FAIL: dimension(n1,n2) specification missing for input arrays'
+    if ((index(transformed, 'dimension(n1)') == 0 .and. &
+         index(transformed, 'a1(n1)') == 0) .or. &
+        (index(transformed, 'dimension(n2)') == 0 .and. &
+         index(transformed, 'a2(n2)') == 0)) then
+        print *, 'FAIL: dimension specifications missing for input arrays a1,a2'
         print *, 'Output:'
         print *, trim(transformed)
         stop 1
     end if
 
-    if (index(transformed, 'intent(out) :: output(n1, n2)') == 0 .and. &
-        index(transformed, 'intent(out) :: output(n1,n2)') == 0) then
+    if (index(transformed, 'dimension(n1, n2)') == 0 .and. &
+        index(transformed, 'dimension(n1,n2)') == 0 .and. &
+        index(transformed, 'output(n1, n2)') == 0 .and. &
+        index(transformed, 'output(n1,n2)') == 0) then
         print *, 'FAIL: intent(out) array output with shape (n1,n2) missing'
         print *, 'Output:'
         print *, trim(transformed)
         stop 1
     end if
 
-    if (index(transformed, 'output(i, j)') == 0) then
+    if (index(transformed, 'output(i, j)') == 0 .and. &
+        index(transformed, 'output(i,j)') == 0) then
         print *, 'FAIL: array indexing in loop body missing'
         print *, 'Output:'
         print *, trim(transformed)
