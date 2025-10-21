@@ -15,7 +15,8 @@ module parser_execution_statements_module
     use parser_assignment_module, only: parse_assignment_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement, &
-                                           parse_write_statement, parse_format_statement
+                                           parse_write_statement, &
+                                           parse_format_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, &
@@ -31,6 +32,7 @@ module parser_execution_statements_module
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
     use parser_implicit_shared_module, only: parse_simple_implicit_statement
+    use parser_dimension_statements_module, only: parse_dimension_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
@@ -328,6 +330,14 @@ contains
                 stmt_index = parse_exit_statement(parser_ref, arena_ref)
             case ("call")
                 stmt_index = parse_call_statement(parser_ref, arena_ref)
+            case ("dimension")
+                block
+                    type(token_t) :: ignored_token
+                    logical :: success
+                    ignored_token = parser_ref%consume()
+                    success = parse_dimension_statement(parser_ref, arena_ref)
+                end block
+                stmt_index = 0
             case default
                 block
                     type(token_t) :: ignored_token
