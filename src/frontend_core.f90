@@ -9,7 +9,8 @@ module frontend_core
                           TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                        get_additional_indices, clear_additional_indices
+                                        get_additional_indices, &
+                                        clear_additional_indices
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
@@ -32,7 +33,8 @@ module frontend_core
                               set_line_length_config, get_line_length_config
     use path_validation, only: validate_input_path, validate_output_path, &
         & path_validation_result_t
-    use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
+    use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
+                                parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
 
     implicit none
@@ -202,7 +204,8 @@ contains
         integer :: unit, iostat
 
         ! Read source file
-        open (newunit=unit, file=input_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=input_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             error_msg = "Cannot open input file: " // input_file
             return
@@ -236,6 +239,7 @@ contains
 
             if (line_count > 0) then
                 source = join_strings(lines(1:line_count), new_line('a'))
+                source = source // new_line('a')
             else
                 allocate (character(len=0) :: source)
             end if
@@ -296,7 +300,8 @@ contains
                     error_msg = error_msg // new_line('a') // "  - " // &
                         & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // "    Suggestion: " // &
+                        error_msg = error_msg // new_line('a') // &
+                            "    Suggestion: " // &
                             & ctx%errors%errors(i)%suggestion
                     end if
                 end if
@@ -311,7 +316,8 @@ contains
         end if
     end function get_detailed_semantic_errors
 
-    subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, prog_index, &
+    subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, &
+                                                    prog_index, &
                                                     error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(compiler_arena_t), intent(inout) :: compiler_arena
@@ -354,7 +360,8 @@ contains
         character(len=*), intent(in) :: code
         character(len=*), intent(out) :: error_msg
 
-        if (allocated(options%output_file) .and. len_trim(options%output_file) > 0) then
+        if (allocated(options%output_file) .and. &
+            len_trim(options%output_file) > 0) then
             call write_output_file(options%output_file, code, error_msg)
         else
             ! Write to stdout - commented out as fortfront.f90 handles printing
@@ -422,7 +429,8 @@ contains
         count = 0
 
         do i = 1, size(tokens)
-            if (should_skip_token(tokens(i), suppress_newline, skip_leading_ampersand)) then
+            if (should_skip_token(tokens(i), suppress_newline, &
+                                  skip_leading_ampersand)) then
                 cycle
             end if
             call append_token(normalized, count, tokens(i))
