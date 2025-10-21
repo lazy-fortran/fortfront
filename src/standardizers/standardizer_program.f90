@@ -108,6 +108,8 @@ contains
                         has_use_statements = .true.
                     type is (assignment_node)
                         has_executable_statements = .true.
+                    type is (pointer_assignment_node)
+                        has_executable_statements = .true.
                     type is (call_or_subscript_node)
                         has_executable_statements = .true.
                     type is (subroutine_call_node)
