@@ -14,6 +14,7 @@ module codegen_statements
     private
 
     public :: generate_code_assignment
+    public :: generate_code_pointer_assignment
     public :: generate_code_subroutine_call
     public :: generate_code_print_statement
     public :: generate_code_write_statement
@@ -81,6 +82,34 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_assignment
+
+    ! Generate code for pointer assignment statements (ptr => target)
+    function generate_code_pointer_assignment(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(pointer_assignment_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: pointer_code, target_code
+
+        ! Generate pointer (left-hand side)
+        if (node%pointer_index > 0 .and. node%pointer_index <= arena%size) then
+            pointer_code = generate_code_from_arena(arena, node%pointer_index)
+        else
+            pointer_code = ""
+        end if
+
+        ! Generate target (right-hand side)
+        if (node%target_index > 0 .and. node%target_index <= arena%size) then
+            target_code = generate_code_from_arena(arena, node%target_index)
+        else
+            target_code = ""
+        end if
+
+        ! Build pointer assignment with => operator
+        code = pointer_code // " => " // target_code
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_pointer_assignment
 
     ! Generate code for subroutine calls
     function generate_code_subroutine_call(arena, node, node_index) result(code)

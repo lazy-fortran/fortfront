@@ -16,7 +16,8 @@ module codegen_core
     use ast_nodes_core, only: range_subscript_node, literal_node, identifier_node, &
                               binary_op_node, call_or_subscript_node, &
                               array_literal_node, &
-                              assignment_node, program_node, component_access_node
+                              assignment_node, pointer_assignment_node, program_node, &
+                              component_access_node
     use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
@@ -83,6 +84,8 @@ contains
             ! Statement nodes
         type is (assignment_node)
             code = generate_code_assignment(arena, node, node_index)
+        type is (pointer_assignment_node)
+            code = generate_code_pointer_assignment(arena, node, node_index)
         type is (subroutine_call_node)
             code = generate_code_subroutine_call(arena, node, node_index)
         type is (print_statement_node)
