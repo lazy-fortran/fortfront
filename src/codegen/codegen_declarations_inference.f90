@@ -380,7 +380,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: module_name
         type(program_decl_state_t), intent(inout) :: state
-        integer :: i, j, decl_idx
+        integer :: i, j, decl_idx, proc_idx
 
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
@@ -388,13 +388,22 @@ contains
             type is (module_node)
                 if (.not. allocated(mod_node%name)) cycle
                 if (trim(mod_node%name) /= module_name) cycle
-                if (.not. allocated(mod_node%declaration_indices)) cycle
-                do j = 1, size(mod_node%declaration_indices)
-                    decl_idx = mod_node%declaration_indices(j)
-                    if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(decl_idx)%node)) cycle
-                    call extract_declaration_names(arena, decl_idx, state)
-                end do
+                if (allocated(mod_node%declaration_indices)) then
+                    do j = 1, size(mod_node%declaration_indices)
+                        decl_idx = mod_node%declaration_indices(j)
+                        if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
+                        if (.not. allocated(arena%entries(decl_idx)%node)) cycle
+                        call extract_declaration_names(arena, decl_idx, state)
+                    end do
+                end if
+                if (allocated(mod_node%procedure_indices)) then
+                    do j = 1, size(mod_node%procedure_indices)
+                        proc_idx = mod_node%procedure_indices(j)
+                        if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
+                        if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+                        call extract_procedure_names(arena, proc_idx, state)
+                    end do
+                end if
             end select
         end do
     end subroutine collect_module_symbols
@@ -416,6 +425,19 @@ contains
             end if
         end select
     end subroutine extract_declaration_names
+
+    subroutine extract_procedure_names(arena, proc_idx, state)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_idx
+        type(program_decl_state_t), intent(inout) :: state
+
+        select type (proc => arena%entries(proc_idx)%node)
+        type is (function_def_node)
+            if (allocated(proc%name)) then
+                call record_use_associated_name(state, trim(proc%name))
+            end if
+        end select
+    end subroutine extract_procedure_names
 
     subroutine record_use_associated_name(state, name)
         type(program_decl_state_t), intent(inout) :: state
@@ -636,6 +658,9 @@ contains
             if (exists_in_list(state%internal_funcs, state%internal_count, &
                                trim(state%func_names(i)))) cycle
             if (is_intrinsic_function(trim(state%func_names(i)))) cycle
+            if (exists_in_list(state%use_associated_names, &
+                               state%use_associated_count, &
+                               trim(state%func_names(i)))) cycle
             code = code // "    " // trim(state%func_types(i)) // &
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
