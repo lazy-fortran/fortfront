@@ -484,7 +484,7 @@ contains
               'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &
               'enum', 'file', 'submodule', 'rank', &
               'elseif', 'elsewhere', 'inout', 'blockdata', 'doubleprecision', 'doublecomplex', &
-              'selectcase', &
+              'selectcase', 'equivalence', 'common', &
               'endif', 'enddo', 'endwhere', 'endforall', 'endassociate', 'endblock', &
               'endblockdata', 'endenum', 'endfile', 'endfunction', 'endinterface', &
               'endmodule', 'endprogram', 'endselect', 'endsubmodule', 'endsubroutine', &
