@@ -45,11 +45,18 @@ contains
     subroutine run_cli_capture(path)
         character(len=*), intent(in) :: path
         character(len=512) :: command
+        character(len=256) :: fixture_base
+        character(len=512) :: fixture_path
         integer :: exit_status
 
-        write (command, '(A,A,A)') 'fpm run fortfront -- test_simple_module.lf > "', &
-            trim(path), '"'
+        call make_tmpfile(fixture_base)
+        write (fixture_path, '(A,A)') trim(fixture_base), '_fixture.lf'
+        call write_cli_fixture(trim(fixture_path))
+
+        write (command, '(A,A,A,A,A)') 'fpm run fortfront -- "', &
+            trim(fixture_path), '" > "', trim(path), '"'
         call execute_command_line(trim(command), exitstat=exit_status)
+        call delete_file(trim(fixture_path))
         call assert_equal_int(exit_status, 0, 'fpm run fortfront command failed')
     end subroutine run_cli_capture
 
@@ -91,6 +98,24 @@ contains
             close (unit, status='delete')
         end if
     end subroutine delete_file
+
+    subroutine write_cli_fixture(path)
+        character(len=*), intent(in) :: path
+        integer :: unit, ios
+
+        open (newunit=unit, file=path, status='replace', action='write', iostat=ios)
+        call assert_equal_int(ios, 0, 'Failed to open CLI fixture file for writing')
+        write (unit, '(A)') 'module simple_test'
+        write (unit, '(A)') '    implicit none'
+        write (unit, '(A)') 'contains'
+        write (unit, '(A)') '    function square(x)'
+        write (unit, '(A)') '        real, intent(in) :: x'
+        write (unit, '(A)') '        real :: square'
+        write (unit, '(A)') '        square = x * x'
+        write (unit, '(A)') '    end function square'
+        write (unit, '(A)') 'end module simple_test'
+        close (unit)
+    end subroutine write_cli_fixture
 
     subroutine assert_equal_int(actual, expected, message)
         integer, intent(in) :: actual, expected
