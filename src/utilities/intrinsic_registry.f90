@@ -41,8 +41,8 @@ contains
             if (trim(to_lower(intrinsic_functions(i)%name)) == &
                 trim(to_lower(name))) then
                 is_intrinsic = .true.
-                signature = intrinsic_functions(i)%return_type//"("// &
-                            intrinsic_functions(i)%arg_types//")"
+                signature = intrinsic_functions(i)%return_type // "(" // &
+                            intrinsic_functions(i)%arg_types // ")"
                 return
             end if
         end do
@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 32
+        integer, parameter :: NUM_INTRINSICS = 34
         integer :: i
 
         if (registry_initialized) return
@@ -174,6 +174,18 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="maxval", return_type="numeric", &
+                                 arg_types="array", &
+                                 description="Array maximum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="minval", return_type="numeric", &
+                                 arg_types="array", &
+                                 description="Array minimum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="shape", return_type="integer_array", &
                                  arg_types="array", &
                                  description="Array shape")
@@ -263,7 +275,8 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="allocated", return_type="logical", &
                                  arg_types="allocatable", &
-                               description="Check if allocatable variable is allocated")
+                                 description="Check if allocatable variable is "// &
+                                 "allocated")
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
