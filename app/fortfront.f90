@@ -9,6 +9,7 @@ program fortfront_cli
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
     use lexer_core, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
+    use stdout_sanitizer, only: sanitize_redirected_stdout
     implicit none
 
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -34,6 +35,7 @@ program fortfront_cli
     call cli_trace('CLI: start')
     call trace_init()
     call trace_enter('cli:main')
+    call sanitize_redirected_stdout()
     ! Process command line arguments
     num_args = command_argument_count()
     show_help = .false.
