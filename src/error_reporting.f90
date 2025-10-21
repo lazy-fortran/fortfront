@@ -1,5 +1,6 @@
 module error_reporting
     use lexer_core, only: token_t
+    use string_builder_mod, only: join_strings
     implicit none
     private
 
@@ -153,18 +154,19 @@ contains
     function error_collection_format_messages(self) result(formatted)
         class(error_collection_t), intent(in) :: self
         character(len=:), allocatable :: formatted
+        character(len=:), allocatable :: fragments(:)
         integer :: i
-        character(len=500) :: temp_msg
 
         if (self%count == 0) then
             formatted = ""
             return
         end if
 
-        formatted = ""
+        allocate (character(len=1000) :: fragments(self%count))
         do i = 1, self%count
-            formatted = formatted // format_error_message(self%errors(i)) // new_line('a')
+            fragments(i) = format_error_message(self%errors(i))
         end do
+        formatted = join_strings(fragments, new_line('a'))
     end function error_collection_format_messages
 
     ! Clear all errors
