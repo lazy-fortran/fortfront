@@ -151,20 +151,12 @@ contains
         allocate (body_indices(0))
         stmt_count = 0
         i = 1
-        print *, "DEBUG total tokens:", size(tokens)
 
         ! Process all statements
         do while (i <= size(tokens))
             if (tokens(i)%kind == TK_EOF) exit
 
             call find_statement_boundary(tokens, i, stmt_start, stmt_end)
-            print *, "DEBUG global stmt boundary:", stmt_start, stmt_end
-            if (stmt_start <= size(tokens)) then
-                print *, "DEBUG global first token:", trim(tokens(stmt_start)%text)
-            end if
-            if (stmt_end <= size(tokens)) then
-                print *, "DEBUG global last token:", trim(tokens(stmt_end)%text)
-            end if
 
             if (is_prefix_only_statement(tokens, stmt_start, stmt_end)) then
                 look_ahead = stmt_end + 1
@@ -231,8 +223,6 @@ contains
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
         end if
-
-        deallocate (stmt_tokens)
     end subroutine process_comment_statement
 
     ! Process regular statement
@@ -327,8 +317,6 @@ contains
                 call clear_additional_indices()
             end block
         end if
-
-        deallocate (stmt_tokens)
     end subroutine process_regular_statement
 
     ! Create final program structure from parsed statements

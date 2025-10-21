@@ -3,7 +3,8 @@ module parser_array_constructs_module
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, TK_IDENTIFIER
     use parser_state_module
-    use parser_expressions_module, only: parse_expression
+    use parser_expressions_module, only: parse_expression, &
+                                         parse_expression_until
     use parser_statement_core_module, only: parse_basic_statement_core, &
                                             statement_callbacks_t, &
                                             null_statement_callbacks, &
@@ -106,39 +107,9 @@ contains
             end if
 
             if (single_line) then
-                ! Single-line WHERE - parse single statement
-                block
-                    type(token_t), allocatable, target :: remaining_tokens(:)
-                    integer, allocatable :: stmt_indices(:)
-                    integer :: j, n
-
-                    ! Count remaining tokens
-                    n = 0
-                    do j = parser%current_token, size(parser%tokens)
-                        n = n + 1
-                    end do
-
-                    ! Extract remaining tokens
-                    allocate (remaining_tokens(n))
-                    do j = 1, n
-                        remaining_tokens(j) = &
-                            parser%tokens(parser%current_token + j - 1)
-                    end do
-
-                    ! Parse statement
-                    callbacks = build_where_callbacks()
-                    stmt_indices = parse_basic_statement_core(remaining_tokens, &
-                                                              arena, callbacks=callbacks)
-
-                    if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
-                        allocate (where_body_indices(size(stmt_indices)))
-                        where_body_indices = stmt_indices
-                        ! Advance parser position
-                        parser%current_token = size(parser%tokens) + 1
-                    else
-                        allocate (where_body_indices(0))
-                    end if
-                end block
+                callbacks = build_where_callbacks()
+                call parse_single_line_where_body(parser, arena, callbacks, &
+                                                  where_body_indices)
 
                 ! Create WHERE node with single statement
                 where_index = push_where(arena, mask_expr_index, where_body_indices, &
@@ -147,7 +118,27 @@ contains
                 return
             end if
         else
-            where_index = 0
+            ! Attempt lazy single-line WHERE using colon separator
+            callbacks = build_where_callbacks()
+            mask_expr_index = parse_expression_until(parser, arena, &
+                                                     [character(len=1) :: ":"])
+            if (mask_expr_index <= 0) then
+                where_index = 0
+                return
+            end if
+
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ":") then
+                where_index = 0
+                return
+            end if
+            token = parser%consume()
+
+            call parse_single_line_where_body(parser, arena, callbacks, &
+                                              where_body_indices)
+
+            where_index = push_where(arena, mask_expr_index, where_body_indices, &
+                                     line=line, column=column)
             return
         end if
 
@@ -202,6 +193,53 @@ contains
                                      line=line, column=column)
         end if
     end function parse_where_construct
+
+    subroutine parse_single_line_where_body(parser, arena, callbacks, body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(statement_callbacks_t), intent(in) :: callbacks
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        integer :: stmt_start, stmt_end
+        type(token_t), allocatable :: stmt_tokens(:)
+        integer, allocatable :: stmt_indices(:)
+
+        call skip_whitespace_and_semicolons(parser)
+        if (parser%current_token > size(parser%tokens)) then
+            allocate (body_indices(0))
+            return
+        end if
+
+        stmt_start = parser%current_token
+        stmt_end = find_statement_end(parser%tokens, stmt_start)
+        if (stmt_end < stmt_start) then
+            allocate (body_indices(0))
+            call skip_whitespace_and_semicolons(parser)
+            return
+        end if
+
+        call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
+                                           stmt_start, stmt_end)
+
+        stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                                                  callbacks=callbacks)
+
+        if (allocated(stmt_indices)) then
+            call move_alloc(stmt_indices, body_indices)
+        else
+            allocate (body_indices(0))
+        end if
+
+        if (allocated(stmt_tokens)) then
+            block
+                type(token_t), allocatable :: temp(:)
+                call move_alloc(stmt_tokens, temp)
+            end block
+        end if
+
+        parser%current_token = stmt_end + 1
+        call skip_whitespace_and_semicolons(parser)
+    end subroutine parse_single_line_where_body
 
     ! Parse ASSOCIATE construct
     recursive function parse_associate(parser, arena) result(assoc_index)
