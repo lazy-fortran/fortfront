@@ -5,8 +5,8 @@ module parser_assignment_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_assignment, push_identifier, push_literal, &
-                            push_complex_literal
+    use ast_factory, only: push_assignment, push_pointer_assignment, &
+                            push_identifier, push_literal, push_complex_literal
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
@@ -64,10 +64,9 @@ contains
                                                    id_token%column)
                     value_index = parse_range(parser, arena)
                     if (value_index > 0) then
-                        stmt_index = push_assignment(arena, target_index, &
-                                                     value_index, &
-                                                     id_token%line, id_token%column, &
-                                                     operator_text=op_token%text)
+                        stmt_index = push_pointer_assignment(arena, target_index, &
+                                                             value_index, &
+                                                             id_token%line, id_token%column)
                     end if
                 case ("(", "%")
                     block
@@ -125,10 +124,16 @@ contains
                     value_index = parse_range(parser, arena)
                     if (value_index > 0 .and. target_index > 0) then
                         if (.not. allocated(assignment_op)) assignment_op = "="
-                        stmt_index = push_assignment(arena, target_index, &
-                                                     value_index, &
-                                                     id_token%line, id_token%column, &
-                                                     operator_text=assignment_op)
+                        if (assignment_op == "=>") then
+                            stmt_index = push_pointer_assignment(arena, target_index, &
+                                                                 value_index, &
+                                                                 id_token%line, id_token%column)
+                        else
+                            stmt_index = push_assignment(arena, target_index, &
+                                                         value_index, &
+                                                         id_token%line, id_token%column, &
+                                                         operator_text=assignment_op)
+                        end if
                     end if
                 end select
             end if
@@ -149,6 +154,9 @@ contains
                 if (parser%tokens(pos)%text == "=") then
                     saw_equals = .true.
                     exit
+                else if (parser%tokens(pos)%text == "=>") then
+                    ! Pointer assignment, not multi-var assignment
+                    return
                 end if
             case default
                 cycle

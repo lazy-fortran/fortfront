@@ -8,7 +8,7 @@ program test_issue_1573_pointer_assignment_lost
     call test_pointer_assignment_preserved_case2()
     call test_pointer_assignment_lost_bug()
     print *, ""
-    print *, "NOTE: test_pointer_assignment_lost_bug is expected to FAIL until issue #1573 is fixed"
+    print *, "PASS: All pointer assignment tests passed! Issue #1573 has been fixed."
 
 contains
 
@@ -84,22 +84,19 @@ contains
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
         if (len_trim(error_msg) > 0) then
-            print *, "XFAIL bug: transformation error:", trim(error_msg)
-            ! Don't error stop - this is expected to fail
-            return
+            print *, "FAIL case3 (bug): transformation error:", trim(error_msg)
+            error stop 1
         end if
 
         if (index(output_code, "p => x") <= 0) then
-            print *, "XFAIL bug: pointer assignment lost (KNOWN BUG #1573)"
-            print *, "Trigger: pointer assignment -> print -> regular assignment"
+            print *, "FAIL case3 (bug): pointer assignment lost after fix"
             print *, "Expected: p => x"
             print *, "Actual output:"
             print *, trim(output_code)
-            ! Don't error stop - this is expected to fail
-            return
+            error stop 1
         end if
 
-        print *, "UNEXPECTED PASS: bug appears to be fixed! Issue #1573 may be resolved."
+        print *, "PASS case3 (bug fixed): pointer assignment preserved (print before assignment)"
     end subroutine test_pointer_assignment_lost_bug
 
 end program test_issue_1573_pointer_assignment_lost
