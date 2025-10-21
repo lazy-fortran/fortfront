@@ -2,7 +2,8 @@ module mixed_construct_detector
     ! Mixed construct detection for Issue #511 support
     ! Analyzes token stream to identify mixed constructs requiring module generation
 
-    use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, TK_NEWLINE
+    use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, TK_NEWLINE, &
+                          TK_WHITESPACE, TK_COMMENT, to_lower
     implicit none
     private
 
@@ -148,12 +149,40 @@ contains
         if (start_pos > size(tokens)) return
 
         ! Check for explicit program unit starters
-        if (tokens(start_pos)%kind == TK_KEYWORD) then
-            select case (trim(tokens(start_pos)%text))
-            case ("program", "module", "subroutine", "function")
-                is_program_unit = .true.
-            end select
-        end if
+        if (start_pos > size(tokens)) return
+
+        select case (tokens(start_pos)%kind)
+        case (TK_KEYWORD, TK_IDENTIFIER)
+            block
+                integer :: lookahead
+                character(len=:), allocatable :: first_word
+                character(len=:), allocatable :: next_word
+
+                first_word = to_lower(trim(tokens(start_pos)%text))
+                select case (first_word)
+                case ("program", "module", "subroutine", "function")
+                    is_program_unit = .true.
+                    return
+                case ("block")
+                    lookahead = start_pos + 1
+                    do while (lookahead <= size(tokens))
+                        select case (tokens(lookahead)%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead = lookahead + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            next_word = to_lower(trim(tokens(lookahead)%text))
+                            if (next_word == "data") then
+                                is_program_unit = .true.
+                            end if
+                            return
+                        case default
+                            return
+                        end select
+                    end do
+                end select
+            end block
+        end select
     end function is_explicit_program_unit
 
     ! Find the end of a declaration construct
@@ -217,15 +246,16 @@ contains
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos
 
-        integer :: i
+        integer :: i, lookahead
         character(len=:), allocatable :: start_keyword, end_keyword
+        character(len=:), allocatable :: next_word
 
         if (start_pos > size(tokens)) then
             end_pos = start_pos
             return
         end if
 
-        start_keyword = trim(tokens(start_pos)%text)
+        start_keyword = to_lower(trim(tokens(start_pos)%text))
 
         ! Determine expected end keyword
         select case (start_keyword)
@@ -237,6 +267,29 @@ contains
             end_keyword = "subroutine"
         case ("function")
             end_keyword = "function"
+        case ("block")
+            lookahead = start_pos + 1
+            do while (lookahead <= size(tokens))
+                select case (tokens(lookahead)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    lookahead = lookahead + 1
+                    cycle
+                case (TK_KEYWORD, TK_IDENTIFIER)
+                    next_word = to_lower(trim(tokens(lookahead)%text))
+                    if (next_word == "data") then
+                        call find_block_data_end(tokens, lookahead + 1, end_pos)
+                        return
+                    else
+                        end_pos = start_pos
+                        return
+                    end if
+                case default
+                    end_pos = start_pos
+                    return
+                end select
+            end do
+            end_pos = start_pos
+            return
         case default
             end_pos = start_pos
             return
@@ -257,5 +310,66 @@ contains
         ! Default to end of tokens if no matching end found
         end_pos = size(tokens)
     end subroutine find_program_unit_range
+
+    subroutine find_block_data_end(tokens, start_pos, end_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(out) :: end_pos
+
+        integer :: i, lookahead
+        character(len=:), allocatable :: word
+
+        end_pos = size(tokens)
+        do i = start_pos, size(tokens)
+            if (tokens(i)%kind /= TK_KEYWORD) cycle
+            if (to_lower(trim(tokens(i)%text)) /= "end") cycle
+
+            lookahead = i + 1
+            do while (lookahead <= size(tokens))
+                select case (tokens(lookahead)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    lookahead = lookahead + 1
+                    cycle
+                case (TK_KEYWORD, TK_IDENTIFIER)
+                    word = to_lower(trim(tokens(lookahead)%text))
+                    if (word == "block") then
+                        lookahead = lookahead + 1
+                        do while (lookahead <= size(tokens))
+                            select case (tokens(lookahead)%kind)
+                            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                                lookahead = lookahead + 1
+                                cycle
+                            case (TK_KEYWORD, TK_IDENTIFIER)
+                                if (to_lower(trim(tokens(lookahead)%text)) == &
+                                    "data") then
+                                    end_pos = lookahead
+                                    lookahead = lookahead + 1
+                                    do while (lookahead <= size(tokens))
+                                        select case (tokens(lookahead)%kind)
+                                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                                            lookahead = lookahead + 1
+                                            cycle
+                                        case (TK_IDENTIFIER)
+                                            end_pos = lookahead
+                                        end select
+                                        exit
+                                    end do
+                                    return
+                                else
+                                    return
+                                end if
+                            case default
+                                return
+                            end select
+                        end do
+                    else
+                        exit
+                    end if
+                case default
+                    exit
+                end select
+            end do
+        end do
+    end subroutine find_block_data_end
 
 end module mixed_construct_detector
