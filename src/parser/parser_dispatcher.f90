@@ -116,6 +116,8 @@ contains
                 stmt_index = parse_end_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
+            case ("equivalence", "common", "block")
+                stmt_index = parse_legacy_statement(parser, arena, lowered_keyword)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                      stmt_index)) then
@@ -485,5 +487,65 @@ contains
             end if
         end do
     end subroutine collect_prefix_keywords
+
+    integer function parse_legacy_statement(parser, arena, keyword) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: keyword
+        type(token_t) :: token, first_token
+        character(len=:), allocatable :: text
+        integer :: start_pos, end_pos, i
+        integer :: line, column
+
+        stmt_index = 0
+        start_pos = parser%current_token
+        first_token = parser%peek()
+        line = first_token%line
+        column = first_token%column
+
+        end_pos = start_pos
+        do i = start_pos, size(parser%tokens)
+            token = parser%tokens(i)
+            if (token%kind == TK_EOF .or. token%kind == TK_NEWLINE) then
+                end_pos = i - 1
+                exit
+            end if
+            end_pos = i
+        end do
+
+        text = reconstruct_statement_text(parser%tokens, start_pos, end_pos)
+
+        block
+            type(comment_node) :: comment
+            comment%text = "    " // trim(text)
+            comment%line = line
+            comment%column = column
+            comment%uid = generate_uid()
+            call arena%push(comment, "comment")
+            stmt_index = arena%size
+        end block
+
+        parser%current_token = end_pos + 1
+    end function parse_legacy_statement
+
+    function reconstruct_statement_text(tokens, start_idx, end_idx) result(text)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx, end_idx
+        character(len=:), allocatable :: text
+        integer :: i, total_len
+
+        total_len = 0
+        do i = start_idx, end_idx
+            total_len = total_len + len_trim(tokens(i)%text)
+            if (i < end_idx) total_len = total_len + 1
+        end do
+
+        allocate (character(len=total_len) :: text)
+        text = ""
+        do i = start_idx, end_idx
+            text = trim(text)//trim(tokens(i)%text)
+            if (i < end_idx .and. len_trim(text) > 0) text = trim(text)//" "
+        end do
+    end function reconstruct_statement_text
 
 end module parser_dispatcher_module

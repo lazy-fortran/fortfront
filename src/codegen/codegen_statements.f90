@@ -10,6 +10,7 @@ module codegen_statements
     use string_types, only: string_t
     use codegen_indent
     use codegen_arena_interface, only: generate_code_from_arena
+    use lexer_core, only: to_lower
     implicit none
     private
 
@@ -513,8 +514,32 @@ contains
     function generate_code_comment(node) result(code)
         type(comment_node), intent(in) :: node
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: lowered_text
+        logical :: is_legacy_statement
 
+        is_legacy_statement = .false.
         if (allocated(node%text)) then
+            lowered_text = to_lower(adjustl(trim(node%text)))
+            if (len_trim(lowered_text) >= 11) then
+                if (index(lowered_text, "equivalence") == 1) then
+                    is_legacy_statement = .true.
+                end if
+            end if
+            if (len_trim(lowered_text) >= 6 .and. .not. is_legacy_statement) then
+                if (index(lowered_text, "common") == 1) then
+                    is_legacy_statement = .true.
+                end if
+            end if
+            if (len_trim(lowered_text) >= 5 .and. .not. is_legacy_statement) then
+                if (index(lowered_text, "block") == 1) then
+                    is_legacy_statement = .true.
+                end if
+            end if
+        end if
+
+        if (is_legacy_statement) then
+            code = trim(node%text)
+        else if (allocated(node%text)) then
             code = "!" // node%text
         else
             code = "!"
