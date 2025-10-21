@@ -17,6 +17,7 @@ module parser_statement_core_module
                                                  null_statement_callbacks
     use parser_statement_data_module, only: parse_data_statement, &
                                             parse_namelist_statement
+    use parser_dimension_statements_module, only: parse_dimension_statement
     implicit none
     private
 
@@ -26,6 +27,8 @@ module parser_statement_core_module
     public :: allocate_stmt_tokens_with_eof
     public :: skip_whitespace_and_semicolons
     private :: parse_namelist_statement
+
+    integer, parameter :: STATEMENT_NO_NODE = -1
 
 contains
 
@@ -626,6 +629,14 @@ contains
                                                     parent_index, tokens)
         end select
 
+        if (stmt_index == STATEMENT_NO_NODE) then
+            if (.not. allocated(stmt_indices)) allocate (stmt_indices(0))
+            if (present(consumed_count)) then
+                consumed_count = parser%current_token - 1
+            end if
+            return
+        end if
+
         if (stmt_index == 0) then
             if (is_terminator_statement(first_token, tokens)) then
                 allocate (stmt_indices(1))
@@ -753,6 +764,12 @@ contains
                 stmt_index = parse_error_stop_statement(parser, arena)
             case ("namelist")
                 stmt_index = parse_namelist_statement(parser, arena, parent_index)
+            case ("dimension")
+                if (parse_dimension_statement(parser, arena)) then
+                    stmt_index = STATEMENT_NO_NODE
+                else
+                    stmt_index = 0
+                end if
             end select
         end block
     end function parse_keyword_statement
