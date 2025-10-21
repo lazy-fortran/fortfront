@@ -1,5 +1,7 @@
 module declaration_attribute_utils
     use string_utils_mod, only: to_lower
+    use ast_arena_modern, only: ast_arena_t
+    use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
 
@@ -51,16 +53,30 @@ contains
         attr%intent = trim(adjustl(value))
     end subroutine set_declaration_intent
 
-    subroutine append_declaration_attributes(code, attr)
+    subroutine append_declaration_attributes(code, attr, arena)
         character(len=:), allocatable, intent(inout) :: code
         type(declaration_attribute_info_t), intent(in) :: attr
+        type(ast_arena_t), intent(in), optional :: arena
         character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: dim_clause
 
         if (.not. allocated(code)) then
             code = ""
         end if
 
         lowered = to_lower(trim(code))
+
+        if (attr%has_global_dimensions .and. present(arena)) then
+            if (allocated(attr%global_dimension_indices)) then
+                if (index(lowered, 'dimension(') == 0) then
+                    call build_dimension_attribute(arena, &
+                                                   attr%global_dimension_indices, &
+                                                   attr%is_allocatable, dim_clause)
+                    code = trim(code) // ", " // dim_clause
+                    lowered = to_lower(trim(code))
+                end if
+            end if
+        end if
 
         if (attr%has_intent) then
             if (allocated(attr%intent)) then
@@ -119,5 +135,39 @@ contains
             end if
         end if
     end subroutine append_declaration_attributes
+
+    subroutine build_dimension_attribute(arena, dimension_indices, &
+                                         is_allocatable, clause)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: dimension_indices(:)
+        logical, intent(in) :: is_allocatable
+        character(len=:), allocatable, intent(out) :: clause
+        character(len=:), allocatable :: dim_spec
+        integer :: i, dim_index
+
+        if (size(dimension_indices) == 0) then
+            clause = ""
+            return
+        end if
+
+        clause = "dimension("
+        do i = 1, size(dimension_indices)
+            if (i > 1) clause = clause // ", "
+            dim_index = dimension_indices(i)
+            if (dim_index == 0 .or. is_allocatable) then
+                clause = clause // ":"
+            else if (dim_index > 0 .and. dim_index <= arena%size) then
+                dim_spec = generate_code_from_arena(arena, dim_index)
+                if (len_trim(dim_spec) > 0) then
+                    clause = clause // trim(dim_spec)
+                else
+                    clause = clause // ":"
+                end if
+            else
+                clause = clause // ":"
+            end if
+        end do
+        clause = clause // ")"
+    end subroutine build_dimension_attribute
 
 end module declaration_attribute_utils
