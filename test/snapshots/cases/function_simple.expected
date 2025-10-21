@@ -1,0 +1,9 @@
+module function_simple
+    implicit none
+contains
+    integer function double(x) result(result)
+    implicit none
+    integer :: x
+    result = x*2
+end function double
+end module function_simple

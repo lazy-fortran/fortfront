@@ -1,0 +1,10 @@
+program main
+    implicit none
+    character(len=5) :: str1
+    character(len=5) :: str2
+    character(len=12) :: result
+    str1 = "Hello"
+    str2 = "World"
+    result = str1 //" " //str2
+    print *, result
+end program main
