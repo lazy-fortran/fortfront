@@ -2,9 +2,9 @@ module codegen_declarations_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node, program_node
-    use ast_nodes_misc, only: contains_node
+    use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string
+                              intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
@@ -31,11 +31,13 @@ module codegen_declarations_inference
         character(len=64) :: internal_funcs(program_decl_max_vars)
         character(len=64) :: defined_func_names(program_decl_max_vars)
         character(len=64) :: defined_func_types(program_decl_max_vars)
+        character(len=64) :: use_associated_names(program_decl_max_vars)
         integer :: declared_count
         integer :: var_count
         integer :: func_count
         integer :: internal_count
         integer :: defined_func_count
+        integer :: use_associated_count
     end type program_decl_state_t
 
 contains
@@ -301,6 +303,7 @@ contains
 
         call initialize_program_decl_state(state)
         call populate_defined_function_table(arena, state)
+        call collect_use_associated_symbols(arena, prog, state)
         call collect_declared_symbols(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
 
@@ -320,11 +323,13 @@ contains
         state%internal_funcs = ""
         state%defined_func_names = ""
         state%defined_func_types = ""
+        state%use_associated_names = ""
         state%declared_count = 0
         state%var_count = 0
         state%func_count = 0
         state%internal_count = 0
         state%defined_func_count = 0
+        state%use_associated_count = 0
     end subroutine initialize_program_decl_state
 
     subroutine populate_defined_function_table(arena, state)
@@ -335,6 +340,85 @@ contains
                                               state%defined_func_types, &
                                               state%defined_func_count)
     end subroutine populate_defined_function_table
+
+    subroutine collect_use_associated_symbols(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, j, idx
+        character(len=:), allocatable :: module_name
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (use_stmt => arena%entries(idx)%node)
+            type is (use_statement_node)
+                if (use_stmt%has_only .and. allocated(use_stmt%only_list)) then
+                    do j = 1, size(use_stmt%only_list)
+                        call record_use_associated_name(state, &
+                                                        trim(use_stmt%only_list(j)%s))
+                    end do
+                else if (allocated(use_stmt%module_name)) then
+                    module_name = trim(use_stmt%module_name)
+                    call collect_module_symbols(arena, module_name, state)
+                end if
+            end select
+        end do
+    end subroutine collect_use_associated_symbols
+
+    subroutine collect_module_symbols(arena, module_name, state)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: module_name
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, j, decl_idx
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (mod_node => arena%entries(i)%node)
+            type is (module_node)
+                if (.not. allocated(mod_node%name)) cycle
+                if (trim(mod_node%name) /= module_name) cycle
+                if (.not. allocated(mod_node%declaration_indices)) cycle
+                do j = 1, size(mod_node%declaration_indices)
+                    decl_idx = mod_node%declaration_indices(j)
+                    if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(decl_idx)%node)) cycle
+                    call extract_declaration_names(arena, decl_idx, state)
+                end do
+            end select
+        end do
+    end subroutine collect_module_symbols
+
+    subroutine extract_declaration_names(arena, decl_idx, state)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_idx
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: k
+
+        select type (decl => arena%entries(decl_idx)%node)
+        type is (declaration_node)
+            if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                do k = 1, size(decl%var_names)
+                    call record_use_associated_name(state, trim(decl%var_names(k)))
+                end do
+            else if (allocated(decl%var_name)) then
+                call record_use_associated_name(state, trim(decl%var_name))
+            end if
+        end select
+    end subroutine extract_declaration_names
+
+    subroutine record_use_associated_name(state, name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+
+        if (len_trim(name) == 0) return
+        if (state%use_associated_count >= program_decl_max_vars) return
+        if (exists_in_list(state%use_associated_names, &
+                           state%use_associated_count, name)) return
+        state%use_associated_count = state%use_associated_count + 1
+        state%use_associated_names(state%use_associated_count) = name
+    end subroutine record_use_associated_name
 
     subroutine collect_declared_symbols(arena, prog, state)
         type(ast_arena_t), intent(in) :: arena
@@ -433,6 +517,8 @@ contains
             if (exists_in_list(state%declared_names, state%declared_count, &
                                name_buf)) return
             if (exists_in_list(state%var_names, state%var_count, name_buf)) return
+            if (exists_in_list(state%use_associated_names, &
+                               state%use_associated_count, name_buf)) return
 
             type_buf = mono_type_to_string(id%inferred_type, include_shape=.true., &
                                            fallback='real')
