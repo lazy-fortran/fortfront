@@ -339,7 +339,7 @@ contains
             use_statements_code = use_statements_code // "    " // stmt_code // &
                                   new_line('A')
         type is (comment_node)
-            if (non_use_count == 0 .or. is_legacy_statement_comment(ib)) then
+            if (non_use_count == 0) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
                 call append_header_trivia(stmt_code, use_statements_code, &
