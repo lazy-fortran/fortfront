@@ -10,6 +10,7 @@ program test_array_slicing_codegen
     if (.not. test_basic_slices()) all_passed = .false.
     if (.not. test_empty_bounds()) all_passed = .false.
     if (.not. test_multidim_slices()) all_passed = .false.
+    if (.not. test_slice_type_inference()) all_passed = .false.
 
     if (all_passed) then
         print *, 'All array slicing codegen tests passed!'
@@ -169,5 +170,54 @@ contains
             return
         end if
     end function test_multidim_slices
+
+    logical function test_slice_type_inference()
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        character(len=:), allocatable :: error_msg, code, source
+        integer :: root
+
+        test_slice_type_inference = .true.
+
+        source = &
+            'program p' // new_line('a') // &
+            '  implicit none' // new_line('a') // &
+            '  integer :: arr(5)' // new_line('a') // &
+            '  arr = [10, 20, 30, 40, 50]' // new_line('a') // &
+            '  subset = arr(2:4)' // new_line('a') // &
+            '  print *, subset' // new_line('a') // &
+            'end program p'
+
+        call lex_source(source, tokens, error_msg)
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, root, error_msg)
+
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: parse error: ', trim(error_msg)
+                test_slice_type_inference = .false.
+                return
+            end if
+        end if
+
+        call analyze_semantics(arena, root)
+        call emit_fortran(arena, root, code)
+
+        if (.not. allocated(code)) then
+            print *, '  FAIL: no generated code'
+            test_slice_type_inference = .false.
+            return
+        end if
+
+        if (index(code, 'integer, dimension(:), allocatable :: subset') == 0) then
+            print *, '  FAIL: subset slice not inferred as integer allocatable'
+            test_slice_type_inference = .false.
+        end if
+
+        if (index(code, 'real(8), dimension(:), allocatable :: subset') /= 0) then
+            print *, '  FAIL: subset slice still inferred as real(8)'
+            test_slice_type_inference = .false.
+        end if
+    end function test_slice_type_inference
 
 end program test_array_slicing_codegen
