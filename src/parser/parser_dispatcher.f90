@@ -513,7 +513,7 @@ contains
             end_pos = i
         end do
 
-        text = reconstruct_statement_text(parser%tokens, start_pos, end_pos)
+        call reconstruct_statement_text(parser%tokens, start_pos, end_pos, text)
 
         block
             type(comment_node) :: comment
@@ -528,10 +528,10 @@ contains
         parser%current_token = end_pos + 1
     end function parse_legacy_statement
 
-    function reconstruct_statement_text(tokens, start_idx, end_idx) result(text)
+    pure subroutine reconstruct_statement_text(tokens, start_idx, end_idx, text)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
-        character(len=:), allocatable :: text
+        character(len=:), allocatable, intent(out) :: text
         integer :: i, total_len
 
         total_len = 0
@@ -544,8 +544,10 @@ contains
         text = ""
         do i = start_idx, end_idx
             text = trim(text)//trim(tokens(i)%text)
-            if (i < end_idx .and. len_trim(text) > 0) text = trim(text)//" "
+            if (i < end_idx .and. len_trim(text) > 0) then
+                text = trim(text)//" "
+            end if
         end do
-    end function reconstruct_statement_text
+    end subroutine reconstruct_statement_text
 
 end module parser_dispatcher_module
