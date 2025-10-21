@@ -67,6 +67,105 @@ contains
                         assoc_depth == 0 .and. forall_depth == 0)
     end function at_top_level
 
+    pure integer function next_significant_index(tokens, start_index) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+
+        idx = start_index
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+            case default
+                return
+            end select
+        end do
+        idx = 0
+    end function next_significant_index
+
+    logical function inline_where_parenthetical(tokens, start_index) &
+        result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer :: i, depth
+
+        is_inline = .false.
+        depth = 1
+        i = start_index
+        do while (i <= size(tokens) .and. depth > 0)
+            if (tokens(i)%kind == TK_OPERATOR) then
+                select case (tokens(i)%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    depth = depth - 1
+                end select
+            end if
+            if (tokens(i)%kind == TK_EOF) return
+            i = i + 1
+        end do
+        if (depth > 0) return
+
+        i = next_significant_index(tokens, i)
+        if (i == 0) return
+        select case (tokens(i)%kind)
+        case (TK_NEWLINE, TK_EOF)
+            return
+        case default
+            is_inline = .true.
+        end select
+    end function inline_where_parenthetical
+
+    logical function inline_where_colon(tokens, start_index) result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer :: i, colon_index
+
+        is_inline = .false.
+        colon_index = 0
+        i = start_index
+        do while (i <= size(tokens))
+            select case (tokens(i)%kind)
+            case (TK_NEWLINE, TK_EOF)
+                return
+            case (TK_OPERATOR)
+                if (tokens(i)%text == ":") then
+                    colon_index = i + 1
+                    exit
+                end if
+            end select
+            i = i + 1
+        end do
+        if (colon_index == 0) return
+
+        i = next_significant_index(tokens, colon_index)
+        if (i == 0) return
+        select case (tokens(i)%kind)
+        case (TK_NEWLINE, TK_EOF)
+            return
+        case default
+            is_inline = .true.
+        end select
+    end function inline_where_colon
+
+    logical function is_inline_where(tokens, where_index) result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: where_index
+        integer :: first_token
+
+        is_inline = .false.
+        if (where_index < 1 .or. where_index > size(tokens)) return
+        first_token = next_significant_index(tokens, where_index + 1)
+        if (first_token == 0) return
+
+        if (tokens(first_token)%kind == TK_OPERATOR .and. &
+            tokens(first_token)%text == "(") then
+            is_inline = inline_where_parenthetical(tokens, first_token + 1)
+        else
+            is_inline = inline_where_colon(tokens, first_token)
+        end if
+    end function is_inline_where
+
     integer function find_statement_end(tokens, start_index) result(end_index)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
@@ -147,7 +246,13 @@ contains
                         first_processed = .true.
                         first_keyword = "where"
                     end if
-                    where_depth = where_depth + 1
+                    block
+                        logical :: inline_where_stmt
+                        inline_where_stmt = is_inline_where(tokens, idx)
+                        if (.not. inline_where_stmt) then
+                            where_depth = where_depth + 1
+                        end if
+                    end block
                 case ("forall")
                     if (.not. first_processed) then
                         first_processed = .true.
