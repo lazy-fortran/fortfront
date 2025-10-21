@@ -10,6 +10,7 @@ program test_module_contains_functions
     call test_module_with_function()
     call test_module_with_subroutine()
     call test_module_with_multiple_procedures()
+    call test_module_with_prefix_keywords()
     print *, ""
     print *, "All module contains tests completed."
 
@@ -226,6 +227,69 @@ contains
 
         print *, "[PASS] Module with multiple procedures"
     end subroutine test_module_with_multiple_procedures
+
+    subroutine test_module_with_prefix_keywords()
+        character(:), allocatable :: input_code
+        character(:), allocatable :: output_code
+        character(:), allocatable :: error_msg
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: prog_index
+
+        input_code = "module math_funcs" // new_line('A') // &
+                     "contains" // new_line('A') // &
+                     "pure function square(x) result(y)" // new_line('A') // &
+                     "integer :: x" // new_line('A') // &
+                     "integer :: y" // new_line('A') // &
+                     "y = x * x" // new_line('A') // &
+                     "end function square" // new_line('A') // &
+                     "elemental function add_one(x) result(y)" // new_line('A') // &
+                     "integer :: x" // new_line('A') // &
+                     "integer :: y" // new_line('A') // &
+                     "y = x + 1" // new_line('A') // &
+                     "end function add_one" // new_line('A') // &
+                     "end module math_funcs"
+
+        print *, ""
+        print *, "Test: Module with prefix keywords"
+
+        arena = create_ast_arena()
+        call lex_source(input_code, tokens, error_msg)
+
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "Lexing error: ", trim(error_msg)
+            error stop 1
+        end if
+
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "Parsing error: ", trim(error_msg)
+            error stop 1
+        end if
+
+        call emit_fortran(arena, prog_index, output_code)
+
+        print *, "Output:"
+        print *, trim(output_code)
+
+        if (index(output_code, 'pure function square') == 0) then
+            print *, "FAIL: 'pure function square' missing from output"
+            error stop 1
+        end if
+
+        if (index(output_code, 'elemental function add_one') == 0) then
+            print *, "FAIL: 'elemental function add_one' missing from output"
+            error stop 1
+        end if
+
+        if (.not. contains_without_spaces(output_code, 'integer,intent(in)::x')) then
+            print *, "FAIL: Prefix intent inference missing from output"
+            error stop 1
+        end if
+
+        print *, "[PASS] Module with prefix keywords"
+    end subroutine test_module_with_prefix_keywords
 
     logical function contains_without_spaces(text, pattern)
         character(len=*), intent(in) :: text

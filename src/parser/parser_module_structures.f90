@@ -14,7 +14,7 @@ module parser_module_structures_module
     use parser_procedure_definitions_module, only: parse_function_definition, &
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
-    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use ast_types, only: LITERAL_STRING
     use parser_implicit_shared_module, only: parse_simple_implicit_statement
     ! Temporarily removed to avoid circular dependency
@@ -261,6 +261,23 @@ contains
             end if
 
             if (in_contains_section) then
+                if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                    block
+                        character(len=:), allocatable :: lowered
+                        character(len=16), allocatable :: stored(:)
+                        lowered = to_lower(token%text)
+                        select case (trim(lowered))
+                        case ("pure", "elemental", "impure", "recursive", &
+                              "nonrecursive", "non_recursive", "module")
+                            call prefix_buffer%get_all(stored)
+                            call append_prefix_token(stored, trim(lowered))
+                            call prefix_buffer%set(stored)
+                            if (allocated(stored)) deallocate (stored)
+                            token = parser%consume()
+                            cycle
+                        end select
+                    end block
+                end if
                 ! Don't consume function/subroutine - let them be handled by the checks above
                 if (.not. (token%kind == TK_KEYWORD .and. &
                            (token%text == "function" .or. token%text == &
