@@ -353,6 +353,103 @@ contains
     end function generate_real_elements_code
 
     ! Generate code for array literals
+    function check_nested_array_literal(arena, node) result(is_nested)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        logical :: is_nested
+        integer :: i
+
+        is_nested = .false.
+        if (.not. allocated(node%element_indices)) return
+        if (size(node%element_indices) == 0) return
+
+        do i = 1, size(node%element_indices)
+            if (node%element_indices(i) > 0 .and. &
+                node%element_indices(i) <= arena%size) then
+                select type (elem => arena%entries(node%element_indices(i))%node)
+                type is (array_literal_node)
+                    is_nested = .true.
+                    return
+                end select
+            end if
+        end do
+    end function check_nested_array_literal
+
+    function generate_reshape_from_nested(arena, node) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: flat_elements
+        character(len=:), allocatable :: temp_elem
+        integer :: num_rows, num_cols, i, j
+        integer, allocatable :: row_sizes(:)
+
+        if (.not. allocated(node%element_indices)) then
+            code = "reshape([integer ::], [0, 0])"
+            return
+        end if
+
+        num_rows = size(node%element_indices)
+        allocate (row_sizes(num_rows))
+
+        do i = 1, num_rows
+            if (node%element_indices(i) > 0 .and. &
+                node%element_indices(i) <= arena%size) then
+                select type (elem => arena%entries(node%element_indices(i))%node)
+                type is (array_literal_node)
+                    if (allocated(elem%element_indices)) then
+                        row_sizes(i) = size(elem%element_indices)
+                    else
+                        row_sizes(i) = 0
+                    end if
+                end select
+            else
+                row_sizes(i) = 0
+            end if
+        end do
+
+        if (num_rows > 0) then
+            num_cols = row_sizes(1)
+        else
+            num_cols = 0
+        end if
+
+        flat_elements = ""
+        do i = 1, num_rows
+            if (node%element_indices(i) > 0 .and. &
+                node%element_indices(i) <= arena%size) then
+                select type (elem => arena%entries(node%element_indices(i))%node)
+                type is (array_literal_node)
+                    if (allocated(elem%element_indices)) then
+                        do j = 1, size(elem%element_indices)
+                            if (elem%element_indices(j) > 0) then
+                                temp_elem = generate_code_from_arena(arena, &
+                                    elem%element_indices(j))
+                                if (len(flat_elements) > 0) then
+                                    flat_elements = flat_elements // ", " // temp_elem
+                                else
+                                    flat_elements = temp_elem
+                                end if
+                            end if
+                        end do
+                    end if
+                end select
+            end if
+        end do
+
+        code = "reshape([" // flat_elements // "], [" // &
+               trim(adjustl(int_to_string(num_cols))) // ", " // &
+               trim(adjustl(int_to_string(num_rows))) // "])"
+    end function generate_reshape_from_nested
+
+    function int_to_string(val) result(str)
+        integer, intent(in) :: val
+        character(len=:), allocatable :: str
+        character(len=20) :: buffer
+        write (buffer, '(I0)') val
+        str = trim(adjustl(buffer))
+    end function int_to_string
+
     function generate_code_array_literal(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
@@ -361,6 +458,13 @@ contains
         character(len=:), allocatable :: elements_code
         type(mono_type_t) :: array_type
         logical :: is_real_array
+
+        if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+            if (check_nested_array_literal(arena, node)) then
+                code = generate_reshape_from_nested(arena, node)
+                return
+            end if
+        end if
 
         ! Check if this is a real array to handle type conversion
         is_real_array = .false.
