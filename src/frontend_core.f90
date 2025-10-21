@@ -3,6 +3,7 @@ module frontend_core
     ! Main entry points for compilation pipeline
 
     use iso_fortran_env, only: error_unit
+    use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                           TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE
@@ -209,14 +210,35 @@ contains
 
         block
             character(len=:), allocatable :: line
-            allocate (character(len=0) :: source)
-            allocate (character(len=1000) :: line)  ! Allocatable - safe from stack overflow
+            character(len=:), allocatable :: lines(:)
+            character(len=:), allocatable :: temp_lines(:)
+            integer :: line_count
+            integer :: capacity
+
+            allocate (character(len=1000) :: line)
+            capacity = 100
+            allocate (character(len=1000) :: lines(capacity))
+            line_count = 0
 
             do
                 read (unit, '(A)', iostat=iostat) line
                 if (iostat /= 0) exit
-                source = source // trim(line) // new_line('a')
+
+                line_count = line_count + 1
+                if (line_count > capacity) then
+                    allocate (character(len=1000) :: temp_lines(capacity * 2))
+                    temp_lines(1:capacity) = lines(1:capacity)
+                    call move_alloc(temp_lines, lines)
+                    capacity = capacity * 2
+                end if
+                lines(line_count) = trim(line)
             end do
+
+            if (line_count > 0) then
+                source = join_strings(lines(1:line_count), new_line('a'))
+            else
+                allocate (character(len=0) :: source)
+            end if
         end block
         close (unit)
         error_msg = ""
