@@ -151,7 +151,7 @@ contains
             end if
 
             unary_minus = (trim(fortran_operator) == "-") .and. &
-                is_zero_literal(arena, node%left_index)
+                          is_zero_literal(arena, node%left_index)
             if (unary_minus) then
                 right_paren = .false.
                 right_op = get_node_operator(arena, node%right_index)
@@ -353,6 +353,117 @@ contains
     end function generate_real_elements_code
 
     ! Generate code for array literals
+    function nested_array_shape(arena, node, num_rows, num_cols) result(is_rectangular)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        integer, intent(out) :: num_rows
+        integer, intent(out) :: num_cols
+        logical :: is_rectangular
+        integer :: i, j, row_index, current_cols, elem_index
+
+        is_rectangular = .false.
+        num_rows = 0
+        num_cols = 0
+
+        if (.not. allocated(node%element_indices)) return
+        num_rows = size(node%element_indices)
+        if (num_rows == 0) return
+
+        do i = 1, num_rows
+            row_index = node%element_indices(i)
+            if (row_index <= 0 .or. row_index > arena%size) return
+
+            select type (row => arena%entries(row_index)%node)
+            type is (array_literal_node)
+                if (.not. allocated(row%element_indices)) return
+                current_cols = size(row%element_indices)
+                if (current_cols == 0) return
+
+                do j = 1, current_cols
+                    elem_index = row%element_indices(j)
+                    if (elem_index <= 0 .or. elem_index > arena%size) return
+                    select type (inner => arena%entries(elem_index)%node)
+                    type is (array_literal_node)
+                        return
+                    end select
+                end do
+            class default
+                return
+            end select
+
+            if (i == 1) then
+                num_cols = current_cols
+            else
+                if (current_cols /= num_cols) return
+            end if
+        end do
+
+        is_rectangular = (num_cols > 0)
+    end function nested_array_shape
+
+    function generate_reshape_from_nested(arena, node, num_rows, num_cols) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        integer, intent(in) :: num_rows
+        integer, intent(in) :: num_cols
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: flat_elements
+        character(len=:), allocatable :: elem_code
+        integer :: row_idx, col_idx, row_index, elem_index
+        logical :: first_element
+
+        flat_elements = ""
+        first_element = .true.
+
+        if (.not. allocated(node%element_indices)) then
+            code = "[integer ::]"
+            return
+        end if
+
+        do row_idx = 1, num_rows
+            row_index = node%element_indices(row_idx)
+            if (row_index <= 0 .or. row_index > arena%size) cycle
+
+            select type (row => arena%entries(row_index)%node)
+            type is (array_literal_node)
+                if (.not. allocated(row%element_indices)) cycle
+                do col_idx = 1, num_cols
+                    if (col_idx > size(row%element_indices)) cycle
+                    elem_index = row%element_indices(col_idx)
+                    if (elem_index <= 0 .or. elem_index > arena%size) cycle
+
+                    elem_code = generate_code_from_arena(arena, elem_index)
+                    elem_code = trim(adjustl(elem_code))
+                    if (len_trim(elem_code) == 0) cycle
+
+                    if (first_element) then
+                        flat_elements = elem_code
+                        first_element = .false.
+                    else
+                        flat_elements = flat_elements // ", " // elem_code
+                    end if
+                end do
+            end select
+        end do
+
+        if (first_element) then
+            code = "[integer ::]"
+            return
+        end if
+
+        code = "reshape([" // flat_elements // "], [" // &
+               trim(adjustl(int_to_string(num_rows))) // ", " // &
+               trim(adjustl(int_to_string(num_cols))) // "], order=[2, 1])"
+    end function generate_reshape_from_nested
+
+    function int_to_string(val) result(str)
+        integer, intent(in) :: val
+        character(len=:), allocatable :: str
+        character(len=20) :: buffer
+        write (buffer, '(I0)') val
+        str = trim(adjustl(buffer))
+    end function int_to_string
+
     function generate_code_array_literal(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
@@ -361,6 +472,15 @@ contains
         character(len=:), allocatable :: elements_code
         type(mono_type_t) :: array_type
         logical :: is_real_array
+        integer :: nested_rows, nested_cols
+
+        if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+            if (nested_array_shape(arena, node, nested_rows, nested_cols)) then
+                code = generate_reshape_from_nested(arena, node, nested_rows, &
+                    & nested_cols)
+                return
+            end if
+        end if
 
         ! Check if this is a real array to handle type conversion
         is_real_array = .false.
@@ -377,7 +497,7 @@ contains
                         do j = 1, size(node%element_indices)
                             if (node%element_indices(j) > 0) then
                                 select type (elem_node => &
-                                             arena%entries(node%element_indices(j))%node)
+                                            arena%entries(node%element_indices(j))%node)
                                 type is (literal_node)
                                     if (elem_node%literal_kind == LITERAL_REAL) then
                                         is_real_array = .true.
@@ -394,7 +514,8 @@ contains
         ! Generate elements code based on array type (for type conversion)
         if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
             if (is_real_array) then
-                elements_code = generate_real_elements_code(arena, node%element_indices)
+                elements_code = generate_real_elements_code(arena, &
+                                                            node%element_indices)
             else
                 elements_code = generate_elements_code_from_indices(arena, &
                     & node%element_indices)
@@ -569,8 +690,10 @@ contains
             end if
 
             ! Fast-path for assumed/deferred shape with no explicit bounds
-            if ((bounds_node%is_assumed_shape .or. bounds_node%is_deferred_shape) .and. &
-                bounds_node%lower_bound_index <= 0 .and. bounds_node%upper_bound_index &
+            if ((bounds_node%is_assumed_shape .or. &
+                 bounds_node%is_deferred_shape) .and. &
+                bounds_node%lower_bound_index <= 0 .and. &
+                bounds_node%upper_bound_index &
                 <= 0 .and. &
                 bounds_node%stride_index <= 0) then
                 code = ":"
@@ -726,10 +849,12 @@ contains
                 step_code = trim(step_code)
                 if (allocated(node%var_name)) then
                     code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
-                           start_code // ", " // end_code // ", " // step_code // ") /)"
+                           start_code // ", " // end_code // ", " // &
+                           step_code // ") /)"
                 else
                     code = "(/ (" // expr_code // ", i=" // &
-                           start_code // ", " // end_code // ", " // step_code // ") /)"
+                           start_code // ", " // end_code // ", " // &
+                           step_code // ") /)"
                 end if
             else
                 if (allocated(node%var_name)) then
@@ -916,7 +1041,8 @@ contains
         end if
     end function is_string_literal
 
-    pure logical function is_missing_concat_operand(operator, checking_left, left_code, &
+    pure logical function is_missing_concat_operand(operator, checking_left, &
+                                                    left_code, &
                                                     right_code) result(is_missing)
         character(len=*), intent(in) :: operator
         logical, intent(in) :: checking_left
