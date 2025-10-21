@@ -155,8 +155,8 @@ contains
             ! No units found - create empty main program
             prog_index = push_program(arena, "main", [integer ::], 1, 1)
         else if (unit_count == 1) then
-            ! Single unit - if it's a program, use it; if it's a module, return it directly;
-            ! otherwise wrap in a program for consistent API.
+            ! Single unit - pass through programs and modules directly
+            ! Wrap other constructs in a program for consistent API
             if (allocated(arena%entries(unit_indices(1))%node)) then
                 select type (node => arena%entries(unit_indices(1))%node)
                 type is (program_node)
@@ -451,11 +451,22 @@ contains
         if (start_pos <= size(tokens)) then
             if (tokens(start_pos)%kind == TK_KEYWORD) then
                 unit_type = to_lower(trim(tokens(start_pos)%text))
-                if (unit_type == "block" .and. start_pos + 1 <= size(tokens)) then
-                    if (tokens(start_pos + 1)%kind == TK_KEYWORD .and. &
-                        to_lower(trim(tokens(start_pos + 1)%text)) == "data") then
-                        unit_type = "blockdata"
-                    end if
+                if (unit_type == "block") then
+                    next_pos = start_pos + 1
+                    do while (next_pos <= size(tokens))
+                        select case (tokens(next_pos)%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            next_pos = next_pos + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            if (to_lower(trim(tokens(next_pos)%text)) == "data") then
+                                unit_type = "blockdata"
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                    end do
                 end if
             end if
         end if
@@ -481,7 +492,8 @@ contains
                                     ! Check if there's a module name after "end module"
                                     if (i + 2 <= size(tokens)) then
                                         if (tokens(i + 2)%kind == TK_IDENTIFIER) then
-                                            unit_end = i + 2  ! Include the module name too
+                                            ! Include module name
+                                            unit_end = i + 2
                                         end if
                                     end if
                                     exit

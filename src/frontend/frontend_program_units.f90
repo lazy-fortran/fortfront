@@ -2,13 +2,15 @@ module frontend_program_units
     ! Program unit detection and parsing functionality
     ! Handles module, function, subroutine, type, and program unit parsing
 
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, &
+                          TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, &
+                          TK_STRING, TK_UNKNOWN, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use frontend_statement_processing, only: parse_all_statements => parse_all_statements
+    use frontend_statement_processing, only: &
+        parse_all_statements => parse_all_statements
     use parser_declarations, only: parse_derived_type_def
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -21,11 +23,12 @@ module frontend_program_units
     public :: parse_program_unit, parse_module_unit, parse_function_unit
     public :: parse_subroutine_unit, parse_type_unit, parse_explicit_program_unit
     public :: parse_implicit_main_program, parse_block_data_unit
-    public :: not_meaningful_program_unit, has_any_non_comment_content, has_executable_statements
+    public :: not_meaningful_program_unit, has_any_non_comment_content, &
+              has_executable_statements
 
     ! Helper functions for unit detection
-    public :: is_function_start, is_subroutine_start, is_module_start, is_program_start, &
-              is_type_start, is_block_data_start
+    public :: is_function_start, is_subroutine_start, is_module_start, &
+              is_program_start, is_type_start, is_block_data_start
 
 contains
 
@@ -60,8 +63,9 @@ contains
             ! Type definitions should be parsed as structured constructs
             unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
         else
-            ! For mixed module/main program files, we always need to check for implicit main
-            unit_index = parse_implicit_main_program(tokens, arena, has_explicit_program)
+            ! Mixed module/main files still require implicit main detection
+            unit_index = parse_implicit_main_program(tokens, arena, &
+                                                     has_explicit_program)
         end if
     end function parse_program_unit
 
@@ -132,7 +136,7 @@ contains
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
-        ! Parse type definition using statement dispatcher (which handles parser creation)
+        ! Statement dispatcher handles parser creation for type definitions
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
     end function parse_type_unit
 
@@ -204,9 +208,10 @@ contains
                     has_executable_content = .true.
                     exit
                 end if
-                ! Check for assignment (identifier followed by =)
+                ! Check for identifier assignment pattern
                 if (i < size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER .and. &
-                    tokens(i + 1)%kind == TK_OPERATOR .and. tokens(i + 1)%text == "=") then
+                    tokens(i + 1)%kind == TK_OPERATOR .and. &
+                    tokens(i + 1)%text == "=") then
                     has_executable_content = .true.
                     exit
                 end if
@@ -251,7 +256,8 @@ contains
 
         is_start = .false.
         if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "subroutine") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                tokens(pos)%text == "subroutine") then
                 is_start = .true.
             end if
         end if
@@ -300,14 +306,27 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
         logical :: is_start
+        integer :: lookahead
+        character(len=:), allocatable :: keyword_text
 
         is_start = .false.
-        if (pos <= size(tokens) - 1) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "block" .and. &
-                tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "data") then
-                is_start = .true.
-            end if
-        end if
+        if (pos > size(tokens)) return
+        if (to_lower(trim(tokens(pos)%text)) /= "block") return
+
+        lookahead = pos + 1
+        do while (lookahead <= size(tokens))
+            select case (tokens(lookahead)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                lookahead = lookahead + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                keyword_text = to_lower(trim(tokens(lookahead)%text))
+                if (keyword_text == "data") is_start = .true.
+                return
+            case default
+                return
+            end select
+        end do
     end function is_block_data_start
 
 end module frontend_program_units

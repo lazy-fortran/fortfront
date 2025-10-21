@@ -50,7 +50,14 @@ contains
                         token = parser%consume()
                         if (.not. parser%is_at_end()) then
                             token = parser%peek()
-                            if (token%kind == TK_KEYWORD .and. token%text == "data") then
+                            if (token%kind == TK_KEYWORD .and. &
+                                token%text == "data") then
+                                token = parser%consume()
+                            end if
+                        end if
+                        if (.not. parser%is_at_end()) then
+                            token = parser%peek()
+                            if (token%kind == TK_IDENTIFIER) then
                                 token = parser%consume()
                             end if
                         end if
