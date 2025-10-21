@@ -295,8 +295,6 @@ contains
         end if
 
         ! Check for format specifier or namelist (optional)
-        format_spec = ""
-        namelist_group = ""
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
             token = parser%consume()  ! consume comma
@@ -325,6 +323,9 @@ contains
             else
                 ! Parse format specifier
                 call parse_format_specifier(parser, format_spec)
+                if (allocated(format_spec)) then
+                    if (len(format_spec) == 0) deallocate (format_spec)
+                end if
             end if
         end if
 
@@ -342,8 +343,18 @@ contains
         call parse_argument_list(parser, arena, arg_indices)
 
         ! Create write statement node with parsed arguments
-        write_index = push_write_statement(arena, unit_spec, arg_indices, &
-                                           format_spec, namelist_group, line, column)
+        if (allocated(namelist_group)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               namelist_group=namelist_group, &
+                                               line=line, column=column)
+        else if (allocated(format_spec)) then
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               format_spec=format_spec, &
+                                               line=line, column=column)
+        else
+            write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               line=line, column=column)
+        end if
     end function parse_write_statement
 
     function parse_read_statement(parser, arena) result(read_index)

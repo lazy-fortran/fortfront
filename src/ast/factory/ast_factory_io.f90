@@ -56,8 +56,12 @@ contains
                 write_stmt%arg_indices = arg_indices
             end if
         end if
-        if (present(format_spec)) write_stmt%format_spec = format_spec
-        if (present(namelist_group)) write_stmt%namelist_group = namelist_group
+        if (present(format_spec)) then
+            if (len(format_spec) > 0) write_stmt%format_spec = format_spec
+        end if
+        if (present(namelist_group)) then
+            if (len(namelist_group) > 0) write_stmt%namelist_group = namelist_group
+        end if
         if (present(line)) write_stmt%line = line
         if (present(column)) write_stmt%column = column
 
