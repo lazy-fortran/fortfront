@@ -15,6 +15,7 @@ module frontend_program_units
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_factory, only: push_program
+    use frontend_utilities, only: is_type_start
 
     implicit none
     private
@@ -283,24 +284,12 @@ contains
 
         is_start = .false.
         if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "program") then
+            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == &
+                "program") then
                 is_start = .true.
             end if
         end if
     end function is_program_start
-
-    function is_type_start(tokens, pos) result(is_start)
-        type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: pos
-        logical :: is_start
-
-        is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "type") then
-                is_start = .true.
-            end if
-        end if
-    end function is_type_start
 
     function is_block_data_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)

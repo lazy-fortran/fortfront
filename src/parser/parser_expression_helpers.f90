@@ -9,6 +9,7 @@ module parser_expression_helpers_module
                            push_call_or_subscript, &
                            push_call_or_subscript_with_slice_detection
     use parser_state_module, only: parser_state_t
+    use parser_utilities, only: peek_next_nontrivial_token
     implicit none
     private
 
@@ -130,32 +131,5 @@ contains
         token%kind = TK_IDENTIFIER
         promoted = .true.
     end function promote_keyword_component
-
-    function peek_next_nontrivial_token(parser) result(next_token)
-        type(parser_state_t), intent(in) :: parser
-        type(token_t) :: next_token
-        integer :: pos
-
-        next_token%kind = TK_EOF
-        next_token%text = ""
-
-        if (.not. associated(parser%tokens)) then
-            return
-        end if
-
-        pos = parser%current_token
-        do while (pos >= 1 .and. pos <= size(parser%tokens))
-            next_token = parser%tokens(pos)
-            select case (next_token%kind)
-            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                pos = pos + 1
-            case default
-                return
-            end select
-        end do
-
-        next_token%kind = TK_EOF
-        next_token%text = ""
-    end function peek_next_nontrivial_token
 
 end module parser_expression_helpers_module

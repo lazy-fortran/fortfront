@@ -3,10 +3,11 @@ module frontend_utilities
     ! Contains helper functions and utilities
 
     use string_utils_mod, only: int_to_string
+    use lexer_core, only: token_t, TK_KEYWORD
     implicit none
     private
 
-    public :: write_output_file, int_to_str
+    public :: write_output_file, int_to_str, is_type_start
 
 contains
 
@@ -18,7 +19,8 @@ contains
         integer :: unit, iostat
         character(len=:), allocatable :: sanitized
 
-        open (newunit=unit, file=filename, status='replace', action='write', iostat=iostat)
+        open (newunit=unit, file=filename, status='replace', action='write', &
+              iostat=iostat)
         if (iostat /= 0) then
             error_msg = "Cannot create output file: " // filename
             return
@@ -59,5 +61,19 @@ contains
 
         str = int_to_string(num)
     end function int_to_str
+
+    ! Check if token sequence starts a type definition
+    function is_type_start(tokens, pos) result(is_start)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: is_start
+
+        is_start = .false.
+        if (pos <= size(tokens)) then
+            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "type") then
+                is_start = .true.
+            end if
+        end if
+    end function is_type_start
 
 end module frontend_utilities

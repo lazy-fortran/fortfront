@@ -12,6 +12,7 @@ module parser_parameter_handling_module
     use ast_types, only: LITERAL_INTEGER
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use parser_utilities, only: consume_token
     implicit none
     private
 
@@ -89,14 +90,18 @@ contains
                             ! Check multi-declaration var_names
                             if (allocated(body_node%var_names)) then
                                 if (any(body_node%var_names == param_name)) then
-                                    call update_parameter_from_declaration(param_node, body_node)
+                                    call &
+                                        update_parameter_from_declaration(param_node, &
+                                                                          body_node)
                                 end if
                             end if
                         else
                             ! Single declaration
                             if (allocated(body_node%var_name) .and. &
                                 body_node%var_name == param_name) then
-                                call update_parameter_from_declaration(param_node, body_node)
+                                call &
+                                    update_parameter_from_declaration(param_node, &
+                                                                      body_node)
                             end if
                         end if
                     end select
@@ -485,11 +490,5 @@ contains
                                                  column=token%column)
         param_indices = [param_indices, param_index]
     end subroutine append_untyped_parameter
-
-    subroutine consume_token(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: ignored_token
-        ignored_token = parser%consume()
-    end subroutine consume_token
 
 end module parser_parameter_handling_module

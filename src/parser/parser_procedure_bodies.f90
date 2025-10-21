@@ -18,6 +18,7 @@ module parser_procedure_bodies_module
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
     use parser_do_constructs_module, only: parse_do_loop
+    use parser_utilities, only: skip_to_end_of_line
     implicit none
     private
 
@@ -653,20 +654,5 @@ contains
             expr_index = left_index
         end if
     end function parse_simple_rhs_expression
-
-    ! Skip tokens until end of line
-    subroutine skip_to_end_of_line(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: token
-
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_NEWLINE) then
-                token = parser%consume()  ! consume newline
-                exit
-            end if
-            token = parser%consume()
-        end do
-    end subroutine skip_to_end_of_line
 
 end module parser_procedure_bodies_module

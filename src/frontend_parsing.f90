@@ -12,7 +12,7 @@ module frontend_parsing
     use ast_nodes_data, only: module_node, block_data_node
     use ast_factory, only: push_program
     use iso_fortran_env, only: error_unit
-    use frontend_utilities, only: int_to_str
+    use frontend_utilities, only: int_to_str, is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &
                                         mixed_construct_result_t
@@ -103,7 +103,8 @@ contains
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (mixed_result%has_mixed_constructs) then
-            call parse_mixed_constructs(tokens_local, arena, mixed_result, prog_index, &
+            call parse_mixed_constructs(tokens_local, arena, mixed_result, &
+                                        prog_index, &
                                         error_msg)
             return
         end if
@@ -787,19 +788,6 @@ contains
 
         is_end = is_end_construct(tokens, pos, "if")
     end function is_end_if
-
-    function is_type_start(tokens, pos) result(is_start)
-        type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: pos
-        logical :: is_start
-
-        is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "type") then
-                is_start = .true.
-            end if
-        end if
-    end function is_type_start
 
     function is_end_type(tokens, pos) result(is_end)
         type(token_t), intent(in) :: tokens(:)
