@@ -2,6 +2,12 @@
 
 A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
+## Features
+
+- End-to-end pipeline: lexing, parsing, semantic checks, and Fortran emission
+- Lazy Fortran to standard Fortran conversion with automatic type inference
+- CLI and library APIs for scripting, pipelines, and embedding in larger tools
+
 ## Lazy Fortran vs Standard Fortran
 
 Lazy Fortran omits boilerplate that fortfront infers automatically:
