@@ -352,6 +352,11 @@ contains
                     end if
                 end if
             end if
+            if (existing_decl%is_array) then
+                func_def%return_type = ''
+                arena%entries(func_index)%node = func_def
+                return
+            end if
             if (.not. allocated(func_def%return_type) .or. &
                 len_trim(func_def%return_type) == 0) then
                 if (len_trim(existing_decl%type_name) > 0) then
@@ -378,6 +383,14 @@ contains
         decl%is_array = .false.
         decl%is_allocatable = .false.
         result_inferred = .false.
+
+        if (allocated(func_def%return_type)) then
+            if (func_def%return_type == "type_variable" .or. &
+                func_def%return_type == "function" .or. &
+                func_def%return_type == "derived_type") then
+                func_def%return_type = ""
+            end if
+        end if
 
         if (allocated(func_def%return_type)) then
             if (len_trim(func_def%return_type) > 0) then
