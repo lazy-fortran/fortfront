@@ -1,5 +1,5 @@
 module codegen_utilities
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
     use ast_nodes_core
@@ -888,6 +888,7 @@ contains
             integer :: len_text, total_lines, idx_line
             integer :: start_pos, line_idx
             integer :: import_count, other_count
+            integer :: max_line_length, line_length
             logical :: has_trailing_newline
             character(len=1) :: nl
 
@@ -898,14 +899,29 @@ contains
 
             has_trailing_newline = (text(len_text:len_text) == nl)
 
+            max_line_length = 0
+            start_pos = 1
             total_lines = 0
             do idx_line = 1, len_text
-                if (text(idx_line:idx_line) == nl) total_lines = total_lines + 1
+                if (text(idx_line:idx_line) == nl) then
+                    total_lines = total_lines + 1
+                    line_length = idx_line - start_pos
+                    if (line_length > max_line_length) max_line_length = line_length
+                    start_pos = idx_line + 1
+                end if
             end do
-            if (text(len_text:len_text) /= nl) total_lines = total_lines + 1
+            if (start_pos <= len_text) then
+                total_lines = total_lines + 1
+                line_length = len_text - start_pos + 1
+                if (line_length > max_line_length) max_line_length = line_length
+            end if
             if (total_lines == 0) return
+            if (max_line_length < 1) max_line_length = 1
 
-            allocate (character(len=0) :: lines(total_lines))
+            allocate (character(len=max_line_length) :: lines(total_lines))
+            allocate (character(len=max_line_length) :: imports(total_lines))
+            allocate (character(len=max_line_length) :: others(total_lines))
+
             start_pos = 1
             line_idx = 0
             do idx_line = 1, len_text
@@ -926,8 +942,6 @@ contains
 
             import_count = 0
             other_count = 0
-            allocate (character(len=0) :: imports(total_lines))
-            allocate (character(len=0) :: others(total_lines))
 
             do line_idx = 1, total_lines
                 trimmed = adjustl(lines(line_idx))
@@ -950,7 +964,8 @@ contains
 
             if (import_count == 0) return
 
-            allocate (character(len=0) :: reordered(import_count + other_count))
+            allocate (character(len=max_line_length) :: reordered(import_count + &
+                                                                  other_count))
             do line_idx = 1, import_count
                 reordered(line_idx) = imports(line_idx)
             end do

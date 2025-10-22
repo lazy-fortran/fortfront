@@ -1,6 +1,6 @@
 ! Issue #1622: Support IMPORT statement in interface blocks
-! NOTE: Currently IMPORT is emitted after declarations due to statement ordering
-! This is a known limitation - IMPORT is parsed and generated correctly
+! IMPORT statements now appear before dummy argument declarations
+! Ensures interface-scoped imports compile without additional fixes
 module test_import
     type data_t
         integer value
