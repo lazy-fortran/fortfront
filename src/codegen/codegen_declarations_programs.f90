@@ -915,7 +915,11 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: body_code
 
-        code = "interface"
+        if (node%is_abstract) then
+            code = "abstract interface"
+        else
+            code = "interface"
+        end if
         if (allocated(node%name)) then
             if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
         end if
