@@ -30,7 +30,8 @@ module ast_factory
     use ast_factory_control, only: &
         push_if, push_do_loop, push_do_while, push_forall, push_select_case, &
         push_associate, push_case_block, push_case_range, push_case_default, &
-        push_select_case_with_default, push_where, push_where_construct, &
+        push_select_case_with_default, push_select_type, push_select_type_with_default, &
+        push_type_guard_block, push_where, push_where_construct, &
         push_where_construct_with_elsewhere
 
     ! I/O statement nodes
@@ -82,7 +83,8 @@ module ast_factory
     ! Control flow nodes
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
     public :: push_associate, push_case_block, push_case_range, push_case_default
-    public :: push_select_case_with_default, push_where, push_where_construct
+    public :: push_select_case_with_default, push_select_type, push_select_type_with_default
+    public :: push_type_guard_block, push_where, push_where_construct
     public :: push_where_construct_with_elsewhere
 
     ! I/O statement nodes

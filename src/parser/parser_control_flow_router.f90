@@ -7,7 +7,7 @@ module parser_control_flow_router_module
     use ast_arena_modern, only: ast_arena_t
     use parser_if_constructs_module, only: parse_if
     use parser_do_constructs_module, only: parse_do_loop
-    use parser_select_constructs_module, only: parse_select_case
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type
     use parser_array_constructs_module, only: parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
     implicit none
@@ -25,6 +25,7 @@ contains
         callbacks%parse_if => parse_if
         callbacks%parse_do_loop => parse_do_loop
         callbacks%parse_select_case => parse_select_case
+        callbacks%parse_select_type => parse_select_type
         callbacks%parse_where => parse_where_construct
         callbacks%parse_forall => parse_forall
         callbacks%parse_associate => parse_associate
@@ -70,8 +71,18 @@ contains
         case ("do")
             node_index = invoke_no_parent(local_callbacks%parse_do_loop, parser, arena)
         case ("select")
-            node_index = invoke_no_parent(local_callbacks%parse_select_case, &
-                                          parser, arena)
+            ! Look ahead to distinguish SELECT CASE from SELECT TYPE
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD) then
+                    if (parser%tokens(parser%current_token + 1)%text == "type") then
+                        node_index = invoke_no_parent(local_callbacks%parse_select_type, &
+                                                      parser, arena)
+                    else if (parser%tokens(parser%current_token + 1)%text == "case") then
+                        node_index = invoke_no_parent(local_callbacks%parse_select_case, &
+                                                      parser, arena)
+                    end if
+                end if
+            end if
         case ("where")
             node_index = invoke_no_parent(local_callbacks%parse_where, parser, arena)
         case ("forall")

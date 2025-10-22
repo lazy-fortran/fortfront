@@ -5,6 +5,7 @@ module ast_factory_control
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
                                  case_block_node, case_range_node, case_default_node, &
+                                 select_type_node, type_guard_block_node, &
                                  where_node, associate_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use uid_generator, only: generate_uid
@@ -18,6 +19,7 @@ module ast_factory_control
     public :: push_associate
     public :: push_case_block, push_case_range, push_case_default, &
               push_select_case_with_default
+    public :: push_select_type, push_select_type_with_default, push_type_guard_block
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
 
 contains
@@ -538,6 +540,127 @@ contains
         call arena%push(default_node, "case_default", parent_index)
         default_index = arena%size
     end function push_case_default
+
+    ! Create SELECT TYPE node without default and add to stack
+    function push_select_type(arena, selector_index, guard_indices, &
+                              line, column, parent_index) result(select_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: selector_index
+        integer, intent(in), optional :: guard_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: select_index
+
+        type(select_type_node) :: select_node
+
+        select_node%uid = generate_uid()
+
+        ! Set selector expression index
+        if (selector_index > 0 .and. selector_index <= arena%size) then
+            select_node%selector_index = selector_index
+        end if
+
+        ! Set guard indices
+        if (present(guard_indices)) then
+            if (size(guard_indices) > 0) then
+                select_node%guard_indices = guard_indices
+            end if
+        end if
+
+        ! Set location information
+        if (present(line)) select_node%line = line
+        if (present(column)) select_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(select_node, "select_type", parent_index)
+        else
+            call arena%push(select_node, "select_type")
+        end if
+        select_index = arena%size
+    end function push_select_type
+
+    ! Create SELECT TYPE node with default and add to stack
+    function push_select_type_with_default(arena, selector_index, &
+                                           guard_indices, default_index, &
+                                           line, column, parent_index) &
+        result(select_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: selector_index
+        integer, intent(in), optional :: guard_indices(:)
+        integer, intent(in) :: default_index
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: select_index
+
+        type(select_type_node) :: select_node
+
+        select_node%uid = generate_uid()
+
+        ! Set selector expression index
+        if (selector_index > 0 .and. selector_index <= arena%size) then
+            select_node%selector_index = selector_index
+        end if
+
+        ! Set guard indices
+        if (present(guard_indices)) then
+            if (size(guard_indices) > 0) then
+                select_node%guard_indices = guard_indices
+            end if
+        end if
+
+        ! Set default guard index
+        if (default_index > 0 .and. default_index <= arena%size) then
+            select_node%default_index = default_index
+        end if
+
+        ! Set location information
+        if (present(line)) select_node%line = line
+        if (present(column)) select_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(select_node, "select_type", parent_index)
+        else
+            call arena%push(select_node, "select_type")
+        end if
+        select_index = arena%size
+    end function push_select_type_with_default
+
+    ! Create type guard block node and add to stack
+    function push_type_guard_block(arena, guard_type, type_name_index, &
+                                   body_indices, line, column, parent_index) &
+        result(guard_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: guard_type
+        integer, intent(in) :: type_name_index
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: guard_index
+
+        type(type_guard_block_node) :: guard_node
+
+        guard_node%uid = generate_uid()
+        guard_node%guard_type = guard_type
+        guard_node%type_name_index = type_name_index
+
+        ! Set body indices
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                guard_node%body_indices = body_indices
+            end if
+        end if
+
+        ! Set location information
+        if (present(line)) guard_node%line = line
+        if (present(column)) guard_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(guard_node, "type_guard_block", parent_index)
+        else
+            call arena%push(guard_node, "type_guard_block")
+        end if
+        guard_index = arena%size
+    end function push_type_guard_block
 
     ! Create WHERE construct node and add to stack
     function push_where(arena, mask_expr_index, where_body_indices, &
