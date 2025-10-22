@@ -68,22 +68,53 @@ echo "x = 5" | fortfront > output.f90
 
 ## Library API
 
-Main entry points from the `frontend` module:
+FortFront provides a modular API for integration into downstream tools such as linters, compilers, and formatters.
 
-- `transform_lazy_fortran_string(input, output)` - High-level transformation
-- `compile_source(input, options)` - Full compilation pipeline
-- `lex_source(input, tokens)` - Lexical analysis only
-- `parse_tokens(tokens, ast)` - Parsing only
-- `analyze_semantics(ast)` - Semantic analysis only
-- `emit_fortran(ast, output)` - Code generation only
+### API Modules
 
-Example:
+- `lexer_api` - Tokenization and lexical analysis
+- `parser_api` - Token parsing and AST construction
+- `ast_api` - AST node types and traversal utilities
+- `semantic_api` - Type inference and semantic validation
+- `codegen_api` - Standard Fortran code generation
+- `error_api` - Error handling and reporting
+- `transformation_api` - High-level transformation pipeline
+- `frontend_tooling_api` - Convenience functions for tool developers
+
+### Quick Example
+
 ```fortran
-use frontend, only: transform_lazy_fortran_string
+use transformation_api, only: transform_lazy_fortran_string
 character(len=:), allocatable :: input, output
 input = "x = 5"
 call transform_lazy_fortran_string(input, output)
 ```
+
+### Full Pipeline Example
+
+```fortran
+use lexer_api, only: tokenize_core, token_t
+use parser_api, only: parse_tokens, create_compiler_arena, compiler_arena_t
+use ast_api, only: ast_arena_t
+use codegen_api, only: generate_code_from_arena
+
+character(len=*), parameter :: source = "x = 5"
+type(token_t), allocatable :: tokens(:)
+type(compiler_arena_t) :: compiler_arena
+integer :: root_index
+character(len=512) :: error_msg
+character(len=:), allocatable :: code
+
+call tokenize_core(source, tokens)
+compiler_arena = create_compiler_arena()
+call parse_tokens(tokens, compiler_arena%ast, root_index, error_msg)
+code = generate_code_from_arena(compiler_arena%ast)
+```
+
+### Documentation
+
+- API Reference: docs/API.md
+- Usage Guide with Examples: docs/LIBRARY_USAGE.md
 
 ## Links
 - Fortrun integration: https://github.com/lazy-fortran/fortrun
