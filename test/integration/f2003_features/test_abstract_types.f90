@@ -1,5 +1,6 @@
 program test_abstract_types
     use frontend, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     logical :: all_passed
@@ -23,32 +24,105 @@ program test_abstract_types
     end if
 
 contains
+    subroutine set_source_from_lines(target, lines)
+        character(len=:), allocatable, intent(out) :: target
+        character(len=*), intent(in) :: lines(:)
+        integer :: idx
+
+        target = ""
+        do idx = 1, size(lines)
+            if (idx == 1) then
+                target = lines(idx)
+            else
+                target = target // new_line('a') // lines(idx)
+            end if
+        end do
+    end subroutine set_source_from_lines
+
+    subroutine build_abstract_type_source(source)
+        character(len=:), allocatable, intent(out) :: source
+
+        call set_source_from_lines(source, [character(len=96) :: &
+            "module myclass_base", &
+            "use, intrinsic :: iso_fortran_env, only: dp => real64", &
+            "implicit none", &
+            "", &
+            "type, abstract :: myclass_t", &
+            "contains", &
+            "    procedure(get_value_i), deferred :: get_value", &
+            "end type myclass_t", &
+            "", &
+            "abstract interface", &
+            "    subroutine get_value_i(self, value)", &
+            "        import myclass_t", &
+            "        class(myclass_t), intent(in) :: self", &
+            "        real(dp), intent(out) :: value", &
+            "    end subroutine get_value_i", &
+            "end interface", &
+            "", &
+            "end module myclass_base"])
+    end subroutine build_abstract_type_source
+
+    subroutine build_abstract_interface_source(source)
+        character(len=:), allocatable, intent(out) :: source
+
+        call set_source_from_lines(source, [character(len=96) :: &
+            "abstract interface", &
+            "    subroutine test_sub(x)", &
+            "        real, intent(in) :: x", &
+            "    end subroutine test_sub", &
+            "end interface"])
+    end subroutine build_abstract_interface_source
+
+    subroutine build_type_extension_source(source)
+        character(len=:), allocatable, intent(out) :: source
+
+        call set_source_from_lines(source, [character(len=96) :: &
+            "module myclass_impl", &
+            "use, intrinsic :: iso_fortran_env, only: dp => real64", &
+            "implicit none", &
+            "type :: base_t", &
+            "    integer :: x", &
+            "end type base_t", &
+            "", &
+            "type, extends(base_t) :: derived_t", &
+            "    real(dp) :: y", &
+            "contains", &
+            "    procedure :: get_value => get_value_impl", &
+            "end type derived_t", &
+            "", &
+            "contains", &
+            "", &
+            "subroutine get_value_impl(self, value)", &
+            "    class(derived_t), intent(in) :: self", &
+            "    real(dp), intent(out) :: value", &
+            "    value = 1.0d0", &
+            "end subroutine get_value_impl", &
+            "", &
+            "end module myclass_impl"])
+    end subroutine build_type_extension_source
+
+    subroutine check_contains(text, snippet, message, passed)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: snippet
+        character(len=*), intent(in) :: message
+        logical, intent(inout) :: passed
+
+        if (index(text, snippet) == 0) then
+            print *, "  ERROR: " // trim(message)
+            passed = .false.
+        end if
+    end subroutine check_contains
 
     function test_abstract_type_basic() result(passed)
         logical :: passed
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
+        call build_abstract_type_source(source)
         passed = .true.
         print *, "Testing abstract type with deferred procedure..."
-
-        source = &
-            "module myclass_base" // new_line('a') // &
-            "implicit none" // new_line('a') // &
-            "" // new_line('a') // &
-            "type, abstract :: myclass_t" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    procedure(get_value_i), deferred :: get_value" // new_line('a') // &
-            "end type myclass_t" // new_line('a') // &
-            "" // new_line('a') // &
-            "abstract interface" // new_line('a') // &
-            "    subroutine get_value_i(self, value)" // new_line('a') // &
-            "        import myclass_t" // new_line('a') // &
-            "        class(myclass_t), intent(in) :: self" // new_line('a') // &
-            "        real, intent(out) :: value" // new_line('a') // &
-            "    end subroutine get_value_i" // new_line('a') // &
-            "end interface" // new_line('a') // &
-            "" // new_line('a') // &
-            "end module myclass_base"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -59,16 +133,10 @@ contains
             print *, "  ERROR: No output generated"
             passed = .false.
         else
-            if (index(output, "type, abstract") == 0) then
-                print *, "  ERROR: abstract attribute missing"
-                passed = .false.
-            end if
-
-            if (index(output, "procedure(get_value_i), deferred") == 0) then
-                print *, "  ERROR: procedure interface reference missing"
-                passed = .false.
-            end if
-
+            call check_contains(output, "type, abstract", &
+                                "abstract attribute missing", passed)
+            call check_contains(output, "procedure(get_value_i), deferred", &
+                                "procedure interface reference missing", passed)
             if (passed) then
                 print *, "  PASS: Abstract type with deferred procedure"
             end if
@@ -77,17 +145,13 @@ contains
 
     function test_abstract_interface() result(passed)
         logical :: passed
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
+        call build_abstract_interface_source(source)
         passed = .true.
         print *, "Testing abstract interface block..."
-
-        source = &
-            "abstract interface" // new_line('a') // &
-            "    subroutine test_sub(x)" // new_line('a') // &
-            "        real, intent(in) :: x" // new_line('a') // &
-            "    end subroutine test_sub" // new_line('a') // &
-            "end interface"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -111,33 +175,13 @@ contains
 
     function test_type_extension() result(passed)
         logical :: passed
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
+        call build_type_extension_source(source)
         passed = .true.
         print *, "Testing type extension with extends..."
-
-        source = &
-            "module myclass_impl" // new_line('a') // &
-            "" // new_line('a') // &
-            "type :: base_t" // new_line('a') // &
-            "    integer :: x" // new_line('a') // &
-            "end type base_t" // new_line('a') // &
-            "" // new_line('a') // &
-            "type, extends(base_t) :: derived_t" // new_line('a') // &
-            "    real :: y" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    procedure :: get_value => get_value_impl" // new_line('a') // &
-            "end type derived_t" // new_line('a') // &
-            "" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "" // new_line('a') // &
-            "subroutine get_value_impl(self, value)" // new_line('a') // &
-            "    class(derived_t), intent(in) :: self" // new_line('a') // &
-            "    real, intent(out) :: value" // new_line('a') // &
-            "    value = 1.0" // new_line('a') // &
-            "end subroutine get_value_impl" // new_line('a') // &
-            "" // new_line('a') // &
-            "end module myclass_impl"
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -148,16 +192,10 @@ contains
             print *, "  ERROR: No output generated"
             passed = .false.
         else
-            if (index(output, "extends(base_t)") == 0) then
-                print *, "  ERROR: extends attribute missing"
-                passed = .false.
-            end if
-
-            if (index(output, "procedure :: get_value => get_value_impl") == 0) then
-                print *, "  ERROR: procedure binding missing"
-                passed = .false.
-            end if
-
+            call check_contains(output, "extends(base_t)", &
+                                "extends attribute missing", passed)
+            call check_contains(output, "procedure :: get_value => get_value_impl", &
+                                "procedure binding missing", passed)
             if (passed) then
                 print *, "  PASS: Type extension with extends"
             end if
