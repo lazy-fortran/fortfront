@@ -1103,7 +1103,7 @@ contains
         param_idx = 0
         do i = 1, size(param_map)
             if (allocated(param_map(i)%name)) then
-                if (param_map(i)%name == var_name) then
+                if (trim(param_map(i)%name) == trim(var_name)) then
                     param_idx = i
                     return
                 end if
