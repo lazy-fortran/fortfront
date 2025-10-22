@@ -493,12 +493,43 @@ contains
         end if
     end subroutine read_binding_target
 
+    subroutine read_interface_name(parser, interface_name)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: interface_name
+        type(token_t) :: token
+
+        call skip_component_trivia(parser)
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") return
+
+        token = parser%consume()
+        call skip_component_trivia(parser)
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) return
+
+        token = parser%consume()
+        interface_name = trim(token%text)
+
+        call skip_component_trivia(parser)
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ")") then
+            token = parser%consume()
+        end if
+    end subroutine read_interface_name
+
     function parse_type_bound_procedure(parser, arena) result(binding_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: binding_index
         character(len=:), allocatable :: binding_name
         character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: accessibility
         logical :: is_generic
         logical :: is_final
@@ -514,35 +545,81 @@ contains
 
         if (.not. read_binding_keyword(parser, line, column, is_generic, &
                                        is_final)) return
+        call read_interface_name(parser, interface_name)
         if (.not. consume_binding_prefix(parser, is_deferred, pass_arg, &
                                          accessibility)) return
         if (.not. read_binding_name(parser, binding_name)) return
         call read_binding_target(parser, implementation)
         if (allocated(accessibility)) then
             if (allocated(implementation)) then
-                binding_index = push_type_binding( &
-                                arena, binding_name, implementation=implementation, &
-                                is_generic=is_generic, is_final=is_final, &
-                                is_deferred=is_deferred, pass_arg=pass_arg, &
-                                accessibility=accessibility, line=line, column=column)
+                if (allocated(interface_name)) then
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    implementation=implementation, &
+                                    interface_name=interface_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    line=line, column=column)
+                else
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    implementation=implementation, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    line=line, column=column)
+                end if
             else
-                binding_index = push_type_binding( &
-                                arena, binding_name, is_generic=is_generic, &
-                                is_final=is_final, is_deferred=is_deferred, &
-                                pass_arg=pass_arg, accessibility=accessibility, &
-                                line=line, column=column)
+                if (allocated(interface_name)) then
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    interface_name=interface_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    line=line, column=column)
+                else
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    line=line, column=column)
+                end if
             end if
         else if (allocated(implementation)) then
-            binding_index = push_type_binding( &
-                            arena, binding_name, implementation=implementation, &
-                            is_generic=is_generic, is_final=is_final, &
-                            is_deferred=is_deferred, pass_arg=pass_arg, &
-                            line=line, column=column)
+            if (allocated(interface_name)) then
+                binding_index = push_type_binding( &
+                                arena, binding_name, &
+                                implementation=implementation, &
+                                interface_name=interface_name, &
+                                is_generic=is_generic, is_final=is_final, &
+                                is_deferred=is_deferred, pass_arg=pass_arg, &
+                                line=line, column=column)
+            else
+                binding_index = push_type_binding( &
+                                arena, binding_name, &
+                                implementation=implementation, &
+                                is_generic=is_generic, is_final=is_final, &
+                                is_deferred=is_deferred, pass_arg=pass_arg, &
+                                line=line, column=column)
+            end if
         else
-            binding_index = push_type_binding( &
-                        arena, binding_name, is_generic=is_generic, is_final=is_final, &
-                            is_deferred=is_deferred, pass_arg=pass_arg, &
-                            line=line, column=column)
+            if (allocated(interface_name)) then
+                binding_index = push_type_binding( &
+                                arena, binding_name, &
+                                interface_name=interface_name, &
+                                is_generic=is_generic, is_final=is_final, &
+                                is_deferred=is_deferred, pass_arg=pass_arg, &
+                                line=line, column=column)
+            else
+                binding_index = push_type_binding( &
+                                arena, binding_name, &
+                                is_generic=is_generic, is_final=is_final, &
+                                is_deferred=is_deferred, pass_arg=pass_arg, &
+                                line=line, column=column)
+            end if
         end if
     end function parse_type_bound_procedure
 

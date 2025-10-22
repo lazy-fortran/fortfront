@@ -571,6 +571,11 @@ contains
         end if
 
         code = "procedure"
+        if (allocated(binding%interface_name)) then
+            if (len_trim(binding%interface_name) > 0) then
+                code = code // "(" // trim(binding%interface_name) // ")"
+            end if
+        end if
         if (len_trim(accessibility_text) > 0) then
             code = code // ", " // accessibility_text
         end if
