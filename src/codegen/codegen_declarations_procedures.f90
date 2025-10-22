@@ -180,6 +180,7 @@ contains
         type(parameter_info_t), allocatable :: param_map(:)
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
+        integer, allocatable :: filtered_body_indices(:)
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
@@ -191,9 +192,51 @@ contains
 
         body = maybe_add_function_implicit_none(arena, body_indices)
         body = body // collect_function_parameter_decls(arena, node, param_map)
-        body = body // generate_grouped_body_with_params(arena, body_indices, 1, &
-                                                         param_map, node)
+
+        call filter_implicit_statements(arena, body_indices, filtered_body_indices)
+        body = body // generate_grouped_body_with_params(arena, &
+            filtered_body_indices, 1, param_map, node)
     end function build_function_body_section
+
+    subroutine filter_implicit_statements(arena, body_indices, filtered_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, allocatable, intent(out) :: filtered_indices(:)
+        integer :: j, count
+        logical :: is_implicit_none
+
+        count = 0
+        do j = 1, size(body_indices)
+            is_implicit_none = .false.
+            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                if (allocated(arena%entries(body_indices(j))%node)) then
+                    select type (body_node => arena%entries(body_indices(j))%node)
+                    type is (implicit_statement_node)
+                        is_implicit_none = body_node%is_none
+                    end select
+                end if
+            end if
+            if (.not. is_implicit_none) count = count + 1
+        end do
+
+        allocate (filtered_indices(count))
+        count = 0
+        do j = 1, size(body_indices)
+            is_implicit_none = .false.
+            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                if (allocated(arena%entries(body_indices(j))%node)) then
+                    select type (body_node => arena%entries(body_indices(j))%node)
+                    type is (implicit_statement_node)
+                        is_implicit_none = body_node%is_none
+                    end select
+                end if
+            end if
+            if (.not. is_implicit_none) then
+                count = count + 1
+                filtered_indices(count) = body_indices(j)
+            end if
+        end do
+    end subroutine filter_implicit_statements
 
     function maybe_add_function_implicit_none(arena, body_indices) result(prolog)
         type(ast_arena_t), intent(in) :: arena
@@ -310,6 +353,7 @@ contains
         type(parameter_info_t), allocatable :: param_map(:)
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
+        integer, allocatable :: filtered_body_indices(:)
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
@@ -319,8 +363,9 @@ contains
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
 
-        body = generate_grouped_body_with_params(arena, body_indices, 1, &
-                                                 param_map, node)
+        call filter_implicit_statements(arena, body_indices, filtered_body_indices)
+        body = generate_grouped_body_with_params(arena, &
+            filtered_body_indices, 1, param_map, node)
     end function build_subroutine_body_section
 
     subroutine copy_indices(source, target)
@@ -448,11 +493,12 @@ contains
     end function parameter_has_declaration
 
     subroutine append_parameter_declaration(arena, param_idx, param_info, decl_code)
+        use codegen_declarations_core, only: build_parameter_dimensions
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_idx
         type(parameter_info_t), intent(in) :: param_info
         character(len=:), allocatable, intent(inout) :: decl_code
-        character(len=:), allocatable :: param_type, decl_line
+        character(len=:), allocatable :: param_type, decl_line, intent_str, dim_clause
 
         if (len_trim(param_info%name) == 0) return
 
@@ -461,11 +507,27 @@ contains
             param_type = get_param_type_from_identifier(param_node)
         type is (parameter_declaration_node)
             param_type = get_param_type_from_param_decl(param_node)
+            intent_str = intent_type_to_string(param_node%intent_type)
+            if (len_trim(intent_str) > 0) then
+                param_type = trim(param_type) // ", intent(" // trim(intent_str) // ")"
+            end if
+            if (param_node%is_optional) then
+                param_type = trim(param_type) // ", optional"
+            end if
         class default
             param_type = get_param_type_fallback(param_node)
         end select
 
         decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
+
+        select type (param_node => arena%entries(param_idx)%node)
+        type is (parameter_declaration_node)
+            if (param_node%is_array) then
+                dim_clause = build_parameter_dimensions(arena, param_node)
+                decl_line = trim(decl_line) // trim(dim_clause)
+            end if
+        end select
+
         decl_line = fix_character_len_placeholder(decl_line)
         decl_code = decl_code // decl_line // new_line('A')
     end subroutine append_parameter_declaration

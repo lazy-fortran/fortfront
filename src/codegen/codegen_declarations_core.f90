@@ -21,6 +21,7 @@ module codegen_declarations_core
     public :: generate_code_parameter_declaration
     public :: generate_code_derived_type
     public :: fix_character_len_placeholder
+    public :: build_parameter_dimensions
 
 contains
 
