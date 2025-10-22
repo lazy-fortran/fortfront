@@ -235,10 +235,14 @@ contains
                                     type is (case_range_node)
                                         lower_code = generate_code_from_arena( &
                                                      arena, value_node%start_value)
-                                        upper_code = generate_code_from_arena( &
-                                                     arena, value_node%end_value)
-                                        case_code = trim(adjustl(lower_code)) // ":" // &
-                                                    trim(adjustl(upper_code))
+                                        if (value_node%end_value > 0) then
+                                            upper_code = generate_code_from_arena( &
+                                                         arena, value_node%end_value)
+                                            case_code = trim(adjustl(lower_code)) // ":" // &
+                                                        trim(adjustl(upper_code))
+                                        else
+                                            case_code = trim(adjustl(lower_code)) // ":"
+                                        end if
                                     class default
                                         case_code = generate_code_from_arena( &
                                                     arena, case_node%value_indices(j))
