@@ -105,9 +105,11 @@ contains
         type(token_t) :: token
         type(token_t), allocatable :: attr_tokens(:)
         logical :: found_double_colon
+        logical :: attributes_started
 
         invalid_definition = .false.
         found_double_colon = .false.
+        attributes_started = .false.
         if (present(attribute_clause)) then
             if (allocated(attribute_clause)) then
                 block
@@ -120,12 +122,17 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
             select case (token%kind)
-            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+            case (TK_WHITESPACE)
                 token = parser%consume()
-                call append_token(attr_tokens, token)
+                if (attributes_started) call append_token(attr_tokens, token)
+            case (TK_NEWLINE, TK_COMMENT)
+                if (.not. attributes_started) exit
+                token = parser%consume()
+                cycle
             case (TK_OPERATOR)
                 select case (token%text)
                 case (",")
+                    attributes_started = .true.
                     token = parser%consume()
                     call append_token(attr_tokens, token)
                 case ("::")
@@ -133,25 +140,33 @@ contains
                     found_double_colon = .true.
                     exit
                 case ("(")
+                    if (.not. attributes_started) exit
                     call consume_parenthesized_content(parser, attr_tokens, &
                                                        invalid_definition)
                     if (invalid_definition) exit
+                case ("&")
+                    if (.not. attributes_started .and. .not. found_double_colon) exit
+                    token = parser%consume()
+                    if (attributes_started) call append_token(attr_tokens, token)
                 case default
+                    if (.not. attributes_started) exit
                     token = parser%consume()
                     call append_token(attr_tokens, token)
                 end select
             case (TK_KEYWORD, TK_IDENTIFIER, TK_NUMBER, TK_STRING)
+                if (.not. attributes_started) exit
                 token = parser%consume()
                 call append_token(attr_tokens, token)
             case default
-                invalid_definition = .true.
                 exit
             end select
         end do
 
-        if (.not. found_double_colon) invalid_definition = .true.
+        if (attributes_started .and. .not. found_double_colon) &
+            invalid_definition = .true.
 
-        if (present(attribute_clause) .and. .not. invalid_definition) then
+        if (present(attribute_clause) .and. attributes_started .and. .not. &
+            invalid_definition) then
             if (allocated(attr_tokens)) then
                 call format_attribute_clause(attr_tokens, attribute_clause)
             end if
@@ -334,7 +349,7 @@ contains
         end if
 
         extends_parent = trim(adjustl( &
-            attribute_clause(paren_start + 1:paren_end - 1)))
+                              attribute_clause(paren_start + 1:paren_end - 1)))
 
         attr_before = ""
         if (extends_pos > 1) then
