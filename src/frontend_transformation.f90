@@ -319,9 +319,9 @@ contains
             ! Don't wrap - preserve existing module structure
         else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
             call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
-        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-            call wrap_ast_in_module_and_program(shared_arena%ast, prog_index, context)
         end if
+        ! For lazy fortran with both functions and main code, let the standardizer
+        ! handle it by creating a program with contains section
         ! If only main code or nothing to wrap, leave AST as-is
 
         ! Generate code from (possibly wrapped) AST
@@ -1215,10 +1215,12 @@ contains
     ! Analyze AST content directly (no string manipulation)
     subroutine analyze_ast_content(arena, root_index, has_functions, &
                                    has_subroutines, has_main_code)
+        use ast_nodes_io, only: print_statement_node
+        use ast_nodes_control, only: if_node, do_loop_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         logical, intent(out) :: has_functions, has_subroutines, has_main_code
-        integer :: i
+        integer :: i, j
         class(*), pointer :: node_ptr
 
         has_functions = .false.
@@ -1232,11 +1234,23 @@ contains
                 type is (module_node)
                     ! Already a module, no wrapping needed
                     return
+                type is (program_node)
+                    ! Check if this is a multi-unit container
+                    if (root%name == "__MULTI_UNIT__" .and. &
+                        allocated(root%body_indices)) then
+                        ! Scan child units for functions, subroutines, and main code
+                        do j = 1, size(root%body_indices)
+                            call analyze_single_unit(arena, root%body_indices(j), &
+                                                     has_functions, has_subroutines, &
+                                                     has_main_code)
+                        end do
+                        return
+                    end if
                 end select
             end if
         end if
 
-        ! Scan all nodes in arena
+        ! For non-multi-unit roots, scan all nodes in arena
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
 
@@ -1250,9 +1264,69 @@ contains
                 if (arena%entries(i)%parent_index == root_index) then
                     has_main_code = .true.
                 end if
+            type is (print_statement_node)
+                ! Print statement outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
+            type is (if_node)
+                ! Control flow outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
+            type is (do_loop_node)
+                ! Loop outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
             end select
         end do
     end subroutine analyze_ast_content
+
+    ! Analyze a single unit (program, function, or subroutine) for content
+    subroutine analyze_single_unit(arena, unit_index, has_functions, &
+                                   has_subroutines, has_main_code)
+        use ast_nodes_io, only: print_statement_node
+        use ast_nodes_control, only: if_node, do_loop_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: unit_index
+        logical, intent(inout) :: has_functions, has_subroutines, has_main_code
+        integer :: i
+
+        if (unit_index <= 0 .or. unit_index > arena%size) return
+        if (.not. allocated(arena%entries(unit_index)%node)) return
+
+        select type (unit => arena%entries(unit_index)%node)
+        type is (function_def_node)
+            has_functions = .true.
+        type is (subroutine_def_node)
+            has_subroutines = .true.
+        type is (program_node)
+            ! Scan program body for executable statements
+            if (allocated(unit%body_indices)) then
+                do i = 1, size(unit%body_indices)
+                    if (unit%body_indices(i) <= 0 .or. &
+                        unit%body_indices(i) > arena%size) cycle
+                    if (.not. allocated(arena%entries(unit%body_indices(i))%node)) cycle
+
+                    select type (stmt => arena%entries(unit%body_indices(i))%node)
+                    type is (assignment_node)
+                        has_main_code = .true.
+                    type is (print_statement_node)
+                        has_main_code = .true.
+                    type is (if_node)
+                        has_main_code = .true.
+                    type is (do_loop_node)
+                        has_main_code = .true.
+                    type is (function_def_node)
+                        has_functions = .true.
+                    type is (subroutine_def_node)
+                        has_subroutines = .true.
+                    end select
+                end do
+            end if
+        end select
+    end subroutine analyze_single_unit
 
     ! Check if AST already contains a module node
     function has_existing_module_in_ast(arena) result(has_module)
