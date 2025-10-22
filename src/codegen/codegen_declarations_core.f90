@@ -1,7 +1,8 @@
 module codegen_declarations_core
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string, derived_type_node
+                              intent_type_to_string, derived_type_node, &
+                              type_binding_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
                                    TDOUBLE, TDERIVED
@@ -384,6 +385,7 @@ contains
 
         code = build_derived_type_header(node)
         code = code // collect_derived_components(arena, node)
+        code = code // collect_type_bindings(arena, node)
         code = code // "end type " // node%name
     end function generate_code_derived_type
 
@@ -494,5 +496,89 @@ contains
             pos = index(out, "len=)")
         end do
     end function fix_character_len_placeholder
+
+    function collect_type_bindings(arena, node) result(bindings_block)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: node
+        character(len=:), allocatable :: bindings_block
+        character(len=:), allocatable :: binding_code
+        integer :: i, binding_index
+
+        bindings_block = ""
+        if (.not. node%has_contains) return
+        if (.not. allocated(node%binding_indices)) return
+        if (size(node%binding_indices) == 0) return
+
+        bindings_block = "contains" // new_line('A')
+
+        do i = 1, size(node%binding_indices)
+            binding_index = node%binding_indices(i)
+            if (binding_index <= 0 .or. binding_index > arena%size) cycle
+            if (.not. allocated(arena%entries(binding_index)%node)) cycle
+
+            select type (binding => arena%entries(binding_index)%node)
+            type is (type_binding_node)
+                binding_code = generate_type_binding_code(binding)
+                if (len_trim(binding_code) > 0) then
+                    bindings_block = bindings_block // "    " // binding_code // &
+                                     new_line('A')
+                end if
+            end select
+        end do
+    end function collect_type_bindings
+
+    function generate_type_binding_code(binding) result(code)
+        type(type_binding_node), intent(in) :: binding
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: accessibility_text
+
+        if (.not. allocated(binding%binding_name)) then
+            code = ""
+            return
+        end if
+
+        accessibility_text = ""
+        if (allocated(binding%accessibility)) then
+            if (len_trim(binding%accessibility) > 0) then
+                accessibility_text = trim(to_lower(binding%accessibility))
+            end if
+        end if
+
+        if (binding%is_final) then
+            code = "final :: " // trim(binding%binding_name)
+            return
+        end if
+
+        if (binding%is_generic) then
+            code = "generic"
+            if (len_trim(accessibility_text) > 0) then
+                code = code // ", " // accessibility_text
+            end if
+            code = code // " :: " // trim(binding%binding_name)
+            if (allocated(binding%implementation)) then
+                if (len_trim(binding%implementation) > 0) then
+                    code = code // " => " // trim(binding%implementation)
+                end if
+            end if
+            return
+        end if
+
+        code = "procedure"
+        if (len_trim(accessibility_text) > 0) then
+            code = code // ", " // accessibility_text
+        end if
+        if (binding%is_deferred) then
+            code = code // ", deferred"
+        end if
+        if (.not. binding%pass_arg) then
+            code = code // ", nopass"
+        end if
+        code = code // " :: " // trim(binding%binding_name)
+        if (allocated(binding%implementation)) then
+            if (len_trim(binding%implementation) > 0) then
+                code = code // " => " // trim(binding%implementation)
+            end if
+        end if
+    end function generate_type_binding_code
 
 end module codegen_declarations_core
