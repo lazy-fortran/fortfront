@@ -113,7 +113,8 @@ contains
         case (TFUN)
             type_str = "function"
         case (TVAR)
-            type_str = "type_variable"
+            ! Return empty string for type variables - they should be inferred
+            type_str = ""
         case (TDERIVED)
             type_str = "derived_type"
         case default
