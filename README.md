@@ -12,20 +12,20 @@ A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
 Lazy Fortran omits boilerplate that fortfront infers automatically:
 
-- **Type declarations**: `x = 5` becomes `integer :: x` with assignment
-- **Function return types**: `function add(a, b)` infers types from usage
-- **Array bounds**: automatic shape inference for allocatable arrays
+- **Type declarations**: `x = 5` becomes `integer :: x`
+- **Function return types**: inferred from usage
+- **Array bounds**: automatic shape inference for allocatables
 - **Program structure**: wraps bare statements in `program main ... end program`
 
 Example transformation:
 ```fortran
-! input.lf (Lazy Fortran)
+! input.lf
 function add(a, b)
     result = a + b
 end function
 x = add(5, 3)
 
-! output.f90 (Standard Fortran)
+! output.f90
 program main
     implicit none
     integer :: x
@@ -43,19 +43,13 @@ end program
 ## Building
 ```sh
 fpm build
-# or
 make
 ```
 
 ## Usage
 
-### File mode
 ```sh
 fortfront input.lf > output.f90
-```
-
-### Stdin mode
-```sh
 echo "x = 5" | fortfront > output.f90
 ```
 
@@ -68,22 +62,35 @@ echo "x = 5" | fortfront > output.f90
 
 ## Library API
 
-Main entry points from the `frontend` module:
+FortFront provides a modular API for integration into downstream tools such as linters, compilers, and formatters.
 
-- `transform_lazy_fortran_string(input, output)` - High-level transformation
-- `compile_source(input, options)` - Full compilation pipeline
-- `lex_source(input, tokens)` - Lexical analysis only
-- `parse_tokens(tokens, ast)` - Parsing only
-- `analyze_semantics(ast)` - Semantic analysis only
-- `emit_fortran(ast, output)` - Code generation only
+### API Modules
 
-Example:
+- `lexer_api` - Tokenization and lexical analysis
+- `parser_api` - Token parsing and AST construction
+- `ast_api` - AST node types and traversal utilities
+- `semantic_api` - Type inference and semantic validation
+- `codegen_api` - Standard Fortran code generation
+- `error_api` - Error handling and reporting
+- `transformation_api` - High-level transformation pipeline
+- `frontend_tooling_api` - Convenience functions for tool developers
+
+### Quick Example
+
 ```fortran
-use frontend, only: transform_lazy_fortran_string
-character(len=:), allocatable :: input, output
+use transformation_api, only: transform_lazy_fortran_string
+character(len=:), allocatable :: input, output, error_msg
 input = "x = 5"
-call transform_lazy_fortran_string(input, output)
+call transform_lazy_fortran_string(input, output, error_msg)
+if (len(error_msg) == 0) then
+    print '(a)', output
+else
+    print '(a)', 'Transformation failed: ' // error_msg
+end if
 ```
+
+### Documentation
+See docs/API.md for the full API reference and docs/LIBRARY_USAGE.md for worked examples.
 
 ## Links
 - Fortrun integration: https://github.com/lazy-fortran/fortrun
