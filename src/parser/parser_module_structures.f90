@@ -16,7 +16,7 @@ module parser_module_structures_module
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use ast_types, only: LITERAL_STRING
-    use parser_implicit_shared_module, only: parse_simple_implicit_statement
+    use parser_type_specifications_module, only: parse_implicit_statement
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -396,7 +396,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
 
-        call parse_simple_implicit_statement(parser, arena, stmt_index)
+        stmt_index = parse_implicit_statement(parser, arena)
     end subroutine parse_simple_implicit_in_module
 
     ! Temporary helper to skip procedure bodies during refactoring

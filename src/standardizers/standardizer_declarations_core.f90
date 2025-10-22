@@ -189,7 +189,7 @@ contains
 
     end subroutine insert_variable_declarations
 
-    ! Check if a program already has implicit none
+    ! Check if a program already has implicit none or any implicit statement
     function has_implicit_none(arena, prog) result(found)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
@@ -210,10 +210,10 @@ contains
                             return
                         end if
                     type is (implicit_statement_node)
-                        if (stmt%is_none) then
-                            found = .true.
-                            return
-                        end if
+                        ! Return true for any IMPLICIT statement (including type ranges)
+                        ! to prevent adding duplicate implicit none
+                        found = .true.
+                        return
                     end select
                 end if
             end if
