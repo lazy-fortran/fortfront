@@ -1,11 +1,13 @@
 module parser_type_definitions_module
     ! Parser module for derived type definitions and type parameters
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_derived_type
     use ast_factory
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -85,43 +87,70 @@ contains
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: extends_parent
         type(token_t) :: token
+        character(len=:), allocatable :: attribute_name
 
         do
             token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "::") then
-                exit
-            end if
+            if (token%kind == TK_EOF) exit
 
-            if (token%kind == TK_IDENTIFIER) then
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
                 token = parser%consume()
-                ! Check for EXTENDS attribute
-                if (token%text == "EXTENDS" .or. token%text == "extends") then
-                    ! Expect (ParentType)
-                    token = parser%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                        token = parser%consume()  ! consume '('
-                        token = parser%peek()
-                        if (token%kind == TK_IDENTIFIER) then
-                            token = parser%consume()
-                            extends_parent = token%text
-                        end if
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                            token = parser%consume()  ! consume ')'
-                        end if
-                    end if
+            case (TK_OPERATOR)
+                if (token%text == "::") exit
+                token = parser%consume()
+            case (TK_IDENTIFIER, TK_KEYWORD)
+                attribute_name = to_lower(trim(token%text))
+                token = parser%consume()
+                if (attribute_name == "extends") then
+                    call parse_extends_clause(parser, extends_parent)
                 end if
-            end if
+            case default
+                token = parser%consume()
+            end select
+        end do
+    end subroutine parse_type_attributes
 
-            ! Check for comma between attributes
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
-            else if (token%kind /= TK_OPERATOR .or. token%text /= "::") then
+    subroutine parse_extends_clause(parser, extends_parent)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: extends_parent
+        type(token_t) :: token
+
+        call consume_attribute_trivia(parser)
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "(")) return
+
+        token = parser%consume()
+        call consume_attribute_trivia(parser)
+
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            extends_parent = trim(token%text)
+        end if
+
+        call consume_attribute_trivia(parser)
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ")") then
+            token = parser%consume()
+        end if
+    end subroutine parse_extends_clause
+
+    subroutine consume_attribute_trivia(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: trivia_token
+
+        do
+            trivia_token = parser%peek()
+            if (trivia_token%kind == TK_WHITESPACE .or. &
+                trivia_token%kind == TK_NEWLINE .or. &
+                trivia_token%kind == TK_COMMENT) then
+                trivia_token = parser%consume()
+            else
                 exit
             end if
         end do
-    end subroutine parse_type_attributes
+    end subroutine consume_attribute_trivia
 
     function parse_derived_type(parser, arena) result(type_index)
         type(parser_state_t), intent(inout) :: parser
