@@ -1306,8 +1306,8 @@ contains
                 do i = 1, size(unit%body_indices)
                     if (unit%body_indices(i) <= 0 .or. &
                         unit%body_indices(i) > arena%size) cycle
-                    if (.not. &
-                        allocated(arena%entries(unit%body_indices(i))%node)) cycle
+                    if (.not. allocated(arena%entries(unit%body_indices(i))%node)) &
+                        cycle
 
                     select type (stmt => arena%entries(unit%body_indices(i))%node)
                     type is (assignment_node)
