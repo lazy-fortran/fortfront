@@ -405,26 +405,45 @@ contains
     function derived_type_attribute_clause(node) result(clause)
         type(derived_type_node), intent(in) :: node
         character(len=:), allocatable :: clause
+        character(len=:), allocatable :: extends_clause
         integer :: i
         integer :: trimmed_length
 
         clause = ""
-        if (.not. node%has_attributes) return
-        if (.not. allocated(node%attribute_clause)) return
 
-        trimmed_length = len_trim(node%attribute_clause)
-        if (trimmed_length == 0) return
+        ! Build EXTENDS clause if present
+        if (allocated(node%extends_parent)) then
+            extends_clause = ", extends(" // trim(node%extends_parent) // ")"
+        else
+            extends_clause = ""
+        end if
 
-        clause = ""
-        do i = 1, trimmed_length
-            clause = clause // node%attribute_clause(i:i)
-            if (node%attribute_clause(i:i) == "," .and. i < trimmed_length) then
-                if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
-                    node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
-                    clause = clause // " "
-                end if
+        ! Add other attributes if present
+        if (node%has_attributes .and. allocated(node%attribute_clause)) then
+            trimmed_length = len_trim(node%attribute_clause)
+            if (trimmed_length > 0) then
+                clause = ""
+                do i = 1, trimmed_length
+                    clause = clause // node%attribute_clause(i:i)
+                    if (node%attribute_clause(i:i) == "," .and. &
+                        i < trimmed_length) then
+                        if (node%attribute_clause(i + 1:i + 1) /= " " .and. &
+                            node%attribute_clause(i + 1:i + 1) /= new_line('A')) then
+                            clause = clause // " "
+                        end if
+                    end if
+                end do
             end if
-        end do
+        end if
+
+        ! Combine extends_clause with other attributes
+        if (len_trim(extends_clause) > 0) then
+            if (len_trim(clause) > 0) then
+                clause = trim(clause) // extends_clause
+            else
+                clause = extends_clause
+            end if
+        end if
     end function derived_type_attribute_clause
 
     function collect_derived_components(arena, node) result(component_block)
