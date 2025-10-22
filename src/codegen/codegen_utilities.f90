@@ -103,6 +103,7 @@ contains
     function can_group_declarations(node1, node2) result(can_group)
         type(declaration_node), intent(in) :: node1, node2
         logical :: can_group
+        logical :: types_match
 
         ! Don't group declarations that have initializers
         if (node1%initializer_index > 0 .or. node2%initializer_index > 0) then
@@ -137,13 +138,23 @@ contains
             return
         end if
 
-        can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
-                    node1%kind_value == node2%kind_value .and. &
-                    node1%has_kind .eqv. node2%has_kind .and. &
+        ! Check if types match (explicit or inferred)
+        if (len_trim(node1%type_name) > 0 .and. len_trim(node2%type_name) > 0) then
+            types_match = trim(node1%type_name) == trim(node2%type_name)
+        else if (node1%inferred_type%kind > 0 .and. node2%inferred_type%kind > 0) then
+            types_match = node1%inferred_type%kind == node2%inferred_type%kind
+        else
+            types_match = .false.
+        end if
+
+        ! Combine all matching criteria
+        can_group = types_match .and. &
+                    (node1%kind_value == node2%kind_value) .and. &
+                    (node1%has_kind .eqv. node2%has_kind) .and. &
                     ((node1%has_intent .and. node2%has_intent .and. &
                       trim(node1%intent) == trim(node2%intent)) .or. &
                      (.not. node1%has_intent .and. .not. node2%has_intent)) .and. &
-                    node1%is_optional .eqv. node2%is_optional
+                    (node1%is_optional .eqv. node2%is_optional)
     end function can_group_declarations
 
     ! Check if two parameter declarations can be grouped
@@ -549,7 +560,7 @@ contains
                                         if (node%is_target) then
                                             code = code // ", target"
                                         else if &
-                                           (param_map(first_param_idx)%is_target) then
+                                            (param_map(first_param_idx)%is_target) then
                                             code = code // ", target"
                                         end if
 
@@ -964,7 +975,7 @@ contains
                 var_list = ""
                 do k = 1, group_count
                     if (k > 1) var_list = var_list // ", "
-                    var_list = var_list // grouped_names(k)
+                    var_list = var_list // trim(grouped_names(k))
                 end do
 
                 ! Generate grouped declaration

@@ -651,12 +651,35 @@ contains
     function emit_program_declarations(state) result(code)
         type(program_decl_state_t), intent(in) :: state
         character(len=:), allocatable :: code
-        integer :: i
+        integer :: i, j
+        character(len=:), allocatable :: current_type, var_list
+        logical :: type_used(program_decl_max_vars)
+        logical :: first_var
 
         code = ""
+        type_used = .false.
+
         do i = 1, state%var_count
-            code = code // "    " // trim(state%var_types(i)) // " :: " // &
-                   trim(state%var_names(i)) // new_line('A')
+            if (type_used(i)) cycle
+
+            current_type = trim(state%var_types(i))
+            var_list = trim(state%var_names(i))
+            type_used(i) = .true.
+            first_var = .true.
+
+            do j = i + 1, state%var_count
+                if (type_used(j)) cycle
+                if (trim(state%var_types(j)) == current_type) then
+                    if (first_var) then
+                        first_var = .false.
+                    end if
+                    var_list = var_list // ", " // trim(state%var_names(j))
+                    type_used(j) = .true.
+                end if
+            end do
+
+            code = code // "    " // current_type // " :: " // var_list // &
+                   new_line('A')
         end do
 
         do i = 1, state%func_count

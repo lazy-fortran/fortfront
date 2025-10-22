@@ -141,9 +141,8 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
 
         success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "integer :: a") > 0) .and. &
-                  (index(output, "integer :: b") > 0) .and. &
-                  (index(output, "integer :: c") > 0)
+                  has_integer_declaration(output, [character(len=8) :: &
+                                                   "a", "b", "c"])
 
         call test_result(success)
         if (.not. success) then
@@ -199,6 +198,52 @@ contains
             print *, "  Output: ", trim(output)
         end if
     end subroutine test_non_character_declaration_safety
+
+    logical function has_integer_declaration(text, names)
+        character(len=*), intent(in) :: text
+        character(len=*), dimension(:), intent(in) :: names
+        integer :: pos, start_pos, end_pos, i, text_len
+        character(len=:), allocatable :: line
+        character(1), parameter :: nl = new_line("a")
+
+        has_integer_declaration = .false.
+        text_len = len(text)
+        pos = index(text, "integer ::")
+
+        do while (pos > 0)
+            start_pos = pos
+            do while (start_pos > 1 .and. text(start_pos - 1:start_pos - 1) /= nl)
+                start_pos = start_pos - 1
+            end do
+
+            end_pos = pos
+            do while (end_pos <= text_len .and. text(end_pos:end_pos) /= nl)
+                end_pos = end_pos + 1
+            end do
+
+            if (end_pos > text_len) then
+                line = text(start_pos:)
+            else
+                line = text(start_pos:end_pos - 1)
+            end if
+
+            line = adjustl(line)
+            if (index(line, "integer ::") == 1) then
+                has_integer_declaration = .true.
+                do i = 1, size(names)
+                    if (index(line, trim(names(i))) == 0) then
+                        has_integer_declaration = .false.
+                        exit
+                    end if
+                end do
+                if (has_integer_declaration) return
+            end if
+
+            if (end_pos > text_len) exit
+            pos = index(text(end_pos:), "integer ::")
+            if (pos > 0) pos = pos + end_pos - 1
+        end do
+    end function has_integer_declaration
 
     subroutine test_syntax_error()
         character(len=:), allocatable :: output, error_msg

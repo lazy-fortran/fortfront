@@ -33,7 +33,7 @@ contains
                                         character(len=32) :: &
                                         'integer function square', &
                                         'integer :: x', &
-                                        'integer :: val']
+                                        'integer :: val, squared']
         character(len=32), parameter :: forbidden_fragments(4) = [ &
                                         character(len=32) :: &
                                         'real function square', &
@@ -56,10 +56,9 @@ contains
     function run_reordered_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
-        character(len=40), parameter :: required_fragments(4) = [ &
+        character(len=40), parameter :: required_fragments(3) = [ &
                                         character(len=40) :: &
-                                        'integer :: val', &
-                                        'integer :: squared', &
+                                        'integer :: val, squared', &
                                         'integer, external :: square', &
                                         'integer function square']
         character(len=40), parameter :: forbidden_fragments(4) = [ &
