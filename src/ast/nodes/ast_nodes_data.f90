@@ -3,6 +3,7 @@ module ast_nodes_data
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
                         ast_visitor_base_t
+    use string_types, only: string_t
     implicit none
     private
 
@@ -119,7 +120,8 @@ module ast_nodes_data
     ! Type-bound procedure binding node (F2003)
     type, extends(ast_node), public :: type_binding_node
         character(len=:), allocatable :: binding_name  ! Name of binding
-        character(len=:), allocatable :: implementation  ! Procedure name
+        character(len=:), allocatable :: implementation  ! Procedure name (single)
+        type(string_t), allocatable :: generic_list(:)  ! List for generic bindings
         character(len=:), allocatable :: interface_name  ! Interface reference
         logical :: is_generic = .false.  ! Generic binding
         logical :: is_final = .false.  ! FINAL procedure

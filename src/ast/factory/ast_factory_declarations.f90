@@ -305,8 +305,9 @@ contains
     ! Create type binding node and add to stack
     function push_type_binding(arena, binding_name, implementation, is_generic, &
                                is_final, is_deferred, pass_arg, accessibility, &
-                               interface_name, line, column, parent_index) &
-        result(binding_index)
+                               interface_name, generic_list, line, column, &
+                               parent_index) result(binding_index)
+        use string_types, only: string_t
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: binding_name
         character(len=*), intent(in), optional :: implementation
@@ -316,6 +317,7 @@ contains
         logical, intent(in), optional :: pass_arg
         character(len=*), intent(in), optional :: accessibility
         character(len=*), intent(in), optional :: interface_name
+        type(string_t), intent(in), optional :: generic_list(:)
         integer, intent(in), optional :: line, column, parent_index
         integer :: binding_index
         type(type_binding_node) :: binding
@@ -325,6 +327,13 @@ contains
         if (present(implementation)) then
             if (len_trim(implementation) > 0) then
                 binding%implementation = trim(implementation)
+            end if
+        end if
+
+        if (present(generic_list)) then
+            if (size(generic_list) > 0) then
+                allocate (binding%generic_list(size(generic_list)))
+                binding%generic_list = generic_list
             end if
         end if
 
