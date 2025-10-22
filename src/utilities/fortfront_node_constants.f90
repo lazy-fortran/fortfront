@@ -12,7 +12,7 @@ module fortfront_node_constants
                                NODE_PRINT_STATEMENT, NODE_WRITE_STATEMENT, &
                                NODE_READ_STATEMENT, NODE_ALLOCATE_STATEMENT, &
                                NODE_DEALLOCATE_STATEMENT, NODE_STOP, NODE_RETURN, &
-                               NODE_GOTO, NODE_ERROR_STOP, NODE_CYCLE, NODE_EXIT, &
+                               NODE_GOTO, NODE_ERROR_STOP, NODE_PAUSE, NODE_CYCLE, NODE_EXIT, &
                                NODE_WHERE, NODE_INTERFACE_BLOCK, NODE_DERIVED_TYPE, &
                                NODE_POINTER_ASSIGNMENT, NODE_FORALL, NODE_CASE_RANGE, &
                                NODE_CASE_DEFAULT, NODE_COMPLEX_LITERAL, &

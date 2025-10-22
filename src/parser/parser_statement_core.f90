@@ -7,7 +7,8 @@ module parser_statement_core_module
                                            parse_write_statement, parse_read_statement
     use parser_control_statements_module, only: &
         parse_cycle_statement, parse_exit_statement, parse_return_statement, &
-        parse_stop_statement, parse_goto_statement, parse_error_stop_statement
+        parse_stop_statement, parse_goto_statement, parse_error_stop_statement, &
+        parse_pause_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
@@ -232,6 +233,8 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
+            case ("pause")
+                stmt_index = parse_pause_statement(parser, arena)
             case ("go", "goto")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")

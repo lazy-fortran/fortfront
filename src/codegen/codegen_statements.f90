@@ -39,6 +39,7 @@ module codegen_statements
     public :: generate_code_deallocate_statement
     public :: generate_code_open_statement
     public :: generate_code_close_statement
+    public :: generate_code_pause_statement
 
 contains
     pure subroutine prepend_stmt_label(code, label)
@@ -804,5 +805,25 @@ contains
         end if
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_close_statement
+
+    function generate_code_pause_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(pause_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: code_expr
+
+        if (allocated(node%pause_message)) then
+            code = "pause " // node%pause_message
+        else if (node%pause_code_index > 0 .and. &
+                 node%pause_code_index <= arena%size) then
+            code_expr = generate_code_from_arena(arena, node%pause_code_index)
+            code = "pause " // code_expr
+        else
+            code = "pause"
+        end if
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_pause_statement
 
 end module codegen_statements

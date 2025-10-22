@@ -8,7 +8,7 @@ module parser_control_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_stop, push_return, push_continue, push_end_statement, &
-                           push_goto, push_error_stop, push_cycle, push_exit
+                           push_goto, push_error_stop, push_cycle, push_exit, push_pause
     use ast_factory
     implicit none
     private
@@ -16,7 +16,7 @@ module parser_control_statements_module
     public :: parse_stop_statement, parse_return_statement, parse_continue_statement, &
               parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
-    public :: parse_cycle_statement, parse_exit_statement
+    public :: parse_cycle_statement, parse_exit_statement, parse_pause_statement
 
 contains
 
@@ -318,6 +318,45 @@ contains
         error_stop_index = push_error_stop(arena, error_code_index, error_message, &
                                            line=line, column=column)
     end function parse_error_stop_statement
+
+    function parse_pause_statement(parser, arena) result(pause_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: pause_index
+
+        type(token_t) :: token
+        integer :: line, column, pause_code_index
+        character(len=:), allocatable :: pause_message
+
+        ! Consume 'pause' keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        ! Check for optional pause code or message
+        token = parser%peek()
+        pause_code_index = 0
+        pause_message = ""
+
+        if (token%kind == TK_STRING) then
+            ! String literal message
+            pause_message = token%text
+            token = parser%consume()
+        else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+            ! Integer expression or variable
+            pause_code_index = parse_comparison(parser, arena)
+        end if
+
+        ! Create PAUSE node
+        if (len_trim(pause_message) > 0) then
+            pause_index = push_pause(arena, pause_message=pause_message, &
+                                     line=line, column=column)
+        else
+            pause_index = push_pause(arena, pause_code_index=pause_code_index, &
+                                     line=line, column=column)
+        end if
+    end function parse_pause_statement
 
     function parse_cycle_statement(parser, arena) result(cycle_index)
         type(parser_state_t), intent(inout) :: parser

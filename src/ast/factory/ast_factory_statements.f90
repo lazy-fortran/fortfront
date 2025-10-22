@@ -8,7 +8,7 @@ module ast_factory_statements
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
-                                 cycle_node, exit_node, continue_node
+                                 cycle_node, exit_node, continue_node, pause_node
     use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
@@ -18,7 +18,7 @@ module ast_factory_statements
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_continue, push_goto, push_error_stop
-    public :: push_cycle, push_exit
+    public :: push_cycle, push_exit, push_pause
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
 
@@ -330,6 +330,24 @@ contains
         call arena%push(error_stop_stmt, "error_stop_node", parent_index)
         error_stop_index = arena%size
     end function push_error_stop
+
+    function push_pause(arena, pause_code_index, pause_message, line, column, &
+                        parent_index) result(pause_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: pause_code_index
+        character(len=*), intent(in), optional :: pause_message
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: pause_index
+        type(pause_node) :: pause_stmt
+        pause_stmt%uid = generate_uid()
+        if (present(pause_code_index)) pause_stmt%pause_code_index = pause_code_index
+        if (present(pause_message)) pause_stmt%pause_message = pause_message
+        if (present(line)) pause_stmt%line = line
+        if (present(column)) pause_stmt%column = column
+
+        call arena%push(pause_stmt, "pause_node", parent_index)
+        pause_index = arena%size
+    end function push_pause
 
     ! Create CYCLE statement node and add to stack
     function push_cycle(arena, loop_label, line, column, parent_index) &
