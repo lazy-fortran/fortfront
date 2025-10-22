@@ -23,7 +23,8 @@ module ast_factory
 
     ! Declaration nodes
     use ast_factory_declarations, only: &
-        push_declaration, push_parameter_declaration, push_derived_type
+        push_declaration, push_parameter_declaration, push_derived_type, &
+        push_type_binding
 
     ! Control flow nodes
     use ast_factory_control, only: &
@@ -76,7 +77,7 @@ module ast_factory
 
     ! Declaration nodes
     public :: push_declaration, push_parameter_declaration
-    public :: push_derived_type
+    public :: push_derived_type, push_type_binding
 
     ! Control flow nodes
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case

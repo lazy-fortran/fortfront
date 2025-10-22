@@ -1,14 +1,14 @@
 module ast_factory_declarations
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              derived_type_node
+                              derived_type_node, type_binding_node
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
     private
 
     ! Public declaration node creation functions
     public :: push_declaration, push_parameter_declaration
-    public :: push_derived_type
+    public :: push_derived_type, push_type_binding
 
 contains
     integer function maxlen(values) result(len_max)
@@ -127,7 +127,7 @@ contains
     ! Create derived type node and add to stack
     function push_derived_type(arena, name, component_indices, param_indices, &
                                line, column, parent_index, attribute_clause, &
-                               extends_parent) result(type_index)
+                               extends_parent, binding_indices) result(type_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
@@ -135,6 +135,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: attribute_clause
         character(len=*), intent(in), optional :: extends_parent
+        integer, intent(in), optional :: binding_indices(:)
         integer :: type_index
         type(derived_type_node) :: dtype
 
@@ -168,6 +169,13 @@ contains
             if (size(param_indices) > 0) then
                 dtype%has_parameters = .true.
                 allocate (dtype%param_indices, source=param_indices)
+            end if
+        end if
+
+        if (present(binding_indices)) then
+            if (size(binding_indices) > 0) then
+                dtype%has_contains = .true.
+                allocate (dtype%binding_indices, source=binding_indices)
             end if
         end if
 
@@ -275,5 +283,47 @@ contains
         call arena%push(param, "parameter_declaration", parent_index)
         param_index = arena%size
     end function push_parameter_declaration
+
+    ! Create type binding node and add to stack
+    function push_type_binding(arena, binding_name, implementation, is_generic, &
+                               is_final, is_deferred, pass_arg, accessibility, &
+                               line, column, parent_index) result(binding_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: binding_name
+        character(len=*), intent(in), optional :: implementation
+        logical, intent(in), optional :: is_generic
+        logical, intent(in), optional :: is_final
+        logical, intent(in), optional :: is_deferred
+        logical, intent(in), optional :: pass_arg
+        character(len=*), intent(in), optional :: accessibility
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: binding_index
+        type(type_binding_node) :: binding
+
+        binding%binding_name = binding_name
+
+        if (present(implementation)) then
+            if (len_trim(implementation) > 0) then
+                binding%implementation = trim(implementation)
+            end if
+        end if
+
+        binding%is_generic = resolve_optional_flag(is_generic, .false.)
+        binding%is_final = resolve_optional_flag(is_final, .false.)
+        binding%is_deferred = resolve_optional_flag(is_deferred, .false.)
+        binding%pass_arg = resolve_optional_flag(pass_arg, .true.)
+
+        if (present(accessibility)) then
+            if (len_trim(accessibility) > 0) then
+                binding%accessibility = trim(accessibility)
+            end if
+        end if
+
+        if (present(line)) binding%line = line
+        if (present(column)) binding%column = column
+
+        call arena%push(binding, "type_binding", parent_index)
+        binding_index = arena%size
+    end function push_type_binding
 
 end module ast_factory_declarations
