@@ -215,16 +215,19 @@ contains
                                         start_token%column, syntax_style="modern")
     end function parse_modern_array_literal
 
-    function parse_nested_implied_do(parser, arena, helpers) result(expr_index)
+    recursive function parse_nested_implied_do(parser, arena, helpers) &
+        result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(array_parse_helpers_t), intent(in) :: helpers
         integer :: expr_index
         type(token_t) :: current
+        type(token_t) :: peek_token
         integer :: expr_elem_index
         character(len=:), allocatable :: var_name
         integer :: start_index, end_index, step_index
         integer, allocatable :: body_indices(:)
+        integer :: saved_pos
 
         expr_index = 0
 
@@ -232,7 +235,17 @@ contains
         if (current%text /= "(") return
         current = parser%consume()
 
-        expr_elem_index = helpers%parse_comparison(parser, arena)
+        saved_pos = parser%current_token
+        peek_token = parser%peek()
+        if (peek_token%text == "(") then
+            expr_elem_index = parse_nested_implied_do(parser, arena, helpers)
+            if (expr_elem_index <= 0) then
+                parser%current_token = saved_pos
+                expr_elem_index = helpers%parse_comparison(parser, arena)
+            end if
+        else
+            expr_elem_index = helpers%parse_comparison(parser, arena)
+        end if
         if (expr_elem_index <= 0) return
 
         current = parser%peek()
