@@ -44,21 +44,10 @@ contains
 
     subroutine destroy_type_hierarchy(hierarchy)
         type(type_hierarchy_t), intent(inout) :: hierarchy
-        integer :: i
+        type(type_hierarchy_entry_t), allocatable :: temp(:)
 
         if (allocated(hierarchy%entries)) then
-            do i = 1, hierarchy%count
-                if (allocated(hierarchy%entries(i)%type_name)) then
-                    deallocate (hierarchy%entries(i)%type_name)
-                end if
-                if (allocated(hierarchy%entries(i)%parent_name)) then
-                    deallocate (hierarchy%entries(i)%parent_name)
-                end if
-                if (allocated(hierarchy%entries(i)%deferred_procedures)) then
-                    deallocate (hierarchy%entries(i)%deferred_procedures)
-                end if
-            end do
-            deallocate (hierarchy%entries)
+            call move_alloc(hierarchy%entries, temp)
         end if
         hierarchy%count = 0
         hierarchy%capacity = 0
@@ -181,10 +170,9 @@ contains
     subroutine hierarchy_find_parent(this, type_name, parent_name)
         class(type_hierarchy_t), intent(in) :: this
         character(len=*), intent(in) :: type_name
-        character(len=:), allocatable, intent(inout) :: parent_name
+        character(len=:), allocatable, intent(out) :: parent_name
         integer :: idx
 
-        if (allocated(parent_name)) deallocate (parent_name)
         idx = this%find_entry(type_name)
         if (idx > 0) then
             if (allocated(this%entries(idx)%parent_name)) then
@@ -214,10 +202,7 @@ contains
             block
                 character(len=:), allocatable :: next_type
                 call this%find_parent(current_type, next_type)
-                if (allocated(current_type)) deallocate (current_type)
-                if (allocated(next_type)) then
-                    current_type = next_type
-                end if
+                call move_alloc(next_type, current_type)
             end block
             depth = depth + 1
         end do
@@ -248,10 +233,7 @@ contains
             block
                 character(len=:), allocatable :: next_type
                 call this%find_parent(current_type, next_type)
-                if (allocated(current_type)) deallocate (current_type)
-                if (allocated(next_type)) then
-                    current_type = next_type
-                end if
+                call move_alloc(next_type, current_type)
             end block
             idx = idx + 1
         end do
@@ -289,10 +271,7 @@ contains
             block
                 character(len=:), allocatable :: next_type
                 call this%find_parent(current_type, next_type)
-                if (allocated(current_type)) deallocate (current_type)
-                if (allocated(next_type)) then
-                    current_type = next_type
-                end if
+                call move_alloc(next_type, current_type)
             end block
             depth = depth + 1
         end do

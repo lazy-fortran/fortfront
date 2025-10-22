@@ -1,5 +1,6 @@
 program test_type_hierarchy
-    use type_hierarchy
+    use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy, &
+        destroy_type_hierarchy
     implicit none
     logical :: all_passed
 
