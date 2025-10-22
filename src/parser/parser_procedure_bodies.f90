@@ -165,6 +165,7 @@ contains
         integer :: func_index
         type(token_t) :: token
         character(len=:), allocatable :: function_name, return_type_str
+        character(len=:), allocatable :: result_variable_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
@@ -206,7 +207,8 @@ contains
         ! Parse parameters (simplified - no type info)
         call parse_simple_parameter_list(parser, arena, param_indices)
 
-        ! Skip result clause if present
+        ! Parse result clause if present
+        result_variable_name = ""
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
             token = parser%consume()
@@ -214,7 +216,8 @@ contains
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 token = parser%consume()
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
+                if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                    result_variable_name = token%text
                     token = parser%consume()
                 end if
                 token = parser%peek()
@@ -276,7 +279,7 @@ contains
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
-                                       line, column, result_variable="", &
+                                       line, column, result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
                                        prefix_keywords=prefix_keywords)
     end function parse_function_in_module
