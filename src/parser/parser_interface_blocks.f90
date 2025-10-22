@@ -322,7 +322,6 @@ contains
         type(token_t) :: token
         character(len=:), allocatable :: lowered_text
         integer :: name_count
-        character(len=:), allocatable :: temp_name
 
         stmt_index = 0
         has_double_colon = .false.
@@ -359,8 +358,6 @@ contains
                 token = parser%peek()
                 select case (token%kind)
                 case (TK_IDENTIFIER, TK_KEYWORD)
-                    allocate (character(len=100) :: temp_name)
-                    temp_name = trim(token%text)
                     name_count = name_count + 1
                     block
                         character(len=:), allocatable :: tmp_names(:)
@@ -369,7 +366,7 @@ contains
                         do i = 1, name_count - 1
                             tmp_names(i) = import_names(i)
                         end do
-                        tmp_names(name_count) = temp_name
+                        tmp_names(name_count) = trim(token%text)
                         call move_alloc(tmp_names, import_names)
                     end block
                     token = parser%consume()
