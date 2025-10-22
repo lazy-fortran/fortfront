@@ -660,21 +660,25 @@ contains
         end if
 
         lowered = to_lower(trim(token%text))
-        if (lowered /= "end") then
-            return
-        end if
 
-        next_token = peek_next_nontrivial_token(parser)
-        if (next_token%kind == TK_KEYWORD) then
-            next_lower = to_lower(trim(next_token%text))
-            select case (next_lower)
-            case ("type", "module", "subroutine", "function", "program", &
-                  "interface", "procedure", "select", "if", "do", "forall", &
-                  "where", "associate", "block", "team", "critical", &
-                  "blockdata")
-                return
-            end select
-        end if
+        select case (lowered)
+        case ("end")
+            next_token = peek_next_nontrivial_token(parser)
+            if (next_token%kind == TK_KEYWORD) then
+                next_lower = to_lower(trim(next_token%text))
+                select case (next_lower)
+                case ("type", "module", "subroutine", "function", "program", &
+                      "interface", "procedure", "select", "if", "do", &
+                      "forall", "where", "associate", "block", "team", &
+                      "critical", "blockdata")
+                    return
+                end select
+            end if
+        case ("in", "out", "inout")
+            ! Contextual keywords can act as identifiers within declarations
+        case default
+            return
+        end select
 
         if (.not. associated(parser%tokens)) then
             return

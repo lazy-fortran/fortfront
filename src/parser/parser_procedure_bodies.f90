@@ -26,6 +26,69 @@ module parser_procedure_bodies_module
 
 contains
 
+    pure logical function token_is_identifier_like(token) result(is_ident)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: token_lower
+
+        is_ident = .false.
+
+        if (token%kind == TK_IDENTIFIER) then
+            is_ident = .true.
+            return
+        end if
+
+        if (token%kind /= TK_KEYWORD) then
+            return
+        end if
+
+        token_lower = to_lower(trim(token%text))
+
+        select case (token_lower)
+        case ("in", "out", "inout")
+            is_ident = .true.
+        case default
+            is_ident = .false.
+        end select
+    end function token_is_identifier_like
+
+    function try_parse_keyword_assignment(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token, assign_token
+        integer :: lhs_index, rhs_index
+        integer :: saved_token
+
+        stmt_index = 0
+        saved_token = parser%current_token
+
+        token = parser%peek()
+        if (.not. token_is_identifier_like(token)) then
+            return
+        end if
+
+        lhs_index = push_identifier(arena, token%text, token%line, token%column)
+        token = parser%consume()
+
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "=")) then
+            parser%current_token = saved_token
+            return
+        end if
+
+        assign_token = token
+        token = parser%consume()
+
+        rhs_index = parse_simple_rhs_expression(parser, arena)
+        if (rhs_index <= 0) then
+            parser%current_token = saved_token
+            return
+        end if
+
+        stmt_index = push_assignment(arena, lhs_index, rhs_index, &
+                                     assign_token%line, assign_token%column)
+    end function try_parse_keyword_assignment
+
     subroutine parse_prefix_keywords(parser, prefix_keywords, has_recursive_keyword)
         type(parser_state_t), intent(inout) :: parser
         character(len=16), allocatable, intent(out) :: prefix_keywords(:)
@@ -273,6 +336,16 @@ contains
                 exit  ! Don't consume, let the module parser handle it
             end if
 
+            if (token_is_identifier_like(token)) then
+                integer :: stmt_index_local
+
+                stmt_index_local = try_parse_keyword_assignment(parser, arena)
+                if (stmt_index_local > 0) then
+                    body_indices = [body_indices, stmt_index_local]
+                    cycle
+                end if
+            end if
+
             call append_body_item(parser, arena, token, body_indices)
         end do
 
@@ -336,9 +409,16 @@ contains
                 ! Handle DO loops
                 stmt_index = parse_do_loop(parser, arena)
             case default
-                ! Unknown keyword - consume it
-                token = parser%consume()
-                stmt_index = 0
+                if (token_is_identifier_like(token)) then
+                    stmt_index = try_parse_keyword_assignment(parser, arena)
+                    if (stmt_index == 0) then
+                        token = parser%consume()
+                        stmt_index = 0
+                    end if
+                else
+                    token = parser%consume()
+                    stmt_index = 0
+                end if
             end select
         case (TK_IDENTIFIER)
             ! Likely assignment statement
@@ -375,8 +455,14 @@ contains
                 body_indices = [body_indices, stmt_index]
             end if
         else if (token%kind /= TK_NEWLINE) then
-            ! Parse other statements using the basic statement parser
-            stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+            if (token_is_identifier_like(token)) then
+                stmt_index = try_parse_keyword_assignment(parser, arena)
+                if (stmt_index == 0) then
+                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+                end if
+            else
+                stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+            end if
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
             end if
@@ -510,7 +596,7 @@ contains
 
         ! Parse left-hand side (identifier)
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
+        if (token_is_identifier_like(token)) then
             lhs_index = push_identifier(arena, token%text, token%line, token%column)
             token = parser%consume()
 
@@ -613,7 +699,7 @@ contains
             left_index = push_literal(arena, token%text, LITERAL_INTEGER, &
                                       token%line, token%column)
             token = parser%consume()
-        else if (token%kind == TK_IDENTIFIER) then
+        else if (token_is_identifier_like(token)) then
             left_index = push_identifier(arena, token%text, &
                                          token%line, token%column)
             token = parser%consume()
@@ -640,7 +726,7 @@ contains
                 right_index = push_literal(arena, token%text, LITERAL_INTEGER, &
                                            token%line, token%column)
                 token = parser%consume()
-            else if (token%kind == TK_IDENTIFIER) then
+            else if (token_is_identifier_like(token)) then
                 right_index = push_identifier(arena, token%text, &
                                               token%line, token%column)
                 token = parser%consume()
