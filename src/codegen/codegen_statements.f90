@@ -237,9 +237,41 @@ contains
         type(read_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: unit_code, format_code, vars_code
+        integer :: i
 
-        ! Generate read statement code
-        code = "read(*, *)"  ! Basic read statement
+        ! Generate unit specifier
+        if (allocated(node%unit_spec)) then
+            unit_code = node%unit_spec
+        else
+            unit_code = "*"
+        end if
+
+        ! Generate format specifier
+        if (allocated(node%format_spec)) then
+            format_code = node%format_spec
+        else
+            format_code = "*"
+        end if
+
+        ! Generate variable list using recursive code generation
+        vars_code = ""
+        if (allocated(node%var_indices)) then
+            do i = 1, size(node%var_indices)
+                if (i > 1) vars_code = vars_code // ", "
+                if (node%var_indices(i) > 0 .and. &
+                    node%var_indices(i) <= arena%size) then
+                    vars_code = vars_code // &
+                        generate_code_from_arena(arena, node%var_indices(i))
+                end if
+            end do
+        end if
+
+        ! Assemble read statement: read(unit, format) vars
+        code = "read(" // unit_code // ", " // format_code // ")"
+        if (len(vars_code) > 0) then
+            code = code // " " // vars_code
+        end if
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_read_statement
