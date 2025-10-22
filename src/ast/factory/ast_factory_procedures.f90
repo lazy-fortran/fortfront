@@ -84,17 +84,19 @@ contains
 
     ! Create interface block node and add to stack
     function push_interface_block(arena, interface_name, procedure_indices, &
-                                  line, column, parent_index) result(interface_index)
+                                  line, column, parent_index, is_abstract) result(interface_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: interface_name
         integer, intent(in), optional :: procedure_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        logical, intent(in), optional :: is_abstract
         integer :: interface_index
         type(interface_block_node) :: interface_block
 
         interface_block%uid = generate_uid()
         if (len_trim(interface_name) > 0) interface_block%name = interface_name
         interface_block%kind = "interface"
+        if (present(is_abstract)) interface_block%is_abstract = is_abstract
         if (present(procedure_indices)) then
             if (size(procedure_indices) > 0) interface_block%procedure_indices = procedure_indices
         end if

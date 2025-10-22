@@ -159,6 +159,7 @@ module ast_nodes_misc
         ! "operator", "assignment"
         character(len=:), allocatable :: operator  ! Operator symbol
         ! (for operator interfaces)
+        logical :: is_abstract = .false.  ! True for abstract interface
         integer, allocatable :: procedure_indices(:)  ! Procedure declaration
         ! arena indices
     contains
@@ -999,6 +1000,7 @@ contains
         if (allocated(this%name)) call json%add(obj, 'name', this%name)
         if (allocated(this%kind)) call json%add(obj, 'kind', this%kind)
         if (allocated(this%operator)) call json%add(obj, 'operator', this%operator)
+        call json%add(obj, 'is_abstract', this%is_abstract)
         call json%add(parent, obj)
     end subroutine interface_block_to_json
 
@@ -1019,6 +1021,7 @@ contains
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%kind)) lhs%kind = rhs%kind
         if (allocated(rhs%operator)) lhs%operator = rhs%operator
+        lhs%is_abstract = rhs%is_abstract
         if (allocated(rhs%procedure_indices)) then
             if (allocated(lhs%procedure_indices)) deallocate (lhs%procedure_indices)
             allocate (lhs%procedure_indices(size(rhs%procedure_indices)))

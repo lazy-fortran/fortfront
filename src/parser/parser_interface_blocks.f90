@@ -29,11 +29,12 @@ module parser_interface_blocks_module
 
 contains
 
-    function parse_interface_block(parser, arena, prefix_buffer) &
+    function parse_interface_block(parser, arena, prefix_buffer, is_abstract) &
         result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        logical, intent(in), optional :: is_abstract
         integer :: interface_index
 
         character(len=:), allocatable :: interface_name
@@ -41,8 +42,13 @@ contains
         integer, allocatable :: body_indices(:)
         type(token_t) :: token
         integer :: stmt_index
+        logical :: is_abstract_interface
 
-        call begin_interface_block(parser, interface_name, line, column)
+        is_abstract_interface = .false.
+        if (present(is_abstract)) is_abstract_interface = is_abstract
+
+        call begin_interface_block(parser, interface_name, line, column, &
+                                   is_abstract_interface)
         call prefix_buffer%clear()
 
         allocate (body_indices(0))
@@ -68,7 +74,7 @@ contains
         end do
 
         interface_index = push_interface_block(arena, interface_name, body_indices, &
-                                               line, column)
+                                               line, column, is_abstract=is_abstract_interface)
     end function parse_interface_block
 
     logical function try_parse_interface_procedure(parser, arena, prefix_buffer, &
@@ -113,12 +119,25 @@ contains
         proc_parser_callback => parser_func
     end subroutine set_interface_procedure_parser
 
-    subroutine begin_interface_block(parser, interface_name, line, column)
+    subroutine begin_interface_block(parser, interface_name, line, column, &
+                                     is_abstract)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: interface_name
         integer, intent(out) :: line, column
+        logical, intent(in), optional :: is_abstract
 
         type(token_t) :: token
+        character(len=:), allocatable :: lowered
+
+        if (present(is_abstract)) then
+            if (is_abstract) then
+                token = parser%peek()
+                lowered = to_lower(trim(token%text))
+                if (lowered == "abstract") then
+                    token = parser%consume()
+                end if
+            end if
+        end if
 
         token = parser%consume()
         line = token%line

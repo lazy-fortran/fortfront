@@ -93,6 +93,37 @@ contains
                 stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
             case ("interface")
                 stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+            case ("abstract")
+                block
+                    integer :: lookahead_idx
+                    type(token_t) :: next_token
+                    logical :: is_abstract_interface
+
+                    is_abstract_interface = .false.
+                    lookahead_idx = parser%current_token + 1
+                    do while (lookahead_idx <= size(parser%tokens))
+                        next_token = parser%tokens(lookahead_idx)
+                        select case (next_token%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead_idx = lookahead_idx + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            if (to_lower(trim(next_token%text)) == "interface") then
+                                is_abstract_interface = .true.
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                    end do
+
+                    if (is_abstract_interface) then
+                        stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
+                                                          is_abstract=.true.)
+                    else
+                        stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+                    end if
+                end block
             case ("module")
                 stmt_index = parse_module(parser, arena)
             case ("block")
