@@ -250,13 +250,13 @@ contains
 
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
-                                        intent_value, is_optional, dimension_indices, &
-                                        line, column, &
+                                        intent_value, is_optional, is_target, &
+                                        dimension_indices, line, column, &
                                         parent_index, character_length_expr) result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value
-        logical, intent(in), optional :: is_optional
+        logical, intent(in), optional :: is_optional, is_target
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: character_length_expr
@@ -290,6 +290,7 @@ contains
         end if
 
         param%is_optional = resolve_optional_flag(is_optional, .false.)
+        param%is_target = resolve_optional_flag(is_target, .false.)
 
         call assign_dimension_metadata(param%is_array, param%dimension_indices, &
                                        dimension_indices)

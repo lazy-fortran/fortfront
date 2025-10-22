@@ -48,6 +48,7 @@ module codegen_utilities
         character(len=:), allocatable :: name
         character(len=:), allocatable :: intent_str
         logical :: is_optional
+        logical :: is_target
     end type parameter_info_t
 
 contains
@@ -157,7 +158,8 @@ contains
         end if
         can_group = can_group .and. &
                     (node1%intent_type == node2%intent_type) .and. &
-                    (node1%is_optional .eqv. node2%is_optional)
+                    (node1%is_optional .eqv. node2%is_optional) .and. &
+                    (node1%is_target .eqv. node2%is_target)
     end function can_group_parameters
 
     ! Check if declarations can be grouped considering parameter mapping
@@ -168,7 +170,7 @@ contains
         logical :: can_group
         integer :: idx1, idx2
         character(len=:), allocatable :: intent1, intent2
-        logical :: optional1, optional2
+        logical :: optional1, optional2, target1, target2
 
         ! Don't group declarations that have initializers
         if (node1%initializer_index > 0 .or. node2%initializer_index > 0) then
@@ -183,6 +185,7 @@ contains
         if (idx1 > 0) then
             intent1 = param_map(idx1)%intent_str
             optional1 = param_map(idx1)%is_optional
+            target1 = param_map(idx1)%is_target
         else
             if (node1%has_intent) then
                 intent1 = node1%intent
@@ -190,11 +193,13 @@ contains
                 intent1 = ""
             end if
             optional1 = node1%is_optional
+            target1 = node1%is_target
         end if
 
         if (idx2 > 0) then
             intent2 = param_map(idx2)%intent_str
             optional2 = param_map(idx2)%is_optional
+            target2 = param_map(idx2)%is_target
         else
             if (node2%has_intent) then
                 intent2 = node2%intent
@@ -202,13 +207,15 @@ contains
                 intent2 = ""
             end if
             optional2 = node2%is_optional
+            target2 = node2%is_target
         end if
 
         can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
                     node1%kind_value == node2%kind_value .and. &
                     node1%has_kind .eqv. node2%has_kind .and. &
                     trim(intent1) == trim(intent2) .and. &
-                    optional1 .eqv. optional2
+                    optional1 .eqv. optional2 .and. &
+                    target1 .eqv. target2
     end function can_group_declarations_with_params
 
     ! Build parameter name with dimensions
@@ -226,18 +233,21 @@ contains
 
     ! Generate grouped declaration statement
     function generate_grouped_declaration(type_name, kind_value, has_kind, &
-                                          intent, var_list, is_optional) result(stmt)
+                                          intent, var_list, is_optional, &
+                                          is_target) result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
         logical, intent(in) :: has_kind
         character(len=*), intent(in) :: intent
         character(len=*), intent(in) :: var_list
-        logical, intent(in), optional :: is_optional
+        logical, intent(in), optional :: is_optional, is_target
         character(len=:), allocatable :: stmt
-        logical :: opt_flag
+        logical :: opt_flag, target_flag
 
         opt_flag = .false.
         if (present(is_optional)) opt_flag = is_optional
+        target_flag = .false.
+        if (present(is_target)) target_flag = is_target
 
         stmt = type_name
         if (is_character_type_string(stmt)) then
@@ -250,6 +260,9 @@ contains
         end if
         if (opt_flag) then
             stmt = stmt // ", optional"
+        end if
+        if (target_flag) then
+            stmt = stmt // ", target"
         end if
         stmt = stmt // " :: " // var_list
     end function generate_grouped_declaration
@@ -533,6 +546,17 @@ contains
                                             code = code // ", optional"
                                         end if
 
+                                        if (node%is_target) then
+                                            code = code // ", target"
+                                        else if &
+                                           (param_map(first_param_idx)%is_target) then
+                                            code = code // ", target"
+                                        end if
+
+                                        if (node%is_pointer) then
+                                            code = code // ", pointer"
+                                        end if
+
                                         code = code // " :: "
 
                                         ! Add all parameter names
@@ -642,6 +666,16 @@ contains
                                         code = code // ", optional"
                                     end if
 
+                                    if (node%is_target) then
+                                        code = code // ", target"
+                                    else if (param_map(param_idx)%is_target) then
+                                        code = code // ", target"
+                                    end if
+
+                                    if (node%is_pointer) then
+                                        code = code // ", pointer"
+                                    end if
+
                                     code = code // " :: " // param_map(param_idx)%name
 
                                     ! Add dimensions if present
@@ -698,6 +732,10 @@ contains
 
                                 if (param_map(param_idx)%is_optional) then
                                     code = code // ", optional"
+                                end if
+
+                                if (param_map(param_idx)%is_target) then
+                                    code = code // ", target"
                                 end if
 
                                 code = code // " :: " // param_map(param_idx)%name
@@ -943,7 +981,8 @@ contains
                                                              first_node%has_kind, &
                                                              intent_str, &
                                                              var_list, &
-                                                             first_node%is_optional)
+                                                             first_node%is_optional, &
+                                                             first_node%is_target)
                 end block
                 code = code // indent_str // stmt_code // new_line('A')
                 i = j
