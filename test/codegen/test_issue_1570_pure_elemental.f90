@@ -17,8 +17,8 @@ program test_issue_1570_pure_elemental
     found_elemental_subroutine = .false.
     found_recursive_pure = .false.
 
-    input_file = '/tmp/test_issue_1570_input.f90'
-    output_file = '/tmp/test_issue_1570_output.f90'
+    input_file = 'test_issue_1570_input.f90'
+    output_file = 'test_issue_1570_output.f90'
 
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'module test_pure_elemental_module'
