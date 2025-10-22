@@ -880,15 +880,15 @@ contains
 
         subroutine move_imports_before_declarations(text)
             character(len=:), allocatable, intent(inout) :: text
-            character(len=:), allocatable :: lines(:)
-            character(len=:), allocatable :: imports(:)
-            character(len=:), allocatable :: others(:)
-            character(len=:), allocatable :: reordered(:)
+            type(string_t), allocatable :: lines(:)
+            type(string_t), allocatable :: imports(:)
+            type(string_t), allocatable :: others(:)
+            type(string_t), allocatable :: reordered(:)
             character(len=:), allocatable :: trimmed
+            character(len=:), allocatable :: line_text
             integer :: len_text, total_lines, idx_line
             integer :: start_pos, line_idx
             integer :: import_count, other_count
-            integer :: max_line_length, line_length
             logical :: has_trailing_newline
             character(len=1) :: nl
 
@@ -899,28 +899,22 @@ contains
 
             has_trailing_newline = (text(len_text:len_text) == nl)
 
-            max_line_length = 0
             start_pos = 1
             total_lines = 0
             do idx_line = 1, len_text
                 if (text(idx_line:idx_line) == nl) then
                     total_lines = total_lines + 1
-                    line_length = idx_line - start_pos
-                    if (line_length > max_line_length) max_line_length = line_length
                     start_pos = idx_line + 1
                 end if
             end do
             if (start_pos <= len_text) then
                 total_lines = total_lines + 1
-                line_length = len_text - start_pos + 1
-                if (line_length > max_line_length) max_line_length = line_length
             end if
             if (total_lines == 0) return
-            if (max_line_length < 1) max_line_length = 1
 
-            allocate (character(len=max_line_length) :: lines(total_lines))
-            allocate (character(len=max_line_length) :: imports(total_lines))
-            allocate (character(len=max_line_length) :: others(total_lines))
+            allocate (lines(total_lines))
+            allocate (imports(total_lines))
+            allocate (others(total_lines))
 
             start_pos = 1
             line_idx = 0
@@ -944,7 +938,12 @@ contains
             other_count = 0
 
             do line_idx = 1, total_lines
-                trimmed = adjustl(lines(line_idx))
+                if (allocated(lines(line_idx)%s)) then
+                    line_text = lines(line_idx)%s
+                else
+                    line_text = ""
+                end if
+                trimmed = adjustl(line_text)
                 if (len_trim(trimmed) == 0) then
                     other_count = other_count + 1
                     others(other_count) = lines(line_idx)
@@ -964,8 +963,7 @@ contains
 
             if (import_count == 0) return
 
-            allocate (character(len=max_line_length) :: reordered(import_count + &
-                                                                  other_count))
+            allocate (reordered(import_count + other_count))
             do line_idx = 1, import_count
                 reordered(line_idx) = imports(line_idx)
             end do
@@ -975,7 +973,9 @@ contains
 
             text = ""
             do line_idx = 1, import_count + other_count
-                text = text // reordered(line_idx)
+                if (allocated(reordered(line_idx)%s)) then
+                    text = text // reordered(line_idx)%s
+                end if
                 if (line_idx < import_count + other_count) text = text // nl
             end do
             if (has_trailing_newline) text = text // nl
