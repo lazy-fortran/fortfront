@@ -514,6 +514,9 @@ contains
             if (param_node%is_optional) then
                 param_type = trim(param_type) // ", optional"
             end if
+            if (param_node%is_target) then
+                param_type = trim(param_type) // ", target"
+            end if
         class default
             param_type = get_param_type_fallback(param_node)
         end select

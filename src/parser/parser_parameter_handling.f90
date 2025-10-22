@@ -23,6 +23,7 @@ module parser_parameter_handling_module
         character(len=:), allocatable :: character_length_expr
         integer :: intent_value = INTENT_NONE
         logical :: is_optional = .false.
+        logical :: is_target = .false.
         integer :: line = 0
         integer :: column = 0
     end type parameter_type_info_t
@@ -49,6 +50,9 @@ contains
 
         ! Update optional flag
         param_node%is_optional = body_node%is_optional
+
+        ! Update target flag
+        param_node%is_target = body_node%is_target
 
         ! Update type if not already set
         if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
@@ -178,6 +182,7 @@ contains
         info%kind_value = 0
         info%intent_value = INTENT_NONE
         info%is_optional = .false.
+        info%is_target = .false.
         info%line = type_token%line
         info%column = type_token%column
     end subroutine initialize_type_info
@@ -271,6 +276,9 @@ contains
                     call skip_balanced_parentheses(parser)
                 case ("optional")
                     info%is_optional = .true.
+                    call consume_token(parser)
+                case ("target")
+                    info%is_target = .true.
                     call consume_token(parser)
                 case default
                     call consume_token(parser)
@@ -429,7 +437,9 @@ contains
                               info%type_name, &
                               info%kind_value, &
                               info%intent_value, &
-                              info%is_optional, dim_indices, &
+                              info%is_optional, &
+                              info%is_target, &
+                              dim_indices, &
                               line=info%line, &
                               column=info%column, &
                               character_length_expr=length_expr)
@@ -439,7 +449,9 @@ contains
                               info%type_name, &
                               info%kind_value, &
                               info%intent_value, &
-                              info%is_optional, dim_indices, &
+                              info%is_optional, &
+                              info%is_target, &
+                              dim_indices, &
                               line=info%line, &
                               column=info%column)
             end if
@@ -451,6 +463,7 @@ contains
                               kind_value=info%kind_value, &
                               intent_value=info%intent_value, &
                               is_optional=info%is_optional, &
+                              is_target=info%is_target, &
                               line=info%line, &
                               column=info%column, &
                               character_length_expr=length_expr)
@@ -461,6 +474,7 @@ contains
                               kind_value=info%kind_value, &
                               intent_value=info%intent_value, &
                               is_optional=info%is_optional, &
+                              is_target=info%is_target, &
                               line=info%line, &
                               column=info%column)
             end if
@@ -542,6 +556,7 @@ contains
                                                  kind_value=0, &
                                                  intent_value=INTENT_NONE, &
                                                  is_optional=.false., &
+                                                 is_target=.false., &
                                                  line=token%line, &
                                                  column=token%column)
         param_indices = [param_indices, param_index]

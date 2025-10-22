@@ -66,6 +66,7 @@ contains
             param_map(i)%name = ""
             param_map(i)%intent_str = ""
             param_map(i)%is_optional = .false.
+            param_map(i)%is_target = .false.
 
             idx = param_indices(i)
             if (idx <= 0 .or. idx > arena%size) cycle
@@ -78,6 +79,7 @@ contains
                 param_map(i)%name = param_node%name
                 param_map(i)%intent_str = intent_type_to_string(param_node%intent_type)
                 param_map(i)%is_optional = param_node%is_optional
+                param_map(i)%is_target = param_node%is_target
             end select
         end do
     end subroutine seed_parameter_map_from_params
@@ -98,22 +100,24 @@ contains
             type is (parameter_declaration_node)
                 intent_str = intent_type_to_string(body_node%intent_type)
                 call update_parameter_entry(param_map, body_node%name, intent_str, &
-                                            .true., body_node%is_optional)
+                                            .true., body_node%is_optional, &
+                                            body_node%is_target)
             type is (declaration_node)
                 call update_parameter_entry(param_map, body_node%var_name, &
                                             body_node%intent, body_node%has_intent, &
-                                            body_node%is_optional)
+                                            body_node%is_optional, body_node%is_target)
             end select
         end do
     end subroutine merge_parameter_details_from_body
 
     subroutine update_parameter_entry(param_map, name, intent_value, has_intent, &
-                                      is_optional)
+                                      is_optional, is_target)
         type(parameter_info_t), intent(inout) :: param_map(:)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: intent_value
         logical, intent(in) :: has_intent
         logical, intent(in) :: is_optional
+        logical, intent(in) :: is_target
         integer :: i
 
         do i = 1, size(param_map)
@@ -122,6 +126,7 @@ contains
 
             if (has_intent) param_map(i)%intent_str = intent_value
             param_map(i)%is_optional = is_optional
+            param_map(i)%is_target = is_target
             return
         end do
     end subroutine update_parameter_entry

@@ -92,6 +92,7 @@ module ast_nodes_core
     ! Call or subscript node (represents both function calls and array indexing)
     type, extends(ast_node), public :: call_or_subscript_node
         character(len=:), allocatable :: name
+        integer :: base_expr_index = 0
         integer, allocatable :: arg_indices(:)
         ! Intrinsic function identification
         logical :: is_intrinsic = .false.
