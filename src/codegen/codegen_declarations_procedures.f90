@@ -203,35 +203,35 @@ contains
         integer, intent(in) :: body_indices(:)
         integer, allocatable, intent(out) :: filtered_indices(:)
         integer :: j, count
-        logical :: is_implicit
+        logical :: is_implicit_none
 
         count = 0
         do j = 1, size(body_indices)
-            is_implicit = .false.
+            is_implicit_none = .false.
             if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                 if (allocated(arena%entries(body_indices(j))%node)) then
                     select type (body_node => arena%entries(body_indices(j))%node)
                     type is (implicit_statement_node)
-                        is_implicit = .true.
+                        is_implicit_none = body_node%is_none
                     end select
                 end if
             end if
-            if (.not. is_implicit) count = count + 1
+            if (.not. is_implicit_none) count = count + 1
         end do
 
         allocate (filtered_indices(count))
         count = 0
         do j = 1, size(body_indices)
-            is_implicit = .false.
+            is_implicit_none = .false.
             if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                 if (allocated(arena%entries(body_indices(j))%node)) then
                     select type (body_node => arena%entries(body_indices(j))%node)
                     type is (implicit_statement_node)
-                        is_implicit = .true.
+                        is_implicit_none = body_node%is_none
                     end select
                 end if
             end if
-            if (.not. is_implicit) then
+            if (.not. is_implicit_none) then
                 count = count + 1
                 filtered_indices(count) = body_indices(j)
             end if
