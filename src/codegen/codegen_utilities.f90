@@ -1558,18 +1558,41 @@ contains
                 others(other_count) = lines(line_idx)
             else
                 trimmed = to_lower(trim(trimmed))
-                if (len_trim(trimmed) >= 6) then
-                    if (trimmed(1:6) == "import") then
-                        import_count = import_count + 1
-                        imports(import_count) = lines(line_idx)
-                        cycle
-                    end if
+                if (is_import_statement_line(trimmed)) then
+                    import_count = import_count + 1
+                    imports(import_count) = lines(line_idx)
+                    cycle
                 end if
                 other_count = other_count + 1
                 others(other_count) = lines(line_idx)
             end if
         end do
     end subroutine partition_import_lines
+
+    logical function is_import_statement_line(text) result(is_import)
+        character(len=*), intent(in) :: text
+        integer :: len_line
+        character(len=1) :: next_char
+
+        is_import = .false.
+        len_line = len(text)
+        if (len_line < 6) return
+        if (text(1:6) /= "import") return
+        if (len_line == 6) then
+            is_import = .true.
+            return
+        end if
+
+        next_char = text(7:7)
+        select case (next_char)
+        case (" ", achar(9), ",")
+            is_import = .true.
+        case (":")
+            if (len_line >= 8) then
+                if (text(8:8) == ":") is_import = .true.
+            end if
+        end select
+    end function is_import_statement_line
 
     subroutine rebuild_lines_with_imports(text, imports, import_count, others, &
                                           other_count, has_trailing_newline)

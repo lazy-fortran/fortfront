@@ -75,4 +75,65 @@ program test_issue_1707_import_order
         error stop 1
     end if
 
+    if (allocated(tokens)) deallocate (tokens)
+    arena = create_ast_arena()
+    passed = .true.
+
+    input_code = "module reorder_assignment" // nl // &
+                 "    implicit none" // nl // &
+                 "contains" // nl // &
+                 "    subroutine process()" // nl // &
+                 "        integer :: important_value" // nl // &
+                 "        important_value = 1" // nl // &
+                 "    end subroutine process" // nl // &
+                 "end module reorder_assignment"
+
+    call lex_source(input_code, tokens, error_msg)
+
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        write (output_unit, '(A)') "FAIL: Lexing error: " // trim(error_msg)
+        error stop 1
+    end if
+
+    call parse_tokens(tokens, arena, root_index, error_msg)
+
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        write (output_unit, '(A)') "FAIL: Parsing error: " // trim(error_msg)
+        error stop 1
+    end if
+
+    call emit_fortran(arena, root_index, output_code)
+
+    pos_decl = index(output_code, "integer :: important_value")
+    pos_import = index(output_code, "important_value = 1")
+
+    if (pos_decl == 0) then
+        write (output_unit, '(A)') &
+            "FAIL: important_value declaration missing in output"
+        passed = .false.
+    end if
+
+    if (pos_import == 0) then
+        write (output_unit, '(A)') &
+            "FAIL: important_value assignment missing in output"
+        passed = .false.
+    end if
+
+    if (pos_decl > 0 .and. pos_import > 0) then
+        if (pos_import < pos_decl) then
+            write (output_unit, '(A)') &
+                "FAIL: important_value assignment moved before declaration"
+            passed = .false.
+        end if
+    end if
+
+    if (passed) then
+        write (output_unit, '(A)') &
+            "PASS: statements prefixed with important remain after declarations"
+    else
+        write (output_unit, '(A)') "Generated code:"
+        write (output_unit, '(A)') trim(output_code)
+        error stop 1
+    end if
+
 end program test_issue_1707_import_order
