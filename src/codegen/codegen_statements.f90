@@ -264,14 +264,17 @@ contains
         type(stop_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: code_expr
 
-        ! Generate proper termination with exit call
+        ! Generate proper STOP statement preserving original syntax
         if (allocated(node%stop_message)) then
-            code = "call exit(1) ! " // node%stop_message
-        else if (node%stop_code_index > 0) then
-            code = "call exit(1) ! Termination with code"
+            code = "stop " // node%stop_message
+        else if (node%stop_code_index > 0 .and. &
+                 node%stop_code_index <= arena%size) then
+            code_expr = generate_code_from_arena(arena, node%stop_code_index)
+            code = "stop " // code_expr
         else
-            code = "call exit(1) ! Program termination"
+            code = "stop"
         end if
 
         call prepend_stmt_label(code, node%stmt_label)
