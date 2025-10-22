@@ -596,7 +596,8 @@ contains
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
                         fn_param_optional(i) = param%is_optional
-                        if (allocated(param%type_name)) then
+                        if (allocated(param%type_name) .and. &
+                            len_trim(param%type_name) > 0) then
                             call apply_function_type(i, .true., &
                                                      trim(param%type_name), &
                                                      param%has_kind, &
@@ -624,7 +625,8 @@ contains
                         ! captured above into param_optional/param_intent
                     type is (declaration_node)
                         param_names(i) = param%var_name
-                        if (allocated(param%type_name)) then
+                        if (allocated(param%type_name) .and. &
+                            len_trim(param%type_name) > 0) then
                             call apply_function_type(i, .true., &
                                                      trim(param%type_name), &
                                                      param%has_kind, &

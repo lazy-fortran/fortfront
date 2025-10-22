@@ -75,7 +75,7 @@ contains
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "type")
+                  "double", "type", "class")
                 stmt_index = parse_declaration(parser, arena)
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)

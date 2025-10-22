@@ -151,7 +151,8 @@ contains
         character(len=*), intent(in) :: text
 
         matches = (text == "real" .or. text == "integer" .or. text == "logical" .or. &
-                   text == "character")
+                   text == "character" .or. text == "type" .or. text == "class" .or. &
+                   text == "complex" .or. text == "double")
     end function is_declaration_keyword
 
     integer function parse_keyword_statement(first_token, parser, arena, &
