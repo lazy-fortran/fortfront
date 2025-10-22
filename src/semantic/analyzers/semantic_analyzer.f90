@@ -50,6 +50,7 @@ module semantic_analyzer
         create_error_result, ERROR_SEMANTIC
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
+    use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
     implicit none
     private
 
@@ -64,6 +65,7 @@ module semantic_analyzer
         logical :: strict_mode = .false.
         logical :: respect_implicit_none = .true.
         type(type_annotation_t), allocatable :: parser_type_hints(:)
+        type(type_hierarchy_t) :: type_hierarchy
     contains
         procedure :: get_context_name => semantic_get_context_name
         procedure :: clone_context => semantic_clone_context
@@ -117,6 +119,7 @@ contains
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
         ctx%respect_implicit_none = .true.
+        ctx%type_hierarchy = create_type_hierarchy()
 
         ! Create real -> real type for math functions
         real_type = create_mono_type(TREAL)
