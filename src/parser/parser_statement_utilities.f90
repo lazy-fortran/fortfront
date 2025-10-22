@@ -8,6 +8,8 @@ module parser_statement_utilities_module
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, &
+                                           parse_open_statement, &
+                                           parse_close_statement, &
                                            parse_read_statement
     use parser_control_statements_module, only: parse_stop_statement, &
                                                 parse_return_statement, &
@@ -68,6 +70,10 @@ contains
                 stmt_index = parse_print_statement(parser, arena)
             case ("write")
                 stmt_index = parse_write_statement(parser, arena)
+            case ("open")
+                stmt_index = parse_open_statement(parser, arena)
+            case ("close")
+                stmt_index = parse_close_statement(parser, arena)
             case ("read")
                 stmt_index = parse_read_statement(parser, arena)
             case ("data")

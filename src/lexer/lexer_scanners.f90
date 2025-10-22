@@ -480,7 +480,7 @@ contains
               'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
               'abstract', &
               'procedure', 'interface', 'import', 'generic', 'operator', 'assignment', 'print', &
-              'read', 'write', 'call', 'format', &
+              'read', 'write', 'open', 'close', 'call', 'format', &
               'allocate', 'deallocate', &
               'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &
               'enum', 'file', 'submodule', 'rank', &
