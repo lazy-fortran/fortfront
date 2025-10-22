@@ -1,5 +1,3 @@
 # Expected failures for fortfront examples
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
-
-issue_1664_function_result.f90  # partial fix only - see issue #1664
