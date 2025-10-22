@@ -530,21 +530,53 @@ contains
     function generate_type_binding_code(binding) result(code)
         type(type_binding_node), intent(in) :: binding
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: accessibility_text
+
+        if (.not. allocated(binding%binding_name)) then
+            code = ""
+            return
+        end if
+
+        accessibility_text = ""
+        if (allocated(binding%accessibility)) then
+            if (len_trim(binding%accessibility) > 0) then
+                accessibility_text = trim(to_lower(binding%accessibility))
+            end if
+        end if
 
         if (binding%is_final) then
             code = "final :: " // trim(binding%binding_name)
-        else
-            code = "procedure"
-            if (allocated(binding%accessibility)) then
-                if (len_trim(binding%accessibility) > 0) then
-                    code = code // ", " // trim(to_lower(binding%accessibility))
-                end if
+            return
+        end if
+
+        if (binding%is_generic) then
+            code = "generic"
+            if (len_trim(accessibility_text) > 0) then
+                code = code // ", " // accessibility_text
             end if
             code = code // " :: " // trim(binding%binding_name)
             if (allocated(binding%implementation)) then
                 if (len_trim(binding%implementation) > 0) then
                     code = code // " => " // trim(binding%implementation)
                 end if
+            end if
+            return
+        end if
+
+        code = "procedure"
+        if (len_trim(accessibility_text) > 0) then
+            code = code // ", " // accessibility_text
+        end if
+        if (binding%is_deferred) then
+            code = code // ", deferred"
+        end if
+        if (.not. binding%pass_arg) then
+            code = code // ", nopass"
+        end if
+        code = code // " :: " // trim(binding%binding_name)
+        if (allocated(binding%implementation)) then
+            if (len_trim(binding%implementation) > 0) then
+                code = code // " => " // trim(binding%implementation)
             end if
         end if
     end function generate_type_binding_code
