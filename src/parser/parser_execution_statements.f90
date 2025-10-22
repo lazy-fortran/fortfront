@@ -17,6 +17,7 @@ module parser_execution_statements_module
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, &
+                                           parse_read_statement, &
                                            parse_format_statement, &
                                            parse_open_statement, &
                                            parse_close_statement
@@ -311,6 +312,8 @@ contains
                 stmt_index = parse_use_statement(parser_ref, arena_ref)
             case ("write")
                 stmt_index = parse_write_statement(parser_ref, arena_ref)
+            case ("read")
+                stmt_index = parse_read_statement(parser_ref, arena_ref)
             case ("open")
                 stmt_index = parse_open_statement(parser_ref, arena_ref)
             case ("close")
