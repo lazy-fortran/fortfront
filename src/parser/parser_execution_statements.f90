@@ -32,7 +32,7 @@ module parser_execution_statements_module
     use parser_statement_data_module, only: parse_data_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
-    use parser_implicit_shared_module, only: parse_simple_implicit_statement
+    use parser_type_specifications_module, only: parse_implicit_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
@@ -295,7 +295,7 @@ contains
             call flush_pending_prefixes()
             select case (lowered)
             case ("implicit")
-                call parse_simple_implicit_statement(parser_ref, arena_ref, stmt_index)
+                stmt_index = parse_implicit_statement(parser_ref, arena_ref)
             case ("real", "integer", "logical", "character", "complex", "double", &
                   "class")
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
