@@ -340,12 +340,19 @@ contains
             use_statements_code = use_statements_code // "    " // stmt_code // &
                                   new_line('A')
         type is (comment_node)
-            if (non_use_count == 0) then
+            ! Legacy statement comments (COMMON/EQUIVALENCE) are always header statements
+            if (is_legacy_statement_comment(ib) .or. non_use_count == 0) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
-                call append_header_trivia(stmt_code, use_statements_code, &
-                                          implicit_statements_code, &
-                                          interface_blocks_code)
+                if (is_legacy_statement_comment(ib)) then
+                    ! Legacy statements go after implicit but before other declarations
+                    implicit_statements_code = implicit_statements_code // "    " // &
+                                              stmt_code // new_line('A')
+                else
+                    call append_header_trivia(stmt_code, use_statements_code, &
+                                              implicit_statements_code, &
+                                              interface_blocks_code)
+                end if
             end if
         type is (blank_line_node)
             if (non_use_count == 0) then
