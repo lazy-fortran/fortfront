@@ -36,6 +36,8 @@ module ast_nodes_data
         integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
         logical :: has_kind = .false.  ! Whether kind was specified
+        character(len=:), allocatable :: character_length_expr  ! Character length expression
+        logical :: has_character_length = .false.  ! Whether character length was specified
         character(len=:), allocatable :: intent  ! in, out, inout (for parameters)
         logical :: has_intent = .false.  ! Whether intent was specified
         logical :: is_optional = .false.  ! Whether optional attribute is present
@@ -71,6 +73,8 @@ module ast_nodes_data
         integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
         logical :: has_kind = .false.  ! Whether kind was specified
+        character(len=:), allocatable :: character_length_expr  ! Character length expression
+        logical :: has_character_length = .false.  ! Whether character length was specified
         integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
         logical :: is_optional = .false.  ! Whether parameter is optional
         ! Array dimension support
@@ -193,6 +197,10 @@ contains
         lhs%is_multi_declaration = rhs%is_multi_declaration
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
+        if (allocated(rhs%character_length_expr)) then
+            lhs%character_length_expr = rhs%character_length_expr
+        end if
+        lhs%has_character_length = rhs%has_character_length
         if (allocated(rhs%intent)) lhs%intent = rhs%intent
         lhs%has_intent = rhs%has_intent
         lhs%is_optional = rhs%is_optional
@@ -272,6 +280,10 @@ contains
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
+        if (allocated(rhs%character_length_expr)) then
+            lhs%character_length_expr = rhs%character_length_expr
+        end if
+        lhs%has_character_length = rhs%has_character_length
         lhs%intent_type = rhs%intent_type
         lhs%is_optional = rhs%is_optional
         lhs%is_array = rhs%is_array

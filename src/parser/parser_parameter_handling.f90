@@ -13,12 +13,14 @@ module parser_parameter_handling_module
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_utilities, only: consume_token
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
     type :: parameter_type_info_t
         character(len=:), allocatable :: type_name
         integer :: kind_value = 0
+        character(len=:), allocatable :: character_length_expr
         integer :: intent_value = INTENT_NONE
         logical :: is_optional = .false.
         integer :: line = 0
@@ -194,7 +196,8 @@ contains
         end if
 
         call consume_token(parser)
-        if (info%type_name == "type" .or. info%type_name == "class") then
+        if (to_lower(info%type_name) == "type" .or. to_lower(info%type_name) == &
+            "class") then
             type_expr = ""
             paren_count = 1
             do while (.not. parser%is_at_end() .and. paren_count > 0)
@@ -212,6 +215,26 @@ contains
                     call consume_token(parser)
                 end if
             end do
+            info%type_name = info%type_name // "(" // type_expr // ")"
+        else if (to_lower(info%type_name) == "character") then
+            type_expr = ""
+            paren_count = 1
+            do while (.not. parser%is_at_end() .and. paren_count > 0)
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    paren_count = paren_count + 1
+                    type_expr = type_expr // token%text
+                    call consume_token(parser)
+                else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    paren_count = paren_count - 1
+                    if (paren_count > 0) type_expr = type_expr // token%text
+                    call consume_token(parser)
+                else
+                    type_expr = type_expr // token%text
+                    call consume_token(parser)
+                end if
+            end do
+            info%character_length_expr = type_expr
             info%type_name = info%type_name // "(" // type_expr // ")"
         else
             token = parser%peek()
@@ -384,6 +407,7 @@ contains
         type(token_t) :: token
         character(len=:), allocatable :: param_name
         integer, allocatable :: dim_indices(:)
+        character(len=:), allocatable :: length_expr
 
         token = parser%peek()
         param_name = token%text
@@ -392,22 +416,54 @@ contains
         allocate (dim_indices(0))
         call parse_dimension_list(parser, arena, dim_indices)
 
+        if (allocated(info%character_length_expr)) then
+            if (len_trim(info%character_length_expr) > 0) then
+                length_expr = trim(info%character_length_expr)
+            end if
+        end if
+
         if (size(dim_indices) > 0) then
-            param_index = push_parameter_declaration(arena, param_name, &
-                                                     info%type_name, &
-                                                     info%kind_value, &
-                                                     info%intent_value, &
-                                                     info%is_optional, dim_indices, &
-                                                     line=info%line, &
-                                                     column=info%column)
+            if (allocated(length_expr)) then
+                param_index = push_parameter_declaration( &
+                              arena, param_name, &
+                              info%type_name, &
+                              info%kind_value, &
+                              info%intent_value, &
+                              info%is_optional, dim_indices, &
+                              line=info%line, &
+                              column=info%column, &
+                              character_length_expr=length_expr)
+            else
+                param_index = push_parameter_declaration( &
+                              arena, param_name, &
+                              info%type_name, &
+                              info%kind_value, &
+                              info%intent_value, &
+                              info%is_optional, dim_indices, &
+                              line=info%line, &
+                              column=info%column)
+            end if
         else
-            param_index = push_parameter_declaration(arena, name=param_name, &
-                                                     type_name=info%type_name, &
-                                                     kind_value=info%kind_value, &
-                                                     intent_value=info%intent_value, &
-                                                     is_optional=info%is_optional, &
-                                                     line=info%line, &
-                                                     column=info%column)
+            if (allocated(length_expr)) then
+                param_index = push_parameter_declaration( &
+                              arena, name=param_name, &
+                              type_name=info%type_name, &
+                              kind_value=info%kind_value, &
+                              intent_value=info%intent_value, &
+                              is_optional=info%is_optional, &
+                              line=info%line, &
+                              column=info%column, &
+                              character_length_expr=length_expr)
+            else
+                param_index = push_parameter_declaration( &
+                              arena, name=param_name, &
+                              type_name=info%type_name, &
+                              kind_value=info%kind_value, &
+                              intent_value=info%intent_value, &
+                              is_optional=info%is_optional, &
+                              line=info%line, &
+                              column=info%column)
+            end if
         end if
     end function parse_single_parameter
 
