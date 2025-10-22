@@ -18,17 +18,18 @@ contains
 
     ! Create call_or_subscript node and add to stack
     function push_call_or_subscript(arena, name, arg_indices, line, column, &
-                                    parent_index) result(call_index)
+                                    parent_index, base_expr_index) result(call_index)
         use intrinsic_registry, only: get_intrinsic_info
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: arg_indices(:)
-        integer, intent(in), optional :: line, column, parent_index
+        integer, intent(in), optional :: line, column, parent_index, base_expr_index
         integer :: call_index
         type(call_or_subscript_node) :: call_node
 
         call_node%uid = generate_uid()
         call_node%name = name
+        if (present(base_expr_index)) call_node%base_expr_index = base_expr_index
         if (size(arg_indices) > 0) call_node%arg_indices = arg_indices
         if (present(line)) call_node%line = line
         if (present(column)) call_node%column = column
@@ -62,13 +63,13 @@ contains
 
     ! Create call or subscript with array slice detection
     function push_call_or_subscript_with_slice_detection(arena, name, &
-                                                         arg_indices, line, column, parent_index) result(node_index)
+                                                         arg_indices, line, column, parent_index, base_expr_index) result(node_index)
         use ast_factory_arrays, only: push_array_slice
         use ast_factory_core, only: push_identifier
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: arg_indices(:)
-        integer, intent(in), optional :: line, column, parent_index
+        integer, intent(in), optional :: line, column, parent_index, base_expr_index
         integer :: node_index
         logical :: has_slice
         integer :: i
@@ -100,7 +101,7 @@ contains
         else
             ! Regular function call or array indexing
             node_index = push_call_or_subscript(arena, name, arg_indices, &
-                                                line, column, parent_index)
+                                                line, column, parent_index, base_expr_index)
         end if
     end function push_call_or_subscript_with_slice_detection
 

@@ -272,9 +272,14 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: args_code
         character(len=:), allocatable :: arg_code
+        character(len=:), allocatable :: base_code
         integer :: i
 
-        if (allocated(node%name)) then
+        if (node%base_expr_index > 0 .and. &
+            node%base_expr_index <= arena%size) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+            code = trim(adjustl(base_code))
+        else if (allocated(node%name)) then
             code = trim(node%name)
         else
             code = "unknown"

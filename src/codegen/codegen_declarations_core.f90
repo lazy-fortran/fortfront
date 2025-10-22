@@ -361,6 +361,7 @@ contains
         end if
 
         attr_info%is_optional = node%is_optional
+        attr_info%is_target = node%is_target
     end subroutine populate_parameter_attributes
 
     function build_parameter_dimensions(arena, node) result(dim_clause)

@@ -77,6 +77,7 @@ module ast_nodes_data
         logical :: has_character_length = .false.  ! Whether character length was specified
         integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
         logical :: is_optional = .false.  ! Whether parameter is optional
+        logical :: is_target = .false.  ! Whether target attribute is present
         ! Array dimension support
         logical :: is_array = .false.  ! Whether this is
         ! an array parameter
@@ -287,6 +288,7 @@ contains
         lhs%has_character_length = rhs%has_character_length
         lhs%intent_type = rhs%intent_type
         lhs%is_optional = rhs%is_optional
+        lhs%is_target = rhs%is_target
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices

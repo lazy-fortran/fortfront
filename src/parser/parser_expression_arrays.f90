@@ -401,6 +401,7 @@ contains
         type(token_t) :: open_token, close_token
         integer, allocatable :: arg_indices(:)
         character(len=:), allocatable :: call_name
+        integer :: base_expr_for_call
 
         expr_index = base_expr
         if (.not. associated(helpers%parse_range)) return
@@ -413,9 +414,19 @@ contains
         call extract_target_name(arena, expr_index, call_name)
         if (.not. allocated(call_name)) return
 
+        base_expr_for_call = 0
+        if (base_expr > 0 .and. base_expr <= arena%size) then
+            if (allocated(arena%entries(base_expr)%node)) then
+                select type (node => arena%entries(base_expr)%node)
+                type is (component_access_node)
+                    base_expr_for_call = base_expr
+                end select
+            end if
+        end if
+
         expr_index = push_call_or_subscript_with_slice_detection( &
                      arena, call_name, arg_indices, close_token%line, &
-                     close_token%column)
+                     close_token%column, base_expr_index=base_expr_for_call)
     end function apply_index_postfix
 
     subroutine collect_index_arguments(parser, arena, helpers, closing_char, &
