@@ -9,6 +9,8 @@ module ast_nodes_io
     ! Public factory functions
     public :: create_print_statement
     public :: create_io_implied_do
+    public :: create_open_statement
+    public :: create_close_statement
 
     ! I/O statement AST nodes
 
@@ -101,6 +103,41 @@ module ast_nodes_io
         procedure :: assign => format_statement_assign
         generic :: assignment(=) => assign
     end type format_statement_node
+
+    ! OPEN statement node
+    type, extends(ast_node), public :: open_statement_node
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: file_spec
+        character(len=:), allocatable :: status_spec
+        character(len=:), allocatable :: access_spec
+        character(len=:), allocatable :: form_spec
+        character(len=:), allocatable :: recl_spec
+        character(len=:), allocatable :: blank_spec
+        character(len=:), allocatable :: position_spec
+        character(len=:), allocatable :: action_spec
+        character(len=:), allocatable :: delim_spec
+        character(len=:), allocatable :: pad_spec
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => open_statement_accept
+        procedure :: to_json => open_statement_to_json
+        procedure :: assign => open_statement_assign
+        generic :: assignment(=) => assign
+    end type open_statement_node
+
+    ! CLOSE statement node
+    type, extends(ast_node), public :: close_statement_node
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: status_spec
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => close_statement_accept
+        procedure :: to_json => close_statement_to_json
+        procedure :: assign => close_statement_assign
+        generic :: assignment(=) => assign
+    end type close_statement_node
 
 contains
 
@@ -365,6 +402,98 @@ contains
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
     end subroutine format_statement_assign
 
+    ! OPEN statement implementations
+    subroutine open_statement_accept(this, visitor)
+        class(open_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine open_statement_accept
+
+    subroutine open_statement_to_json(this, json, parent)
+        class(open_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'open_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
+        if (allocated(this%file_spec)) call json%add(obj, 'file_spec', this%file_spec)
+        if (allocated(this%status_spec)) call json%add(obj, 'status_spec', &
+                                                       this%status_spec)
+        call json%add(parent, obj)
+    end subroutine open_statement_to_json
+
+    subroutine open_statement_assign(lhs, rhs)
+        class(open_statement_node), intent(inout) :: lhs
+        class(open_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        if (allocated(rhs%file_spec)) lhs%file_spec = rhs%file_spec
+        if (allocated(rhs%status_spec)) lhs%status_spec = rhs%status_spec
+        if (allocated(rhs%access_spec)) lhs%access_spec = rhs%access_spec
+        if (allocated(rhs%form_spec)) lhs%form_spec = rhs%form_spec
+        if (allocated(rhs%recl_spec)) lhs%recl_spec = rhs%recl_spec
+        if (allocated(rhs%blank_spec)) lhs%blank_spec = rhs%blank_spec
+        if (allocated(rhs%position_spec)) lhs%position_spec = rhs%position_spec
+        if (allocated(rhs%action_spec)) lhs%action_spec = rhs%action_spec
+        if (allocated(rhs%delim_spec)) lhs%delim_spec = rhs%delim_spec
+        if (allocated(rhs%pad_spec)) lhs%pad_spec = rhs%pad_spec
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine open_statement_assign
+
+    ! CLOSE statement implementations
+    subroutine close_statement_accept(this, visitor)
+        class(close_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine close_statement_accept
+
+    subroutine close_statement_to_json(this, json, parent)
+        class(close_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'close_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
+        if (allocated(this%status_spec)) call json%add(obj, 'status_spec', &
+                                                       this%status_spec)
+        call json%add(parent, obj)
+    end subroutine close_statement_to_json
+
+    subroutine close_statement_assign(lhs, rhs)
+        class(close_statement_node), intent(inout) :: lhs
+        class(close_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        if (allocated(rhs%status_spec)) lhs%status_spec = rhs%status_spec
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine close_statement_assign
+
     ! Factory functions
     function create_print_statement(expression_indices, format_spec, &
                                     line, column) result(node)
@@ -407,5 +536,15 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_io_implied_do
+
+    function create_open_statement() result(node)
+        type(open_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_open_statement
+
+    function create_close_statement() result(node)
+        type(close_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_close_statement
 
 end module ast_nodes_io
