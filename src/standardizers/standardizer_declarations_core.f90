@@ -21,6 +21,7 @@ module standardizer_declarations_core
     use standardizer_types
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use string_utils_mod, only: int_to_string
+    use ast_nodes_misc, only: comment_node
     implicit none
     private
 
@@ -179,7 +180,8 @@ contains
 
             select type (stmt => arena%entries(node_index)%node)
             type is (comment_node)
-                is_header_separator = .true.
+                ! Legacy statement comments are NOT separators, they are declarations
+                is_header_separator = .not. is_legacy_statement_comment(stmt)
             type is (blank_line_node)
                 is_header_separator = .true.
             class default
@@ -247,6 +249,35 @@ contains
         end do
     end function program_has_variable_declarations
 
+    ! Check if a comment node represents a legacy statement (COMMON, EQUIVALENCE, BLOCK)
+    logical function is_legacy_statement_comment(node)
+        type(comment_node), intent(in) :: node
+        character(len=:), allocatable :: lowered_text
+
+        is_legacy_statement_comment = .false.
+        if (.not. allocated(node%text)) return
+
+        lowered_text = to_lower(adjustl(trim(node%text)))
+        if (len_trim(lowered_text) >= 11) then
+            if (index(lowered_text, "equivalence") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 6) then
+            if (index(lowered_text, "common") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+        if (len_trim(lowered_text) >= 5) then
+            if (index(lowered_text, "block") == 1) then
+                is_legacy_statement_comment = .true.
+                return
+            end if
+        end if
+    end function is_legacy_statement_comment
+
     integer function find_prefix_end(arena, prog, mode) result(pos)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
@@ -265,7 +296,12 @@ contains
                     type is (use_statement_node)
                         keep_scanning = .true.
                     type is (comment_node)
-                        keep_scanning = (mode >= 1)
+                        ! Legacy statement comments (COMMON/EQUIVALENCE) are treated as declarations
+                        if (is_legacy_statement_comment(stmt)) then
+                            keep_scanning = (mode >= 2)
+                        else
+                            keep_scanning = (mode >= 1)
+                        end if
                     type is (blank_line_node)
                         keep_scanning = (mode >= 1)
                     type is (implicit_statement_node)
