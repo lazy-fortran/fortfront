@@ -52,7 +52,8 @@ contains
 
         input_code = "type :: list_node" // new_line('A') // &
                      "  real :: data" // new_line('A') // &
-                     "  type(list_node), pointer :: next => null()" // new_line('A') // &
+                     "  type(list_node), pointer :: next => " // &
+                     "null()" // new_line('A') // &
                      "end type list_node"
 
         print *, ""
@@ -80,7 +81,8 @@ contains
 
         input_code = "type :: t_node" // new_line('A') // &
                      "  integer :: id" // new_line('A') // &
-                     "  type(t_node), dimension(:), allocatable :: children" // new_line('A') // &
+                     "  type(t_node), dimension(:), allocatable :: " // &
+                     "children" // new_line('A') // &
                      "end type t_node"
 
         print *, ""
@@ -113,9 +115,12 @@ contains
 
         input_code = "type :: graph_node" // new_line('A') // &
                      "  character(len=32) :: label" // new_line('A') // &
-                     "  type(graph_node), pointer :: parent => null()" // new_line('A') // &
-                     "  type(graph_node), pointer :: first_child => null()" // new_line('A') // &
-                     "  type(graph_node), pointer :: next_sibling => null()" // new_line('A') // &
+                     "  type(graph_node), pointer :: parent => " // &
+                     "null()" // new_line('A') // &
+                     "  type(graph_node), pointer :: first_child => " // &
+                     "null()" // new_line('A') // &
+                     "  type(graph_node), pointer :: next_sibling => " // &
+                     "null()" // new_line('A') // &
                      "end type graph_node"
 
         print *, ""
