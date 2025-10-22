@@ -1,7 +1,8 @@
 module ast_factory_io
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
-                            read_statement_node, format_statement_node
+                            read_statement_node, format_statement_node, &
+                            open_statement_node, close_statement_node
     implicit none
     private
 
@@ -12,6 +13,7 @@ module ast_factory_io
     public :: push_write_statement_with_iostat, push_write_statement_with_format
     public :: push_write_statement_with_runtime_format
     public :: push_format_statement
+    public :: push_open_statement, push_close_statement
 
 contains
 
@@ -241,5 +243,37 @@ contains
         call arena%push(format_stmt, "format_statement", parent_index)
         format_index = arena%size
     end function push_format_statement
+
+    function push_open_statement(arena, spec_text, line, column, parent_index) &
+        result(open_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: spec_text
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: open_index
+        type(open_statement_node) :: open_stmt
+
+        open_stmt%unit_spec = spec_text
+        if (present(line)) open_stmt%line = line
+        if (present(column)) open_stmt%column = column
+
+        call arena%push(open_stmt, "open_statement", parent_index)
+        open_index = arena%size
+    end function push_open_statement
+
+    function push_close_statement(arena, spec_text, line, column, parent_index) &
+        result(close_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: spec_text
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: close_index
+        type(close_statement_node) :: close_stmt
+
+        close_stmt%unit_spec = spec_text
+        if (present(line)) close_stmt%line = line
+        if (present(column)) close_stmt%column = column
+
+        call arena%push(close_stmt, "close_statement", parent_index)
+        close_index = arena%size
+    end function push_close_statement
 
 end module ast_factory_io

@@ -6,14 +6,17 @@ module parser_io_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_io, only: open_statement_node, close_statement_node
     use ast_factory, only: push_print_statement, push_write_statement, &
-                           push_read_statement, push_format_statement
+                           push_read_statement, push_format_statement, &
+                           push_open_statement, push_close_statement
     use ast_factory
     implicit none
     private
 
     public :: parse_print_statement, parse_write_statement, parse_read_statement
     public :: parse_format_statement
+    public :: parse_open_statement, parse_close_statement
 
 contains
 
@@ -471,5 +474,93 @@ contains
 
         format_index = push_format_statement(arena, format_spec, line, column)
     end function parse_format_statement
+
+    function parse_open_statement(parser, arena) result(open_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: open_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: key, value
+        character(len=:), allocatable :: spec_text
+
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD .or. token%text /= "open") then
+            open_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            open_index = 0
+            return
+        end if
+        token = parser%consume()
+
+        spec_text = ""
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                if (len(spec_text) > 0) spec_text = spec_text // ", "
+                token = parser%consume()
+            else if (token%kind == TK_NEWLINE) then
+                exit
+            else
+                if (len(spec_text) > 0 .and. token%text /= "=") spec_text = spec_text // " "
+                spec_text = spec_text // token%text
+                token = parser%consume()
+            end if
+        end do
+
+        open_index = push_open_statement(arena, spec_text, line, column)
+    end function parse_open_statement
+
+    function parse_close_statement(parser, arena) result(close_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: close_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: spec_text
+
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD .or. token%text /= "close") then
+            close_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            close_index = 0
+            return
+        end if
+        token = parser%consume()
+
+        spec_text = ""
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            if (len(spec_text) > 0 .and. token%text /= ",") spec_text = spec_text // " "
+            spec_text = spec_text // token%text
+            token = parser%consume()
+        end do
+
+        close_index = push_close_statement(arena, spec_text, line, column)
+    end function parse_close_statement
 
 end module parser_io_statements_module
