@@ -123,11 +123,12 @@ contains
             token = parser%peek()
             select case (token%kind)
             case (TK_WHITESPACE)
-                ! Skip whitespace; only preserve once attributes start
                 token = parser%consume()
                 if (attributes_started) call append_token(attr_tokens, token)
             case (TK_NEWLINE, TK_COMMENT)
-                exit
+                if (.not. attributes_started) exit
+                token = parser%consume()
+                cycle
             case (TK_OPERATOR)
                 select case (token%text)
                 case (",")
@@ -143,6 +144,10 @@ contains
                     call consume_parenthesized_content(parser, attr_tokens, &
                                                        invalid_definition)
                     if (invalid_definition) exit
+                case ("&")
+                    if (.not. attributes_started .and. .not. found_double_colon) exit
+                    token = parser%consume()
+                    if (attributes_started) call append_token(attr_tokens, token)
                 case default
                     if (.not. attributes_started) exit
                     token = parser%consume()
@@ -157,9 +162,11 @@ contains
             end select
         end do
 
-        if (attributes_started .and. .not. found_double_colon) invalid_definition = .true.
+        if (attributes_started .and. .not. found_double_colon) &
+            invalid_definition = .true.
 
-        if (present(attribute_clause) .and. attributes_started .and. .not. invalid_definition) then
+        if (present(attribute_clause) .and. attributes_started .and. .not. &
+            invalid_definition) then
             if (allocated(attr_tokens)) then
                 call format_attribute_clause(attr_tokens, attribute_clause)
             end if
@@ -342,7 +349,7 @@ contains
         end if
 
         extends_parent = trim(adjustl( &
-            attribute_clause(paren_start + 1:paren_end - 1)))
+                              attribute_clause(paren_start + 1:paren_end - 1)))
 
         attr_before = ""
         if (extends_pos > 1) then
