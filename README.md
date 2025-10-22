@@ -66,19 +66,19 @@ FortFront provides a modular API for integration into downstream tools such as l
 
 ### API Modules
 
-- `lexer_api` - Tokenization and lexical analysis
-- `parser_api` - Token parsing and AST construction
-- `ast_api` - AST node types and traversal utilities
-- `semantic_api` - Type inference and semantic validation
-- `codegen_api` - Standard Fortran code generation
-- `error_api` - Error handling and reporting
-- `transformation_api` - High-level transformation pipeline
-- `frontend_tooling_api` - Convenience functions for tool developers
+- `fortfront_lexer` - Tokenization and lexical analysis
+- `fortfront_parser` - Token parsing and AST construction
+- `fortfront_ast` - AST node types and traversal utilities
+- `fortfront_semantic` - Type inference and semantic validation
+- `fortfront_codegen` - Standard Fortran code generation
+- `fortfront_error` - Error handling and reporting
+- `fortfront_transform` - High-level transformation pipeline
+- `fortfront_tooling` - Convenience functions for tool developers
 
 ### Quick Example
 
 ```fortran
-use transformation_api, only: transform_lazy_fortran_string
+use fortfront_transform, only: transform_lazy_fortran_string
 character(len=:), allocatable :: input, output, error_msg
 input = "x = 5"
 call transform_lazy_fortran_string(input, output, error_msg)
@@ -90,7 +90,7 @@ end if
 ```
 
 ### Documentation
-See docs/API.md for the full API reference and docs/LIBRARY_USAGE.md for worked examples.
+See issue #1642 for the full API specification and docs/LIBRARY_USAGE.md for worked examples.
 
 ## Links
 - Fortrun integration: https://github.com/lazy-fortran/fortrun
