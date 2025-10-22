@@ -196,7 +196,8 @@ contains
         end if
 
         call consume_token(parser)
-        if (to_lower(info%type_name) == "type" .or. to_lower(info%type_name) == "class") then
+        if (to_lower(info%type_name) == "type" .or. to_lower(info%type_name) == &
+            "class") then
             type_expr = ""
             paren_count = 1
             do while (.not. parser%is_at_end() .and. paren_count > 0)
@@ -406,6 +407,7 @@ contains
         type(token_t) :: token
         character(len=:), allocatable :: param_name
         integer, allocatable :: dim_indices(:)
+        character(len=:), allocatable :: length_expr
 
         token = parser%peek()
         param_name = token%text
@@ -414,24 +416,54 @@ contains
         allocate (dim_indices(0))
         call parse_dimension_list(parser, arena, dim_indices)
 
+        if (allocated(info%character_length_expr)) then
+            if (len_trim(info%character_length_expr) > 0) then
+                length_expr = trim(info%character_length_expr)
+            end if
+        end if
+
         if (size(dim_indices) > 0) then
-            param_index = push_parameter_declaration(arena, param_name, &
-                                                     info%type_name, &
-                                                     info%kind_value, &
-                                                     info%intent_value, &
-                                                     info%is_optional, dim_indices, &
-                                                     line=info%line, &
-                                                     column=info%column, &
-                                                     character_length_expr=info%character_length_expr)
+            if (allocated(length_expr)) then
+                param_index = push_parameter_declaration( &
+                              arena, param_name, &
+                              info%type_name, &
+                              info%kind_value, &
+                              info%intent_value, &
+                              info%is_optional, dim_indices, &
+                              line=info%line, &
+                              column=info%column, &
+                              character_length_expr=length_expr)
+            else
+                param_index = push_parameter_declaration( &
+                              arena, param_name, &
+                              info%type_name, &
+                              info%kind_value, &
+                              info%intent_value, &
+                              info%is_optional, dim_indices, &
+                              line=info%line, &
+                              column=info%column)
+            end if
         else
-            param_index = push_parameter_declaration(arena, name=param_name, &
-                                                     type_name=info%type_name, &
-                                                     kind_value=info%kind_value, &
-                                                     intent_value=info%intent_value, &
-                                                     is_optional=info%is_optional, &
-                                                     line=info%line, &
-                                                     column=info%column, &
-                                                     character_length_expr=info%character_length_expr)
+            if (allocated(length_expr)) then
+                param_index = push_parameter_declaration( &
+                              arena, name=param_name, &
+                              type_name=info%type_name, &
+                              kind_value=info%kind_value, &
+                              intent_value=info%intent_value, &
+                              is_optional=info%is_optional, &
+                              line=info%line, &
+                              column=info%column, &
+                              character_length_expr=length_expr)
+            else
+                param_index = push_parameter_declaration( &
+                              arena, name=param_name, &
+                              type_name=info%type_name, &
+                              kind_value=info%kind_value, &
+                              intent_value=info%intent_value, &
+                              is_optional=info%is_optional, &
+                              line=info%line, &
+                              column=info%column)
+            end if
         end if
     end function parse_single_parameter
 
