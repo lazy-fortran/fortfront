@@ -4,7 +4,7 @@ This document describes the public library API for integrating FortFront into do
 
 ## Overview
 
-FortFront provides a modular API organized into seven core modules:
+FortFront provides a modular API organized into eight core modules:
 
 1. **lexer_api** - Tokenization and lexical analysis
 2. **parser_api** - Token parsing and AST construction
@@ -117,7 +117,7 @@ subroutine parse_tokens(tokens, arena, root_index, error_msg)
     type(token_t), intent(in) :: tokens(:)
     type(ast_arena_t), intent(inout) :: arena
     integer, intent(out) :: root_index
-    character(len=512), intent(out) :: error_msg
+    character(len=*), intent(out) :: error_msg
 ```
 Parse tokens into AST stored in arena.
 
@@ -498,27 +498,31 @@ Context tracking transformation state.
 
 #### transform_lazy_fortran_string
 ```fortran
-subroutine transform_lazy_fortran_string(input, output)
+subroutine transform_lazy_fortran_string(input, output, error_msg)
     character(len=*), intent(in) :: input
     character(len=:), allocatable, intent(out) :: output
+    character(len=:), allocatable, intent(out) :: error_msg
 ```
 Transform Lazy Fortran string to Standard Fortran (simplest API).
 
 #### transform_lazy_fortran_string_with_format
 ```fortran
-subroutine transform_lazy_fortran_string_with_format(input, output, options)
+subroutine transform_lazy_fortran_string_with_format(input, output, &
+                                                     error_msg, format_opts)
     character(len=*), intent(in) :: input
     character(len=:), allocatable, intent(out) :: output
-    type(format_options_t), intent(in) :: options
+    character(len=:), allocatable, intent(out) :: error_msg
+    type(format_options_t), intent(in) :: format_opts
 ```
 Transform with custom formatting options.
 
 #### transform_with_context
 ```fortran
-subroutine transform_with_context(input, output, ctx)
+subroutine transform_with_context(input, output, error_msg, ctx)
     character(len=*), intent(in) :: input
     character(len=:), allocatable, intent(out) :: output
-    type(transform_context_t), intent(inout) :: ctx
+    character(len=:), allocatable, intent(out) :: error_msg
+    type(transform_context_t), intent(in) :: ctx
 ```
 Transform with full context access for error inspection.
 
@@ -587,11 +591,15 @@ Load AST from file with optional semantic analysis.
 ```fortran
 use transformation_api, only: transform_lazy_fortran_string
 
-character(len=:), allocatable :: input, output
+character(len=:), allocatable :: input, output, error_msg
 
 input = "x = 5"
-call transform_lazy_fortran_string(input, output)
-print *, trim(output)
+call transform_lazy_fortran_string(input, output, error_msg)
+if (len(error_msg) == 0) then
+    print *, trim(output)
+else
+    print *, 'Transformation failed: ', trim(error_msg)
+end if
 ```
 
 ### Lexing Only

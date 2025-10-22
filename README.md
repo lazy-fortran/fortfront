@@ -12,20 +12,20 @@ A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
 Lazy Fortran omits boilerplate that fortfront infers automatically:
 
-- **Type declarations**: `x = 5` becomes `integer :: x` with assignment
-- **Function return types**: `function add(a, b)` infers types from usage
-- **Array bounds**: automatic shape inference for allocatable arrays
+- **Type declarations**: `x = 5` becomes `integer :: x`
+- **Function return types**: inferred from usage
+- **Array bounds**: automatic shape inference for allocatables
 - **Program structure**: wraps bare statements in `program main ... end program`
 
 Example transformation:
 ```fortran
-! input.lf (Lazy Fortran)
+! input.lf
 function add(a, b)
     result = a + b
 end function
 x = add(5, 3)
 
-! output.f90 (Standard Fortran)
+! output.f90
 program main
     implicit none
     integer :: x
@@ -43,19 +43,13 @@ end program
 ## Building
 ```sh
 fpm build
-# or
 make
 ```
 
 ## Usage
 
-### File mode
 ```sh
 fortfront input.lf > output.f90
-```
-
-### Stdin mode
-```sh
 echo "x = 5" | fortfront > output.f90
 ```
 
@@ -85,36 +79,18 @@ FortFront provides a modular API for integration into downstream tools such as l
 
 ```fortran
 use transformation_api, only: transform_lazy_fortran_string
-character(len=:), allocatable :: input, output
+character(len=:), allocatable :: input, output, error_msg
 input = "x = 5"
-call transform_lazy_fortran_string(input, output)
-```
-
-### Full Pipeline Example
-
-```fortran
-use lexer_api, only: tokenize_core, token_t
-use parser_api, only: parse_tokens, create_compiler_arena, compiler_arena_t
-use ast_api, only: ast_arena_t
-use codegen_api, only: generate_code_from_arena
-
-character(len=*), parameter :: source = "x = 5"
-type(token_t), allocatable :: tokens(:)
-type(compiler_arena_t) :: compiler_arena
-integer :: root_index
-character(len=512) :: error_msg
-character(len=:), allocatable :: code
-
-call tokenize_core(source, tokens)
-compiler_arena = create_compiler_arena()
-call parse_tokens(tokens, compiler_arena%ast, root_index, error_msg)
-code = generate_code_from_arena(compiler_arena%ast)
+call transform_lazy_fortran_string(input, output, error_msg)
+if (len(error_msg) == 0) then
+    print '(a)', output
+else
+    print '(a)', 'Transformation failed: ' // error_msg
+end if
 ```
 
 ### Documentation
-
-- API Reference: docs/API.md
-- Usage Guide with Examples: docs/LIBRARY_USAGE.md
+See docs/API.md for the full API reference and docs/LIBRARY_USAGE.md for worked examples.
 
 ## Links
 - Fortrun integration: https://github.com/lazy-fortran/fortrun

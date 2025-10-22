@@ -39,11 +39,16 @@ auto-tests = true
 program minimal_example
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
-    character(len=:), allocatable :: input, output
+    character(len=:), allocatable :: input, output, error_msg
 
     input = "x = 5"
-    call transform_lazy_fortran_string(input, output)
-    print '(a)', output
+    call transform_lazy_fortran_string(input, output, error_msg)
+
+    if (len(error_msg) == 0) then
+        print '(a)', output
+    else
+        print '(a)', 'Transformation failed: ' // error_msg
+    end if
 end program minimal_example
 ```
 
@@ -544,38 +549,7 @@ gfortran -o my_tool my_tool.f90 -L./fortfront -lfortfront -I./fortfront/build/gf
 
 ### Q: Can I use FortFront from C or Python?
 
-Yes, via Fortran's ISO_C_BINDING. Expose wrapper functions:
-
-```fortran
-module fortfront_c_api
-    use, intrinsic :: iso_c_binding
-    use transformation_api
-    implicit none
-
-contains
-
-    subroutine transform_fortran_c(input, input_len, output, output_len) &
-        bind(C, name="transform_fortran")
-        integer(c_int), intent(in), value :: input_len
-        character(kind=c_char), intent(in) :: input(input_len)
-        integer(c_int), intent(out) :: output_len
-        type(c_ptr), intent(out) :: output
-        character(len=:), allocatable :: input_str, output_str
-        integer :: i
-
-        allocate (character(len=input_len) :: input_str)
-        do i = 1, input_len
-            input_str(i:i) = input(i)
-        end do
-
-        call transform_lazy_fortran_string(input_str, output_str)
-
-        output_len = len(output_str)
-        output = c_loc(output_str)
-    end subroutine transform_fortran_c
-
-end module fortfront_c_api
-```
+Yes. FortFront already ships with a production-ready ISO_C_BINDING bridge in `src/interfaces/fortfront_c_interface.f90`. That module converts C buffers into Fortran strings, calls `transform_lazy_fortran_string(input, output, error_msg)`, stores any error text via `set_last_error`, and exposes helpers such as `fortfront_parse_source_c`, `fortfront_get_last_error_c`, and `fortfront_get_version_c`. Reuse those bindings directly or adapt them for your runtime.
 
 ### Q: How do I handle large files efficiently?
 
