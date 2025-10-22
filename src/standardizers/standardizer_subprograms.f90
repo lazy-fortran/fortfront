@@ -113,6 +113,23 @@ contains
                         stmt_intent = ""
                     end if
                     call record_match(param_idx, stmt, stmt_intent, current_index)
+                    ! If declaration has type_variable, infer the type
+                    if (allocated(stmt%type_name) .and. &
+                        trim(stmt%type_name) == "type_variable") then
+                        block
+                            character(len=32) :: inferred_type
+                            logical :: has_kind_local
+                            integer :: kind_value_local
+                            call infer_parameter_type(param_names(param_idx), &
+                                                     inferred_type, &
+                                                     has_kind_local, kind_value_local)
+                            stmt%type_name = trim(inferred_type)
+                            if (has_kind_local) then
+                                stmt%has_kind = .true.
+                                stmt%kind_value = kind_value_local
+                            end if
+                        end block
+                    end if
                     call apply_type_standardization(stmt)
                     if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
                     stmt%intent = stmt_intent
@@ -150,10 +167,13 @@ contains
 
             if (present(param_type)) then
                 if (allocated(stmt%type_name)) then
-                    param_type(pidx) = trim(stmt%type_name)
-                    if (present(param_type_inferred)) then
-                        if (len_trim(param_type(pidx)) > 0) &
-                            param_type_inferred(pidx) = .false.
+                    ! Skip type_variable - treat as if type is not present
+                    if (trim(stmt%type_name) /= "type_variable") then
+                        param_type(pidx) = trim(stmt%type_name)
+                        if (present(param_type_inferred)) then
+                            if (len_trim(param_type(pidx)) > 0) &
+                                param_type_inferred(pidx) = .false.
+                        end if
                     end if
                 end if
             end if
@@ -717,10 +737,13 @@ contains
             logical, intent(in) :: is_array_flag
             logical, intent(in) :: is_alloc_flag
 
-            if (type_present .and. len_trim(type_text) > 0) then
+            ! Check for valid types (not empty and not type_variable)
+            if (type_present .and. len_trim(type_text) > 0 .and. &
+                trim(type_text) /= "type_variable") then
                 fn_param_type(idx) = trim(type_text)
                 fn_param_type_inferred(idx) = .false.
-            else if (inferred_present .and. len_trim(inferred_text) > 0) then
+            else if (inferred_present .and. len_trim(inferred_text) > 0 .and. &
+                     trim(inferred_text) /= "type_variable") then
                 fn_param_type(idx) = trim(inferred_text)
                 fn_param_type_inferred(idx) = .false.
             end if
@@ -796,7 +819,9 @@ contains
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
                     inferred_local = param_type_inferred(i)
-                    if (len_trim(param_type(i)) > 0) then
+                    ! Check if we have a valid type (not empty and not type_variable)
+                    if (len_trim(param_type(i)) > 0 .and. &
+                        trim(param_type(i)) /= "type_variable") then
                         param_decl%type_name = trim(param_type(i))
                         param_decl%has_kind = param_has_kind(i)
                         param_decl%kind_value = param_kind_value(i)
@@ -933,7 +958,9 @@ contains
             param_decl%is_array = .false.
             param_decl%is_allocatable = .false.
             inferred_local = param_type_inferred(i)
-            if (len_trim(param_type(i)) > 0) then
+            ! Check if we have a valid type (not empty and not type_variable)
+            if (len_trim(param_type(i)) > 0 .and. &
+                trim(param_type(i)) /= "type_variable") then
                 param_decl%type_name = trim(param_type(i))
                 param_decl%has_kind = param_has_kind(i)
                 param_decl%kind_value = param_kind_value(i)

@@ -317,10 +317,10 @@ contains
         ! Check if there's already a module in the AST - if so, no wrapping needed
         if (has_existing_module_in_ast(shared_arena%ast)) then
             ! Don't wrap - preserve existing module structure
+        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
+            call promote_functions_to_internal_program(shared_arena%ast, prog_index)
         else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
             call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
-        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-            call wrap_ast_in_module_and_program(shared_arena%ast, prog_index, context)
         end if
         ! If only main code or nothing to wrap, leave AST as-is
 
@@ -1215,11 +1215,12 @@ contains
     ! Analyze AST content directly (no string manipulation)
     subroutine analyze_ast_content(arena, root_index, has_functions, &
                                    has_subroutines, has_main_code)
+        use ast_nodes_io, only: print_statement_node
+        use ast_nodes_control, only: if_node, do_loop_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         logical, intent(out) :: has_functions, has_subroutines, has_main_code
-        integer :: i
-        class(*), pointer :: node_ptr
+        integer :: i, j
 
         has_functions = .false.
         has_subroutines = .false.
@@ -1232,11 +1233,23 @@ contains
                 type is (module_node)
                     ! Already a module, no wrapping needed
                     return
+                type is (program_node)
+                    ! Check if this is a multi-unit container
+                    if (root%name == "__MULTI_UNIT__" .and. &
+                        allocated(root%body_indices)) then
+                        ! Scan child units for functions, subroutines, and main code
+                        do j = 1, size(root%body_indices)
+                            call analyze_single_unit(arena, root%body_indices(j), &
+                                                     has_functions, has_subroutines, &
+                                                     has_main_code)
+                        end do
+                        return
+                    end if
                 end select
             end if
         end if
 
-        ! Scan all nodes in arena
+        ! For non-multi-unit roots, scan all nodes in arena
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
 
@@ -1250,9 +1263,160 @@ contains
                 if (arena%entries(i)%parent_index == root_index) then
                     has_main_code = .true.
                 end if
+            type is (print_statement_node)
+                ! Print statement outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
+            type is (if_node)
+                ! Control flow outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
+            type is (do_loop_node)
+                ! Loop outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
             end select
         end do
     end subroutine analyze_ast_content
+
+    ! Analyze a single unit (program, function, or subroutine) for content
+    subroutine analyze_single_unit(arena, unit_index, has_functions, &
+                                   has_subroutines, has_main_code)
+        use ast_nodes_io, only: print_statement_node
+        use ast_nodes_control, only: if_node, do_loop_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: unit_index
+        logical, intent(inout) :: has_functions, has_subroutines, has_main_code
+        integer :: i
+
+        if (unit_index <= 0 .or. unit_index > arena%size) return
+        if (.not. allocated(arena%entries(unit_index)%node)) return
+
+        select type (unit => arena%entries(unit_index)%node)
+        type is (function_def_node)
+            has_functions = .true.
+        type is (subroutine_def_node)
+            has_subroutines = .true.
+        type is (program_node)
+            ! Scan program body for executable statements
+            if (allocated(unit%body_indices)) then
+                do i = 1, size(unit%body_indices)
+                    if (unit%body_indices(i) <= 0 .or. &
+                        unit%body_indices(i) > arena%size) cycle
+                    if (.not. allocated(arena%entries(unit%body_indices(i))%node)) &
+                        cycle
+
+                    select type (stmt => arena%entries(unit%body_indices(i))%node)
+                    type is (assignment_node)
+                        has_main_code = .true.
+                    type is (print_statement_node)
+                        has_main_code = .true.
+                    type is (if_node)
+                        has_main_code = .true.
+                    type is (do_loop_node)
+                        has_main_code = .true.
+                    type is (function_def_node)
+                        has_functions = .true.
+                    type is (subroutine_def_node)
+                        has_subroutines = .true.
+                    end select
+                end do
+            end if
+        end select
+    end subroutine analyze_single_unit
+
+    subroutine promote_functions_to_internal_program(arena, root_index)
+        use ast_nodes_core, only: program_node
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+        use ast_nodes_misc, only: contains_node
+        use standardizer_program, only: insert_contains_statement
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        integer :: i, child_index, main_prog_index
+        integer :: idx, body_size, n_proc
+        integer, allocatable :: proc_indices(:)
+        integer, allocatable :: new_body(:)
+        logical :: has_contains
+
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        allocate (proc_indices(0))
+        main_prog_index = 0
+
+        select type (root => arena%entries(root_index)%node)
+        type is (program_node)
+            if (trim(root%name) /= "__MULTI_UNIT__") return
+            if (.not. allocated(root%body_indices)) return
+
+            do i = 1, size(root%body_indices)
+                child_index = root%body_indices(i)
+                if (child_index <= 0 .or. child_index > arena%size) cycle
+                if (.not. allocated(arena%entries(child_index)%node)) cycle
+
+                select type (child => arena%entries(child_index)%node)
+                type is (program_node)
+                    if (main_prog_index == 0) then
+                        if (trim(child%name) /= "__MULTI_UNIT__") then
+                            main_prog_index = child_index
+                        end if
+                    end if
+                type is (function_def_node)
+                    proc_indices = [proc_indices, child_index]
+                type is (subroutine_def_node)
+                    proc_indices = [proc_indices, child_index]
+                end select
+            end do
+        class default
+            return
+        end select
+
+        if (main_prog_index == 0) return
+        if (size(proc_indices) == 0) return
+
+        select type (main_prog => arena%entries(main_prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(main_prog%body_indices)) then
+                allocate (main_prog%body_indices(0))
+            end if
+
+            has_contains = .false.
+            do i = 1, size(main_prog%body_indices)
+                idx = main_prog%body_indices(i)
+                if (idx <= 0 .or. idx > arena%size) cycle
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (body_node => arena%entries(idx)%node)
+                type is (contains_node)
+                    has_contains = .true.
+                end select
+            end do
+
+            if (.not. has_contains) then
+                call insert_contains_statement(arena, main_prog, main_prog_index, &
+                                               size(main_prog%body_indices) + 1)
+            end if
+
+            body_size = size(main_prog%body_indices)
+            n_proc = size(proc_indices)
+            allocate (new_body(body_size + n_proc))
+            if (body_size > 0) then
+                new_body(1:body_size) = main_prog%body_indices
+            end if
+            do i = 1, n_proc
+                new_body(body_size + i) = proc_indices(i)
+            end do
+            main_prog%body_indices = new_body
+        end select
+
+        do i = 1, size(proc_indices)
+            arena%entries(proc_indices(i))%parent_index = main_prog_index
+        end do
+
+        root_index = main_prog_index
+    end subroutine promote_functions_to_internal_program
 
     ! Check if AST already contains a module node
     function has_existing_module_in_ast(arena) result(has_module)
