@@ -6,6 +6,7 @@ module parser_declarations_derived_module
     use ast_factory, only: push_derived_type, push_type_binding
     use parser_declarations_type_spec_support_module, only: &
         skip_type_definition_attributes
+    use parser_type_spec_attributes_mod, only: extract_extends_from_attributes
     use parser_declarations_core_module, only: parse_declaration
     use string_utils_mod, only: to_lower
     implicit none
@@ -23,6 +24,8 @@ contains
 
         character(len=100) :: type_name
         character(len=:), allocatable :: header_attributes
+        character(len=:), allocatable :: extends_parent
+        character(len=:), allocatable :: remaining_attrs
         logical :: has_header_attrs
         logical :: invalid_type_spec
         integer, allocatable :: component_indices(:)
@@ -38,13 +41,30 @@ contains
             return
         end if
 
+        if (has_header_attrs .and. allocated(header_attributes)) then
+            call extract_extends_from_attributes(header_attributes, &
+                                                 extends_parent, remaining_attrs)
+            if (allocated(remaining_attrs)) then
+                if (len_trim(remaining_attrs) > 0) then
+                    call move_alloc(remaining_attrs, header_attributes)
+                else
+                    has_header_attrs = .false.
+                    block
+                        character(len=:), allocatable :: temp
+                        call move_alloc(header_attributes, temp)
+                        call move_alloc(remaining_attrs, temp)
+                    end block
+                end if
+            end if
+        end if
+
         call collect_derived_type_components(parser, arena, component_indices, &
                                              component_count, binding_indices, &
                                              binding_count)
         type_index = finalize_derived_type(arena, type_name, header_attributes, &
                                            has_header_attrs, component_indices, &
                                            component_count, binding_indices, &
-                                           binding_count)
+                                           binding_count, extends_parent)
     end function parse_derived_type_def
 
     subroutine parse_type_definition_header(parser, type_name, &
@@ -626,7 +646,8 @@ contains
     integer function finalize_derived_type(arena, type_name, header_attributes, &
                                            has_header_attrs, component_indices, &
                                            component_count, binding_indices, &
-                                           binding_count) result(type_index)
+                                           binding_count, extends_parent) &
+        result(type_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=:), allocatable, intent(in) :: header_attributes
@@ -635,40 +656,90 @@ contains
         integer, intent(in) :: component_count
         integer, intent(in) :: binding_indices(:)
         integer, intent(in) :: binding_count
+        character(len=:), allocatable, intent(in), optional :: extends_parent
+        logical :: has_extends
+
+        has_extends = present(extends_parent)
+        if (has_extends) then
+            if (.not. allocated(extends_parent)) has_extends = .false.
+            if (has_extends) then
+                if (len_trim(extends_parent) == 0) has_extends = .false.
+            end if
+        end if
 
         if (component_count > 0 .and. binding_count > 0) then
-            if (has_header_attrs) then
+            if (has_header_attrs .and. has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, component_indices, &
+                    attribute_clause=header_attributes, &
+                    binding_indices=binding_indices, &
+                    extends_parent=extends_parent)
+            else if (has_header_attrs) then
                 type_index = push_derived_type( &
                     arena, type_name, component_indices, &
                     attribute_clause=header_attributes, &
                     binding_indices=binding_indices)
+            else if (has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, component_indices, &
+                    binding_indices=binding_indices, &
+                    extends_parent=extends_parent)
             else
                 type_index = push_derived_type(arena, type_name, component_indices, &
                                                binding_indices=binding_indices)
             end if
         else if (component_count > 0) then
-            if (has_header_attrs) then
+            if (has_header_attrs .and. has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, component_indices, &
+                    attribute_clause=header_attributes, &
+                    extends_parent=extends_parent)
+            else if (has_header_attrs) then
                 type_index = push_derived_type( &
                     arena, type_name, component_indices, &
                     attribute_clause=header_attributes)
+            else if (has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, component_indices, &
+                    extends_parent=extends_parent)
             else
                 type_index = push_derived_type(arena, type_name, component_indices)
             end if
         else if (binding_count > 0) then
-            if (has_header_attrs) then
+            if (has_header_attrs .and. has_extends) then
                 type_index = push_derived_type( &
                     arena, type_name, [integer ::], &
-                                       attribute_clause=header_attributes, &
-                                       binding_indices=binding_indices)
+                    attribute_clause=header_attributes, &
+                    binding_indices=binding_indices, &
+                    extends_parent=extends_parent)
+            else if (has_header_attrs) then
+                type_index = push_derived_type( &
+                    arena, type_name, [integer ::], &
+                    attribute_clause=header_attributes, &
+                    binding_indices=binding_indices)
+            else if (has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, [integer ::], &
+                    binding_indices=binding_indices, &
+                    extends_parent=extends_parent)
             else
                 type_index = push_derived_type(arena, type_name, [integer ::], &
-                                                        binding_indices=binding_indices)
+                                               binding_indices=binding_indices)
             end if
         else
-            if (has_header_attrs) then
+            if (has_header_attrs .and. has_extends) then
                 type_index = push_derived_type( &
                     arena, type_name, [integer ::], &
-                                       attribute_clause=header_attributes)
+                    attribute_clause=header_attributes, &
+                    extends_parent=extends_parent)
+            else if (has_header_attrs) then
+                type_index = push_derived_type( &
+                    arena, type_name, [integer ::], &
+                    attribute_clause=header_attributes)
+            else if (has_extends) then
+                type_index = push_derived_type( &
+                    arena, type_name, [integer ::], &
+                    extends_parent=extends_parent)
             else
                 type_index = push_derived_type(arena, type_name, [integer ::])
             end if

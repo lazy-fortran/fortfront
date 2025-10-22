@@ -11,6 +11,7 @@ module parser_type_spec_attributes_mod
     public :: is_type_attribute_token
     public :: skip_type_definition_attributes
     public :: parser_is_at_type_definition
+    public :: extract_extends_from_attributes
 
 contains
 
@@ -283,5 +284,88 @@ contains
         pos = parser%current_token + 1
         is_type_def = scan_type_attribute_sequence(parser, pos)
     end function parser_is_at_type_definition
+
+    subroutine extract_extends_from_attributes(attribute_clause, extends_parent, &
+                                               remaining_attrs)
+        character(len=*), intent(in) :: attribute_clause
+        character(len=:), allocatable, intent(out) :: extends_parent
+        character(len=:), allocatable, intent(out) :: remaining_attrs
+        integer :: extends_pos, paren_start, paren_end, depth, i
+        character(len=:), allocatable :: clause_lower, attr_before, attr_after
+
+        if (len_trim(attribute_clause) == 0) then
+            remaining_attrs = ""
+            return
+        end if
+
+        clause_lower = to_lower(trim(adjustl(attribute_clause)))
+        extends_pos = index(clause_lower, "extends")
+
+        if (extends_pos == 0) then
+            remaining_attrs = trim(adjustl(attribute_clause))
+            return
+        end if
+
+        paren_start = index(attribute_clause(extends_pos:), "(")
+        if (paren_start == 0) then
+            remaining_attrs = trim(adjustl(attribute_clause))
+            return
+        end if
+
+        paren_start = extends_pos + paren_start - 1
+        depth = 1
+        paren_end = paren_start
+
+        do i = paren_start + 1, len(attribute_clause)
+            if (attribute_clause(i:i) == "(") then
+                depth = depth + 1
+            else if (attribute_clause(i:i) == ")") then
+                depth = depth - 1
+                if (depth == 0) then
+                    paren_end = i
+                    exit
+                end if
+            end if
+        end do
+
+        if (depth /= 0) then
+            remaining_attrs = trim(adjustl(attribute_clause))
+            return
+        end if
+
+        extends_parent = trim(adjustl( &
+            attribute_clause(paren_start + 1:paren_end - 1)))
+
+        attr_before = ""
+        if (extends_pos > 1) then
+            attr_before = trim(adjustl(attribute_clause(1:extends_pos - 1)))
+            if (len_trim(attr_before) > 0) then
+                if (attr_before(len_trim(attr_before):len_trim(attr_before)) &
+                    == ",") then
+                    attr_before = attr_before(1:len_trim(attr_before) - 1)
+                end if
+            end if
+        end if
+
+        attr_after = ""
+        if (paren_end < len(attribute_clause)) then
+            attr_after = trim(adjustl(attribute_clause(paren_end + 1:)))
+            if (len_trim(attr_after) > 0) then
+                if (attr_after(1:1) == ",") then
+                    attr_after = trim(adjustl(attr_after(2:)))
+                end if
+            end if
+        end if
+
+        if (len_trim(attr_before) > 0 .and. len_trim(attr_after) > 0) then
+            remaining_attrs = trim(attr_before) // ", " // trim(attr_after)
+        else if (len_trim(attr_before) > 0) then
+            remaining_attrs = trim(attr_before)
+        else if (len_trim(attr_after) > 0) then
+            remaining_attrs = trim(attr_after)
+        else
+            remaining_attrs = ""
+        end if
+    end subroutine extract_extends_from_attributes
 
 end module parser_type_spec_attributes_mod
