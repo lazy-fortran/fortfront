@@ -21,7 +21,8 @@ program test_error_api
     if (.not. test_error_collection_basic()) all_passed = .false.
     if (.not. test_error_severity_levels()) all_passed = .false.
     if (.not. test_error_formatting()) all_passed = .false.
-    if (.not. test_error_collection_methods()) all_passed = .false.
+    if (.not. test_error_collection_add_with_context()) all_passed = .false.
+    if (.not. test_error_collection_format_and_clear()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -200,13 +201,12 @@ contains
         print *, '  PASS: Error message formatting'
     end function test_error_formatting
 
-    logical function test_error_collection_methods()
+    logical function test_error_collection_add_with_context()
         type(error_collection_t) :: errors
         type(error_context_t) :: ctx
-        character(len=:), allocatable :: formatted
 
-        test_error_collection_methods = .true.
-        print *, 'Testing error collection methods...'
+        test_error_collection_add_with_context = .true.
+        print *, 'Testing error collection add with context...'
 
         ctx = create_error_context(5, 10, filename='sample.f90')
         call errors%add_error_with_context('Context error', ctx, &
@@ -214,13 +214,13 @@ contains
 
         if (errors%count /= 1) then
             print *, '  FAIL: add_error_with_context did not add error'
-            test_error_collection_methods = .false.
+            test_error_collection_add_with_context = .false.
             return
         end if
 
         if (errors%errors(1)%context%line /= 5) then
             print *, '  FAIL: context not stored correctly'
-            test_error_collection_methods = .false.
+            test_error_collection_add_with_context = .false.
             return
         end if
 
@@ -228,27 +228,43 @@ contains
 
         if (.not. allocated(errors%errors(2)%suggestion)) then
             print *, '  FAIL: suggestion not stored'
-            test_error_collection_methods = .false.
+            test_error_collection_add_with_context = .false.
             return
         end if
+
+        print *, '  PASS: Error collection add with context'
+    end function test_error_collection_add_with_context
+
+    logical function test_error_collection_format_and_clear()
+        type(error_collection_t) :: errors
+        type(error_context_t) :: ctx
+        character(len=:), allocatable :: formatted
+
+        test_error_collection_format_and_clear = .true.
+        print *, 'Testing error collection formatting and clear...'
+
+        ctx = create_error_context(5, 10, filename='sample.f90')
+        call errors%add_error_with_context('Context error', ctx, &
+                                           severity=ERROR_WARNING)
+        call errors%add_error('Second error', suggestion='Try fixing it')
 
         formatted = errors%format_messages()
 
         if (.not. allocated(formatted)) then
             print *, '  FAIL: format_messages did not return result'
-            test_error_collection_methods = .false.
+            test_error_collection_format_and_clear = .false.
             return
         end if
 
         if (index(formatted, 'Context error') == 0) then
             print *, '  FAIL: first error not in formatted messages'
-            test_error_collection_methods = .false.
+            test_error_collection_format_and_clear = .false.
             return
         end if
 
         if (index(formatted, 'Second error') == 0) then
             print *, '  FAIL: second error not in formatted messages'
-            test_error_collection_methods = .false.
+            test_error_collection_format_and_clear = .false.
             return
         end if
 
@@ -256,17 +272,17 @@ contains
 
         if (errors%has_errors()) then
             print *, '  FAIL: collection not cleared'
-            test_error_collection_methods = .false.
+            test_error_collection_format_and_clear = .false.
             return
         end if
 
         if (errors%count /= 0) then
             print *, '  FAIL: count not reset after clear'
-            test_error_collection_methods = .false.
+            test_error_collection_format_and_clear = .false.
             return
         end if
 
-        print *, '  PASS: Error collection methods'
-    end function test_error_collection_methods
+        print *, '  PASS: Error collection formatting and clear'
+    end function test_error_collection_format_and_clear
 
 end program test_error_api
