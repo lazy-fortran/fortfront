@@ -156,19 +156,18 @@ contains
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (error_msg /= "") then
-            print *, "  XFAIL: abstract keyword on interface blocks not yet" // &
-                " supported (parser limitation)"
-            passed = .true.
+            print *, "  ERROR: Parsing failed: ", trim(error_msg)
+            passed = .false.
         else if (.not. allocated(output)) then
             print *, "  ERROR: No output generated"
             passed = .false.
         else
-            if (index(output, "interface") == 0) then
-                print *, "  XFAIL: abstract keyword on interface blocks not yet" // &
-                    " supported (parser limitation)"
-                passed = .true.
+            if (index(output, "abstract interface") == 0) then
+                print *, "  ERROR: abstract keyword missing from output"
+                passed = .false.
             else
                 print *, "  PASS: Abstract interface block"
+                passed = .true.
             end if
         end if
     end function test_abstract_interface
