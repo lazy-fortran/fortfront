@@ -359,30 +359,24 @@ contains
         end block
     end subroutine finalize_binding_storage
 
-    function parse_type_bound_procedure(parser, arena) result(binding_index)
+    logical function read_binding_keyword(parser, line, column, is_generic, &
+                                          is_final) result(found_keyword)
         type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: binding_index
+        integer, intent(out) :: line
+        integer, intent(out) :: column
+        logical, intent(inout) :: is_generic
+        logical, intent(inout) :: is_final
         type(token_t) :: token
-        character(len=:), allocatable :: keyword, binding_name, implementation
-        logical :: is_generic, is_final, is_deferred, pass_arg
-        integer :: line, column
+        character(len=:), allocatable :: keyword
 
-        binding_index = 0
-        is_generic = .false.
-        is_final = .false.
-        is_deferred = .false.
-        pass_arg = .true.
+        call skip_component_trivia(parser)
+        found_keyword = .false.
+        line = 0
+        column = 0
 
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                token%kind == TK_COMMENT) then
-                token = parser%consume()
-            else
-                exit
-            end if
-        end do
+        if (parser%is_at_end()) then
+            return
+        end if
 
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
@@ -390,7 +384,8 @@ contains
         end if
 
         keyword = to_lower(trim(token%text))
-        if (keyword /= "procedure" .and. keyword /= "generic" .and. keyword /= "final") then
+        if (keyword /= "procedure" .and. keyword /= "generic" .and. &
+            keyword /= "final") then
             return
         end if
 
@@ -398,91 +393,156 @@ contains
         line = token%line
         column = token%column
 
-        if (keyword == "generic") then
-            is_generic = .true.
-        else if (keyword == "final") then
-            is_final = .true.
-        end if
+        is_generic = keyword == "generic"
+        is_final = keyword == "final"
+        found_keyword = .true.
+    end function read_binding_keyword
+
+    logical function consume_binding_prefix(parser, is_deferred, pass_arg, &
+                                            accessibility) result(found_prefix)
+        type(parser_state_t), intent(inout) :: parser
+        logical, intent(inout) :: is_deferred
+        logical, intent(inout) :: pass_arg
+        character(len=:), allocatable, intent(inout) :: accessibility
+        type(token_t) :: token
+        character(len=:), allocatable :: attr
+
+        found_prefix = .false.
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "::") then
-                token = parser%consume()
-                exit
+            if (token%kind == TK_OPERATOR) then
+                select case (token%text)
+                case ("::")
+                    token = parser%consume()
+                    found_prefix = .true.
+                    exit
+                case (",", "(", ")", "=>")
+                    token = parser%consume()
+                case default
+                    token = parser%consume()
+                end select
             else if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
                      token%kind == TK_COMMENT) then
                 token = parser%consume()
-            else if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()
             else if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                attr = to_lower(trim(token%text))
+                if (attr == "deferred") then
+                    is_deferred = .true.
+                else if (attr == "nopass") then
+                    pass_arg = .false.
+                else if (attr == "public" .or. attr == "private") then
+                    accessibility = attr
+                end if
                 token = parser%consume()
             else
                 token = parser%consume()
             end if
         end do
+    end function consume_binding_prefix
 
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                token%kind == TK_COMMENT) then
-                token = parser%consume()
-            else
-                exit
-            end if
-        end do
+    logical function read_binding_name(parser, binding_name) result(found_name)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: binding_name
+        type(token_t) :: token
+
+        call skip_component_trivia(parser)
+        found_name = .false.
+
+        if (parser%is_at_end()) then
+            return
+        end if
+
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) then
+            return
+        end if
+
+        token = parser%consume()
+        binding_name = trim(token%text)
+        found_name = .true.
+    end function read_binding_name
+
+    subroutine read_binding_target(parser, implementation)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: implementation
+        type(token_t) :: token
+
+        call skip_component_trivia(parser)
+
+        if (parser%is_at_end()) then
+            return
+        end if
+
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "=>")) then
+            return
+        end if
+
+        token = parser%consume()
+        call skip_component_trivia(parser)
+
+        if (parser%is_at_end()) then
+            return
+        end if
 
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
-            binding_name = trim(token%text)
-        else
-            return
+            implementation = trim(token%text)
         end if
+    end subroutine read_binding_target
 
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                token%kind == TK_COMMENT) then
-                token = parser%consume()
+    function parse_type_bound_procedure(parser, arena) result(binding_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: binding_index
+        character(len=:), allocatable :: binding_name
+        character(len=:), allocatable :: implementation
+        character(len=:), allocatable :: accessibility
+        logical :: is_generic
+        logical :: is_final
+        logical :: is_deferred
+        logical :: pass_arg
+        integer :: line
+        integer :: column
+        binding_index = 0
+        is_generic = .false.
+        is_final = .false.
+        is_deferred = .false.
+        pass_arg = .true.
+
+        if (.not. read_binding_keyword(parser, line, column, is_generic, &
+                                       is_final)) return
+        if (.not. consume_binding_prefix(parser, is_deferred, pass_arg, &
+                                         accessibility)) return
+        if (.not. read_binding_name(parser, binding_name)) return
+        call read_binding_target(parser, implementation)
+        if (allocated(accessibility)) then
+            if (allocated(implementation)) then
+                binding_index = push_type_binding( &
+                                arena, binding_name, implementation=implementation, &
+                                is_generic=is_generic, is_final=is_final, &
+                                is_deferred=is_deferred, pass_arg=pass_arg, &
+                                accessibility=accessibility, line=line, column=column)
             else
-                exit
+                binding_index = push_type_binding( &
+                                arena, binding_name, is_generic=is_generic, &
+                                is_final=is_final, is_deferred=is_deferred, &
+                                pass_arg=pass_arg, accessibility=accessibility, &
+                                line=line, column=column)
             end if
-        end do
-
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "=>") then
-            token = parser%consume()
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                    token%kind == TK_COMMENT) then
-                    token = parser%consume()
-                else
-                    exit
-                end if
-            end do
-            token = parser%peek()
-            if (token%kind == TK_IDENTIFIER) then
-                token = parser%consume()
-                implementation = trim(token%text)
-            end if
-        end if
-
-        if (allocated(implementation)) then
-            binding_index = push_type_binding(arena, binding_name, &
-                                              implementation=implementation, &
-                                              is_generic=is_generic, &
-                                              is_final=is_final, &
-                                              is_deferred=is_deferred, &
-                                              pass_arg=pass_arg, &
-                                              line=line, column=column)
+        else if (allocated(implementation)) then
+            binding_index = push_type_binding( &
+                            arena, binding_name, implementation=implementation, &
+                            is_generic=is_generic, is_final=is_final, &
+                            is_deferred=is_deferred, pass_arg=pass_arg, &
+                            line=line, column=column)
         else
-            binding_index = push_type_binding(arena, binding_name, &
-                                              is_generic=is_generic, &
-                                              is_final=is_final, &
-                                              is_deferred=is_deferred, &
-                                              pass_arg=pass_arg, &
-                                              line=line, column=column)
+            binding_index = push_type_binding( &
+                        arena, binding_name, is_generic=is_generic, is_final=is_final, &
+                            is_deferred=is_deferred, pass_arg=pass_arg, &
+                            line=line, column=column)
         end if
     end function parse_type_bound_procedure
 
@@ -521,17 +581,17 @@ contains
             if (has_header_attrs) then
                 type_index = push_derived_type( &
                     arena, type_name, [integer ::], &
-                    attribute_clause=header_attributes, &
-                    binding_indices=binding_indices)
+                                       attribute_clause=header_attributes, &
+                                       binding_indices=binding_indices)
             else
                 type_index = push_derived_type(arena, type_name, [integer ::], &
-                                               binding_indices=binding_indices)
+                                                        binding_indices=binding_indices)
             end if
         else
             if (has_header_attrs) then
                 type_index = push_derived_type( &
                     arena, type_name, [integer ::], &
-                    attribute_clause=header_attributes)
+                                       attribute_clause=header_attributes)
             else
                 type_index = push_derived_type(arena, type_name, [integer ::])
             end if
