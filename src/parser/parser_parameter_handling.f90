@@ -13,12 +13,14 @@ module parser_parameter_handling_module
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_utilities, only: consume_token
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
     type :: parameter_type_info_t
         character(len=:), allocatable :: type_name
         integer :: kind_value = 0
+        character(len=:), allocatable :: character_length_expr
         integer :: intent_value = INTENT_NONE
         logical :: is_optional = .false.
         integer :: line = 0
@@ -194,7 +196,7 @@ contains
         end if
 
         call consume_token(parser)
-        if (info%type_name == "type" .or. info%type_name == "class") then
+        if (to_lower(info%type_name) == "type" .or. to_lower(info%type_name) == "class") then
             type_expr = ""
             paren_count = 1
             do while (.not. parser%is_at_end() .and. paren_count > 0)
@@ -212,6 +214,26 @@ contains
                     call consume_token(parser)
                 end if
             end do
+            info%type_name = info%type_name // "(" // type_expr // ")"
+        else if (to_lower(info%type_name) == "character") then
+            type_expr = ""
+            paren_count = 1
+            do while (.not. parser%is_at_end() .and. paren_count > 0)
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    paren_count = paren_count + 1
+                    type_expr = type_expr // token%text
+                    call consume_token(parser)
+                else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    paren_count = paren_count - 1
+                    if (paren_count > 0) type_expr = type_expr // token%text
+                    call consume_token(parser)
+                else
+                    type_expr = type_expr // token%text
+                    call consume_token(parser)
+                end if
+            end do
+            info%character_length_expr = type_expr
             info%type_name = info%type_name // "(" // type_expr // ")"
         else
             token = parser%peek()
@@ -399,7 +421,8 @@ contains
                                                      info%intent_value, &
                                                      info%is_optional, dim_indices, &
                                                      line=info%line, &
-                                                     column=info%column)
+                                                     column=info%column, &
+                                                     character_length_expr=info%character_length_expr)
         else
             param_index = push_parameter_declaration(arena, name=param_name, &
                                                      type_name=info%type_name, &
@@ -407,7 +430,8 @@ contains
                                                      intent_value=info%intent_value, &
                                                      is_optional=info%is_optional, &
                                                      line=info%line, &
-                                                     column=info%column)
+                                                     column=info%column, &
+                                                     character_length_expr=info%character_length_expr)
         end if
     end function parse_single_parameter
 

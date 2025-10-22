@@ -1244,11 +1244,13 @@ contains
     end function normalize_character_type
 
     ! Simpler normalization helper for parameter declarations (no inference data)
-    function normalize_character_type_param(raw_type, has_kind, kind_value) &
+    function normalize_character_type_param(raw_type, has_kind, kind_value, &
+                                            character_length_expr) &
         result(type_str)
         character(len=*), intent(in) :: raw_type
         logical, intent(in) :: has_kind
         integer, intent(in) :: kind_value
+        character(len=*), intent(in), optional :: character_length_expr
         character(len=:), allocatable :: type_str
         character(len=:), allocatable :: trimmed
         character(len=:), allocatable :: length_spec
@@ -1258,6 +1260,13 @@ contains
         call preprocess_character_type(raw_type, trimmed, has_length, &
                                        length_spec, needs_post_process, type_str)
         if (.not. needs_post_process) return
+
+        if (present(character_length_expr)) then
+            if (len_trim(character_length_expr) > 0) then
+                has_length = .true.
+                length_spec = character_length_expr
+            end if
+        end if
 
         call ensure_character_length_from_kind(has_kind, kind_value, has_length, &
                                                length_spec)

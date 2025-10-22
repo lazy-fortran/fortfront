@@ -333,10 +333,18 @@ contains
             if (token%kind == TK_NUMBER) then
                 read (token%text, *) type_spec%kind_value
                 type_spec%has_kind = .true.
+                type_spec%character_length_expr = trim(token%text)
+                type_spec%has_character_length = .true.
                 token = parser%consume()
             else if (token%text == "*") then
                 type_spec%has_kind = .true.
                 type_spec%kind_value = -1
+                type_spec%character_length_expr = "*"
+                type_spec%has_character_length = .true.
+                token = parser%consume()
+            else if (token%kind == TK_IDENTIFIER) then
+                type_spec%character_length_expr = trim(token%text)
+                type_spec%has_character_length = .true.
                 token = parser%consume()
             else
                 token = parser%consume()
