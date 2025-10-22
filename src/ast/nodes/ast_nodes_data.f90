@@ -130,6 +130,7 @@ module ast_nodes_data
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
         character(len=:), allocatable :: name  ! Type name
+        character(len=:), allocatable :: extends_parent  ! Parent type name (F2003)
         character(len=:), allocatable :: attribute_clause  ! Header attributes
         logical :: has_attributes = .false.  ! Whether header has attributes
         integer, allocatable :: component_indices(:)  ! Component indices (stack-based)
@@ -412,6 +413,12 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
+        ! Handle extends_parent field
+        if (allocated(rhs%extends_parent)) then
+            lhs%extends_parent = rhs%extends_parent
+        else if (allocated(lhs%extends_parent)) then
+            deallocate (lhs%extends_parent)
+        end if
         ! Handle attribute clause
         if (allocated(rhs%attribute_clause)) then
             lhs%attribute_clause = rhs%attribute_clause
@@ -544,15 +551,18 @@ contains
     end function create_declaration
 
     function create_derived_type(name, component_indices, param_indices, &
-                                 line, column) result(node)
+                                 extends_parent, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
         integer, intent(in), optional :: param_indices(:)
+        character(len=*), intent(in), optional :: extends_parent
         integer, intent(in), optional :: line, column
         type(derived_type_node) :: node
 
         node%uid = generate_uid()
         node%name = name
+
+        if (present(extends_parent)) node%extends_parent = extends_parent
 
         if (present(component_indices)) then
             if (size(component_indices) > 0) then
