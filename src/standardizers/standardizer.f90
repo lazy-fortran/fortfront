@@ -15,6 +15,7 @@ module standardizer
 
     use standardizer_core, only: &
         standardize_ast, &
+        standardize_multi_unit_children, &
         set_standardizer_type_standardization, &
         get_standardizer_type_standardization
 
@@ -87,6 +88,7 @@ module standardizer
     public :: &
         ! Core functionality
         standardize_ast, &
+        standardize_multi_unit_children, &
         set_standardizer_type_standardization, &
         get_standardizer_type_standardization, &
         string_result_t, &

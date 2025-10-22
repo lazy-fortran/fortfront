@@ -23,7 +23,8 @@ module frontend_core
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
-                            get_standardizer_type_standardization
+                            get_standardizer_type_standardization, &
+                            standardize_multi_unit_children
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
@@ -121,6 +122,7 @@ contains
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call compiler_arena%next_phase("standardization")
+        call standardize_multi_unit_children(compiler_arena%ast, prog_index)
         call standardize_ast(compiler_arena%ast, prog_index)
 
         ! Phase 5: Standard Fortran Code Generation
