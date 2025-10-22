@@ -215,6 +215,68 @@ contains
                                         start_token%column, syntax_style="modern")
     end function parse_modern_array_literal
 
+    function parse_nested_implied_do(parser, arena, helpers) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_parse_helpers_t), intent(in) :: helpers
+        integer :: expr_index
+        type(token_t) :: current
+        integer :: expr_elem_index
+        character(len=:), allocatable :: var_name
+        integer :: start_index, end_index, step_index
+        integer, allocatable :: body_indices(:)
+
+        expr_index = 0
+
+        current = parser%peek()
+        if (current%text /= "(") return
+        current = parser%consume()
+
+        expr_elem_index = helpers%parse_comparison(parser, arena)
+        if (expr_elem_index <= 0) return
+
+        current = parser%peek()
+        if (current%text /= ",") return
+        current = parser%consume()
+
+        current = parser%peek()
+        if (current%kind /= TK_IDENTIFIER) return
+        var_name = current%text
+        current = parser%consume()
+
+        current = parser%peek()
+        if (current%text /= "=") return
+        current = parser%consume()
+
+        start_index = helpers%parse_comparison(parser, arena)
+        if (start_index <= 0) return
+
+        current = parser%peek()
+        if (current%text /= ",") return
+        current = parser%consume()
+
+        end_index = helpers%parse_comparison(parser, arena)
+        if (end_index <= 0) return
+
+        step_index = 0
+        current = parser%peek()
+        if (current%text == ",") then
+            current = parser%consume()
+            step_index = helpers%parse_comparison(parser, arena)
+            if (step_index <= 0) return
+        end if
+
+        current = parser%peek()
+        if (current%text /= ")") return
+        current = parser%consume()
+
+        allocate (body_indices(1))
+        body_indices(1) = expr_elem_index
+
+        expr_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                  step_index, body_indices, "", 0, 0)
+    end function parse_nested_implied_do
+
     logical function parse_implied_do_header(parser, arena, expr_elem_index, &
                                              var_name, start_index, end_index, &
                                              step_index, helpers) result(success)
@@ -227,12 +289,25 @@ contains
         integer, intent(out) :: step_index
         type(array_parse_helpers_t), intent(in) :: helpers
         type(token_t) :: current
+        type(token_t) :: peek_ahead
+        integer :: saved_pos
 
         success = .false.
         if (.not. associated(helpers%parse_comparison)) return
 
         current = parser%consume()
-        expr_elem_index = helpers%parse_comparison(parser, arena)
+
+        peek_ahead = parser%peek()
+        if (peek_ahead%text == "(") then
+            saved_pos = parser%current_token
+            expr_elem_index = parse_nested_implied_do(parser, arena, helpers)
+            if (expr_elem_index <= 0) then
+                parser%current_token = saved_pos
+                expr_elem_index = helpers%parse_comparison(parser, arena)
+            end if
+        else
+            expr_elem_index = helpers%parse_comparison(parser, arena)
+        end if
 
         current = parser%peek()
         if (current%text /= ",") return
