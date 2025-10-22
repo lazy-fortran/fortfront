@@ -111,7 +111,9 @@ contains
         type(declaration_node), intent(in) :: node
         character(len=:), allocatable :: type_str
 
-        if (node%inferred_type%alloc_info%needs_allocatable_string) then
+        if (node%has_character_length) then
+            type_str = "character(len=" // trim(node%character_length_expr) // ")"
+        else if (node%inferred_type%alloc_info%needs_allocatable_string) then
             type_str = "character(len=:)"
         else if (node%inferred_type%size > 0) then
             type_str = "character(len=" // &
@@ -331,8 +333,12 @@ contains
         type_code = node%type_name
 
         if (is_character_type_string(type_code)) then
-            type_code = normalize_character_type_param(type_code, node%has_kind, &
-                                                       node%kind_value)
+            if (node%has_character_length) then
+                type_code = "character(len=" // trim(node%character_length_expr) // ")"
+            else
+                type_code = normalize_character_type_param(type_code, node%has_kind, &
+                                                           node%kind_value)
+            end if
             return
         end if
 

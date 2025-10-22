@@ -191,12 +191,14 @@ contains
                               dimension_indices, initializer_index, &
                               is_allocatable, is_pointer, is_target, &
                               is_external, intent_value, is_optional, &
-                              is_parameter, is_save, line, column, parent_index) &
+                              is_parameter, is_save, line, column, parent_index, &
+                              character_length_expr) &
         result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: names(:)
         integer, intent(in), optional :: kind_value
+        character(len=*), intent(in), optional :: character_length_expr
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
@@ -222,6 +224,13 @@ contains
             decl%is_multi_declaration = .false.
         end if
 
+        if (present(character_length_expr)) then
+            if (len_trim(character_length_expr) > 0) then
+                decl%character_length_expr = character_length_expr
+                decl%has_character_length = .true.
+            end if
+        end if
+
         call initialize_declaration_details(decl, kind_value=kind_value, &
                                             dimension_indices=dimension_indices, &
                                             initializer_index=initializer_index, &
@@ -243,13 +252,14 @@ contains
     function push_parameter_declaration(arena, name, type_name, kind_value, &
                                         intent_value, is_optional, dimension_indices, &
                                         line, column, &
-                                        parent_index) result(param_index)
+                                        parent_index, character_length_expr) result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value
         logical, intent(in), optional :: is_optional
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: character_length_expr
         integer :: param_index
         type(parameter_declaration_node) :: param
 
@@ -264,6 +274,13 @@ contains
             end if
         else
             param%kind_value = 0
+        end if
+
+        if (present(character_length_expr)) then
+            if (len_trim(character_length_expr) > 0) then
+                param%character_length_expr = character_length_expr
+                param%has_character_length = .true.
+            end if
         end if
 
         if (present(intent_value)) then
