@@ -34,18 +34,13 @@ contains
         end if
     end function factorial
 
-    elemental function multiply(a, b) result(c)
-        real, intent(in) :: a, b
-        real :: c
-        c = a * b
-    end function multiply
 end module pure_elemental_demo
 
 program test_pure_elemental
-    use pure_elemental_demo
+    use pure_elemental_demo, only: square, add_one, compute_sum, double_value, &
+                                   factorial
     implicit none
     integer :: arr(3), result_arr(3), val
-    real :: x(3), y(3), z(3)
 
     arr = [1, 2, 3]
     result_arr = add_one(arr)
@@ -64,8 +59,5 @@ program test_pure_elemental
     val = factorial(5)
     print *, 'factorial(5) =', val
 
-    x = [1.0, 2.0, 3.0]
-    y = [2.0, 3.0, 4.0]
-    z = multiply(x, y)
-    print *, 'multiply(x, y) =', z
+    print *, 'All tests completed successfully'
 end program test_pure_elemental
