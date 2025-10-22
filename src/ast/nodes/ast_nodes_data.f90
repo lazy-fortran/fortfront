@@ -394,6 +394,19 @@ contains
         lhs%constant_type = rhs%constant_type
         if (allocated(rhs%binding_name)) lhs%binding_name = rhs%binding_name
         if (allocated(rhs%implementation)) lhs%implementation = rhs%implementation
+        if (allocated(rhs%generic_list)) then
+            if (allocated(lhs%generic_list)) then
+                if (size(lhs%generic_list) /= size(rhs%generic_list)) then
+                    deallocate (lhs%generic_list)
+                    allocate (lhs%generic_list(size(rhs%generic_list)))
+                end if
+            else
+                allocate (lhs%generic_list(size(rhs%generic_list)))
+            end if
+            lhs%generic_list = rhs%generic_list
+        else if (allocated(lhs%generic_list)) then
+            deallocate (lhs%generic_list)
+        end if
         lhs%is_generic = rhs%is_generic
         lhs%is_final = rhs%is_final
         lhs%is_deferred = rhs%is_deferred

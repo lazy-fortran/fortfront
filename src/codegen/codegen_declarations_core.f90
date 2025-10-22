@@ -505,7 +505,7 @@ contains
         end do
     end function fix_character_len_placeholder
 
-    function join_string_array(str_array) result(joined)
+    pure function join_string_array(str_array) result(joined)
         use string_types, only: string_t
         type(string_t), intent(in) :: str_array(:)
         character(len=:), allocatable :: joined
