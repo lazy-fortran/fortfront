@@ -560,7 +560,7 @@ contains
                                         if (node%is_target) then
                                             code = code // ", target"
                                         else if &
-                                           (param_map(first_param_idx)%is_target) then
+                                            (param_map(first_param_idx)%is_target) then
                                             code = code // ", target"
                                         end if
 
@@ -975,7 +975,7 @@ contains
                 var_list = ""
                 do k = 1, group_count
                     if (k > 1) var_list = var_list // ", "
-                    var_list = var_list // grouped_names(k)
+                    var_list = var_list // trim(grouped_names(k))
                 end do
 
                 ! Generate grouped declaration
