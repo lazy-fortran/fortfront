@@ -513,6 +513,74 @@ contains
         end if
     end subroutine read_binding_target
 
+    subroutine read_generic_target_list(parser, generic_list, count)
+        use string_types, only: string_t
+        type(parser_state_t), intent(inout) :: parser
+        type(string_t), allocatable, intent(out) :: generic_list(:)
+        integer, intent(out) :: count
+        type(token_t) :: token
+        type(string_t), allocatable :: temp_list(:)
+        type(string_t), allocatable :: old_list(:)
+        integer :: capacity
+
+        count = 0
+        capacity = 4
+        allocate (temp_list(capacity))
+
+        call skip_component_trivia(parser)
+
+        if (parser%is_at_end()) then
+            return
+        end if
+
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "=>")) then
+            return
+        end if
+
+        token = parser%consume()
+        call skip_component_trivia(parser)
+
+        do
+            if (parser%is_at_end()) exit
+
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER) then
+                token = parser%consume()
+                count = count + 1
+                if (count > capacity) then
+                    capacity = capacity * 2
+                    allocate (old_list(count - 1))
+                    old_list = temp_list(1:count - 1)
+                    deallocate (temp_list)
+                    allocate (temp_list(capacity))
+                    temp_list(1:count - 1) = old_list
+                    deallocate (old_list)
+                end if
+                temp_list(count)%s = trim(token%text)
+            else
+                exit
+            end if
+
+            call skip_component_trivia(parser)
+            if (parser%is_at_end()) exit
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+                call skip_component_trivia(parser)
+            else
+                exit
+            end if
+        end do
+
+        if (count > 0) then
+            allocate (generic_list(count))
+            generic_list = temp_list(1:count)
+        end if
+        deallocate (temp_list)
+    end subroutine read_generic_target_list
+
     subroutine read_interface_name(parser, interface_name)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: interface_name
@@ -544,6 +612,7 @@ contains
     end subroutine read_interface_name
 
     function parse_type_bound_procedure(parser, arena) result(binding_index)
+        use string_types, only: string_t
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: binding_index
@@ -551,6 +620,8 @@ contains
         character(len=:), allocatable :: implementation
         character(len=:), allocatable :: interface_name
         character(len=:), allocatable :: accessibility
+        type(string_t), allocatable :: generic_list(:)
+        integer :: generic_count
         logical :: is_generic
         logical :: is_final
         logical :: is_deferred
@@ -562,6 +633,7 @@ contains
         is_final = .false.
         is_deferred = .false.
         pass_arg = .true.
+        generic_count = 0
 
         if (.not. read_binding_keyword(parser, line, column, is_generic, &
                                        is_final)) return
@@ -569,8 +641,50 @@ contains
         if (.not. consume_binding_prefix(parser, is_deferred, pass_arg, &
                                          accessibility)) return
         if (.not. read_binding_name(parser, binding_name)) return
-        call read_binding_target(parser, implementation)
-        if (allocated(accessibility)) then
+        if (is_generic) then
+            call read_generic_target_list(parser, generic_list, generic_count)
+        else
+            call read_binding_target(parser, implementation)
+        end if
+        if (is_generic .and. generic_count > 0) then
+            if (allocated(accessibility)) then
+                if (allocated(interface_name)) then
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    interface_name=interface_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    generic_list=generic_list, &
+                                    line=line, column=column)
+                else
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    accessibility=accessibility, &
+                                    generic_list=generic_list, &
+                                    line=line, column=column)
+                end if
+            else
+                if (allocated(interface_name)) then
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    interface_name=interface_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    generic_list=generic_list, &
+                                    line=line, column=column)
+                else
+                    binding_index = push_type_binding( &
+                                    arena, binding_name, &
+                                    is_generic=is_generic, is_final=is_final, &
+                                    is_deferred=is_deferred, pass_arg=pass_arg, &
+                                    generic_list=generic_list, &
+                                    line=line, column=column)
+                end if
+            end if
+        else if (allocated(accessibility)) then
             if (allocated(implementation)) then
                 if (allocated(interface_name)) then
                     binding_index = push_type_binding( &
