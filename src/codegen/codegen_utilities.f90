@@ -873,7 +873,98 @@ contains
                                                  indent)
         end if
 
+        call move_imports_before_declarations(code)
+
         deallocate (filtered_indices)
+    contains
+
+        subroutine move_imports_before_declarations(text)
+            character(len=:), allocatable, intent(inout) :: text
+            character(len=:), allocatable :: lines(:)
+            character(len=:), allocatable :: imports(:)
+            character(len=:), allocatable :: others(:)
+            character(len=:), allocatable :: reordered(:)
+            character(len=:), allocatable :: trimmed
+            integer :: len_text, total_lines, idx_line
+            integer :: start_pos, line_idx
+            integer :: import_count, other_count
+            logical :: has_trailing_newline
+            character(len=1) :: nl
+
+            nl = new_line('A')
+            if (.not. allocated(text)) return
+            len_text = len(text)
+            if (len_text == 0) return
+
+            has_trailing_newline = (text(len_text:len_text) == nl)
+
+            total_lines = 0
+            do idx_line = 1, len_text
+                if (text(idx_line:idx_line) == nl) total_lines = total_lines + 1
+            end do
+            if (text(len_text:len_text) /= nl) total_lines = total_lines + 1
+            if (total_lines == 0) return
+
+            allocate (character(len=0) :: lines(total_lines))
+            start_pos = 1
+            line_idx = 0
+            do idx_line = 1, len_text
+                if (text(idx_line:idx_line) == nl) then
+                    line_idx = line_idx + 1
+                    if (idx_line > start_pos) then
+                        lines(line_idx) = text(start_pos:idx_line - 1)
+                    else
+                        lines(line_idx) = ""
+                    end if
+                    start_pos = idx_line + 1
+                end if
+            end do
+            if (start_pos <= len_text) then
+                line_idx = line_idx + 1
+                lines(line_idx) = text(start_pos:len_text)
+            end if
+
+            import_count = 0
+            other_count = 0
+            allocate (character(len=0) :: imports(total_lines))
+            allocate (character(len=0) :: others(total_lines))
+
+            do line_idx = 1, total_lines
+                trimmed = adjustl(lines(line_idx))
+                if (len_trim(trimmed) == 0) then
+                    other_count = other_count + 1
+                    others(other_count) = lines(line_idx)
+                else
+                    trimmed = to_lower(trim(trimmed))
+                    if (len_trim(trimmed) >= 6) then
+                        if (trimmed(1:6) == "import") then
+                            import_count = import_count + 1
+                            imports(import_count) = lines(line_idx)
+                            cycle
+                        end if
+                    end if
+                    other_count = other_count + 1
+                    others(other_count) = lines(line_idx)
+                end if
+            end do
+
+            if (import_count == 0) return
+
+            allocate (character(len=0) :: reordered(import_count + other_count))
+            do line_idx = 1, import_count
+                reordered(line_idx) = imports(line_idx)
+            end do
+            do line_idx = 1, other_count
+                reordered(import_count + line_idx) = others(line_idx)
+            end do
+
+            text = ""
+            do line_idx = 1, import_count + other_count
+                text = text // reordered(line_idx)
+                if (line_idx < import_count + other_count) text = text // nl
+            end do
+            if (has_trailing_newline) text = text // nl
+        end subroutine move_imports_before_declarations
     end function generate_grouped_body_with_params
 
     ! Generate grouped body with context about executable statements
