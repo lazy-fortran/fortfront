@@ -81,13 +81,55 @@ contains
         end if
     end subroutine parse_type_name_and_parameters
 
+    subroutine parse_type_attributes(parser, extends_parent)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: extends_parent
+        type(token_t) :: token
+
+        do
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "::") then
+                exit
+            end if
+
+            if (token%kind == TK_IDENTIFIER) then
+                token = parser%consume()
+                ! Check for EXTENDS attribute
+                if (token%text == "EXTENDS" .or. token%text == "extends") then
+                    ! Expect (ParentType)
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                        token = parser%consume()  ! consume '('
+                        token = parser%peek()
+                        if (token%kind == TK_IDENTIFIER) then
+                            token = parser%consume()
+                            extends_parent = token%text
+                        end if
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                            token = parser%consume()  ! consume ')'
+                        end if
+                    end if
+                end if
+            end if
+
+            ! Check for comma between attributes
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()  ! consume ','
+            else if (token%kind /= TK_OPERATOR .or. token%text /= "::") then
+                exit
+            end if
+        end do
+    end subroutine parse_type_attributes
+
     function parse_derived_type(parser, arena) result(type_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: type_index
 
         type(token_t) :: token
-        character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: type_name, extends_parent
         integer :: line, column
         logical :: has_parameters
         integer, allocatable :: param_indices(:)
@@ -98,29 +140,45 @@ contains
         column = token%column
         has_parameters = .false.
 
-        ! Check for :: or just get type name
+        ! Check for comma indicating attributes
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+            token = parser%consume()  ! consume ','
+            ! Parse attributes until ::
+            call parse_type_attributes(parser, extends_parent)
+        end if
+
+        ! Check for ::
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "::") then
-            ! Consume ::
-            token = parser%consume()
-            ! Get type name and parameters
-            call parse_type_name_and_parameters(parser, arena, type_name, &
-                                                has_parameters, param_indices)
-        else if (token%kind == TK_IDENTIFIER) then
-            ! Direct type name
-            call parse_type_name_and_parameters(parser, arena, type_name, &
-                                                has_parameters, param_indices)
-        else
-            type_name = "unnamed_type"
+            token = parser%consume()  ! consume '::'
         end if
+
+        ! Get type name and parameters
+        call parse_type_name_and_parameters(parser, arena, type_name, &
+                                            has_parameters, param_indices)
 
         ! Create derived type node
         if (has_parameters .and. allocated(param_indices)) then
-            type_index = push_derived_type(arena, type_name, &
-                                           param_indices=param_indices, &
-                                           line=line, column=column)
+            if (allocated(extends_parent)) then
+                type_index = push_derived_type(arena, type_name, &
+                                               param_indices=param_indices, &
+                                               extends_parent=extends_parent, &
+                                               line=line, column=column)
+            else
+                type_index = push_derived_type(arena, type_name, &
+                                               param_indices=param_indices, &
+                                               line=line, column=column)
+            end if
         else
-            type_index = push_derived_type(arena, type_name, line=line, column=column)
+            if (allocated(extends_parent)) then
+                type_index = push_derived_type(arena, type_name, &
+                                               extends_parent=extends_parent, &
+                                               line=line, column=column)
+            else
+                type_index = push_derived_type(arena, type_name, &
+                                               line=line, column=column)
+            end if
         end if
     end function parse_derived_type
 
