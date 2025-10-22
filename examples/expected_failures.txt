@@ -2,4 +2,4 @@
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
 
-# No expected failures - all tests passing!
+issue_1664_function_result.f90  # partial fix only - see issue #1664
