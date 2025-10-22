@@ -29,6 +29,8 @@ module parser_statement_callbacks_module
         procedure(parse_without_parent_interface), pointer, nopass :: &
             parse_select_case => null()
         procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_select_type => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
             parse_where => null()
         procedure(parse_without_parent_interface), pointer, nopass :: &
             parse_forall => null()
