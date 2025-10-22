@@ -368,7 +368,7 @@ contains
     ! Create allocate statement node and add to stack
     function push_allocate(arena, var_indices, shape_indices, stat_var_index, &
                            errmsg_var_index, source_expr_index, mold_expr_index, &
-                           line, column, parent_index) result(alloc_index)
+                           line, column, parent_index, type_spec) result(alloc_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: var_indices(:)
         integer, intent(in), optional :: shape_indices(:)
@@ -377,6 +377,7 @@ contains
         integer, intent(in), optional :: source_expr_index
         integer, intent(in), optional :: mold_expr_index
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: type_spec
         integer :: alloc_index
         type(allocate_statement_node) :: alloc_stmt
 
@@ -389,6 +390,12 @@ contains
         if (present(shape_indices)) then
             if (size(shape_indices) > 0) then
                 alloc_stmt%shape_indices = shape_indices
+            end if
+        end if
+
+        if (present(type_spec)) then
+            if (len_trim(type_spec) > 0) then
+                alloc_stmt%type_spec = trim(type_spec)
             end if
         end if
 

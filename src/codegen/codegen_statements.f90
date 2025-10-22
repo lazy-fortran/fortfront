@@ -608,6 +608,11 @@ contains
 
         args = ""
 
+        ! Add type-spec if present
+        if (allocated(node%type_spec)) then
+            args = node%type_spec // " :: "
+        end if
+
         if (allocated(node%var_indices)) then
             do i = 1, size(node%var_indices)
                 if (i > 1) args = args // ", "
