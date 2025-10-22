@@ -2,7 +2,7 @@ program test_issue_1608_class_keyword
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 
     call test_class_in_subroutine_parameter()
@@ -33,6 +33,7 @@ contains
             error stop 1
         end if
 
+        arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") then
             print *, "FAIL: Parser error:", trim(error_msg)
@@ -76,6 +77,7 @@ contains
             error stop 1
         end if
 
+        arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") then
             print *, "FAIL: Parser error:", trim(error_msg)
