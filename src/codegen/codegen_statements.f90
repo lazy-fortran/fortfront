@@ -29,6 +29,7 @@ module codegen_statements
     public :: generate_code_cycle
     public :: generate_code_exit
     public :: generate_code_use_statement
+    public :: generate_code_import_statement
     public :: generate_code_visibility_statement
     public :: generate_code_namelist_statement
     public :: generate_code_implicit_statement
@@ -446,6 +447,36 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_use_statement
+
+    function generate_code_import_statement(node) result(code)
+        type(import_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+
+        code = "import"
+
+        if (node%is_all) then
+            code = code // ", all"
+        else if (node%is_none) then
+            code = code // ", none"
+        else
+            if (node%has_double_colon) then
+                code = code // " ::"
+            end if
+
+            if (node%has_list .and. allocated(node%import_list)) then
+                if (.not. node%has_double_colon .and. size(node%import_list) > 0) then
+                    code = code // " "
+                end if
+                do i = 1, size(node%import_list)
+                    if (.not. allocated(node%import_list(i)%s)) cycle
+                    if (i > 1) code = code // ", "
+                    if (i == 1 .and. node%has_double_colon) code = code // " "
+                    code = code // node%import_list(i)%s
+                end do
+            end if
+        end if
+    end function generate_code_import_statement
 
     function generate_code_visibility_statement(node) result(code)
         type(visibility_statement_node), intent(in) :: node

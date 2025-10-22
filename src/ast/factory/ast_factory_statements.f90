@@ -4,7 +4,7 @@ module ast_factory_statements
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
                               visibility_statement_node, namelist_statement_node, &
-                              include_statement_node, &
+                              include_statement_node, import_statement_node, &
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
@@ -15,7 +15,7 @@ module ast_factory_statements
 
     ! Public statement node creation functions
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
-              push_implicit_statement, push_include_statement
+              push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_continue, push_goto, push_error_stop
     public :: push_cycle, push_exit
@@ -197,6 +197,38 @@ contains
         call arena%push(include_stmt, "include_statement", parent_index)
         include_index = arena%size
     end function push_include_statement
+
+    function push_import_statement(arena, import_list, has_double_colon, is_all, &
+                                   is_none, line, column, parent_index) &
+        result(import_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in), optional :: import_list(:)
+        logical, intent(in), optional :: has_double_colon, is_all, is_none
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: import_index
+        type(import_statement_node) :: import_stmt
+        integer :: i
+
+        import_stmt%uid = generate_uid()
+        if (present(has_double_colon)) import_stmt%has_double_colon = has_double_colon
+        if (present(is_all)) import_stmt%is_all = is_all
+        if (present(is_none)) import_stmt%is_none = is_none
+
+        if (present(import_list)) then
+            if (size(import_list) > 0) then
+                import_stmt%has_list = .true.
+                allocate (import_stmt%import_list(size(import_list)))
+                do i = 1, size(import_list)
+                    import_stmt%import_list(i)%s = import_list(i)
+                end do
+            end if
+        end if
+
+        if (present(line)) import_stmt%line = line
+        if (present(column)) import_stmt%column = column
+        call arena%push(import_stmt, "import_statement", parent_index)
+        import_index = arena%size
+    end function push_import_statement
 
     ! Create end statement node and add to stack
     function push_end_statement(arena, line, column, parent_index) result(end_index)
