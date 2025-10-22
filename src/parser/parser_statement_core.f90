@@ -182,8 +182,21 @@ contains
                     stmt_index = callbacks%parse_do_loop(parser, arena)
                 end if
             case ("select", "selectcase")
-                if (associated(callbacks%parse_select_case)) then
-                    stmt_index = callbacks%parse_select_case(parser, arena)
+                ! Look ahead to distinguish SELECT CASE from SELECT TYPE
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%text == "type") then
+                        if (associated(callbacks%parse_select_type)) then
+                            stmt_index = callbacks%parse_select_type(parser, arena)
+                        end if
+                    else
+                        if (associated(callbacks%parse_select_case)) then
+                            stmt_index = callbacks%parse_select_case(parser, arena)
+                        end if
+                    end if
+                else
+                    if (associated(callbacks%parse_select_case)) then
+                        stmt_index = callbacks%parse_select_case(parser, arena)
+                    end if
                 end if
             case ("where")
                 if (associated(callbacks%parse_where)) then
