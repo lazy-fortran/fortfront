@@ -505,6 +505,21 @@ contains
         end do
     end function fix_character_len_placeholder
 
+    pure function join_string_array(str_array) result(joined)
+        use string_types, only: string_t
+        type(string_t), intent(in) :: str_array(:)
+        character(len=:), allocatable :: joined
+        integer :: i
+
+        joined = ""
+        do i = 1, size(str_array)
+            if (i > 1) then
+                joined = joined // ", "
+            end if
+            joined = joined // trim(str_array(i)%s)
+        end do
+    end function join_string_array
+
     function collect_type_bindings(arena, node) result(bindings_block)
         type(ast_arena_t), intent(in) :: arena
         type(derived_type_node), intent(in) :: node
@@ -563,7 +578,11 @@ contains
                 code = code // ", " // accessibility_text
             end if
             code = code // " :: " // trim(binding%binding_name)
-            if (allocated(binding%implementation)) then
+            if (allocated(binding%generic_list)) then
+                if (size(binding%generic_list) > 0) then
+                    code = code // " => " // join_string_array(binding%generic_list)
+                end if
+            else if (allocated(binding%implementation)) then
                 if (len_trim(binding%implementation) > 0) then
                     code = code // " => " // trim(binding%implementation)
                 end if
