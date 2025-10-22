@@ -536,10 +536,40 @@ contains
     ! Generate code for implicit statements
     function generate_code_implicit_statement(node) result(code)
         type(implicit_statement_node), intent(in) :: node
-        character(len=:), allocatable :: code
+        character(len=:), allocatable :: code, type_part, letter_part
+        integer :: i
 
-        ! Generate implicit statement code
-        code = "implicit none"  ! Standard implicit none statement
+        if (node%is_none) then
+            code = "implicit none"
+        else
+            ! Build type specification
+            if (allocated(node%type_spec%type_name)) then
+                type_part = trim(node%type_spec%type_name)
+            else
+                type_part = "real"
+            end if
+
+            ! Build letter range specification
+            letter_part = ""
+            if (allocated(node%letter_specs)) then
+                do i = 1, size(node%letter_specs)
+                    if (i > 1) letter_part = letter_part // ", "
+                    if (node%letter_specs(i)%start_letter == &
+                        node%letter_specs(i)%end_letter) then
+                        letter_part = letter_part // node%letter_specs(i)%start_letter
+                    else
+                        letter_part = letter_part // node%letter_specs(i)%start_letter &
+                            // "-" // node%letter_specs(i)%end_letter
+                    end if
+                end do
+            end if
+
+            if (len_trim(letter_part) > 0) then
+                code = "implicit " // type_part // " (" // letter_part // ")"
+            else
+                code = "implicit " // type_part
+            end if
+        end if
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_implicit_statement
