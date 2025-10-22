@@ -15,6 +15,7 @@ module ast_nodes_data
 
     ! Public factory functions
     public :: create_declaration, create_derived_type, create_mixed_construct_container
+    public :: create_type_binding
     ! Constructors migrated from ast_core
     public :: create_module, create_block_data
 
@@ -110,6 +111,22 @@ module ast_nodes_data
         generic :: assignment(=) => assign
     end type block_data_node
 
+    ! Type-bound procedure binding node (F2003)
+    type, extends(ast_node), public :: type_binding_node
+        character(len=:), allocatable :: binding_name  ! Name of binding
+        character(len=:), allocatable :: implementation  ! Procedure name
+        logical :: is_generic = .false.  ! Generic binding
+        logical :: is_final = .false.  ! FINAL procedure
+        logical :: is_deferred = .false.  ! DEFERRED (for abstract)
+        logical :: pass_arg = .true.  ! PASS vs NOPASS
+        character(len=:), allocatable :: accessibility  ! PUBLIC/PRIVATE
+    contains
+        procedure :: accept => type_binding_accept
+        procedure :: to_json => type_binding_to_json
+        procedure :: assign => type_binding_assign
+        generic :: assignment(=) => assign
+    end type type_binding_node
+
     ! Derived type node
     type, extends(ast_node), public :: derived_type_node
         character(len=:), allocatable :: name  ! Type name
@@ -118,6 +135,8 @@ module ast_nodes_data
         integer, allocatable :: component_indices(:)  ! Component indices (stack-based)
         logical :: has_parameters = .false.  ! Whether it has parameters
         integer, allocatable :: param_indices(:)  ! Parameter indices (stack-based)
+        logical :: has_contains = .false.  ! Whether type has CONTAINS section
+        integer, allocatable :: binding_indices(:)  ! Type-bound procedure indices
     contains
         procedure :: accept => derived_type_accept
         procedure :: to_json => derived_type_to_json
@@ -331,6 +350,39 @@ contains
         end if
     end subroutine block_data_assign
 
+    ! Stub implementations for type_binding_node
+    subroutine type_binding_accept(this, visitor)
+        class(type_binding_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine type_binding_accept
+
+    subroutine type_binding_to_json(this, json, parent)
+        class(type_binding_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+    end subroutine type_binding_to_json
+
+    subroutine type_binding_assign(lhs, rhs)
+        class(type_binding_node), intent(inout) :: lhs
+        class(type_binding_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%binding_name)) lhs%binding_name = rhs%binding_name
+        if (allocated(rhs%implementation)) lhs%implementation = rhs%implementation
+        lhs%is_generic = rhs%is_generic
+        lhs%is_final = rhs%is_final
+        lhs%is_deferred = rhs%is_deferred
+        lhs%pass_arg = rhs%pass_arg
+        if (allocated(rhs%accessibility)) lhs%accessibility = rhs%accessibility
+    end subroutine type_binding_assign
+
     ! Stub implementations for derived_type_node
     subroutine derived_type_accept(this, visitor)
         class(derived_type_node), intent(in) :: this
@@ -378,6 +430,13 @@ contains
         ! Handle param_indices array
         if (allocated(rhs%param_indices)) then
             lhs%param_indices = rhs%param_indices
+        end if
+
+        lhs%has_contains = rhs%has_contains
+
+        ! Handle binding_indices array
+        if (allocated(rhs%binding_indices)) then
+            lhs%binding_indices = rhs%binding_indices
         end if
     end subroutine derived_type_assign
 
@@ -510,6 +569,32 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_derived_type
+
+    function create_type_binding(binding_name, implementation, is_generic, &
+                                 is_final, is_deferred, pass_arg, &
+                                 accessibility, line, column) result(node)
+        character(len=*), intent(in) :: binding_name
+        character(len=*), intent(in), optional :: implementation
+        logical, intent(in), optional :: is_generic
+        logical, intent(in), optional :: is_final
+        logical, intent(in), optional :: is_deferred
+        logical, intent(in), optional :: pass_arg
+        character(len=*), intent(in), optional :: accessibility
+        integer, intent(in), optional :: line, column
+        type(type_binding_node) :: node
+
+        node%uid = generate_uid()
+        node%binding_name = binding_name
+
+        if (present(implementation)) node%implementation = implementation
+        if (present(is_generic)) node%is_generic = is_generic
+        if (present(is_final)) node%is_final = is_final
+        if (present(is_deferred)) node%is_deferred = is_deferred
+        if (present(pass_arg)) node%pass_arg = pass_arg
+        if (present(accessibility)) node%accessibility = accessibility
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_type_binding
 
     ! Utility function to convert intent_type to string
     function intent_type_to_string(intent_type) result(intent_str)
