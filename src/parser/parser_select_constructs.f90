@@ -96,8 +96,7 @@ contains
                 sub_token = sub_parser%consume()
                 upper_index = parse_expression_until(sub_parser, arena, [","])
                 if (upper_index <= 0) then
-                    success = .false.
-                    exit
+                    upper_index = 0
                 end if
                 range_index = push_case_range( &
                               arena, lower_index, upper_index, line=case_token%line, &
