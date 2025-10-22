@@ -133,12 +133,13 @@ module parser_memory_statements_module
                 type(ast_arena_t), intent(inout) :: arena
                 integer :: allocate_index
 
-                type(token_t) :: token
+                type(token_t) :: token, lookahead, type_token, param_token
                 integer, allocatable :: var_indices(:)
                 integer, allocatable :: shape_indices(:)
          integer :: stat_var_index, errmsg_var_index, source_expr_index, mold_expr_index
-                integer :: line, column
+                integer :: line, column, saved_pos
                 logical :: in_variable_list
+                character(len=:), allocatable :: type_spec_str
 
                 ! Initialize
                 stat_var_index = 0
@@ -162,16 +163,70 @@ module parser_memory_statements_module
                 if (token%kind == TK_OPERATOR .and. token%text == "(") then
                     token = parser%consume()  ! consume '('
 
+                    ! Check for type-spec: TypeName :: or TypeName(param) ::
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                        ! Save current position
+                        saved_pos = parser%current_token
+                        type_token = parser%consume()
+                        lookahead = parser%peek()
+                        if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
+                            ! TypeName(param) :: pattern
+                            token = parser%consume()
+                            lookahead = parser%peek()
+                            if (lookahead%kind == TK_IDENTIFIER) then
+                                param_token = parser%consume()
+                                token = parser%peek()
+                                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                                    token = parser%consume()
+                                    lookahead = parser%peek()
+                                    if (lookahead%kind == TK_OPERATOR .and. &
+                                        lookahead%text == "::") then
+                                        ! Found type-spec pattern - consume ::
+                                        token = parser%consume()
+                                        type_spec_str = trim(type_token%text) // "(" // &
+                                                       trim(param_token%text) // ")"
+                                    else
+                                        ! Not type-spec, restore position
+                                        parser%current_token = saved_pos
+                                    end if
+                                else
+                                    ! Not type-spec, restore position
+                                    parser%current_token = saved_pos
+                                end if
+                            else
+                                ! Not type-spec, restore position
+                                parser%current_token = saved_pos
+                            end if
+                        else if (lookahead%kind == TK_OPERATOR .and. &
+                                 lookahead%text == "::") then
+                            ! TypeName :: pattern - consume ::
+                            token = parser%consume()
+                            type_spec_str = trim(type_token%text)
+                        else
+                            ! Not type-spec, restore position
+                            parser%current_token = saved_pos
+                        end if
+                    end if
+
                    call parse_parenthesized_list(parser, arena, ")", in_variable_list, &
                                                   process_allocate_item)
                 end if
 
                 ! Create allocate statement node
-                allocate_index = push_allocate(arena, var_indices, shape_indices, &
-                                               stat_var_index, &
-                                               errmsg_var_index, source_expr_index, &
-                                               mold_expr_index, &
-                                               line, column)
+                if (allocated(type_spec_str)) then
+                    allocate_index = push_allocate(arena, var_indices, shape_indices, &
+                                                   stat_var_index, &
+                                                   errmsg_var_index, source_expr_index, &
+                                                   mold_expr_index, &
+                                                   line, column, type_spec=type_spec_str)
+                else
+                    allocate_index = push_allocate(arena, var_indices, shape_indices, &
+                                                   stat_var_index, &
+                                                   errmsg_var_index, source_expr_index, &
+                                                   mold_expr_index, &
+                                                   line, column)
+                end if
             contains
                 subroutine process_allocate_item(local_parser, local_arena, token, &
                                                  in_variable_list)

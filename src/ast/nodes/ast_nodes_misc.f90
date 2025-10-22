@@ -44,6 +44,7 @@ module ast_nodes_misc
         integer, allocatable :: var_indices(:)  ! Variables to allocate
         integer, allocatable :: shape_indices(:)  ! Shape expressions
         ! for each variable
+        character(len=:), allocatable :: type_spec  ! Optional type-spec
         integer :: stat_var_index = 0  ! Optional stat variable index
         integer :: errmsg_var_index = 0  ! Optional errmsg variable index
         integer :: source_expr_index = 0  ! Optional source
@@ -554,6 +555,7 @@ contains
         call json%add(obj, 'type', 'allocate_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
+        if (allocated(this%type_spec)) call json%add(obj, 'type_spec', this%type_spec)
         if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
                                                    this%stat_var_index)
         if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
@@ -580,6 +582,10 @@ contains
             if (allocated(lhs%shape_indices)) deallocate (lhs%shape_indices)
             allocate (lhs%shape_indices(size(rhs%shape_indices)))
             lhs%shape_indices = rhs%shape_indices
+        end if
+        if (allocated(rhs%type_spec)) then
+            if (allocated(lhs%type_spec)) deallocate (lhs%type_spec)
+            lhs%type_spec = rhs%type_spec
         end if
         lhs%stat_var_index = rhs%stat_var_index
         lhs%errmsg_var_index = rhs%errmsg_var_index
