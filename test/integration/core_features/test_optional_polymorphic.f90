@@ -18,16 +18,16 @@ program test_optional_polymorphic
     print *, "=== Optional Polymorphic Arguments Tests ==="
     print *
 
-    allocate(arr1%values(3))
+    allocate (arr1%values(3))
     arr1%values = [1.0d0, 2.0d0, 3.0d0]
     arr1%size = 3
 
-    allocate(arr2%values(2))
+    allocate (arr2%values(2))
     arr2%values = [10.0d0, 20.0d0]
     arr2%size = 2
 
     narr1%name = "test_array"
-    allocate(narr1%values(4))
+    allocate (narr1%values(4))
     narr1%values = [5.0d0, 6.0d0, 7.0d0, 8.0d0]
     narr1%size = 4
 
@@ -136,19 +136,19 @@ contains
         class(array_t), intent(inout) :: this
         integer, intent(in) :: n
         class(array_t), optional, intent(in) :: optional_arg
+        real(dp), allocatable :: new_values(:)
 
         this%size = n
-        if (allocated(this%values)) then
-            deallocate(this%values)
-        end if
-        allocate(this%values(n))
+
+        allocate (new_values(n))
+        new_values = 0.0d0
 
         if (present(optional_arg)) then
-            this%values(1:min(n, optional_arg%size)) = &
+            new_values(1:min(n, optional_arg%size)) = &
                 optional_arg%values(1:min(n, optional_arg%size))
-        else
-            this%values = 0.0d0
         end if
+
+        call move_alloc(new_values, this%values)
     end subroutine array_init_optional
 
     subroutine process_unlimited(output, optional_data)
