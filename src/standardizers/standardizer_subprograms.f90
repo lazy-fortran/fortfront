@@ -87,7 +87,11 @@ contains
 
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
                     matched_multi = .false.
-                    stmt_intent = ""
+                    if (stmt%has_intent .and. allocated(stmt%intent)) then
+                        stmt_intent = stmt%intent
+                    else
+                        stmt_intent = ""
+                    end if
                     do j = 1, size(stmt%var_names)
                         pidx = find_param_index(trim(stmt%var_names(j)))
                         if (pidx > 0) then
@@ -103,7 +107,11 @@ contains
                         arena%entries(current_index)%node = stmt
                     end if
                 else if (is_param_decl) then
-                    stmt_intent = ""
+                    if (stmt%has_intent .and. allocated(stmt%intent)) then
+                        stmt_intent = stmt%intent
+                    else
+                        stmt_intent = ""
+                    end if
                     call record_match(param_idx, stmt, stmt_intent, current_index)
                     call apply_type_standardization(stmt)
                     if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
