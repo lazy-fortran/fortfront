@@ -37,7 +37,7 @@ auto-tests = true
 
 ```fortran
 program minimal_example
-    use transformation_api, only: transform_lazy_fortran_string
+    use fortfront_transform, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input, output, error_msg
 
@@ -65,9 +65,9 @@ This example implements a linter that detects unused variables by traversing the
 ```fortran
 module unused_var_linter
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use frontend_tooling_api
-    use ast_api
-    use lexer_api
+    use fortfront_tooling
+    use fortfront_ast
+    use fortfront_lexer
     implicit none
     private
 
@@ -190,9 +190,9 @@ This example implements a simple code formatter that standardizes indentation.
 ```fortran
 program code_formatter
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use frontend_tooling_api
-    use codegen_api
-    use ast_api
+    use fortfront_tooling
+    use fortfront_codegen
+    use fortfront_ast
     implicit none
 
     character(len=256) :: input_file, output_file
@@ -256,7 +256,7 @@ This example shows how to use FortFront as the frontend for a custom compiler th
 ```fortran
 module custom_ir_emitter
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use ast_api
+    use fortfront_ast
     implicit none
     private
 
@@ -330,7 +330,7 @@ contains
 end module custom_ir_emitter
 
 program compiler_example
-    use frontend_tooling_api
+    use fortfront_tooling
     use custom_ir_emitter
     implicit none
 
@@ -359,8 +359,8 @@ This example counts different node types in an AST.
 ```fortran
 program ast_statistics
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use frontend_tooling_api
-    use ast_api
+    use fortfront_tooling
+    use fortfront_ast
     implicit none
 
     character(len=256) :: input_file
@@ -431,7 +431,7 @@ end if
 ### Pattern 2: Use Result Types
 
 ```fortran
-use semantic_api, only: result_t
+use fortfront_semantic, only: result_t
 
 type(result_t) :: result
 
@@ -446,7 +446,7 @@ end if
 ### Pattern 3: Collect Errors for Batch Operations
 
 ```fortran
-use error_api, only: error_collection_t, error_record_t
+use fortfront_error, only: error_collection_t, error_record_t
 
 type(error_collection_t) :: errors
 integer :: i
@@ -492,7 +492,7 @@ end do
 ### Tip 2: Use Safe Tokenization in Hot Paths
 
 ```fortran
-use lexer_api, only: tokenize_safe
+use fortfront_lexer, only: tokenize_safe
 
 type(token_t), allocatable :: tokens(:)
 
@@ -556,7 +556,7 @@ Yes. FortFront already ships with a production-ready ISO_C_BINDING bridge in `sr
 For large files, consider streaming with program unit boundaries:
 
 ```fortran
-use parser_api, only: find_program_unit_boundary, parse_program_unit
+use fortfront_parser, only: find_program_unit_boundary, parse_program_unit
 
 integer :: start_idx, end_idx
 
@@ -589,7 +589,7 @@ APIs are reentrant when using separate contexts. Arena allocators are NOT thread
 Use the to_json_interface to export AST as JSON:
 
 ```fortran
-use ast_api
+use fortfront_ast
 
 class(ast_node), pointer :: node
 character(len=:), allocatable :: json
