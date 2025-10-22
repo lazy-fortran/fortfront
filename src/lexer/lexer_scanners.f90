@@ -475,7 +475,7 @@ contains
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
-              'intent', 'in', 'out', 'use', 'module', 'contains', &
+              'intent', 'use', 'module', 'contains', &
               'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
               'abstract', &
               'procedure', 'interface', 'import', 'generic', 'operator', 'assignment', 'print', &
@@ -483,7 +483,7 @@ contains
               'allocate', 'deallocate', &
               'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &
               'enum', 'file', 'submodule', 'rank', &
-              'elseif', 'elsewhere', 'inout', 'blockdata', 'doubleprecision', 'doublecomplex', &
+              'elseif', 'elsewhere', 'blockdata', 'doubleprecision', 'doublecomplex', &
               'selectcase', 'equivalence', 'common', &
               'endif', 'enddo', 'endwhere', 'endforall', 'endassociate', 'endblock', &
               'endblockdata', 'endenum', 'endfile', 'endfunction', 'endinterface', &

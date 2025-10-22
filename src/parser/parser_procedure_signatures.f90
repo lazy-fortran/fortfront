@@ -163,7 +163,7 @@ contains
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 token = parser%consume()
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
+                if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
                     result_variable_name = token%text
                     token = parser%consume()
                 end if
