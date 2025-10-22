@@ -53,7 +53,7 @@ module ast_factory
     ! Statement nodes
     use ast_factory_statements, only: &
         push_use_statement, push_visibility_statement, push_namelist_statement, &
-        push_implicit_statement, push_include_statement, &
+        push_implicit_statement, push_include_statement, push_import_statement, &
         push_end_statement, push_stop, push_return, push_continue, push_goto, &
         push_error_stop, push_cycle, push_exit, push_allocate, push_deallocate, &
         push_io_implied_do
@@ -102,7 +102,7 @@ module ast_factory
 
     ! Statement nodes
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
-              push_implicit_statement, push_include_statement
+              push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement, push_stop, push_return, push_continue, push_goto, &
               push_error_stop
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do

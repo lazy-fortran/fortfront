@@ -119,6 +119,20 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type include_statement_node
 
+    ! Import statement node
+    type, extends(ast_node), public :: import_statement_node
+        type(string_t), allocatable :: import_list(:)
+        logical :: has_double_colon = .false.
+        logical :: has_list = .false.
+        logical :: is_all = .false.
+        logical :: is_none = .false.
+    contains
+        procedure :: accept => import_statement_accept
+        procedure :: to_json => import_statement_to_json
+        procedure :: assign => import_statement_assign
+        generic :: assignment(=) => assign
+    end type import_statement_node
+
     ! Contains node
     type, extends(ast_node), public :: contains_node
     contains
@@ -192,6 +206,7 @@ module ast_nodes_misc
     ! Constructors migrated from ast_core
     public :: create_comment, create_blank_line, create_end_statement
     public :: create_use_statement, create_visibility_statement, create_include_statement
+    public :: create_import_statement
     public :: create_implicit_statement, create_interface_block, create_module_procedure
 
 contains
@@ -412,6 +427,34 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_include_statement
+
+    function create_import_statement(import_list, has_double_colon, is_all, &
+                                     is_none, line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in), optional :: import_list(:)
+        logical, intent(in), optional :: has_double_colon, is_all, is_none
+        integer, intent(in), optional :: line, column
+        type(import_statement_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        if (present(has_double_colon)) node%has_double_colon = has_double_colon
+        if (present(is_all)) node%is_all = is_all
+        if (present(is_none)) node%is_none = is_none
+
+        if (present(import_list)) then
+            if (size(import_list) > 0) then
+                node%has_list = .true.
+                allocate (node%import_list(size(import_list)))
+                do i = 1, size(import_list)
+                    node%import_list(i)%s = import_list(i)
+                end do
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_import_statement
 
     function create_interface_block(name, kind, operator, procedure_indices, &
                                     line, column) result(node)
@@ -802,6 +845,66 @@ contains
         ! Copy specific components
         if (allocated(rhs%filename)) lhs%filename = rhs%filename
     end subroutine include_statement_assign
+
+    ! Import statement implementations
+    subroutine import_statement_accept(this, visitor)
+        class(import_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine import_statement_accept
+
+    subroutine import_statement_to_json(this, json, parent)
+        class(import_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'import_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'has_double_colon', this%has_double_colon)
+        call json%add(obj, 'has_list', this%has_list)
+        call json%add(obj, 'is_all', this%is_all)
+        call json%add(obj, 'is_none', this%is_none)
+        if (allocated(this%import_list)) then
+            do i = 1, size(this%import_list)
+                if (allocated(this%import_list(i)%s)) then
+                    call json%add(obj, 'name_'//trim(adjustl(int_to_string(i))), &
+                                  this%import_list(i)%s)
+                end if
+            end do
+        end if
+        call json%add(parent, obj)
+    end subroutine import_statement_to_json
+
+    subroutine import_statement_assign(lhs, rhs)
+        class(import_statement_node), intent(inout) :: lhs
+        class(import_statement_node), intent(in) :: rhs
+        integer :: i
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%has_double_colon = rhs%has_double_colon
+        lhs%has_list = rhs%has_list
+        lhs%is_all = rhs%is_all
+        lhs%is_none = rhs%is_none
+
+        if (allocated(lhs%import_list)) deallocate (lhs%import_list)
+        if (allocated(rhs%import_list)) then
+            allocate (lhs%import_list(size(rhs%import_list)))
+            do i = 1, size(rhs%import_list)
+                lhs%import_list(i) = rhs%import_list(i)
+            end do
+        end if
+    end subroutine import_statement_assign
 
     ! Contains node implementations
     subroutine contains_accept(this, visitor)

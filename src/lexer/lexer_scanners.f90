@@ -478,7 +478,7 @@ contains
               'intent', 'in', 'out', 'use', 'module', 'contains', &
               'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
               'abstract', &
-              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', &
+              'procedure', 'interface', 'import', 'generic', 'operator', 'assignment', 'print', &
               'read', 'write', 'call', 'format', &
               'allocate', 'deallocate', &
               'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &

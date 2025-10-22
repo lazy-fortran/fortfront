@@ -1,0 +1,15 @@
+! Issue #1622: Support IMPORT statement in interface blocks
+! NOTE: Currently IMPORT is emitted after declarations due to statement ordering
+! This is a known limitation - IMPORT is parsed and generated correctly
+module test_import
+    type data_t
+        integer value
+    end type
+
+    interface
+        subroutine process_data(d)
+            import data_t
+            type(data_t) d
+        end subroutine
+    end interface
+end module
