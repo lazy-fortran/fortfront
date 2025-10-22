@@ -119,6 +119,7 @@ module ast_nodes_data
     type, extends(ast_node), public :: type_binding_node
         character(len=:), allocatable :: binding_name  ! Name of binding
         character(len=:), allocatable :: implementation  ! Procedure name
+        character(len=:), allocatable :: interface_name  ! Interface reference
         logical :: is_generic = .false.  ! Generic binding
         logical :: is_final = .false.  ! FINAL procedure
         logical :: is_deferred = .false.  ! DEFERRED (for abstract)

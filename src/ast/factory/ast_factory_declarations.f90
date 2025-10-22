@@ -304,7 +304,8 @@ contains
     ! Create type binding node and add to stack
     function push_type_binding(arena, binding_name, implementation, is_generic, &
                                is_final, is_deferred, pass_arg, accessibility, &
-                               line, column, parent_index) result(binding_index)
+                               interface_name, line, column, parent_index) &
+        result(binding_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: binding_name
         character(len=*), intent(in), optional :: implementation
@@ -313,6 +314,7 @@ contains
         logical, intent(in), optional :: is_deferred
         logical, intent(in), optional :: pass_arg
         character(len=*), intent(in), optional :: accessibility
+        character(len=*), intent(in), optional :: interface_name
         integer, intent(in), optional :: line, column, parent_index
         integer :: binding_index
         type(type_binding_node) :: binding
@@ -322,6 +324,12 @@ contains
         if (present(implementation)) then
             if (len_trim(implementation) > 0) then
                 binding%implementation = trim(implementation)
+            end if
+        end if
+
+        if (present(interface_name)) then
+            if (len_trim(interface_name) > 0) then
+                binding%interface_name = trim(interface_name)
             end if
         end if
 
