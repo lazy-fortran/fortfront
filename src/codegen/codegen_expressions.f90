@@ -813,6 +813,79 @@ contains
         code = "(expr, i=1,n)"  ! Basic implied do - needs variable and bounds extraction
     end function generate_code_implied_do
 
+    ! Generate inner implied do without outer (/ /) wrapper
+    recursive function generate_implied_do_inner(arena, do_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: do_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: expr_code, start_code, end_code, step_code
+
+        select type (node => arena%entries(do_index)%node)
+        type is (do_loop_node)
+            if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
+                if (node%body_indices(1) > 0 .and. &
+                    node%body_indices(1) <= arena%size) then
+                    if (allocated(arena%entries(node%body_indices(1))%node)) then
+                        select type (body_node => &
+                                    arena%entries(node%body_indices(1))%node)
+                        type is (do_loop_node)
+                            expr_code = generate_implied_do_inner(arena, &
+                                                                   node%body_indices(1))
+                        class default
+                            expr_code = generate_code_from_arena(arena, &
+                                                                  node%body_indices(1))
+                        end select
+                        expr_code = trim(expr_code)
+                    else
+                        expr_code = "0"
+                    end if
+                else
+                    expr_code = "0"
+                end if
+            else
+                expr_code = "0"
+            end if
+
+            if (node%start_expr_index > 0) then
+                start_code = generate_code_from_arena(arena, node%start_expr_index)
+                start_code = trim(start_code)
+            else
+                start_code = "1"
+            end if
+
+            if (node%end_expr_index > 0) then
+                end_code = generate_code_from_arena(arena, node%end_expr_index)
+                end_code = trim(end_code)
+            else
+                end_code = "n"
+            end if
+
+            if (node%step_expr_index > 0) then
+                step_code = generate_code_from_arena(arena, node%step_expr_index)
+                step_code = trim(step_code)
+                if (allocated(node%var_name)) then
+                    code = "(" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ", " // &
+                           step_code // ")"
+                else
+                    code = "(" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ", " // &
+                           step_code // ")"
+                end if
+            else
+                if (allocated(node%var_name)) then
+                    code = "(" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ")"
+                else
+                    code = "(" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ")"
+                end if
+            end if
+        class default
+            code = "0"
+        end select
+    end function generate_implied_do_inner
+
     ! Generate implied do array constructor from do loop node
     function generate_implied_do_array(arena, do_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -825,8 +898,26 @@ contains
         type is (do_loop_node)
             ! Generate the expression (body)
             if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
-                expr_code = generate_code_from_arena(arena, node%body_indices(1))
-                expr_code = trim(expr_code)
+                if (node%body_indices(1) > 0 .and. &
+                    node%body_indices(1) <= arena%size) then
+                    if (allocated(arena%entries(node%body_indices(1))%node)) then
+                        select type (body_node => &
+                                    arena%entries(node%body_indices(1))%node)
+                        type is (do_loop_node)
+                            expr_code = generate_implied_do_inner(arena, &
+                                                                   node%body_indices(1))
+                            expr_code = trim(expr_code)
+                        class default
+                            expr_code = generate_code_from_arena(arena, &
+                                                                  node%body_indices(1))
+                            expr_code = trim(expr_code)
+                        end select
+                    else
+                        expr_code = "0"
+                    end if
+                else
+                    expr_code = "0"
+                end if
             else
                 expr_code = "0"  ! Fallback
             end if
