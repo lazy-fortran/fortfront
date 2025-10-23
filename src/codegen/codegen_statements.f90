@@ -40,6 +40,7 @@ module codegen_statements
     public :: generate_code_open_statement
     public :: generate_code_close_statement
     public :: generate_code_pause_statement
+    public :: generate_code_nullify_statement
 
 contains
     pure subroutine prepend_stmt_label(code, label)
@@ -825,5 +826,31 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_pause_statement
+
+    function generate_code_nullify_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(nullify_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: ptr_code
+        integer :: i
+
+        code = "nullify("
+
+        if (allocated(node%pointer_indices)) then
+            do i = 1, size(node%pointer_indices)
+                if (node%pointer_indices(i) > 0 .and. &
+                    node%pointer_indices(i) <= arena%size) then
+                    ptr_code = generate_code_from_arena(arena, node%pointer_indices(i))
+                    if (i > 1) code = code // ", "
+                    code = code // ptr_code
+                end if
+            end do
+        end if
+
+        code = code // ")"
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_nullify_statement
 
 end module codegen_statements

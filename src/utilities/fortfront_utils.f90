@@ -420,6 +420,8 @@ contains
             node_type = NODE_ERROR_STOP
         case ("pause_node", "pause")
             node_type = NODE_PAUSE
+        case ("nullify_node", "nullify")
+            node_type = NODE_NULLIFY
         case ("cycle_node", "cycle")
             node_type = NODE_CYCLE
         case ("exit_node", "exit")

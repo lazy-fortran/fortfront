@@ -2,13 +2,14 @@ module semantic_inference_helpers
     ! Helper module for type inference of control flow and declarations
     ! This avoids circular dependencies with semantic_analyzer
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                   create_mono_type, create_type_var, create_poly_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
+                                   create_mono_type, create_type_var, &
+                                   create_poly_type, TVAR, TINT, TREAL, TCHAR, &
+                                   TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
                                  forall_node, select_case_node, associate_node, &
-                                 stop_node, pause_node
+                                 stop_node, pause_node, nullify_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     use scope_manager, only: scope_stack_t
@@ -24,6 +25,7 @@ module semantic_inference_helpers
     public :: process_associate_node_body
     public :: process_stop_node_code
     public :: process_pause_node_code
+    public :: process_nullify_node_code
     public :: process_declaration_variables
     public :: check_implicit_none
 
@@ -114,6 +116,14 @@ contains
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_pause_node_code
 
+    subroutine process_nullify_node_code(node, control_type)
+        type(nullify_node), intent(in) :: node
+        type(mono_type_t), intent(out) :: control_type
+
+        ! Nullify statements don't have a type
+        control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end subroutine process_nullify_node_code
+
     ! Process declaration and return type
     subroutine process_declaration_variables(decl, var_type)
         type(declaration_node), intent(in) :: decl
@@ -135,7 +145,7 @@ contains
         case ("double precision")
             var_type_kind = TDOUBLE
         case default
-            ! Check if it's a derived type (starts with "type(" or contains user-defined name)
+            ! Check for derived type (starts with type() or user-defined name)
             if (index(trim(decl%type_name), "type(") == 1) then
                 var_type_kind = TDERIVED
             else
@@ -177,7 +187,7 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (implicit_statement_node)
-                            ! Check if it's an implicit none statement (is_none = .true.)
+                            ! True when implicit none statement sets is_none flag
                             if (stmt%is_none) then
                                 has_implicit = .true.
                                 return

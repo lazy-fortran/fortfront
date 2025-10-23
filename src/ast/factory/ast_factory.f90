@@ -30,9 +30,9 @@ module ast_factory
     use ast_factory_control, only: &
         push_if, push_do_loop, push_do_while, push_forall, push_select_case, &
         push_associate, push_case_block, push_case_range, push_case_default, &
-        push_select_case_with_default, push_select_type, push_select_type_with_default, &
-        push_type_guard_block, push_where, push_where_construct, &
-        push_where_construct_with_elsewhere
+        push_select_case_with_default, push_select_type, &
+        push_select_type_with_default, push_type_guard_block, push_where, &
+        push_where_construct, push_where_construct_with_elsewhere
 
     ! I/O statement nodes
     use ast_factory_io, only: &
@@ -58,7 +58,7 @@ module ast_factory
         push_implicit_statement, push_include_statement, push_import_statement, &
         push_end_statement, push_stop, push_return, push_continue, push_goto, &
         push_error_stop, push_cycle, push_exit, push_allocate, push_deallocate, &
-        push_io_implied_do, push_pause
+        push_io_implied_do, push_pause, push_nullify
 
     implicit none
     private
@@ -83,9 +83,9 @@ module ast_factory
     ! Control flow nodes
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
     public :: push_associate, push_case_block, push_case_range, push_case_default
-    public :: push_select_case_with_default, push_select_type, push_select_type_with_default
-    public :: push_type_guard_block, push_where, push_where_construct
-    public :: push_where_construct_with_elsewhere
+    public :: push_select_case_with_default, push_select_type
+    public :: push_select_type_with_default, push_type_guard_block, push_where
+    public :: push_where_construct, push_where_construct_with_elsewhere
 
     ! I/O statement nodes
     public :: push_print_statement, push_write_statement, push_read_statement
@@ -107,7 +107,7 @@ module ast_factory
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement, push_stop, push_return, push_continue, push_goto, &
-              push_error_stop, push_pause
+              push_error_stop, push_pause, push_nullify
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
 
     ! Note: No module body needed - all functionality is provided by re-exported modules

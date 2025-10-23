@@ -7,19 +7,19 @@ module fortfront_node_constants
                                NODE_SUBROUTINE_DEF, NODE_SUBROUTINE_CALL, &
                                NODE_DECLARATION, NODE_PARAMETER_DECLARATION, &
                                NODE_IF, NODE_DO_LOOP, NODE_DO_WHILE, &
-                               NODE_SELECT_CASE, &
-                               NODE_CASE_BLOCK, NODE_MODULE, NODE_USE_STATEMENT, &
-                               NODE_PRINT_STATEMENT, NODE_WRITE_STATEMENT, &
-                               NODE_READ_STATEMENT, NODE_ALLOCATE_STATEMENT, &
-                               NODE_DEALLOCATE_STATEMENT, NODE_STOP, NODE_RETURN, &
-                               NODE_GOTO, NODE_ERROR_STOP, NODE_PAUSE, NODE_CYCLE, NODE_EXIT, &
+                               NODE_SELECT_CASE, NODE_CASE_BLOCK, NODE_MODULE, &
+                               NODE_USE_STATEMENT, NODE_PRINT_STATEMENT, &
+                               NODE_WRITE_STATEMENT, NODE_READ_STATEMENT, &
+                               NODE_ALLOCATE_STATEMENT, NODE_DEALLOCATE_STATEMENT, &
+                               NODE_STOP, NODE_RETURN, NODE_GOTO, NODE_ERROR_STOP, &
+                               NODE_PAUSE, NODE_NULLIFY, NODE_CYCLE, NODE_EXIT, &
                                NODE_WHERE, NODE_INTERFACE_BLOCK, NODE_DERIVED_TYPE, &
                                NODE_POINTER_ASSIGNMENT, NODE_FORALL, NODE_CASE_RANGE, &
                                NODE_CASE_DEFAULT, NODE_COMPLEX_LITERAL, &
                                NODE_INCLUDE_STATEMENT, NODE_CONTAINS, &
                                NODE_FORMAT_DESCRIPTOR, NODE_FORMAT_STATEMENT, &
-                               NODE_COMMENT, NODE_IMPLICIT_STATEMENT, &
-                               NODE_CONTINUE, NODE_UNKNOWN
+                               NODE_COMMENT, NODE_IMPLICIT_STATEMENT, NODE_CONTINUE, &
+                               NODE_UNKNOWN
     implicit none
     public
 end module fortfront_node_constants

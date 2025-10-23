@@ -89,6 +89,7 @@ module fortfront_types
     integer, parameter :: NODE_FORMAT_STATEMENT = 44
     integer, parameter :: NODE_CONTINUE = 45
     integer, parameter :: NODE_PAUSE = 46
+    integer, parameter :: NODE_NULLIFY = 47
     integer, parameter :: NODE_UNKNOWN = 99
 
     ! Source location tracking

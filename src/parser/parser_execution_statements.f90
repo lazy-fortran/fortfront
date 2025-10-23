@@ -29,7 +29,8 @@ module parser_execution_statements_module
                                                 parse_return_statement, &
                                                 parse_continue_statement, &
                                                 parse_cycle_statement, &
-                                                parse_exit_statement
+                                                parse_exit_statement, &
+                                                parse_nullify_statement
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
     use parser_statement_data_module, only: parse_data_statement
@@ -338,6 +339,8 @@ contains
                 stmt_index = parse_cycle_statement(parser_ref, arena_ref)
             case ("exit")
                 stmt_index = parse_exit_statement(parser_ref, arena_ref)
+            case ("nullify")
+                stmt_index = parse_nullify_statement(parser_ref, arena_ref)
             case ("call")
                 stmt_index = parse_call_statement(parser_ref, arena_ref)
             case ("interface")
