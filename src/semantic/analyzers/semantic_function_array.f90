@@ -80,6 +80,9 @@ contains
                         typ = create_mono_type(TLOGICAL)
                     else if (index(intrinsic_sig, "character(") == 1) then
                         typ = create_mono_type(TCHAR)
+                    else if (index(intrinsic_sig, "array(") == 1) then
+                        typ = infer_array_intrinsic_type(arena, call_node, &
+                                                         get_type_fn)
                     else
                         typ = create_mono_type(TREAL)
                     end if
@@ -308,5 +311,87 @@ contains
                                    array_size=size(array_lit%element_indices))
         end if
     end function infer_array_literal_type
+
+    function infer_array_intrinsic_type(arena, call_node, get_type_fn) &
+        result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        interface
+            function get_type_fn(a, idx) result(t)
+                import :: mono_type_t, ast_arena_t
+                type(ast_arena_t), intent(inout) :: a
+                integer, intent(in) :: idx
+                type(mono_type_t) :: t
+            end function get_type_fn
+        end interface
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: element_type
+        type(mono_type_t), allocatable :: args(:)
+        integer :: ndims
+        integer :: i
+        character(len=:), allocatable :: func_name
+
+        if (allocated(call_node%name)) then
+            func_name = trim(call_node%name)
+        else
+            func_name = ""
+        end if
+
+        if (func_name == "reshape") then
+            element_type = create_mono_type(TREAL)
+            if (allocated(call_node%arg_indices) .and. &
+                size(call_node%arg_indices) >= 1) then
+                element_type = get_type_fn(arena, call_node%arg_indices(1))
+                if (element_type%kind == TARRAY .and. element_type%has_args()) then
+                    element_type = element_type%get_arg(1)
+                end if
+            end if
+
+            ndims = 0
+            if (allocated(call_node%arg_indices) .and. &
+                size(call_node%arg_indices) >= 2) then
+                ndims = infer_reshape_dimensions(arena, &
+                                                 call_node%arg_indices(2))
+            end if
+
+            if (ndims > 0) then
+                typ = element_type
+                do i = 1, ndims
+                    allocate (args(1))
+                    args(1) = typ
+                    typ = create_mono_type(TARRAY, args=args)
+                    typ%size = 0
+                    deallocate (args)
+                end do
+            else
+                allocate (args(1))
+                args(1) = element_type
+                typ = create_mono_type(TARRAY, args=args)
+                typ%size = 0
+            end if
+        else
+            allocate (args(1))
+            args(1) = create_mono_type(TREAL)
+            typ = create_mono_type(TARRAY, args=args)
+            typ%size = 0
+        end if
+    end function infer_array_intrinsic_type
+
+    function infer_reshape_dimensions(arena, shape_idx) result(ndims)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: shape_idx
+        integer :: ndims
+
+        ndims = 0
+        if (shape_idx <= 0 .or. shape_idx > arena%size) return
+        if (.not. allocated(arena%entries(shape_idx)%node)) return
+
+        select type (shape_node => arena%entries(shape_idx)%node)
+        type is (array_literal_node)
+            if (allocated(shape_node%element_indices)) then
+                ndims = size(shape_node%element_indices)
+            end if
+        end select
+    end function infer_reshape_dimensions
 
 end module semantic_function_array

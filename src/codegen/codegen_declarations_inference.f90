@@ -10,6 +10,7 @@ module codegen_declarations_inference
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: parameter_info_t
     use intrinsic_registry, only: is_intrinsic_function
+    use codegen_type_utils, only: get_type_standardization
     implicit none
     private
     public :: build_parameter_map
@@ -541,6 +542,9 @@ contains
         character(len=:), allocatable :: name_buf
         character(len=:), allocatable :: type_buf
         character(len=:), allocatable :: func_return_type
+        logical :: standardize_types_enabled
+
+        call get_type_standardization(standardize_types_enabled)
 
         target_idx = stmt%target_index
         if (target_idx <= 0 .or. target_idx > arena%size) return
@@ -556,7 +560,9 @@ contains
             if (exists_in_list(state%use_associated_names, &
                                state%use_associated_count, name_buf)) return
 
-            type_buf = mono_type_to_string(id%inferred_type, include_shape=.true., &
+            type_buf = mono_type_to_string(id%inferred_type, &
+                                           include_shape=.true., &
+                                           standardize_real=standardize_types_enabled, &
                                            fallback='real')
             if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
                 func_return_type = infer_function_return_type_from_rhs(arena, &
@@ -598,6 +604,9 @@ contains
         character(len=:), allocatable :: type_buf
         character(len=:), allocatable :: func_return_type
         character(len=:), allocatable :: name_buf
+        logical :: standardize_types_enabled
+
+        call get_type_standardization(standardize_types_enabled)
 
         value_idx = stmt%value_index
         if (value_idx <= 0 .or. value_idx > arena%size) return
@@ -607,7 +616,9 @@ contains
         type is (call_or_subscript_node)
             name_buf = trim(val%name)
             if (len_trim(name_buf) == 0) return
-            type_buf = mono_type_to_string(val%inferred_type, include_shape=.true., &
+            type_buf = mono_type_to_string(val%inferred_type, &
+                                           include_shape=.true., &
+                                           standardize_real=standardize_types_enabled, &
                                            fallback='real')
             if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
                 func_return_type = &
