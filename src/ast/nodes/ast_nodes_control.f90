@@ -14,7 +14,7 @@ module ast_nodes_control
     use ast_nodes_array, only: where_node, where_stmt_node, elsewhere_clause_t
     use ast_nodes_transfer, only: cycle_node, exit_node, stop_node, &
                                   return_node, goto_node, error_stop_node, &
-                                  continue_node, create_continue
+                                  continue_node, pause_node, create_continue
     use ast_nodes_associate, only: association_t, associate_node, &
                                    create_associate
     implicit none
@@ -32,7 +32,7 @@ module ast_nodes_control
     public :: select_type_node, type_guard_block_node
     public :: where_node, where_stmt_node
     public :: cycle_node, exit_node, stop_node, return_node, goto_node
-    public :: error_stop_node, continue_node, associate_node
+    public :: error_stop_node, continue_node, associate_node, pause_node
 
     ! Re-export factory functions
     public :: create_do_loop, create_do_while, create_if, create_select_case

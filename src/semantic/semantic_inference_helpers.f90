@@ -8,7 +8,7 @@ module semantic_inference_helpers
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
                                  forall_node, select_case_node, associate_node, &
-                                 stop_node
+                                 stop_node, pause_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     use scope_manager, only: scope_stack_t
@@ -23,6 +23,7 @@ module semantic_inference_helpers
     public :: process_select_case_blocks
     public :: process_associate_node_body
     public :: process_stop_node_code
+    public :: process_pause_node_code
     public :: process_declaration_variables
     public :: check_implicit_none
 
@@ -104,6 +105,14 @@ contains
         ! Stop statements don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_stop_node_code
+
+    subroutine process_pause_node_code(node, control_type)
+        type(pause_node), intent(in) :: node
+        type(mono_type_t), intent(out) :: control_type
+
+        ! Pause statements don't have a type
+        control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end subroutine process_pause_node_code
 
     ! Process declaration and return type
     subroutine process_declaration_variables(decl, var_type)
