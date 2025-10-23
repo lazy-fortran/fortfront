@@ -53,6 +53,35 @@ module codegen_utilities
 
 contains
 
+    ! Check if result variable is a simple scalar (no array dimensions)
+    subroutine check_result_is_simple_scalar(arena, func_node, result_name, is_scalar)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_node
+        character(len=*), intent(in) :: result_name
+        logical, intent(out) :: is_scalar
+        integer :: i, decl_index
+
+        is_scalar = .true.
+        if (len_trim(result_name) == 0) return
+        if (.not. allocated(func_node%body_indices)) return
+
+        do i = 1, size(func_node%body_indices)
+            decl_index = func_node%body_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            select type (decl => arena%entries(decl_index)%node)
+            type is (declaration_node)
+                if (trim(decl%var_name) /= trim(result_name)) cycle
+                if (decl%is_array .or. &
+                    (allocated(decl%dimension_indices) .and. &
+                     size(decl%dimension_indices) > 0)) then
+                    is_scalar = .false.
+                    return
+                end if
+            end select
+        end do
+    end subroutine check_result_is_simple_scalar
+
     ! Find node index in arena
     function find_node_index_in_arena(arena, target_node) result(index)
         type(ast_arena_t), intent(in) :: arena
@@ -465,14 +494,12 @@ contains
         force_keep_result_decl = .false.
 
         ! Determine if we should skip result variable declarations
-        ! Skip when: function has return type in signature AND has result variable
         has_return_type_in_signature = .false.
         result_var_name = ""
         select type (proc_node)
         type is (function_def_node)
             if (allocated(proc_node%return_type) .and. &
                 len_trim(proc_node%return_type) > 0) then
-                has_return_type_in_signature = .true.
                 if (allocated(proc_node%result_variable)) then
                     result_var_name = trim(proc_node%result_variable)
                 else if (allocated(proc_node%name)) then
@@ -482,6 +509,8 @@ contains
                 if (index(lowered_return, "len=") > 0) then
                     force_keep_result_decl = .true.
                 end if
+                call check_result_is_simple_scalar(arena, proc_node, result_var_name, &
+                                                   has_return_type_in_signature)
             end if
         end select
 
@@ -529,6 +558,9 @@ contains
                                             type_name = &
                                                 normalize_character_type(node, &
                                                                          type_name)
+                                        else if (to_lower(trim(type_name)) == 'real' .and. &
+                                                 .not. node%has_kind) then
+                                            type_name = "real(8)"
                                         end if
                                         append_kind = node%has_kind .and. .not. &
                                                      is_character_type_string(type_name)
@@ -650,6 +682,9 @@ contains
                                     if (is_character_type_string(type_name)) then
                                         type_name = &
                                             normalize_character_type(node, type_name)
+                                    else if (to_lower(trim(type_name)) == 'real' .and. &
+                                             .not. node%has_kind) then
+                                        type_name = "real(8)"
                                     end if
                                     append_kind_single = node%has_kind .and. .not. &
                                                      is_character_type_string(type_name)
