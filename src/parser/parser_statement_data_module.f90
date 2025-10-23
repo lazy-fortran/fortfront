@@ -4,11 +4,12 @@ module parser_statement_data_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: array_literal_node
+    use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node
     use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
                            push_namelist_statement
     use type_system_unified, only: create_mono_type, TARRAY
     use parser_namelist_shared_module, only: consume_namelist_group
+    use ast_base, only: LITERAL_INTEGER
     implicit none
     private
 
@@ -79,7 +80,7 @@ contains
 
             value_index = parse_expression_until(parser, arena, [",", "/"])
             if (value_index <= 0) return
-            call append_index(element_indices, value_index)
+            call expand_repeat_count(arena, value_index, element_indices)
 
             call skip_trivia(parser)
             token = parser%peek()
@@ -138,6 +139,107 @@ contains
             end if
         end block
     contains
+        subroutine expand_repeat_count(arena, value_index, indices)
+            type(ast_arena_t), intent(inout) :: arena
+            integer, intent(in) :: value_index
+            integer, allocatable, intent(inout) :: indices(:)
+            integer :: repeat_count
+            integer :: loop_index
+            integer :: read_status
+            integer :: underscore_pos
+            character(len=:), allocatable :: literal_text
+            character(len=:), allocatable :: count_text
+
+            if (value_index <= 0 .or. value_index > arena%size) return
+            if (.not. allocated(arena%entries(value_index)%node)) then
+                call append_index(indices, value_index)
+                return
+            end if
+
+            select type (node => arena%entries(value_index)%node)
+            type is (binary_op_node)
+                if (.not. allocated(node%operator)) then
+                    call append_index(indices, value_index)
+                    return
+                end if
+                if (trim(node%operator) /= "*") then
+                    call append_index(indices, value_index)
+                    return
+                end if
+
+                if (node%left_index <= 0 .or. node%left_index > arena%size) then
+                    call append_index(indices, value_index)
+                    return
+                end if
+                if (.not. allocated(arena%entries(node%left_index)%node)) then
+                    call append_index(indices, value_index)
+                    return
+                end if
+
+                if (node%right_index <= 0 .or. node%right_index > arena%size) then
+                    call append_index(indices, value_index)
+                    return
+                end if
+
+                select type (left_node => arena%entries(node%left_index)%node)
+                type is (literal_node)
+                    if (.not. allocated(left_node%value)) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+                    if (left_node%literal_kind /= LITERAL_INTEGER) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    literal_text = trim(left_node%value)
+                    if (len(literal_text) == 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    underscore_pos = index(literal_text, "_")
+                    if (underscore_pos > 0) then
+                        if (underscore_pos == 1) then
+                            call append_index(indices, value_index)
+                            return
+                        end if
+                        count_text = literal_text(:underscore_pos - 1)
+                    else
+                        count_text = literal_text
+                    end if
+
+                    count_text = trim(adjustl(count_text))
+                    if (len(count_text) == 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    read (count_text, *, iostat=read_status) repeat_count
+                    if (read_status /= 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    if (repeat_count <= 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    do loop_index = 1, repeat_count
+                        call append_index(indices, node%right_index)
+                    end do
+                    return
+                class default
+                    call append_index(indices, value_index)
+                    return
+                end select
+            class default
+                call append_index(indices, value_index)
+                return
+            end select
+        end subroutine expand_repeat_count
+
         subroutine append_index(indices, value)
             integer, allocatable, intent(inout) :: indices(:)
             integer, intent(in) :: value
