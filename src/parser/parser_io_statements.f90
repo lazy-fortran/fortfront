@@ -72,6 +72,58 @@ contains
         end if
     end function parse_unit_specifier
 
+    ! Collect trailing specification for backspace/rewind/endfile statements
+    function collect_position_spec(parser) result(spec_text)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable :: spec_text
+        type(token_t) :: token
+        character :: last_char
+        logical :: needs_space
+
+        spec_text = ""
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE) exit
+            if (token%kind == TK_COMMENT) exit
+            if (token%kind == TK_WHITESPACE) then
+                token = parser%consume()
+                cycle
+            end if
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == ";") exit
+            end if
+
+            needs_space = len(spec_text) > 0
+            if (needs_space) then
+                last_char = spec_text(len(spec_text):len(spec_text))
+                if (last_char == ' ') needs_space = .false.
+                select case (token%text)
+                case (")", ",")
+                    needs_space = .false.
+                case ("=")
+                    if (last_char /= '(') needs_space = .true.
+                case ("(")
+                    if (last_char /= '(' .and. last_char /= ' ') needs_space = .true.
+                    if (last_char == '(') needs_space = .false.
+                case default
+                    if (last_char == '(') needs_space = .false.
+                    if (last_char == '=') needs_space = .true.
+                end select
+            end if
+
+            if (needs_space) spec_text = spec_text // " "
+
+            token = parser%consume()
+            spec_text = spec_text // token%text
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == ",") spec_text = spec_text // " "
+            end if
+        end do
+
+        spec_text = trim(spec_text)
+    end function collect_position_spec
+
     ! Parse argument list (common logic for print/write/read)
     subroutine parse_argument_list(parser, arena, arg_indices)
         type(parser_state_t), intent(inout) :: parser
@@ -636,7 +688,12 @@ contains
         column = token%column
         token = parser%consume()
 
-        unit_spec = parse_unit_specifier(parser)
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            backspace_index = 0
+            return
+        end if
         backspace_index = push_backspace_statement(arena, unit_spec, line, column)
     end function parse_backspace_statement
 
@@ -659,7 +716,12 @@ contains
         column = token%column
         token = parser%consume()
 
-        unit_spec = parse_unit_specifier(parser)
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            rewind_index = 0
+            return
+        end if
         rewind_index = push_rewind_statement(arena, unit_spec, line, column)
     end function parse_rewind_statement
 
@@ -682,7 +744,12 @@ contains
         column = token%column
         token = parser%consume()
 
-        unit_spec = parse_unit_specifier(parser)
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            endfile_index = 0
+            return
+        end if
         endfile_index = push_endfile_statement(arena, unit_spec, line, column)
     end function parse_endfile_statement
 
