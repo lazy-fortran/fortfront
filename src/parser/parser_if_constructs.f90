@@ -212,6 +212,7 @@ contains
             ! Parse the single statement
             block
                 type(token_t), allocatable, target :: remaining_tokens(:)
+                type(token_t) :: tok
                 integer :: i, n
 
                 ! Count remaining tokens
@@ -230,8 +231,9 @@ contains
                     type(statement_callbacks_t) :: callbacks
 
                     callbacks = build_if_body_callbacks()
-                    stmt_indices = parse_basic_statement_core(remaining_tokens, arena, &
-                                                              callbacks=callbacks)
+                    stmt_indices = &
+                        parse_basic_statement_core(remaining_tokens, arena, &
+                                                   callbacks=callbacks)
                     if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
                         then_body_indices(1) = stmt_indices(1)
                     end if
@@ -239,14 +241,11 @@ contains
 
                 ! Advance parser to end of statement to prevent re-parsing
                 do while (.not. parser%is_at_end())
-                    block
-                        type(token_t) :: tok
-                        tok = parser%peek()
-                        if (tok%kind == TK_NEWLINE .or. tok%kind == TK_EOF) then
-                            exit
-                        end if
-                        tok = parser%consume()
-                    end block
+                    tok = parser%peek()
+                    if (tok%kind == TK_NEWLINE .or. tok%kind == TK_EOF) then
+                        exit
+                    end if
+                    tok = parser%consume()
                 end do
             end block
 
@@ -319,7 +318,8 @@ contains
             ! Advance parser past the condition tokens until 'then'
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
-                if (paren_token%kind == TK_KEYWORD .and. paren_token%text == "then") then
+                if (paren_token%kind == TK_KEYWORD .and. paren_token%text == &
+                    "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
                 paren_token = parser%consume()
@@ -422,11 +422,13 @@ contains
                     callbacks = build_if_body_callbacks()
                     if (present(parent_index)) then
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                         parent_index=parent_index, callbacks=callbacks, &
-                                                           consumed_count=consumed_tokens)
+                                                            parent_index=parent_index, &
+                                                                  callbacks=callbacks, &
+                                                         consumed_count=consumed_tokens)
                     else
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                      callbacks=callbacks, consumed_count=consumed_tokens)
+                                                                  callbacks=callbacks, &
+                                                         consumed_count=consumed_tokens)
                     end if
 
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
