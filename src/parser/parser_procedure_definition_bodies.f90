@@ -179,43 +179,12 @@ contains
         integer :: depth
         logical :: preceded_by_end
         logical :: preceded_by_else
-        logical :: has_then
-        integer :: paren_depth
 
         stmt_end = stmt_start
         pos = stmt_start
 
-        ! For IF statements, check if it's a single-line IF (no THEN keyword)
         if (stmt_type == "if") then
-            has_then = .false.
-            paren_depth = 0
-            ! Scan forward to check for THEN after the condition
-            do pos = stmt_start + 1, size(all_tokens)
-                ! Track parentheses to skip over condition
-                if (all_tokens(pos)%kind == TK_OPERATOR) then
-                    if (all_tokens(pos)%text == "(") then
-                        paren_depth = paren_depth + 1
-                    else if (all_tokens(pos)%text == ")") then
-                        paren_depth = paren_depth - 1
-                    end if
-                end if
-                ! After closing condition parentheses, look for THEN
-                if (paren_depth == 0 .and. all_tokens(pos)%kind == TK_KEYWORD) then
-                    if (all_tokens(pos)%text == "then") then
-                        has_then = .true.
-                        exit
-                    else if (all_tokens(pos)%text /= "if") then
-                        ! Found a non-THEN keyword after condition = single-line IF
-                        exit
-                    end if
-                end if
-                ! Stop at end of line for single-line IF
-                if (paren_depth == 0 .and. all_tokens(pos)%kind == TK_NEWLINE) then
-                    exit
-                end if
-            end do
-            ! If no THEN found, it's a single-line IF - use single-line logic
-            if (.not. has_then) then
+            if (is_single_line_if_statement(all_tokens, stmt_start)) then
                 stmt_end = locate_single_line_end(all_tokens, stmt_start, &
                                                   all_tokens(stmt_start)%line)
                 return
@@ -289,6 +258,60 @@ contains
             pos = pos + 1
         end do
     end function locate_block_statement_end
+
+    logical function is_single_line_if_statement(all_tokens, stmt_start) &
+        result(is_single_line)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: stmt_start
+
+        integer :: pos
+        integer :: paren_depth
+        logical :: pending_continuation
+        character(len=:), allocatable :: token_text
+
+        is_single_line = .true.
+        paren_depth = 0
+        pending_continuation = .false.
+
+        do pos = stmt_start + 1, size(all_tokens)
+            select case (all_tokens(pos)%kind)
+            case (TK_OPERATOR)
+                token_text = all_tokens(pos)%text
+                if (token_text == "(") then
+                    paren_depth = paren_depth + 1
+                else if (token_text == ")") then
+                    paren_depth = max(0, paren_depth - 1)
+                else if (paren_depth == 0) then
+                    if (token_text == "&") then
+                        pending_continuation = .true.
+                    else
+                        pending_continuation = .false.
+                    end if
+                end if
+            case (TK_KEYWORD)
+                if (paren_depth == 0) then
+                    token_text = all_tokens(pos)%text
+                    select case (token_text)
+                    case ("then")
+                        is_single_line = .false.
+                        return
+                    case ("if")
+                        ! Allow ELSE IF detection later in main logic
+                    case default
+                        pending_continuation = .false.
+                    end select
+                end if
+            case (TK_NEWLINE)
+                if (paren_depth == 0) then
+                    if (pending_continuation) then
+                        pending_continuation = .false.
+                    else
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function is_single_line_if_statement
 
     integer function locate_single_line_end(all_tokens, stmt_start, line_number) &
         result(stmt_end)
