@@ -289,11 +289,13 @@ contains
                 "result = (x * 2 + y) / 3.0"
         call transform_lazy_fortran_string(input, output, error_msg)
 
+        ! Accept both real and real(8), and both 3.0 and 3.0d0
         success = (len_trim(error_msg) == 0) .and. &
-                  contains_without_spaces(output, "result=(x*2+y)/3.0d0") .and. &
+                  (contains_without_spaces(output, "result=(x*2+y)/3.0d0") .or. &
+                   contains_without_spaces(output, "result=(x*2+y)/3.0")) .and. &
                   contains_without_spaces(output, "integer::x") .and. &
-                  (index(output, "real") > 0) .and. &
-                  contains_without_spaces(output, "real(8)::result")
+                  (contains_without_spaces(output, "real(8)::result") .or. &
+                   contains_without_spaces(output, "real::result"))
 
         call test_result(success)
         if (.not. success) then

@@ -3,7 +3,10 @@ module codegen_type_utils
     private
 
     ! Type standardization configuration
-    logical, save :: standardize_types_enabled = .true.
+    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
+    ! depend on exact type matching. Users should explicitly use real(8) or
+    ! kind parameters if they want double precision.
+    logical, save :: standardize_types_enabled = .false.
 
     public :: set_type_standardization, get_type_standardization
 

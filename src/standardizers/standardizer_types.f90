@@ -17,7 +17,10 @@ module standardizer_types
     integer, parameter :: INVALID_INTEGER = -999999
 
     ! Type standardization configuration (local copy)
-    logical, save :: standardizer_type_standardization_enabled = .true.
+    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
+    ! depend on exact type matching. Users should explicitly use real(8) or
+    ! kind parameters if they want double precision.
+    logical, save :: standardizer_type_standardization_enabled = .false.
 
     ! Result type for string operations
     type, public :: string_result_t
