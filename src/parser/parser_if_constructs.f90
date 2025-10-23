@@ -165,11 +165,25 @@ contains
 
                             else_body_indices = parse_if_body(parser, arena, if_index)
                             exit
-                        else if (then_token%text == "endif" .or. then_token%text == &
-                                 "end if") then
-                            ! End of if statement
+                        else if (then_token%text == "endif") then
+                            ! End of if statement (single keyword)
                             then_token = parser%consume()
                             exit
+                        else if (then_token%text == "end") then
+                            ! Check if next token is "if" (for "end if")
+                            if (parser%current_token + 1 <= size(parser%tokens)) then
+                                block
+                                    type(token_t) :: lookahead
+                                    lookahead = parser%tokens(parser%current_token + 1)
+                                    if (lookahead%kind == TK_KEYWORD .and. &
+                                        lookahead%text == "if") then
+                                        ! Consume both "end" and "if"
+                                        then_token = parser%consume()  ! consume "end"
+                                        then_token = parser%consume()  ! consume "if"
+                                        exit
+                                    end if
+                                end block
+                            end if
                         else
                             ! Other statement, stop parsing if block
                             exit
