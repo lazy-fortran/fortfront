@@ -28,9 +28,13 @@ module fortfront
 
     ! Re-export core pipeline functionality
     use lexer_api, only: lex_source
-    use parser_api, only: parse_tokens
+    use parser_api, only: parse_tokens, parse_tokens_safe, &
+                          parse_result_with_index_t
     use semantic_api, only: analyze_semantics
-    use transformation_api, only: 
+    use codegen_api, only: emit_fortran
+    use transformation_api, only: transform_lazy_fortran_string, &
+                                  transform_lazy_fortran_string_with_format, &
+                                  compilation_options_t, format_options_t
     use frontend_tooling_api, only: tooling_parse_options_t, &
                                     tooling_load_ast_from_string, &
                                     tooling_load_ast_from_file
