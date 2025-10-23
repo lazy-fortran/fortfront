@@ -49,9 +49,8 @@ contains
         integer :: line, column
         integer :: mask_expr_index
         integer, allocatable :: where_body_indices(:)
-        integer, allocatable :: elsewhere_body_indices(:)
         type(statement_callbacks_t) :: callbacks
-        logical :: single_line, has_elsewhere
+        logical :: single_line
         character(len=9), parameter :: where_end_keywords(2) = [ &
                                        'elsewhere', 'end      ']
 
@@ -162,7 +161,7 @@ contains
                                                  callbacks, &
                                                  where_end_keywords, &
                                                  line, column) result(where_index)
-        use ast_nodes_control, only: elsewhere_clause_t, where_node
+        use ast_nodes_control, only: elsewhere_clause_t
         type(ast_arena_t), intent(inout) :: arena
         type(parser_state_t), intent(inout) :: parser
         integer, intent(in) :: mask_expr_index
@@ -178,7 +177,6 @@ contains
         integer :: num_clauses
         integer :: clause_mask_index
         integer, allocatable :: clause_body_indices(:)
-        type(where_node) :: where_stmt
 
         num_clauses = 0
         allocate (elsewhere_clauses(0))
@@ -232,20 +230,27 @@ contains
             end if
         end if
 
-        where_stmt%line = line
-        where_stmt%column = column
-        where_stmt%mask_expr_index = mask_expr_index
-        if (allocated(where_body_indices)) then
-            allocate (where_stmt%where_body_indices(size(where_body_indices)))
-            where_stmt%where_body_indices = where_body_indices
-        end if
         if (num_clauses > 0) then
-            allocate (where_stmt%elsewhere_clauses(num_clauses))
-            where_stmt%elsewhere_clauses = elsewhere_clauses
+            if (allocated(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column)
+            else
+                where_index = push_where(arena, mask_expr_index, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column)
+            end if
+        else
+            if (allocated(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         line=line, column=column)
+            else
+                where_index = push_where(arena, mask_expr_index, &
+                                         line=line, column=column)
+            end if
         end if
-
-        call arena%push(where_stmt, "where_node")
-        where_index = arena%size
     end function create_where_with_elsewhere_clauses
 
     subroutine parse_single_line_where_body(parser, arena, callbacks, body_indices)
