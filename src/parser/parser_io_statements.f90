@@ -8,11 +8,13 @@ module parser_io_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: open_statement_node, close_statement_node, &
-                            inquire_statement_node
+                            inquire_statement_node, backspace_statement_node, &
+                            rewind_statement_node, endfile_statement_node
     use ast_factory, only: push_print_statement, push_write_statement, &
                            push_read_statement, push_format_statement, &
                            push_open_statement, push_close_statement, &
-                           push_inquire_statement
+                           push_inquire_statement, push_backspace_statement, &
+                           push_rewind_statement, push_endfile_statement
     use ast_factory
     implicit none
     private
@@ -21,6 +23,7 @@ module parser_io_statements_module
     public :: parse_format_statement
     public :: parse_open_statement, parse_close_statement
     public :: parse_inquire_statement
+    public :: parse_backspace_statement, parse_rewind_statement, parse_endfile_statement
 
 contains
 
@@ -613,5 +616,74 @@ contains
 
         inquire_index = push_inquire_statement(arena, spec_text, line, column)
     end function parse_inquire_statement
+
+    function parse_backspace_statement(parser, arena) result(backspace_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: backspace_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "backspace") then
+            backspace_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = parse_unit_specifier(parser)
+        backspace_index = push_backspace_statement(arena, unit_spec, line, column)
+    end function parse_backspace_statement
+
+    function parse_rewind_statement(parser, arena) result(rewind_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: rewind_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "rewind") then
+            rewind_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = parse_unit_specifier(parser)
+        rewind_index = push_rewind_statement(arena, unit_spec, line, column)
+    end function parse_rewind_statement
+
+    function parse_endfile_statement(parser, arena) result(endfile_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: endfile_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "endfile") then
+            endfile_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = parse_unit_specifier(parser)
+        endfile_index = push_endfile_statement(arena, unit_spec, line, column)
+    end function parse_endfile_statement
 
 end module parser_io_statements_module
