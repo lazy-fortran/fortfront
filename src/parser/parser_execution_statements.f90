@@ -39,7 +39,7 @@ module parser_execution_statements_module
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
     use parser_statement_data_module, only: parse_data_statement, &
-                                                parse_namelist_statement
+                                            parse_namelist_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
     use parser_type_specifications_module, only: parse_implicit_statement
@@ -48,8 +48,7 @@ module parser_execution_statements_module
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
-    use ast_nodes_misc, only: comment_node
-    use uid_generator, only: generate_uid
+    use parser_legacy_statements_module, only: parse_legacy_statement
     implicit none
     private
 
@@ -378,8 +377,7 @@ contains
             case ("namelist")
                 stmt_index = parse_namelist_statement(parser_ref, arena_ref)
             case ("equivalence", "common")
-                stmt_index = parse_legacy_statement_wrapper(lowered, parser_ref, &
-                                                            arena_ref)
+                stmt_index = parse_legacy_statement(lowered, parser_ref, arena_ref)
             case default
                 block
                     type(token_t) :: ignored_token
@@ -388,66 +386,6 @@ contains
                 stmt_index = 0
             end select
         end function parse_general_keyword
-
-        integer function parse_legacy_statement_wrapper(lowered, parser_ref, &
-                                                        arena_ref) result(stmt_index)
-            character(len=*), intent(in) :: lowered
-            type(parser_state_t), intent(inout) :: parser_ref
-            type(ast_arena_t), intent(inout) :: arena_ref
-            type(token_t) :: token, first_token
-            character(len=:), allocatable :: text
-            integer :: start_pos, end_pos, i, line, column
-            type(comment_node) :: comment
-
-            start_pos = parser_ref%current_token
-            first_token = parser_ref%peek()
-            line = first_token%line
-            column = first_token%column
-
-            end_pos = start_pos
-            do i = start_pos, size(parser_ref%tokens)
-                token = parser_ref%tokens(i)
-                if (token%kind == TK_EOF .or. token%kind == TK_NEWLINE) then
-                    end_pos = i - 1
-                    exit
-                end if
-                end_pos = i
-            end do
-
-            call reconstruct_legacy_text(parser_ref%tokens, start_pos, end_pos, text)
-
-            comment%text = "    " // trim(text)
-            comment%line = line
-            comment%column = column
-            comment%uid = generate_uid()
-            call arena_ref%push(comment, "comment")
-            stmt_index = arena_ref%size
-
-            parser_ref%current_token = end_pos + 1
-        end function parse_legacy_statement_wrapper
-
-        pure subroutine reconstruct_legacy_text(tokens, start_idx, end_idx, text)
-            type(token_t), intent(in) :: tokens(:)
-            integer, intent(in) :: start_idx, end_idx
-            character(len=:), allocatable, intent(out) :: text
-            integer :: i, total_len
-
-            total_len = 0
-            do i = start_idx, end_idx
-                total_len = total_len + len_trim(tokens(i)%text)
-                if (i < end_idx) total_len = total_len + 1
-            end do
-
-            allocate (character(len=total_len) :: text)
-            text = ""
-
-            do i = start_idx, end_idx
-                text = trim(text) // trim(tokens(i)%text)
-                if (i < end_idx .and. len_trim(text) > 0) then
-                    text = trim(text) // " "
-                end if
-            end do
-        end subroutine reconstruct_legacy_text
 
         integer function handle_identifier_token(parser_ref, arena_ref, &
                                                  current_token) &
