@@ -8,7 +8,8 @@ module parser_control_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_stop, push_return, push_continue, push_end_statement, &
-                           push_goto, push_error_stop, push_cycle, push_exit, push_pause
+                           push_goto, push_error_stop, push_cycle, push_exit, push_pause, &
+                           push_nullify
     use ast_factory
     implicit none
     private
@@ -17,6 +18,7 @@ module parser_control_statements_module
               parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement, parse_pause_statement
+    public :: parse_nullify_statement
 
 contains
 
@@ -423,5 +425,70 @@ contains
             exit_index = push_exit(arena, line=line, column=column)
         end if
     end function parse_exit_statement
+
+    function parse_nullify_statement(parser, arena) result(nullify_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: nullify_index
+
+        type(token_t) :: token
+        integer :: line, column
+        integer, allocatable :: pointer_indices(:)
+        integer, allocatable :: temp_indices(:)
+        integer :: var_index, idx_count
+
+        ! Consume 'nullify' keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        ! Expect opening parenthesis
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            nullify_index = 0
+            return
+        end if
+        token = parser%consume()
+
+        ! Parse comma-separated list of pointer variables
+        allocate (pointer_indices(0))
+        idx_count = 0
+
+        do
+            token = parser%peek()
+
+            ! Check for closing parenthesis
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            ! Parse variable reference
+            var_index = parse_comparison(parser, arena)
+            if (var_index > 0) then
+                idx_count = idx_count + 1
+                allocate (temp_indices(idx_count))
+                if (idx_count > 1) temp_indices(1:idx_count - 1) = pointer_indices
+                temp_indices(idx_count) = var_index
+                call move_alloc(temp_indices, pointer_indices)
+            end if
+
+            ! Check for comma
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            else
+                exit
+            end if
+        end do
+
+        ! Create NULLIFY node
+        nullify_index = push_nullify(arena, pointer_indices=pointer_indices, &
+                                      line=line, column=column)
+    end function parse_nullify_statement
 
 end module parser_control_statements_module

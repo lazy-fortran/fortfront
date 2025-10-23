@@ -58,7 +58,7 @@ module ast_factory
         push_implicit_statement, push_include_statement, push_import_statement, &
         push_end_statement, push_stop, push_return, push_continue, push_goto, &
         push_error_stop, push_cycle, push_exit, push_allocate, push_deallocate, &
-        push_io_implied_do, push_pause
+        push_io_implied_do, push_pause, push_nullify
 
     implicit none
     private
@@ -107,7 +107,7 @@ module ast_factory
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement, push_stop, push_return, push_continue, push_goto, &
-              push_error_stop, push_pause
+              push_error_stop, push_pause, push_nullify
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
 
     ! Note: No module body needed - all functionality is provided by re-exported modules

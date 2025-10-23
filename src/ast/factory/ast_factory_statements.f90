@@ -8,7 +8,8 @@ module ast_factory_statements
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
-                                 cycle_node, exit_node, continue_node, pause_node
+                                 cycle_node, exit_node, continue_node, pause_node, &
+                                 nullify_node
     use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
@@ -18,7 +19,7 @@ module ast_factory_statements
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_continue, push_goto, push_error_stop
-    public :: push_cycle, push_exit, push_pause
+    public :: push_cycle, push_exit, push_pause, push_nullify
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
 
@@ -349,6 +350,27 @@ contains
         call arena%push(pause_stmt, "pause_node", parent_index)
         pause_index = arena%size
     end function push_pause
+
+    ! Create NULLIFY statement node and add to stack
+    function push_nullify(arena, pointer_indices, line, column, &
+                          parent_index) result(nullify_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: pointer_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: nullify_index
+        type(nullify_node) :: nullify_stmt
+        nullify_stmt%uid = generate_uid()
+        if (present(pointer_indices)) then
+            if (size(pointer_indices) > 0) then
+                nullify_stmt%pointer_indices = pointer_indices
+            end if
+        end if
+        if (present(line)) nullify_stmt%line = line
+        if (present(column)) nullify_stmt%column = column
+
+        call arena%push(nullify_stmt, "nullify_node", parent_index)
+        nullify_index = arena%size
+    end function push_nullify
 
     ! Create CYCLE statement node and add to stack
     function push_cycle(arena, loop_label, line, column, parent_index) &

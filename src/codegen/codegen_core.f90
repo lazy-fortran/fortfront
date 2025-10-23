@@ -114,6 +114,8 @@ contains
             code = generate_code_error_termination(arena, node, node_index)
         type is (pause_node)
             code = generate_code_pause_statement(arena, node, node_index)
+        type is (nullify_node)
+            code = generate_code_nullify_statement(arena, node, node_index)
         type is (cycle_node)
             code = generate_code_cycle(arena, node, node_index)
         type is (exit_node)

@@ -472,7 +472,7 @@ contains
         select case (trim(lower_word))
         case ('program', 'end', 'function', 'subroutine', 'if', &
               'then', 'else', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', 'error', &
-              'continue', &
+              'continue', 'nullify', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
