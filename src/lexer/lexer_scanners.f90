@@ -478,8 +478,9 @@ contains
               'intent', 'use', 'module', 'contains', 'public', 'private', &
               'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
               'procedure', 'interface', 'import', 'generic', 'operator', &
-              'assignment', 'print', 'read', 'write', 'open', 'close', 'call', &
-              'format', 'allocate', 'deallocate', 'select', 'case', 'default', &
+              'assignment', 'print', 'read', 'write', 'open', 'close', 'inquire', &
+              'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
+              'default', &
               'where', 'associate', 'forall', 'block', 'enum', 'file', &
               'submodule', 'rank', 'elseif', 'elsewhere', 'blockdata', &
               'doubleprecision', 'doublecomplex', 'selectcase', 'equivalence', &

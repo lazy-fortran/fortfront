@@ -7,10 +7,12 @@ module parser_io_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_io, only: open_statement_node, close_statement_node
+    use ast_nodes_io, only: open_statement_node, close_statement_node, &
+                            inquire_statement_node
     use ast_factory, only: push_print_statement, push_write_statement, &
                            push_read_statement, push_format_statement, &
-                           push_open_statement, push_close_statement
+                           push_open_statement, push_close_statement, &
+                           push_inquire_statement
     use ast_factory
     implicit none
     private
@@ -18,6 +20,7 @@ module parser_io_statements_module
     public :: parse_print_statement, parse_write_statement, parse_read_statement
     public :: parse_format_statement
     public :: parse_open_statement, parse_close_statement
+    public :: parse_inquire_statement
 
 contains
 
@@ -566,5 +569,49 @@ contains
 
         close_index = push_close_statement(arena, spec_text, line, column)
     end function parse_close_statement
+
+    function parse_inquire_statement(parser, arena) result(inquire_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: inquire_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: spec_text
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "inquire") then
+            inquire_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            inquire_index = 0
+            return
+        end if
+        token = parser%consume()
+
+        spec_text = ""
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            end if
+
+            if (len(spec_text) > 0 .and. token%text /= ",") then
+                spec_text = spec_text // " "
+            end if
+            spec_text = spec_text // token%text
+            token = parser%consume()
+        end do
+
+        inquire_index = push_inquire_statement(arena, spec_text, line, column)
+    end function parse_inquire_statement
 
 end module parser_io_statements_module

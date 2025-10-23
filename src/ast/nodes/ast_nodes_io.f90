@@ -11,6 +11,7 @@ module ast_nodes_io
     public :: create_io_implied_do
     public :: create_open_statement
     public :: create_close_statement
+    public :: create_inquire_statement
 
     ! I/O statement AST nodes
 
@@ -138,6 +139,18 @@ module ast_nodes_io
         procedure :: assign => close_statement_assign
         generic :: assignment(=) => assign
     end type close_statement_node
+
+    ! INQUIRE statement node
+    type, extends(ast_node), public :: inquire_statement_node
+        character(len=:), allocatable :: spec_list
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => inquire_statement_accept
+        procedure :: to_json => inquire_statement_to_json
+        procedure :: assign => inquire_statement_assign
+        generic :: assignment(=) => assign
+    end type inquire_statement_node
 
 contains
 
@@ -546,5 +559,49 @@ contains
         type(close_statement_node) :: node
         node%uid = generate_uid()
     end function create_close_statement
+
+    ! INQUIRE statement implementations
+    subroutine inquire_statement_accept(this, visitor)
+        class(inquire_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine inquire_statement_accept
+
+    subroutine inquire_statement_to_json(this, json, parent)
+        class(inquire_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'inquire_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%spec_list)) call json%add(obj, 'spec_list', &
+                                                      this%spec_list)
+        call json%add(parent, obj)
+    end subroutine inquire_statement_to_json
+
+    subroutine inquire_statement_assign(lhs, rhs)
+        class(inquire_statement_node), intent(inout) :: lhs
+        class(inquire_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%spec_list)) lhs%spec_list = rhs%spec_list
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine inquire_statement_assign
+
+    function create_inquire_statement() result(node)
+        type(inquire_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_inquire_statement
 
 end module ast_nodes_io

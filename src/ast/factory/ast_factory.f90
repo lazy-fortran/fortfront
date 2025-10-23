@@ -40,7 +40,8 @@ module ast_factory
         push_read_statement_with_err, push_read_statement_with_end, &
         push_read_statement_with_all_specifiers, push_write_statement_with_iostat, &
         push_write_statement_with_format, push_write_statement_with_runtime_format, &
-        push_format_statement, push_open_statement, push_close_statement
+        push_format_statement, push_open_statement, push_close_statement, &
+        push_inquire_statement
 
     ! Procedure definition nodes
     use ast_factory_procedures, only: &
@@ -93,6 +94,7 @@ module ast_factory
     public :: push_read_statement_with_all_specifiers, push_write_statement_with_iostat
     public :: push_write_statement_with_format, push_write_statement_with_runtime_format
     public :: push_format_statement, push_open_statement, push_close_statement
+    public :: push_inquire_statement
 
     ! Procedure definition nodes
     public :: push_function_def, push_subroutine_def, push_interface_block

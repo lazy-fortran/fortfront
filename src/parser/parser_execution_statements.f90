@@ -20,7 +20,8 @@ module parser_execution_statements_module
                                            parse_read_statement, &
                                            parse_format_statement, &
                                            parse_open_statement, &
-                                           parse_close_statement
+                                           parse_close_statement, &
+                                           parse_inquire_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, &
@@ -319,6 +320,8 @@ contains
                 stmt_index = parse_open_statement(parser_ref, arena_ref)
             case ("close")
                 stmt_index = parse_close_statement(parser_ref, arena_ref)
+            case ("inquire")
+                stmt_index = parse_inquire_statement(parser_ref, arena_ref)
             case ("format")
                 stmt_index = parse_format_statement(parser_ref, arena_ref)
             case ("allocate")
