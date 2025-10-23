@@ -72,7 +72,8 @@ contains
 
         source = 'program test_case_2' // new_line('a') // &
                  '    implicit none' // new_line('a') // &
-                 '    character(len=:), allocatable :: dynamic_str' // new_line('a') // &
+                 '    character(len=:), allocatable :: ' // &
+                 'dynamic_str' // new_line('a') // &
                  '    dynamic_str = "Test"' // new_line('a') // &
                  'end program test_case_2'
 
@@ -186,20 +187,18 @@ contains
 
     logical function test_case_5_mixed_attributes()
         character(len=:), allocatable :: source, output, error_msg
-
         test_case_5_mixed_attributes = .true.
         print *, 'Test Case 5: Mixed character attributes'
-
         source = 'program test_case_5' // new_line('a') // &
                  '    implicit none' // new_line('a') // &
                  '    integer, parameter :: n = 10' // new_line('a') // &
                  '    character(len=:), allocatable :: str1' // new_line('a') // &
                  '    character(len=n), dimension(5) :: str_array' // new_line('a') // &
-                 '    character(len=*), parameter :: greeting = "Hello"' // new_line('a') // &
+                 '    character(len=*), parameter :: greeting = ' // &
+                 '"Hello"' // new_line('a') // &
                  '    str1 = "Test"' // new_line('a') // &
                  '    str_array(1) = "Item"' // new_line('a') // &
                  'end program test_case_5'
-
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
