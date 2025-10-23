@@ -377,7 +377,8 @@ contains
                 stmt_index = parse_simple_print_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
-            case ("integer", "real", "logical", "character", "complex", "double")
+            case ("integer", "real", "logical", "character", "complex", &
+                  "double", "procedure")
                 ! Check if this is a multi-variable declaration
                 block
                     logical :: has_comma

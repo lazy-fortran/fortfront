@@ -102,7 +102,8 @@ contains
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
                         cycle
-                    case ("integer", "real", "logical", "character", "complex")
+                    case ("integer", "real", "logical", "character", "complex", &
+                          "procedure")
                         stmt_index = parse_declaration(parser, arena)
                         if (stmt_index > 0) then
                             declaration_indices = [declaration_indices, stmt_index]
@@ -276,7 +277,8 @@ contains
                             if (allocated(stored)) deallocate (stored)
                             token = parser%consume()
                             cycle
-                        case ("integer", "real", "logical", "character", "complex", "double")
+                        case ("integer", "real", "logical", "character", "complex", &
+                              "double", "procedure")
                             ! Type keyword - might be function return type
                             call prefix_buffer%get_all(stored)
                             if (trim(lowered) == "double") then

@@ -896,7 +896,7 @@ contains
         if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
             select case (trim(adjustl(token%text)))
             case ("integer", "real", "complex", "logical", "character", &
-                  "type", "class", "double")
+                  "type", "class", "double", "procedure")
                 comp_index = parse_declaration(parser, arena)
             case default
                 ! Not a component declaration, return 0

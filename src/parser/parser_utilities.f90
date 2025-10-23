@@ -263,7 +263,7 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             select case (trim(token%text))
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "byte")
+                  "double", "byte", "procedure")
                 is_type_spec = .true.
                 type_name = token%text
 

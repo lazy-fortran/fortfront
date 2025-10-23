@@ -166,7 +166,7 @@ contains
             case ("type")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("real", "integer", "logical", "character", "complex", "double", &
-                  "class")
+                  "class", "procedure")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
