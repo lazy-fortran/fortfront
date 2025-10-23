@@ -927,7 +927,16 @@ contains
         else
             code = "interface"
         end if
-        if (allocated(node%name)) then
+        if (allocated(node%kind)) then
+            if (trim(node%kind) == "operator" .or. trim(node%kind) == "assignment") then
+                code = code // " " // trim(node%kind)
+                if (allocated(node%operator)) then
+                    code = code // "(" // trim(node%operator) // ")"
+                end if
+            else if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+            end if
+        else if (allocated(node%name)) then
             if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
         end if
         code = code // new_line('A')
@@ -938,7 +947,16 @@ contains
         end if
 
         code = code // "end interface"
-        if (allocated(node%name)) then
+        if (allocated(node%kind)) then
+            if (trim(node%kind) == "operator" .or. trim(node%kind) == "assignment") then
+                code = code // " " // trim(node%kind)
+                if (allocated(node%operator)) then
+                    code = code // "(" // trim(node%operator) // ")"
+                end if
+            else if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+            end if
+        else if (allocated(node%name)) then
             if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
         end if
     end function generate_code_interface_block

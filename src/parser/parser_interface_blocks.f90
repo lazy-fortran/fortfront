@@ -37,7 +37,7 @@ contains
         logical, intent(in), optional :: is_abstract
         integer :: interface_index
 
-        character(len=:), allocatable :: interface_name
+        character(len=:), allocatable :: interface_name, interface_kind, operator_symbol
         integer :: line, column
         integer, allocatable :: body_indices(:)
         type(token_t) :: token
@@ -47,8 +47,8 @@ contains
         is_abstract_interface = .false.
         if (present(is_abstract)) is_abstract_interface = is_abstract
 
-        call begin_interface_block(parser, interface_name, line, column, &
-                                   is_abstract_interface)
+        call begin_interface_block(parser, interface_name, interface_kind, &
+                                   operator_symbol, line, column, is_abstract_interface)
         call prefix_buffer%clear()
 
         allocate (body_indices(0))
@@ -74,7 +74,8 @@ contains
         end do
 
         interface_index = push_interface_block(arena, interface_name, body_indices, &
-                                               line, column, is_abstract=is_abstract_interface)
+                                               line, column, is_abstract=is_abstract_interface, &
+                                               kind=interface_kind, operator_symbol=operator_symbol)
     end function parse_interface_block
 
     logical function try_parse_interface_procedure(parser, arena, prefix_buffer, &
@@ -119,10 +120,12 @@ contains
         proc_parser_callback => parser_func
     end subroutine set_interface_procedure_parser
 
-    subroutine begin_interface_block(parser, interface_name, line, column, &
-                                     is_abstract)
+    subroutine begin_interface_block(parser, interface_name, interface_kind, &
+                                     operator_symbol, line, column, is_abstract)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: interface_name
+        character(len=:), allocatable, intent(out) :: interface_kind
+        character(len=:), allocatable, intent(out) :: operator_symbol
         integer, intent(out) :: line, column
         logical, intent(in), optional :: is_abstract
 
@@ -143,10 +146,31 @@ contains
         line = token%line
         column = token%column
 
+        interface_kind = "interface"
+        operator_symbol = ""
+
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            interface_name = token%text
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+            lowered = to_lower(trim(token%text))
+            if (trim(lowered) == "operator" .or. trim(lowered) == "assignment") then
+                interface_kind = trim(lowered)
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    token = parser%consume()
+                    token = parser%peek()
+                    operator_symbol = trim(token%text)
+                    token = parser%consume()
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                        token = parser%consume()
+                    end if
+                end if
+                interface_name = ""
+            else
+                token = parser%consume()
+                interface_name = token%text
+            end if
         else
             interface_name = ""
         end if
