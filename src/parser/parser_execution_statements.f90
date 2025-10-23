@@ -274,12 +274,15 @@ contains
             type(ast_arena_t), intent(inout) :: arena_ref
             if (allocated(pending_prefixes)) then
                 call prefix_buffer%set(pending_prefixes)
+                stmt_index = parse_function_definition(parser_ref, arena_ref, &
+                                                       prefix_buffer, &
+                                                       pending_prefixes)
                 call reset_pending_prefixes()
             else
                 call prefix_buffer%clear()
+                stmt_index = parse_function_definition(parser_ref, arena_ref, &
+                                                       prefix_buffer)
             end if
-            stmt_index = parse_function_definition(parser_ref, arena_ref, &
-                                                   prefix_buffer)
             call prefix_buffer%clear()
         end function parse_function_with_prefixes
 
