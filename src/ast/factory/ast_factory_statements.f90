@@ -340,6 +340,7 @@ contains
         integer :: pause_index
         type(pause_node) :: pause_stmt
         pause_stmt%uid = generate_uid()
+        pause_stmt%pause_code_index = 0
         if (present(pause_code_index)) pause_stmt%pause_code_index = pause_code_index
         if (present(pause_message)) pause_stmt%pause_message = pause_message
         if (present(line)) pause_stmt%line = line
