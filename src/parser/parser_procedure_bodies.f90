@@ -14,6 +14,8 @@ module parser_procedure_bodies_module
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
+    use ast_nodes_misc, only: comment_node
+    use uid_generator, only: generate_uid
     use parser_prefix_buffer_module, only: append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
@@ -408,6 +410,10 @@ contains
             case ("do")
                 ! Handle DO loops
                 stmt_index = parse_do_loop(parser, arena)
+            case ("equivalence", "common")
+                ! Handle legacy statements
+                stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
+                                                    parser, arena)
             case default
                 if (token_is_identifier_like(token)) then
                     stmt_index = try_parse_keyword_assignment(parser, arena)
@@ -429,6 +435,66 @@ contains
             stmt_index = 0
         end select
     end function parse_basic_statement_in_subroutine
+
+    function parse_legacy_statement(lowered, parser, arena) result(stmt_index)
+        character(len=*), intent(in) :: lowered
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token, first_token
+        character(len=:), allocatable :: text
+        integer :: start_pos, end_pos, i, line, column
+        type(comment_node) :: comment
+
+        start_pos = parser%current_token
+        first_token = parser%peek()
+        line = first_token%line
+        column = first_token%column
+
+        end_pos = start_pos
+        do i = start_pos, size(parser%tokens)
+            token = parser%tokens(i)
+            if (token%kind == TK_EOF .or. token%kind == TK_NEWLINE) then
+                end_pos = i - 1
+                exit
+            end if
+            end_pos = i
+        end do
+
+        call reconstruct_legacy_text(parser%tokens, start_pos, end_pos, text)
+
+        comment%text = "    " // trim(text)
+        comment%line = line
+        comment%column = column
+        comment%uid = generate_uid()
+        call arena%push(comment, "comment")
+        stmt_index = arena%size
+
+        parser%current_token = end_pos + 1
+    end function parse_legacy_statement
+
+    pure subroutine reconstruct_legacy_text(tokens, start_idx, end_idx, text)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx, end_idx
+        character(len=:), allocatable, intent(out) :: text
+        integer :: i, total_len
+
+        total_len = 0
+        do i = start_idx, end_idx
+            total_len = total_len + len_trim(tokens(i)%text)
+            if (i < end_idx) total_len = total_len + 1
+        end do
+
+        allocate (character(len=total_len) :: text)
+        text = ""
+
+        do i = start_idx, end_idx
+            text = trim(text) // trim(tokens(i)%text)
+            if (i < end_idx .and. len_trim(text) > 0) then
+                text = trim(text) // " "
+            end if
+        end do
+    end subroutine reconstruct_legacy_text
 
     subroutine append_body_item(parser, arena, token, body_indices)
         type(parser_state_t), intent(inout) :: parser
