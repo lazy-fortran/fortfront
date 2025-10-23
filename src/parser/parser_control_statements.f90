@@ -7,15 +7,15 @@ module parser_control_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_stop, push_return, push_continue, &
+    use ast_factory, only: push_stop, push_return, push_entry, push_continue, &
                            push_end_statement, push_goto, push_error_stop, &
                            push_cycle, push_exit, push_pause, push_nullify
     use ast_factory
     implicit none
     private
 
-    public :: parse_stop_statement, parse_return_statement, parse_continue_statement, &
-              parse_end_statement
+    public :: parse_stop_statement, parse_return_statement, parse_entry_statement, &
+              parse_continue_statement, parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement, parse_pause_statement
     public :: parse_nullify_statement
@@ -80,6 +80,61 @@ contains
         return_index = push_return(arena, line=line, column=column, &
                                    parent_index=parent_index)
     end function parse_return_statement
+
+    function parse_entry_statement(parser, arena, parent_index) result(entry_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        integer :: entry_index
+
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: entry_name, params_text
+        integer :: paren_depth, i
+
+        ! Consume ENTRY keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        ! Get entry point name
+        token = parser%peek()
+        if (token%kind /= TK_IDENTIFIER) then
+            entry_index = 0
+            return
+        end if
+        entry_name = trim(token%text)
+        token = parser%consume()
+
+        ! Check for optional parameter list
+        token = parser%peek()
+        params_text = ""
+        if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+            ! Capture parameter list text
+            paren_depth = 0
+            i = parser%current_token
+            do while (i <= size(parser%tokens))
+                token = parser%tokens(i)
+                params_text = params_text // trim(token%text)
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    paren_depth = paren_depth + 1
+                else if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                    paren_depth = paren_depth - 1
+                    if (paren_depth == 0) then
+                        i = i + 1
+                        exit
+                    end if
+                end if
+                i = i + 1
+            end do
+            parser%current_token = i
+        end if
+
+        ! Create ENTRY node
+        entry_index = push_entry(arena, name=entry_name, params_text=params_text, &
+                                 line=line, column=column, parent_index=parent_index)
+    end function parse_entry_statement
 
     function parse_continue_statement(parser, arena, parent_index) &
         result(continue_index)

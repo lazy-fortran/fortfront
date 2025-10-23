@@ -20,9 +20,9 @@ module parser_dispatcher_module
                                                    parse_interface_block
     use parser_procedure_definitions_module, only: init_interface_procedure_parser
     use parser_control_statements_module, only: &
-        parse_stop_statement, parse_return_statement, parse_goto_statement, &
-        parse_error_stop_statement, parse_cycle_statement, parse_exit_statement, &
-        parse_end_statement, parse_nullify_statement
+        parse_stop_statement, parse_return_statement, parse_entry_statement, &
+        parse_goto_statement, parse_error_stop_statement, parse_cycle_statement, &
+        parse_exit_statement, parse_end_statement, parse_nullify_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
@@ -171,6 +171,8 @@ contains
                 stmt_index = parse_stop_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
+            case ("entry")
+                stmt_index = parse_entry_statement(parser, arena)
             case ("go", "goto")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")

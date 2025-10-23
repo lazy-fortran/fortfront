@@ -13,6 +13,7 @@ module parser_statement_utilities_module
                                            parse_read_statement
     use parser_control_statements_module, only: parse_stop_statement, &
                                                 parse_return_statement, &
+                                                parse_entry_statement, &
                                                 parse_goto_statement, &
                                                 parse_error_stop_statement, &
                                                 parse_cycle_statement, &
@@ -94,6 +95,8 @@ contains
                 stmt_index = parse_stop_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
+            case ("entry")
+                stmt_index = parse_entry_statement(parser, arena)
             case ("goto", "go")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")

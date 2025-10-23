@@ -7,9 +7,9 @@ module ast_factory_statements
                               include_statement_node, import_statement_node, &
                               end_statement_node, allocate_statement_node, &
                               deallocate_statement_node, create_implicit_statement
-    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, &
-                                 cycle_node, exit_node, continue_node, pause_node, &
-                                 nullify_node
+    use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
+                                 error_stop_node, cycle_node, exit_node, &
+                                 continue_node, pause_node, nullify_node
     use ast_nodes_io, only: io_implied_do_node
     implicit none
     private
@@ -18,7 +18,8 @@ module ast_factory_statements
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement
-    public :: push_stop, push_return, push_continue, push_goto, push_error_stop
+    public :: push_stop, push_return, push_entry, push_continue, push_goto, &
+              push_error_stop
     public :: push_cycle, push_exit, push_pause, push_nullify
     public :: push_allocate, push_deallocate
     public :: push_io_implied_do
@@ -276,6 +277,27 @@ contains
         call arena%push(return_stmt, "return_node", parent_index)
         return_index = arena%size
     end function push_return
+
+    ! Create ENTRY statement node and add to stack
+    function push_entry(arena, name, params_text, param_indices, line, column, &
+                        parent_index) result(entry_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in), optional :: params_text
+        integer, intent(in), optional :: param_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: entry_index
+        type(entry_node) :: entry_stmt
+        entry_stmt%uid = generate_uid()
+        entry_stmt%name = name
+        if (present(params_text)) entry_stmt%params_text = params_text
+        if (present(param_indices)) entry_stmt%param_indices = param_indices
+        if (present(line)) entry_stmt%line = line
+        if (present(column)) entry_stmt%column = column
+
+        call arena%push(entry_stmt, "entry_node", parent_index)
+        entry_index = arena%size
+    end function push_entry
 
     function push_continue(arena, line, column, parent_index) result(continue_index)
         type(ast_arena_t), intent(inout) :: arena

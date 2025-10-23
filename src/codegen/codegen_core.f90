@@ -115,6 +115,8 @@ contains
             code = generate_code_termination(arena, node, node_index)
         type is (return_node)
             code = generate_code_return(arena, node, node_index)
+        type is (entry_node)
+            code = generate_code_entry(arena, node, node_index)
         type is (continue_node)
             code = generate_code_continue(arena, node, node_index)
         type is (goto_node)
