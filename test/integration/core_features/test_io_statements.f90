@@ -54,6 +54,17 @@ program test_io_statements
     open (unit=unit, file=filename, status="old")
     close (unit, status="delete")
 
+    ! Test CLOSE in IF block (issue #1697)
+    open (unit=unit, file="test_if_close.txt", status="replace", iostat=iostat)
+    if (iostat == 0) then
+        write (unit, '(A)') "Testing CLOSE in IF block"
+        close (unit)
+    end if
+
+    ! Clean up
+    open (unit=unit, file="test_if_close.txt", status="old")
+    close (unit, status="delete")
+
     print *, "All I/O statement tests passed!"
 
 end program test_io_statements
