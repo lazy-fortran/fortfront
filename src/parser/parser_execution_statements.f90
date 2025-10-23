@@ -311,7 +311,7 @@ contains
             case ("implicit")
                 stmt_index = parse_implicit_statement(parser_ref, arena_ref)
             case ("real", "integer", "logical", "character", "complex", "double", &
-                  "class")
+                  "class", "procedure")
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
             case ("type")
                 call handle_type_declaration(parser_ref, arena_ref, stmt_index)
