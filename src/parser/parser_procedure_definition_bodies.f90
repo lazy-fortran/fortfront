@@ -179,9 +179,48 @@ contains
         integer :: depth
         logical :: preceded_by_end
         logical :: preceded_by_else
+        logical :: has_then
+        integer :: paren_depth
 
         stmt_end = stmt_start
         pos = stmt_start
+
+        ! For IF statements, check if it's a single-line IF (no THEN keyword)
+        if (stmt_type == "if") then
+            has_then = .false.
+            paren_depth = 0
+            ! Scan forward to check for THEN after the condition
+            do pos = stmt_start + 1, size(all_tokens)
+                ! Track parentheses to skip over condition
+                if (all_tokens(pos)%kind == TK_OPERATOR) then
+                    if (all_tokens(pos)%text == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (all_tokens(pos)%text == ")") then
+                        paren_depth = paren_depth - 1
+                    end if
+                end if
+                ! After closing condition parentheses, look for THEN
+                if (paren_depth == 0 .and. all_tokens(pos)%kind == TK_KEYWORD) then
+                    if (all_tokens(pos)%text == "then") then
+                        has_then = .true.
+                        exit
+                    else if (all_tokens(pos)%text /= "if") then
+                        ! Found a non-THEN keyword after condition = single-line IF
+                        exit
+                    end if
+                end if
+                ! Stop at end of line for single-line IF
+                if (paren_depth == 0 .and. all_tokens(pos)%kind == TK_NEWLINE) then
+                    exit
+                end if
+            end do
+            ! If no THEN found, it's a single-line IF - use single-line logic
+            if (.not. has_then) then
+                stmt_end = locate_single_line_end(all_tokens, stmt_start, &
+                                                  all_tokens(stmt_start)%line)
+                return
+            end if
+        end if
 
         ! Set initial depth based on statement type
         if (stmt_type == "do") then
