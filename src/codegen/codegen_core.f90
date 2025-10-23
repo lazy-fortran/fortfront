@@ -5,12 +5,13 @@ module codegen_core
     use codegen_statements
     use codegen_control_flow
     use codegen_declarations
-    use codegen_type_utils, only: set_type_standardization, get_type_standardization
+    use codegen_type_utils, only: set_type_standardization, &
+                                  get_type_standardization
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
-                              parameter_declaration_node, module_node, derived_type_node, &
-                              block_data_node
+                              parameter_declaration_node, module_node, &
+                              derived_type_node, block_data_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, &
                                 array_slice_node, &
                                 array_operation_node
@@ -114,6 +115,8 @@ contains
             code = generate_code_error_termination(arena, node, node_index)
         type is (pause_node)
             code = generate_code_pause_statement(arena, node, node_index)
+        type is (nullify_node)
+            code = generate_code_nullify_statement(arena, node, node_index)
         type is (cycle_node)
             code = generate_code_cycle(arena, node, node_index)
         type is (exit_node)

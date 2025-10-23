@@ -181,8 +181,8 @@ contains
                 ! Complete string token
                 tokens(token_count)%text = source(start_pos:pos - 1)
             else
-                ! Unclosed string - create proper closed string to prevent invalid multiline Fortran
-                ! Extract content until current position and add closing quote
+                ! Unclosed string - add a closing quote to keep output valid
+                ! Extract content until current position and append the terminator
                 tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
             end if
             tokens(token_count)%line = line_num
@@ -470,26 +470,23 @@ contains
         lower_word = to_lower(word)
 
         select case (trim(lower_word))
-        case ('program', 'end', 'function', 'subroutine', 'if', &
-              'then', 'else', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', 'error', &
-              'continue', &
-              'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
-              'complex', 'double', 'precision', &
+        case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
+              'goto', 'cycle', 'exit', 'stop', 'pause', 'return', 'error', &
+              'continue', 'nullify', 'do', 'while', 'for', 'integer', 'real', &
+              'logical', 'character', 'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
-              'intent', 'use', 'module', 'contains', &
-              'public', 'private', 'namelist', 'data', 'type', 'class', 'extends', &
-              'abstract', &
-              'procedure', 'interface', 'import', 'generic', 'operator', 'assignment', 'print', &
-              'read', 'write', 'open', 'close', 'call', 'format', &
-              'allocate', 'deallocate', &
-              'select', 'case', 'default', 'where', 'associate', 'forall', 'block', &
-              'enum', 'file', 'submodule', 'rank', &
-              'elseif', 'elsewhere', 'blockdata', 'doubleprecision', 'doublecomplex', &
-              'selectcase', 'equivalence', 'common', &
-              'endif', 'enddo', 'endwhere', 'endforall', 'endassociate', 'endblock', &
-              'endblockdata', 'endenum', 'endfile', 'endfunction', 'endinterface', &
-              'endmodule', 'endprogram', 'endselect', 'endsubmodule', 'endsubroutine', &
-              'endtype')
+              'intent', 'use', 'module', 'contains', 'public', 'private', &
+              'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
+              'procedure', 'interface', 'import', 'generic', 'operator', &
+              'assignment', 'print', 'read', 'write', 'open', 'close', 'call', &
+              'format', 'allocate', 'deallocate', 'select', 'case', 'default', &
+              'where', 'associate', 'forall', 'block', 'enum', 'file', &
+              'submodule', 'rank', 'elseif', 'elsewhere', 'blockdata', &
+              'doubleprecision', 'doublecomplex', 'selectcase', 'equivalence', &
+              'common', 'endif', 'enddo', 'endwhere', 'endforall', &
+              'endassociate', 'endblock', 'endblockdata', 'endenum', 'endfile', &
+              'endfunction', 'endinterface', 'endmodule', 'endprogram', &
+              'endselect', 'endsubmodule', 'endsubroutine', 'endtype')
             keyword = .true.
         case default
             keyword = .false.

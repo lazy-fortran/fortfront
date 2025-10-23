@@ -8,10 +8,11 @@ module ast_nodes_transfer
 
     ! Public types
     public :: cycle_node, exit_node, stop_node, return_node
-    public :: goto_node, error_stop_node, continue_node, pause_node
+    public :: goto_node, error_stop_node, continue_node, pause_node, nullify_node
     ! Constructors migrated from ast_core
     public :: create_cycle, create_exit, create_stop, create_return
     public :: create_goto, create_error_stop, create_continue, create_pause
+    public :: create_nullify
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
@@ -97,6 +98,16 @@ module ast_nodes_transfer
         procedure :: assign => pause_assign
         generic :: assignment(=) => assign
     end type pause_node
+
+    ! Nullify statement node
+    type, extends(ast_node) :: nullify_node
+        integer, allocatable :: pointer_indices(:)  ! Indices of pointers to nullify
+    contains
+        procedure :: accept => nullify_accept
+        procedure :: to_json => nullify_to_json
+        procedure :: assign => nullify_assign
+        generic :: assignment(=) => assign
+    end type nullify_node
 
 contains
 
@@ -485,5 +496,59 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_pause
+
+    ! Nullify statement implementations
+    subroutine nullify_accept(this, visitor)
+        class(nullify_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine nullify_accept
+
+    subroutine nullify_to_json(this, json, parent)
+        class(nullify_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'nullify')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%pointer_indices)) then
+            call json%add(obj, 'pointer_count', size(this%pointer_indices))
+        end if
+        call json%add(parent, obj)
+    end subroutine nullify_to_json
+
+    subroutine nullify_assign(lhs, rhs)
+        class(nullify_node), intent(inout) :: lhs
+        class(nullify_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%pointer_indices)) then
+            lhs%pointer_indices = rhs%pointer_indices
+        end if
+    end subroutine nullify_assign
+
+    function create_nullify(pointer_indices, line, column) result(node)
+        integer, intent(in), optional :: pointer_indices(:)
+        integer, intent(in), optional :: line, column
+        type(nullify_node) :: node
+
+        node%uid = generate_uid()
+        if (present(pointer_indices)) then
+            if (size(pointer_indices) > 0) then
+                node%pointer_indices = pointer_indices
+            end if
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_nullify
 
 end module ast_nodes_transfer

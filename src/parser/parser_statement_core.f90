@@ -8,7 +8,7 @@ module parser_statement_core_module
     use parser_control_statements_module, only: &
         parse_cycle_statement, parse_exit_statement, parse_return_statement, &
         parse_stop_statement, parse_goto_statement, parse_error_stop_statement, &
-        parse_pause_statement
+        parse_pause_statement, parse_nullify_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
@@ -57,7 +57,6 @@ contains
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
-
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
             if (present(consumed_count)) then
@@ -235,6 +234,8 @@ contains
                 stmt_index = parse_stop_statement(parser, arena)
             case ("pause")
                 stmt_index = parse_pause_statement(parser, arena)
+            case ("nullify")
+                stmt_index = parse_nullify_statement(parser, arena)
             case ("go", "goto")
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")
