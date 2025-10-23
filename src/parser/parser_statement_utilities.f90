@@ -29,6 +29,7 @@ module parser_statement_utilities_module
     use ast_factory
     use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t
+    use parser_legacy_statements_module, only: parse_legacy_statement
     implicit none
     private
 
@@ -52,7 +53,8 @@ contains
             ! Consume it here, then parse the label
             next_token = parser%consume()  ! Consume "goto"
             next_token = parser%peek()
-            if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+            if (next_token%kind == TK_NUMBER .or. next_token%kind == &
+                TK_IDENTIFIER) then
                 stmt_index = push_goto(arena, label=trim(next_token%text), &
                                        line=token%line, column=token%column)
                 next_token = parser%consume()  ! Consume the label
@@ -112,6 +114,9 @@ contains
                 stmt_index = parse_associate_from_definition(parser, arena)
             case ("import")
                 stmt_index = parse_import_stmt_inline(parser, arena)
+            case ("equivalence", "common")
+                stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
+                                                    parser, arena)
             case default
                 stmt_index = skip_unknown_statement(parser)
             end select

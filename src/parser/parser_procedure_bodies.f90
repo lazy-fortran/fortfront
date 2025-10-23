@@ -14,6 +14,7 @@ module parser_procedure_bodies_module
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
+    use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_prefix_buffer_module, only: append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
@@ -352,7 +353,8 @@ contains
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
-                                       line, column, result_variable=result_variable_name, &
+                                       line, column, &
+                                       result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
                                        prefix_keywords=prefix_keywords)
     end function parse_function_in_module
@@ -408,6 +410,10 @@ contains
             case ("do")
                 ! Handle DO loops
                 stmt_index = parse_do_loop(parser, arena)
+            case ("equivalence", "common")
+                ! Handle legacy statements
+                stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
+                                                    parser, arena)
             case default
                 if (token_is_identifier_like(token)) then
                     stmt_index = try_parse_keyword_assignment(parser, arena)
