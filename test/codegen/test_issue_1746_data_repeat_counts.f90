@@ -20,6 +20,14 @@ program test_issue_1746_data_repeat_counts
                     '(/1, 1, 1, 2, 0, 0, 0 /)', &
                     '')
 
+    call check_case("repeat-count-kind", &
+                    'integer :: arr(5)'//new_line('a')// &
+                    'DATA arr /5_1*0/'//new_line('a')// &
+                    'print *, arr(1)', &
+                    'integer :: arr(5)', &
+                    '(/0, 0, 0, 0, 0 /)', &
+                    '5_1*0')
+
     print *, "PASSED"
 
 contains

@@ -143,7 +143,12 @@ contains
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: value_index
             integer, allocatable, intent(inout) :: indices(:)
-            integer :: repeat_count, i
+            integer :: repeat_count
+            integer :: loop_index
+            integer :: read_status
+            integer :: underscore_pos
+            character(len=:), allocatable :: literal_text
+            character(len=:), allocatable :: count_text
 
             if (value_index <= 0 .or. value_index > arena%size) return
             if (.not. allocated(arena%entries(value_index)%node)) then
@@ -187,8 +192,31 @@ contains
                         return
                     end if
 
-                    read (left_node%value, *, iostat=i) repeat_count
-                    if (i /= 0) then
+                    literal_text = trim(left_node%value)
+                    if (len(literal_text) == 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    underscore_pos = index(literal_text, "_")
+                    if (underscore_pos > 0) then
+                        if (underscore_pos == 1) then
+                            call append_index(indices, value_index)
+                            return
+                        end if
+                        count_text = literal_text(:underscore_pos - 1)
+                    else
+                        count_text = literal_text
+                    end if
+
+                    count_text = trim(adjustl(count_text))
+                    if (len(count_text) == 0) then
+                        call append_index(indices, value_index)
+                        return
+                    end if
+
+                    read (count_text, *, iostat=read_status) repeat_count
+                    if (read_status /= 0) then
                         call append_index(indices, value_index)
                         return
                     end if
@@ -198,7 +226,7 @@ contains
                         return
                     end if
 
-                    do i = 1, repeat_count
+                    do loop_index = 1, repeat_count
                         call append_index(indices, node%right_index)
                     end do
                     return
