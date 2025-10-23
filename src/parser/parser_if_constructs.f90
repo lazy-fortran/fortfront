@@ -1,7 +1,7 @@
 module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE
+                          TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
@@ -165,11 +165,55 @@ contains
 
                             else_body_indices = parse_if_body(parser, arena, if_index)
                             exit
-                        else if (then_token%text == "endif" .or. then_token%text == &
-                                 "end if") then
-                            ! End of if statement
+                        else if (then_token%text == "endif") then
+                            ! End of if statement (single keyword)
                             then_token = parser%consume()
                             exit
+                        else if (to_lower(then_token%text) == "end") then
+                            ! Check if next token is "if" (for "end if"), ignoring trivia
+                            block
+                                integer :: lookahead_pos
+                                type(token_t) :: lookahead
+
+                                lookahead_pos = parser%current_token + 1
+                                do while (lookahead_pos <= size(parser%tokens))
+                                    lookahead = parser%tokens(lookahead_pos)
+                                    if (lookahead%kind == TK_WHITESPACE .or. &
+                                        lookahead%kind == TK_NEWLINE .or. &
+                                        lookahead%kind == TK_COMMENT) then
+                                        lookahead_pos = lookahead_pos + 1
+                                        cycle
+                                    end if
+                                    exit
+                                end do
+
+                                if (lookahead_pos <= size(parser%tokens)) then
+                                    lookahead = parser%tokens(lookahead_pos)
+                                    if (lookahead%kind == TK_KEYWORD .and. &
+                                        to_lower(lookahead%text) == "if") then
+                                        then_token = parser%consume()  ! consume "end"
+                                        do
+                                            if (parser%is_at_end()) exit
+                                            lookahead = parser%peek()
+                                            if (lookahead%kind == TK_WHITESPACE .or. &
+                                                lookahead%kind == TK_NEWLINE .or. &
+                                                lookahead%kind == TK_COMMENT) then
+                                                then_token = parser%consume()
+                                            else
+                                                exit
+                                            end if
+                                        end do
+                                        if (.not. parser%is_at_end()) then
+                                            lookahead = parser%peek()
+                                            if (lookahead%kind == TK_KEYWORD .and. &
+                                                to_lower(lookahead%text) == "if") then
+                                                then_token = parser%consume()
+                                            end if
+                                        end if
+                                        exit
+                                    end if
+                                end if
+                            end block
                         else
                             ! Other statement, stop parsing if block
                             exit
@@ -334,8 +378,9 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         integer, allocatable :: body_indices(:)
-        type(token_t) :: token
-        integer :: stmt_count
+        type(token_t) :: token, lookahead
+        integer :: stmt_count, lookahead_pos
+        character(len=:), allocatable :: keyword_text
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -354,34 +399,48 @@ contains
 
                 ! Check for end of body
                 if (token%kind == TK_KEYWORD) then
-                    if (token%text == "elseif" .or. token%text == "else if" .or. &
-                        token%text == "endif" .or. token%text == "end if") then
+                    keyword_text = to_lower(trim(token%text))
+                    if (keyword_text == "elseif" .or. keyword_text == "else if" .or. &
+                        keyword_text == "endif" .or. keyword_text == "end if") then
                         exit
-                    else if (token%text == "else") then
-                        ! Check if next token is "if" (for "else if")
-                        if (parser%current_token + 1 <= size(parser%tokens)) then
-                            block
-                                type(token_t) :: lookahead
-                                lookahead = parser%tokens(parser%current_token + 1)
-                                if (lookahead%kind == TK_KEYWORD .and. &
-                                    lookahead%text == "if") then
-                                    exit  ! Found "else if"
-                                end if
-                            end block
+                    else if (keyword_text == "else") then
+                        lookahead_pos = parser%current_token + 1
+                        do while (lookahead_pos <= size(parser%tokens))
+                            lookahead = parser%tokens(lookahead_pos)
+                            if (lookahead%kind == TK_WHITESPACE .or. &
+                                lookahead%kind == TK_NEWLINE .or. &
+                                lookahead%kind == TK_COMMENT) then
+                                lookahead_pos = lookahead_pos + 1
+                                cycle
+                            end if
+                            exit
+                        end do
+                        if (lookahead_pos <= size(parser%tokens)) then
+                            lookahead = parser%tokens(lookahead_pos)
+                            if (lookahead%kind == TK_KEYWORD .and. &
+                                to_lower(trim(lookahead%text)) == "if") then
+                                exit  ! Found "else if"
+                            end if
                         end if
-                        ! If not "else if", it's just "else" - also exit
                         exit
-                    else if (token%text == "end") then
-                        ! Check if next token is "if"
-                        if (parser%current_token + 1 <= size(parser%tokens)) then
-                            block
-                                type(token_t) :: lookahead
-                                lookahead = parser%tokens(parser%current_token + 1)
-                                if (lookahead%kind == TK_KEYWORD .and. &
-                                    lookahead%text == "if") then
-                                    exit  ! Found "end if"
-                                end if
-                            end block
+                    else if (keyword_text == "end") then
+                        lookahead_pos = parser%current_token + 1
+                        do while (lookahead_pos <= size(parser%tokens))
+                            lookahead = parser%tokens(lookahead_pos)
+                            if (lookahead%kind == TK_WHITESPACE .or. &
+                                lookahead%kind == TK_NEWLINE .or. &
+                                lookahead%kind == TK_COMMENT) then
+                                lookahead_pos = lookahead_pos + 1
+                                cycle
+                            end if
+                            exit
+                        end do
+                        if (lookahead_pos <= size(parser%tokens)) then
+                            lookahead = parser%tokens(lookahead_pos)
+                            if (lookahead%kind == TK_KEYWORD .and. &
+                                to_lower(trim(lookahead%text)) == "if") then
+                                exit  ! Found "end if"
+                            end if
                         end if
                     end if
                 end if
