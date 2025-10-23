@@ -13,6 +13,8 @@ module parser_statement_core_module
         parse_cycle_statement, parse_exit_statement, parse_return_statement, &
         parse_stop_statement, parse_goto_statement, parse_error_stop_statement, &
         parse_pause_statement, parse_nullify_statement, parse_continue_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, &
+                                               parse_deallocate_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
@@ -223,6 +225,10 @@ contains
                 stmt_index = parse_rewind_statement(parser, arena)
             case ("endfile")
                 stmt_index = parse_endfile_statement(parser, arena)
+            case ("allocate")
+                stmt_index = parse_allocate_statement(parser, arena)
+            case ("deallocate")
+                stmt_index = parse_deallocate_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena, parent_index)
             case ("cycle")
