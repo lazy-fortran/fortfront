@@ -71,9 +71,16 @@ contains
         type(declaration_node), intent(in) :: node
         logical, intent(in) :: standardize_types_enabled
         character(len=:), allocatable :: type_str
+        character(len=:), allocatable :: lowered
 
         if (len_trim(node%type_name) > 0) then
             type_str = node%type_name
+            if (standardize_types_enabled) then
+                lowered = to_lower(trim(type_str))
+                if (lowered == 'real' .and. .not. node%has_kind) then
+                    type_str = "real(8)"
+                end if
+            end if
             return
         end if
 

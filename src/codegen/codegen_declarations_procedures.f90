@@ -15,6 +15,7 @@ module codegen_declarations_procedures
                                               has_character_len_result_decl, &
                                               is_character_len_declaration, &
                                               is_deferred_character_return
+    use codegen_type_utils, only: get_type_standardization
     implicit none
     private
     public :: generate_code_function_def
@@ -93,11 +94,20 @@ contains
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: return_type_code
         character(len=:), allocatable :: override
+        character(len=:), allocatable :: lowered
+        logical :: standardize_types_enabled
 
         return_type_code = ""
 
         if (allocated(node%return_type)) then
             return_type_code = trim(node%return_type)
+            call get_type_standardization(standardize_types_enabled)
+            if (standardize_types_enabled) then
+                lowered = to_lower(trim(return_type_code))
+                if (lowered == 'real') then
+                    return_type_code = "real(8)"
+                end if
+            end if
         end if
 
         call derive_character_return_type(arena, node, override)
@@ -243,16 +253,27 @@ contains
         integer, intent(in) :: body_indices(:)
         character(len=:), allocatable :: prolog
         integer :: j
+        logical :: has_implicit_none
+        logical :: has_other_implicit
 
         prolog = ""
+        has_implicit_none = .false.
+        has_other_implicit = .false.
+
         do j = 1, size(body_indices)
             if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
             if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
             select type (body_node => arena%entries(body_indices(j))%node)
             type is (implicit_statement_node)
-                if (body_node%is_none) return
+                if (body_node%is_none) then
+                    has_implicit_none = .true.
+                else
+                    has_other_implicit = .true.
+                end if
             end select
         end do
+
+        if (has_other_implicit) return
         prolog = "    implicit none" // new_line('A')
     end function maybe_add_function_implicit_none
 
