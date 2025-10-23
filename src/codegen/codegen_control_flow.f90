@@ -68,6 +68,13 @@ contains
             cond_code = ""
         end if
 
+        ! Skip IF with empty condition (malformed node from parser bug like issue #1736)
+        ! Check if condition generated empty code - this indicates a parser error
+        if (len_trim(cond_code) == 0) then
+            code = ""
+            return
+        end if
+
         ! Generate if statement
         code = "if (" // cond_code // ") then"
 
