@@ -88,6 +88,17 @@ contains
             error stop 1
         end if
 
+        if (index(output_code, "procedure :: swap_int") == 0) then
+            print *, "FAIL: swap_int should be declared with procedure in interface"
+            error stop 1
+        end if
+
+        if (index(output_code, "procedure :: swap_real") == 0 .and. &
+            index(output_code, "procedure :: swap_int, swap_real") == 0) then
+            print *, "FAIL: swap_real should be declared with procedure in interface"
+            error stop 1
+        end if
+
         if (index(output_code, "subroutine swap_int") == 0) then
             print *, "FAIL: swap_int subroutine missing from output"
             error stop 1
