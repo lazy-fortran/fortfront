@@ -128,7 +128,7 @@ contains
             case ("type")
                 ! Could be "type :: name" or "type(name)" - both are declarations
                 is_declaration = .true.
-            case ("integer", "real", "character", "logical", "complex")
+            case ("integer", "real", "character", "logical", "complex", "procedure")
                 ! Basic type declarations
                 is_declaration = .true.
             case ("parameter")

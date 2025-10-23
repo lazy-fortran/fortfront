@@ -84,7 +84,7 @@ contains
         do while (i <= n)
             lowered = to_lower(trim(pending_prefixes(i)))
             select case (trim(lowered))
-            case ("integer", "real", "logical", "character", "complex")
+            case ("integer", "real", "logical", "character", "complex", "procedure")
                 call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle
             case ("double precision", "double complex")
                 call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle

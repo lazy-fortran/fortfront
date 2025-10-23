@@ -219,7 +219,7 @@ contains
                           "endmodule", "endprogram", "endinterface")
                         exit  ! Found end keyword - statement boundary
                     case ("integer", "real", "logical", "character", &
-                          "complex", "type", "function", "subroutine", &
+                          "complex", "type", "procedure", "function", "subroutine", &
                           "program", "module", "if", "do", "select", &
                           "use", "include", "call", "print", "write", &
                           "read", "allocate", "deallocate")

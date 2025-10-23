@@ -156,7 +156,7 @@ contains
         is_type_keyword = token%text == "real" .or. token%text == "integer" .or. &
                           token%text == "logical" .or. token%text == "character" .or. &
                           token%text == "type" .or. token%text == "complex" .or. &
-                          token%text == "class"
+                          token%text == "class" .or. token%text == "procedure"
     end function is_type_keyword_token
 
     subroutine parse_parameter_group(parser, arena, param_indices)
@@ -400,7 +400,8 @@ contains
         end if
 
         select case (parser%tokens(parser%current_token + 1)%text)
-        case ("real", "integer", "logical", "character", "type", "class", "complex")
+        case ("real", "integer", "logical", "character", "type", "class", &
+              "complex", "procedure")
             continues = .false.
         case default
             call consume_token(parser)
