@@ -1,14 +1,13 @@
 program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: &
         input_unit, output_unit, error_unit, iostat_end, iostat_eor
-    use frontend, only: transform_lazy_fortran_string, transform_with_context, &
-                        transform_context_t
-    use frontend_transformation, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
-                                       detect_input_mode_from_content
+    use transformation_api, only: transform_lazy_fortran_string, &
+        transform_with_context, transform_context_t, INPUT_MODE_LAZY, &
+        INPUT_MODE_STANDARD, detect_input_mode_from_content
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
-    use lexer_core, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
+    use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
     use stdout_sanitizer, only: sanitize_redirected_stdout
     implicit none
 

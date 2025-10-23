@@ -1,5 +1,5 @@
 program debug_mixed_constructs
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t

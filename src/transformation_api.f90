@@ -10,6 +10,7 @@ module transformation_api
         INPUT_MODE_LAZY, &
         INPUT_MODE_STANDARD, &
         detect_input_mode_from_content
+    use frontend_core, only: compile_source, compilation_options_t
 
     implicit none
     private
@@ -18,10 +19,12 @@ module transformation_api
     public :: transform_lazy_fortran_string
     public :: transform_lazy_fortran_string_with_format
     public :: transform_with_context
+    public :: compile_source
 
     ! Context and options types
     public :: format_options_t
     public :: transform_context_t
+    public :: compilation_options_t
 
     ! Input mode constants
     public :: INPUT_MODE_LAZY

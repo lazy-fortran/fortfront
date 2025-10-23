@@ -1,6 +1,5 @@
 program test_codegen_green
-    use frontend, only: compile_source, compilation_options_t
-    implicit none
+    use transformation_api, only: compile_source, compilation_options_t
 
     logical :: all_passed
 

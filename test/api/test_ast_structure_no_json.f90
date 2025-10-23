@@ -1,5 +1,6 @@
 program test_ast_structure_no_json
-    use frontend, only: lex_source, parse_tokens
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
     use lexer_token_types, only: token_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node

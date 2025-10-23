@@ -1,5 +1,5 @@
 program test_function_parameter_integer_inference
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use iso_fortran_env, only: error_unit
     implicit none
 

@@ -1,5 +1,5 @@
 program test_derived_type_specifier_ast
-    use frontend, only: lex_source
+    use lexer_api, only: lex_source
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_declarations, only: parse_type_specifier, type_specifier_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena

@@ -1,6 +1,5 @@
 program test_module_parsing_bug_red
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed
     

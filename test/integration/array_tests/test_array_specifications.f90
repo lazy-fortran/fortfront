@@ -1,7 +1,6 @@
 program test_array_specifications
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use frontend, only: compile_source, compilation_options_t
-    implicit none
+    use transformation_api, only: compile_source, compilation_options_t
 
     logical :: all_passed
     integer :: n_tests, n_passed

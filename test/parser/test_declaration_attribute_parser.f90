@@ -1,5 +1,5 @@
 program test_declaration_attribute_parser
-    use frontend, only: lex_source
+    use lexer_api, only: lex_source
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_declaration_attributes_module, only: parse_declaration_attributes
     use ast_arena_modern, only: ast_arena_t, create_ast_arena

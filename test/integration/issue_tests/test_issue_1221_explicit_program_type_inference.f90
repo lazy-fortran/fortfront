@@ -1,7 +1,5 @@
 program test_issue_1221_explicit_program_type_inference
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
-    character(len=256) :: input
+    use transformation_api, only: transform_lazy_fortran_string
     character(len=:), allocatable :: output, error_msg
     logical :: success
 
@@ -14,6 +12,7 @@ program test_issue_1221_explicit_program_type_inference
 contains
 
     subroutine test_explicit_program_with_inference()
+        character(len=:), allocatable :: input
         print *, "Testing explicit program with type inference..."
 
         input = 'program test' // new_line('a') // &
@@ -48,6 +47,7 @@ contains
     end subroutine test_explicit_program_with_inference
 
     subroutine test_explicit_program_array_inference()
+        character(len=:), allocatable :: input
         print *, "Testing explicit program with array type inference..."
 
         input = 'program test_array' // new_line('a') // &
@@ -83,6 +83,7 @@ contains
     end subroutine test_explicit_program_array_inference
 
     subroutine test_explicit_program_mixed_types()
+        character(len=:), allocatable :: input
         print *, "Testing explicit program with mixed type inference..."
 
         input = 'program test_mixed' // new_line('a') // &

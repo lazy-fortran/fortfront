@@ -3,8 +3,7 @@ program test_issue_498_write_statements
     ! Tests specifically the input validation layer that was causing UNRECOGNIZED_INPUT
     use lexer_core
     use input_validation, only: validate_basic_syntax
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_write_statement_validation()
     call test_write_with_string_literal()
