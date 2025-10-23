@@ -38,7 +38,8 @@ module parser_execution_statements_module
                                                 parse_nullify_statement
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
-    use parser_statement_data_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement, &
+                                                parse_namelist_statement
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
     use parser_type_specifications_module, only: parse_implicit_statement
@@ -371,6 +372,8 @@ contains
                     success = parse_dimension_statement(parser_ref, arena_ref)
                 end block
                 stmt_index = 0
+            case ("namelist")
+                stmt_index = parse_namelist_statement(parser_ref, arena_ref)
             case ("equivalence", "common")
                 stmt_index = parse_legacy_statement_wrapper(lowered, parser_ref, &
                                                             arena_ref)
