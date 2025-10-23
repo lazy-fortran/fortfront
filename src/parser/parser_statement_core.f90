@@ -145,7 +145,7 @@ contains
 
         matches = (text == "real" .or. text == "integer" .or. text == "logical" .or. &
                    text == "character" .or. text == "type" .or. text == "class" .or. &
-                   text == "complex" .or. text == "double")
+                   text == "complex" .or. text == "double" .or. text == "procedure")
     end function is_declaration_keyword
 
     integer function parse_keyword_statement(first_token, parser, arena, &
