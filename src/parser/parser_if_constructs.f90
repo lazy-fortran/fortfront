@@ -236,6 +236,18 @@ contains
                         then_body_indices(1) = stmt_indices(1)
                     end if
                 end block
+
+                ! Advance parser to end of statement to prevent re-parsing
+                do while (.not. parser%is_at_end())
+                    block
+                        type(token_t) :: tok
+                        tok = parser%peek()
+                        if (tok%kind == TK_NEWLINE .or. tok%kind == TK_EOF) then
+                            exit
+                        end if
+                        tok = parser%consume()
+                    end block
+                end do
             end block
 
             ! Create if node with no elseif/else blocks
