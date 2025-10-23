@@ -488,7 +488,9 @@ contains
               'common', 'endif', 'enddo', 'endwhere', 'endforall', &
               'endassociate', 'endblock', 'endblockdata', 'endenum', 'endfile', &
               'endfunction', 'endinterface', 'endmodule', 'endprogram', &
-              'endselect', 'endsubmodule', 'endsubroutine', 'endtype')
+              'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
+              'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
+              'non_recursive')
             keyword = .true.
         case default
             keyword = .false.
