@@ -8,11 +8,13 @@ module parser_io_statements_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: open_statement_node, close_statement_node, &
-                            inquire_statement_node
+                            inquire_statement_node, backspace_statement_node, &
+                            rewind_statement_node, endfile_statement_node
     use ast_factory, only: push_print_statement, push_write_statement, &
                            push_read_statement, push_format_statement, &
                            push_open_statement, push_close_statement, &
-                           push_inquire_statement
+                           push_inquire_statement, push_backspace_statement, &
+                           push_rewind_statement, push_endfile_statement
     use ast_factory
     implicit none
     private
@@ -21,6 +23,7 @@ module parser_io_statements_module
     public :: parse_format_statement
     public :: parse_open_statement, parse_close_statement
     public :: parse_inquire_statement
+    public :: parse_backspace_statement, parse_rewind_statement, parse_endfile_statement
 
 contains
 
@@ -68,6 +71,58 @@ contains
             unit_spec = ""
         end if
     end function parse_unit_specifier
+
+    ! Collect trailing specification for backspace/rewind/endfile statements
+    function collect_position_spec(parser) result(spec_text)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable :: spec_text
+        type(token_t) :: token
+        character :: last_char
+        logical :: needs_space
+
+        spec_text = ""
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE) exit
+            if (token%kind == TK_COMMENT) exit
+            if (token%kind == TK_WHITESPACE) then
+                token = parser%consume()
+                cycle
+            end if
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == ";") exit
+            end if
+
+            needs_space = len(spec_text) > 0
+            if (needs_space) then
+                last_char = spec_text(len(spec_text):len(spec_text))
+                if (last_char == ' ') needs_space = .false.
+                select case (token%text)
+                case (")", ",")
+                    needs_space = .false.
+                case ("=")
+                    if (last_char /= '(') needs_space = .true.
+                case ("(")
+                    if (last_char /= '(' .and. last_char /= ' ') needs_space = .true.
+                    if (last_char == '(') needs_space = .false.
+                case default
+                    if (last_char == '(') needs_space = .false.
+                    if (last_char == '=') needs_space = .true.
+                end select
+            end if
+
+            if (needs_space) spec_text = spec_text // " "
+
+            token = parser%consume()
+            spec_text = spec_text // token%text
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == ",") spec_text = spec_text // " "
+            end if
+        end do
+
+        spec_text = trim(spec_text)
+    end function collect_position_spec
 
     ! Parse argument list (common logic for print/write/read)
     subroutine parse_argument_list(parser, arena, arg_indices)
@@ -613,5 +668,89 @@ contains
 
         inquire_index = push_inquire_statement(arena, spec_text, line, column)
     end function parse_inquire_statement
+
+    function parse_backspace_statement(parser, arena) result(backspace_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: backspace_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "backspace") then
+            backspace_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            backspace_index = 0
+            return
+        end if
+        backspace_index = push_backspace_statement(arena, unit_spec, line, column)
+    end function parse_backspace_statement
+
+    function parse_rewind_statement(parser, arena) result(rewind_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: rewind_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "rewind") then
+            rewind_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            rewind_index = 0
+            return
+        end if
+        rewind_index = push_rewind_statement(arena, unit_spec, line, column)
+    end function parse_rewind_statement
+
+    function parse_endfile_statement(parser, arena) result(endfile_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: endfile_index
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: unit_spec
+        character(len=:), allocatable :: lowered
+
+        token = parser%peek()
+        lowered = trim(to_lower(token%text))
+        if (token%kind /= TK_KEYWORD .or. lowered /= "endfile") then
+            endfile_index = 0
+            return
+        end if
+        line = token%line
+        column = token%column
+        token = parser%consume()
+
+        unit_spec = collect_position_spec(parser)
+        unit_spec = trim(unit_spec)
+        if (len(unit_spec) == 0) then
+            endfile_index = 0
+            return
+        end if
+        endfile_index = push_endfile_statement(arena, unit_spec, line, column)
+    end function parse_endfile_statement
 
 end module parser_io_statements_module

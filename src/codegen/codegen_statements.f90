@@ -40,6 +40,9 @@ module codegen_statements
     public :: generate_code_open_statement
     public :: generate_code_close_statement
     public :: generate_code_inquire_statement
+    public :: generate_code_backspace_statement
+    public :: generate_code_rewind_statement
+    public :: generate_code_endfile_statement
     public :: generate_code_pause_statement
     public :: generate_code_nullify_statement
 
@@ -828,6 +831,51 @@ contains
         end if
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_inquire_statement
+
+    function generate_code_backspace_statement(arena, node, node_index) &
+        result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(backspace_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        if (allocated(node%unit_spec)) then
+            code = "backspace " // node%unit_spec
+        else
+            code = "backspace"
+        end if
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_backspace_statement
+
+    function generate_code_rewind_statement(arena, node, node_index) &
+        result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(rewind_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        if (allocated(node%unit_spec)) then
+            code = "rewind " // node%unit_spec
+        else
+            code = "rewind"
+        end if
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_rewind_statement
+
+    function generate_code_endfile_statement(arena, node, node_index) &
+        result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(endfile_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        if (allocated(node%unit_spec)) then
+            code = "endfile " // node%unit_spec
+        else
+            code = "endfile"
+        end if
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_endfile_statement
 
     function generate_code_pause_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
