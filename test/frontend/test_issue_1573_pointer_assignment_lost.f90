@@ -1,8 +1,7 @@
 program test_issue_1573_pointer_assignment_lost
     ! Test for issue #1573: Pointer assignment (=>) lost during transformation
     ! Bug: Pointer assignment is silently dropped when followed by print then regular assignment
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_pointer_assignment_preserved_case1()
     call test_pointer_assignment_preserved_case2()

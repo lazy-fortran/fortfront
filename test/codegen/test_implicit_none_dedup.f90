@@ -1,5 +1,9 @@
 program test_implicit_none_dedup
-    use frontend
+    use lexer_api, only: lex_source, lex_file
+    use parser_api, only: parse_tokens, parse_tokens_safe
+    use semantic_api, only: analyze_semantics
+    use codegen_api, only: emit_fortran
+    use transformation_api, only: transform_lazy_fortran_string, compile_source
     implicit none
 
     character(len=:), allocatable :: input_code

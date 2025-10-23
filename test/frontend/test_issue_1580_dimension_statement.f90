@@ -1,6 +1,5 @@
 program test_issue_1580_dimension_statement
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call run_dimension_conversion_test()
     print *, ""

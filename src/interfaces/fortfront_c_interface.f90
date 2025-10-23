@@ -3,9 +3,7 @@ module fortfront_c_interface
     ! Provides C bindings to fortfront functionality for external programs
 
     use iso_c_binding
-    use frontend, only: transform_lazy_fortran_string, compilation_options_t, &
-                        compile_source, format_options_t, &
-                        transform_lazy_fortran_string_with_format
+    use transformation_api, only: transform_lazy_fortran_string, compilation_options_t
     use error_handling, only: result_t, success_result, create_error_result, &
                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_PARSER, ERROR_ERROR
 

@@ -1,5 +1,5 @@
 program test_issue_1614_character_assumed_length
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 

@@ -1,5 +1,5 @@
 program test_issue_1574_intrinsic_external
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
     implicit none
     logical :: passed

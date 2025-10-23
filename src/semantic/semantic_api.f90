@@ -6,6 +6,7 @@ module semantic_api
         create_semantic_context, &
         analyze_program, &
         has_semantic_errors
+    use frontend_core, only: analyze_semantics
     use type_system_unified, only: &
         mono_type_t, &
         poly_type_t, &
@@ -27,9 +28,7 @@ module semantic_api
         TDERIVED
     use scope_manager, only: &
         scope_stack_t, &
-        create_scope_stack, &
-        push_scope, &
-        pop_scope
+        create_scope_stack
     use error_handling, only: &
         error_collection_t, &
         result_t
@@ -43,6 +42,7 @@ module semantic_api
     ! Context management
     public :: create_semantic_context
     public :: analyze_program
+    public :: analyze_semantics
     public :: has_semantic_errors
 
     ! Type system types
@@ -72,8 +72,6 @@ module semantic_api
     ! Scope management
     public :: scope_stack_t
     public :: create_scope_stack
-    public :: push_scope
-    public :: pop_scope
 
     ! Error handling
     public :: error_collection_t

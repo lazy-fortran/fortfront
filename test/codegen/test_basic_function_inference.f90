@@ -1,5 +1,5 @@
 program test_basic_function_inference
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     logical :: basic_pass

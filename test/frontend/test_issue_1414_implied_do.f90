@@ -1,6 +1,5 @@
 program test_issue_1414_implied_do
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_print_implied_do()
     print *, ""

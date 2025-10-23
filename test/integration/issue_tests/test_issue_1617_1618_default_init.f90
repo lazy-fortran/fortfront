@@ -1,6 +1,5 @@
 program test_issue_1617_1618_default_init
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_integer_real_init()
     call test_pointer_null_init()

@@ -1,5 +1,6 @@
 program test_issue_1353_program_derived_type
-    use frontend, only: transform_lazy_fortran_string, lex_source
+    use lexer_api, only: lex_source
+    use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: token_t, TK_KEYWORD, to_lower
     implicit none
 

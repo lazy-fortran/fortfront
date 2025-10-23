@@ -1,5 +1,9 @@
 program test_constant_folding
-    use frontend
+    use lexer_api, only: lex_source, lex_file
+    use parser_api, only: parse_tokens, parse_tokens_safe
+    use semantic_api, only: analyze_semantics
+    use codegen_api, only: emit_fortran
+    use transformation_api, only: transform_lazy_fortran_string, compile_source
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_control, only: if_node
     use ast_nodes_core, only: literal_node, binary_op_node

@@ -1,6 +1,5 @@
 program test_boolean_literal_type_inference
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed
     all_passed = .true.

@@ -1,5 +1,6 @@
 program test_type_contains_bindings
-    use frontend, only: lex_source, parse_tokens
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_data, only: derived_type_node, type_binding_node
     use lexer_core, only: token_t

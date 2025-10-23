@@ -1,7 +1,6 @@
 program test_issue_1703_lazy_matrices
     use, intrinsic :: iso_fortran_env, only: dp => real64
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_reshape_integer_matrices()
     call test_reshape_real_matrices()

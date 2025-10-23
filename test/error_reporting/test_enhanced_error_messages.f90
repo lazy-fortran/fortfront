@@ -1,6 +1,5 @@
 program test_enhanced_error_messages
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     character(len=:), allocatable :: source, output, error_msg
 

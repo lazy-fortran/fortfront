@@ -1,7 +1,6 @@
 program test_issue_1352_optional_if
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_optional_program_contains()
     call test_optional_parameter_if_control()

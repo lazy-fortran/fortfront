@@ -1,6 +1,5 @@
 program test_issue_1409_use_rename
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_use_statement_with_rename()
     print *, ""

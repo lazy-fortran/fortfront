@@ -1,6 +1,5 @@
 program test_issue_1707_derived_type_end
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_module_header_without_double_colon()
     call test_program_header_without_double_colon()

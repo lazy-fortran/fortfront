@@ -5,7 +5,7 @@
 ! be included in a program wrapper.
 
 program test_issue_1538_module_name_preservation
-    use frontend, only: transform_with_context, transform_context_t
+    use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_LAZY
     implicit none
 

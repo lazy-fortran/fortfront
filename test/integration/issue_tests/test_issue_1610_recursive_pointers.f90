@@ -1,6 +1,5 @@
 program test_issue_1610_recursive_pointers
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_binary_tree_node()
     call test_linked_list_node()

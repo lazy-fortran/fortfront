@@ -1,7 +1,6 @@
 program test_issue_1355_lazy_matrix
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     character(len=:), allocatable :: input_code
     character(len=:), allocatable :: output_code

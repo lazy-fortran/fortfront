@@ -1,7 +1,6 @@
 program test_control_flow_keywords
     ! Test that all control flow keywords are recognized by the lexer and parser
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed = .true.
 

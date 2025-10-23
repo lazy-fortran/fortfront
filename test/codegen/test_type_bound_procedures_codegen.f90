@@ -1,5 +1,7 @@
 program test_type_bound_procedures_codegen
-    use frontend, only: lex_source, parse_tokens, emit_fortran
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
+    use codegen_api, only: emit_fortran
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     use, intrinsic :: iso_fortran_env, only: dp => real64

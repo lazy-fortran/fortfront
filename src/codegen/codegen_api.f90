@@ -4,6 +4,7 @@ module codegen_api
     use codegen_arena_interface, only: &
         generate_code_from_arena, &
         set_arena_generator
+    use frontend_core, only: emit_fortran
     use codegen_core, only: &
         generate_code_polymorphic, &
         initialize_codegen
@@ -25,6 +26,7 @@ module codegen_api
     public :: generate_code_from_arena
     public :: generate_code_polymorphic
     public :: initialize_codegen
+    public :: emit_fortran
 
     ! Configuration functions
     public :: set_type_standardization

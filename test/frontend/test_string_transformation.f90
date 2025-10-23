@@ -1,6 +1,5 @@
 program test_string_transformation
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     integer :: test_count, pass_count
 

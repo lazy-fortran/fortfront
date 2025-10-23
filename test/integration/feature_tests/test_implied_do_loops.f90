@@ -1,7 +1,5 @@
 program test_implied_do_loops
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
-    character(len=256) :: input
+    use transformation_api, only: transform_lazy_fortran_string
     character(len=:), allocatable :: output, error_msg
 
     write (*, '(A)') "=== Testing Implied Do Loop Array Constructors ==="
@@ -14,6 +12,7 @@ program test_implied_do_loops
 contains
 
     subroutine test_simple_implied_do()
+        character(len=:), allocatable :: input
         input = 'result = [(i, i=1,5)]'
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -36,6 +35,7 @@ contains
     end subroutine test_simple_implied_do
 
     subroutine test_complex_implied_do()
+        character(len=:), allocatable :: input
         input = 'result = sum([(i*2, i=1,10)])'
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -56,6 +56,7 @@ contains
     end subroutine test_complex_implied_do
 
     subroutine test_nested_implied_do_levels()
+        character(len=:), allocatable :: input
         character(len=*), parameter :: nested2_pattern = &
             "reshape((/((i*10+j,j=1,3),i=1,3)/),[3,3])"
         character(len=*), parameter :: nested3_pattern = &
@@ -103,6 +104,7 @@ contains
     end subroutine test_nested_implied_do_levels
 
     subroutine test_nested_function_with_implied_do()
+        character(len=:), allocatable :: input
         input = 'result = maxval([(sqrt(real(i)), i=1,5)])'
         call transform_lazy_fortran_string(input, output, error_msg)
 

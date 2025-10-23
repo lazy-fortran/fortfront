@@ -1,6 +1,5 @@
 program test_simple_undefined
-    use frontend, only: compile_source, compilation_options_t  
-    implicit none
+    use transformation_api, only: compile_source, compilation_options_t
     
     type(compilation_options_t) :: options
     character(len=512) :: error_msg

@@ -1,6 +1,5 @@
 program test_issue_1410_pointer_initialization
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_pointer_null_initializer()
     print *, ""

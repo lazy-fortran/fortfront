@@ -1,5 +1,5 @@
 program test_semantic_type_errors
-    use frontend, only: lex_source
+    use lexer_api, only: lex_source
     use lexer_core, only: token_t
     implicit none
 

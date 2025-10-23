@@ -1,7 +1,5 @@
 program test_issue_1330_missing_declarations
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
-    character(len=:), allocatable :: input
+    use transformation_api, only: transform_lazy_fortran_string
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
@@ -11,6 +9,7 @@ program test_issue_1330_missing_declarations
 contains
 
     subroutine test_missing_variable_declarations()
+        character(len=:), allocatable :: input
         logical :: has_real_kind
         integer :: real_decl_pos
         integer :: pos_n

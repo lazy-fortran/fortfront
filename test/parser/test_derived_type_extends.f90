@@ -1,5 +1,6 @@
 program test_derived_type_extends
-    use frontend, only: lex_source, parse_tokens
+    use lexer_api, only: lex_source
+    use parser_api, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_data, only: derived_type_node
     use fortfront_utils, only: get_node_type

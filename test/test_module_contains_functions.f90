@@ -1,6 +1,6 @@
 ! Test for issue #926: Module function/subroutine bodies missing from generated code
 program test_module_contains_functions
-    use frontend, only: transform_lazy_fortran_string
+    use transformation_api, only: transform_lazy_fortran_string
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t

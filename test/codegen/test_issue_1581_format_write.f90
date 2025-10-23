@@ -1,6 +1,5 @@
 program test_issue_1581_format_write
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     call test_format_statement_preservation()
     call test_write_with_label_reference()
