@@ -17,7 +17,8 @@ module parser_statement_utilities_module
                                                 parse_goto_statement, &
                                                 parse_error_stop_statement, &
                                                 parse_cycle_statement, &
-                                                parse_exit_statement
+                                                parse_exit_statement, &
+                                                parse_nullify_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
@@ -105,6 +106,8 @@ contains
                 stmt_index = parse_cycle_statement(parser, arena)
             case ("exit")
                 stmt_index = parse_exit_statement(parser, arena)
+            case ("nullify")
+                stmt_index = parse_nullify_statement(parser, arena)
             case ("associate")
                 stmt_index = parse_associate_from_definition(parser, arena)
             case ("import")
