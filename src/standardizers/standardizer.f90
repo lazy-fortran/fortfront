@@ -80,6 +80,7 @@ module standardizer
         update_program_body_indices, &
         is_array_assignment, &
         is_procedure_parameter, &
+        is_type_component, &
         collect_string_vars_needing_allocatable
 
     implicit none
@@ -145,6 +146,7 @@ module standardizer
         update_program_body_indices, &
         is_array_assignment, &
         is_procedure_parameter, &
+        is_type_component, &
         collect_string_vars_needing_allocatable
 
 end module standardizer
