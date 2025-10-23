@@ -35,6 +35,7 @@ module standardizer_allocatable
     public :: update_program_body_indices
     public :: is_array_assignment
     public :: is_procedure_parameter
+    public :: is_type_component
     public :: collect_string_vars_needing_allocatable
 
 contains
@@ -435,6 +436,10 @@ contains
         logical :: needs_alloc
         logical :: is_parameter
 
+        ! Skip processing derived type components - they should not be modified
+        ! by allocatable reassignment logic (fixes issue #1738)
+        if (is_type_component(arena, decl_index)) return
+
         if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
             call handle_multi_variable_declaration_allocatable( &
                 arena, decl_index, assigned_vars, assignment_counts, var_count, &
@@ -680,6 +685,28 @@ contains
             is_param = .true.
         end select
     end function is_procedure_parameter
+
+    ! Check if declaration is a derived type component
+    function is_type_component(arena, decl_index) result(is_component)
+        use ast_nodes_data, only: derived_type_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        logical :: is_component
+        integer :: parent_index
+
+        is_component = .false.
+
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+
+        parent_index = arena%entries(decl_index)%parent_index
+        if (parent_index <= 0 .or. parent_index > arena%size) return
+        if (.not. allocated(arena%entries(parent_index)%node)) return
+
+        select type (parent => arena%entries(parent_index)%node)
+        type is (derived_type_node)
+            is_component = .true.
+        end select
+    end function is_type_component
 
     ! Mark variables that need allocatable due to string length changes (Issue 218)
     subroutine mark_allocatable_for_string_length_changes(arena, prog)

@@ -184,6 +184,22 @@ contains
 
         call arena%push(dtype, "derived_type", parent_index)
         type_index = arena%size
+
+        ! Update parent_index of all components to point to this derived type
+        ! This ensures is_type_component() can correctly identify them (fixes #1738)
+        if (present(component_indices)) then
+            block
+                integer :: i, comp_idx
+                do i = 1, size(component_indices)
+                    comp_idx = component_indices(i)
+                    if (comp_idx > 0 .and. comp_idx <= arena%size) then
+                        if (allocated(arena%entries(comp_idx)%node)) then
+                            arena%entries(comp_idx)%parent_index = type_index
+                        end if
+                    end if
+                end do
+            end block
+        end if
     end function push_derived_type
 
     ! Create declaration node and add to stack
