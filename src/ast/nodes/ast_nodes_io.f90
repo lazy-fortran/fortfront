@@ -12,6 +12,9 @@ module ast_nodes_io
     public :: create_open_statement
     public :: create_close_statement
     public :: create_inquire_statement
+    public :: create_backspace_statement
+    public :: create_rewind_statement
+    public :: create_endfile_statement
 
     ! I/O statement AST nodes
 
@@ -151,6 +154,42 @@ module ast_nodes_io
         procedure :: assign => inquire_statement_assign
         generic :: assignment(=) => assign
     end type inquire_statement_node
+
+    ! BACKSPACE statement node
+    type, extends(ast_node), public :: backspace_statement_node
+        character(len=:), allocatable :: unit_spec
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => backspace_statement_accept
+        procedure :: to_json => backspace_statement_to_json
+        procedure :: assign => backspace_statement_assign
+        generic :: assignment(=) => assign
+    end type backspace_statement_node
+
+    ! REWIND statement node
+    type, extends(ast_node), public :: rewind_statement_node
+        character(len=:), allocatable :: unit_spec
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => rewind_statement_accept
+        procedure :: to_json => rewind_statement_to_json
+        procedure :: assign => rewind_statement_assign
+        generic :: assignment(=) => assign
+    end type rewind_statement_node
+
+    ! ENDFILE statement node
+    type, extends(ast_node), public :: endfile_statement_node
+        character(len=:), allocatable :: unit_spec
+        integer :: iostat_var_index = 0
+        integer :: err_label_index = 0
+    contains
+        procedure :: accept => endfile_statement_accept
+        procedure :: to_json => endfile_statement_to_json
+        procedure :: assign => endfile_statement_assign
+        generic :: assignment(=) => assign
+    end type endfile_statement_node
 
 contains
 
@@ -603,5 +642,134 @@ contains
         type(inquire_statement_node) :: node
         node%uid = generate_uid()
     end function create_inquire_statement
+
+    ! BACKSPACE statement implementations
+    subroutine backspace_statement_accept(this, visitor)
+        class(backspace_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine backspace_statement_accept
+
+    subroutine backspace_statement_to_json(this, json, parent)
+        class(backspace_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'backspace_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
+        call json%add(parent, obj)
+    end subroutine backspace_statement_to_json
+
+    subroutine backspace_statement_assign(lhs, rhs)
+        class(backspace_statement_node), intent(inout) :: lhs
+        class(backspace_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine backspace_statement_assign
+
+    function create_backspace_statement() result(node)
+        type(backspace_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_backspace_statement
+
+    ! REWIND statement implementations
+    subroutine rewind_statement_accept(this, visitor)
+        class(rewind_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine rewind_statement_accept
+
+    subroutine rewind_statement_to_json(this, json, parent)
+        class(rewind_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'rewind_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
+        call json%add(parent, obj)
+    end subroutine rewind_statement_to_json
+
+    subroutine rewind_statement_assign(lhs, rhs)
+        class(rewind_statement_node), intent(inout) :: lhs
+        class(rewind_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine rewind_statement_assign
+
+    function create_rewind_statement() result(node)
+        type(rewind_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_rewind_statement
+
+    ! ENDFILE statement implementations
+    subroutine endfile_statement_accept(this, visitor)
+        class(endfile_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine endfile_statement_accept
+
+    subroutine endfile_statement_to_json(this, json, parent)
+        class(endfile_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'endfile_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
+        call json%add(parent, obj)
+    end subroutine endfile_statement_to_json
+
+    subroutine endfile_statement_assign(lhs, rhs)
+        class(endfile_statement_node), intent(inout) :: lhs
+        class(endfile_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+    end subroutine endfile_statement_assign
+
+    function create_endfile_statement() result(node)
+        type(endfile_statement_node) :: node
+        node%uid = generate_uid()
+    end function create_endfile_statement
 
 end module ast_nodes_io

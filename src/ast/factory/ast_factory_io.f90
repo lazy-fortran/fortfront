@@ -3,7 +3,8 @@ module ast_factory_io
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
                             read_statement_node, format_statement_node, &
                             open_statement_node, close_statement_node, &
-                            inquire_statement_node
+                            inquire_statement_node, backspace_statement_node, &
+                            rewind_statement_node, endfile_statement_node
     implicit none
     private
 
@@ -16,6 +17,7 @@ module ast_factory_io
     public :: push_format_statement
     public :: push_open_statement, push_close_statement
     public :: push_inquire_statement
+    public :: push_backspace_statement, push_rewind_statement, push_endfile_statement
 
 contains
 
@@ -293,5 +295,53 @@ contains
         call arena%push(inquire_stmt, "inquire_statement", parent_index)
         inquire_index = arena%size
     end function push_inquire_statement
+
+    function push_backspace_statement(arena, unit_spec, line, column, &
+                                      parent_index) result(backspace_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: unit_spec
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: backspace_index
+        type(backspace_statement_node) :: backspace_stmt
+
+        backspace_stmt%unit_spec = unit_spec
+        if (present(line)) backspace_stmt%line = line
+        if (present(column)) backspace_stmt%column = column
+
+        call arena%push(backspace_stmt, "backspace_statement", parent_index)
+        backspace_index = arena%size
+    end function push_backspace_statement
+
+    function push_rewind_statement(arena, unit_spec, line, column, &
+                                   parent_index) result(rewind_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: unit_spec
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: rewind_index
+        type(rewind_statement_node) :: rewind_stmt
+
+        rewind_stmt%unit_spec = unit_spec
+        if (present(line)) rewind_stmt%line = line
+        if (present(column)) rewind_stmt%column = column
+
+        call arena%push(rewind_stmt, "rewind_statement", parent_index)
+        rewind_index = arena%size
+    end function push_rewind_statement
+
+    function push_endfile_statement(arena, unit_spec, line, column, &
+                                    parent_index) result(endfile_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: unit_spec
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: endfile_index
+        type(endfile_statement_node) :: endfile_stmt
+
+        endfile_stmt%unit_spec = unit_spec
+        if (present(line)) endfile_stmt%line = line
+        if (present(column)) endfile_stmt%column = column
+
+        call arena%push(endfile_stmt, "endfile_statement", parent_index)
+        endfile_index = arena%size
+    end function push_endfile_statement
 
 end module ast_factory_io
