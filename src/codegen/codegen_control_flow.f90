@@ -120,7 +120,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: var_code, start_code, end_code, step_code
-        character(len=:), allocatable :: body_code
+        character(len=:), allocatable :: body_code, end_keyword
         integer :: indent_level
 
         indent_level = 0
@@ -154,15 +154,23 @@ contains
             step_code = ""
         end if
 
-        ! Generate do statement
-        code = "do " // var_code // " = " // start_code // ", " // end_code
+        ! Generate do statement with optional label
+        if (allocated(node%label)) then
+            code = trim(adjustl(node%label)) // ": do " // var_code // " = " // &
+                   start_code // ", " // end_code
+            end_keyword = "end do " // trim(adjustl(node%label))
+        else
+            code = "do " // var_code // " = " // start_code // ", " // end_code
+            end_keyword = "end do"
+        end if
 
         if (len(step_code) > 0) then
             code = code // ", " // step_code
         end if
 
         ! Generate body
-        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, code)
+        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &
+                                         code, end_keyword)
     end function generate_code_do_loop
 
     ! Generate code for do while loops
