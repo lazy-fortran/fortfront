@@ -1,5 +1,5 @@
 program test_issue_1745_equivalence
-    use fortfront
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source

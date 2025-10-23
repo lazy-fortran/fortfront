@@ -48,6 +48,7 @@ module parser_execution_statements_module
                            push_declaration, push_implicit_statement, push_goto
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use ast_nodes_misc, only: comment_node
+    use uid_generator, only: generate_uid
     implicit none
     private
 
@@ -360,7 +361,8 @@ contains
             case ("call")
                 stmt_index = parse_call_statement(parser_ref, arena_ref)
             case ("interface")
-                stmt_index = parse_interface_block(parser_ref, arena_ref, prefix_buffer)
+                stmt_index = parse_interface_block(parser_ref, arena_ref, &
+                                                   prefix_buffer)
             case ("dimension")
                 block
                     type(token_t) :: ignored_token
@@ -411,6 +413,7 @@ contains
             comment%text = "    " // trim(text)
             comment%line = line
             comment%column = column
+            comment%uid = generate_uid()
             call arena_ref%push(comment, "comment")
             stmt_index = arena_ref%size
 
@@ -434,7 +437,9 @@ contains
 
             do i = start_idx, end_idx
                 text = trim(text) // trim(tokens(i)%text)
-                if (i < end_idx) text = trim(text) // " "
+                if (i < end_idx .and. len_trim(text) > 0) then
+                    text = trim(text) // " "
+                end if
             end do
         end subroutine reconstruct_legacy_text
 
