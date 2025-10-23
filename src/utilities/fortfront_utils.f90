@@ -418,6 +418,8 @@ contains
             node_type = NODE_GOTO
         case ("error_stop_node", "error_stop")
             node_type = NODE_ERROR_STOP
+        case ("pause_node", "pause")
+            node_type = NODE_PAUSE
         case ("cycle_node", "cycle")
             node_type = NODE_CYCLE
         case ("exit_node", "exit")

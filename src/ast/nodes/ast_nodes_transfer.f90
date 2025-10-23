@@ -8,10 +8,10 @@ module ast_nodes_transfer
 
     ! Public types
     public :: cycle_node, exit_node, stop_node, return_node
-    public :: goto_node, error_stop_node, continue_node
+    public :: goto_node, error_stop_node, continue_node, pause_node
     ! Constructors migrated from ast_core
     public :: create_cycle, create_exit, create_stop, create_return
-    public :: create_goto, create_error_stop, create_continue
+    public :: create_goto, create_error_stop, create_continue, create_pause
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
@@ -86,6 +86,17 @@ module ast_nodes_transfer
         procedure :: assign => error_stop_assign
         generic :: assignment(=) => assign
     end type error_stop_node
+
+    ! Pause statement node
+    type, extends(ast_node) :: pause_node
+        integer :: pause_code_index = 0  ! Optional pause code expression index
+        character(len=:), allocatable :: pause_message  ! Optional pause message string
+    contains
+        procedure :: accept => pause_accept
+        procedure :: to_json => pause_to_json
+        procedure :: assign => pause_assign
+        generic :: assignment(=) => assign
+    end type pause_node
 
 contains
 
@@ -421,5 +432,58 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_error_stop
+
+    ! Pause statement implementations
+    subroutine pause_accept(this, visitor)
+        class(pause_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine pause_accept
+
+    subroutine pause_to_json(this, json, parent)
+        class(pause_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'pause')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (this%pause_code_index > 0) call json%add(obj, 'pause_code_index', &
+                                                     this%pause_code_index)
+        if (allocated(this%pause_message)) call json%add(obj, 'pause_message', &
+                                                         this%pause_message)
+        call json%add(parent, obj)
+    end subroutine pause_to_json
+
+    subroutine pause_assign(lhs, rhs)
+        class(pause_node), intent(inout) :: lhs
+        class(pause_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%pause_code_index = rhs%pause_code_index
+        if (allocated(rhs%pause_message)) lhs%pause_message = rhs%pause_message
+    end subroutine pause_assign
+
+    function create_pause(pause_code_index, pause_message, line, column) &
+        result(node)
+        integer, intent(in), optional :: pause_code_index
+        character(len=*), intent(in), optional :: pause_message
+        integer, intent(in), optional :: line, column
+        type(pause_node) :: node
+
+        node%uid = generate_uid()
+        if (present(pause_code_index)) node%pause_code_index = pause_code_index
+        if (present(pause_message)) node%pause_message = pause_message
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_pause
 
 end module ast_nodes_transfer
