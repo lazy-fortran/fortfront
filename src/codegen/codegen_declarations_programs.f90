@@ -372,9 +372,11 @@ contains
             end if
         type is (interface_block_node)
             is_header_stmt = .true.
-            stmt_code = generate_code_from_arena(arena, body_index)
-            interface_blocks_code = interface_blocks_code // &
-                                    indent_lines(stmt_code, 1) // new_line('A')
+            if (.not. interface_has_module_procedures(arena, ib)) then
+                stmt_code = generate_code_from_arena(arena, body_index)
+                interface_blocks_code = interface_blocks_code // &
+                                        indent_lines(stmt_code, 1) // new_line('A')
+            end if
         type is (literal_node)
             if (allocated(ib%value)) then
                 lowered_value = to_lower(ib%value)
@@ -984,4 +986,25 @@ contains
             end do
         end if
     end function generate_code_module_procedure
+
+    logical function interface_has_module_procedures(arena, interface_node) result(has_module_proc)
+        type(ast_arena_t), intent(in) :: arena
+        type(interface_block_node), intent(in) :: interface_node
+        integer :: i, proc_idx
+
+        has_module_proc = .false.
+        if (.not. allocated(interface_node%procedure_indices)) return
+
+        do i = 1, size(interface_node%procedure_indices)
+            proc_idx = interface_node%procedure_indices(i)
+            if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+
+            select type (proc_node => arena%entries(proc_idx)%node)
+            type is (module_procedure_node)
+                has_module_proc = .true.
+                return
+            end select
+        end do
+    end function interface_has_module_procedures
 end module codegen_declarations_programs
