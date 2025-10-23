@@ -232,17 +232,26 @@ contains
                                else_body_indices=else_body_indices, &
                                line=if_token%line, column=if_token%column)
         else
-            ! Single-line if statement - not fully supported, skip to end of line
-            ! Consume tokens until newline to avoid endless loop
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
-                    exit
+            ! Single-line if statement - parse the single statement
+            allocate (then_body_indices(1))
+
+            ! Parse the single statement
+            token = parser%peek()
+            block
+                integer :: stmt_index
+                stmt_index = parse_statement_in_if_block(parser, arena, token)
+                if (stmt_index > 0) then
+                    then_body_indices(1) = stmt_index
+                else
+                    ! Failed to parse statement, create empty body
+                    deallocate (then_body_indices)
+                    allocate (then_body_indices(0))
                 end if
-                token = parser%consume()
-            end do
-            if_index = push_literal(arena, "! Single-line if not yet supported", &
-                                    LITERAL_STRING, if_token%line, if_token%column)
+            end block
+
+            ! Create if node with single statement in then body
+            if_index = push_if(arena, condition_index, then_body_indices, &
+                               line=if_token%line, column=if_token%column)
         end if
 
     end function parse_if_from_definition
