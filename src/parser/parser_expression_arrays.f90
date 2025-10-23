@@ -1,5 +1,6 @@
 module parser_expression_arrays_module
-    use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_NEWLINE, TK_COMMENT
+    use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER, TK_KEYWORD, &
+                          TK_NEWLINE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: component_access_node, identifier_node
@@ -129,6 +130,44 @@ contains
                                                     syntax_style="legacy")
                 end if
                 return
+            end if
+
+            ! Check for type specification: (/ type-spec :: elements /)
+            ! e.g., (/ real :: 1, 2, 3 /) or (/ integer(kind=4) :: 1, 2 /)
+            ! The type spec is skipped because modern Fortran compilers handle
+            ! type conversion automatically.
+            if (current%kind == TK_IDENTIFIER .or. current%kind == TK_KEYWORD) then
+                saved_pos = parser%current_token
+                current = parser%consume()  ! Consume type name
+                ! Handle optional kind selector: integer(kind=4)
+                current = parser%peek()
+                if (current%text == "(") then
+                    ! Skip kind/len parameters
+                    current = parser%consume()  ! Consume (
+                    block
+                        integer :: paren_depth
+                        paren_depth = 1
+                        do while (paren_depth > 0)
+                            current = parser%peek()
+                            if (current%text == "(") then
+                                paren_depth = paren_depth + 1
+                            else if (current%text == ")") then
+                                paren_depth = paren_depth - 1
+                            end if
+                            current = parser%consume()
+                        end do
+                    end block
+                    current = parser%peek()
+                end if
+                if (current%text == "::") then
+                    current = parser%consume()  ! Consume ::
+                    ! Type spec consumed, proceed to parse elements
+                    current = parser%peek()
+                else
+                    ! No ::, restore position
+                    parser%current_token = saved_pos
+                    current = parser%peek()
+                end if
             end if
 
             if (current%text == "(") then
