@@ -13,6 +13,14 @@ program test_issue_1353_program_derived_type
 
 contains
 
+    logical function has_real_decl(segment, name) result(found)
+        character(len=*), intent(in) :: segment
+        character(len=*), intent(in) :: name
+
+        found = index(segment, "real :: " // name) > 0 .or. &
+                index(segment, "real(8) :: " // name) > 0
+    end function has_real_decl
+
     subroutine test_type_definition_inside_program()
         character(len=:), allocatable :: input_code
         character(len=:), allocatable :: output_code
@@ -209,8 +217,8 @@ contains
         end if
 
         if (idx_type > 1) then
-            if (index(output_code(1:idx_type - 1), "real :: x") > 0 .or. &
-                index(output_code(1:idx_type - 1), "real :: y") > 0) then
+            if (has_real_decl(output_code(1:idx_type - 1), "x") .or. &
+                has_real_decl(output_code(1:idx_type - 1), "y")) then
                 print *, "FAIL: module leaked type components before definition"
                 error stop 1
             end if
@@ -222,8 +230,8 @@ contains
             error stop 1
         end if
 
-        if (index(type_segment, "real :: x") <= 0 .or. &
-            index(type_segment, "real :: y") <= 0) then
+        if ((.not. has_real_decl(type_segment, "x")) .or. &
+            (.not. has_real_decl(type_segment, "y"))) then
             print *, "FAIL: module missing component declarations inside type"
             error stop 1
         end if
@@ -302,7 +310,7 @@ contains
         end if
 
         type_segment = output_code(idx_type:idx_end)
-        if (index(type_segment, "real :: y") <= 0) then
+        if (.not. has_real_decl(type_segment, "y")) then
             print *, "FAIL: extends test lost component declaration inside type"
             error stop 1
         end if
