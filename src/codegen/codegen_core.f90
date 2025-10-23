@@ -101,6 +101,8 @@ contains
             code = generate_code_open_statement(arena, node, node_index)
         type is (close_statement_node)
             code = generate_code_close_statement(arena, node, node_index)
+        type is (inquire_statement_node)
+            code = generate_code_inquire_statement(arena, node, node_index)
         type is (format_statement_node)
             code = generate_code_format_statement(arena, node, node_index)
         type is (stop_node)
