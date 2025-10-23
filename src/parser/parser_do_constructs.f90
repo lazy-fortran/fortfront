@@ -145,6 +145,19 @@ contains
         idx = start_pos + 1
         do while (idx <= size(tokens))
             token = tokens(idx)
+
+            ! Check for labeled DO: identifier : do
+            if (token%kind == TK_IDENTIFIER .and. idx + 2 <= size(tokens)) then
+                if (tokens(idx + 1)%kind == TK_OPERATOR .and. &
+                    tokens(idx + 1)%text == ":" .and. &
+                    tokens(idx + 2)%kind == TK_KEYWORD .and. &
+                    tokens(idx + 2)%text == "do") then
+                    depth = depth + 1
+                    idx = idx + 2
+                    cycle
+                end if
+            end if
+
             if (token%kind == TK_KEYWORD) then
                 select case (token%text)
                 case ("do")
@@ -161,7 +174,13 @@ contains
                             tokens(idx + 1)%text == "do") then
                             depth = depth - 1
                             if (depth == 0) then
-                                end_index = idx + 1
+                                ! Check if there's a label after "end do"
+                                if (idx + 2 <= size(tokens) .and. &
+                                    tokens(idx + 2)%kind == TK_IDENTIFIER) then
+                                    end_index = idx + 2
+                                else
+                                    end_index = idx + 1
+                                end if
                                 return
                             end if
                             idx = idx + 1
@@ -190,8 +209,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index
 
-        type(token_t) :: do_token, var_token, eq_token, comma_token
-        character(len=:), allocatable :: var_name
+        type(token_t) :: do_token, var_token, eq_token, comma_token, label_token
+        character(len=:), allocatable :: var_name, loop_label
         integer :: start_index, end_index, step_index
         integer :: line, column
 
@@ -201,6 +220,20 @@ contains
         loop_index = 0  ! Initialize to 0 (failure) in case of early return
 
         ! Starting to parse do loop
+
+        ! Check for optional loop label at start: label: do ...
+        if (parser%current_token >= 1 .and. parser%current_token + 2 <= &
+            size(parser%tokens)) then
+            if (parser%tokens(parser%current_token)%kind == TK_IDENTIFIER .and. &
+                parser%tokens(parser%current_token + 1)%kind == TK_OPERATOR .and. &
+                parser%tokens(parser%current_token + 1)%text == ":" .and. &
+                parser%tokens(parser%current_token + 2)%kind == TK_KEYWORD .and. &
+                parser%tokens(parser%current_token + 2)%text == "do") then
+                label_token = parser%tokens(parser%current_token)
+                loop_label = label_token%text
+                parser%current_token = parser%current_token + 2
+            end if
+        end if
 
         ! Consume 'do'
         do_token = parser%consume()
@@ -279,14 +312,29 @@ contains
             callbacks = build_do_body_callbacks()
 
             if (step_index > 0) then
-                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                          step_index=step_index, &
-                                          body_indices=[integer ::], &
-                                          line=line, column=column)
+                if (allocated(loop_label)) then
+                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                              step_index=step_index, &
+                                              body_indices=[integer ::], &
+                                              loop_label=loop_label, &
+                                              line=line, column=column)
+                else
+                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                              step_index=step_index, &
+                                              body_indices=[integer ::], &
+                                              line=line, column=column)
+                end if
             else
-                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                          body_indices=[integer ::], &
-                                          line=line, column=column)
+                if (allocated(loop_label)) then
+                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                              body_indices=[integer ::], &
+                                              loop_label=loop_label, &
+                                              line=line, column=column)
+                else
+                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                              body_indices=[integer ::], &
+                                              line=line, column=column)
+                end if
             end if
 
             do while (parser%current_token <= size(parser%tokens))
@@ -345,21 +393,34 @@ contains
 
                 stmt_end = stmt_start
                 block
-                    integer :: block_end, lookahead
+                    integer :: block_end, lookahead, do_pos
                     logical :: handled_block
 
                     handled_block = .false.
-                    if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
-                        select case (parser%tokens(stmt_start)%text)
+
+                    ! Check for label: do pattern
+                    do_pos = stmt_start
+                    if (parser%tokens(stmt_start)%kind == TK_IDENTIFIER .and. &
+                        stmt_start + 2 <= size(parser%tokens)) then
+                        if (parser%tokens(stmt_start + 1)%kind == TK_OPERATOR .and. &
+                            parser%tokens(stmt_start + 1)%text == ":" .and. &
+                            parser%tokens(stmt_start + 2)%kind == TK_KEYWORD .and. &
+                            parser%tokens(stmt_start + 2)%text == "do") then
+                            do_pos = stmt_start + 2
+                        end if
+                    end if
+
+                    if (parser%tokens(do_pos)%kind == TK_KEYWORD) then
+                        select case (parser%tokens(do_pos)%text)
                         case ("if")
-                            block_end = find_matching_end_if(parser%tokens, stmt_start)
-                            if (block_end > stmt_start) then
+                            block_end = find_matching_end_if(parser%tokens, do_pos)
+                            if (block_end > do_pos) then
                                 stmt_end = block_end
                                 handled_block = .true.
                             end if
                         case ("do")
-                            block_end = find_matching_end_do(parser%tokens, stmt_start)
-                            if (block_end > stmt_start) then
+                            block_end = find_matching_end_do(parser%tokens, do_pos)
+                            if (block_end > do_pos) then
                                 stmt_end = block_end
                                 handled_block = .true.
                             end if
