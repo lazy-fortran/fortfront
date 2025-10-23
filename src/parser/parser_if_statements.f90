@@ -38,12 +38,6 @@ contains
 
         condition_index = build_if_condition(stmt_tokens, then_pos, arena)
 
-        ! If condition is invalid, return early to avoid creating malformed IF
-        if (condition_index <= 0) then
-            if_index = 0
-            return
-        end if
-
         call parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
                                then_body_indices)
         call parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &

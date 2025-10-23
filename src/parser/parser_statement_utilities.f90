@@ -167,12 +167,6 @@ contains
         ! Parse condition (parentheses)
         condition_index = parse_comparison(parser, arena)
 
-        ! If condition is invalid, return early to avoid creating malformed IF
-        if (condition_index <= 0) then
-            if_index = 0
-            return
-        end if
-
         ! Look for 'then' keyword
         then_token = parser%peek()
         if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then

@@ -68,9 +68,9 @@ contains
             cond_code = ""
         end if
 
-        ! Skip IF with invalid condition index (malformed node from parser bug)
-        ! Only skip if condition_index is 0 or out of bounds
-        if (node%condition_index <= 0 .or. node%condition_index > arena%size) then
+        ! Skip IF with empty condition (malformed node from parser bug like issue #1736)
+        ! Check if condition generated empty code - this indicates a parser error
+        if (len_trim(cond_code) == 0) then
             code = ""
             return
         end if
