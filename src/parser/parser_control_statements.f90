@@ -231,14 +231,14 @@ contains
                 if (token%kind == TK_OPERATOR .and. token%text == ")") then
                     token = parser%consume()
 
-                    ! Consume comma before selector expression
+                    ! Consume optional comma before selector expression
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == ",") then
                         token = parser%consume()
-
-                        ! Parse selector expression
-                        selector_index = parse_comparison(parser, arena)
                     end if
+
+                    ! Parse selector expression (required for computed GOTO)
+                    selector_index = parse_comparison(parser, arena)
                 end if
             else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
                 label = trim(token%text)
@@ -288,14 +288,14 @@ contains
                     if (token%kind == TK_OPERATOR .and. token%text == ")") then
                         token = parser%consume()
 
-                        ! Consume comma before selector expression
+                        ! Consume optional comma before selector expression
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == ",") then
                             token = parser%consume()
-
-                            ! Parse selector expression
-                            selector_index = parse_comparison(parser, arena)
                         end if
+
+                        ! Parse selector expression (required for computed GOTO)
+                        selector_index = parse_comparison(parser, arena)
                     end if
                 else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
                     label = trim(token%text)
