@@ -1,5 +1,9 @@
 program test_semantic_simple
-    use frontend
+    use lexer_api, only: lex_source, lex_file
+    use parser_api, only: parse_tokens, parse_tokens_safe
+    use semantic_api, only: analyze_semantics
+    use codegen_api, only: emit_fortran
+    use transformation_api, only: transform_lazy_fortran_string, compile_source
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program

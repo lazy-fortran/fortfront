@@ -1,6 +1,5 @@
 program test_issue_1570_pure_elemental
-    use frontend, only: compile_source, compilation_options_t
-    implicit none
+    use transformation_api, only: compile_source, compilation_options_t
 
     character(len=:), allocatable :: input_file, output_file
     character(len=256) :: error_msg

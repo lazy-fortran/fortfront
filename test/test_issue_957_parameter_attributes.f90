@@ -1,5 +1,9 @@
 program test_issue_957_parameter_attributes
-    use frontend
+    use lexer_api, only: lex_source, lex_file
+    use parser_api, only: parse_tokens, parse_tokens_safe
+    use semantic_api, only: analyze_semantics
+    use codegen_api, only: emit_fortran
+    use transformation_api, only: transform_lazy_fortran_string, compile_source
     implicit none
 
     logical :: test_passed

@@ -19,6 +19,7 @@ module lexer_api
         TK_COMMENT, &
         TK_WHITESPACE, &
         TK_UNKNOWN
+    use frontend_core, only: lex_source, lex_file
 
     implicit none
     private
@@ -44,6 +45,8 @@ module lexer_api
     public :: tokenize_core
     public :: tokenize_safe
     public :: tokenize_core_safe
+    public :: lex_source
+    public :: lex_file
 
     ! Utility functions
     public :: token_type_name

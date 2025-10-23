@@ -1,6 +1,5 @@
 program test_tooling_passthrough
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     character(len=:), allocatable :: input_text
     character(len=:), allocatable :: output_text

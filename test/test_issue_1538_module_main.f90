@@ -1,5 +1,5 @@
 program test_issue_1538_module_main
-    use frontend, only: transform_with_context, transform_context_t
+    use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_LAZY, detect_input_mode_from_content
     implicit none
 

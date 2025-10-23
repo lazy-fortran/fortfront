@@ -1,6 +1,5 @@
 program test_issue_256_validation
-    use frontend, only: transform_lazy_fortran_string
-    implicit none
+    use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed
     integer :: test_count, passed_count
