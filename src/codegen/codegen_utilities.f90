@@ -16,6 +16,7 @@ module codegen_utilities
     use codegen_indent
     use type_string_utils, only: is_character_type_string
     use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_type_utils, only: get_type_standardization
     use string_utils_mod, only: int_to_string, to_lower
     implicit none
     private
@@ -492,6 +493,7 @@ contains
         indent_str = repeat("    ", indent)
         code = ""
         force_keep_result_decl = .false.
+        call get_type_standardization(standardize_types_enabled)
 
         ! Determine if we should skip result variable declarations
         has_return_type_in_signature = .false.
@@ -558,7 +560,8 @@ contains
                                             type_name = &
                                                 normalize_character_type(node, &
                                                                          type_name)
-                                        else if (to_lower(trim(type_name)) == 'real' .and. &
+                                        else if (standardize_types_enabled .and. &
+                                                 to_lower(trim(type_name)) == 'real' .and. &
                                                  .not. node%has_kind) then
                                             type_name = "real(8)"
                                         end if
@@ -682,7 +685,8 @@ contains
                                     if (is_character_type_string(type_name)) then
                                         type_name = &
                                             normalize_character_type(node, type_name)
-                                    else if (to_lower(trim(type_name)) == 'real' .and. &
+                                    else if (standardize_types_enabled .and. &
+                                             to_lower(trim(type_name)) == 'real' .and. &
                                              .not. node%has_kind) then
                                         type_name = "real(8)"
                                     end if

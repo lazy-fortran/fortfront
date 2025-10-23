@@ -15,6 +15,7 @@ module codegen_declarations_procedures
                                               has_character_len_result_decl, &
                                               is_character_len_declaration, &
                                               is_deferred_character_return
+    use codegen_type_utils, only: get_type_standardization
     implicit none
     private
     public :: generate_code_function_def
@@ -94,14 +95,18 @@ contains
         character(len=:), allocatable :: return_type_code
         character(len=:), allocatable :: override
         character(len=:), allocatable :: lowered
+        logical :: standardize_types_enabled
 
         return_type_code = ""
 
         if (allocated(node%return_type)) then
             return_type_code = trim(node%return_type)
-            lowered = to_lower(trim(return_type_code))
-            if (lowered == 'real') then
-                return_type_code = "real(8)"
+            call get_type_standardization(standardize_types_enabled)
+            if (standardize_types_enabled) then
+                lowered = to_lower(trim(return_type_code))
+                if (lowered == 'real') then
+                    return_type_code = "real(8)"
+                end if
             end if
         end if
 

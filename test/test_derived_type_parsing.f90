@@ -106,7 +106,8 @@ contains
             ! Check if all components are preserved
             if (index(output_code, "integer :: age") > 0 .and. &
                 index(output_code, "character") > 0 .and. &
-                index(output_code, "real :: height") > 0) then
+                (index(output_code, "real :: height") > 0 .or. &
+                 index(output_code, "real(8) :: height") > 0)) then
                 print *, "✓ PASS: All components preserved"
             else
                 print *, "✗ FAIL: Some components missing"
@@ -212,8 +213,10 @@ contains
             print *, output_code
 
             ! Check if both components are preserved, especially the 'end' field
-            if (index(output_code, "real :: start") > 0 .and. &
-                index(output_code, "real :: end") > 0) then
+            if ((index(output_code, "real :: start") > 0 .or. &
+                 index(output_code, "real(8) :: start") > 0) .and. &
+                (index(output_code, "real :: end") > 0 .or. &
+                 index(output_code, "real(8) :: end") > 0)) then
                 print *, "✓ PASS: Both 'start' and 'end' fields preserved"
             else
                 print *, "✗ FAIL: Missing 'end' field"
