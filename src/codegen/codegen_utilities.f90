@@ -22,7 +22,10 @@ module codegen_utilities
     private
 
     ! Type standardization configuration
-    logical, save :: standardize_types_enabled = .true.
+    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
+    ! depend on exact type matching. Users should explicitly use real(8) or
+    ! kind parameters if they want double precision.
+    logical, save :: standardize_types_enabled = .false.
 
     ! Context for executable code before contains
     logical, save :: context_has_executable_before_contains = .false.

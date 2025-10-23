@@ -26,7 +26,10 @@ module standardizer_declarations_core
     private
 
     ! Type standardization configuration (local copy)
-    logical, save :: standardizer_type_standardization_enabled = .true.
+    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
+    ! depend on exact type matching. Users should explicitly use real(8) or
+    ! kind parameters if they want double precision.
+    logical, save :: standardizer_type_standardization_enabled = .false.
 
     public :: insert_variable_declarations
     public :: has_implicit_none
