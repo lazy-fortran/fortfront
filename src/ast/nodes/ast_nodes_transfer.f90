@@ -7,10 +7,10 @@ module ast_nodes_transfer
     private
 
     ! Public types
-    public :: cycle_node, exit_node, stop_node, return_node
+    public :: cycle_node, exit_node, stop_node, return_node, entry_node
     public :: goto_node, error_stop_node, continue_node, pause_node, nullify_node
     ! Constructors migrated from ast_core
-    public :: create_cycle, create_exit, create_stop, create_return
+    public :: create_cycle, create_exit, create_stop, create_return, create_entry
     public :: create_goto, create_error_stop, create_continue, create_pause
     public :: create_nullify
 
@@ -55,6 +55,18 @@ module ast_nodes_transfer
         procedure :: assign => return_assign
         generic :: assignment(=) => assign
     end type return_node
+
+    ! Entry statement node
+    type, extends(ast_node) :: entry_node
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: params_text
+        integer, allocatable :: param_indices(:)
+    contains
+        procedure :: accept => entry_accept
+        procedure :: to_json => entry_to_json
+        procedure :: assign => entry_assign
+        generic :: assignment(=) => assign
+    end type entry_node
 
     ! Continue statement node
     type, extends(ast_node) :: continue_node
@@ -297,6 +309,61 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_return
+
+    ! Entry statement implementations
+    subroutine entry_accept(this, visitor)
+        class(entry_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine entry_accept
+
+    subroutine entry_to_json(this, json, parent)
+        class(entry_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'entry')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%name)) call json%add(obj, 'name', this%name)
+        if (allocated(this%params_text)) call json%add(obj, 'params_text', &
+                                                       this%params_text)
+        if (allocated(this%param_indices)) then
+            call json%add(obj, 'param_indices', this%param_indices)
+        end if
+        call json%add(parent, obj)
+    end subroutine entry_to_json
+
+    subroutine entry_assign(lhs, rhs)
+        class(entry_node), intent(inout) :: lhs
+        class(entry_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%params_text)) lhs%params_text = rhs%params_text
+        if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
+    end subroutine entry_assign
+
+    function create_entry(name, param_indices, line, column) result(node)
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: param_indices(:)
+        integer, intent(in), optional :: line, column
+        type(entry_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+        if (present(param_indices)) node%param_indices = param_indices
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_entry
 
     subroutine continue_accept(this, visitor)
         class(continue_node), intent(in) :: this

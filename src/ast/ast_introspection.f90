@@ -136,6 +136,8 @@ contains
             type_id = 25  ! NODE_STOP
         type is (return_node)
             type_id = 26  ! NODE_RETURN
+        type is (entry_node)
+            type_id = 60  ! NODE_ENTRY
         type is (goto_node)
             type_id = 27  ! NODE_GOTO
         type is (error_stop_node)
