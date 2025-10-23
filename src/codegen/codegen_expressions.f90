@@ -314,18 +314,31 @@ contains
         end do
     end function generate_elements_code_from_indices
 
-    ! Generate code for real array elements
-    ! NOTE: Type standardization is now disabled globally, so we no longer
-    ! promote literals to double precision. This function now behaves the
-    ! same as generate_elements_code_from_indices.
+    ! Generate code for real array elements.
+    ! Integer literals must become default real so mixed constructors compile.
     function generate_real_elements_code(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code
+        character(len=:), allocatable :: elem_code
+        integer :: i
 
-        ! Simply delegate to the non-promoting version since type
-        ! standardization is disabled
-        elements_code = generate_elements_code_from_indices(arena, element_indices)
+        elements_code = ""
+        do i = 1, size(element_indices)
+            if (i > 1) elements_code = elements_code // ", "
+            if (element_indices(i) <= 0) cycle
+            elem_code = generate_code_from_arena(arena, element_indices(i))
+            elem_code = trim(elem_code)
+
+            select type (node => arena%entries(element_indices(i))%node)
+            type is (literal_node)
+                if (node%literal_kind == LITERAL_INTEGER) then
+                    elem_code = promote_integer_literal_to_real(elem_code)
+                end if
+            end select
+
+            elements_code = elements_code // elem_code
+        end do
     end function generate_real_elements_code
 
     ! Generate code for array literals
@@ -472,14 +485,17 @@ contains
                         integer :: j
                         do j = 1, size(node%element_indices)
                             if (node%element_indices(j) > 0) then
-                                select type (elem_node => &
-                                            arena%entries(node%element_indices(j))%node)
-                                type is (literal_node)
-                                    if (elem_node%literal_kind == LITERAL_REAL) then
-                                        is_real_array = .true.
-                                        exit
-                                    end if
-                                end select
+                                associate (entry => &
+                                           arena%entries(node%element_indices(j)))
+                                    select type (elem_node => entry%node)
+                                    type is (literal_node)
+                                        if (elem_node%literal_kind == &
+                                            LITERAL_REAL) then
+                                            is_real_array = .true.
+                                            exit
+                                        end if
+                                    end select
+                                end associate
                             end if
                         end do
                     end block
@@ -542,35 +558,28 @@ contains
         end if
     end function generate_code_array_literal
 
-    ! Promote numeric literal string to real(8) form (using d exponent)
-    function promote_literal_to_real64(code) result(promoted)
+    ! Promote integer literals to default real form and keep explicit kinds intact.
+    function promote_integer_literal_to_real(code) result(promoted)
         character(len=*), intent(in) :: code
         character(len=:), allocatable :: promoted
         character(len=:), allocatable :: trimmed
-        integer :: exp_pos
 
         trimmed = trim(code)
         promoted = trimmed
 
         if (len_trim(promoted) == 0) return
 
-        ! Respect explicit kind annotations and existing double precision markers
-        if (index(promoted, '_') /= 0) return
-        if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
-
-        exp_pos = index(promoted, 'e')
-        if (exp_pos == 0) exp_pos = index(promoted, 'E')
-        if (exp_pos /= 0) then
-            promoted(exp_pos:exp_pos) = 'd'
+        ! Respect existing explicit kind suffixes and exponential forms
+        if (index(promoted, '_') /= 0) then
+            promoted = "real(" // promoted // ")"
             return
         end if
+        if (index(promoted, '.') /= 0) return
+        if (index(promoted, 'e') /= 0 .or. index(promoted, 'E') /= 0) return
+        if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
 
-        if (index(promoted, '.') /= 0) then
-            promoted = promoted // "d0"
-        else
-            promoted = promoted // ".0d0"
-        end if
-    end function promote_literal_to_real64
+        promoted = promoted // ".0"
+    end function promote_integer_literal_to_real
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
     function generate_code_complex_literal(arena, node, node_index) result(code)
@@ -798,13 +807,13 @@ contains
                     node%body_indices(1) <= arena%size) then
                     if (allocated(arena%entries(node%body_indices(1))%node)) then
                         select type (body_node => &
-                                    arena%entries(node%body_indices(1))%node)
+                                     arena%entries(node%body_indices(1))%node)
                         type is (do_loop_node)
                             expr_code = generate_implied_do_inner(arena, &
-                                                                   node%body_indices(1))
+                                                                  node%body_indices(1))
                         class default
                             expr_code = generate_code_from_arena(arena, &
-                                                                  node%body_indices(1))
+                                                                 node%body_indices(1))
                         end select
                         expr_code = trim(expr_code)
                     else
@@ -873,14 +882,14 @@ contains
                     node%body_indices(1) <= arena%size) then
                     if (allocated(arena%entries(node%body_indices(1))%node)) then
                         select type (body_node => &
-                                    arena%entries(node%body_indices(1))%node)
+                                     arena%entries(node%body_indices(1))%node)
                         type is (do_loop_node)
                             expr_code = generate_implied_do_inner(arena, &
-                                                                   node%body_indices(1))
+                                                                  node%body_indices(1))
                             expr_code = trim(expr_code)
                         class default
                             expr_code = generate_code_from_arena(arena, &
-                                                                  node%body_indices(1))
+                                                                 node%body_indices(1))
                             expr_code = trim(expr_code)
                         end select
                     else
