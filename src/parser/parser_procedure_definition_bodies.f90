@@ -183,6 +183,14 @@ contains
         stmt_end = stmt_start
         pos = stmt_start
 
+        if (stmt_type == "if") then
+            if (is_single_line_if_statement(all_tokens, stmt_start)) then
+                stmt_end = locate_single_line_end(all_tokens, stmt_start, &
+                                                  all_tokens(stmt_start)%line)
+                return
+            end if
+        end if
+
         ! Set initial depth based on statement type
         if (stmt_type == "do") then
             depth = 1  ! We're already at the "do" keyword
@@ -250,6 +258,60 @@ contains
             pos = pos + 1
         end do
     end function locate_block_statement_end
+
+    logical function is_single_line_if_statement(all_tokens, stmt_start) &
+        result(is_single_line)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: stmt_start
+
+        integer :: pos
+        integer :: paren_depth
+        logical :: pending_continuation
+        character(len=:), allocatable :: token_text
+
+        is_single_line = .true.
+        paren_depth = 0
+        pending_continuation = .false.
+
+        do pos = stmt_start + 1, size(all_tokens)
+            select case (all_tokens(pos)%kind)
+            case (TK_OPERATOR)
+                token_text = all_tokens(pos)%text
+                if (token_text == "(") then
+                    paren_depth = paren_depth + 1
+                else if (token_text == ")") then
+                    paren_depth = max(0, paren_depth - 1)
+                else if (paren_depth == 0) then
+                    if (token_text == "&") then
+                        pending_continuation = .true.
+                    else
+                        pending_continuation = .false.
+                    end if
+                end if
+            case (TK_KEYWORD)
+                if (paren_depth == 0) then
+                    token_text = all_tokens(pos)%text
+                    select case (token_text)
+                    case ("then")
+                        is_single_line = .false.
+                        return
+                    case ("if")
+                        ! Allow ELSE IF detection later in main logic
+                    case default
+                        pending_continuation = .false.
+                    end select
+                end if
+            case (TK_NEWLINE)
+                if (paren_depth == 0) then
+                    if (pending_continuation) then
+                        pending_continuation = .false.
+                    else
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function is_single_line_if_statement
 
     integer function locate_single_line_end(all_tokens, stmt_start, line_number) &
         result(stmt_end)
