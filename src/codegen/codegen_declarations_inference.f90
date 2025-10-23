@@ -642,6 +642,7 @@ contains
 
         if (len_trim(name) == 0) return
         if (state%func_count >= program_decl_max_vars) return
+        if (exists_in_list(state%declared_names, state%declared_count, name)) return
         if (exists_in_list(state%func_names, state%func_count, name)) return
         state%func_count = state%func_count + 1
         state%func_names(state%func_count) = name

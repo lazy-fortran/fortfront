@@ -34,7 +34,7 @@ contains
         end if
 
         if (procedure_declared_external(arena, proc_idx, target_prog_idx)) then
-            should_hoist = .true.
+            should_hoist = .false.
             return
         end if
     end function should_hoist_procedure
