@@ -68,6 +68,13 @@ contains
             cond_code = ""
         end if
 
+        ! Skip IF with invalid condition index (malformed node from parser bug)
+        ! Only skip if condition_index is 0 or out of bounds
+        if (node%condition_index <= 0 .or. node%condition_index > arena%size) then
+            code = ""
+            return
+        end if
+
         ! Generate if statement
         code = "if (" // cond_code // ") then"
 
