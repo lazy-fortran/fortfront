@@ -6,7 +6,7 @@ module ast_factory_control
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
                                  case_block_node, case_range_node, case_default_node, &
                                  select_type_node, type_guard_block_node, &
-                                 where_node, associate_node
+                                 where_node, elsewhere_clause_t, associate_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use uid_generator, only: generate_uid
     use error_handling, only: result_t, success_result, create_error_result
@@ -664,24 +664,29 @@ contains
 
     ! Create WHERE construct node and add to stack
     function push_where(arena, mask_expr_index, where_body_indices, &
-                        elsewhere_body_indices, &
+                        elsewhere_body_indices, elsewhere_clauses, &
                         line, column, parent_index) result(where_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: mask_expr_index
         integer, intent(in), optional :: where_body_indices(:)
         integer, intent(in), optional :: elsewhere_body_indices(:)
+        type(elsewhere_clause_t), intent(in), optional :: elsewhere_clauses(:)
         integer, intent(in), optional :: line, column, parent_index
         integer :: where_index
         type(where_node) :: where_stmt
-        integer :: i
+        integer :: i, j
         type(result_t) :: validation
 
         where_stmt%uid = generate_uid()
+        where_stmt%mask_is_simple = .false.
+        where_stmt%can_vectorize = .false.
 
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_where")
         if (validation%is_failure()) then
-            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') &
+                "ERROR [ast_factory_control]: " // &
+                validation%get_full_message()
             where_index = 0
             return
         end if
@@ -689,7 +694,9 @@ contains
         ! Validate mask expression index
         validation = validate_node_index(arena, mask_expr_index, "push_where mask")
         if (validation%is_failure()) then
-            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') &
+                "ERROR [ast_factory_control]: " // &
+                validation%get_full_message()
             where_index = 0
             return
         end if
@@ -697,9 +704,12 @@ contains
         ! Validate where body indices
         if (present(where_body_indices)) then
             do i = 1, size(where_body_indices)
-                validation = validate_node_index(arena, where_body_indices(i), "push_where body")
+                validation = validate_node_index( &
+                    arena, where_body_indices(i), "push_where body")
                 if (validation%is_failure()) then
-                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') &
+                        "ERROR [ast_factory_control]: " // &
+                        validation%get_full_message()
                     where_index = 0
                     return
                 end if
@@ -709,24 +719,76 @@ contains
         ! Validate elsewhere body indices
         if (present(elsewhere_body_indices)) then
             do i = 1, size(elsewhere_body_indices)
-                validation = validate_node_index(arena, elsewhere_body_indices(i), "push_where elsewhere")
+                validation = validate_node_index( &
+                    arena, elsewhere_body_indices(i), "push_where elsewhere")
                 if (validation%is_failure()) then
-                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') &
+                        "ERROR [ast_factory_control]: " // &
+                        validation%get_full_message()
                     where_index = 0
                     return
+                end if
+            end do
+        end if
+        if (present(elsewhere_clauses)) then
+            do i = 1, size(elsewhere_clauses)
+                if (elsewhere_clauses(i)%mask_index > 0) then
+                    validation = validate_node_index( &
+                        arena, elsewhere_clauses(i)%mask_index, &
+                        "push_where elsewhere mask")
+                    if (validation%is_failure()) then
+                        write (error_unit, '(A)') &
+                            "ERROR [ast_factory_control]: " // &
+                            validation%get_full_message()
+                        where_index = 0
+                        return
+                    end if
+                end if
+                if (allocated(elsewhere_clauses(i)%body_indices)) then
+                    do j = 1, size(elsewhere_clauses(i)%body_indices)
+                        validation = validate_node_index( &
+                            arena, elsewhere_clauses(i)%body_indices(j), &
+                            "push_where elsewhere body")
+                        if (validation%is_failure()) then
+                            write (error_unit, '(A)') &
+                                "ERROR [ast_factory_control]: " // &
+                                validation%get_full_message()
+                            where_index = 0
+                            return
+                        end if
+                    end do
                 end if
             end do
         end if
 
         where_stmt%mask_expr_index = mask_expr_index
         if (present(where_body_indices)) then
-            if (size(where_body_indices) > 0) where_stmt%where_body_indices = where_body_indices
+            if (size(where_body_indices) > 0) then
+                where_stmt%where_body_indices = where_body_indices
+            end if
         end if
-        if (present(elsewhere_body_indices)) then
+        if (present(elsewhere_clauses)) then
+            if (size(elsewhere_clauses) > 0) then
+                allocate (where_stmt%elsewhere_clauses(size(elsewhere_clauses)))
+                do i = 1, size(elsewhere_clauses)
+                    where_stmt%elsewhere_clauses(i)%mask_index = &
+                        elsewhere_clauses(i)%mask_index
+                    if (allocated(elsewhere_clauses(i)%body_indices)) then
+                        allocate (where_stmt%elsewhere_clauses(i)%body_indices( &
+                                  size(elsewhere_clauses(i)%body_indices)))
+                        where_stmt%elsewhere_clauses(i)%body_indices = &
+                            elsewhere_clauses(i)%body_indices
+                    end if
+                end do
+            end if
+        else if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
                 allocate (where_stmt%elsewhere_clauses(1))
-                allocate (where_stmt%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
-                where_stmt%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
+                where_stmt%elsewhere_clauses(1)%mask_index = 0
+                allocate (where_stmt%elsewhere_clauses(1)%body_indices( &
+                          size(elsewhere_body_indices)))
+                where_stmt%elsewhere_clauses(1)%body_indices = &
+                    elsewhere_body_indices
             end if
         end if
         if (present(line)) where_stmt%line = line
@@ -746,23 +808,59 @@ contains
         integer :: where_index
 
         where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                 line=line, column=column, parent_index=parent_index)
+                                 line=line, column=column, &
+                                 parent_index=parent_index)
     end function push_where_construct
 
     ! Create WHERE construct with ELSEWHERE and add to stack
     function push_where_construct_with_elsewhere(arena, mask_expr_index, &
                                                  where_body_indices, &
-                                                 elsewhere_body_indices, line, column, parent_index) &
-        result(where_index)
+                                                 elsewhere_body_indices, &
+                                                 elsewhere_clauses, line, column, &
+                                                 parent_index) result(where_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: mask_expr_index
         integer, intent(in), optional :: where_body_indices(:)
         integer, intent(in), optional :: elsewhere_body_indices(:)
+        type(elsewhere_clause_t), intent(in), optional :: elsewhere_clauses(:)
         integer, intent(in), optional :: line, column, parent_index
         integer :: where_index
 
-        where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                 elsewhere_body_indices, line, column, parent_index)
+        if (present(elsewhere_clauses)) then
+            if (present(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column, &
+                                         parent_index=parent_index)
+            else
+                where_index = push_where(arena, mask_expr_index, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column, &
+                                         parent_index=parent_index)
+            end if
+        else
+            if (present(where_body_indices) .and. present(elsewhere_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         elsewhere_body_indices=elsewhere_body_indices, &
+                                         line=line, column=column, &
+                                         parent_index=parent_index)
+            else if (present(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         line=line, column=column, &
+                                         parent_index=parent_index)
+            else if (present(elsewhere_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         elsewhere_body_indices=elsewhere_body_indices, &
+                                         line=line, column=column, &
+                                         parent_index=parent_index)
+            else
+                where_index = push_where(arena, mask_expr_index, line=line, &
+                                         column=column, parent_index=parent_index)
+            end if
+        end if
     end function push_where_construct_with_elsewhere
 
 end module ast_factory_control
