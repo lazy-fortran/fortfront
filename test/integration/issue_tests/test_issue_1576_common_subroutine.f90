@@ -50,15 +50,15 @@ contains
     integer function count_occurrences(text, substring) result(count)
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: substring
-        integer :: pos
+        integer :: pos, found_pos
 
         count = 0
         pos = 1
         do while (pos <= len(text))
-            pos = index(text(pos:), substring)
-            if (pos == 0) exit
+            found_pos = index(text(pos:), substring)
+            if (found_pos == 0) exit
             count = count + 1
-            pos = pos + len(substring)
+            pos = pos + found_pos + len(substring) - 1
         end do
     end function count_occurrences
 
