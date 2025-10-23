@@ -1,12 +1,10 @@
 program test_issue_1738_derived_type_allocatable
     use transformation_api, only: transform_lazy_fortran_string
-    use error_handling, only: result_t
     implicit none
 
     character(len=:), allocatable :: input_code
     character(len=:), allocatable :: output_code
     character(len=:), allocatable :: error_message
-    type(result_t) :: result
 
     ! Test case from issue #1738
     input_code = &
@@ -36,10 +34,10 @@ program test_issue_1738_derived_type_allocatable
         'end program test_derived_type_alloc'
 
     ! Transform the code
-    call transform_lazy_fortran_string(input_code, output_code, error_message, result)
+    call transform_lazy_fortran_string(input_code, output_code, error_message)
 
     ! Check that transformation succeeded
-    if (.not. result%success) then
+    if (len_trim(error_message) > 0) then
         print *, 'FAIL: Transformation failed'
         print *, 'Error:', error_message
         stop 1
