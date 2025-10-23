@@ -39,6 +39,7 @@ module codegen_statements
     public :: generate_code_deallocate_statement
     public :: generate_code_open_statement
     public :: generate_code_close_statement
+    public :: generate_code_inquire_statement
     public :: generate_code_pause_statement
     public :: generate_code_nullify_statement
 
@@ -812,6 +813,21 @@ contains
         end if
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_close_statement
+
+    function generate_code_inquire_statement(arena, node, node_index) &
+        result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(inquire_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        if (allocated(node%spec_list)) then
+            code = "inquire(" // node%spec_list // ")"
+        else
+            code = "inquire()"
+        end if
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_inquire_statement
 
     function generate_code_pause_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
