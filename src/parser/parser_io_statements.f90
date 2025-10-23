@@ -134,30 +134,32 @@ contains
 
         allocate (arg_indices(0))
 
-        if (.not. parser%is_at_end()) then
-            ! Parse first argument
-            current_arg_index = parse_io_implied_do(parser, arena)
-            if (current_arg_index == 0) current_arg_index = &
-                parse_comparison(parser, arena)
-            if (current_arg_index > 0) then
-                arg_indices = [current_arg_index]
+        token = parser%peek()
+        if (parser%is_at_end() .or. token%kind == TK_NEWLINE) return
 
-                ! Parse additional arguments separated by commas
-                do
-                    token = parser%peek()
-                    if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
+        ! Parse first argument
+        current_arg_index = parse_io_implied_do(parser, arena)
+        if (current_arg_index == 0) current_arg_index = &
+            parse_comparison(parser, arena)
+        if (current_arg_index > 0) then
+            arg_indices = [current_arg_index]
 
-                    token = parser%consume()  ! consume comma
-                    current_arg_index = parse_io_implied_do(parser, arena)
-                    if (current_arg_index == 0) current_arg_index = &
-                        parse_comparison(parser, arena)
-                    if (current_arg_index > 0) then
-                        arg_indices = [arg_indices, current_arg_index]
-                    else
-                        exit
-                    end if
-                end do
-            end if
+            ! Parse additional arguments separated by commas
+            do
+                token = parser%peek()
+                if (token%kind == TK_NEWLINE) exit
+                if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
+
+                token = parser%consume()  ! consume comma
+                current_arg_index = parse_io_implied_do(parser, arena)
+                if (current_arg_index == 0) current_arg_index = &
+                    parse_comparison(parser, arena)
+                if (current_arg_index > 0) then
+                    arg_indices = [arg_indices, current_arg_index]
+                else
+                    exit
+                end if
+            end do
         end if
     end subroutine parse_argument_list
 

@@ -7,9 +7,9 @@ module parser_procedure_bodies_module
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_subroutine_def, push_function_def, &
-                           push_parameter_declaration, push_print_statement, &
-                           push_subroutine_call, push_assignment, push_identifier, &
-                           push_literal, push_binary_op
+                           push_parameter_declaration, push_subroutine_call, &
+                           push_assignment, push_identifier, push_literal, &
+                           push_binary_op
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
@@ -20,6 +20,7 @@ module parser_procedure_bodies_module
                                               keyword_can_be_function_name
     use parser_do_constructs_module, only: parse_do_loop
     use parser_utilities, only: skip_to_end_of_line
+    use parser_io_statements_module, only: parse_print_statement
     implicit none
     private
 
@@ -374,7 +375,7 @@ contains
         case (TK_KEYWORD)
             select case (trim(to_lower(token%text)))
             case ("print")
-                stmt_index = parse_simple_print_statement(parser, arena)
+                stmt_index = parse_print_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
@@ -477,119 +478,6 @@ contains
             consumed_token = parser%consume()
         end if
     end subroutine append_body_item
-
-    ! Simple print statement parser for subroutine bodies
-    function parse_simple_print_statement(parser, arena) result(stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: stmt_index
-        type(token_t) :: token
-        integer, allocatable :: arg_indices(:)
-        integer :: line, column
-
-        ! Consume 'print' keyword
-        token = parser%consume()
-        line = token%line
-        column = token%column
-
-        ! Expect '*' or format specifier
-        allocate (arg_indices(0))
-
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "*") then
-            token = parser%consume()  ! consume '*'
-
-            ! Optional comma (may not be present in compact format like print*,"foo")
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
-            end if
-
-            ! Parse print arguments until end of line
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_NEWLINE) then
-                    exit
-                end if
-
-                if (token%kind == TK_STRING) then
-                    ! String literal
-                    block
-                        integer :: arg_index
-                        arg_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                                 token%line, token%column)
-                        arg_indices = [arg_indices, arg_index]
-                    end block
-                    token = parser%consume()
-
-                    ! After parsing a string literal, check if we're at end of statement
-                    token = parser%peek()
-                    if (token%kind == TK_NEWLINE) then
-                        exit  ! End of print statement
-                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                        token = parser%consume()  ! consume comma and continue
-                    else
-                        ! No comma after string - end of print arguments
-                        exit
-                    end if
-                else if (token%kind == TK_IDENTIFIER) then
-                    ! Variable reference - but be careful not to consume keywords that end the statement
-                    if (token%text == "end" .or. token%text == "subroutine" .or. &
-                        token%text == "function") then
-                        ! This identifier likely belongs to a different statement
-                        exit
-                    end if
-
-                    block
-                        integer :: arg_index
-                        arg_index = push_identifier(arena, token%text, &
-                                                    token%line, token%column)
-                        arg_indices = [arg_indices, arg_index]
-                    end block
-                    token = parser%consume()
-
-                    ! After parsing an identifier, check if we're at end of statement
-                    token = parser%peek()
-                    if (token%kind == TK_NEWLINE) then
-                        exit  ! End of print statement
-                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                        token = parser%consume()  ! consume comma and continue
-                    else
-                        ! No comma after identifier - end of print arguments
-                        exit
-                    end if
-                else if (token%kind == TK_NUMBER) then
-                    ! Numeric literal
-                    block
-                        integer :: arg_index
-                        arg_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                                 token%line, token%column)
-                        arg_indices = [arg_indices, arg_index]
-                    end block
-                    token = parser%consume()
-
-                    ! After parsing a number, check if we're at end of statement
-                    token = parser%peek()
-                    if (token%kind == TK_NEWLINE) then
-                        exit  ! End of print statement
-                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                        token = parser%consume()  ! consume comma and continue
-                    else
-                        ! No comma after number - end of print arguments
-                        exit
-                    end if
-                else if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume comma
-                else
-                    ! Unknown token - likely end of print statement
-                    exit
-                end if
-            end do
-        end if
-
-        ! Create print statement node
-        stmt_index = push_print_statement(arena, "*", arg_indices, line, column)
-    end function parse_simple_print_statement
 
     ! Simple assignment statement parser for subroutine bodies
     function parse_simple_assignment_statement(parser, arena) result(stmt_index)
