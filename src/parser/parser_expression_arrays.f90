@@ -153,8 +153,8 @@ contains
         end block
     end function parse_legacy_array_literal
 
-    function parse_modern_array_literal(parser, arena, start_token, helpers) &
-        result(expr_index)
+    recursive function parse_modern_array_literal(parser, arena, start_token, &
+                                                   helpers) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: start_token
@@ -175,6 +175,14 @@ contains
         allocate (temp_indices(20))
 
         do
+            ! Skip newlines and comments inside array literals
+            do
+                peek_token = parser%peek()
+                if (peek_token%kind /= TK_NEWLINE .and. peek_token%kind /= TK_COMMENT) &
+                    exit
+                current = parser%consume()
+            end do
+
             peek_token = parser%peek()
             if (peek_token%text == "]") then
                 current = parser%consume()  ! Consume the closing bracket
@@ -186,10 +194,16 @@ contains
                 if (expr_index > 0) return
                 parser%current_token = saved_pos
                 expr_index = 0
+            else if (peek_token%text == "[") then
+                current = parser%consume()
+                expr_index = parse_modern_array_literal(parser, arena, current, helpers)
+                if (expr_index <= 0) return
             end if
 
-            expr_index = helpers%parse_comparison(parser, arena)
-            if (expr_index <= 0) return
+            if (expr_index <= 0) then
+                expr_index = helpers%parse_comparison(parser, arena)
+                if (expr_index <= 0) return
+            end if
 
             element_count = element_count + 1
             if (element_count > size(temp_indices)) then
@@ -209,6 +223,13 @@ contains
             current = parser%peek()
             if (current%text == ",") then
                 current = parser%consume()
+                ! Skip newlines and comments after comma
+                do
+                    peek_token = parser%peek()
+                    if (peek_token%kind /= TK_NEWLINE .and. &
+                        peek_token%kind /= TK_COMMENT) exit
+                    current = parser%consume()
+                end do
             else if (current%text == "]") then
                 current = parser%consume()  ! Consume the closing bracket
                 exit

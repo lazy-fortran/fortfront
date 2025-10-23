@@ -296,19 +296,42 @@ contains
             end do
         else
             ! Single-line statement - find end at newline or semicolon
-            do i = stmt_start, size(tokens)
-                if (tokens(i)%kind == TK_EOF) then
-                    stmt_end = i - 1
-                    exit
-                else if (tokens(i)%kind == TK_NEWLINE .or. &
-                         (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text &
-                          == ";")) then
-                    stmt_end = i - 1
-                    exit
-                else if (tokens(i)%kind /= TK_COMMENT) then
-                    stmt_end = i
-                end if
-            end do
+            ! Track bracket/paren nesting to handle multi-line array literals
+            block
+                integer :: bracket_depth, paren_depth
+                bracket_depth = 0
+                paren_depth = 0
+                do i = stmt_start, size(tokens)
+                    if (tokens(i)%kind == TK_EOF) then
+                        stmt_end = i - 1
+                        exit
+                    else if (tokens(i)%kind == TK_OPERATOR) then
+                        select case (tokens(i)%text)
+                        case ("[")
+                            bracket_depth = bracket_depth + 1
+                        case ("]")
+                            bracket_depth = bracket_depth - 1
+                        case ("(")
+                            paren_depth = paren_depth + 1
+                        case (")")
+                            paren_depth = paren_depth - 1
+                        case (";")
+                            if (bracket_depth == 0 .and. paren_depth == 0) then
+                                stmt_end = i - 1
+                                exit
+                            end if
+                        end select
+                    else if (tokens(i)%kind == TK_NEWLINE) then
+                        ! Only break on newline if not inside brackets/parens
+                        if (bracket_depth == 0 .and. paren_depth == 0) then
+                            stmt_end = i - 1
+                            exit
+                        end if
+                    else if (tokens(i)%kind /= TK_COMMENT) then
+                        stmt_end = i
+                    end if
+                end do
+            end block
         end if
 
         ! Ensure we don't go beyond bounds
