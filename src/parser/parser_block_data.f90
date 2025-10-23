@@ -3,8 +3,8 @@ module parser_block_data_module
                           TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_misc, only: comment_node, create_comment
-    use ast_factory, only: push_block_data
+    use ast_base, only: LITERAL_STRING
+    use ast_factory, only: push_block_data, push_literal
     implicit none
     private
 
@@ -84,17 +84,13 @@ contains
             end do
 
             if (len(statement_text) > 0) then
-                block
-                    type(comment_node) :: cmt
-                    cmt = create_comment("! " // trim(statement_text), &
-                                         parser%tokens(stmt_start_pos)%line, &
-                                         parser%tokens(stmt_start_pos)%column)
-                    call arena%push(cmt, "comment_node")
-                    stmt_index = arena%size
-                    if (stmt_index > 0) then
-                        statement_indices = [statement_indices, stmt_index]
-                    end if
-                end block
+                stmt_index = push_literal(arena, trim(statement_text), &
+                                         LITERAL_STRING, &
+                                         line=parser%tokens(stmt_start_pos)%line, &
+                                         column=parser%tokens(stmt_start_pos)%column)
+                if (stmt_index > 0) then
+                    statement_indices = [statement_indices, stmt_index]
+                end if
             end if
         end do
 

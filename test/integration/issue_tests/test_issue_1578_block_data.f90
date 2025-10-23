@@ -51,5 +51,19 @@ program test_issue_1578_block_data
         stop 1
     end if
 
+    if (index(output, '!!') > 0 .or. index(output, '! common') > 0) then
+        print *, 'FAIL: COMMON/DATA converted to comments instead of preserved'
+        print *, 'Output:'
+        print *, trim(output)
+        stop 1
+    end if
+
+    if (index(output, 'data') == 0) then
+        print *, 'FAIL: DATA statement lost'
+        print *, 'Output:'
+        print *, trim(output)
+        stop 1
+    end if
+
     print *, 'PASS: BLOCK DATA and COMMON blocks preserved'
 end program test_issue_1578_block_data
