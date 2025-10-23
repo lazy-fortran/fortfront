@@ -74,26 +74,49 @@ contains
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
         logical, intent(inout) :: has_recursive_keyword
         character(len=:), allocatable, intent(out), optional :: return_type_from_prefix
-        integer :: i
-        character(len=:), allocatable :: lowered
-
-        do i = 1, size(pending_prefixes)
+        integer :: i, n
+        character(len=:), allocatable :: lowered, next_lower
+        logical :: return_type_set
+        n = size(pending_prefixes)
+        return_type_set = .false.
+        if (present(return_type_from_prefix)) return_type_from_prefix = ""
+        i = 1
+        do while (i <= n)
             lowered = to_lower(trim(pending_prefixes(i)))
             select case (trim(lowered))
-            case ("integer", "real", "logical", "character", "complex", "double")
-                ! This is a return type, not a prefix keyword
-                if (present(return_type_from_prefix)) then
-                    return_type_from_prefix = trim(pending_prefixes(i))
+            case ("integer", "real", "logical", "character", "complex")
+                call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle
+            case ("double precision", "double complex")
+                call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle
+            case ("double")
+                if (i < n) then
+                    next_lower = to_lower(trim(pending_prefixes(i + 1)))
+                else
+                    next_lower = ""
+                end if
+                if (trim(next_lower) == "precision" .or. trim(next_lower) == "complex") then
+                    call set_return_type_from_token(trim(pending_prefixes(i))//" "//trim(pending_prefixes(i + 1)))
+                    i = i + 2; cycle
+                else
+                    call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle
                 end if
             case ("recursive")
                 has_recursive_keyword = .true.
                 call append_prefix_token(prefix_keywords, pending_prefixes(i))
             case default
-                ! Other prefix keywords (pure, elemental, etc.)
                 call append_prefix_token(prefix_keywords, pending_prefixes(i))
             end select
+            i = i + 1
         end do
-    end subroutine append_pending_prefixes
+    contains
+        subroutine set_return_type_from_token(token_value)
+            character(len=*), intent(in) :: token_value
+            if (.not. present(return_type_from_prefix)) return
+            if (return_type_set) return
+            return_type_from_prefix = trim(token_value)
+            return_type_set = .true.
+        end subroutine set_return_type_from_token
+        end subroutine append_pending_prefixes
 
     subroutine consume_function_prefix_tokens(parser, prefix_keywords, &
                                               has_recursive_keyword)
