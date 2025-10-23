@@ -222,7 +222,8 @@ contains
         ! Starting to parse do loop
 
         ! Check for optional loop label at start: label: do ...
-        if (parser%current_token >= 1 .and. parser%current_token + 2 <= size(parser%tokens)) then
+        if (parser%current_token >= 1 .and. parser%current_token + 2 <= &
+            size(parser%tokens)) then
             if (parser%tokens(parser%current_token)%kind == TK_IDENTIFIER .and. &
                 parser%tokens(parser%current_token + 1)%kind == TK_OPERATOR .and. &
                 parser%tokens(parser%current_token + 1)%text == ":" .and. &

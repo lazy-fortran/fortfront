@@ -85,8 +85,8 @@ contains
             stmt_index = parse_keyword_statement(first_token, parser, arena, &
                                                  parent_index, local_callbacks)
         case (TK_IDENTIFIER)
-            stmt_index = parse_identifier_statement(parser, arena, &
-                                                    parent_index, tokens, local_callbacks)
+            stmt_index = parse_identifier_statement(parser, arena, parent_index, &
+                                                    tokens, local_callbacks)
         end select
 
         if (stmt_index == STATEMENT_NO_NODE) then
