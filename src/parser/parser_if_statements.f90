@@ -37,6 +37,7 @@ contains
         end if
 
         condition_index = build_if_condition(stmt_tokens, then_pos, arena)
+
         call parse_then_branch(stmt_tokens, then_pos, else_pos, end_pos, arena, &
                                then_body_indices)
         call parse_else_branch(stmt_tokens, else_pos, end_pos, arena, &
