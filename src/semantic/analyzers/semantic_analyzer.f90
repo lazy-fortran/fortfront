@@ -42,7 +42,8 @@ module semantic_analyzer
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, where_node, &
         where_stmt_node, forall_node, select_case_node, case_block_node, &
         associate_node, association_t, cycle_node, exit_node, stop_node, &
-        return_node, continue_node, elsewhere_clause_t, pause_node, nullify_node
+        return_node, entry_node, continue_node, elsewhere_clause_t, pause_node, &
+        nullify_node
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
         array_bounds_node, range_expression_node, get_array_slice_node
@@ -611,6 +612,9 @@ contains
                 local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
                 call finalize_node(node_index, local_type)
             type is (return_node)
+                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
+                call finalize_node(node_index, local_type)
+            type is (entry_node)
                 local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
                 call finalize_node(node_index, local_type)
             type is (continue_node)

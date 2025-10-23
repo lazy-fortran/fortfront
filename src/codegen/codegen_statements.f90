@@ -23,6 +23,7 @@ module codegen_statements
     public :: generate_code_format_statement
     public :: generate_code_termination
     public :: generate_code_return
+    public :: generate_code_entry
     public :: generate_code_continue
     public :: generate_code_goto
     public :: generate_code_error_termination
@@ -331,6 +332,20 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_return
+
+    function generate_code_entry(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(entry_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+
+        code = "entry " // node%name
+        if (allocated(node%params_text) .and. len_trim(node%params_text) > 0) then
+            code = code // node%params_text
+        end if
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_entry
 
     function generate_code_continue(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena

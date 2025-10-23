@@ -31,6 +31,7 @@ module parser_execution_statements_module
                                                 parse_goto_statement, &
                                                 parse_error_stop_statement, &
                                                 parse_return_statement, &
+                                                parse_entry_statement, &
                                                 parse_continue_statement, &
                                                 parse_cycle_statement, &
                                                 parse_exit_statement, &
@@ -345,6 +346,8 @@ contains
                 stmt_index = parse_error_stop_statement(parser_ref, arena_ref)
             case ("return")
                 stmt_index = parse_return_statement(parser_ref, arena_ref)
+            case ("entry")
+                stmt_index = parse_entry_statement(parser_ref, arena_ref)
             case ("continue")
                 stmt_index = parse_continue_statement(parser_ref, arena_ref)
             case ("cycle")
