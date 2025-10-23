@@ -409,6 +409,7 @@ contains
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: lowered_return
         integer :: i, decl_index
+        logical :: has_explicit_result_clause
 
         omit = .false.
         result_name = ""
@@ -421,6 +422,17 @@ contains
         if (len_trim(result_name) == 0) return
 
         if (.not. allocated(node%name)) return
+
+        has_explicit_result_clause = .false.
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) then
+                if (trim(node%result_variable) /= trim(node%name)) then
+                    has_explicit_result_clause = .true.
+                end if
+            end if
+        end if
+
+        if (has_explicit_result_clause) return
 
         if (.not. allocated(node%body_indices)) return
 

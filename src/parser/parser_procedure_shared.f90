@@ -13,16 +13,34 @@ contains
     subroutine consume_optional_return_type(parser, return_type_str)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: return_type_str
-        type(token_t) :: token
+        type(token_t) :: token, lookahead
+        character(len=:), allocatable :: lowered, next_lower
+        integer :: next_index
 
         return_type_str = ""
 
         token = parser%peek()
         if (token%kind == TK_KEYWORD) then
-            select case (trim(to_lower(token%text)))
-            case ("real", "integer", "logical", "character")
+            lowered = to_lower(trim(token%text))
+            select case (trim(lowered))
+            case ("real", "integer", "logical", "character", "complex")
                 return_type_str = token%text
                 token = parser%consume()
+            case ("double precision", "double complex")
+                return_type_str = token%text
+                token = parser%consume()
+            case ("double")
+                next_index = parser%current_token + 1
+                lookahead = parser%get_token_at_index(next_index)
+                next_lower = to_lower(trim(lookahead%text))
+                if (trim(next_lower) == "precision" .or. trim(next_lower) == "complex") then
+                    return_type_str = trim(token%text)//" "//trim(lookahead%text)
+                    token = parser%consume()
+                    token = parser%consume()
+                else
+                    return_type_str = token%text
+                    token = parser%consume()
+                end if
             end select
         end if
     end subroutine consume_optional_return_type

@@ -31,12 +31,13 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: module_index
         type(parser_prefix_buffer_t) :: prefix_buffer
-        type(token_t) :: token
+        type(token_t) :: token, lookahead
         character(len=:), allocatable :: module_name
         integer :: line, column
         integer, allocatable :: declaration_indices(:), procedure_indices(:)
         logical :: has_contains, in_contains_section
         integer :: stmt_index
+        character(len=:), allocatable :: lookahead_lower
 
         ! Consume 'module' keyword
         token = parser%consume()
@@ -271,6 +272,27 @@ contains
                               "nonrecursive", "non_recursive", "module")
                             call prefix_buffer%get_all(stored)
                             call append_prefix_token(stored, trim(lowered))
+                            call prefix_buffer%set(stored)
+                            if (allocated(stored)) deallocate (stored)
+                            token = parser%consume()
+                            cycle
+                        case ("integer", "real", "logical", "character", "complex", "double")
+                            ! Type keyword - might be function return type
+                            call prefix_buffer%get_all(stored)
+                            if (trim(lowered) == "double") then
+                                lookahead = parser%get_token_at_index(parser%current_token + 1)
+                                lookahead_lower = to_lower(trim(lookahead%text))
+                                select case (trim(lookahead_lower))
+                                case ("precision", "complex")
+                                    call append_prefix_token(stored, trim(token%text)//" "//trim(lookahead%text))
+                                    call prefix_buffer%set(stored)
+                                    if (allocated(stored)) deallocate (stored)
+                                    token = parser%consume()
+                                    token = parser%consume()
+                                    cycle
+                                end select
+                            end if
+                            call append_prefix_token(stored, trim(token%text))
                             call prefix_buffer%set(stored)
                             if (allocated(stored)) deallocate (stored)
                             token = parser%consume()

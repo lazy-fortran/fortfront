@@ -97,7 +97,8 @@ contains
         integer :: func_index
 
         character(len=:), allocatable :: function_name, return_type_str, &
-                                         result_variable_name
+                                         result_variable_name, &
+                                         return_type_from_prefix
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword, is_valid, infer_recursive_from_body
@@ -107,10 +108,12 @@ contains
 
         call parse_function_prefix_keywords(parser, prefix_buffer, &
                                             prefix_keywords=prefix_keywords, &
-                                            has_recursive_keyword=has_recursive_keyword)
+                                            has_recursive_keyword=has_recursive_keyword, &
+                                            return_type_from_prefix=return_type_from_prefix)
 
         call parse_function_signature(parser, return_type_str, function_name, &
-                                      line, column, is_valid)
+                                      line, column, is_valid, &
+                                      return_type_from_prefix=return_type_from_prefix)
         if (.not. is_valid) then
             func_index = 0
             return
@@ -141,7 +144,8 @@ contains
         integer :: func_index
 
         character(len=:), allocatable :: function_name, return_type_str, &
-                                         result_variable_name
+                                         result_variable_name, &
+                                         return_type_from_prefix
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword, is_valid
@@ -151,10 +155,12 @@ contains
         infer_recursive_from_body = .false.
 
         call parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
-                                            prefix_keywords, has_recursive_keyword)
+                                            prefix_keywords, has_recursive_keyword, &
+                                            return_type_from_prefix)
 
         call parse_function_signature(parser, return_type_str, function_name, &
-                                      line, column, is_valid)
+                                      line, column, is_valid, &
+                                      return_type_from_prefix)
         if (.not. is_valid) then
             func_index = 0
             return
