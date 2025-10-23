@@ -85,8 +85,8 @@ contains
             stmt_index = parse_keyword_statement(first_token, parser, arena, &
                                                  parent_index, local_callbacks)
         case (TK_IDENTIFIER)
-            stmt_index = parse_identifier_statement(parser, arena, &
-                                                    parent_index, tokens)
+            stmt_index = parse_identifier_statement(parser, arena, parent_index, &
+                                                    tokens, local_callbacks)
         end select
 
         if (stmt_index == STATEMENT_NO_NODE) then
@@ -252,13 +252,15 @@ contains
         end block
     end function parse_keyword_statement
 
-    integer function parse_identifier_statement(parser, arena, parent_index, tokens) &
+    integer function parse_identifier_statement(parser, arena, parent_index, tokens, &
+                                                callbacks) &
         result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(token_t), intent(in) :: tokens(:)
-        type(token_t) :: id_token, op_token
+        type(statement_callbacks_t), intent(in) :: callbacks
+        type(token_t) :: id_token, op_token, keyword_token
         character(len=:), allocatable :: lowered_identifier
 
         stmt_index = 0
@@ -273,7 +275,18 @@ contains
 
         op_token = parser%peek()
 
-        if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
+        ! Check for labeled construct: label: keyword
+        if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
+            op_token = parser%consume()
+            keyword_token = parser%peek()
+            if (keyword_token%kind == TK_KEYWORD) then
+                ! Rewind to before the label so the keyword parser handles it
+                parser%current_token = parser%current_token - 2
+                stmt_index = parse_keyword_statement(keyword_token, parser, arena, &
+                                                     parent_index, callbacks)
+                return
+            end if
+        else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
             stmt_index = parse_complex_assignment(parser, arena, &
                                                   parent_index, tokens, &
                                                   id_token)

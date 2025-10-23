@@ -387,8 +387,11 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Simplified placeholder implementation
-        code = "cycle"
+        if (allocated(node%label)) then
+            code = "cycle " // trim(adjustl(node%label))
+        else
+            code = "cycle"
+        end if
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_cycle
@@ -400,8 +403,11 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Simplified placeholder implementation
-        code = "exit"
+        if (allocated(node%label)) then
+            code = "exit " // trim(adjustl(node%label))
+        else
+            code = "exit"
+        end if
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_exit
