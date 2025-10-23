@@ -434,41 +434,52 @@ contains
         line = token%line
         column = token%column
 
-        ! Expect opening parenthesis
-        token = parser%consume()
-        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            write (error_unit, *) "Error: Expected '(' after 'read' at line ", &
-                token%line
-            read_index = 0
-            return
-        end if
-
-        ! Parse unit specifier
-        unit_spec = parse_unit_specifier(parser)
-        if (len(unit_spec) == 0) then
-            write (error_unit, *) &
-                "Error: Expected unit specifier in read statement at line ", &
-                token%line
-            read_index = 0
-            return
-        end if
-
-        ! Check for format specifier (optional)
-        format_spec = ""
+        ! Check for opening parenthesis (determines read format)
         token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume()  ! consume comma
-            call parse_format_specifier(parser, format_spec)
-        end if
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            ! Format: read (unit, format) variables
+            token = parser%consume()  ! consume '('
 
-        ! Expect closing parenthesis
-        token = parser%consume()
-        if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write (error_unit, *) &
-                "Error: Expected ')' after read unit and format at line ", &
-                token%line
-            read_index = 0
-            return
+            ! Parse unit specifier
+            unit_spec = parse_unit_specifier(parser)
+            if (len(unit_spec) == 0) then
+                write (error_unit, *) &
+                    "Error: Expected unit specifier in read statement at line ", &
+                    token%line
+                read_index = 0
+                return
+            end if
+
+            ! Check for format specifier (optional)
+            format_spec = ""
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()  ! consume comma
+                call parse_format_specifier(parser, format_spec)
+            end if
+
+            ! Expect closing parenthesis
+            token = parser%consume()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
+                write (error_unit, *) &
+                    "Error: Expected ')' after read unit and format at line ", &
+                    token%line
+                read_index = 0
+                return
+            end if
+        else
+            ! Format: read format, variables (list-directed without unit)
+            unit_spec = "*"  ! Default to standard input
+
+            ! Parse format specifier
+            call parse_format_specifier(parser, format_spec)
+            if (len(format_spec) == 0) format_spec = "*"  ! Default
+
+            ! Skip comma after format spec if present
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            end if
         end if
 
         ! Parse all read variables
