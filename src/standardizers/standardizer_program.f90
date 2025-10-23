@@ -37,8 +37,9 @@ contains
         integer :: i, n_statements, insert_pos
 
         ! Analyze the program to determine if it should be a module
-        call analyze_program_content(arena, prog, has_functions, has_subroutines, &
-                                     has_use_statements, has_executable_statements, should_be_module)
+        call analyze_program_content(arena, prog, has_functions, &
+                                     has_subroutines, has_use_statements, &
+                                     has_executable_statements, should_be_module)
 
         if (should_be_module) then
             ! Handle contains insertion for module-like programs
@@ -81,7 +82,8 @@ contains
 
     ! Analyze program content to determine its nature
     subroutine analyze_program_content(arena, prog, has_functions, has_subroutines, &
-                                       has_use_statements, has_executable_statements, should_be_module)
+                                       has_use_statements, has_executable_statements, &
+                                       should_be_module)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         logical, intent(out) :: has_functions, has_subroutines, has_use_statements
@@ -124,6 +126,8 @@ contains
                         has_executable_statements = .true.
                     type is (select_case_node)
                         has_executable_statements = .true.
+                    type is (nullify_node)
+                        has_executable_statements = .true.
                     end select
                 end if
             end if
@@ -133,7 +137,8 @@ contains
         ! it's likely a module
         ! For now, keep it simple - presence of multiple procedures suggests module
         should_be_module = (has_functions .or. has_subroutines) .and. &
-                           (count([has_functions, has_subroutines]) > 1 .or. has_use_statements)
+                           (count([has_functions, has_subroutines]) > 1 .or. &
+                           has_use_statements)
 
     end subroutine analyze_program_content
 

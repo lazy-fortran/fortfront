@@ -24,7 +24,8 @@ module semantic_analyzer
         process_do_while_node_body, process_where_node_clauses, &
         process_where_stmt_node, process_forall_node_body, &
         process_select_case_blocks, process_associate_node_body, &
-        process_stop_node_code, process_pause_node_code, process_declaration_variables
+        process_stop_node_code, process_pause_node_code, &
+        process_nullify_node_code, process_declaration_variables
     use parser_type_hooks_module, only: type_annotation_t, &
         consume_type_annotations, has_type_annotations
     use semantic_annotation_utils, only: type_from_annotation
@@ -41,7 +42,7 @@ module semantic_analyzer
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, where_node, &
         where_stmt_node, forall_node, select_case_node, case_block_node, &
         associate_node, association_t, cycle_node, exit_node, stop_node, &
-        return_node, continue_node, elsewhere_clause_t, pause_node
+        return_node, continue_node, elsewhere_clause_t, pause_node, nullify_node
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
         array_bounds_node, range_expression_node, get_array_slice_node
@@ -590,6 +591,19 @@ contains
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%pause_code_index)
+            type is (nullify_node)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (allocated(expr%pointer_indices)) then
+                    do i = size(expr%pointer_indices), 1, -1
+                        if (expr%pointer_indices(i) > 0) then
+                            call push_child(expr%pointer_indices(i))
+                        end if
+                    end do
+                end if
             type is (cycle_node)
                 local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
                 call finalize_node(node_index, local_type)
@@ -696,6 +710,9 @@ contains
                 call finalize_node(node_index, node_type)
             type is (pause_node)
                 call process_pause_node_code(expr, node_type)
+                call finalize_node(node_index, node_type)
+            type is (nullify_node)
+                call process_nullify_node_code(expr, node_type)
                 call finalize_node(node_index, node_type)
             class default
                 node_type = get_node_type(node_index)

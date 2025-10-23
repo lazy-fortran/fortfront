@@ -57,7 +57,6 @@ contains
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
-
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
             if (present(consumed_count)) then

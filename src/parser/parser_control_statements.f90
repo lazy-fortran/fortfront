@@ -7,9 +7,9 @@ module parser_control_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_stop, push_return, push_continue, push_end_statement, &
-                           push_goto, push_error_stop, push_cycle, push_exit, push_pause, &
-                           push_nullify
+    use ast_factory, only: push_stop, push_return, push_continue, &
+                           push_end_statement, push_goto, push_error_stop, &
+                           push_cycle, push_exit, push_pause, push_nullify
     use ast_factory
     implicit none
     private
