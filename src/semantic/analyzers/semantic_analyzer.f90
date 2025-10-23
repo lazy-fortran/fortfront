@@ -337,7 +337,7 @@ contains
             type(infer_frame_t), intent(in) :: current
             type(infer_frame_t) :: post_frame
             integer :: node_index
-            integer :: i
+            integer :: i, j
             type(mono_type_t) :: local_type
             type(poly_type_t) :: int_scheme
             type(mono_type_t), allocatable :: param_types(:)
@@ -501,6 +501,19 @@ contains
                     (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
+                if (allocated(expr%elsewhere_clauses)) then
+                    do i = size(expr%elsewhere_clauses), 1, -1
+                        if (allocated(expr%elsewhere_clauses(i)%body_indices)) then
+                            do j = size(expr%elsewhere_clauses(i)%body_indices), 1, -1
+                                call push_child( &
+                                    expr%elsewhere_clauses(i)%body_indices(j))
+                            end do
+                        end if
+                        if (expr%elsewhere_clauses(i)%mask_index > 0) then
+                            call push_child(expr%elsewhere_clauses(i)%mask_index)
+                        end if
+                    end do
+                end if
                 if (allocated(expr%where_body_indices)) then
                     do i = size(expr%where_body_indices), 1, -1
                         call push_child(expr%where_body_indices(i))

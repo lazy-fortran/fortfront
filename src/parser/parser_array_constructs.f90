@@ -49,9 +49,8 @@ contains
         integer :: line, column
         integer :: mask_expr_index
         integer, allocatable :: where_body_indices(:)
-        integer, allocatable :: elsewhere_body_indices(:)
         type(statement_callbacks_t) :: callbacks
-        logical :: single_line, has_elsewhere
+        logical :: single_line
         character(len=9), parameter :: where_end_keywords(2) = [ &
                                        'elsewhere', 'end      ']
 
@@ -147,33 +146,79 @@ contains
         where_body_indices = parse_statement_body(parser, arena, &
                                                   where_end_keywords, callbacks)
 
-        has_elsewhere = .false.
-        token = parser%peek()
-        if (.not. parser%is_at_end()) then
-            if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
-                has_elsewhere = .true.
-                ! Current implementation only supports final ELSEWHERE without mask
-                token = parser%consume()
-                if (.not. parser%is_at_end()) then
-                    token = parser%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
+        ! Parse all ELSEWHERE clauses (including masked ones)
+        where_index = create_where_with_elsewhere_clauses(arena, parser, &
+                                                          mask_expr_index, &
+                                                          where_body_indices, &
+                                                          callbacks, &
+                                                          where_end_keywords, &
+                                                          line, column)
+    end function parse_where_construct
+
+    function create_where_with_elsewhere_clauses(arena, parser, &
+                                                 mask_expr_index, &
+                                                 where_body_indices, &
+                                                 callbacks, &
+                                                 where_end_keywords, &
+                                                 line, column) result(where_index)
+        use ast_nodes_control, only: elsewhere_clause_t
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(in) :: mask_expr_index
+        integer, allocatable, intent(in) :: where_body_indices(:)
+        type(statement_callbacks_t), intent(in) :: callbacks
+        character(len=*), intent(in) :: where_end_keywords(:)
+        integer, intent(in) :: line, column
+        integer :: where_index
+
+        type(token_t) :: token
+        type(elsewhere_clause_t), allocatable :: elsewhere_clauses(:)
+        type(elsewhere_clause_t), allocatable :: temp_clauses(:)
+        integer :: num_clauses
+        integer :: clause_mask_index
+        integer, allocatable :: clause_body_indices(:)
+
+        num_clauses = 0
+        allocate (elsewhere_clauses(0))
+
+        do while (.true.)
+            token = parser%peek()
+            if (parser%is_at_end()) exit
+            if (token%kind /= TK_KEYWORD) exit
+            if (token%text /= "elsewhere") exit
+
+            token = parser%consume()
+
+            clause_mask_index = 0
+            token = parser%peek()
+            if (.not. parser%is_at_end()) then
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    clause_mask_index = parse_if_condition(parser, arena)
+                    if (clause_mask_index <= 0) then
                         where_index = 0
                         return
                     end if
                 end if
-                elsewhere_body_indices = parse_statement_body(parser, arena, &
-                                                              where_end_keywords, &
-                                                              callbacks)
-
-                token = parser%peek()
-                if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
-                    where_index = 0
-                    return
-                end if
             end if
-        end if
 
-        ! Consume 'end where'
+            clause_body_indices = parse_statement_body(parser, arena, &
+                                                       where_end_keywords, &
+                                                       callbacks)
+
+            num_clauses = num_clauses + 1
+            allocate (temp_clauses(num_clauses))
+            if (num_clauses > 1) then
+                temp_clauses(1:num_clauses - 1) = elsewhere_clauses(1:num_clauses - 1)
+            end if
+            temp_clauses(num_clauses)%mask_index = clause_mask_index
+            if (allocated(clause_body_indices)) then
+                allocate (temp_clauses(num_clauses)%body_indices( &
+                          size(clause_body_indices)))
+                temp_clauses(num_clauses)%body_indices = clause_body_indices
+            end if
+            call move_alloc(temp_clauses, elsewhere_clauses)
+        end do
+
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "end") then
             token = parser%consume()
@@ -185,14 +230,28 @@ contains
             end if
         end if
 
-        if (has_elsewhere) then
-            where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                     elsewhere_body_indices, line=line, column=column)
+        if (num_clauses > 0) then
+            if (allocated(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column)
+            else
+                where_index = push_where(arena, mask_expr_index, &
+                                         elsewhere_clauses=elsewhere_clauses, &
+                                         line=line, column=column)
+            end if
         else
-            where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                     line=line, column=column)
+            if (allocated(where_body_indices)) then
+                where_index = push_where(arena, mask_expr_index, &
+                                         where_body_indices=where_body_indices, &
+                                         line=line, column=column)
+            else
+                where_index = push_where(arena, mask_expr_index, &
+                                         line=line, column=column)
+            end if
         end if
-    end function parse_where_construct
+    end function create_where_with_elsewhere_clauses
 
     subroutine parse_single_line_where_body(parser, arena, callbacks, body_indices)
         type(parser_state_t), intent(inout) :: parser
