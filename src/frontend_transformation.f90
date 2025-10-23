@@ -88,6 +88,10 @@ contains
         ! Initialize the codegen system (idempotent)
         call initialize_codegen()
 
+        ! Set type standardization to true for lazy Fortran (real -> real(8))
+        call set_type_standardization(.true.)
+        call set_standardizer_type_standardization(.true.)
+
         ! Obtain the shared compiler arena and reset for a clean run
         ! PERFORMANCE FIX: Initialize in-place to avoid assignment operator overhead
         if (.not. shared_arena_initialized) then
