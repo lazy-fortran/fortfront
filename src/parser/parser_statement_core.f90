@@ -4,7 +4,11 @@ module parser_statement_core_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression, parse_expression_until
     use parser_io_statements_module, only: parse_print_statement, &
-                                           parse_write_statement, parse_read_statement
+        & parse_write_statement, parse_read_statement, &
+        & parse_open_statement, parse_close_statement, &
+        & parse_format_statement, parse_inquire_statement, &
+        & parse_backspace_statement, parse_rewind_statement, &
+        & parse_endfile_statement
     use parser_control_statements_module, only: &
         parse_cycle_statement, parse_exit_statement, parse_return_statement, &
         parse_stop_statement, parse_goto_statement, parse_error_stop_statement, &
@@ -34,7 +38,6 @@ module parser_statement_core_module
     integer, parameter :: STATEMENT_NO_NODE = -1
 
 contains
-
     function parse_basic_statement_core(tokens, arena, parent_index, callbacks, &
                                         consumed_count) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
@@ -59,9 +62,7 @@ contains
         first_token = parser%peek()
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
         if (handled) then
-            if (present(consumed_count)) then
-                consumed_count = parser%current_token - 1
-            end if
+            if (present(consumed_count)) consumed_count = parser%current_token - 1
             return
         end if
 
@@ -91,9 +92,7 @@ contains
 
         if (stmt_index == STATEMENT_NO_NODE) then
             if (.not. allocated(stmt_indices)) allocate (stmt_indices(0))
-            if (present(consumed_count)) then
-                consumed_count = parser%current_token - 1
-            end if
+            if (present(consumed_count)) consumed_count = parser%current_token - 1
             return
         end if
 
@@ -106,20 +105,14 @@ contains
                 allocate (stmt_indices(1))
                 stmt_indices(1) = 0
             end if
-            if (present(consumed_count)) then
-                consumed_count = parser%current_token - 1
-            end if
+            if (present(consumed_count)) consumed_count = parser%current_token - 1
             return
         end if
 
-        if (.not. allocated(stmt_indices)) then
-            allocate (stmt_indices(1))
-        end if
+        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
         stmt_indices(1) = stmt_index
 
-        if (present(consumed_count)) then
-            consumed_count = parser%current_token - 1
-        end if
+        if (present(consumed_count)) consumed_count = parser%current_token - 1
     end function parse_basic_statement_core
 
     logical function try_handle_declaration(parser, arena, first_token, stmt_indices) &
@@ -216,6 +209,20 @@ contains
                 stmt_index = parse_write_statement(parser, arena)
             case ("read")
                 stmt_index = parse_read_statement(parser, arena)
+            case ("open")
+                stmt_index = parse_open_statement(parser, arena)
+            case ("close")
+                stmt_index = parse_close_statement(parser, arena)
+            case ("format")
+                stmt_index = parse_format_statement(parser, arena)
+            case ("inquire")
+                stmt_index = parse_inquire_statement(parser, arena)
+            case ("backspace")
+                stmt_index = parse_backspace_statement(parser, arena)
+            case ("rewind")
+                stmt_index = parse_rewind_statement(parser, arena)
+            case ("endfile")
+                stmt_index = parse_endfile_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena, parent_index)
             case ("cycle")
@@ -489,5 +496,4 @@ contains
             end select
         end do
     end subroutine skip_whitespace_and_semicolons
-
 end module parser_statement_core_module
