@@ -111,6 +111,7 @@ contains
             type(token_t) :: paren_token
             type(token_t) :: current
             integer, allocatable :: element_indices(:)
+            integer :: saved_pos
 
             paren_token = parser%consume()
             current = parser%consume()
@@ -128,6 +129,15 @@ contains
                                                     syntax_style="legacy")
                 end if
                 return
+            end if
+
+            if (current%text == "(") then
+                saved_pos = parser%current_token
+                expr_index = parse_legacy_implied_do_constructor(parser, arena, &
+                                                                 paren_token, helpers)
+                if (expr_index > 0) return
+                parser%current_token = saved_pos
+                expr_index = 0
             end if
 
             expr_index = parse_simple_array_elements(parser, arena, "/", "legacy", &
@@ -420,6 +430,42 @@ contains
                                            var_name, start_index, end_index, &
                                            step_index)
     end function parse_implied_do_constructor
+
+    function parse_legacy_implied_do_constructor(parser, arena, paren_token, helpers) &
+        result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: paren_token
+        type(array_parse_helpers_t), intent(in) :: helpers
+        integer :: expr_index
+        integer :: expr_elem_index
+        integer :: start_index
+        integer :: end_index
+        integer :: step_index
+        character(len=:), allocatable :: var_name
+        type(token_t) :: current
+
+        expr_index = 0
+        if (.not. parse_implied_do_header(parser, arena, expr_elem_index, var_name, &
+                                          start_index, end_index, step_index, &
+                                          helpers)) return
+
+        current = parser%peek()
+        if (current%text /= ")") return
+        current = parser%consume()
+
+        current = parser%peek()
+        if (current%text /= "/") return
+        current = parser%consume()
+
+        current = parser%peek()
+        if (current%text /= ")") return
+        current = parser%consume()
+
+        expr_index = build_implied_do_node(arena, paren_token, expr_elem_index, &
+                                           var_name, start_index, end_index, &
+                                           step_index)
+    end function parse_legacy_implied_do_constructor
 
     function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
                                        bracket_token) result(expr_index)
