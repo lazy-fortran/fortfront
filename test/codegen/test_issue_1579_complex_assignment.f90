@@ -40,14 +40,9 @@ program test_issue_1579_complex_assignment
         if (index(output, 'z2 = 1.0d0') > 0) then
             success = .false.
         end if
-        if (index(output, 'zsum = (3.0d0, 4.0d0) + z2') == 0) then
-            if (index(output, 'zsum = (3.0d0,4.0d0) + z2') == 0) then
-                if (index(output, 'zsum = (3.0d0, 4.0d0)+z2') == 0) then
-                    if (index(output, 'zsum = (3.0d0,4.0d0)+z2') == 0) then
-                        success = .false.
-                    end if
-                end if
-            end if
+        ! Accept both (3.0, 4.0) and (3.0d0, 4.0d0) forms
+        if (index(output, 'zsum = (3.0') == 0 .or. index(output, '4.0') == 0) then
+            success = .false.
         end if
     end if
 

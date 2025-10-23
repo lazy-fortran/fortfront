@@ -12,7 +12,6 @@ module codegen_expressions
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
-    use codegen_type_utils, only: get_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
@@ -41,7 +40,6 @@ contains
     function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
         character(len=:), allocatable :: code
-        logical :: standardize_types_enabled
 
         ! Generate literal value - handle missing values gracefully
         if (allocated(node%value)) then
@@ -52,14 +50,10 @@ contains
                 code = ".false."
             else
                 code = node%value
-                ! If this is a real literal and type standardization is enabled,
-                ! emit double precision literal with d0 suffix (e.g., 3.14d0)
-                call get_type_standardization(standardize_types_enabled)
-                if (standardize_types_enabled) then
-                    if (node%literal_kind == LITERAL_REAL) then
-                        code = promote_literal_to_real64(code)
-                    end if
-                end if
+                ! Do NOT automatically promote real literals to double precision
+                ! because it breaks generic interface resolution that depends on
+                ! exact type matching (real vs real(8)). Users should explicitly
+                ! write 5.0d0 or use kind parameters if they want double precision.
             end if
         else
             ! Fallback for missing literal value
@@ -320,41 +314,18 @@ contains
         end do
     end function generate_elements_code_from_indices
 
-    ! Generate code for real array elements, converting integers as needed
+    ! Generate code for real array elements
+    ! NOTE: Type standardization is now disabled globally, so we no longer
+    ! promote literals to double precision. This function now behaves the
+    ! same as generate_elements_code_from_indices.
     function generate_real_elements_code(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code
-        character(len=:), allocatable :: elem_code
-        character(len=:), allocatable :: promoted_code
-        integer :: i
-        logical :: promote_literal
 
-        elements_code = ""
-        do i = 1, size(element_indices)
-            if (i > 1) elements_code = elements_code // ", "
-            if (element_indices(i) > 0) then
-                elem_code = generate_code_from_arena(arena, element_indices(i))
-                elem_code = trim(elem_code)
-                promote_literal = .false.
-
-                ! Promote numeric literals to real(8) form
-                select type (node => arena%entries(element_indices(i))%node)
-                type is (literal_node)
-                    if (node%literal_kind == LITERAL_INTEGER .or. &
-                        node%literal_kind == LITERAL_REAL) then
-                        promote_literal = .true.
-                    end if
-                end select
-
-                if (promote_literal) then
-                    promoted_code = promote_literal_to_real64(elem_code)
-                    elements_code = elements_code // promoted_code
-                else
-                    elements_code = elements_code // elem_code
-                end if
-            end if
-        end do
+        ! Simply delegate to the non-promoting version since type
+        ! standardization is disabled
+        elements_code = generate_elements_code_from_indices(arena, element_indices)
     end function generate_real_elements_code
 
     ! Generate code for array literals
