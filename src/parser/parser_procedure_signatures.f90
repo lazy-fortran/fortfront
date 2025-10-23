@@ -22,22 +22,25 @@ module parser_procedure_signatures_module
 contains
 
     subroutine parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
-                                              prefix_keywords, has_recursive_keyword)
+                                              prefix_keywords, has_recursive_keyword, &
+                                              return_type_from_prefix)
         type(parser_state_t), intent(inout) :: parser
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         character(len=16), intent(in), optional :: prefix_list(:)
         character(len=16), allocatable, intent(out) :: prefix_keywords(:)
         logical, intent(out) :: has_recursive_keyword
+        character(len=:), allocatable, intent(out), optional :: return_type_from_prefix
 
         character(len=16), allocatable :: pending_prefixes(:)
 
         has_recursive_keyword = .false.
         allocate (character(len=16) :: prefix_keywords(0))
+        if (present(return_type_from_prefix)) return_type_from_prefix = ""
 
         call initialise_function_prefix_sources(prefix_buffer, prefix_list, &
                                                 pending_prefixes)
         call append_pending_prefixes(pending_prefixes, prefix_keywords, &
-                                     has_recursive_keyword)
+                                     has_recursive_keyword, return_type_from_prefix)
         call consume_function_prefix_tokens(parser, prefix_keywords, &
                                             has_recursive_keyword)
     end subroutine parse_function_prefix_keywords
@@ -65,17 +68,30 @@ contains
     end subroutine initialise_function_prefix_sources
 
     subroutine append_pending_prefixes(pending_prefixes, prefix_keywords, &
-                                       has_recursive_keyword)
+                                       has_recursive_keyword, return_type_from_prefix)
+        use string_utils_mod, only: to_lower
         character(len=16), intent(in) :: pending_prefixes(:)
         character(len=16), allocatable, intent(inout) :: prefix_keywords(:)
         logical, intent(inout) :: has_recursive_keyword
+        character(len=:), allocatable, intent(out), optional :: return_type_from_prefix
         integer :: i
+        character(len=:), allocatable :: lowered
 
         do i = 1, size(pending_prefixes)
-            call append_prefix_token(prefix_keywords, pending_prefixes(i))
-            if (trim(pending_prefixes(i)) == "recursive") then
+            lowered = to_lower(trim(pending_prefixes(i)))
+            select case (trim(lowered))
+            case ("integer", "real", "logical", "character", "complex", "double")
+                ! This is a return type, not a prefix keyword
+                if (present(return_type_from_prefix)) then
+                    return_type_from_prefix = trim(pending_prefixes(i))
+                end if
+            case ("recursive")
                 has_recursive_keyword = .true.
-            end if
+                call append_prefix_token(prefix_keywords, pending_prefixes(i))
+            case default
+                ! Other prefix keywords (pure, elemental, etc.)
+                call append_prefix_token(prefix_keywords, pending_prefixes(i))
+            end select
         end do
     end subroutine append_pending_prefixes
 
@@ -113,18 +129,30 @@ contains
     end subroutine consume_function_prefix_tokens
 
     subroutine parse_function_signature(parser, return_type_str, function_name, &
-                                        line, column, is_valid)
+                                        line, column, is_valid, &
+                                        return_type_from_prefix)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: return_type_str, function_name
         integer, intent(out) :: line, column
         logical, intent(out) :: is_valid
+        character(len=*), intent(in), optional :: return_type_from_prefix
 
         type(token_t) :: token
 
         return_type_str = ""
         is_valid = .true.
 
-        call consume_optional_return_type(parser, return_type_str)
+        ! First try to get return type from prefix (e.g., "integer" before "function")
+        if (present(return_type_from_prefix)) then
+            if (len_trim(return_type_from_prefix) > 0) then
+                return_type_str = trim(return_type_from_prefix)
+            end if
+        end if
+
+        ! If not in prefix, try to consume from token stream
+        if (len_trim(return_type_str) == 0) then
+            call consume_optional_return_type(parser, return_type_str)
+        end if
 
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "function") then

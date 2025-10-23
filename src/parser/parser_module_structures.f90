@@ -275,6 +275,14 @@ contains
                             if (allocated(stored)) deallocate (stored)
                             token = parser%consume()
                             cycle
+                        case ("integer", "real", "logical", "character", "complex", "double")
+                            ! Type keyword - might be function return type
+                            call prefix_buffer%get_all(stored)
+                            call append_prefix_token(stored, trim(token%text))
+                            call prefix_buffer%set(stored)
+                            if (allocated(stored)) deallocate (stored)
+                            token = parser%consume()
+                            cycle
                         end select
                     end block
                 end if
