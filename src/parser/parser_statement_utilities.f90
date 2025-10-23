@@ -29,8 +29,7 @@ module parser_statement_utilities_module
     use ast_factory
     use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t
-    use ast_nodes_misc, only: comment_node
-    use uid_generator, only: generate_uid
+    use parser_legacy_statements_module, only: parse_legacy_statement
     implicit none
     private
 
@@ -54,7 +53,8 @@ contains
             ! Consume it here, then parse the label
             next_token = parser%consume()  ! Consume "goto"
             next_token = parser%peek()
-            if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+            if (next_token%kind == TK_NUMBER .or. next_token%kind == &
+                TK_IDENTIFIER) then
                 stmt_index = push_goto(arena, label=trim(next_token%text), &
                                        line=token%line, column=token%column)
                 next_token = parser%consume()  ! Consume the label
@@ -115,7 +115,8 @@ contains
             case ("import")
                 stmt_index = parse_import_stmt_inline(parser, arena)
             case ("equivalence", "common")
-                stmt_index = parse_legacy_stmt(trim(to_lower(token%text)), parser, arena)
+                stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
+                                                    parser, arena)
             case default
                 stmt_index = skip_unknown_statement(parser)
             end select
@@ -463,65 +464,5 @@ contains
                                                line=line, column=column)
         end if
     end function parse_import_stmt_inline
-
-    function parse_legacy_stmt(lowered, parser, arena) result(stmt_index)
-        character(len=*), intent(in) :: lowered
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: stmt_index
-        type(token_t) :: token, first_token
-        character(len=:), allocatable :: text
-        integer :: start_pos, end_pos, i, line, column
-        type(comment_node) :: comment
-
-        start_pos = parser%current_token
-        first_token = parser%peek()
-        line = first_token%line
-        column = first_token%column
-
-        end_pos = start_pos
-        do i = start_pos, size(parser%tokens)
-            token = parser%tokens(i)
-            if (token%kind == TK_EOF .or. token%kind == TK_NEWLINE) then
-                end_pos = i - 1
-                exit
-            end if
-            end_pos = i
-        end do
-
-        call reconstruct_legacy_stmt_text(parser%tokens, start_pos, end_pos, text)
-
-        comment%text = "    " // trim(text)
-        comment%line = line
-        comment%column = column
-        comment%uid = generate_uid()
-        call arena%push(comment, "comment")
-        stmt_index = arena%size
-
-        parser%current_token = end_pos + 1
-    end function parse_legacy_stmt
-
-    pure subroutine reconstruct_legacy_stmt_text(tokens, start_idx, end_idx, text)
-        type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: start_idx, end_idx
-        character(len=:), allocatable, intent(out) :: text
-        integer :: i, total_len
-
-        total_len = 0
-        do i = start_idx, end_idx
-            total_len = total_len + len_trim(tokens(i)%text)
-            if (i < end_idx) total_len = total_len + 1
-        end do
-
-        allocate (character(len=total_len) :: text)
-        text = ""
-
-        do i = start_idx, end_idx
-            text = trim(text) // trim(tokens(i)%text)
-            if (i < end_idx .and. len_trim(text) > 0) then
-                text = trim(text) // " "
-            end if
-        end do
-    end subroutine reconstruct_legacy_stmt_text
 
 end module parser_statement_utilities_module
