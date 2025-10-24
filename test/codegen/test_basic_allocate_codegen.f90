@@ -26,5 +26,27 @@ program test_basic_allocate_codegen
     end if
 
     print *, 'PASS: allocate/deallocate statements preserved'
+    print *, ''
+    print *, '=== Codegen: allocate inference for missing declarations ==='
+
+    source = '' // &
+             'allocate(arr(5))' // new_line('a') // &
+             'is_alloc = allocated(arr)' // new_line('a') // &
+             'print *, is_alloc' // new_line('a') // &
+             'deallocate(arr)'
+
+    call transform_lazy_fortran_string(source, output, error_msg)
+
+    ok = index(output, 'integer, dimension(:), allocatable :: arr') > 0 .and. &
+         index(output, 'allocate(arr(5))') > 0
+
+    if (.not. ok) then
+        print *, 'FAIL: allocate inference missing allocatable declaration'
+        print *, 'Output:'
+        print *, trim(output)
+        stop 1
+    end if
+
+    print *, 'PASS: allocate inference declared allocatable array'
     stop 0
 end program test_basic_allocate_codegen

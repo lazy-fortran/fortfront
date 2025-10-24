@@ -1142,6 +1142,7 @@ contains
         type(poly_type_t) :: var_scheme
         type(poly_type_t), allocatable :: existing_scheme
         character(len=:), allocatable :: var_name
+        character(len=:), allocatable :: type_spec_buf
 
         typ = create_mono_type(TVAR, var=create_type_var(0, "mem"))
 
@@ -1153,11 +1154,20 @@ contains
             if (.not. allocated(arena%entries(var_index)%node)) cycle
 
             var_name = ""
+            rank = 0
             select type (node => arena%entries(var_index)%node)
             type is (identifier_node)
                 var_name = node%name
+                if (allocated(alloc_stmt%shape_indices)) then
+                    rank = size(alloc_stmt%shape_indices)
+                end if
             type is (call_or_subscript_node)
                 var_name = node%name
+                if (allocated(node%arg_indices)) then
+                    rank = size(node%arg_indices)
+                else if (allocated(alloc_stmt%shape_indices)) then
+                    rank = size(alloc_stmt%shape_indices)
+                end if
             end select
 
             if (len_trim(var_name) > 0) then
@@ -1166,29 +1176,44 @@ contains
                 if (.not. allocated(existing_scheme)) then
                     element_type = get_inferred_type_from_arena(ctx, arena, var_index)
 
-                    if (element_type%kind == TVAR .and. element_type%var%id == 0) then
+                    if (allocated(alloc_stmt%type_spec)) then
+                        if (len_trim(alloc_stmt%type_spec) > 0) then
+                            type_spec_buf = to_lower(trim(alloc_stmt%type_spec))
+                            select case (trim(type_spec_buf))
+                            case ('integer')
+                                element_type = create_mono_type(TINT)
+                            case ('real')
+                                element_type = create_mono_type(TREAL)
+                            case ('logical')
+                                element_type = create_mono_type(TLOGICAL)
+                            case ('character')
+                                element_type = create_mono_type(TCHAR)
+                            case ('complex')
+                                element_type = create_mono_type(TCOMPLEX)
+                            end select
+                        end if
+                    else if (element_type%kind == TVAR .and. &
+                             element_type%var%id == 0) then
+                        element_type = create_mono_type(TINT)
+                    else if (element_type%kind == TREAL) then
                         element_type = create_mono_type(TINT)
                     end if
 
-                    if (allocated(alloc_stmt%shape_indices)) then
-                        rank = size(alloc_stmt%shape_indices)
-                        if (rank > 0) then
-                            var_type = element_type
-                            do j = 1, rank
-                                allocate (args(1))
-                                args(1) = var_type
-                                var_type = create_mono_type(TARRAY, args=args)
-                                var_type%alloc_info%is_allocatable = .true.
-                                deallocate (args)
-                            end do
-                        else
-                            var_type = element_type
+                    if (rank > 0) then
+                        var_type = element_type
+                        do j = 1, rank
+                            allocate (args(1))
+                            args(1) = var_type
+                            var_type = create_mono_type(TARRAY, args=args)
                             var_type%alloc_info%is_allocatable = .true.
-                        end if
+                            deallocate (args)
+                        end do
                     else
                         var_type = element_type
                         var_type%alloc_info%is_allocatable = .true.
                     end if
+
+                    var_type%alloc_info%needs_allocatable_string = .true.
 
                     call update_identifier_type_in_arena(arena, var_name, var_type)
 
