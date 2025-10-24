@@ -505,8 +505,8 @@ contains
 
         current_index = parse_operand_base(parser, arena, view)
         if (current_index > 0) then
-            current_index = apply_prefix_stack(arena, prefix_stack, current_index)
             current_index = parse_postfix_ops(parser, arena, view, current_index)
+            current_index = apply_prefix_stack(arena, prefix_stack, current_index)
             call operand_stack_push(operands, current_index)
         else
             call token_stack_clear(prefix_stack)
