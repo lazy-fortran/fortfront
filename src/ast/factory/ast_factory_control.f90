@@ -6,7 +6,8 @@ module ast_factory_control
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
                                  case_block_node, case_range_node, case_default_node, &
                                  select_type_node, type_guard_block_node, &
-                                 where_node, elsewhere_clause_t, associate_node
+                                 where_node, elsewhere_clause_t, associate_node, &
+                                 block_construct_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
     use uid_generator, only: generate_uid
     use error_handling, only: result_t, success_result, create_error_result
@@ -16,7 +17,7 @@ module ast_factory_control
 
     ! Public control flow node creation functions
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
-    public :: push_associate
+    public :: push_associate, push_block_construct
     public :: push_case_block, push_case_range, push_case_default, &
               push_select_case_with_default
     public :: push_select_type, push_select_type_with_default, push_type_guard_block
@@ -197,6 +198,29 @@ contains
         call arena%push(assoc, "associate", parent_index)
         assoc_index = arena%size
     end function push_associate
+
+    function push_block_construct(arena, body_indices, line, column, &
+                                  parent_index) result(block_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: block_index
+        type(block_construct_node) :: block_construct
+
+        block_construct%uid = generate_uid()
+
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                block_construct%body_indices = body_indices
+            end if
+        end if
+
+        if (present(line)) block_construct%line = line
+        if (present(column)) block_construct%column = column
+
+        call arena%push(block_construct, "block_construct", parent_index)
+        block_index = arena%size
+    end function push_block_construct
 
     ! Create forall construct node and add to stack
     function push_forall(arena, index_var, start_index, end_index, step_index, &

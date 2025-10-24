@@ -36,6 +36,8 @@ module parser_statement_callbacks_module
             parse_forall => null()
         procedure(parse_without_parent_interface), pointer, nopass :: &
             parse_associate => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_block => null()
     end type statement_callbacks_t
 
     public :: null_statement_callbacks

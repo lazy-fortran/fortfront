@@ -7,10 +7,10 @@ module ast_nodes_associate
     private
 
     ! Public types
-    public :: association_t, associate_node
+    public :: association_t, associate_node, block_construct_node
 
     ! Public factory functions
-    public :: create_associate
+    public :: create_associate, create_block_construct
 
     ! Association type for ASSOCIATE construct
     type :: association_t
@@ -28,6 +28,16 @@ module ast_nodes_associate
         procedure :: assign => associate_assign
         generic :: assignment(=) => assign
     end type associate_node
+
+    ! BLOCK construct node (F2008 scoped block)
+    type, extends(ast_node) :: block_construct_node
+        integer, allocatable :: body_indices(:)  ! Body statement indices
+    contains
+        procedure :: accept => block_construct_accept
+        procedure :: to_json => block_construct_to_json
+        procedure :: assign => block_construct_assign
+        generic :: assignment(=) => assign
+    end type block_construct_node
 
 contains
 
@@ -125,5 +135,70 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_associate
+
+    ! BLOCK construct node implementations
+    subroutine block_construct_accept(this, visitor)
+        class(block_construct_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine block_construct_accept
+
+    subroutine block_construct_to_json(this, json, parent)
+        class(block_construct_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj, body_array
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'block_construct')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+
+        if (allocated(this%body_indices)) then
+            call json%create_array(body_array, 'body_indices')
+            do i = 1, size(this%body_indices)
+                call json%add(body_array, '', this%body_indices(i))
+            end do
+            call json%add(obj, body_array)
+        end if
+
+        call json%add(parent, obj)
+    end subroutine block_construct_to_json
+
+    subroutine block_construct_assign(lhs, rhs)
+        class(block_construct_node), intent(inout) :: lhs
+        class(block_construct_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        end if
+    end subroutine block_construct_assign
+
+    function create_block_construct(body_indices, line, column) result(node)
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column
+        type(block_construct_node) :: node
+
+        node%uid = generate_uid()
+
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                node%body_indices = body_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_block_construct
 
 end module ast_nodes_associate

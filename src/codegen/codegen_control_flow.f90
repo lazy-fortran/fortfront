@@ -18,6 +18,7 @@ module codegen_control_flow
     public :: generate_code_where
     public :: generate_code_forall
     public :: generate_code_associate
+    public :: generate_code_block_construct
 
 contains
 
@@ -551,6 +552,29 @@ contains
         code = code // new_line('A') // repeat("    ", indent_level)
         code = code // "end associate"
     end function generate_code_associate
+
+    function generate_code_block_construct(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(block_construct_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: body_code
+        integer :: indent_level
+
+        indent_level = 0
+        code = "block"
+
+        if (allocated(node%body_indices)) then
+            body_code = generate_grouped_body_internal( &
+                        arena, node%body_indices, indent_level + 1)
+            if (len(body_code) > 0) then
+                code = code // new_line('A') // body_code
+            end if
+        end if
+
+        code = code // new_line('A') // repeat("    ", indent_level)
+        code = code // "end block"
+    end function generate_code_block_construct
 
     ! Internal function to generate grouped body
     function generate_grouped_body_internal(arena, body_indices, indent) result(code)
