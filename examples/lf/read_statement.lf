@@ -1,0 +1,3 @@
+read *, x
+y = x * 2
+print *, 'Result:', y
