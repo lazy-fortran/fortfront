@@ -154,8 +154,9 @@ contains
         character(len=:), allocatable, intent(out) :: type_str
         logical, intent(out) :: success
 
-        character(len=:), allocatable :: element_str
+        character(len=:), allocatable :: element_str, dim_spec
         character(len=32) :: size_buffer
+        type(mono_type_t) :: inner_element
 
         success = .true.
 
@@ -166,7 +167,9 @@ contains
         end if
         if (.not. success) return
 
-        element_str = mono_type_to_string(type_args_element(mono_type, 1), &
+        inner_element = type_args_element(mono_type, 1)
+
+        element_str = mono_type_to_string(inner_element, &
                                           include_shape=.false., &
                                           prefer_len_zero_char=prefer_len_zero_char, &
                                           standardize_real=standardize_real, &
@@ -178,10 +181,16 @@ contains
             return
         end if
 
+        dim_spec = ""
+        call collect_array_dimensions(mono_type, dim_spec)
+
         type_str = trim(element_str)
-        if (mono_type%size > 0) then
-            write (size_buffer, '(i0)') mono_type%size
-            type_str = type_str // ", dimension(" // trim(size_buffer) // ")"
+        if (len_trim(dim_spec) > 0) then
+            type_str = type_str // ", dimension(" // trim(dim_spec) // ")"
+            if (mono_type%alloc_info%is_allocatable .or. &
+                mono_type%alloc_info%needs_allocatable_string) then
+                type_str = type_str // ", allocatable"
+            end if
         else if (mono_type%alloc_info%is_allocatable .or. &
                  mono_type%alloc_info%needs_allocatable_string) then
             type_str = type_str // ", dimension(:), allocatable"
@@ -189,5 +198,42 @@ contains
             type_str = type_str // ", dimension(:)"
         end if
     end subroutine resolve_array_string
+
+    recursive subroutine collect_array_dimensions(mono_type, dim_spec)
+        type(mono_type_t), intent(in) :: mono_type
+        character(len=:), allocatable, intent(inout) :: dim_spec
+        character(len=32) :: size_buffer
+        type(mono_type_t) :: inner_element
+
+        if (mono_type%kind /= TARRAY) return
+
+        if (type_args_allocated(mono_type) .and. type_args_size(mono_type) > 0) then
+            inner_element = type_args_element(mono_type, 1)
+            if (inner_element%kind == TARRAY) then
+                call collect_array_dimensions(inner_element, dim_spec)
+            end if
+        end if
+
+        if (mono_type%size > 0) then
+            write (size_buffer, '(i0)') mono_type%size
+            if (len_trim(dim_spec) == 0) then
+                dim_spec = trim(size_buffer)
+            else
+                dim_spec = trim(size_buffer) // "," // trim(dim_spec)
+            end if
+        else if (mono_type%alloc_info%is_allocatable) then
+            if (len_trim(dim_spec) == 0) then
+                dim_spec = ":"
+            else
+                dim_spec = ":" // "," // trim(dim_spec)
+            end if
+        else
+            if (len_trim(dim_spec) == 0) then
+                dim_spec = ":"
+            else
+                dim_spec = ":" // "," // trim(dim_spec)
+            end if
+        end if
+    end subroutine collect_array_dimensions
 
 end module type_string_utils
