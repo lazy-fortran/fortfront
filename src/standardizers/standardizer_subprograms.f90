@@ -105,8 +105,10 @@ contains
                     if (matched_multi) then
                         call apply_type_standardization(stmt)
                         if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
-                        stmt%intent = stmt_intent
-                        stmt%has_intent = .true.
+                        if (len_trim(stmt_intent) > 0) then
+                            stmt%intent = stmt_intent
+                            stmt%has_intent = .true.
+                        end if
                         arena%entries(current_index)%node = stmt
                     end if
                 else if (is_param_decl) then
@@ -135,8 +137,10 @@ contains
                     end if
                     call apply_type_standardization(stmt)
                     if (len_trim(stmt_intent) == 0) stmt_intent = default_intent
-                    stmt%intent = stmt_intent
-                    stmt%has_intent = .true.
+                    if (len_trim(stmt_intent) > 0) then
+                        stmt%intent = stmt_intent
+                        stmt%has_intent = .true.
+                    end if
                     arena%entries(current_index)%node = stmt
                 end if
             end select
@@ -162,8 +166,18 @@ contains
             character(len=*), intent(inout) :: stmt_intent
             integer, intent(in) :: arena_index
 
-            if (len_trim(param_intent(pidx)) == 0) param_intent(pidx) = default_intent
-            if (len_trim(stmt_intent) == 0) stmt_intent = param_intent(pidx)
+            if (len_trim(stmt_intent) == 0) then
+                if (len_trim(param_intent(pidx)) > 0) then
+                    stmt_intent = param_intent(pidx)
+                else
+                    stmt_intent = default_intent
+                    param_intent(pidx) = default_intent
+                end if
+            else
+                if (len_trim(param_intent(pidx)) == 0) then
+                    param_intent(pidx) = stmt_intent
+                end if
+            end if
 
             if (param_optional(pidx)) stmt%is_optional = .true.
             param_names_found(pidx) = arena_index
@@ -1131,7 +1145,7 @@ contains
             call synchronize_parameter_declarations(arena, sub_def%body_indices, &
                                     param_names, param_names_found, sb_param_optional, &
                                                     sb_param_intent, &
-                                                    "inout", &
+                                                    "", &
                                               standardizer_type_standardization_enabled)
         end if
 
