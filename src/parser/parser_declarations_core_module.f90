@@ -196,7 +196,8 @@ contains
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile)
+                             is_volatile=attr_info%is_volatile, &
+                             is_protected=attr_info%is_protected)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
@@ -206,7 +207,8 @@ contains
                              is_external=attr_info%is_external, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile)
+                             is_volatile=attr_info%is_volatile, &
+                             is_protected=attr_info%is_protected)
             end if
         else
             if (attr_info%has_global_dimensions) then
@@ -218,7 +220,8 @@ contains
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile)
+                             is_volatile=attr_info%is_volatile, &
+                             is_protected=attr_info%is_protected)
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
@@ -227,7 +230,8 @@ contains
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
-                             is_volatile=attr_info%is_volatile)
+                             is_volatile=attr_info%is_volatile, &
+                             is_protected=attr_info%is_protected)
             end if
         end if
 
@@ -393,7 +397,8 @@ contains
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile)
+                         is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -424,7 +429,8 @@ contains
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile)
+                         is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected)
         end if
     end function create_dimensional_declaration
 
@@ -467,7 +473,8 @@ contains
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile)
+                         is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected)
         else if (type_spec%has_character_length) then
             decl_index = push_declaration( &
                          arena, type_spec%type_name, &
@@ -496,7 +503,8 @@ contains
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
-                         is_volatile=attr_info%is_volatile)
+                         is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected)
         end if
     end function create_scalar_declaration
     function build_name_array(name) result(names)
