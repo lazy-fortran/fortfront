@@ -1,5 +1,3 @@
-module m
-contains
 subroutine foo()
 print*,"foo"
 end subroutine
@@ -7,9 +5,7 @@ end subroutine
 subroutine bar()
 print*,"bar"
 end subroutine bar
-end module
 
-use m
 call foo()
 call bar()
 end

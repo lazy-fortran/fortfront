@@ -1,9 +1,6 @@
-program test_comprehensive
-    character(len=10) :: a, b, c, result_str
-    a = "1"
-    b = "2"
-    c = "3"
-    ! Test string concatenation precedence
-    result_str = a + b // c
-    print *, result_str
-end program test_comprehensive
+a = "1"
+b = "2"
+c = "3"
+! Test string concatenation precedence
+result_str = a + b // c
+print *, result_str

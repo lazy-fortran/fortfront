@@ -1,7 +1,4 @@
-program test
-    integer, dimension(5) :: a, b, c
-    a = [1, 2]
-    a = [a, 3]  ! Only a gets reassigned
-    b(1) = 10   ! b and c are just indexed
-    c(2) = 20
-end program
+a = [1, 2]
+a = [a, 3]  ! Only a gets reassigned
+b(1) = 10   ! b and c are just indexed
+c(2) = 20
