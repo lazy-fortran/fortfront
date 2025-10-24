@@ -472,8 +472,8 @@ contains
         select case (trim(lower_word))
         case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
               'goto', 'cycle', 'exit', 'stop', 'pause', 'return', 'entry', 'error', &
-              'continue', 'nullify', 'do', 'while', 'for', 'integer', 'real', &
-              'logical', 'character', 'complex', 'double', 'precision', &
+              'continue', 'nullify', 'do', 'while', 'concurrent', 'for', 'integer', &
+              'real', 'logical', 'character', 'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'use', 'module', 'contains', 'public', 'private', &
               'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
