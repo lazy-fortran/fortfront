@@ -1,0 +1,58 @@
+! Test case for intrinsic functions that were incorrectly declared as external
+! Covers issues #1853, #1854, #1856
+
+! Mathematical functions
+x = 5.0
+y = -3.0
+result = sign(x, y)
+print *, 'Sign:', result
+
+! Array/Matrix functions
+v1 = [1.0, 2.0, 3.0]
+v2 = [4.0, 5.0, 6.0]
+dp = dot_product(v1, v2)
+print *, 'Dot product:', dp
+
+mat1 = reshape([1.0, 2.0, 3.0, 4.0], [2, 2])
+mat2 = reshape([5.0, 6.0, 7.0, 8.0], [2, 2])
+mat_result = matmul(mat1, mat2)
+print *, 'Matrix multiply:', mat_result
+
+transposed = transpose(mat1)
+print *, 'Transpose:', transposed
+
+prod = product(v1)
+print *, 'Product:', prod
+
+! Logical array functions
+logical_arr = [.true., .false., .true.]
+any_result = any(logical_arr)
+all_result = all(logical_arr)
+print *, 'Any:', any_result
+print *, 'All:', all_result
+
+! Array inquiry functions
+arr = [10.0, 5.0, 8.0, 3.0]
+min_loc = minloc(arr)
+max_loc = maxloc(arr)
+print *, 'Min location:', min_loc
+print *, 'Max location:', max_loc
+
+packed = pack(arr, arr > 5.0)
+print *, 'Packed:', packed
+
+! Type inquiry functions
+max_int = huge(1)
+eps = epsilon(1.0)
+k = kind(1.0)
+print *, 'Huge:', max_int
+print *, 'Epsilon:', eps
+print *, 'Kind:', k
+
+selected_kind = selected_int_kind(9)
+print *, 'Selected kind:', selected_kind
+
+lb = lbound(mat1)
+ub = ubound(mat1)
+print *, 'Lower bounds:', lb
+print *, 'Upper bounds:', ub
