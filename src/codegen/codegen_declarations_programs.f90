@@ -7,7 +7,8 @@ module codegen_declarations_programs
                               implicit_statement_node, use_statement_node, &
                               interface_block_node, module_procedure_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_data, only: declaration_node, module_node, block_data_node
+    use ast_nodes_data, only: declaration_node, module_node, block_data_node, &
+                              derived_type_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: generate_grouped_body, generate_grouped_body_context
@@ -249,11 +250,13 @@ contains
         character(len=:), allocatable :: use_statements_code
         character(len=:), allocatable :: implicit_statements_code
         character(len=:), allocatable :: interface_blocks_code
+        character(len=:), allocatable :: declaration_statements_code
         character(len=:), allocatable :: extra_decls
 
         call gather_program_header_entries(arena, node, has_implicit, &
                                            use_statements_code, &
                                            implicit_statements_code, &
+                                           declaration_statements_code, &
                                            interface_blocks_code, non_use_indices, &
                                            non_use_count)
 
@@ -263,6 +266,10 @@ contains
             code = code // implicit_statements_code
         else if (.not. has_implicit) then
             code = code // "    implicit none" // new_line('A')
+        end if
+
+        if (len(declaration_statements_code) > 0) then
+            code = code // declaration_statements_code
         end if
 
         extra_decl_code = ""
@@ -277,6 +284,7 @@ contains
     subroutine gather_program_header_entries(arena, node, has_implicit, &
                                              use_statements_code, &
                                              implicit_statements_code, &
+                                             declaration_statements_code, &
                                              interface_blocks_code, non_use_indices, &
                                              non_use_count)
         type(ast_arena_t), intent(in) :: arena
@@ -284,14 +292,18 @@ contains
         logical, intent(out) :: has_implicit
         character(len=:), allocatable, intent(out) :: use_statements_code
         character(len=:), allocatable, intent(out) :: implicit_statements_code
+        character(len=:), allocatable, intent(out) :: declaration_statements_code
         character(len=:), allocatable, intent(out) :: interface_blocks_code
         integer, allocatable, intent(out) :: non_use_indices(:)
         integer, intent(out) :: non_use_count
         integer :: i
+        integer, allocatable :: header_decl_indices(:)
+        integer :: header_decl_count
 
         has_implicit = .false.
         use_statements_code = ""
         implicit_statements_code = ""
+        declaration_statements_code = ""
         interface_blocks_code = ""
         non_use_count = 0
 
@@ -301,20 +313,33 @@ contains
         end if
 
         allocate (non_use_indices(size(node%body_indices)))
+        allocate (header_decl_indices(size(node%body_indices)))
+        header_decl_count = 0
 
         do i = 1, size(node%body_indices)
             call categorize_header_entry(arena, node, node%body_indices(i), &
                                          has_implicit, use_statements_code, &
                                          implicit_statements_code, &
                                          interface_blocks_code, non_use_indices, &
-                                         non_use_count)
+                                         non_use_count, header_decl_indices, &
+                                         header_decl_count)
         end do
+
+        if (header_decl_count > 0) then
+            declaration_statements_code = generate_grouped_body( &
+                arena, header_decl_indices(1:header_decl_count), 1)
+        end if
+
+        if (allocated(header_decl_indices)) then
+            deallocate (header_decl_indices)
+        end if
     end subroutine gather_program_header_entries
 
     subroutine categorize_header_entry(arena, prog_node, body_index, has_implicit, &
                                        use_statements_code, implicit_statements_code, &
                                        interface_blocks_code, non_use_indices, &
-                                       non_use_count)
+                                       non_use_count, header_decl_indices, &
+                                       header_decl_count)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog_node
         integer, intent(in) :: body_index
@@ -324,6 +349,8 @@ contains
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         integer, intent(inout) :: non_use_indices(:)
         integer, intent(inout) :: non_use_count
+        integer, intent(inout) :: header_decl_indices(:)
+        integer, intent(inout) :: header_decl_count
         logical :: is_header_stmt
         character(len=:), allocatable :: stmt_code
         character(len=:), allocatable :: lowered_value
@@ -342,7 +369,8 @@ contains
             use_statements_code = use_statements_code // "    " // stmt_code // &
                                   new_line('A')
         type is (comment_node)
-            ! Legacy statement comments (COMMON/EQUIVALENCE) are always header statements
+            ! Legacy statement comments (COMMON/EQUIVALENCE) are header statements
+            ! Keep them in the specification section ahead of other declarations
             if (is_legacy_statement_comment(ib) .or. non_use_count == 0) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
@@ -372,12 +400,22 @@ contains
                 implicit_statements_code = implicit_statements_code // "    " // &
                                            trim(stmt_code) // new_line('A')
             end if
-        type is (declaration_node)
+        type is (derived_type_node)
             is_header_stmt = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
             if (len_trim(stmt_code) > 0) then
-                implicit_statements_code = implicit_statements_code // "    " // &
-                                           trim(stmt_code) // new_line('A')
+                implicit_statements_code = implicit_statements_code // &
+                                           indent_lines(stmt_code, 1)
+                if (stmt_code(len(stmt_code):len(stmt_code)) /= new_line('A')) then
+                    implicit_statements_code = implicit_statements_code // &
+                                               new_line('A')
+                end if
+            end if
+        type is (declaration_node)
+            is_header_stmt = .true.
+            if (header_decl_count < size(header_decl_indices)) then
+                header_decl_count = header_decl_count + 1
+                header_decl_indices(header_decl_count) = body_index
             end if
         type is (interface_block_node)
             is_header_stmt = .true.
