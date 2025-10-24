@@ -46,11 +46,14 @@ program test_issue_1810_parameter_array_allocatable
         all_passed = .false.
     end if
 
-    ! Check that dimensions are preserved
-    if (index(output, 'values(') > 0 .or. index(output, 'values :') > 0) then
-        print *, '  PASS: Array dimensions present'
+    ! Check that explicit dimensions are preserved (no deferred shape)
+    if (index(output, 'values(:)') > 0) then
+        print *, '  FAIL: Parameter array uses deferred shape'
+        all_passed = .false.
+    else if (index(output, 'values(n)') > 0) then
+        print *, '  PASS: Explicit parameter dimensions preserved'
     else
-        print *, '  FAIL: Array dimensions lost'
+        print *, '  FAIL: Parameter array dimension missing'
         all_passed = .false.
     end if
 

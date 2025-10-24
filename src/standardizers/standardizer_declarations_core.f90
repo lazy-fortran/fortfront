@@ -767,6 +767,14 @@ contains
             end if
         end if
 
+        if (decl_node%is_parameter) then
+            ! Parameter constants must preserve explicit bounds from the parser.
+            ! The inferred type string may report deferred shape.
+            ! That is invalid for PARAMETER entities, so leave existing indices.
+            decl_node%is_array = .true.
+            return
+        end if
+
         ! Extract dimension values from the inferred type string
         paren_pos = index(var_type(dim_pos:), ')')
         if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
@@ -910,6 +918,11 @@ contains
         type(mono_type_t) :: current_type
         integer :: ndims, dim_idx
         integer, allocatable :: dim_sizes(:)
+
+        if (decl_node%is_parameter) then
+            ! Parameter constants must keep explicit bounds from parsing.
+            return
+        end if
 
         ! Search for the identifier node with this name to check its inferred type
         do j = 1, arena%size
