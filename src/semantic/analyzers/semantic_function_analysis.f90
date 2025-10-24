@@ -747,8 +747,10 @@ contains
         type(function_def_node), intent(in) :: func_node
         character(len=:), allocatable :: res_name
         integer :: i, stmt_index, target_index
+        character(len=:), allocatable :: first_assigned
 
         res_name = ''
+        first_assigned = ''
         if (.not. allocated(func_node%body_indices)) return
 
         do i = 1, size(func_node%body_indices)
@@ -762,13 +764,21 @@ contains
                     if (allocated(arena%entries(target_index)%node)) then
                         select type (target => arena%entries(target_index)%node)
                         type is (identifier_node)
-                            res_name = trim(target%name)
-                            if (len_trim(res_name) > 0) return
+                            if (allocated(target%name)) then
+                                if (trim(target%name) == 'result') then
+                                    res_name = 'result'
+                                    return
+                                else if (len_trim(first_assigned) == 0) then
+                                    first_assigned = trim(target%name)
+                                end if
+                            end if
                         end select
                     end if
                 end if
             end select
         end do
+
+        if (len_trim(first_assigned) > 0) res_name = first_assigned
     end function detect_result_name
 
     ! Analyze subroutine parameters and extract their types
