@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 34
+        integer, parameter :: NUM_INTRINSICS = 36
         integer :: i
 
         if (registry_initialized) return
@@ -178,6 +178,18 @@ contains
                                  name="ceiling", return_type="integer", &
                                  arg_types="real", &
                                  description="Ceiling function")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="cmplx", return_type="complex", &
+                                 arg_types="numeric,numeric", &
+                                 description="Convert to complex")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="aimag", return_type="real", &
+                                 arg_types="complex", &
+                                 description="Imaginary part of complex")
     end subroutine register_type_conversion_intrinsics
 
     subroutine register_array_intrinsics(i)
