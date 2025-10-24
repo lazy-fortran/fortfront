@@ -8,6 +8,7 @@ module semantic_assignment_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
                               call_or_subscript_node, literal_node
+    use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
     use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
@@ -27,6 +28,36 @@ module semantic_assignment_inference
     public :: ensure_var_declared_from_arena
 
 contains
+
+    ! Set assignment node type fields for standardizer (Issue #1851)
+    subroutine set_assignment_type_fields(arena, assignment_index, value_index, expr_typ)
+        use type_string_utils, only: mono_type_to_string
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: assignment_index, value_index
+        type(mono_type_t), intent(in) :: expr_typ
+        type(mono_type_t) :: assign_type
+        character(len=:), allocatable :: type_str
+
+        if (assignment_index <= 0 .or. assignment_index > arena%size) return
+        if (.not. allocated(arena%entries(assignment_index)%node)) return
+
+        select type (assign_node => arena%entries(assignment_index)%node)
+        type is (assignment_node)
+            assign_type = expr_typ
+            ! Check for complex literal override
+            if (value_index > 0 .and. value_index <= arena%size) then
+                if (allocated(arena%entries(value_index)%node)) then
+                    select type (v => arena%entries(value_index)%node)
+                    type is (complex_literal_node)
+                        assign_type = create_mono_type(TCOMPLEX)
+                    end select
+                end if
+            end if
+            type_str = mono_type_to_string(assign_type)
+            assign_node%inferred_type_name = type_str
+            assign_node%type_was_inferred = .true.
+        end select
+    end subroutine set_assignment_type_fields
 
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
@@ -48,6 +79,16 @@ contains
         type(result_t) :: error_result
 
         updated_expr_typ = expr_typ
+
+        ! Override type for complex literals (Issue #1851)
+        if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
+            if (allocated(arena%entries(assignment%value_index)%node)) then
+                select type (value_node => arena%entries(assignment%value_index)%node)
+                type is (complex_literal_node)
+                    updated_expr_typ = create_mono_type(TCOMPLEX)
+                end select
+            end if
+        end if
 
         if (lhs_index > 0 .and. lhs_index <= arena%size) then
             if (allocated(arena%entries(lhs_index)%node)) then
@@ -90,9 +131,27 @@ contains
                                                          updated_expr_typ)
 
                     ! Generalize the expression type and define/update in scope
-                    scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                              mono=updated_expr_typ)
+                    ! DEBUG: Force complex type for variables assigned from complex literals
+                    block
+                        type(mono_type_t) :: final_type
+                        final_type = updated_expr_typ
+                        if (assignment%value_index > 0 .and. &
+                            assignment%value_index <= arena%size) then
+                            if (allocated(arena%entries(assignment%value_index)%node)) then
+                                select type (v => arena%entries(assignment%value_index)%node)
+                                type is (complex_literal_node)
+                                    final_type = create_mono_type(TCOMPLEX)
+                                end select
+                            end if
+                        end if
+                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                                  mono=final_type)
+                    end block
                     call scopes%define(lhs_node%name, scheme)
+
+                    ! Set assignment node fields for standardizer (Issue #1851)
+                    call set_assignment_type_fields(arena, assignment_index, &
+                                                    assignment%value_index, updated_expr_typ)
                 type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, lhs_node, &
                                                  expr_typ, updated_expr_typ, scopes)

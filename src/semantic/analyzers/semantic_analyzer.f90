@@ -48,6 +48,7 @@ module semantic_analyzer
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
         array_bounds_node, range_expression_node, get_array_slice_node
+    use ast_nodes_misc, only: complex_literal_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
         create_error_result, ERROR_SEMANTIC
@@ -359,6 +360,9 @@ contains
             select type (expr => arena%entries(node_index)%node)
             type is (literal_node)
                 local_type = infer_literal_type(expr)
+                call finalize_node(node_index, local_type)
+            type is (complex_literal_node)
+                local_type = create_mono_type(TCOMPLEX)
                 call finalize_node(node_index, local_type)
             type is (identifier_node)
                 local_type = infer_identifier_type(expr, this%scopes, this%errors, &

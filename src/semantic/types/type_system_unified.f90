@@ -415,6 +415,8 @@ contains
             end if
         case (TLOGICAL)
             str = "logical"
+        case (TCOMPLEX)
+            str = "complex"
         case (TFUN)
             str = "function"  ! Simplified
         case (TARRAY)
