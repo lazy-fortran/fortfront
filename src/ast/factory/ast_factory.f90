@@ -62,6 +62,9 @@ module ast_factory
         push_goto, push_error_stop, push_cycle, push_exit, push_allocate, &
         push_deallocate, push_io_implied_do, push_pause, push_nullify
 
+    ! Error nodes
+    use ast_factory_errors, only: push_error_node
+
     implicit none
     private
 
@@ -113,6 +116,9 @@ module ast_factory
     public :: push_end_statement, push_stop, push_return, push_entry, push_continue, &
               push_goto, push_error_stop, push_pause, push_nullify
     public :: push_cycle, push_exit, push_allocate, push_deallocate, push_io_implied_do
+
+    ! Error nodes
+    public :: push_error_node
 
     ! Note: No module body needed - all functionality is provided by re-exported modules
     ! This maintains full API compatibility while achieving architectural compliance

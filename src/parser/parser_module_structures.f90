@@ -7,7 +7,8 @@ module parser_module_structures_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal, &
-                           push_visibility_statement, push_namelist_statement
+                           push_visibility_statement, push_namelist_statement, &
+                           push_error_node
     use parser_namelist_shared_module, only: consume_namelist_group, append_name
     use parser_declarations, only: parse_declaration, parse_derived_type_def, &
                                    parser_is_at_type_definition
@@ -135,6 +136,13 @@ contains
                     case ("interface")
                         stmt_index = parse_interface_block(parser, arena, &
                                                            prefix_buffer)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
+                    case ("enum", "enumerator")
+                        stmt_index = handle_enum_construct(parser, arena, &
+                                                           to_lower(token%text))
                         if (stmt_index > 0) then
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
@@ -320,6 +328,64 @@ contains
                                               procedure_indices, has_contains, &
                                               line, column)
     end function parse_module
+
+    integer function handle_enum_construct(parser, arena, keyword) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: keyword
+        type(token_t) :: token
+        character(len=:), allocatable :: normalized_keyword
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: lowered_text
+        integer :: line, column
+
+        stmt_index = 0
+        normalized_keyword = trim(keyword)
+
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        error_msg = "Unsupported Fortran feature: " // normalized_keyword // &
+                    " constructs are not supported"
+
+        if (normalized_keyword == "enum") then
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD) then
+                    lowered_text = to_lower(trim(token%text))
+                    if (lowered_text == "end" .or. lowered_text == "endenum") then
+                        token = parser%consume()
+                        if (lowered_text == "end") then
+                            if (.not. parser%is_at_end()) then
+                                token = parser%peek()
+                                if (token%kind == TK_KEYWORD) then
+                                    lowered_text = to_lower(trim(token%text))
+                                    if (lowered_text == "enum") then
+                                        token = parser%consume()
+                                    end if
+                                end if
+                            end if
+                        end if
+                        exit
+                    end if
+                end if
+                token = parser%consume()
+            end do
+        else
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
+                    exit
+                end if
+                token = parser%consume()
+            end do
+        end if
+
+        stmt_index = push_error_node(arena, error_msg, normalized_keyword, &
+                                     line, column)
+    end function handle_enum_construct
 
     function parse_visibility_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser

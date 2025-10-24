@@ -414,6 +414,8 @@ contains
                 stmt_index = parse_namelist_statement(parser_ref, arena_ref)
             case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(lowered, parser_ref, arena_ref)
+            case ("enum", "enumerator")
+                stmt_index = parse_unsupported_stmt(lowered, parser_ref, arena_ref)
             case default
                 block
                     type(token_t) :: ignored_token
@@ -422,6 +424,49 @@ contains
                 stmt_index = 0
             end select
         end function parse_general_keyword
+
+        integer function parse_unsupported_stmt(keyword, parser_ref, arena_ref) &
+            result(stmt_index)
+            use ast_factory, only: push_error_node
+            character(len=*), intent(in) :: keyword
+            type(parser_state_t), intent(inout) :: parser_ref
+            type(ast_arena_t), intent(inout) :: arena_ref
+            type(token_t) :: token
+            character(len=:), allocatable :: error_msg, lowered_text
+            integer :: line, column
+
+            token = parser_ref%consume()
+            line = token%line
+            column = token%column
+
+            error_msg = "Unsupported Fortran feature: " // trim(keyword) // &
+                       " constructs are not supported"
+
+            if (trim(keyword) == "enum") then
+                do while (.not. parser_ref%is_at_end())
+                    token = parser_ref%peek()
+                    if (token%kind == TK_KEYWORD) then
+                        lowered_text = to_lower(trim(token%text))
+                        if (lowered_text == "end" .or. lowered_text == "endenum") then
+                            token = parser_ref%consume()
+                            if (lowered_text == "end") then
+                                token = parser_ref%peek()
+                                if (token%kind == TK_KEYWORD) then
+                                    lowered_text = to_lower(trim(token%text))
+                                    if (lowered_text == "enum") then
+                                        token = parser_ref%consume()
+                                    end if
+                                end if
+                            end if
+                            exit
+                        end if
+                    end if
+                    token = parser_ref%consume()
+                end do
+            end if
+
+            stmt_index = push_error_node(arena_ref, error_msg, keyword, line, column)
+        end function parse_unsupported_stmt
 
         integer function handle_identifier_token(parser_ref, arena_ref, &
                                                  current_token) &
