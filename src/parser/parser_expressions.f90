@@ -131,6 +131,33 @@ contains
             entry%precedence = PREC_POWER
             entry%right_associative = .true.
         case default
+            ! User-defined operators (.dot., .cross., etc) - treat as multiplication precedence
+            ! Only handle .name. pattern where name is alphabetic
+            lowered = to_lower(token%text)
+            if (len_trim(lowered) >= 4) then
+                if (lowered(1:1) == '.' .and. lowered(len_trim(lowered):len_trim(lowered)) == '.') then
+                    ! Check if middle part is alphabetic
+                    block
+                        integer :: i, char_code
+                        logical :: is_alpha
+                        is_alpha = .true.
+                        do i = 2, len_trim(lowered) - 1
+                            char_code = iachar(lowered(i:i))
+                            if ((char_code < iachar('a') .or. char_code > iachar('z')) .and. &
+                                (char_code < iachar('0') .or. char_code > iachar('9')) .and. &
+                                lowered(i:i) /= '_') then
+                                is_alpha = .false.
+                                exit
+                            end if
+                        end do
+                        if (is_alpha) then
+                            entry%symbol = token%text
+                            entry%precedence = PREC_FACTOR
+                            return
+                        end if
+                    end block
+                end if
+            end if
             ! Not an infix operator handled here
             return
         end select
