@@ -11,6 +11,7 @@ module standardizer_declarations_core
     use ast_nodes_procedure
     use ast_nodes_loops
     use ast_nodes_control
+    use ast_nodes_io
     use ast_base, only: LITERAL_INTEGER
     use uid_generator, only: generate_uid
     use ast_factory
@@ -1121,6 +1122,10 @@ contains
                 if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
             type is (do_while_node)
                 if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
+            type is (io_implied_do_node)
+                call add_variable(stmt%var_name, "integer", var_names, var_types, &
+                                  var_declared, var_count, function_names, func_count)
+                if (stmt%expr_index > 0) call push(stmt%expr_index)
             type is (if_node)
                 if (allocated(stmt%else_body_indices)) call &
                     push_many(stmt%else_body_indices)
@@ -1130,6 +1135,10 @@ contains
                 if (stmt%selector_index > 0) call push(stmt%selector_index)
                 if (allocated(stmt%case_indices)) call push_many(stmt%case_indices)
                 if (stmt%default_index > 0) call push(stmt%default_index)
+            type is (print_statement_node)
+                if (allocated(stmt%expression_indices)) then
+                    call push_many(stmt%expression_indices)
+                end if
             class default
                 ! other nodes handled elsewhere as needed
             end select
