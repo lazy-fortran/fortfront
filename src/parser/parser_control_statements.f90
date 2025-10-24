@@ -131,6 +131,35 @@ contains
             parser%current_token = i
         end if
 
+        ! Check for optional result clause
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER .and. &
+            to_lower(trim(token%text)) == "result") then
+            params_text = params_text // " result"
+            token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                paren_depth = 0
+                i = parser%current_token
+                do while (i <= size(parser%tokens))
+                    token = parser%tokens(i)
+                    params_text = params_text // trim(token%text)
+                    if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (token%kind == TK_OPERATOR .and. &
+                             trim(token%text) == ")") then
+                        paren_depth = paren_depth - 1
+                        if (paren_depth == 0) then
+                            i = i + 1
+                            exit
+                        end if
+                    end if
+                    i = i + 1
+                end do
+                parser%current_token = i
+            end if
+        end if
+
         ! Create ENTRY node
         entry_index = push_entry(arena, name=entry_name, params_text=params_text, &
                                  line=line, column=column, parent_index=parent_index)
