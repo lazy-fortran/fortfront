@@ -234,7 +234,7 @@ contains
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type, promoted_type, first_type
         type(mono_type_t), allocatable :: args(:), inner_args(:)
-        integer :: i, elem_array_size, first_array_size
+        integer :: i, elem_array_size, first_array_size, max_char_len
         logical :: has_real, all_arrays, consistent_sizes
 
         if (.not. allocated(array_lit%element_indices) .or. &
@@ -250,9 +250,14 @@ contains
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
         consistent_sizes = .true.
+        max_char_len = 0
 
         if (all_arrays) then
             first_array_size = first_type%size
+        end if
+
+        if (first_type%kind == TCHAR) then
+            max_char_len = first_type%size
         end if
 
         do i = 2, size(array_lit%element_indices)
@@ -265,6 +270,10 @@ contains
                 if (elem_array_size /= first_array_size) then
                     consistent_sizes = .false.
                 end if
+            end if
+
+            if (element_type%kind == TCHAR) then
+                max_char_len = max(max_char_len, element_type%size)
             end if
 
             if (element_type%kind == TREAL) then
@@ -303,6 +312,10 @@ contains
         else
             if (has_real .and. promoted_type%kind == TINT) then
                 promoted_type = create_mono_type(TREAL)
+            end if
+
+            if (promoted_type%kind == TCHAR .and. max_char_len > 0) then
+                promoted_type = create_mono_type(TCHAR, char_size=max_char_len)
             end if
 
             allocate (args(1))

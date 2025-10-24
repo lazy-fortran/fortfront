@@ -341,6 +341,50 @@ contains
         end do
     end function generate_real_elements_code
 
+    ! Generate code for character array elements.
+    ! String literals must be padded to consistent target_len.
+    function generate_char_elements_code(arena, element_indices, target_len) &
+        result(elements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: element_indices(:)
+        integer, intent(in) :: target_len
+        character(len=:), allocatable :: elements_code
+        character(len=:), allocatable :: elem_code
+        integer :: i, str_len, pad_len
+        character(len=:), allocatable :: padding
+        logical :: is_string_lit
+
+        elements_code = ""
+        do i = 1, size(element_indices)
+            if (i > 1) elements_code = elements_code // ", "
+            if (element_indices(i) <= 0) cycle
+            elem_code = generate_code_from_arena(arena, element_indices(i))
+            elem_code = trim(elem_code)
+
+            ! Check if this is a string literal that needs padding
+            is_string_lit = .false.
+            if (len(elem_code) >= 2) then
+                if (elem_code(1:1) == '"' .or. elem_code(1:1) == "'") then
+                    is_string_lit = .true.
+                end if
+            end if
+
+            if (is_string_lit) then
+                str_len = len(elem_code) - 2
+                if (str_len < target_len) then
+                    pad_len = target_len - str_len
+                    allocate (character(len=pad_len) :: padding)
+                    padding = repeat(" ", pad_len)
+                    elem_code = elem_code(1:len(elem_code) - 1) // &
+                                padding // elem_code(len(elem_code):len(elem_code))
+                    deallocate (padding)
+                end if
+            end if
+
+            elements_code = elements_code // elem_code
+        end do
+    end function generate_char_elements_code
+
     ! Generate code for array literals
     function nested_array_shape(arena, node, num_rows, num_cols) result(is_rectangular)
         type(ast_arena_t), intent(in) :: arena
@@ -471,7 +515,7 @@ contains
             end if
         end if
 
-        ! Check if this is a real array to handle type conversion
+        ! Check array type to handle type-specific code generation
         is_real_array = .false.
         if (node%inferred_type%kind == TARRAY) then
             if (node%inferred_type%has_args() .and. &
@@ -503,14 +547,61 @@ contains
             end if
         end if
 
-        ! Generate elements code based on array type (for type conversion)
+        ! Generate elements code based on array type
         if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
             if (is_real_array) then
                 elements_code = generate_real_elements_code(arena, &
                                                             node%element_indices)
+            else if (node%inferred_type%kind == TARRAY .and. &
+                     node%inferred_type%has_args() .and. &
+                     node%inferred_type%get_args_count() > 0) then
+                array_type = node%inferred_type%get_arg(1)
+                if (array_type%kind == TCHAR .and. array_type%size > 0) then
+                    elements_code = generate_char_elements_code( &
+                        arena, node%element_indices, array_type%size)
+                else
+                    elements_code = generate_elements_code_from_indices(arena, &
+                        & node%element_indices)
+                end if
             else
-                elements_code = generate_elements_code_from_indices(arena, &
-                    & node%element_indices)
+                ! Fallback: check if elements are character literals
+                block
+                    integer :: max_len_fallback, j, str_len_val
+                    logical :: all_char
+                    max_len_fallback = 0
+                    all_char = .true.
+                    do j = 1, size(node%element_indices)
+                        if (node%element_indices(j) <= 0) cycle
+                        associate (entry => arena%entries(node%element_indices(j)))
+                            if (.not. allocated(entry%node)) then
+                                all_char = .false.
+                                exit
+                            end if
+                            select type (elem => entry%node)
+                            type is (literal_node)
+                                if (allocated(elem%value) .and. &
+                                    len(elem%value) >= 2) then
+                                    str_len_val = len(elem%value) - 2
+                                    max_len_fallback = max(max_len_fallback, &
+                                                           str_len_val)
+                                else
+                                    all_char = .false.
+                                    exit
+                                end if
+                            class default
+                                all_char = .false.
+                                exit
+                            end select
+                        end associate
+                    end do
+                    if (all_char .and. max_len_fallback > 0) then
+                        elements_code = generate_char_elements_code( &
+                            arena, node%element_indices, max_len_fallback)
+                    else
+                        elements_code = generate_elements_code_from_indices(arena, &
+                            & node%element_indices)
+                    end if
+                end block
             end if
         else
             elements_code = ""
