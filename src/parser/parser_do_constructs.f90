@@ -4,7 +4,7 @@ module parser_do_constructs_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module
-    use parser_expressions_module, only: parse_logical_or, parse_range
+    use parser_expressions_module, only: parse_logical_or
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_factory, only: push_do_loop, push_do_while
@@ -18,6 +18,13 @@ module parser_do_constructs_module
                                             find_statement_end
     implicit none
     private
+
+    type :: do_loop_control_t
+        character(len=:), allocatable :: var_name
+        integer :: start_index = 0
+        integer :: end_index = 0
+        integer :: step_index = 0
+    end type do_loop_control_t
 
     logical, save :: if_hooks_initialized = .false.
 
@@ -36,6 +43,187 @@ contains
     subroutine ensure_if_do_registration()
         call initialize_if_hooks()
     end subroutine ensure_if_do_registration
+
+    subroutine append_control(control_list, control)
+        type(do_loop_control_t), allocatable, intent(inout) :: control_list(:)
+        type(do_loop_control_t), intent(in) :: control
+
+        if (.not. allocated(control_list)) then
+            allocate (control_list(1))
+            control_list(1) = control
+        else
+            control_list = [control_list, control]
+        end if
+    end subroutine append_control
+
+    logical function next_tokens_form_control(parser, start_pos) result(is_control)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(in) :: start_pos
+        integer :: idx
+
+        idx = start_pos
+        do while (idx <= size(parser%tokens))
+            select case (parser%tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > size(parser%tokens)) then
+            is_control = .false.
+            return
+        end if
+
+        if (parser%tokens(idx)%kind /= TK_IDENTIFIER) then
+            is_control = .false.
+            return
+        end if
+
+        idx = idx + 1
+        do while (idx <= size(parser%tokens))
+            select case (parser%tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > size(parser%tokens)) then
+            is_control = .false.
+            return
+        end if
+
+        if (parser%tokens(idx)%kind == TK_OPERATOR .and. &
+            parser%tokens(idx)%text == "=") then
+            is_control = .true.
+        else
+            is_control = .false.
+        end if
+    end function next_tokens_form_control
+
+    logical function parse_standard_control(parser, arena, control) result(success)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(do_loop_control_t), intent(out) :: control
+        type(token_t) :: tok
+        logical :: allow_colon_step
+
+        success = .false.
+        control%step_index = 0
+
+        tok = parser%consume()
+        if (tok%kind /= TK_IDENTIFIER) return
+        control%var_name = tok%text
+
+        tok = parser%consume()
+        if (tok%kind /= TK_OPERATOR .or. tok%text /= "=") return
+
+        control%start_index = parse_logical_or(parser, arena)
+        if (control%start_index <= 0) return
+
+        tok = parser%consume()
+        if (tok%kind /= TK_OPERATOR) return
+        allow_colon_step = tok%text == ":"
+        if (.not. (tok%text == "," .or. tok%text == ":")) return
+
+        control%end_index = parse_logical_or(parser, arena)
+        if (control%end_index <= 0) return
+
+        if (.not. parser%is_at_end()) then
+            tok = parser%peek()
+            if (tok%kind == TK_OPERATOR) then
+                if (tok%text == ",") then
+                    tok = parser%consume()
+                    control%step_index = parse_logical_or(parser, arena)
+                    if (control%step_index <= 0) return
+                else if (allow_colon_step .and. tok%text == ":") then
+                    tok = parser%consume()
+                    control%step_index = parse_logical_or(parser, arena)
+                    if (control%step_index <= 0) return
+                end if
+            end if
+        end if
+
+        if (control%step_index < 0) control%step_index = 0
+        success = control%start_index > 0 .and. control%end_index > 0
+    end function parse_standard_control
+
+    logical function parse_concurrent_control(parser, arena, control) result(success)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(do_loop_control_t), intent(out) :: control
+        type(token_t) :: tok
+
+        success = .false.
+        control%step_index = 0
+
+        tok = parser%consume()
+        if (tok%kind /= TK_IDENTIFIER) return
+        control%var_name = tok%text
+
+        tok = parser%consume()
+        if (tok%kind /= TK_OPERATOR .or. tok%text /= "=") return
+
+        control%start_index = parse_logical_or(parser, arena)
+        if (control%start_index <= 0) return
+
+        tok = parser%consume()
+        if (tok%kind /= TK_OPERATOR .or. tok%text /= ":") return
+
+        control%end_index = parse_logical_or(parser, arena)
+        if (control%end_index <= 0) return
+
+        if (.not. parser%is_at_end()) then
+            tok = parser%peek()
+            if (tok%kind == TK_OPERATOR .and. tok%text == ":") then
+                tok = parser%consume()
+                control%step_index = parse_logical_or(parser, arena)
+                if (control%step_index <= 0) return
+            end if
+        end if
+
+        if (control%step_index < 0) control%step_index = 0
+        success = control%start_index > 0 .and. control%end_index > 0
+    end function parse_concurrent_control
+
+    logical function parse_concurrent_control_list(parser, arena, controls) &
+        result(success)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(do_loop_control_t), allocatable, intent(out) :: controls(:)
+        type(do_loop_control_t) :: control
+        type(token_t) :: tok
+        integer :: lookahead
+
+        success = .false.
+        if (allocated(controls)) then
+            deallocate (controls)
+        end if
+        allocate (controls(0))
+
+        if (.not. parse_concurrent_control(parser, arena, control)) return
+        call append_control(controls, control)
+
+        do
+            if (parser%is_at_end()) exit
+            tok = parser%peek()
+            if (tok%kind /= TK_OPERATOR .or. tok%text /= ",") exit
+
+            lookahead = parser%current_token + 1
+            if (.not. next_tokens_form_control(parser, lookahead)) return
+
+            tok = parser%consume()
+            if (.not. parse_concurrent_control(parser, arena, control)) return
+            call append_control(controls, control)
+        end do
+
+        success = size(controls) > 0
+    end function parse_concurrent_control_list
 
     logical function has_then_before_newline(tokens, start_pos)
         type(token_t), intent(in) :: tokens(:)
@@ -209,10 +397,14 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index
 
-        type(token_t) :: do_token, var_token, eq_token, comma_token, label_token
+        type(token_t) :: do_token, var_token, comma_token, label_token
         character(len=:), allocatable :: var_name, loop_label
+        type(do_loop_control_t), allocatable :: controls(:)
+        type(do_loop_control_t) :: control
         integer :: start_index, end_index, step_index
         integer :: line, column
+        integer :: control_count
+        logical :: has_open_paren
 
         call initialize_if_hooks()
 
@@ -253,78 +445,59 @@ contains
             return
         end if
 
-        ! Check if it's a do concurrent loop
+        allocate (controls(0))
+        has_open_paren = .false.
+
         if (var_token%kind == TK_KEYWORD .and. var_token%text == "concurrent") then
-            ! Consume 'concurrent'
             var_token = parser%consume()
-            ! Expect '('
-            var_token = parser%peek()
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                var_token = parser%consume()
+
+            if (.not. parser%is_at_end()) then
+                comma_token = parser%peek()
+                if (comma_token%kind == TK_OPERATOR .and. comma_token%text == "(") then
+                    has_open_paren = .true.
+                    comma_token = parser%consume()
+                end if
             end if
+
+            if (.not. parse_concurrent_control_list(parser, arena, controls)) then
+                loop_index = 0
+                return
+            end if
+
+            if (has_open_paren) then
+                if (parser%is_at_end()) then
+                    loop_index = 0
+                    return
+                end if
+                comma_token = parser%consume()
+                if (comma_token%kind /= TK_OPERATOR .or. comma_token%text /= ")") then
+                    loop_index = 0
+                    return
+                end if
+            end if
+        else
+            if (.not. parse_standard_control(parser, arena, control)) then
+                loop_index = 0
+                return
+            end if
+            call append_control(controls, control)
         end if
 
-        ! Get variable name
-        var_token = parser%consume()
-        if (var_token%kind /= TK_IDENTIFIER) then
-            ! Error: expected identifier
-            ! ERROR - expected identifier
-            return
-        end if
-        var_name = var_token%text
-        ! Got variable name
-
-        ! Expect '='
-        eq_token = parser%consume()
-        if (eq_token%kind /= TK_OPERATOR .or. eq_token%text /= "=") then
-            ! Error: expected '='
-            return
-        end if
-
-        ! Parse start expression
-        ! Use parse_logical_or for simple expressions to avoid range parsing
-        start_index = parse_logical_or(parser, arena)
-
-        if (start_index <= 0) then
-            ! Failed to parse start expression
+        control_count = size(controls)
+        if (control_count <= 0) then
             loop_index = 0
             return
         end if
 
-        ! Expect ',' or ':'
-        comma_token = parser%consume()
-        if (comma_token%kind /= TK_OPERATOR .or. &
-            (comma_token%text /= "," .and. comma_token%text /= ":")) then
-            ! Error: expected ',' or ':'
+        control = controls(control_count)
+        var_name = control%var_name
+        start_index = control%start_index
+        end_index = control%end_index
+        step_index = control%step_index
+
+        if (start_index <= 0 .or. end_index <= 0) then
             loop_index = 0
             return
-        end if
-
-        ! Parse end expression
-        end_index = parse_logical_or(parser, arena)
-
-        if (end_index <= 0) then
-            ! Failed to parse end expression
-            loop_index = 0
-            return
-        end if
-
-        ! Check for optional step
-        if (.not. parser%is_at_end()) then
-            comma_token = parser%peek()
-            if (comma_token%kind == TK_OPERATOR .and. &
-                (comma_token%text == "," .or. comma_token%text == ":")) then
-                comma_token = parser%consume()  ! consume comma or colon
-                step_index = parse_logical_or(parser, arena)
-            end if
-        end if
-
-        ! Check for closing ')' if DO CONCURRENT
-        if (.not. parser%is_at_end()) then
-            comma_token = parser%peek()
-            if (comma_token%kind == TK_OPERATOR .and. comma_token%text == ")") then
-                comma_token = parser%consume()  ! consume ')'
-            end if
         end if
 
         ! Parse body statements until 'end do'
@@ -339,7 +512,7 @@ contains
             callbacks = build_do_body_callbacks()
 
             if (step_index > 0) then
-                if (allocated(loop_label)) then
+                if (control_count == 1 .and. allocated(loop_label)) then
                     loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
@@ -352,7 +525,7 @@ contains
                                               line=line, column=column)
                 end if
             else
-                if (allocated(loop_label)) then
+                if (control_count == 1 .and. allocated(loop_label)) then
                     loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
@@ -587,6 +760,63 @@ contains
                 end select
             end if
         end block
+
+        if (control_count > 1) then
+            block
+                integer :: idx, outer_index, outer_step
+                integer :: outer_start, outer_end
+                character(len=:), allocatable :: outer_name
+
+                do idx = control_count - 1, 1, -1
+                    outer_name = controls(idx)%var_name
+                    outer_start = controls(idx)%start_index
+                    outer_end = controls(idx)%end_index
+                    outer_step = controls(idx)%step_index
+
+                    if (outer_start <= 0 .or. outer_end <= 0) then
+                        loop_index = 0
+                        return
+                    end if
+
+                    if (outer_step > 0) then
+                        if (idx == 1 .and. allocated(loop_label)) then
+                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                                                       outer_end, &
+                                                       step_index=outer_step, &
+                                                       body_indices=[loop_index], &
+                                                       loop_label=loop_label, &
+                                                       line=line, column=column)
+                        else
+                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                                                       outer_end, &
+                                                       step_index=outer_step, &
+                                                       body_indices=[loop_index], &
+                                                       line=line, column=column)
+                        end if
+                    else
+                        if (idx == 1 .and. allocated(loop_label)) then
+                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                                                       outer_end, &
+                                                       body_indices=[loop_index], &
+                                                       loop_label=loop_label, &
+                                                       line=line, column=column)
+                        else
+                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                                                       outer_end, &
+                                                       body_indices=[loop_index], &
+                                                       line=line, column=column)
+                        end if
+                    end if
+
+                    if (outer_index <= 0) then
+                        loop_index = 0
+                        return
+                    end if
+
+                    loop_index = outer_index
+                end do
+            end block
+        end if
 
     end function parse_do_loop
 
