@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 36
+        integer, parameter :: NUM_INTRINSICS = 52
         integer :: i
 
         if (registry_initialized) return
@@ -145,6 +145,12 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="atan", return_type="real", arg_types="real", &
                                  description="Arc tangent function")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="sign", return_type="real", &
+                                 arg_types="real,real", &
+                                 description="Sign transfer function")
     end subroutine register_mathematical_intrinsics
 
     subroutine register_type_conversion_intrinsics(i)
@@ -230,6 +236,60 @@ contains
                                  name="reshape", return_type="array", &
                                  arg_types="array,integer_array", &
                                  description="Reshape array to new dimensions")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="dot_product", return_type="numeric", &
+                                 arg_types="array,array", &
+                                 description="Dot product of two vectors")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="matmul", return_type="array", &
+                                 arg_types="array,array", &
+                                 description="Matrix multiplication")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="transpose", return_type="array", &
+                                 arg_types="array", &
+                                 description="Matrix transpose")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="product", return_type="numeric", &
+                                 arg_types="array", &
+                                 description="Product of array elements")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="any", return_type="logical", &
+                                 arg_types="logical_array", &
+                                 description="True if any element is true")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="all", return_type="logical", &
+                                 arg_types="logical_array", &
+                                 description="True if all elements are true")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="minloc", return_type="integer_array", &
+                                 arg_types="array", &
+                                 description="Location of minimum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="maxloc", return_type="integer_array", &
+                                 arg_types="array", &
+                                 description="Location of maximum value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="pack", return_type="array", &
+                                 arg_types="array,logical_array", &
+                                 description="Pack array into vector")
     end subroutine register_array_intrinsics
 
     subroutine register_string_intrinsics(i)
@@ -321,6 +381,42 @@ contains
                                  arg_types="allocatable", &
                                  description="Check if allocatable variable is "// &
                                  "allocated")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="huge", return_type="numeric", &
+                                 arg_types="numeric", &
+                                 description="Largest number of the kind")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="epsilon", return_type="real", &
+                                 arg_types="real", &
+                                 description="Machine epsilon")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="kind", return_type="integer", &
+                                 arg_types="any", &
+                                 description="Kind type parameter value")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="selected_int_kind", return_type="integer", &
+                                 arg_types="integer", &
+                                 description="Integer kind for range")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="lbound", return_type="integer_array", &
+                                 arg_types="array", &
+                                 description="Lower bounds of array")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="ubound", return_type="integer_array", &
+                                 arg_types="array", &
+                                 description="Upper bounds of array")
     end subroutine register_inquiry_intrinsics
 
     ! Helper function to convert string to lowercase
