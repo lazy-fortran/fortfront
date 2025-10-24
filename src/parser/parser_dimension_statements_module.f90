@@ -354,13 +354,17 @@ contains
             allocate (decl%dimension_indices(0))
         end if
 
+        ! Only set allocatable for deferred dimensions if not a parameter constant
+        ! (parameters cannot be allocatable - fixes issue #1810)
         decl%is_allocatable = .false.
-        do n = 1, size(dimension_indices)
-            if (dimension_indices(n) == 0) then
-                decl%is_allocatable = .true.
-                exit
-            end if
-        end do
+        if (.not. decl%is_parameter) then
+            do n = 1, size(dimension_indices)
+                if (dimension_indices(n) == 0) then
+                    decl%is_allocatable = .true.
+                    exit
+                end if
+            end do
+        end if
     end subroutine set_declaration_dimensions
 
     logical function find_container_for_declaration(arena, decl_index, container_idx, &
