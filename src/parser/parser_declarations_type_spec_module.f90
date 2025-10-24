@@ -443,7 +443,7 @@ contains
             case default
                 call append_token(collected_tokens, token)
                 token = parser%consume()
-                call consume_comma_if_present(parser)
+                if (depth == 0) call consume_comma_if_present(parser)
             end select
         end do
 

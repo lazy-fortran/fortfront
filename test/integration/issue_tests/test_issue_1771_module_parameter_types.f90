@@ -34,7 +34,8 @@ contains
         source = &
             "module math_utils" // new_line('a') // &
             "    implicit none" // new_line('a') // &
-            "    integer, parameter :: dp = selected_real_kind(15)" // new_line('a') // &
+            "    integer, parameter :: dp = selected_real_kind(15, 307)" // &
+            & new_line('a') // &
             "contains" // new_line('a') // &
             "    function square(x) result(res)" // new_line('a') // &
             "        real(dp), intent(in) :: x" // new_line('a') // &
@@ -46,7 +47,7 @@ contains
             "program test_module_only" // new_line('a') // &
             "    use math_utils, only: square" // new_line('a') // &
             "    implicit none" // new_line('a') // &
-            "    real(selected_real_kind(15)) :: x" // new_line('a') // &
+            "    real(selected_real_kind(15, 307)) :: x" // new_line('a') // &
             "    x = 2.5" // new_line('a') // &
             "    print *, 'Square:', square(x)" // new_line('a') // &
             "end program test_module_only"
@@ -69,9 +70,9 @@ contains
 
         output_code = codegen_core_generate_arena(arena, root_index)
 
-        if (index(output_code, "real(selected_real_kind(15)) :: x") <= 0) then
+        if (index(output_code, "real(selected_real_kind(15,307)) :: x") <= 0) then
             print *, "FAIL: Type specifier not preserved in program declaration"
-            print *, "Expected: real(selected_real_kind(15)) :: x"
+            print *, "Expected: real(selected_real_kind(15,307)) :: x"
             print *, "Output:"
             print *, trim(output_code)
             passed = .false.
