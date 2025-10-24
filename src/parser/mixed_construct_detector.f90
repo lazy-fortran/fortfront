@@ -246,9 +246,9 @@ contains
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos
 
-        integer :: i, lookahead
+        integer :: i, lookahead, depth
         character(len=:), allocatable :: start_keyword, end_keyword
-        character(len=:), allocatable :: next_word
+        character(len=:), allocatable :: next_word, current_word
 
         if (start_pos > size(tokens)) then
             end_pos = start_pos
@@ -295,14 +295,57 @@ contains
             return
         end select
 
-        ! Find matching end statement
+        ! Find matching end statement with depth tracking for nested procedures
+        depth = 0
         do i = start_pos + 1, size(tokens)
-            if (tokens(i)%kind == TK_KEYWORD .and. trim(tokens(i)%text) == "end") then
-                ! Check if next token matches our end keyword
-                if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD .and. &
-                    trim(tokens(i + 1)%text) == end_keyword) then
-                    end_pos = i + 1
-                    return
+            if (tokens(i)%kind == TK_KEYWORD) then
+                current_word = to_lower(trim(tokens(i)%text))
+
+                ! Check if previous keyword was end
+                block
+                    integer :: prev_pos
+                    character(len=:), allocatable :: prev_word
+                    logical :: is_after_end
+
+                    is_after_end = .false.
+                    if (i > 1) then
+                        prev_pos = i - 1
+                        do while (prev_pos > 0)
+                            if (tokens(prev_pos)%kind == TK_KEYWORD) then
+                                prev_word = to_lower(trim(tokens(prev_pos)%text))
+                                if (prev_word == "end") is_after_end = .true.
+                                exit
+                            else if (tokens(prev_pos)%kind /= TK_WHITESPACE .and. &
+                                     tokens(prev_pos)%kind /= TK_NEWLINE .and. &
+                                     tokens(prev_pos)%kind /= TK_COMMENT) then
+                                exit
+                            end if
+                            prev_pos = prev_pos - 1
+                        end do
+                    end if
+
+                    ! Track nesting depth by counting start keywords
+                    ! But skip if this is part of end function
+                    if (current_word == start_keyword .and. .not. is_after_end) then
+                        depth = depth + 1
+                    end if
+                end block
+
+                if (current_word == "end") then
+                    ! Check if next token matches our end keyword
+                    if (i + 1 <= size(tokens) .and. &
+                        tokens(i + 1)%kind == TK_KEYWORD .and. &
+                        to_lower(trim(tokens(i + 1)%text)) == end_keyword) then
+
+                        if (depth == 0) then
+                            ! Found matching end for this unit
+                            end_pos = i + 1
+                            return
+                        else
+                            ! Found end for nested unit, decrease depth
+                            depth = depth - 1
+                        end if
+                    end if
                 end if
             end if
         end do
