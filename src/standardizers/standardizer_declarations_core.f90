@@ -831,27 +831,38 @@ contains
             ! Check if dimensions match - only update if they differ
             if (size(decl_node%dimension_indices) == ndims) then
                 block
-                    logical :: dimensions_match
-                    integer :: existing_dim, inferred_dim, dim_idx
+                    logical :: dimensions_match, dimensions_known
+                    integer :: existing_dim, dim_idx
                     dimensions_match = .true.
+                    dimensions_known = .true.
                     do i = 1, ndims
                         dim_idx = decl_node%dimension_indices(i)
-                        if (dim_idx > 0 .and. dim_idx <= arena%size) then
-                            if (allocated(arena%entries(dim_idx)%node)) then
-                                select type (dim_node => arena%entries(dim_idx)%node)
-                                type is (literal_node)
-                                    read (dim_node%value, *, iostat=iostat) existing_dim
-                                    if (iostat == 0 .and. existing_dim /= dimensions(i)) then
-                                        dimensions_match = .false.
-                                        exit
-                                    end if
-                                class default
-                                    dimensions_match = .false.
-                                    exit
-                                end select
-                            end if
+                        if (dim_idx <= 0 .or. dim_idx > arena%size) cycle
+                        if (.not. allocated(arena%entries(dim_idx)%node)) then
+                            dimensions_known = .false.
+                            exit
                         end if
+                        select type (dim_node => arena%entries(dim_idx)%node)
+                        type is (literal_node)
+                            read (dim_node%value, *, iostat=iostat) existing_dim
+                            if (iostat /= 0) then
+                                dimensions_known = .false.
+                                exit
+                            end if
+                            if (existing_dim /= dimensions(i)) then
+                                dimensions_match = .false.
+                                exit
+                            end if
+                        class default
+                            dimensions_known = .false.
+                            exit
+                        end select
                     end do
+                    if (.not. dimensions_known) then
+                        ! Cannot prove mismatch, preserve explicit bounds
+                        deallocate (dimensions)
+                        return
+                    end if
                     if (dimensions_match) then
                         ! Dimensions match, preserve existing bounds
                         deallocate (dimensions)
