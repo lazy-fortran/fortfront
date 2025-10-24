@@ -557,9 +557,8 @@ contains
                      node%inferred_type%get_args_count() > 0) then
                 array_type = node%inferred_type%get_arg(1)
                 if (array_type%kind == TCHAR .and. array_type%size > 0) then
-                    elements_code = generate_char_elements_code(arena, &
-                                                                node%element_indices, &
-                                                                array_type%size)
+                    elements_code = generate_char_elements_code( &
+                        arena, node%element_indices, array_type%size)
                 else
                     elements_code = generate_elements_code_from_indices(arena, &
                         & node%element_indices)
@@ -580,9 +579,11 @@ contains
                             end if
                             select type (elem => entry%node)
                             type is (literal_node)
-                                if (allocated(elem%value) .and. len(elem%value) >= 2) then
+                                if (allocated(elem%value) .and. &
+                                    len(elem%value) >= 2) then
                                     str_len_val = len(elem%value) - 2
-                                    max_len_fallback = max(max_len_fallback, str_len_val)
+                                    max_len_fallback = max(max_len_fallback, &
+                                                           str_len_val)
                                 else
                                     all_char = .false.
                                     exit
@@ -594,9 +595,8 @@ contains
                         end associate
                     end do
                     if (all_char .and. max_len_fallback > 0) then
-                        elements_code = generate_char_elements_code(arena, &
-                                                                    node%element_indices, &
-                                                                    max_len_fallback)
+                        elements_code = generate_char_elements_code( &
+                            arena, node%element_indices, max_len_fallback)
                     else
                         elements_code = generate_elements_code_from_indices(arena, &
                             & node%element_indices)
