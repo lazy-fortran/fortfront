@@ -3,7 +3,7 @@ module codegen_declarations_procedures
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_core, only: identifier_node
+    use ast_nodes_core, only: identifier_node, assignment_node
     use ast_nodes_misc, only: implicit_statement_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
@@ -208,6 +208,7 @@ contains
 
         body = maybe_add_function_implicit_none(arena, body_indices)
         body = body // collect_function_parameter_decls(arena, node, param_map)
+        body = body // collect_local_variable_decls(arena, node, param_map)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
@@ -698,4 +699,122 @@ contains
 
         param_type = 'real'
     end function get_param_type_fallback
+
+    function collect_local_variable_decls(arena, func, param_map) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable :: decl_code
+        character(len=64), allocatable :: local_vars(:)
+        integer :: i, stmt_idx, n_locals, capacity
+        character(len=64) :: var_name
+        character(len=:), allocatable :: result_name
+
+        decl_code = ""
+        n_locals = 0
+        capacity = 0
+
+        result_name = ""
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else if (allocated(func%name)) then
+            result_name = trim(func%name)
+        end if
+
+        if (.not. allocated(func%body_indices)) return
+
+        do i = 1, size(func%body_indices)
+            stmt_idx = func%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (assignment_node)
+                if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
+
+                select type (target => arena%entries(stmt%target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (target%inferred_type%kind == 0) cycle
+
+                    var_name = trim(target%name)
+
+                    if (len_trim(result_name) > 0 .and. &
+                        var_name == result_name) cycle
+
+                    if (is_parameter_name(var_name, param_map)) cycle
+
+                    if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
+                        then
+                        call ensure_local_var_capacity(local_vars, capacity, &
+                                                       n_locals + 1)
+                        n_locals = n_locals + 1
+                        local_vars(n_locals) = var_name
+                        decl_code = decl_code // "    " // &
+                                    mono_type_to_string(target%inferred_type, &
+                                                        include_shape=.true., &
+                                                        fallback='integer') // &
+                                    " :: " // trim(var_name) // new_line('A')
+                    end if
+                end select
+            end select
+        end do
+    end function collect_local_variable_decls
+
+    logical function is_parameter_name(name, param_map) result(is_param)
+        character(len=*), intent(in) :: name
+        type(parameter_info_t), intent(in) :: param_map(:)
+        integer :: i
+
+        is_param = .false.
+        do i = 1, size(param_map)
+            if (allocated(param_map(i)%name)) then
+                if (trim(param_map(i)%name) == trim(name)) then
+                    is_param = .true.
+                    return
+                end if
+            end if
+        end do
+    end function is_parameter_name
+
+    logical function is_local_var_collected(name, collected, n) result(found)
+        character(len=*), intent(in) :: name
+        character(len=*), allocatable, intent(in) :: collected(:)
+        integer, intent(in) :: n
+        integer :: i
+
+        found = .false.
+        if (.not. allocated(collected)) return
+        do i = 1, n
+            if (trim(collected(i)) == trim(name)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function is_local_var_collected
+
+    subroutine ensure_local_var_capacity(local_vars, capacity, required_size)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: capacity
+        integer, intent(in) :: required_size
+        character(len=64), allocatable :: grown(:)
+        integer :: new_capacity
+
+        if (capacity >= required_size) return
+
+        if (capacity > 0) then
+            new_capacity = max(capacity * 2, required_size)
+            allocate (grown(new_capacity))
+            grown = ''
+            grown(1:capacity) = local_vars(1:capacity)
+            call move_alloc(grown, local_vars)
+        else
+            new_capacity = max(4, required_size)
+            allocate (local_vars(new_capacity))
+            local_vars = ''
+        end if
+
+        capacity = new_capacity
+    end subroutine ensure_local_var_capacity
 end module codegen_declarations_procedures
