@@ -202,6 +202,7 @@ contains
         attr_info%is_external = node%is_external
         attr_info%is_parameter = node%is_parameter
         attr_info%is_save = node%is_save
+        attr_info%is_volatile = node%is_volatile
         if (node%is_array .and. allocated(node%dimension_indices) .and. &
             .not. node%is_multi_declaration .and. .not. node%is_allocatable .and. &
             node%has_intent) then
