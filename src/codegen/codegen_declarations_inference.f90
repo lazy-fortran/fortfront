@@ -1,7 +1,7 @@
 module codegen_declarations_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
-                              identifier_node, program_node
+                              identifier_node, program_node, array_literal_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, module_node
@@ -581,6 +581,9 @@ contains
         type(program_decl_state_t), intent(in) :: state
         character(len=:), allocatable :: type_name
         integer :: value_idx
+        logical :: standardize_types_enabled
+
+        call get_type_standardization(standardize_types_enabled)
 
         type_name = ""
         value_idx = stmt%value_index
@@ -593,6 +596,11 @@ contains
             type_name = lookup_function_return_type(state%defined_func_names, &
                                                     state%defined_func_types, &
                                                     state%defined_func_count, rhs%name)
+        type is (array_literal_node)
+            type_name = mono_type_to_string(rhs%inferred_type, &
+                                            include_shape=.true., &
+                                            standardize_real=standardize_types_enabled, &
+                                            fallback='')
         end select
     end function infer_function_return_type_from_rhs
 

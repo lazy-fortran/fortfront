@@ -1,0 +1,52 @@
+program test_issue_1778_debug
+    use lexer_core
+    use fortfront
+    implicit none
+    character(len=:), allocatable :: input_code, output_code, error_msg
+    type(token_t), allocatable :: tokens(:)
+
+    print *, "Testing nested array literal with debugging..."
+
+    ! Nested 2D array
+    input_code = "data = [[1, 2], [3, 4]]"
+
+    print *, "Input:", trim(input_code)
+
+    ! Test lexing first
+    call lex_source(input_code, tokens, error_msg)
+
+    if (len_trim(error_msg) > 0) then
+        print *, "Lexer error:", trim(error_msg)
+        stop 1
+    end if
+
+    print *, "Number of tokens:", size(tokens)
+    print *, "Tokens:"
+    block
+        integer :: i
+        do i = 1, min(size(tokens), 20)
+            print *, "  ", i, ":", trim(tokens(i)%text), "kind=", tokens(i)%kind
+        end do
+    end block
+
+    ! Now test transformation
+    call transform_lazy_fortran_string(input_code, output_code, error_msg)
+
+    if (len_trim(error_msg) > 0) then
+        print *, "Transform error:", trim(error_msg)
+    end if
+
+    if (allocated(output_code)) then
+        print *, "Output allocated: YES"
+        print *, "Output length:", len(output_code)
+        if (len(output_code) > 0) then
+            print *, "Output:"
+            print *, trim(output_code)
+        else
+            print *, "OUTPUT IS EMPTY (but allocated)!"
+        end if
+    else
+        print *, "OUTPUT NOT ALLOCATED!"
+    end if
+
+end program test_issue_1778_debug
