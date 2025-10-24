@@ -20,7 +20,7 @@ contains
     ! Create function definition node and add to stack
     function push_function_def(arena, name, param_indices, return_type, body_indices, &
                                line, column, parent_index, result_variable, &
-                               is_recursive, prefix_keywords) result(func_index)
+                               is_recursive, prefix_keywords, bind_c_clause) result(func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
@@ -30,6 +30,7 @@ contains
         character(len=*), intent(in), optional :: result_variable
         logical, intent(in), optional :: is_recursive
         character(len=16), intent(in), optional :: prefix_keywords(:)
+        character(len=*), intent(in), optional :: bind_c_clause
         integer :: func_index
         type(function_def_node) :: func_def
 
@@ -39,6 +40,9 @@ contains
         if (present(is_recursive)) then
             func_def%is_recursive = is_recursive
         end if
+        if (present(bind_c_clause)) then
+            func_def%bind_c_clause = bind_c_clause
+        end if
         call arena%push(func_def, "function_def", parent_index)
         func_index = arena%size
     end function push_function_def
@@ -46,7 +50,7 @@ contains
     ! Create subroutine definition node and add to stack
     function push_subroutine_def(arena, name, param_indices, body_indices, &
                                  line, column, parent_index, is_recursive, &
-                                 prefix_keywords) result(sub_index)
+                                 prefix_keywords, bind_c_clause) result(sub_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
@@ -54,6 +58,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         logical, intent(in), optional :: is_recursive
         character(len=16), intent(in), optional :: prefix_keywords(:)
+        character(len=*), intent(in), optional :: bind_c_clause
         integer :: sub_index
         type(subroutine_def_node) :: sub_def
 
@@ -77,6 +82,9 @@ contains
                 sub_def = create_subroutine_def(name, param_indices, body_indices, &
                                                 line, column)
             end if
+        end if
+        if (present(bind_c_clause)) then
+            sub_def%bind_c_clause = bind_c_clause
         end if
         call arena%push(sub_def, "subroutine_def", parent_index)
         sub_index = arena%size
