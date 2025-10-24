@@ -119,6 +119,7 @@ contains
                     end do
 
                     if (is_abstract_interface) then
+                        next_token = parser%consume()
                         stmt_index = parse_interface_block(parser, arena, &
                                                            prefix_buffer, &
                                                            is_abstract=.true.)

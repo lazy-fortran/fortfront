@@ -132,16 +132,6 @@ contains
         type(token_t) :: token
         character(len=:), allocatable :: lowered
 
-        if (present(is_abstract)) then
-            if (is_abstract) then
-                token = parser%peek()
-                lowered = to_lower(trim(token%text))
-                if (lowered == "abstract") then
-                    token = parser%consume()
-                end if
-            end if
-        end if
-
         token = parser%consume()
         line = token%line
         column = token%column
