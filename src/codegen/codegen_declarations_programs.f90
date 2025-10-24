@@ -265,17 +265,13 @@ contains
             code = code // "    implicit none" // new_line('A')
         end if
 
-        if (len(interface_blocks_code) > 0) code = code // interface_blocks_code
-
         extra_decl_code = ""
         extra_decls = collect_program_variable_decls(arena, node)
         if (len_trim(extra_decls) > 0) then
-            if (.not. has_implicit) then
-                code = code // extra_decls
-            else
-                extra_decl_code = extra_decls
-            end if
+            code = code // extra_decls
         end if
+
+        if (len(interface_blocks_code) > 0) code = code // interface_blocks_code
     end subroutine assemble_program_header
 
     subroutine gather_program_header_entries(arena, node, has_implicit, &
@@ -371,6 +367,13 @@ contains
         type is (implicit_statement_node)
             is_header_stmt = .true.
             if (ib%is_none) has_implicit = .true.
+            stmt_code = generate_code_from_arena(arena, body_index)
+            if (len_trim(stmt_code) > 0) then
+                implicit_statements_code = implicit_statements_code // "    " // &
+                                           trim(stmt_code) // new_line('A')
+            end if
+        type is (declaration_node)
+            is_header_stmt = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
             if (len_trim(stmt_code) > 0) then
                 implicit_statements_code = implicit_statements_code // "    " // &
@@ -473,8 +476,6 @@ contains
         body_code = generate_grouped_body_with_context( &
                     arena, non_use_indices(1:non_use_count), 1, &
                     context_has_executable_before_contains)
-
-        call insert_program_decls(code, body_code, extra_decl_code)
 
         if (index(body_code, 'output_unit') > 0) then
             call ensure_output_unit_use(code)
