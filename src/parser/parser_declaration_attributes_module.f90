@@ -101,6 +101,10 @@ contains
             attr_info%is_asynchronous = .true.
             token = parser%consume()
             handled = .true.
+        case ("contiguous")
+            attr_info%is_contiguous = .true.
+            token = parser%consume()
+            handled = .true.
         case default
             handled = .false.
         end select

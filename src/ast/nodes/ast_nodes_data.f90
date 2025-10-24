@@ -66,6 +66,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_asynchronous = .false.  ! Whether asynchronous
         ! attribute is present
+        logical :: is_contiguous = .false.  ! Whether contiguous
+        ! attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -226,6 +228,7 @@ contains
         lhs%is_volatile = rhs%is_volatile
         lhs%is_protected = rhs%is_protected
         lhs%is_asynchronous = rhs%is_asynchronous
+        lhs%is_contiguous = rhs%is_contiguous
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if

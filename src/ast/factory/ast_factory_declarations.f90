@@ -73,7 +73,8 @@ contains
                                               is_target, is_external, intent_value, &
                                               is_optional, is_parameter, is_save, &
                                               is_volatile, is_protected, &
-                                              is_asynchronous, line, column)
+                                              is_asynchronous, is_contiguous, &
+                                              line, column)
         type(declaration_node), intent(inout) :: decl
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
@@ -89,6 +90,7 @@ contains
         logical, intent(in), optional :: is_volatile
         logical, intent(in), optional :: is_protected
         logical, intent(in), optional :: is_asynchronous
+        logical, intent(in), optional :: is_contiguous
         integer, intent(in), optional :: line, column
 
         call assign_kind_metadata(decl%has_kind, decl%kind_value, kind_value)
@@ -127,6 +129,7 @@ contains
         decl%is_volatile = resolve_optional_flag(is_volatile, .false.)
         decl%is_protected = resolve_optional_flag(is_protected, .false.)
         decl%is_asynchronous = resolve_optional_flag(is_asynchronous, .false.)
+        decl%is_contiguous = resolve_optional_flag(is_contiguous, .false.)
 
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
@@ -216,8 +219,8 @@ contains
                               is_allocatable, is_pointer, is_target, &
                               is_external, intent_value, is_optional, &
                               is_parameter, is_save, is_volatile, is_protected, &
-                              is_asynchronous, line, column, parent_index, &
-                              character_length_expr) &
+                              is_asynchronous, is_contiguous, line, column, &
+                              parent_index, character_length_expr) &
         result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
@@ -237,6 +240,7 @@ contains
         logical, intent(in), optional :: is_volatile
         logical, intent(in), optional :: is_protected
         logical, intent(in), optional :: is_asynchronous
+        logical, intent(in), optional :: is_contiguous
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
         type(declaration_node) :: decl
@@ -272,7 +276,8 @@ contains
                                             is_save=is_save, &
                                             is_volatile=is_volatile, &
                                             is_protected=is_protected, &
-                                            is_asynchronous=is_asynchronous, line=line, &
+                                            is_asynchronous=is_asynchronous, &
+                                            is_contiguous=is_contiguous, line=line, &
                                             column=column)
 
         call arena%push(decl, "declaration", parent_index)
