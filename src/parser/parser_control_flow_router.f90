@@ -8,7 +8,8 @@ module parser_control_flow_router_module
     use parser_if_constructs_module, only: parse_if
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type
-    use parser_array_constructs_module, only: parse_where_construct, parse_associate
+    use parser_array_constructs_module, only: parse_where_construct, parse_associate, &
+                                              parse_block_construct
     use parser_forall_module, only: parse_forall
     implicit none
     private
@@ -29,6 +30,7 @@ contains
         callbacks%parse_where => parse_where_construct
         callbacks%parse_forall => parse_forall
         callbacks%parse_associate => parse_associate
+        callbacks%parse_block => parse_block_construct
     end function default_control_flow_callbacks
 
     logical function is_control_flow_keyword(text) result(is_control)
@@ -37,7 +39,7 @@ contains
 
         lowered = to_lower(trim(text))
         select case (lowered)
-        case ("if", "do", "select", "where", "forall", "associate")
+        case ("if", "do", "select", "where", "forall", "associate", "block")
             is_control = .true.
         case default
             is_control = .false.
@@ -89,6 +91,8 @@ contains
             node_index = invoke_no_parent(local_callbacks%parse_forall, parser, arena)
         case ("associate")
             node_index = invoke_no_parent(local_callbacks%parse_associate, parser, arena)
+        case ("block")
+            node_index = invoke_no_parent(local_callbacks%parse_block, parser, arena)
         case default
             node_index = 0
         end select

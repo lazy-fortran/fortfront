@@ -15,11 +15,11 @@ module parser_array_constructs_module
     use parser_if_constructs_module, only: parse_if, parse_if_condition
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_where, push_associate
+    use ast_factory, only: push_where, push_associate, push_block_construct
     implicit none
     private
 
-    public :: parse_where_construct, parse_associate
+    public :: parse_where_construct, parse_associate, parse_block_construct
 
 contains
 
@@ -31,6 +31,7 @@ contains
         callbacks%parse_if => parse_if
         callbacks%parse_where => parse_where_construct
         callbacks%parse_associate => parse_associate
+        callbacks%parse_block => parse_block_construct
         callbacks%parse_select_case => parse_select_case
     end function build_where_callbacks
 
@@ -557,5 +558,43 @@ contains
         end if
 
     end function parse_associate
+
+    function parse_block_construct(parser, arena) result(block_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: block_index
+
+        type(token_t) :: token
+        integer :: line, column
+        integer, allocatable :: body_indices(:)
+        type(statement_callbacks_t) :: callbacks
+        character(len=3), parameter :: block_end_keywords(1) = ['end']
+
+        token = parser%peek()
+        line = token%line
+        column = token%column
+
+        if (token%kind /= TK_KEYWORD .or. token%text /= "block") then
+            block_index = 0
+            return
+        end if
+        token = parser%consume()
+
+        callbacks = build_associate_callbacks()
+        body_indices = parse_statement_body(parser, arena, &
+                                            block_end_keywords, callbacks)
+
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD .and. token%text == "block") then
+                token = parser%consume()
+            end if
+        end if
+
+        block_index = push_block_construct(arena, body_indices, &
+                                           line=line, column=column)
+    end function parse_block_construct
 
 end module parser_array_constructs_module

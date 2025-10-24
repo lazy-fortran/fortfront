@@ -21,7 +21,7 @@ module codegen_core
                               assignment_node, pointer_assignment_node, program_node, &
                               component_access_node
     use ast_nodes_procedure
-    use ast_nodes_associate, only: associate_node
+    use ast_nodes_associate, only: associate_node, block_construct_node
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
@@ -167,6 +167,8 @@ contains
             code = generate_code_forall(arena, node, node_index)
         type is (associate_node)
             code = generate_code_associate(arena, node, node_index)
+        type is (block_construct_node)
+            code = generate_code_block_construct(arena, node, node_index)
 
             ! Declaration and definition nodes
         type is (declaration_node)
