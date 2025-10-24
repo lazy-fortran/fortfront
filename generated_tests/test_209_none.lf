@@ -1,6 +1,3 @@
-program test
-    integer, dimension(5) :: p, q, r
-    p(1) = 10  ! Only indexing operations
-    q(2) = 20
-    r(3) = 30
-end program
+p(1) = 10  ! Only indexing operations
+q(2) = 20
+r(3) = 30

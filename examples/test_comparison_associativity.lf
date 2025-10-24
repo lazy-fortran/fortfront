@@ -1,9 +1,5 @@
-program test_comparison
-    integer :: a, b, c
-    logical :: result
-    a = 1
-    b = 2
-    c = 3
-    result = a < b < c
-    print *, result
-end program test_comparison
+a = 1
+b = 2
+c = 3
+result = a < b < c
+print *, result

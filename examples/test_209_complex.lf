@@ -1,19 +1,14 @@
-program test
-    ! First declaration: mixed needs
-    integer, dimension(3) :: a, b, c
-    ! Second declaration: all need allocatable
-    real, dimension(2) :: x, y
-    ! Third declaration: none need allocatable
-    logical, dimension(4) :: p, q
-    
-    ! Array reassignments
-    a = [1, 2]  ! Only a from first group needs allocatable
-    a = [a, 3]
-    x = [1.0, 2.0]  ! Both x and y need allocatable
-    y = [3.0, 4.0]
-    x = [x, 5.0]
-    y = [y, 6.0]
-    ! Only indexing for third group
-    p(1) = .true.
-    q(2) = .false.
-end program
+! First declaration: mixed needs
+! Second declaration: all need allocatable
+! Third declaration: none need allocatable
+
+! Array reassignments
+a = [1, 2]  ! Only a from first group needs allocatable
+a = [a, 3]
+x = [1.0, 2.0]  ! Both x and y need allocatable
+y = [3.0, 4.0]
+x = [x, 5.0]
+y = [y, 6.0]
+! Only indexing for third group
+p(1) = .true.
+q(2) = .false.

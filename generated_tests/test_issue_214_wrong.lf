@@ -1,5 +1,2 @@
-program test_correct_precedence
-    character(len=10) :: result
-    result = ("a" + "b") // "c"
-    print *, result
-end program test_correct_precedence
+result = ("a" + "b") // "c"
+print *, result

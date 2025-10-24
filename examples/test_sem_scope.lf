@@ -1,5 +1,2 @@
-program test
-    integer :: arr(10), j
-    j = 5
-    arr = [(i*j, i=1,10)]
-end program
+j = 5
+arr = [(i*j, i=1,10)]
