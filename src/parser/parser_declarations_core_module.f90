@@ -381,6 +381,7 @@ contains
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
                          is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
@@ -414,6 +415,7 @@ contains
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
                          is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected, &
                          character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
@@ -458,6 +460,7 @@ contains
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
                          is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected, &
                          character_length_expr=type_spec%character_length_expr)
         else if (type_spec%has_kind) then
             decl_index = push_declaration( &
@@ -489,6 +492,7 @@ contains
                          is_parameter=attr_info%is_parameter, &
                          is_save=attr_info%is_save, &
                          is_volatile=attr_info%is_volatile, &
+                         is_protected=attr_info%is_protected, &
                          character_length_expr=type_spec%character_length_expr)
         else
             decl_index = push_declaration( &
