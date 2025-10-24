@@ -253,6 +253,17 @@ contains
             return
         end if
 
+        ! Check if it's a do concurrent loop
+        if (var_token%kind == TK_KEYWORD .and. var_token%text == "concurrent") then
+            ! Consume 'concurrent'
+            var_token = parser%consume()
+            ! Expect '('
+            var_token = parser%peek()
+            if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                var_token = parser%consume()
+            end if
+        end if
+
         ! Get variable name
         var_token = parser%consume()
         if (var_token%kind /= TK_IDENTIFIER) then
@@ -270,8 +281,9 @@ contains
             return
         end if
 
-        ! Parse start expression (now handles full expressions)
-        start_index = parse_range(parser, arena)
+        ! Parse start expression
+        ! Use parse_logical_or for simple expressions to avoid range parsing
+        start_index = parse_logical_or(parser, arena)
 
         if (start_index <= 0) then
             ! Failed to parse start expression
@@ -279,16 +291,17 @@ contains
             return
         end if
 
-        ! Expect ','
+        ! Expect ',' or ':'
         comma_token = parser%consume()
-        if (comma_token%kind /= TK_OPERATOR .or. comma_token%text /= ",") then
-            ! Error: expected ','
+        if (comma_token%kind /= TK_OPERATOR .or. &
+            (comma_token%text /= "," .and. comma_token%text /= ":")) then
+            ! Error: expected ',' or ':'
             loop_index = 0
             return
         end if
 
         ! Parse end expression
-        end_index = parse_range(parser, arena)
+        end_index = parse_logical_or(parser, arena)
 
         if (end_index <= 0) then
             ! Failed to parse end expression
@@ -299,9 +312,18 @@ contains
         ! Check for optional step
         if (.not. parser%is_at_end()) then
             comma_token = parser%peek()
-            if (comma_token%kind == TK_OPERATOR .and. comma_token%text == ",") then
-                comma_token = parser%consume()  ! consume comma
-                step_index = parse_range(parser, arena)
+            if (comma_token%kind == TK_OPERATOR .and. &
+                (comma_token%text == "," .or. comma_token%text == ":")) then
+                comma_token = parser%consume()  ! consume comma or colon
+                step_index = parse_logical_or(parser, arena)
+            end if
+        end if
+
+        ! Check for closing ')' if DO CONCURRENT
+        if (.not. parser%is_at_end()) then
+            comma_token = parser%peek()
+            if (comma_token%kind == TK_OPERATOR .and. comma_token%text == ")") then
+                comma_token = parser%consume()  ! consume ')'
             end if
         end if
 
