@@ -364,6 +364,41 @@ contains
                 stmt_index = parse_nullify_statement(parser_ref, arena_ref)
             case ("call")
                 stmt_index = parse_call_statement(parser_ref, arena_ref)
+            case ("abstract")
+                block
+                    integer :: lookahead_idx
+                    type(token_t) :: lookahead_token
+                    logical :: is_abstract_interface
+                    is_abstract_interface = .false.
+                    lookahead_idx = parser_ref%current_token + 1
+                    do while (lookahead_idx <= size(parser_ref%tokens))
+                        lookahead_token = parser_ref%tokens(lookahead_idx)
+                        select case (lookahead_token%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead_idx = lookahead_idx + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            if (to_lower(trim(lookahead_token%text)) == "interface") then
+                                is_abstract_interface = .true.
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                    end do
+                    if (is_abstract_interface) then
+                        lookahead_token = parser_ref%consume()
+                        stmt_index = parse_interface_block(parser_ref, arena_ref, &
+                                                           prefix_buffer, &
+                                                           is_abstract=.true.)
+                    else
+                        block
+                            type(token_t) :: ignored_token
+                            ignored_token = parser_ref%consume()
+                        end block
+                        stmt_index = 0
+                    end if
+                end block
             case ("interface")
                 stmt_index = parse_interface_block(parser_ref, arena_ref, &
                                                    prefix_buffer)
