@@ -1,6 +1,7 @@
 module semantic_binary_ops_core
     ! Binary operation type inference
-    use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, TREAL
+    use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, TREAL, &
+                                   TARRAY, allocation_info_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node
     use semantic_binary_operations, only: infer_string_concatenation, &
@@ -43,9 +44,220 @@ contains
             typ = infer_logical_operation()
         else
             typ = get_common_type(left_typ, right_typ)
+            if (typ%kind == TARRAY .or. left_typ%kind == TARRAY .or. &
+                right_typ%kind == TARRAY) then
+                typ = ensure_array_shape(typ, left_typ, right_typ)
+            end if
             if (typ%kind == 0) typ = left_typ
         end if
     end function infer_binary_operation
+
+    function ensure_array_shape(common_typ, left_typ, right_typ) result(res_typ)
+        type(mono_type_t), intent(in) :: common_typ
+        type(mono_type_t), intent(in) :: left_typ
+        type(mono_type_t), intent(in) :: right_typ
+        type(mono_type_t) :: res_typ
+        integer, allocatable :: merged_shape(:)
+        logical :: has_arrays
+
+        has_arrays = (left_typ%kind == TARRAY) .or. (right_typ%kind == TARRAY)
+        res_typ = common_typ
+        if (.not. has_arrays) return
+
+        call merge_array_shapes(left_typ, right_typ, merged_shape)
+        if (.not. allocated(merged_shape)) return
+        if (size(merged_shape) == 0) return
+
+        res_typ = rebuild_array_type(common_typ, merged_shape, left_typ, right_typ)
+    end function ensure_array_shape
+
+    subroutine merge_array_shapes(left_typ, right_typ, merged_shape)
+        type(mono_type_t), intent(in) :: left_typ
+        type(mono_type_t), intent(in) :: right_typ
+        integer, allocatable, intent(out) :: merged_shape(:)
+        integer, allocatable :: left_shape(:)
+        integer, allocatable :: right_shape(:)
+        integer :: rank, i
+        integer :: left_dim, right_dim
+
+        call extract_array_shape(left_typ, left_shape)
+        call extract_array_shape(right_typ, right_shape)
+
+        rank = max(size(left_shape), size(right_shape))
+        if (rank <= 0) then
+            allocate (merged_shape(0))
+            if (allocated(left_shape)) deallocate (left_shape)
+            if (allocated(right_shape)) deallocate (right_shape)
+            return
+        end if
+
+        allocate (merged_shape(rank))
+        merged_shape = 0
+
+        do i = 1, rank
+            left_dim = shape_at(left_shape, i)
+            right_dim = shape_at(right_shape, i)
+            if (left_dim > 0 .and. right_dim > 0) then
+                if (left_dim == right_dim) then
+                    merged_shape(i) = left_dim
+                else
+                    merged_shape(i) = 0
+                end if
+            else if (left_dim > 0) then
+                merged_shape(i) = left_dim
+            else if (right_dim > 0) then
+                merged_shape(i) = right_dim
+            else
+                merged_shape(i) = 0
+            end if
+        end do
+
+        if (allocated(left_shape)) deallocate (left_shape)
+        if (allocated(right_shape)) deallocate (right_shape)
+    end subroutine merge_array_shapes
+
+    function rebuild_array_type(common_typ, shape, left_typ, right_typ) &
+        result(array_typ)
+        type(mono_type_t), intent(in) :: common_typ
+        integer, intent(in) :: shape(:)
+        type(mono_type_t), intent(in) :: left_typ
+        type(mono_type_t), intent(in) :: right_typ
+        type(mono_type_t) :: array_typ
+        type(mono_type_t) :: element_type
+        type(mono_type_t) :: current
+        type(mono_type_t), allocatable :: args(:)
+        integer :: i
+        type(allocation_info_t) :: alloc_flags
+
+        element_type = extract_element_type(common_typ, left_typ, right_typ)
+        if (element_type%kind == 0) then
+            array_typ = common_typ
+            return
+        end if
+        current = element_type
+
+        do i = size(shape), 1, -1
+            allocate (args(1))
+            args(1) = current
+            current = create_mono_type(TARRAY, args=args, array_size=shape(i))
+            deallocate (args)
+        end do
+
+        alloc_flags = merge_alloc_flags(common_typ, left_typ, right_typ, shape)
+        current%alloc_info = alloc_flags
+
+        array_typ = current
+    end function rebuild_array_type
+
+    type(allocation_info_t) function merge_alloc_flags(common_typ, left_typ, &
+                                                       right_typ, shape) result(flags)
+        type(mono_type_t), intent(in) :: common_typ
+        type(mono_type_t), intent(in) :: left_typ
+        type(mono_type_t), intent(in) :: right_typ
+        integer, intent(in) :: shape(:)
+
+        flags = common_typ%alloc_info
+        if (left_typ%kind == TARRAY) then
+            flags%is_allocatable = flags%is_allocatable .or. &
+                                   left_typ%alloc_info%is_allocatable
+            flags%is_pointer = flags%is_pointer .or. &
+                               left_typ%alloc_info%is_pointer
+            flags%is_target = flags%is_target .or. &
+                              left_typ%alloc_info%is_target
+        end if
+        if (right_typ%kind == TARRAY) then
+            flags%is_allocatable = flags%is_allocatable .or. &
+                                   right_typ%alloc_info%is_allocatable
+            flags%is_pointer = flags%is_pointer .or. &
+                               right_typ%alloc_info%is_pointer
+            flags%is_target = flags%is_target .or. &
+                              right_typ%alloc_info%is_target
+        end if
+        if (any(shape <= 0)) then
+            flags%is_allocatable = .true.
+        end if
+    end function merge_alloc_flags
+
+    subroutine extract_array_shape(typ, shape)
+        type(mono_type_t), intent(in) :: typ
+        integer, allocatable, intent(out) :: shape(:)
+        type(mono_type_t) :: current
+        integer :: rank, i
+
+        rank = array_rank(typ)
+        if (rank <= 0) then
+            allocate (shape(0))
+            return
+        end if
+
+        allocate (shape(rank))
+        shape = 0
+        current = typ
+
+        do i = 1, rank
+            if (current%kind /= TARRAY) exit
+            shape(i) = current%size
+            if (i < rank) then
+                if (current%has_args() .and. current%get_args_count() >= 1) then
+                    current = current%get_arg(1)
+                else
+                    exit
+                end if
+            end if
+        end do
+    end subroutine extract_array_shape
+
+    integer function array_rank(typ) result(rank)
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: current
+
+        rank = 0
+        current = typ
+        do while (current%kind == TARRAY)
+            rank = rank + 1
+            if (.not. current%has_args() .or. current%get_args_count() < 1) exit
+            current = current%get_arg(1)
+        end do
+    end function array_rank
+
+    integer function shape_at(shape, idx) result(value)
+        integer, allocatable, intent(in) :: shape(:)
+        integer, intent(in) :: idx
+
+        value = 0
+        if (.not. allocated(shape)) return
+        if (idx < 1 .or. idx > size(shape)) return
+        value = shape(idx)
+    end function shape_at
+
+    function extract_element_type(common_typ, left_typ, right_typ) result(elem_typ)
+        type(mono_type_t), intent(in) :: common_typ
+        type(mono_type_t), intent(in) :: left_typ
+        type(mono_type_t), intent(in) :: right_typ
+        type(mono_type_t) :: elem_typ
+
+        elem_typ = peel_array_layer(common_typ)
+        if (elem_typ%kind /= 0) return
+
+        elem_typ = peel_array_layer(left_typ)
+        if (elem_typ%kind /= 0) return
+
+        elem_typ = peel_array_layer(right_typ)
+    end function extract_element_type
+
+    function peel_array_layer(typ) result(inner_typ)
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: inner_typ
+
+        inner_typ = typ
+        do while (inner_typ%kind == TARRAY)
+            if (.not. inner_typ%has_args() .or. inner_typ%get_args_count() < 1) then
+                inner_typ%kind = 0
+                return
+            end if
+            inner_typ = inner_typ%get_arg(1)
+        end do
+    end function peel_array_layer
 
     subroutine rewrite_operator(arena, node_index, new_operator)
         type(ast_arena_t), intent(inout) :: arena

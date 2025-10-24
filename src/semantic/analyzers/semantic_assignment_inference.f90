@@ -436,7 +436,7 @@ contains
     end function get_base_type_name
 
     subroutine ensure_var_declared_from_arena(arena, name, scopes, &
-                                               generalize_fn, next_var_id)
+                                              generalize_fn, next_var_id)
         use ast_nodes_data, only: declaration_node
         use semantic_inference_helpers, only: process_declaration_variables
         type(ast_arena_t), intent(inout) :: arena

@@ -129,7 +129,8 @@ contains
             header_copy_end = implicit_insert_pos - 1
         end if
         separator_start = header_copy_end + 1
-        if (separator_start < implicit_insert_pos) separator_start = implicit_insert_pos
+        if (separator_start < implicit_insert_pos) separator_start = &
+            implicit_insert_pos
 
         ! Copy retained header statements (uses are already handled)
         if (header_copy_end >= implicit_insert_pos) then
@@ -424,7 +425,8 @@ contains
                     arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         call collect_statement_vars(arena, prog%body_indices(i), &
-                                                    var_names, var_types, var_declared, &
+                                                    var_names, var_types, &
+                                                    var_declared, &
                                                     var_count, &
                                                     function_names, func_count)
                     end if
@@ -466,7 +468,8 @@ contains
     end subroutine generate_and_insert_declarations
 
     ! Create declaration nodes from collected variables
-    subroutine create_declaration_nodes(arena, prog, prog_index, var_names, var_types, &
+    subroutine create_declaration_nodes(arena, prog, prog_index, var_names, &
+                                        var_types, &
                                         var_declared, var_count, declaration_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
@@ -532,7 +535,8 @@ contains
         decl_node%is_array = .false.
         decl_node%is_allocatable = .false.
 
-        call apply_type_string_to_decl(arena, prog_index, var_name, var_type, decl_node)
+        call apply_type_string_to_decl(arena, prog_index, var_name, &
+                                       var_type, decl_node)
 
     end subroutine create_single_declaration
 
@@ -697,7 +701,8 @@ contains
                 type is (declaration_node)
                     if (.not. decl%is_multi_declaration) then
                         if (trim(decl%var_name) == trim(var_name)) then
-                            call apply_type_string_to_decl(arena, prog_index, var_name, &
+                            call apply_type_string_to_decl(arena, prog_index, &
+                                                           var_name, &
                                                            var_type, decl)
                             arena%entries(node_idx)%node = decl
                             return
@@ -721,7 +726,8 @@ contains
     end subroutine update_existing_declaration_type
 
     ! Parse dimension attribute from type string
-    subroutine parse_dimension_attribute(arena, prog_index, var_type, dim_pos, decl_node)
+    subroutine parse_dimension_attribute(arena, prog_index, var_type, &
+                                         dim_pos, decl_node)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index, dim_pos
         character(len=*), intent(in) :: var_type
@@ -914,7 +920,7 @@ contains
 
     ! Set array properties from inferred type information
     subroutine set_array_properties_from_type(arena, var_name, prog_index, decl_node)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: prog_index
         type(declaration_node), intent(inout) :: decl_node
@@ -995,12 +1001,19 @@ contains
                                     end do
                                 end if
 
-                                ! Set dimension indices
+                                ! Set dimension indices, storing literals in arena
                                 do i = 1, ndims
                                     if (dim_sizes(i) > 0 .and. &
-                                        .not. &
-                                        node%inferred_type%alloc_info%is_allocatable) then
-                                        decl_node%dimension_indices(i) = dim_sizes(i)
+                                        .not. node%inferred_type%alloc_info%is_allocatable) then
+                                        write (size_str, '(i0)') dim_sizes(i)
+                                        size_literal%uid = generate_uid()
+                                        size_literal%value = trim(size_str)
+                                        size_literal%literal_kind = LITERAL_INTEGER
+                                        size_literal%line = 1
+                                        size_literal%column = 1
+                                        call arena%push(size_literal, "literal", &
+                                                        prog_index)
+                                        decl_node%dimension_indices(i) = arena%size
                                     else
                                         decl_node%dimension_indices(i) = 0  ! Allocatable
                                     end if
@@ -1216,7 +1229,8 @@ contains
 
             if (decl%has_intent .and. allocated(decl%intent)) then
                 if (.not. has_attribute(type_str, "intent(")) then
-                    type_str = trim(type_str) // ", intent(" // trim(decl%intent) // ")"
+                    type_str = trim(type_str) // ", intent(" // &
+                        trim(decl%intent) // ")"
                 end if
             end if
         end function declaration_type_string
@@ -1313,7 +1327,8 @@ contains
                             assign%value_index <= arena%size) then
                             if (allocated(arena%entries(assign%value_index)%node)) then
                                 ! Check if it's an array expression by structure
-                                if (is_array_expression(arena, assign%value_index)) then
+                                if (is_array_expression(arena, &
+                                                        assign%value_index)) then
                                     ! Try to determine array size if possible
                                     var_type = &
                                         get_array_var_type(arena, assign%value_index)
@@ -1335,31 +1350,31 @@ contains
                                     ! If get_expression_type didn't work, check for intrinsic functions
                                     if (len_trim(var_type) == 0) then
                                         select type (val_node => &
-                                                   arena%entries(assign%value_index)%node)
+                                                 arena%entries(assign%value_index)%node)
                                         type is (call_or_subscript_node)
                                             block
                                                 character(len=:), allocatable :: &
                                                     intrinsic_sig
 
-                                            if (is_intrinsic_function(val_node%name)) then
+                                          if (is_intrinsic_function(val_node%name)) then
                                                     intrinsic_sig = &
                                                         get_intrinsic_signature( &
                                                         val_node%name)
-                                                    if (len_trim(intrinsic_sig) > 0) then
+                                                   if (len_trim(intrinsic_sig) > 0) then
                                                         ! Parse the return type from the signature
                                                         if (index(intrinsic_sig, &
                                                                   "real(") == 1) then
                                                             var_type = "real"
                                                         else if (index(intrinsic_sig, &
-                                                                    "integer(") == 1) then
+                                                                  "integer(") == 1) then
                                                             var_type = "integer"
                                                         else if (index(intrinsic_sig, &
-                                                                    "logical(") == 1) then
+                                                                  "logical(") == 1) then
                                                             var_type = "logical"
                                                         else if (index(intrinsic_sig, &
-                                                                  "character(") == 1) then
+                                                                "character(") == 1) then
                                                             var_type = &
-                                                           "character(len=:), allocatable"
+                                                         "character(len=:), allocatable"
                                                         else
                                                             ! Default to real for mathematical intrinsics
                                                             var_type = "real"
@@ -1373,7 +1388,7 @@ contains
                                     ! Prefer integer for pure-integer binary expressions
                                     if (len_trim(var_type) == 0) then
                                         if (is_integer_expression(arena, &
-                                                                 assign%value_index)) then
+                                                               assign%value_index)) then
                                             var_type = "integer"
                                         end if
                                     end if
@@ -1381,14 +1396,14 @@ contains
                                     ! If that failed, check for string concatenation as special case
                                     if (len_trim(var_type) == 0) then
                                         var_type = handle_string_concatenation(arena, &
-                                                                       assign%value_index)
+                                                                     assign%value_index)
                                     end if
 
                                     ! If still no type found, try to infer from binary operation structure
                                     if (len_trim(var_type) == 0) then
                                         var_type = &
                                             infer_type_from_binary_operation(arena, &
-                                                                       assign%value_index)
+                                                                     assign%value_index)
                                     end if
                                 end if
                             end if
@@ -1406,16 +1421,20 @@ contains
                             if (len_trim(var_type) > 0) then
                                 var_types(existing_idx) = trim(var_type)
                             end if
-                            if (index(var_types(existing_idx), 'character(') == 1 .and. &
+                            if (index(var_types(existing_idx), 'character(') &
+                                == 1 .and. &
                                 index(var_types(existing_idx), 'len=:') > 0 .and. &
-                                index(var_types(existing_idx), 'allocatable') == 0) then
-                                var_types(existing_idx) = trim(var_types(existing_idx)) &
-                                                          // ", allocatable"
+                                index(var_types(existing_idx), &
+                                      'allocatable') == 0) then
+                                var_types(existing_idx) = &
+                                    trim(var_types(existing_idx)) &
+                                    // ", allocatable"
                             end if
                         else
                             ! Now collect the variable with the determined type
                             call collect_identifier_var_with_type(target, var_type, &
-                                                                  var_names, var_types, &
+                                                                  var_names, &
+                                                                  var_types, &
                                                                   var_declared, &
                                                                   var_count, &
                                                                   function_names, &
