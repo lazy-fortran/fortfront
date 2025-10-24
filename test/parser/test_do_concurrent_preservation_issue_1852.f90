@@ -1,5 +1,6 @@
 program test_do_concurrent_preservation_issue_1852
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     character(len=:), allocatable :: source, output, error_msg
