@@ -9,6 +9,8 @@ program test_issue_1809_implicit_none_type
     print *, ""
     call test_implicit_none_external_spec()
     print *, ""
+    call test_implicit_none_type_external_spec()
+    print *, ""
     call test_implicit_none_plain()
     print *, ""
     print *, "Issue 1809 implicit none specification tests completed."
@@ -78,6 +80,38 @@ contains
 
         print *, "PASS: implicit none (external) specification preserved"
     end subroutine test_implicit_none_external_spec
+
+    subroutine test_implicit_none_type_external_spec()
+        character(:), allocatable :: input_code
+        character(:), allocatable :: output_code
+        character(:), allocatable :: error_msg
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: prog_index
+        character(len=1), parameter :: nl = new_line('A')
+
+        input_code = &
+            "program test_implicit_none_type_external" // nl // &
+            "    implicit none (type, external)" // nl // &
+            "    integer :: x" // nl // &
+            "    " // nl // &
+            "    x = 5" // nl // &
+            "    print *, x" // nl // &
+            "end program test_implicit_none_type_external"
+
+        arena = create_ast_arena()
+        call lex_source(input_code, tokens, error_msg)
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        call emit_fortran(arena, prog_index, output_code)
+
+        if (index(output_code, 'implicit none (type, external)') == 0) then
+            print *, "FAIL: implicit none (type, external) specification not preserved"
+            print *, "Output:", output_code
+            error stop 1
+        end if
+
+        print *, "PASS: implicit none (type, external) specification preserved"
+    end subroutine test_implicit_none_type_external_spec
 
     subroutine test_implicit_none_plain()
         character(:), allocatable :: input_code

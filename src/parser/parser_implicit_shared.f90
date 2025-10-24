@@ -1,12 +1,13 @@
 module parser_implicit_shared_module
-    use lexer_core, only: token_t, TK_KEYWORD, TK_LPAREN, TK_RPAREN, TK_IDENTIFIER
+    use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &
+                          TK_WHITESPACE, TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
     implicit none
     private
 
-    public :: parse_simple_implicit_statement
+    public :: parse_simple_implicit_statement, parse_none_spec_list
 
 contains
 
@@ -14,8 +15,7 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
-        type(token_t) :: implicit_token, none_token, lparen_token, spec_token, &
-            rparen_token
+        type(token_t) :: implicit_token, none_token, lparen_token
         character(len=:), allocatable :: implicit_type, none_spec
 
         stmt_index = 0
@@ -28,18 +28,9 @@ contains
             implicit_type = "none"
 
             lparen_token = parser%peek()
-            if (lparen_token%kind == TK_LPAREN) then
+            if (lparen_token%kind == TK_OPERATOR .and. lparen_token%text == "(") then
                 lparen_token = parser%consume()
-                spec_token = parser%peek()
-                if (spec_token%kind == TK_KEYWORD .or. &
-                    spec_token%kind == TK_IDENTIFIER) then
-                    spec_token = parser%consume()
-                    none_spec = trim(spec_token%text)
-                end if
-                rparen_token = parser%peek()
-                if (rparen_token%kind == TK_RPAREN) then
-                    rparen_token = parser%consume()
-                end if
+                call parse_none_spec_list(parser, none_spec)
             end if
         else
             implicit_type = "default"
@@ -62,5 +53,39 @@ contains
                                                  column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit_statement
+
+    subroutine parse_none_spec_list(parser, none_spec)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: none_spec
+        type(token_t) :: token
+        logical :: done
+
+        done = .false.
+        do while (.not. done)
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_OPERATOR)
+                if (token%text == ")") then
+                    token = parser%consume()
+                    exit
+                else if (token%text == ",") then
+                    token = parser%consume()
+                else
+                    token = parser%consume()
+                end if
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (.not. allocated(none_spec)) then
+                    none_spec = trim(token%text)
+                else
+                    none_spec = trim(none_spec) // ", " // trim(token%text)
+                end if
+                token = parser%consume()
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                token = parser%consume()
+            case default
+                exit
+            end select
+        end do
+    end subroutine parse_none_spec_list
 
 end module parser_implicit_shared_module

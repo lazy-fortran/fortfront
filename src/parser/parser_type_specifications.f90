@@ -1,10 +1,12 @@
 module parser_type_specifications_module
     ! Type specification parsing module for implicit statements
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
+    use parser_implicit_shared_module, only: parse_none_spec_list
     implicit none
     private
 
@@ -199,15 +201,7 @@ contains
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 token = parser%consume()  ! consume '('
-                token = parser%peek()
-                if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                    none_spec = token%text
-                    token = parser%consume()  ! consume spec keyword
-                end if
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    token = parser%consume()  ! consume ')'
-                end if
+                call parse_none_spec_list(parser, none_spec)
             end if
 
             if (allocated(none_spec)) then
@@ -244,7 +238,8 @@ contains
                     token = parser%consume()  ! consume '('
 
                     if (type_name == "character") then
-                        call parse_character_type_spec(parser, length_value, has_length)
+                        call parse_character_type_spec(parser, length_value, &
+                                                       has_length)
                     else
                         call parse_kind_specification(parser, kind_value, has_kind)
                     end if
