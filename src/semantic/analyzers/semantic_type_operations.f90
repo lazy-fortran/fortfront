@@ -23,7 +23,7 @@ contains
         integer, intent(inout) :: next_var_id
         type(type_var_t) :: tv
 
-        tv = create_type_var(next_var_id, "v" // int_to_str(next_var_id))
+        tv = create_type_var(next_var_id, "v"//int_to_str(next_var_id))
         next_var_id = next_var_id + 1
     end function generate_fresh_type_var_op
 
@@ -63,25 +63,48 @@ contains
         end if
     end function instantiate_type_scheme_op
 
+    recursive function base_element_kind(typ) result(kind)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: typ
+        integer :: kind
+        type(mono_type_t) :: inner
+
+        if (typ%kind /= TARRAY) then
+            kind = typ%kind
+            return
+        end if
+
+        if (typ%get_args_count() <= 0) then
+            kind = typ%kind
+            return
+        end if
+
+        inner = typ%get_arg(1)
+        kind = base_element_kind(inner)
+    end function base_element_kind
+
     ! Get common type for arithmetic operations
     function get_common_type(left_typ, right_typ) result(typ)
         use type_system_unified, only: TARRAY
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
         integer :: target_kind
+        integer :: left_base_kind
+        integer :: right_base_kind
         logical :: needs_promotion
 
-        ! Check if type promotion is needed
-        needs_promotion = .false.
-        if (left_typ%kind == TREAL .or. right_typ%kind == TREAL) then
+        left_base_kind = base_element_kind(left_typ)
+        right_base_kind = base_element_kind(right_typ)
+
+        target_kind = left_base_kind
+        if (left_base_kind == TREAL .or. right_base_kind == TREAL) then
             target_kind = TREAL
-            needs_promotion = .true.
-        else if (left_typ%kind == TINT .or. right_typ%kind == TINT) then
+        else if (left_base_kind == TINT .or. right_base_kind == TINT) then
             target_kind = TINT
-            if (left_typ%kind /= TINT .or. right_typ%kind /= TINT) then
-                needs_promotion = .true.
-            end if
         end if
+
+        needs_promotion = (target_kind /= left_base_kind) .or. &
+                          (target_kind /= right_base_kind)
 
         ! For array operations without promotion, return left array type directly
         if (left_typ%kind == TARRAY .and. .not. needs_promotion) then
@@ -135,15 +158,15 @@ contains
             allocate (promoted_args(1))
             promoted_args(1) = promoted_inner
             promoted_typ = create_mono_type(TARRAY, &
-                args=promoted_args, &
-                array_size=array_typ%size)
+                                            args=promoted_args, &
+                                            array_size=array_typ%size)
         else
             ! Array without args (shouldn't happen, but handle gracefully)
             allocate (promoted_args(1))
             promoted_args(1) = create_mono_type(target_kind)
             promoted_typ = create_mono_type(TARRAY, &
-                args=promoted_args, &
-                array_size=array_typ%size)
+                                            args=promoted_args, &
+                                            array_size=array_typ%size)
         end if
     end function promote_array_element_type
 
