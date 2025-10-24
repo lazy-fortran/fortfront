@@ -48,7 +48,7 @@ module semantic_analyzer
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
         array_bounds_node, range_expression_node, get_array_slice_node
-    use ast_nodes_misc, only: complex_literal_node
+    use ast_nodes_misc, only: complex_literal_node, allocate_statement_node
     use ast_nodes_io, only: read_statement_node, print_statement_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
@@ -675,6 +675,17 @@ contains
                         call push_child(expr%var_indices(i))
                     end do
                 end if
+            type is (allocate_statement_node)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (allocated(expr%var_indices)) then
+                    do i = size(expr%var_indices), 1, -1
+                        call push_child(expr%var_indices(i))
+                    end do
+                end if
             type is (print_statement_node)
                 post_frame = current
                 if (allocated(post_frame%param_types)) deallocate &
@@ -786,6 +797,9 @@ contains
                 call finalize_node(node_index, node_type)
             type is (read_statement_node)
                 call infer_read_statement(this, arena, expr, node_index, node_type)
+                call finalize_node(node_index, node_type)
+            type is (allocate_statement_node)
+                call infer_allocate_statement(this, arena, expr, node_index, node_type)
                 call finalize_node(node_index, node_type)
             type is (print_statement_node)
                 node_type = create_mono_type(TVAR, var=create_type_var(0, "io"))
@@ -1115,6 +1129,103 @@ contains
             end select
         end do
     end subroutine infer_read_statement
+
+    subroutine infer_allocate_statement(ctx, arena, alloc_stmt, stmt_index, typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(allocate_statement_node), intent(in) :: alloc_stmt
+        integer, intent(in) :: stmt_index
+        type(mono_type_t), intent(out) :: typ
+        integer :: i, var_index, rank, j
+        type(mono_type_t) :: var_type, element_type
+        type(mono_type_t), allocatable :: args(:)
+        type(poly_type_t) :: var_scheme
+        type(poly_type_t), allocatable :: existing_scheme
+        character(len=:), allocatable :: var_name
+        character(len=:), allocatable :: type_spec_buf
+
+        typ = create_mono_type(TVAR, var=create_type_var(0, "mem"))
+
+        if (.not. allocated(alloc_stmt%var_indices)) return
+
+        do i = 1, size(alloc_stmt%var_indices)
+            var_index = alloc_stmt%var_indices(i)
+            if (var_index <= 0) cycle
+            if (.not. allocated(arena%entries(var_index)%node)) cycle
+
+            var_name = ""
+            rank = 0
+            select type (node => arena%entries(var_index)%node)
+            type is (identifier_node)
+                var_name = node%name
+                if (allocated(alloc_stmt%shape_indices)) then
+                    rank = size(alloc_stmt%shape_indices)
+                end if
+            type is (call_or_subscript_node)
+                var_name = node%name
+                if (allocated(node%arg_indices)) then
+                    rank = size(node%arg_indices)
+                else if (allocated(alloc_stmt%shape_indices)) then
+                    rank = size(alloc_stmt%shape_indices)
+                end if
+            end select
+
+            if (len_trim(var_name) > 0) then
+                call ctx%scopes%lookup(var_name, existing_scheme)
+
+                if (.not. allocated(existing_scheme)) then
+                    element_type = get_inferred_type_from_arena(ctx, arena, var_index)
+
+                    if (allocated(alloc_stmt%type_spec)) then
+                        if (len_trim(alloc_stmt%type_spec) > 0) then
+                            type_spec_buf = to_lower(trim(alloc_stmt%type_spec))
+                            select case (trim(type_spec_buf))
+                            case ('integer')
+                                element_type = create_mono_type(TINT)
+                            case ('real')
+                                element_type = create_mono_type(TREAL)
+                            case ('logical')
+                                element_type = create_mono_type(TLOGICAL)
+                            case ('character')
+                                element_type = create_mono_type(TCHAR)
+                            case ('complex')
+                                element_type = create_mono_type(TCOMPLEX)
+                            end select
+                        end if
+                    else if (element_type%kind == TVAR .and. &
+                             element_type%var%id == 0) then
+                        element_type = create_mono_type(TINT)
+                    else if (element_type%kind == TREAL) then
+                        element_type = create_mono_type(TINT)
+                    end if
+
+                    if (rank > 0) then
+                        var_type = element_type
+                        do j = 1, rank
+                            allocate (args(1))
+                            args(1) = var_type
+                            var_type = create_mono_type(TARRAY, args=args)
+                            var_type%alloc_info%is_allocatable = .true.
+                            deallocate (args)
+                        end do
+                    else
+                        var_type = element_type
+                        var_type%alloc_info%is_allocatable = .true.
+                    end if
+
+                    var_type%alloc_info%needs_allocatable_string = .true.
+
+                    call update_identifier_type_in_arena(arena, var_name, var_type)
+
+                    var_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                                  mono=var_type)
+                    call ctx%scopes%define(var_name, var_scheme)
+
+                    call set_node_inferred_type(arena, var_index, var_type)
+                end if
+            end if
+        end do
+    end subroutine infer_allocate_statement
 
     function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx

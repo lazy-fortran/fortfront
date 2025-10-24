@@ -2,13 +2,15 @@ module codegen_declarations_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node, program_node, array_literal_node
-    use ast_nodes_misc, only: contains_node, use_statement_node
+    use ast_nodes_misc, only: contains_node, use_statement_node, &
+                              allocate_statement_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node
     use ast_nodes_transfer, only: entry_node
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: mono_type_t
     use codegen_utilities, only: parameter_info_t
     use intrinsic_registry, only: is_intrinsic_function
     use codegen_type_utils, only: get_type_standardization
@@ -553,6 +555,8 @@ contains
             type is (assignment_node)
                 call process_assignment_target(arena, stmt, state)
                 call process_assignment_value(arena, stmt, state)
+            type is (allocate_statement_node)
+                call process_allocate_variables(arena, stmt, state)
             end select
         end do
     end subroutine collect_assignment_symbols
@@ -621,9 +625,9 @@ contains
                                                     state%defined_func_count, rhs%name)
         type is (array_literal_node)
             type_name = mono_type_to_string(rhs%inferred_type, &
-                                            include_shape=.true., &
-                                            standardize_real=standardize_types_enabled, &
-                                            fallback='')
+                include_shape=.true., &
+                standardize_real=standardize_types_enabled, &
+                fallback='')
         end select
     end function infer_function_return_type_from_rhs
 
@@ -663,6 +667,106 @@ contains
             call try_add_function_reference(state, name_buf, trim(type_buf))
         end select
     end subroutine process_assignment_value
+
+    subroutine process_allocate_variables(arena, stmt, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(allocate_statement_node), intent(in) :: stmt
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, var_index, arg_count
+        character(len=:), allocatable :: name_buf
+        logical :: standardize_types_enabled
+
+        call get_type_standardization(standardize_types_enabled)
+
+        if (.not. allocated(stmt%var_indices)) return
+
+        do i = 1, size(stmt%var_indices)
+            var_index = stmt%var_indices(i)
+            if (var_index <= 0 .or. var_index > arena%size) cycle
+            if (.not. allocated(arena%entries(var_index)%node)) cycle
+
+            select type (node => arena%entries(var_index)%node)
+            type is (identifier_node)
+                name_buf = trim(node%name)
+                call add_allocate_variable(state, stmt, name_buf, &
+                                           node%inferred_type, 0, &
+                                           standardize_types_enabled)
+            type is (call_or_subscript_node)
+                name_buf = trim(node%name)
+                if (allocated(node%arg_indices)) then
+                    arg_count = size(node%arg_indices)
+                else
+                    arg_count = 0
+                end if
+                call add_allocate_variable(state, stmt, name_buf, &
+                                           node%inferred_type, arg_count, &
+                                           standardize_types_enabled)
+            end select
+        end do
+    end subroutine process_allocate_variables
+
+    subroutine add_allocate_variable(state, stmt, name, inferred_type, rank, &
+                                      standardize_types_enabled)
+        type(program_decl_state_t), intent(inout) :: state
+        type(allocate_statement_node), intent(in) :: stmt
+        character(len=*), intent(in) :: name
+        type(mono_type_t), intent(in) :: inferred_type
+        integer, intent(in) :: rank
+        logical, intent(in) :: standardize_types_enabled
+        character(len=:), allocatable :: base_type
+        character(len=:), allocatable :: type_buf
+        character(len=:), allocatable :: dimension_spec
+        character(len=:), allocatable :: lowered
+        integer :: dim_index
+
+        if (len_trim(name) == 0) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           name)) return
+        if (exists_in_list(state%var_names, state%var_count, name)) return
+        if (exists_in_list(state%use_associated_names, &
+                           state%use_associated_count, name)) return
+
+        if (allocated(stmt%type_spec)) then
+            if (len_trim(stmt%type_spec) > 0) then
+                base_type = trim(stmt%type_spec)
+            end if
+        end if
+
+        if (.not. allocated(base_type)) then
+            base_type = mono_type_to_string(inferred_type, &
+                include_shape=.false., &
+                standardize_real=standardize_types_enabled, &
+                fallback='integer')
+        end if
+
+        if (len_trim(base_type) == 0) base_type = 'integer'
+
+        type_buf = trim(base_type)
+
+        if (.not. allocated(stmt%type_spec)) then
+            lowered = to_lower(type_buf)
+            if (trim(lowered) == 'real') type_buf = 'integer'
+        end if
+
+        if (rank > 0) then
+            dimension_spec = ':'
+            do dim_index = 2, rank
+                dimension_spec = trim(dimension_spec) // ',:'
+            end do
+            lowered = to_lower(type_buf)
+            if (index(lowered, 'dimension(') == 0) then
+                type_buf = trim(type_buf) // ', dimension(' // &
+                          trim(dimension_spec) // ')'
+            end if
+        end if
+
+        lowered = to_lower(type_buf)
+        if (index(lowered, 'allocatable') == 0) then
+            type_buf = trim(type_buf) // ', allocatable'
+        end if
+
+        call try_add_variable(state, trim(name), trim(type_buf))
+    end subroutine add_allocate_variable
 
     subroutine try_add_variable(state, name, type_name)
         type(program_decl_state_t), intent(inout) :: state
