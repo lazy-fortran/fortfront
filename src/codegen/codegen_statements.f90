@@ -605,6 +605,9 @@ contains
 
         if (node%is_none) then
             code = "implicit none"
+            if (allocated(node%none_spec)) then
+                code = code // " (" // trim(node%none_spec) // ")"
+            end if
         else
             ! Build type specification
             if (allocated(node%type_spec%type_name)) then

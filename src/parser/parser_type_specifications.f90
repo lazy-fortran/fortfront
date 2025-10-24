@@ -1,10 +1,12 @@
 module parser_type_specifications_module
     ! Type specification parsing module for implicit statements
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE
     use parser_state_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
+    use parser_implicit_shared_module, only: parse_none_spec_list
     implicit none
     private
 
@@ -178,7 +180,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
         type(token_t) :: token
-        character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: type_name, none_spec
         integer :: kind_value, length_value
         logical :: has_kind, has_length, is_none
         character(len=64), allocatable :: letter_ranges(:)
@@ -194,8 +196,24 @@ contains
         if (token%kind == TK_KEYWORD .and. token%text == "none") then
             token = parser%consume()  ! consume 'none'
             is_none = .true.
-            stmt_index = push_implicit_statement(arena, is_none, &
-                                                 line=line, column=column, parent_index=0)
+
+            ! Check for specification like (type) or (external)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                token = parser%consume()  ! consume '('
+                call parse_none_spec_list(parser, none_spec)
+            end if
+
+            if (allocated(none_spec)) then
+                stmt_index = push_implicit_statement(arena, is_none, &
+                                                     line=line, column=column, &
+                                                     parent_index=0, &
+                                                     none_spec=none_spec)
+            else
+                stmt_index = push_implicit_statement(arena, is_none, &
+                                                     line=line, column=column, &
+                                                     parent_index=0)
+            end if
             return
         end if
 
@@ -220,7 +238,8 @@ contains
                     token = parser%consume()  ! consume '('
 
                     if (type_name == "character") then
-                        call parse_character_type_spec(parser, length_value, has_length)
+                        call parse_character_type_spec(parser, length_value, &
+                                                       has_length)
                     else
                         call parse_kind_specification(parser, kind_value, has_kind)
                     end if
@@ -255,7 +274,8 @@ contains
         ! Create implicit statement node
         stmt_index = push_implicit_statement(arena, is_none, type_name, kind_value, &
                                              has_kind, length_value, has_length, &
-                                             letter_ranges, line, column, parent_index=0)
+                                             letter_ranges, line, column, &
+                                             parent_index=0)
     end function parse_implicit_statement
 
 end module parser_type_specifications_module
