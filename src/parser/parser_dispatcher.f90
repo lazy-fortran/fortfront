@@ -60,7 +60,7 @@ contains
         integer :: stmt_index
         character(len=:), allocatable :: lowered_keyword
         type(parser_state_t) :: parser
-        type(token_t) :: first_token, second_token
+        type(token_t) :: first_token, second_token, next_token
         integer :: target_index, value_index
 
         call init_interface_procedure_parser()
@@ -170,7 +170,14 @@ contains
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("real", "integer", "logical", "character", "complex", "double", &
                   "class", "procedure")
-                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+                ! Check if this is actually an assignment like "double = 5"
+                next_token = parser%get_token_at_index(parser%current_token + 1)
+                if (next_token%kind == TK_OPERATOR .and. &
+                    (next_token%text == "=" .or. next_token%text == "=>")) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+                end if
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
             case ("stop")
