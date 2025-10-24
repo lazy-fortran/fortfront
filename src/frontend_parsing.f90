@@ -514,6 +514,50 @@ contains
                 end if
                 unit_end = i
             end do
+        else if (unit_type == "submodule") then
+            nesting_level = 1
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    keyword_text = to_lower(trim(tokens(i)%text))
+                    select case (keyword_text)
+                    case ("submodule")
+                        nesting_level = nesting_level + 1
+                    case ("endsubmodule")
+                        nesting_level = nesting_level - 1
+                        if (nesting_level == 0) then
+                            unit_end = i
+                            if (i + 1 <= size(tokens)) then
+                                if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                                    unit_end = i + 1
+                                end if
+                            end if
+                            exit
+                        end if
+                    case ("end")
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i + 1)%kind == TK_KEYWORD) then
+                                next_keyword = to_lower(trim(tokens(i + 1)%text))
+                                if (next_keyword == "submodule") then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        unit_end = i + 1
+                                        if (i + 2 <= size(tokens)) then
+                                            if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                                unit_end = i + 2
+                                            end if
+                                        end if
+                                        exit
+                                    end if
+                                end if
+                            end if
+                        end if
+                    end select
+                end if
+                unit_end = i
+            end do
         else if (unit_type == "subroutine" .or. unit_type == "function") then
             ! For standalone subroutines and functions, find the matching "end"
             ! Note: We only handle standalone procedures here.

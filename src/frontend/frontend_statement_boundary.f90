@@ -3,7 +3,7 @@ module frontend_statement_boundary
     ! Handles finding statement boundaries and inline construct detection
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT
+                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, TK_IDENTIFIER
 
     implicit none
     private
@@ -186,6 +186,9 @@ contains
                         end if
                     end do
                 end if
+            case ("submodule")
+                is_multiline_construct = .true.
+                nesting_level = 1
             end select
         end if
 
@@ -226,6 +229,11 @@ contains
                         if (i > stmt_start) then
                             nesting_level = nesting_level + 1
                         end if
+                    case ("submodule")
+                        if (tokens(stmt_start)%text == "submodule" .and. &
+                            i > stmt_start) then
+                            nesting_level = nesting_level + 1
+                        end if
 
                         ! Handle end constructs
                     case ("endif", "end")
@@ -257,6 +265,19 @@ contains
                                 exit
                             end if
                         end if
+                    case ("endsubmodule")
+                        if (tokens(stmt_start)%text == "submodule") then
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                stmt_end = i
+                                if (i + 1 <= size(tokens)) then
+                                    if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                                        stmt_end = i + 1
+                                    end if
+                                end if
+                                exit
+                            end if
+                        end if
                     end select
 
                     ! Check for two-word end constructs
@@ -285,6 +306,18 @@ contains
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
+                                    exit
+                                end if
+                            else if (tokens(i + 1)%text == "submodule" .and. &
+                                     tokens(stmt_start)%text == "submodule") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    stmt_end = i + 1
+                                    if (i + 2 <= size(tokens)) then
+                                        if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                            stmt_end = i + 2
+                                        end if
+                                    end if
                                     exit
                                 end if
                             end if

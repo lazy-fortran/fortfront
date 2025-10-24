@@ -8,6 +8,7 @@ program test_issue_1827_submodule_construct
     character(len=1), parameter :: nl = new_line('A')
     character(len=*), parameter :: submodule_error = &
         "! ERROR: Unsupported Fortran feature: submodule constructs are not supported"
+    character(len=*), parameter :: missing_end_marker = "[MISSING_END]"
 
     call test_submodule_simple()
     call test_submodule_with_contents()
@@ -55,6 +56,16 @@ contains
             error stop 1
         end if
 
+        if (index(output_code, missing_end_marker) /= 0) then
+            print *, "FAIL: Legacy missing end module message still present"
+            error stop 1
+        end if
+
+        if (index(output_code, "module unnamed_module") /= 0) then
+            print *, "FAIL: Unexpected module emission in output"
+            error stop 1
+        end if
+
         print *, "PASS: Submodule produces clear error message"
     end subroutine test_submodule_simple
 
@@ -98,6 +109,16 @@ contains
 
         if (index(output_code, submodule_error) == 0) then
             print *, "FAIL: Expected error message not found"
+            error stop 1
+        end if
+
+        if (index(output_code, missing_end_marker) /= 0) then
+            print *, "FAIL: Legacy missing end module message still present"
+            error stop 1
+        end if
+
+        if (index(output_code, "module unnamed_module") /= 0) then
+            print *, "FAIL: Unexpected module emission in output"
             error stop 1
         end if
 

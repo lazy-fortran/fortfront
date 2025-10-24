@@ -592,7 +592,7 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
-        type(token_t) :: token
+        type(token_t) :: token, next_token
         character(len=:), allocatable :: error_msg, lowered_text
         integer :: line, column
 
@@ -606,24 +606,43 @@ contains
             token = parser%peek()
             if (token%kind == TK_KEYWORD) then
                 lowered_text = to_lower(trim(token%text))
-                if (lowered_text == "end" .or. lowered_text == "endsubmodule") then
+                select case (lowered_text)
+                case ("endsubmodule")
                     token = parser%consume()
-                    if (lowered_text == "end") then
-                        if (.not. parser%is_at_end()) then
-                            token = parser%peek()
-                            if (token%kind == TK_KEYWORD) then
-                                lowered_text = to_lower(trim(token%text))
-                                if (lowered_text == "submodule") then
-                                    token = parser%consume()
-                                end if
-                            end if
+                    if (.not. parser%is_at_end()) then
+                        next_token = parser%peek()
+                        if (next_token%kind == TK_IDENTIFIER) then
+                            token = parser%consume()
                         end if
                     end if
                     exit
-                end if
+                case ("end")
+                    token = parser%consume()
+                    if (.not. parser%is_at_end()) then
+                        next_token = parser%peek()
+                        if (next_token%kind == TK_KEYWORD) then
+                            lowered_text = to_lower(trim(next_token%text))
+                            if (lowered_text == "submodule") then
+                                token = parser%consume()
+                                if (.not. parser%is_at_end()) then
+                                    next_token = parser%peek()
+                                    if (next_token%kind == TK_IDENTIFIER) then
+                                        token = parser%consume()
+                                    end if
+                                end if
+                                exit
+                            end if
+                        end if
+                    end if
+                    cycle
+                end select
             end if
             token = parser%consume()
         end do
+
+        if (associated(parser%tokens)) then
+            parser%current_token = size(parser%tokens)
+        end if
 
         stmt_index = push_error_node(arena, error_msg, "submodule", line, column)
     end function parse_submodule_statement
