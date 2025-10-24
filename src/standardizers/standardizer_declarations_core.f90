@@ -791,6 +791,12 @@ contains
 
         ! Check if it's a deferred shape (:) - indicates allocatable
         if (trim(dims_str) == ':') then
+            ! If we have explicit bounds from parsing (e.g., arr(0:9)), preserve them (fixes #1812)
+            if (has_explicit_bounds) then
+                decl_node%is_array = .true.
+                decl_node%is_allocatable = .false.
+                return
+            end if
             decl_node%is_array = .true.
             decl_node%is_allocatable = .true.
             if (allocated(decl_node%dimension_indices)) &
