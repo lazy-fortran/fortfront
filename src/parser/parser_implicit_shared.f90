@@ -31,7 +31,8 @@ contains
             if (lparen_token%kind == TK_LPAREN) then
                 lparen_token = parser%consume()
                 spec_token = parser%peek()
-                if (spec_token%kind == TK_KEYWORD .or. spec_token%kind == TK_IDENTIFIER) then
+                if (spec_token%kind == TK_KEYWORD .or. &
+                    spec_token%kind == TK_IDENTIFIER) then
                     spec_token = parser%consume()
                     none_spec = trim(spec_token%text)
                 end if

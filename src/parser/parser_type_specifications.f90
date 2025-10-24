@@ -213,7 +213,8 @@ contains
             if (allocated(none_spec)) then
                 stmt_index = push_implicit_statement(arena, is_none, &
                                                      line=line, column=column, &
-                                                     parent_index=0, none_spec=none_spec)
+                                                     parent_index=0, &
+                                                     none_spec=none_spec)
             else
                 stmt_index = push_implicit_statement(arena, is_none, &
                                                      line=line, column=column, &
@@ -278,7 +279,8 @@ contains
         ! Create implicit statement node
         stmt_index = push_implicit_statement(arena, is_none, type_name, kind_value, &
                                              has_kind, length_value, has_length, &
-                                             letter_ranges, line, column, parent_index=0)
+                                             letter_ranges, line, column, &
+                                             parent_index=0)
     end function parse_implicit_statement
 
 end module parser_type_specifications_module
