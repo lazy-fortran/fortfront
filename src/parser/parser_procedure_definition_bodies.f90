@@ -6,6 +6,10 @@ module parser_procedure_definition_bodies_module
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
     use parser_statement_utilities_module, only: parse_statement_in_if_block
+    use parser_procedure_definitions_module, only: parse_function_definition, &
+                                                    parse_subroutine_definition
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use ast_nodes_misc, only: contains_node
     use ast_arena_modern, only: ast_arena_t
     implicit none
     private
@@ -36,6 +40,13 @@ contains
             if (token%kind == TK_NEWLINE) then
                 token = parser%consume()
                 cycle
+            end if
+
+            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
+                token = parser%consume()
+                call parse_contains_section(parser, arena, procedure_name, end_keyword, &
+                                            body_indices)
+                exit
             end if
 
             call parse_body_statement(parser, arena, token, procedure_name, &
@@ -433,5 +444,55 @@ contains
         ! Parse the DO loop using the existing DO loop parser
         do_index = parse_do_loop(do_parser, arena)
     end function parse_do_statement_tokens
+
+    subroutine parse_contains_section(parser, arena, procedure_name, end_keyword, &
+                                       body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: end_keyword
+        integer, allocatable, intent(inout) :: body_indices(:)
+        type(token_t) :: token
+        type(parser_prefix_buffer_t) :: prefix_buffer
+        type(contains_node) :: contains_stmt
+        integer :: proc_index
+
+        call prefix_buffer%clear()
+
+        contains_stmt%line = 0
+        contains_stmt%column = 0
+        call arena%push(contains_stmt, "contains", 0)
+        body_indices = [body_indices, arena%size]
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+
+            if (check_procedure_end(parser, token, end_keyword, procedure_name)) exit
+
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+                cycle
+            end if
+
+            if (token%kind == TK_KEYWORD .and. token%text == "function") then
+                proc_index = parse_function_definition(parser, arena, prefix_buffer)
+                if (proc_index > 0) then
+                    body_indices = [body_indices, proc_index]
+                end if
+                cycle
+            end if
+
+            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+                proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+                if (proc_index > 0) then
+                    body_indices = [body_indices, proc_index]
+                end if
+                cycle
+            end if
+
+            ! Skip other tokens (like prefix keywords)
+            token = parser%consume()
+        end do
+    end subroutine parse_contains_section
 
 end module parser_procedure_definition_bodies_module
