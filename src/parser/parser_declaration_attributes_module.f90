@@ -89,6 +89,10 @@ contains
             attr_info%is_target = .true.
             token = parser%consume()
             handled = .true.
+        case ("volatile")
+            attr_info%is_volatile = .true.
+            token = parser%consume()
+            handled = .true.
         case default
             handled = .false.
         end select
