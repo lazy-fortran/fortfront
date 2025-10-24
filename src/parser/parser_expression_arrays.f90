@@ -357,7 +357,8 @@ contains
         body_indices(1) = expr_elem_index
 
         expr_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                  step_index, body_indices, "", 0, 0)
+                                  step_index=step_index, body_indices=body_indices, &
+                                  line=0, column=0)
     end function parse_nested_implied_do
 
     logical function parse_implied_do_header(parser, arena, expr_elem_index, &
@@ -456,9 +457,9 @@ contains
         allocate (body_indices(1))
         body_indices(1) = expr_elem_index
 
-        do_index = push_do_loop(arena, var_name, start_index, end_index, step_index, &
-                                body_indices, "", bracket_token%line, &
-                                bracket_token%column)
+        do_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                step_index=step_index, body_indices=body_indices, &
+                                line=bracket_token%line, column=bracket_token%column)
 
         allocate (element_indices(1))
         element_indices(1) = do_index
