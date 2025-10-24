@@ -1217,6 +1217,7 @@ contains
                                    has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
         use ast_nodes_control, only: if_node, do_loop_node
+        use ast_nodes_procedure, only: subroutine_call_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         logical, intent(out) :: has_functions, has_subroutines, has_main_code
@@ -1278,6 +1279,11 @@ contains
                 if (arena%entries(i)%parent_index == root_index) then
                     has_main_code = .true.
                 end if
+            type is (subroutine_call_node)
+                ! Subroutine call outside of procedures = main code
+                if (arena%entries(i)%parent_index == root_index) then
+                    has_main_code = .true.
+                end if
             end select
         end do
     end subroutine analyze_ast_content
@@ -1287,6 +1293,7 @@ contains
                                    has_subroutines, has_main_code)
         use ast_nodes_io, only: print_statement_node
         use ast_nodes_control, only: if_node, do_loop_node
+        use ast_nodes_procedure, only: subroutine_call_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: unit_index
         logical, intent(inout) :: has_functions, has_subroutines, has_main_code
@@ -1317,6 +1324,8 @@ contains
                     type is (if_node)
                         has_main_code = .true.
                     type is (do_loop_node)
+                        has_main_code = .true.
+                    type is (subroutine_call_node)
                         has_main_code = .true.
                     type is (function_def_node)
                         has_functions = .true.
