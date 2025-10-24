@@ -26,6 +26,8 @@ module semantic_function_analysis
     public :: analyze_function_parameters
     public :: determine_function_return_type
     public :: create_function_scope
+    public :: analyze_subroutine_parameters
+    public :: create_subroutine_scope
 
 contains
 
@@ -768,5 +770,149 @@ contains
             end select
         end do
     end function detect_result_name
+
+    ! Analyze subroutine parameters and extract their types
+    subroutine analyze_subroutine_parameters(arena, sub_node, param_types, &
+                                             param_names, scopes, next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        type(mono_type_t), allocatable, intent(out) :: param_types(:)
+        character(len=64), allocatable, intent(out) :: param_names(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+
+        integer :: i, idx, arg_idx
+        type(mono_type_t) :: temp_type
+        type(mono_type_t) :: inferred_arg_type
+        type(poly_type_t) :: scheme
+        character(len=64), allocatable :: stored_names(:)
+        character(len=64) :: param_name
+        character(len=64) :: trimmed_name
+
+        if (.not. allocated(sub_node%param_indices)) then
+            allocate (param_types(0))
+            allocate (param_names(0))
+            return
+        end if
+
+        allocate (param_types(size(sub_node%param_indices)))
+        allocate (stored_names(size(sub_node%param_indices)))
+
+        do i = 1, size(sub_node%param_indices)
+            param_name = ''
+            temp_type%kind = 0
+            if (sub_node%param_indices(i) > 0 .and. &
+                sub_node%param_indices(i) <= arena%size) then
+                arg_idx = sub_node%param_indices(i)
+                if (allocated(arena%entries(arg_idx)%node)) then
+                    select type (arg => arena%entries(arg_idx)%node)
+                    type is (identifier_node)
+                        if (allocated(arg%name)) then
+                            param_name = arg%name
+                            temp_type = arg%inferred_type
+                        end if
+                    type is (parameter_declaration_node)
+                        if (allocated(arg%name)) then
+                            param_name = arg%name
+                            temp_type = arg%inferred_type
+                        end if
+                    type is (declaration_node)
+                        if (allocated(arg%var_name)) then
+                            param_name = arg%var_name
+                            if (allocated(arg%type_name) .and. &
+                                len_trim(arg%type_name) > 0) then
+                                temp_type = declaration_type_to_mono(arg%type_name)
+                            else
+                                temp_type = arg%inferred_type
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+
+            stored_names(i) = param_name
+
+            if (temp_type%kind == 0) then
+                if (len_trim(param_name) > 0) then
+                    trimmed_name = trim(param_name)
+                    inferred_arg_type = infer_type_from_usage_context(trimmed_name, &
+                                                                       next_var_id)
+                    param_types(i) = inferred_arg_type
+                else
+                    param_types(i) = create_mono_type(TVAR, &
+                                                      var=create_type_var(next_var_id, "p"))
+                    next_var_id = next_var_id + 1
+                end if
+            else
+                param_types(i) = temp_type
+            end if
+        end do
+
+        do i = 1, size(param_types)
+            idx = sub_node%param_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+
+            select type (arg => arena%entries(idx)%node)
+            type is (parameter_declaration_node)
+                if (allocated(arg%name)) then
+                    stored_names(i) = arg%name
+                end if
+            type is (declaration_node)
+                if (allocated(arg%var_name)) then
+                    stored_names(i) = arg%var_name
+                end if
+            type is (identifier_node)
+                if (allocated(arg%name)) then
+                    stored_names(i) = arg%name
+                end if
+            end select
+        end do
+
+        do i = 1, size(param_types)
+            if (sub_node%param_indices(i) <= 0 .or. sub_node%param_indices(i) > &
+                & arena%size) cycle
+            if (.not. allocated(arena%entries(sub_node%param_indices(i))%node)) cycle
+            select type (param_node => arena%entries(sub_node%param_indices(i))%node)
+            type is (identifier_node)
+                param_node%inferred_type = param_types(i)
+                arena%entries(sub_node%param_indices(i))%node = param_node
+            type is (parameter_declaration_node)
+                param_node%inferred_type = param_types(i)
+                arena%entries(sub_node%param_indices(i))%node = param_node
+            type is (declaration_node)
+                param_node%inferred_type = param_types(i)
+                arena%entries(sub_node%param_indices(i))%node = param_node
+            end select
+        end do
+
+        do i = 1, size(param_types)
+            if (len_trim(stored_names(i)) == 0) cycle
+            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
+            call scopes%define(trim(stored_names(i)), scheme)
+            call update_identifier_type_in_arena( &
+                arena, trim(stored_names(i)), param_types(i))
+        end do
+
+        param_names = stored_names
+
+    end subroutine analyze_subroutine_parameters
+
+    ! Create subroutine scope
+    subroutine create_subroutine_scope(arena, sub_node, sub_index, scopes)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        integer, intent(in) :: sub_index
+        type(scope_stack_t), intent(inout) :: scopes
+        character(len=:), allocatable :: sub_name
+
+        if (allocated(sub_node%name)) then
+            sub_name = trim(sub_node%name)
+        else
+            sub_name = 'anonymous_subroutine'
+        end if
+
+        call scopes%enter_function(sub_name)
+    end subroutine create_subroutine_scope
 
 end module semantic_function_analysis

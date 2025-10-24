@@ -1,0 +1,10 @@
+! Test issue #1784: Lazy fortran subroutines should create PROGRAM not MODULE
+! and preserve call statements with proper type inference
+
+subroutine greet(name)
+    msg = "Hello, " // name
+    print *, msg
+end subroutine
+
+call greet("World")
+call greet("Fortran")

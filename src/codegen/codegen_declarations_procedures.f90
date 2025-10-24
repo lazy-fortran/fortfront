@@ -384,8 +384,11 @@ contains
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
 
+        body = maybe_add_function_implicit_none(arena, body_indices)
+        body = body // collect_subroutine_parameter_decls(arena, node, param_map)
+
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
-        body = generate_grouped_body_with_params(arena, &
+        body = body // generate_grouped_body_with_params(arena, &
             filtered_body_indices, 1, param_map, node)
     end function build_subroutine_body_section
 
@@ -525,6 +528,76 @@ contains
         end do
     end function parameter_has_declaration
 
+    ! Collect parameter declarations for undeclared subroutine parameters
+    function collect_subroutine_parameter_decls(arena, sub, param_map) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable :: decl_code
+        integer :: i, param_idx
+        logical :: has_declaration
+
+        decl_code = ""
+
+        if (.not. allocated(sub%param_indices)) return
+
+        do i = 1, size(sub%param_indices)
+            param_idx = sub%param_indices(i)
+            if (param_idx <= 0 .or. param_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(param_idx)%node)) cycle
+
+            has_declaration = subroutine_parameter_has_declaration(arena, sub, &
+                                                                    param_map, i)
+
+            if (.not. has_declaration .and. i <= size(param_map)) then
+                call append_parameter_declaration(arena, param_idx, param_map(i), &
+                                                  decl_code)
+            end if
+        end do
+    end function collect_subroutine_parameter_decls
+
+    logical function subroutine_parameter_has_declaration(arena, sub, param_map, &
+                                                          param_idx) result(has_decl)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub
+        type(parameter_info_t), intent(in) :: param_map(:)
+        integer, intent(in) :: param_idx
+        integer :: j, body_idx, k
+
+        has_decl = .false.
+        if (.not. allocated(sub%body_indices)) return
+        if (param_idx > size(param_map)) return
+
+        do j = 1, size(sub%body_indices)
+            body_idx = sub%body_indices(j)
+            if (body_idx <= 0 .or. body_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(body_idx)%node)) cycle
+            select type (body_node => arena%entries(body_idx)%node)
+            type is (declaration_node)
+                if (len_trim(param_map(param_idx)%name) == 0) cycle
+                if (trim(body_node%var_name) == trim(param_map(param_idx)%name)) then
+                    has_decl = .true.
+                    return
+                end if
+                if (body_node%is_multi_declaration .and. &
+                    allocated(body_node%var_names)) then
+                    do k = 1, size(body_node%var_names)
+                        if (trim(body_node%var_names(k)) == &
+                            trim(param_map(param_idx)%name)) then
+                            has_decl = .true.
+                            return
+                        end if
+                    end do
+                end if
+            type is (parameter_declaration_node)
+                if (trim(body_node%name) == trim(param_map(param_idx)%name)) then
+                    has_decl = .true.
+                    return
+                end if
+            end select
+        end do
+    end function subroutine_parameter_has_declaration
+
     subroutine append_parameter_declaration(arena, param_idx, param_info, decl_code)
         use codegen_declarations_core, only: build_parameter_dimensions
         type(ast_arena_t), intent(in) :: arena
@@ -565,16 +638,31 @@ contains
         end select
 
         decl_line = fix_character_len_placeholder(decl_line)
+        ! For parameters, convert character(len=:) to character(len=*)
+        block
+            integer :: pos_char
+            pos_char = index(decl_line, 'character(len=:)')
+            if (pos_char > 0) then
+                decl_line = decl_line(1:pos_char+13) // '*)' // decl_line(pos_char+17:)
+            end if
+        end block
         decl_code = decl_code // decl_line // new_line('A')
     end subroutine append_parameter_declaration
 
     function get_param_type_from_identifier(param_node) result(param_type)
         type(identifier_node), intent(in) :: param_node
         character(len=:), allocatable :: param_type
+        integer :: pos
 
         param_type = mono_type_to_string(param_node%inferred_type, &
                                          include_shape=.true., fallback='real')
         if (len_trim(param_type) == 0) param_type = 'real'
+
+        ! For parameters, convert character(len=:) to character(len=*)
+        pos = index(param_type, 'character(len=:)')
+        if (pos > 0) then
+            param_type = param_type(1:pos+13) // '*' // param_type(pos+16:)
+        end if
     end function get_param_type_from_identifier
 
     function get_param_type_from_param_decl(param_node) result(param_type)
