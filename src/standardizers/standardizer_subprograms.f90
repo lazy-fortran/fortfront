@@ -12,6 +12,7 @@ module standardizer_subprograms
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use lexer_core, only: to_lower
     use type_string_utils, only: is_character_type_string
+    use semantic_validation_utils, only: rename_identifier_in_arena
     implicit none
     private
 
@@ -341,6 +342,14 @@ contains
             if (allocated(res_name)) then
                 if (len_trim(res_name) > 0) then
                     func_def%result_variable = trim(res_name)
+                    ! If result variable is not 'result', rename all 'result'
+                    ! identifiers within function body only
+                    if (trim(res_name) /= 'result') then
+                        if (allocated(func_def%body_indices)) then
+                            call rename_identifier_in_arena(arena, 'result', &
+                                trim(res_name), func_def%body_indices, func_index)
+                        end if
+                    end if
                 end if
             end if
         end if

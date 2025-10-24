@@ -13,6 +13,7 @@ module semantic_validation_utils
 
     public :: validate_array_bounds, check_shape_conformance
     public :: update_identifier_type_in_arena
+    public :: rename_identifier_in_arena
     public :: int_to_str
 
 contains
@@ -58,5 +59,61 @@ contains
             end if
         end do
     end subroutine update_identifier_type_in_arena
+
+    ! Helper: Rename identifier within function scope
+    ! Simple scan-based approach since AST doesn't use parent_index consistently
+    subroutine rename_identifier_in_arena(arena, old_name, new_name, &
+                                          body_indices, func_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: old_name
+        character(len=*), intent(in) :: new_name
+        integer, allocatable, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: func_index
+        integer :: i, min_idx, max_idx
+
+        ! If scope indices provided, determine the range to scan
+        if (present(body_indices) .and. present(func_index)) then
+            ! Find min and max indices in body
+            min_idx = func_index
+            max_idx = func_index
+            do i = 1, size(body_indices)
+                if (body_indices(i) > 0) then
+                    if (min_idx == 0 .or. body_indices(i) < min_idx) then
+                        min_idx = body_indices(i)
+                    end if
+                    if (body_indices(i) > max_idx) max_idx = body_indices(i)
+                end if
+            end do
+            ! Scan arena from min to max+50 (buffer for nested nodes)
+            do i = min_idx, min(max_idx + 50, arena%size)
+                call rename_at_index(arena, i, old_name, new_name)
+            end do
+        else
+            ! Global rename (fallback)
+            do i = 1, arena%size
+                call rename_at_index(arena, i, old_name, new_name)
+            end do
+        end if
+    end subroutine rename_identifier_in_arena
+
+    subroutine rename_at_index(arena, idx, old_name, new_name)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx
+        character(len=*), intent(in) :: old_name
+        character(len=*), intent(in) :: new_name
+        type(identifier_node) :: temp_node
+
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (identifier_node)
+            if (trim(node%name) == trim(old_name)) then
+                temp_node = node
+                temp_node%name = trim(new_name)
+                arena%entries(idx)%node = temp_node
+            end if
+        end select
+    end subroutine rename_at_index
 
 end module semantic_validation_utils
