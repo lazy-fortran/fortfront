@@ -457,11 +457,13 @@ Fortfront's responsibility is **single-file monomorphization**. Cross-module spe
 
 **What Fortfront Does:**
 
-**Pattern 1: Single-File Monomorphization (Primary Goal)**
+**Pattern 1: Single-File Monomorphization (Default Behavior)**
 - Analyze all call sites within single `.lf` file
 - Generate multiple specializations for functions used with different types
 - Emit generic interface binding all specializations
 - Output complete program or module with all variants
+
+**This is not optional - it's how type inference works correctly.**
 
 Example:
 ```fortran
@@ -474,7 +476,7 @@ x = add(5, 3)
 y = add(2.5, 1.5)
 ```
 
-Output with `--monomorphize`:
+Output (standard behavior):
 ```fortran
 module auto_add
     implicit none
@@ -618,8 +620,8 @@ end module
 **4. Command-Line Interface for Package Managers**
 
 ```bash
-# Analyze single file and emit monomorphized module
-fortfront --monomorphize input.lf -o output.f90
+# Standard transformation (monomorphization is automatic)
+fortfront input.lf -o output.f90
 
 # Emit metadata for package manager
 fortfront --emit-metadata input.lf -o metadata.json
@@ -646,7 +648,7 @@ fortfront --query-module m_add.mod
 
 **Package manager workflow:**
 1. User writes library.lf
-2. Package manager invokes: `fortfront --monomorphize --emit-metadata lib.lf`
+2. Package manager invokes: `fortfront --emit-metadata lib.lf`
 3. Package manager caches `lib.mod`, `lib.o`, `lib_metadata.json`
 4. User writes caller.lf using library
 5. Package manager invokes: `fortfront --emit-metadata caller.lf`
@@ -690,8 +692,7 @@ This approach combines features from multiple languages:
 1. Enhance call graph to track unique type signatures per function
 2. Modify codegen to generate multiple specifics when needed
 3. Emit generic interface binding all specifics
-4. Add `--monomorphize` flag (opt-in)
-5. **Goal:** Complete monomorphization within single `.lf` file
+4. **Goal:** Complete monomorphization within single `.lf` file (standard behavior)
 
 **Phase 2: Infrastructure for Package Managers**
 1. Implement `--emit-metadata` to export type signatures and call sites
@@ -765,8 +766,8 @@ This approach combines features from multiple languages:
 
 **Regression Tests:**
 - Existing lazy fortran examples continue to work
-- Default behavior unchanged (opt-in only)
-- No performance degradation for non-monomorphized code
+- Single-type functions remain simple (no interface overhead)
+- No performance degradation for simple cases
 
 ## Conclusion
 
@@ -799,7 +800,7 @@ This approach combines features from multiple languages:
 **For single-file scripts (fortfront handles completely):**
 - ✓ **High value:** Multiple type uses in one file work correctly
 - ✓ **Zero overhead:** Static dispatch, no runtime cost
-- ✓ **Simple:** Opt-in `--monomorphize` flag
+- ✓ **Simple:** Just works automatically
 
 **For library development (fortfront + package manager):**
 - ✓ **High value:** Caller-side specialization without library mutation
@@ -808,16 +809,16 @@ This approach combines features from multiple languages:
 
 **For teaching:**
 - ✓ **Low complexity:** Single-file case is straightforward
-- ✓ **Opt-in:** Default behavior unchanged
+- ✓ **No surprises:** Multiple type uses just work
 - ✓ **Progressive:** Learn simple case first, ecosystem later
 
 ### Recommended Implementation Path
 
 **Phase 1 (HIGH PRIORITY - Fortfront):**
-Single-file monomorphization with `--monomorphize` flag
+Single-file monomorphization (standard behavior)
 - **Value:** Complete solution for scripts
 - **Effort:** Medium (use existing call graph, codegen)
-- **Risk:** Low (isolated feature, opt-in)
+- **Risk:** Low (natural extension of type inference)
 
 **Phase 2 (MEDIUM PRIORITY - Fortfront):**
 Infrastructure for package managers (`--emit-metadata`, `--instantiate`)
@@ -842,7 +843,7 @@ Cross-module orchestration, caching, dependency resolution
 - ✓ **100% standard Fortran** (no language extensions)
 - ✓ **Immutable library objects** (clean build model)
 - ✓ **Zero runtime overhead** (static resolution)
-- ✓ **Incremental adoption** (opt-in features)
+- ✓ **Natural behavior** (completes type inference correctly)
 - ✓ **Leverages existing infrastructure** (call graph, codegen, interfaces)
 - ✓ **Clean separation of concerns** (fortfront = transformation, packages = orchestration)
 
