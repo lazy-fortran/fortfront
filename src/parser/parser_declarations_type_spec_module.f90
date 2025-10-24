@@ -421,16 +421,30 @@ contains
         type(token_t) :: token
         type(token_t), allocatable :: collected_tokens(:)
         character(len=:), allocatable :: collected_text
+        integer :: depth
 
+        depth = 0
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%text == ")") then
+            select case (token%text)
+            case (")")
+                if (depth == 0) then
+                    token = parser%consume()
+                    exit
+                else
+                    depth = depth - 1
+                    call append_token(collected_tokens, token)
+                    token = parser%consume()
+                end if
+            case ("(")
+                depth = depth + 1
+                call append_token(collected_tokens, token)
                 token = parser%consume()
-                exit
-            end if
-            call append_token(collected_tokens, token)
-            token = parser%consume()
-            call consume_comma_if_present(parser)
+            case default
+                call append_token(collected_tokens, token)
+                token = parser%consume()
+                call consume_comma_if_present(parser)
+            end select
         end do
 
         if (allocated(collected_tokens)) then
