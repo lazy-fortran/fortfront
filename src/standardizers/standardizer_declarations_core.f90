@@ -1139,6 +1139,14 @@ contains
                 if (allocated(stmt%expression_indices)) then
                     call push_many(stmt%expression_indices)
                 end if
+            type is (read_statement_node)
+                if (allocated(stmt%var_indices)) then
+                    call push_many(stmt%var_indices)
+                end if
+            type is (identifier_node)
+                call collect_identifier_var(stmt, var_names, var_types, &
+                                            var_declared, var_count, &
+                                            function_names, func_count)
             class default
                 ! other nodes handled elsewhere as needed
             end select

@@ -49,6 +49,7 @@ module semantic_analyzer
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
         array_bounds_node, range_expression_node, get_array_slice_node
     use ast_nodes_misc, only: complex_literal_node
+    use ast_nodes_io, only: read_statement_node, print_statement_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
         create_error_result, ERROR_SEMANTIC
@@ -663,6 +664,28 @@ contains
             type is (continue_node)
                 local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
                 call finalize_node(node_index, local_type)
+            type is (read_statement_node)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (allocated(expr%var_indices)) then
+                    do i = size(expr%var_indices), 1, -1
+                        call push_child(expr%var_indices(i))
+                    end do
+                end if
+            type is (print_statement_node)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (allocated(expr%expression_indices)) then
+                    do i = size(expr%expression_indices), 1, -1
+                        call push_child(expr%expression_indices(i))
+                    end do
+                end if
             class default
                 post_frame = current
                 if (allocated(post_frame%param_types)) deallocate &
@@ -760,6 +783,12 @@ contains
                 call finalize_node(node_index, node_type)
             type is (nullify_node)
                 call process_nullify_node_code(expr, node_type)
+                call finalize_node(node_index, node_type)
+            type is (read_statement_node)
+                call infer_read_statement(this, arena, expr, node_index, node_type)
+                call finalize_node(node_index, node_type)
+            type is (print_statement_node)
+                node_type = create_mono_type(TVAR, var=create_type_var(0, "io"))
                 call finalize_node(node_index, node_type)
             class default
                 node_type = get_node_type(node_index)
@@ -1043,6 +1072,49 @@ contains
         ! Store the actual assignment type
         call set_node_inferred_type(arena, assignment_index, typ)
     end function infer_assignment
+
+    subroutine infer_read_statement(ctx, arena, read_stmt, stmt_index, typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(read_statement_node), intent(in) :: read_stmt
+        integer, intent(in) :: stmt_index
+        type(mono_type_t), intent(out) :: typ
+        integer :: i, var_index
+        type(mono_type_t) :: var_type
+        type(poly_type_t) :: var_scheme
+        type(poly_type_t), allocatable :: existing_scheme
+
+        typ = create_mono_type(TVAR, var=create_type_var(0, "io"))
+
+        if (.not. allocated(read_stmt%var_indices)) return
+
+        do i = 1, size(read_stmt%var_indices)
+            var_index = read_stmt%var_indices(i)
+            if (var_index <= 0) cycle
+            if (.not. allocated(arena%entries(var_index)%node)) cycle
+
+            select type (node => arena%entries(var_index)%node)
+            type is (identifier_node)
+                call ctx%scopes%lookup(node%name, existing_scheme)
+
+                if (.not. allocated(existing_scheme)) then
+                    var_type = get_inferred_type_from_arena(ctx, arena, var_index)
+
+                    if (var_type%kind == TVAR .and. var_type%var%id == 0) then
+                        var_type = create_mono_type(TREAL)
+                    end if
+
+                    call update_identifier_type_in_arena(arena, node%name, var_type)
+
+                    var_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                                  mono=var_type)
+                    call ctx%scopes%define(node%name, var_scheme)
+
+                    call set_node_inferred_type(arena, var_index, var_type)
+                end if
+            end select
+        end do
+    end subroutine infer_read_statement
 
     function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx
