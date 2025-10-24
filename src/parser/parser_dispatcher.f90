@@ -193,6 +193,8 @@ contains
                 stmt_index = parse_data_statement(parser, arena)
             case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(lowered_keyword, parser, arena)
+            case ("enum", "enumerator")
+                stmt_index = parse_unsupported_statement(lowered_keyword, parser, arena)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                      stmt_index)) then
@@ -562,5 +564,25 @@ contains
             end if
         end do
     end subroutine collect_prefix_keywords
+
+    function parse_unsupported_statement(keyword, parser, arena) result(stmt_index)
+        use ast_factory, only: push_error_node
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: error_msg
+        integer :: line, column
+
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        error_msg = "Unsupported Fortran feature: " // trim(keyword) // &
+                   " constructs are not supported"
+
+        stmt_index = push_error_node(arena, error_msg, keyword, line, column)
+    end function parse_unsupported_statement
 
 end module parser_dispatcher_module
