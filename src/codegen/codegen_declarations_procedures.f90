@@ -7,7 +7,8 @@ module codegen_declarations_procedures
     use ast_nodes_misc, only: implicit_statement_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
-    use codegen_utilities, only: parameter_info_t, generate_grouped_body_with_params
+    use codegen_utilities, only: parameter_info_t, generate_grouped_body_with_params, &
+                                 reorder_import_lines
     use codegen_declarations_core, only: fix_character_len_placeholder
     use codegen_declarations_inference, only: build_parameter_map, &
                                               derive_character_return_type, &
@@ -206,6 +207,7 @@ contains
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
             filtered_body_indices, 1, param_map, node)
+        call reorder_import_lines(body)
     end function build_function_body_section
 
     subroutine filter_implicit_statements(arena, body_indices, filtered_indices)
@@ -390,6 +392,7 @@ contains
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
             filtered_body_indices, 1, param_map, node)
+        call reorder_import_lines(body)
     end function build_subroutine_body_section
 
     subroutine copy_indices(source, target)

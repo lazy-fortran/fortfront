@@ -46,6 +46,7 @@ module codegen_utilities
     public :: is_character_type_string
     public :: normalize_character_type
     public :: normalize_character_type_param
+    public :: reorder_import_lines
 
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
