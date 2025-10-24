@@ -2,7 +2,8 @@ module codegen_declarations_inference
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node, program_node, array_literal_node
-    use ast_nodes_misc, only: contains_node, use_statement_node
+    use ast_nodes_misc, only: contains_node, use_statement_node, &
+                              allocate_statement_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node
@@ -553,6 +554,8 @@ contains
             type is (assignment_node)
                 call process_assignment_target(arena, stmt, state)
                 call process_assignment_value(arena, stmt, state)
+            type is (allocate_statement_node)
+                call process_allocate_variables(arena, stmt, state)
             end select
         end do
     end subroutine collect_assignment_symbols
@@ -663,6 +666,63 @@ contains
             call try_add_function_reference(state, name_buf, trim(type_buf))
         end select
     end subroutine process_assignment_value
+
+    subroutine process_allocate_variables(arena, stmt, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(allocate_statement_node), intent(in) :: stmt
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, var_index
+        character(len=:), allocatable :: name_buf
+        character(len=:), allocatable :: type_buf
+        logical :: standardize_types_enabled
+
+        call get_type_standardization(standardize_types_enabled)
+
+        if (.not. allocated(stmt%var_indices)) return
+
+        do i = 1, size(stmt%var_indices)
+            var_index = stmt%var_indices(i)
+            if (var_index <= 0 .or. var_index > arena%size) cycle
+            if (.not. allocated(arena%entries(var_index)%node)) cycle
+
+            select type (node => arena%entries(var_index)%node)
+            type is (identifier_node)
+                name_buf = trim(node%name)
+                if (len_trim(name_buf) == 0) cycle
+                if (exists_in_list(state%declared_names, state%declared_count, &
+                                   name_buf)) cycle
+                if (exists_in_list(state%var_names, state%var_count, &
+                                   name_buf)) cycle
+                if (exists_in_list(state%use_associated_names, &
+                                   state%use_associated_count, name_buf)) cycle
+
+                type_buf = mono_type_to_string(node%inferred_type, &
+                                               include_shape=.true., &
+                                               standardize_real=standardize_types_enabled, &
+                                               fallback='integer')
+                if (len_trim(type_buf) == 0) type_buf = 'integer'
+
+                call try_add_variable(state, name_buf, trim(type_buf))
+            type is (call_or_subscript_node)
+                name_buf = trim(node%name)
+                if (len_trim(name_buf) == 0) cycle
+                if (exists_in_list(state%declared_names, state%declared_count, &
+                                   name_buf)) cycle
+                if (exists_in_list(state%var_names, state%var_count, &
+                                   name_buf)) cycle
+                if (exists_in_list(state%use_associated_names, &
+                                   state%use_associated_count, name_buf)) cycle
+
+                type_buf = mono_type_to_string(node%inferred_type, &
+                                               include_shape=.true., &
+                                               standardize_real=standardize_types_enabled, &
+                                               fallback='integer')
+                if (len_trim(type_buf) == 0) type_buf = 'integer'
+
+                call try_add_variable(state, name_buf, trim(type_buf))
+            end select
+        end do
+    end subroutine process_allocate_variables
 
     subroutine try_add_variable(state, name, type_name)
         type(program_decl_state_t), intent(inout) :: state
