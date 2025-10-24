@@ -12,7 +12,8 @@ module semantic_analyzer
         check_shape_conformance, update_identifier_type_in_arena, int_to_str
     use semantic_function_analysis, only: infer_type_from_usage_context, &
         analyze_function_parameters, determine_function_return_type, &
-        create_function_scope
+        create_function_scope, analyze_subroutine_parameters, &
+        create_subroutine_scope
     use semantic_type_operations, only: generate_fresh_type_var_op, &
         apply_substitution_to_type, generalize_type_op, &
         instantiate_type_scheme_op, get_common_type
@@ -421,6 +422,31 @@ contains
                 post_frame%leave_scope = .true.
                 post_frame%has_cached_type = .true.
                 post_frame%cached_type = return_type
+                if (allocated(post_frame%param_types)) deallocate &
+                    (post_frame%param_types)
+                if (allocated(param_types)) then
+                    post_frame%param_types = param_types
+                else
+                    allocate (post_frame%param_types(0))
+                end if
+                call push_frame_local(post_frame)
+                if (allocated(param_types)) deallocate (param_types)
+                if (allocated(param_names)) deallocate (param_names)
+                if (allocated(expr%body_indices)) then
+                    do i = size(expr%body_indices), 1, -1
+                        call push_child(expr%body_indices(i))
+                    end do
+                end if
+            type is (subroutine_def_node)
+                call analyze_subroutine_parameters( &
+                    arena, expr, param_types, param_names, this%scopes, &
+                    this%next_var_id)
+                call create_subroutine_scope( &
+                    arena, expr, node_index, this%scopes)
+                post_frame = current
+                post_frame%state = STATE_POST
+                post_frame%leave_scope = .true.
+                post_frame%has_cached_type = .false.
                 if (allocated(post_frame%param_types)) deallocate &
                     (post_frame%param_types)
                 if (allocated(param_types)) then
