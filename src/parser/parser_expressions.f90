@@ -574,6 +574,17 @@ contains
 
         if (op_entry%precedence == PREC_COMPARISON .and. &
             comparison_active(operators)) then
+            block
+                use, intrinsic :: iso_fortran_env, only: error_unit
+                write (error_unit, '(A)') &
+                    "ERROR: Chained comparisons are not supported in Fortran"
+                write (error_unit, '(A)') &
+                    "  Suggestion: Use logical operators: (a < b) .and. (b < c)"
+                write (error_unit, '(A,I0,A,I0)') &
+                    "  Location: line ", token%line, ", column ", token%column
+            end block
+            call parser%error("Chained comparisons are not supported in Fortran", &
+                              suggestion="Use logical operators: (a < b) .and. (b < c)")
             should_exit = .true.
             return
         end if
