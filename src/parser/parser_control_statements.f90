@@ -133,7 +133,8 @@ contains
 
         ! Check for optional result clause
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER .and. to_lower(trim(token%text)) == "result") then
+        if (token%kind == TK_IDENTIFIER .and. &
+            to_lower(trim(token%text)) == "result") then
             params_text = params_text // " result"
             token = parser%consume()
             token = parser%peek()
@@ -145,7 +146,8 @@ contains
                     params_text = params_text // trim(token%text)
                     if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
                         paren_depth = paren_depth + 1
-                    else if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                    else if (token%kind == TK_OPERATOR .and. &
+                             trim(token%text) == ")") then
                         paren_depth = paren_depth - 1
                         if (paren_depth == 0) then
                             i = i + 1
