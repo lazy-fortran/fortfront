@@ -204,6 +204,7 @@ contains
         attr_info%is_save = node%is_save
         attr_info%is_volatile = node%is_volatile
         attr_info%is_protected = node%is_protected
+        attr_info%is_asynchronous = node%is_asynchronous
         if (node%is_array .and. allocated(node%dimension_indices) .and. &
             .not. node%is_multi_declaration .and. .not. node%is_allocatable .and. &
             node%has_intent) then

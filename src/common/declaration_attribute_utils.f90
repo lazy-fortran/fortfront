@@ -20,6 +20,7 @@ module declaration_attribute_utils
         logical :: is_save = .false.
         logical :: is_volatile = .false.
         logical :: is_protected = .false.
+        logical :: is_asynchronous = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
         character(len=:), allocatable :: intent
@@ -40,6 +41,7 @@ contains
         attr%is_save = .false.
         attr%is_volatile = .false.
         attr%is_protected = .false.
+        attr%is_asynchronous = .false.
         attr%has_intent = .false.
         if (allocated(attr%intent)) deallocate (attr%intent)
         attr%has_global_dimensions = .false.
@@ -150,6 +152,13 @@ contains
         if (attr%is_protected) then
             if (index(lowered, 'protected') == 0) then
                 code = trim(code) // ", protected"
+                lowered = to_lower(trim(code))
+            end if
+        end if
+
+        if (attr%is_asynchronous) then
+            if (index(lowered, 'asynchronous') == 0) then
+                code = trim(code) // ", asynchronous"
             end if
         end if
     end subroutine append_declaration_attributes

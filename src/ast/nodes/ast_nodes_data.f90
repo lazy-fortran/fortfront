@@ -64,6 +64,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_protected = .false.  ! Whether protected
         ! attribute is present
+        logical :: is_asynchronous = .false.  ! Whether asynchronous
+        ! attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
