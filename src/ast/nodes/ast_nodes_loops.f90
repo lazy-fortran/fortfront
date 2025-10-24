@@ -24,6 +24,7 @@ module ast_nodes_loops
         integer :: step_expr_index = 0  ! Step expression arena &
         ! index (optional)
         integer, allocatable :: body_indices(:)  ! Loop body arena indices
+        logical :: is_concurrent = .false.  ! Is this a DO CONCURRENT loop?
     contains
         procedure :: accept => do_loop_accept
         procedure :: to_json => do_loop_to_json
@@ -114,6 +115,7 @@ contains
         lhs%start_expr_index = rhs%start_expr_index
         lhs%end_expr_index = rhs%end_expr_index
         lhs%step_expr_index = rhs%step_expr_index
+        lhs%is_concurrent = rhs%is_concurrent
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
             allocate (lhs%body_indices(size(rhs%body_indices)))

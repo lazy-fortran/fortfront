@@ -405,11 +405,13 @@ contains
         integer :: line, column
         integer :: control_count
         logical :: has_open_paren
+        logical :: is_concurrent
 
         call initialize_if_hooks()
 
         step_index = 0  ! Initialize to 0 (no step)
         loop_index = 0  ! Initialize to 0 (failure) in case of early return
+        is_concurrent = .false.
 
         ! Starting to parse do loop
 
@@ -449,6 +451,7 @@ contains
         has_open_paren = .false.
 
         if (var_token%kind == TK_KEYWORD .and. var_token%text == "concurrent") then
+            is_concurrent = .true.
             var_token = parser%consume()
 
             if (.not. parser%is_at_end()) then
@@ -517,11 +520,13 @@ contains
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
+                                              is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 else
                     loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
+                                              is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 end if
             else
@@ -529,10 +534,12 @@ contains
                     loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
+                                              is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 else
                     loop_index = push_do_loop(arena, var_name, start_index, end_index, &
                                               body_indices=[integer ::], &
+                                              is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 end if
             end if

@@ -86,13 +86,15 @@ contains
     ! Create do loop node and add to stack
     function push_do_loop(arena, var_name, start_index, end_index, step_index, &
                           body_indices, &
-                          loop_label, line, column, parent_index) result(loop_index)
+                          loop_label, is_concurrent, line, column, parent_index) &
+        result(loop_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: step_index
         integer, intent(in), optional :: body_indices(:)
         character(len=*), intent(in), optional :: loop_label
+        logical, intent(in), optional :: is_concurrent
         integer, intent(in), optional :: line, column, parent_index
         integer :: loop_index
         type(do_loop_node) :: loop_node
@@ -101,6 +103,7 @@ contains
 
         loop_node%var_name = var_name
         if (present(loop_label)) loop_node%label = loop_label
+        if (present(is_concurrent)) loop_node%is_concurrent = is_concurrent
 
         ! Set start and end expression indices
         if (start_index > 0 .and. start_index <= arena%size) then

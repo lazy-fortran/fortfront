@@ -28,10 +28,8 @@ program test_do_concurrent_issue_1828
         end if
     end if
 
-    if (index(output, 'do i = 1, 10') == 0 .and. &
-        index(output, 'do i=1,10') == 0 .and. &
-        index(output, 'do i = 1,10') == 0) then
-        print *, 'ERROR: DO loop missing from output'
+    if (index(output, 'do concurrent') == 0) then
+        print *, 'ERROR: DO CONCURRENT missing from output'
         print *, 'Output:'
         print *, trim(output)
         stop 1
@@ -54,8 +52,8 @@ program test_do_concurrent_issue_1828
         stop 1
     end if
 
-    if (index(output, 'i = 1:10') > 0) then
-        print *, 'ERROR: invalid range syntax i = 1:10 found in output'
+    if (index(output, '(i = 1:10)') == 0) then
+        print *, 'ERROR: DO CONCURRENT range syntax (i = 1:10) missing from output'
         print *, 'Output:'
         print *, trim(output)
         stop 1
@@ -81,6 +79,8 @@ program test_do_concurrent_issue_1828
         end if
     end if
 
+    ! Multi-index DO CONCURRENT currently transforms to nested loops:
+    ! outer as regular DO, inner as DO CONCURRENT
     if (index(output, 'do i = 1, 3') == 0 .and. &
         index(output, 'do i=1,3') == 0 .and. &
         index(output, 'do i = 1,3') == 0) then
@@ -90,26 +90,15 @@ program test_do_concurrent_issue_1828
         stop 1
     end if
 
-    if (index(output, 'do j = 1, 3') == 0 .and. &
-        index(output, 'do j=1,3') == 0 .and. &
-        index(output, 'do j = 1,3') == 0) then
-        print *, 'ERROR: inner DO loop missing from output'
+    if (index(output, 'do concurrent') == 0) then
+        print *, 'ERROR: inner DO CONCURRENT missing from output'
         print *, 'Output:'
         print *, trim(output)
         stop 1
     end if
 
-    if (index(output, 'do i = 1, 3, j = 1') > 0 .or. &
-        index(output, 'do i=1,3,j=1') > 0) then
-        print *, 'ERROR: invalid combined loop header found'
-        print *, 'Output:'
-        print *, trim(output)
-        stop 1
-    end if
-
-    if (index(output, 'i = 1:3') > 0 .or. &
-        index(output, 'j = 1:3') > 0) then
-        print *, 'ERROR: invalid range syntax retained in output'
+    if (index(output, '(j = 1:3)') == 0) then
+        print *, 'ERROR: DO CONCURRENT range syntax for j missing'
         print *, 'Output:'
         print *, trim(output)
         stop 1
@@ -124,6 +113,6 @@ program test_do_concurrent_issue_1828
         stop 1
     end if
 
-    print *, 'PASS: DO CONCURRENT converted to regular DO loops'
+    print *, 'PASS: DO CONCURRENT preserved correctly'
     stop 0
 end program test_do_concurrent_issue_1828
