@@ -163,17 +163,34 @@ contains
         end if
 
         ! Generate do statement with optional label
-        if (allocated(node%label)) then
-            code = trim(adjustl(node%label)) // ": do " // var_code // " = " // &
-                   start_code // ", " // end_code
-            end_keyword = "end do " // trim(adjustl(node%label))
+        if (node%is_concurrent) then
+            ! DO CONCURRENT syntax: do concurrent (var = start:end[:step])
+            if (allocated(node%label)) then
+                code = trim(adjustl(node%label)) // ": do concurrent (" // var_code // &
+                       " = " // start_code // ":" // end_code
+                end_keyword = "end do " // trim(adjustl(node%label))
+            else
+                code = "do concurrent (" // var_code // " = " // start_code // ":" // &
+                       end_code
+                end_keyword = "end do"
+            end if
+            if (len(step_code) > 0) then
+                code = code // ":" // step_code
+            end if
+            code = code // ")"
         else
-            code = "do " // var_code // " = " // start_code // ", " // end_code
-            end_keyword = "end do"
-        end if
-
-        if (len(step_code) > 0) then
-            code = code // ", " // step_code
+            ! Regular DO loop syntax: do var = start, end [, step]
+            if (allocated(node%label)) then
+                code = trim(adjustl(node%label)) // ": do " // var_code // " = " // &
+                       start_code // ", " // end_code
+                end_keyword = "end do " // trim(adjustl(node%label))
+            else
+                code = "do " // var_code // " = " // start_code // ", " // end_code
+                end_keyword = "end do"
+            end if
+            if (len(step_code) > 0) then
+                code = code // ", " // step_code
+            end if
         end if
 
         ! Generate body
