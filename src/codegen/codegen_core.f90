@@ -29,6 +29,7 @@ module codegen_core
                               visibility_statement_node, namelist_statement_node, &
                               contains_node, end_statement_node, interface_block_node, &
                               module_procedure_node
+    use ast_error_nodes, only: error_node_t
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
@@ -199,6 +200,8 @@ contains
             code = "contains"
         type is (end_statement_node)
             code = "end"
+        type is (error_node_t)
+            code = "! ERROR: " // node%error_message
 
         class default
             ! Unknown node type
