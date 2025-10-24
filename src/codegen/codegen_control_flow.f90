@@ -186,7 +186,7 @@ contains
         type(do_while_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: cond_code, body_code
+        character(len=:), allocatable :: cond_code, body_code, end_keyword
         integer :: indent_level
 
         indent_level = 0
@@ -198,11 +198,18 @@ contains
             cond_code = ""
         end if
 
-        ! Generate do while statement
-        code = "do while (" // cond_code // ")"
+        ! Generate do while statement with optional label
+        if (allocated(node%label)) then
+            code = trim(adjustl(node%label)) // ": do while (" // cond_code // ")"
+            end_keyword = "end do " // trim(adjustl(node%label))
+        else
+            code = "do while (" // cond_code // ")"
+            end_keyword = "end do"
+        end if
 
         ! Generate body
-        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, code)
+        call append_do_loop_body_and_end(arena, node%body_indices, indent_level, &
+                                         code, end_keyword)
     end function generate_code_do_while
 
     ! Generate code for select case statements

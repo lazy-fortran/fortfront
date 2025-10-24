@@ -244,7 +244,12 @@ contains
         var_token = parser%peek()
         if (var_token%kind == TK_KEYWORD .and. var_token%text == "while") then
             ! Parse as do while loop
-            loop_index = parse_do_while_from_do(parser, arena, line, column)
+            if (allocated(loop_label)) then
+                loop_index = parse_do_while_from_do(parser, arena, line, column, &
+                                                   loop_label)
+            else
+                loop_index = parse_do_while_from_do(parser, arena, line, column)
+            end if
             return
         end if
 
@@ -582,10 +587,12 @@ contains
     end function parse_do_while
 
     ! Helper function for parsing do while from do token
-    function parse_do_while_from_do(parser, arena, line, column) result(loop_index)
+    function parse_do_while_from_do(parser, arena, line, column, loop_label) &
+        result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: line, column
+        character(len=*), intent(in), optional :: loop_label
         integer :: loop_index
 
         type(token_t) :: while_token, lparen_token, rparen_token
@@ -618,8 +625,15 @@ contains
 
         callbacks = build_do_body_callbacks()
 
-        loop_index = push_do_while(arena, condition_index, body_indices=[integer ::], &
-                                   line=line, column=column)
+        if (present(loop_label)) then
+            loop_index = push_do_while(arena, condition_index, &
+                                       body_indices=[integer ::], &
+                                       loop_label=loop_label, line=line, column=column)
+        else
+            loop_index = push_do_while(arena, condition_index, &
+                                       body_indices=[integer ::], &
+                                       line=line, column=column)
+        end if
 
         ! Parse body statements until 'end' (same logic as if blocks)
         block

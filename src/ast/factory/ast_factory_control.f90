@@ -132,16 +132,20 @@ contains
     end function push_do_loop
 
     ! Create do while loop node and add to stack
-    function push_do_while(arena, condition_index, body_indices, line, column, &
-                           parent_index) result(while_index)
+    function push_do_while(arena, condition_index, body_indices, loop_label, &
+                           line, column, parent_index) result(while_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: body_indices(:)
+        character(len=*), intent(in), optional :: loop_label
         integer, intent(in), optional :: line, column, parent_index
         integer :: while_index
         type(do_while_node) :: while_node
 
         while_node%uid = generate_uid()
+
+        ! Set label if provided
+        if (present(loop_label)) while_node%label = loop_label
 
         ! Set condition index
         if (condition_index > 0 .and. condition_index <= arena%size) then
