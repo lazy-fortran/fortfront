@@ -183,11 +183,16 @@ contains
         if (node%has_intent .and. allocated(node%intent)) then
             call set_declaration_intent(attr_info, node%intent)
         end if
-        attr_info%is_allocatable = node%is_allocatable
-        if (.not. attr_info%is_allocatable) then
-            if (node%inferred_type%kind > 0) then
-                if (node%inferred_type%alloc_info%needs_allocatable_string) then
-                    attr_info%is_allocatable = .true.
+        ! Never output allocatable for parameter constants (conflicts - fixes #1810)
+        if (node%is_parameter) then
+            attr_info%is_allocatable = .false.
+        else
+            attr_info%is_allocatable = node%is_allocatable
+            if (.not. attr_info%is_allocatable) then
+                if (node%inferred_type%kind > 0) then
+                    if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                        attr_info%is_allocatable = .true.
+                    end if
                 end if
             end if
         end if
@@ -224,8 +229,10 @@ contains
                 entities = entities // trim(node%var_names(i))
                 if (node%is_array .and. allocated(node%dimension_indices)) then
                     if (.not. has_dimension_attr) then
+                        ! Parameters cannot be allocatable (fixes #1810)
                         entities = trim(entities) // build_dimension_clause( &
-                                   arena, node%dimension_indices, node%is_allocatable)
+                                   arena, node%dimension_indices, &
+                                   node%is_allocatable .and. .not. node%is_parameter)
                     end if
                 end if
             end do
@@ -233,8 +240,10 @@ contains
             entities = node%var_name
             if (node%is_array .and. allocated(node%dimension_indices)) then
                 if (.not. has_dimension_attr) then
+                    ! Parameters cannot be allocatable (fixes #1810)
                     entities = trim(entities) // build_dimension_clause( &
-                               arena, node%dimension_indices, node%is_allocatable)
+                               arena, node%dimension_indices, &
+                               node%is_allocatable .and. .not. node%is_parameter)
                 end if
             end if
         end if
