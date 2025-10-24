@@ -1,0 +1,5 @@
+! Test case for sign intrinsic (issue #1856)
+x = 5.0
+y = -3.0
+result = sign(x, y)
+print *, 'Sign:', result
