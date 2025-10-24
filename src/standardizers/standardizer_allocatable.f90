@@ -10,6 +10,7 @@ module standardizer_allocatable
     use ast_nodes_control
     use ast_nodes_data
     use ast_nodes_procedure
+    use ast_nodes_bounds, only: range_expression_node
     use type_system_unified
     use standardizer_types
     implicit none
@@ -589,12 +590,15 @@ contains
 
         new_decl%is_allocatable = is_allocatable
 
-        ! Adjust dimensions for allocatable arrays
+        ! Adjust dimensions for allocatable arrays (but preserve explicit bounds - fixes #1812)
         if (is_allocatable .and. new_decl%is_array .and. &
             allocated(new_decl%dimension_indices)) then
-            deallocate (new_decl%dimension_indices)
-            allocate (new_decl%dimension_indices(1))
-            new_decl%dimension_indices(1) = 0  ! Deferred shape
+            ! Only convert to deferred shape if array does NOT have explicit bounds
+            if (.not. has_explicit_array_bounds(new_decl)) then
+                deallocate (new_decl%dimension_indices)
+                allocate (new_decl%dimension_indices(1))
+                new_decl%dimension_indices(1) = 0  ! Deferred shape
+            end if
         end if
     end subroutine create_split_declaration
 
@@ -871,8 +875,13 @@ contains
 
         ! Apply allocatable attributes only when explicitly needed:
         ! - character strings with deferred length
-        ! - arrays flagged by assignment tracking
+        ! - arrays flagged by assignment tracking (but NOT if they have explicit bounds)
         if (decl%is_array) then
+            ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812)
+            ! Arrays like integer :: arr(0:9) or real :: arr(-5:5) must preserve bounds
+            if (has_explicit_array_bounds(decl)) then
+                return
+            end if
             ! Assignment tracking now excludes element writes, so this path only
             ! runs for arrays that must be deferred shape.
             decl%is_allocatable = .true.
@@ -908,5 +917,29 @@ contains
             has_len = .false.
         end if
     end function has_explicit_character_length
+
+    pure logical function has_explicit_array_bounds(decl) result(has_bounds)
+        ! Check if a declaration has explicit array bounds (e.g., arr(0:9), arr(-5:5))
+        ! rather than just a size (e.g., arr(10)) or deferred shape (e.g., arr(:))
+        ! Arrays with explicit bounds should NOT be converted to allocatable.
+        type(declaration_node), intent(in) :: decl
+        integer :: i
+
+        has_bounds = .false.
+
+        if (.not. decl%is_array) return
+        if (.not. allocated(decl%dimension_indices)) return
+        if (size(decl%dimension_indices) == 0) return
+
+        ! Check if any dimension index is > 1000000
+        ! Heuristic: Parser stores range expressions (like 0:9) as large indices
+        ! while simple sizes (like 10) are stored as small indices
+        do i = 1, size(decl%dimension_indices)
+            if (decl%dimension_indices(i) > 1000000) then
+                has_bounds = .true.
+                return
+            end if
+        end do
+    end function has_explicit_array_bounds
 
 end module standardizer_allocatable
