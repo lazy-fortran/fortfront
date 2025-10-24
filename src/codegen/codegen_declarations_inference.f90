@@ -6,6 +6,7 @@ module codegen_declarations_inference
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_transfer, only: entry_node
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use codegen_utilities, only: parameter_info_t
@@ -484,6 +485,7 @@ contains
             type is (function_def_node)
                 if (contains_seen .and. allocated(decl%name)) then
                     call try_add_internal_function(state, trim(decl%name))
+                    call collect_entry_points_from_function(arena, decl, state)
                 end if
             type is (call_or_subscript_node)
                 if (allocated(decl%name)) then
@@ -515,6 +517,27 @@ contains
         state%internal_count = state%internal_count + 1
         state%internal_funcs(state%internal_count) = name
     end subroutine try_add_internal_function
+
+    subroutine collect_entry_points_from_function(arena, func, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+
+        if (.not. allocated(func%body_indices)) return
+
+        do i = 1, size(func%body_indices)
+            idx = func%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (entry_node)
+                if (allocated(stmt%name)) then
+                    call try_add_internal_function(state, trim(stmt%name))
+                end if
+            end select
+        end do
+    end subroutine collect_entry_points_from_function
 
     subroutine collect_assignment_symbols(arena, prog, state)
         type(ast_arena_t), intent(in) :: arena
