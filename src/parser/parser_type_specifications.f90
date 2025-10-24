@@ -178,7 +178,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
         type(token_t) :: token
-        character(len=:), allocatable :: type_name
+        character(len=:), allocatable :: type_name, none_spec
         integer :: kind_value, length_value
         logical :: has_kind, has_length, is_none
         character(len=64), allocatable :: letter_ranges(:)
@@ -194,8 +194,31 @@ contains
         if (token%kind == TK_KEYWORD .and. token%text == "none") then
             token = parser%consume()  ! consume 'none'
             is_none = .true.
-            stmt_index = push_implicit_statement(arena, is_none, &
-                                                 line=line, column=column, parent_index=0)
+
+            ! Check for specification like (type) or (external)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                token = parser%consume()  ! consume '('
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                    none_spec = token%text
+                    token = parser%consume()  ! consume spec keyword
+                end if
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()  ! consume ')'
+                end if
+            end if
+
+            if (allocated(none_spec)) then
+                stmt_index = push_implicit_statement(arena, is_none, &
+                                                     line=line, column=column, &
+                                                     parent_index=0, none_spec=none_spec)
+            else
+                stmt_index = push_implicit_statement(arena, is_none, &
+                                                     line=line, column=column, &
+                                                     parent_index=0)
+            end if
             return
         end if
 
