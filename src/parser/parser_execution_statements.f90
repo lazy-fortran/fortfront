@@ -38,6 +38,7 @@ module parser_execution_statements_module
                                                 parse_nullify_statement
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
+    use parser_do_constructs_module, only: parse_do_loop
     use parser_statement_data_module, only: parse_data_statement, &
                                             parse_namelist_statement
     use parser_call_module, only: parse_call_statement
@@ -421,6 +422,39 @@ contains
             else if (lowered_identifier == "continue") then
                 stmt_index = parse_continue_statement(parser_ref, arena_ref)
             else
+                ! Check for labeled construct: identifier : keyword
+                next_token = parser_ref%consume()  ! Consume identifier
+                next_token = parser_ref%peek()
+                if (next_token%kind == TK_OPERATOR .and. next_token%text == ":") then
+                    next_token = parser_ref%consume()  ! Consume colon
+                    next_token = parser_ref%peek()
+                    if (next_token%kind == TK_KEYWORD) then
+                        block
+                            character(len=:), allocatable :: keyword_text
+                            keyword_text = trim(to_lower(next_token%text))
+                            if (keyword_text == "do") then
+                                ! Rewind to label for do loop parser
+                                parser_ref%current_token = parser_ref%current_token - 2
+                                stmt_index = parse_do_loop(parser_ref, arena_ref)
+                                return
+                            else if (is_control_flow_keyword(keyword_text)) then
+                                ! Other control flow keywords - rewind and route
+                                parser_ref%current_token = parser_ref%current_token - 2
+                                stmt_index = route_control_flow(parser_ref, arena_ref)
+                                return
+                            else
+                                ! Not control flow, rewind and parse as assignment
+                                parser_ref%current_token = parser_ref%current_token - 2
+                            end if
+                        end block
+                    else
+                        ! Not a keyword, rewind and parse as assignment
+                        parser_ref%current_token = parser_ref%current_token - 2
+                    end if
+                else
+                    ! Rewind for assignment parsing
+                    parser_ref%current_token = parser_ref%current_token - 1
+                end if
                 call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
                                                 additional_execution_indices)
             end if

@@ -33,6 +33,7 @@ module ast_nodes_loops
 
     ! Do while loop node
     type, extends(ast_node) :: do_while_node
+        character(len=:), allocatable :: label  ! Loop label (optional)
         integer :: condition_index  ! Index to condition expression
         integer, allocatable :: body_indices(:)  ! Indices to body statements
     contains
@@ -108,6 +109,7 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%var_name = rhs%var_name
+        if (allocated(lhs%label)) deallocate (lhs%label)
         if (allocated(rhs%label)) lhs%label = rhs%label
         lhs%start_expr_index = rhs%start_expr_index
         lhs%end_expr_index = rhs%end_expr_index
@@ -147,6 +149,8 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         ! Copy specific components
+        if (allocated(lhs%label)) deallocate (lhs%label)
+        if (allocated(rhs%label)) lhs%label = rhs%label
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
