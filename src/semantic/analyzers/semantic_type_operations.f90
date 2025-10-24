@@ -65,18 +65,86 @@ contains
 
     ! Get common type for arithmetic operations
     function get_common_type(left_typ, right_typ) result(typ)
+        use type_system_unified, only: TARRAY
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
+        integer :: target_kind
+        logical :: needs_promotion
 
-        ! Type promotion rules: real > integer > other
+        ! Check if type promotion is needed
+        needs_promotion = .false.
         if (left_typ%kind == TREAL .or. right_typ%kind == TREAL) then
-            typ = create_mono_type(TREAL)
+            target_kind = TREAL
+            needs_promotion = .true.
         else if (left_typ%kind == TINT .or. right_typ%kind == TINT) then
-            typ = create_mono_type(TINT)
-        else
-            ! Default to left operand type
+            target_kind = TINT
+            if (left_typ%kind /= TINT .or. right_typ%kind /= TINT) then
+                needs_promotion = .true.
+            end if
+        end if
+
+        ! For array operations without promotion, return left array type directly
+        if (left_typ%kind == TARRAY .and. .not. needs_promotion) then
             typ = left_typ
+            return
+        else if (right_typ%kind == TARRAY .and. .not. needs_promotion) then
+            typ = right_typ
+            return
+        end if
+
+        ! For scalar operations
+        if (left_typ%kind /= TARRAY .and. right_typ%kind /= TARRAY) then
+            if (needs_promotion) then
+                typ = create_mono_type(target_kind)
+            else
+                typ = left_typ
+            end if
+            return
+        end if
+
+        ! For array operations with promotion, use promote function
+        if (left_typ%kind == TARRAY) then
+            typ = promote_array_element_type(left_typ, target_kind)
+        else if (right_typ%kind == TARRAY) then
+            typ = promote_array_element_type(right_typ, target_kind)
+        else
+            typ = create_mono_type(target_kind)
         end if
     end function get_common_type
+
+    ! Recursively promote element type while preserving array structure
+    recursive function promote_array_element_type(array_typ, target_kind) &
+        result(promoted_typ)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: array_typ
+        integer, intent(in) :: target_kind
+        type(mono_type_t) :: promoted_typ
+        type(mono_type_t) :: inner_element, promoted_inner
+        type(mono_type_t), allocatable :: promoted_args(:)
+
+        if (array_typ%kind /= TARRAY) then
+            ! Base case: non-array type, return promoted scalar
+            promoted_typ = create_mono_type(target_kind)
+            return
+        end if
+
+        ! Recursive case: get inner type and promote it
+        if (array_typ%get_args_count() > 0) then
+            inner_element = array_typ%get_arg(1)
+            promoted_inner = promote_array_element_type(inner_element, target_kind)
+            allocate (promoted_args(1))
+            promoted_args(1) = promoted_inner
+            promoted_typ = create_mono_type(TARRAY, &
+                args=promoted_args, &
+                array_size=array_typ%size)
+        else
+            ! Array without args (shouldn't happen, but handle gracefully)
+            allocate (promoted_args(1))
+            promoted_args(1) = create_mono_type(target_kind)
+            promoted_typ = create_mono_type(TARRAY, &
+                args=promoted_args, &
+                array_size=array_typ%size)
+        end if
+    end function promote_array_element_type
 
 end module semantic_type_operations
