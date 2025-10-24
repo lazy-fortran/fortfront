@@ -502,10 +502,10 @@ contains
                 code = code // ", only:"
             end if
         else if (allocated(node%rename_list)) then
-            ! Fallback: emit rename list under only clause even if flag missing
+            ! Rename list without only clause
             call append_rename_list_to_clause(node%rename_list, only_clause)
             if (len_trim(only_clause) > 0) then
-                code = code // ", only: " // trim(only_clause)
+                code = code // ", " // trim(only_clause)
             end if
         end if
 

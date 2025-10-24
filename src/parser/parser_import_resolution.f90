@@ -277,7 +277,7 @@ contains
 
         has_only = .false.
 
-        ! Check for optional only clause (simplified for refactoring)
+        ! Check for optional only clause or rename list
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
             token = parser%consume()  ! consume ','
@@ -300,10 +300,14 @@ contains
                     allocate (character(len=0) :: only_list(0))
                     allocate (character(len=0) :: rename_list(0))
                 end if
+            else
+                ! No only keyword - parse rename list directly
+                allocate (character(len=0) :: only_list(0))
+                call parse_identifier_list(parser, only_list, rename_list)
             end if
         end if
 
-        if (.not. has_only) then
+        if (.not. has_only .and. .not. allocated(rename_list)) then
             allocate (character(len=0) :: only_list(0))
             allocate (character(len=0) :: rename_list(0))
         end if
