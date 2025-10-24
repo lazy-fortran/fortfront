@@ -767,86 +767,123 @@ contains
             end if
         end if
 
-        if (has_explicit_bounds) then
-            ! Preserve existing dimension information from parsing phase
-            decl_node%is_array = .true.
-            decl_node%is_allocatable = .false.  ! Explicit bounds stay non-allocatable
-            return
-        end if
-
-        ! Extract dimension values only when parsing did not provide explicit bounds
+        ! Extract dimension values from the inferred type string
         paren_pos = index(var_type(dim_pos:), ')')
         if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
             dims_str = var_type(dim_pos + 10:dim_pos + paren_pos - 2)
-
-            ! Check if it's a deferred shape (:) - indicates allocatable
-            if (trim(dims_str) == ':') then
+        else
+            ! No valid dimension specification in type string
+            if (has_explicit_bounds) then
+                ! Preserve existing dimension information from parsing phase
                 decl_node%is_array = .true.
-                decl_node%is_allocatable = .true.
-                if (allocated(decl_node%dimension_indices)) &
-                    deallocate (decl_node%dimension_indices)
-                allocate (decl_node%dimension_indices(1))
-                decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
+                decl_node%is_allocatable = .false.
+            end if
+            return
+        end if
+
+        ! Check if it's a deferred shape (:) - indicates allocatable
+        if (trim(dims_str) == ':') then
+            decl_node%is_array = .true.
+            decl_node%is_allocatable = .true.
+            if (allocated(decl_node%dimension_indices)) &
+                deallocate (decl_node%dimension_indices)
+            allocate (decl_node%dimension_indices(1))
+            decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
+            return
+        end if
+
+        ! Count commas to determine number of dimensions
+        comma_count = 0
+        do i = 1, len_trim(dims_str)
+            if (dims_str(i:i) == ',') comma_count = comma_count + 1
+        end do
+        ndims = comma_count + 1
+
+        allocate (dimensions(ndims))
+
+        ! Parse each dimension
+        start_pos = 1
+        do i = 1, ndims
+            if (i < ndims) then
+                comma_pos = index(dims_str(start_pos:), ',')
+                if (comma_pos > 0) then
+                    end_pos = start_pos + comma_pos - 2
+                else
+                    end_pos = len_trim(dims_str)
+                end if
             else
-                ! Count commas to determine number of dimensions
-                comma_count = 0
-                do i = 1, len_trim(dims_str)
-                    if (dims_str(i:i) == ',') comma_count = comma_count + 1
-                end do
-                ndims = comma_count + 1
+                end_pos = len_trim(dims_str)
+            end if
 
-                allocate (dimensions(ndims))
+            dim_str = dims_str(start_pos:end_pos)
+            read (dim_str, *, iostat=iostat) dim_size
+            if (iostat == 0) then
+                dimensions(i) = dim_size
+            else
+                dimensions(i) = 0  ! Failed to parse
+            end if
 
-                ! Parse each dimension
-                start_pos = 1
-                do i = 1, ndims
-                    if (i < ndims) then
-                        comma_pos = index(dims_str(start_pos:), ',')
-                        if (comma_pos > 0) then
-                            end_pos = start_pos + comma_pos - 2
-                        else
-                            end_pos = len_trim(dims_str)
+            start_pos = end_pos + 2  ! Skip comma
+        end do
+
+        ! Compare with existing explicit bounds if present
+        if (has_explicit_bounds) then
+            ! Check if dimensions match - only update if they differ
+            if (size(decl_node%dimension_indices) == ndims) then
+                block
+                    logical :: dimensions_match
+                    integer :: existing_dim, inferred_dim, dim_idx
+                    dimensions_match = .true.
+                    do i = 1, ndims
+                        dim_idx = decl_node%dimension_indices(i)
+                        if (dim_idx > 0 .and. dim_idx <= arena%size) then
+                            if (allocated(arena%entries(dim_idx)%node)) then
+                                select type (dim_node => arena%entries(dim_idx)%node)
+                                type is (literal_node)
+                                    read (dim_node%value, *, iostat=iostat) existing_dim
+                                    if (iostat == 0 .and. existing_dim /= dimensions(i)) then
+                                        dimensions_match = .false.
+                                        exit
+                                    end if
+                                class default
+                                    dimensions_match = .false.
+                                    exit
+                                end select
+                            end if
                         end if
-                    else
-                        end_pos = len_trim(dims_str)
+                    end do
+                    if (dimensions_match) then
+                        ! Dimensions match, preserve existing bounds
+                        deallocate (dimensions)
+                        return
                     end if
-
-                    dim_str = dims_str(start_pos:end_pos)
-                    read (dim_str, *, iostat=iostat) dim_size
-                    if (iostat == 0) then
-                        dimensions(i) = dim_size
-                    else
-                        dimensions(i) = 0  ! Failed to parse
-                    end if
-
-                    start_pos = end_pos + 2  ! Skip comma
-                end do
-
-                ! Set array properties
-                decl_node%is_array = .true.
-                if (allocated(decl_node%dimension_indices)) &
-                    deallocate (decl_node%dimension_indices)
-                allocate (decl_node%dimension_indices(ndims))
-
-                ! Create literal nodes for each dimension
-                do i = 1, ndims
-                    if (dimensions(i) > 0) then
-                        write (size_str, '(i0)') dimensions(i)
-                        size_literal%uid = generate_uid()
-                        size_literal%value = trim(size_str)
-                        size_literal%literal_kind = LITERAL_INTEGER
-                        size_literal%line = 1
-                        size_literal%column = 1
-                        call arena%push(size_literal, "literal", prog_index)
-                        decl_node%dimension_indices(i) = arena%size
-                    else
-                        decl_node%dimension_indices(i) = 0  ! Deferred shape
-                    end if
-                end do
-
-                deallocate (dimensions)
+                end block
             end if
         end if
+
+        ! Update or set dimension indices with inferred values
+        decl_node%is_array = .true.
+        if (allocated(decl_node%dimension_indices)) &
+            deallocate (decl_node%dimension_indices)
+        allocate (decl_node%dimension_indices(ndims))
+
+        ! Create literal nodes for each dimension
+        do i = 1, ndims
+            if (dimensions(i) > 0) then
+                write (size_str, '(i0)') dimensions(i)
+                size_literal%uid = generate_uid()
+                size_literal%value = trim(size_str)
+                size_literal%literal_kind = LITERAL_INTEGER
+                size_literal%line = 1
+                size_literal%column = 1
+                call arena%push(size_literal, "literal", prog_index)
+                decl_node%dimension_indices(i) = arena%size
+            else
+                decl_node%dimension_indices(i) = 0  ! Deferred shape
+            end if
+        end do
+
+        deallocate (dimensions)
 
     end subroutine parse_dimension_attribute
 
