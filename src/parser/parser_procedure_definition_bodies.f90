@@ -73,6 +73,30 @@ contains
                 exit
             end if
 
+            ! Lazy fortran: detect nested internal procedures (not supported)
+            if (token%kind == TK_KEYWORD .and. &
+                (token%text == "function" .or. token%text == "subroutine")) then
+                ! Nested internal procedures are not supported in standard Fortran
+                block
+                    use iso_fortran_env, only: error_unit
+                    write (error_unit, '(A)') &
+                        'Error: Nested internal procedures are not supported.'
+                    write (error_unit, '(A,A,A,I0,A,I0)') &
+                        '  Found "', trim(token%text), '" at line ', token%line, &
+                        ', column ', token%column
+                    write (error_unit, '(A)') &
+                        '  Internal procedures cannot contain other internal' // &
+                        ' procedures.'
+                    write (error_unit, '(A)') &
+                        '  Move the inner procedure to the same contains section as'
+                    write (error_unit, '(A)') &
+                        '  the outer procedure.'
+                end block
+                ! Skip this token and continue - will produce partial output
+                token = parser%consume()
+                cycle
+            end if
+
             call parse_body_statement(parser, arena, token, procedure_name, &
                                       infer_recursive_flag, stmt_index)
 
