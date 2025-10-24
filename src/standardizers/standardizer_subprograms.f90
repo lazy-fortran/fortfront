@@ -342,8 +342,8 @@ contains
             if (allocated(res_name)) then
                 if (len_trim(res_name) > 0) then
                     func_def%result_variable = trim(res_name)
-                    ! If result variable is not 'result', rename all 'result'
-                    ! identifiers within function body only
+                    ! If result variable is not named result rename all occurrences
+                    ! within the function body only
                     if (trim(res_name) /= 'result') then
                         if (allocated(func_def%body_indices)) then
                             call rename_identifier_in_arena(arena, 'result', &
