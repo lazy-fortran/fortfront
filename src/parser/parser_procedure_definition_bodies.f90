@@ -85,9 +85,12 @@ contains
                         '  Found "', trim(token%text), '" at line ', token%line, &
                         ', column ', token%column
                     write (error_unit, '(A)') &
-                        '  Internal procedures cannot contain other internal procedures.'
+                        '  Internal procedures cannot contain other internal' // &
+                        ' procedures.'
                     write (error_unit, '(A)') &
-                        '  Move the inner procedure to the same contains section as outer.'
+                        '  Move the inner procedure to the same contains section as'
+                    write (error_unit, '(A)') &
+                        '  the outer procedure.'
                 end block
                 ! Skip this token and continue - will produce partial output
                 token = parser%consume()
