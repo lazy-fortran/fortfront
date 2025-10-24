@@ -196,6 +196,7 @@ module ast_nodes_misc
     ! Implicit statement node
     type, extends(ast_node), public :: implicit_statement_node
         logical :: is_none = .false.  ! True for "implicit none"
+        character(len=:), allocatable :: none_spec  ! Specification for implicit none: type, external, etc.
         type(implicit_type_spec_t) :: type_spec  ! Type specification
         type(implicit_letter_spec_t), allocatable :: letter_specs(:)  ! Letter ranges/singles
     contains
@@ -374,7 +375,7 @@ contains
 
     function create_implicit_statement(is_none, type_name, kind_value, has_kind, &
                                        length_value, has_length, letter_ranges, &
-                                       line, column) result(node)
+                                       line, column, none_spec) result(node)
         use uid_generator, only: generate_uid
         logical, intent(in) :: is_none
         character(len=*), intent(in), optional :: type_name
@@ -384,11 +385,16 @@ contains
         logical, intent(in), optional :: has_length
         character(len=*), intent(in), optional :: letter_ranges(:)
         integer, intent(in), optional :: line, column
+        character(len=*), intent(in), optional :: none_spec
         type(implicit_statement_node) :: node
         integer :: i, dash_pos, upper_idx
 
         node%is_none = is_none
         node%uid = generate_uid()
+
+        if (is_none .and. present(none_spec)) then
+            node%none_spec = trim(none_spec)
+        end if
 
         if (.not. is_none) then
             if (present(type_name)) node%type_spec%type_name = type_name
@@ -1227,6 +1233,13 @@ contains
 
         ! Copy implicit statement specific fields
         lhs%is_none = rhs%is_none
+
+        ! Copy none specification
+        if (allocated(rhs%none_spec)) then
+            lhs%none_spec = rhs%none_spec
+        else
+            if (allocated(lhs%none_spec)) deallocate (lhs%none_spec)
+        end if
 
         ! Copy type specification
         if (allocated(rhs%type_spec%type_name)) then

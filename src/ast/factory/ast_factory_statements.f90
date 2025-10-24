@@ -162,7 +162,8 @@ contains
     ! Create implicit statement node and add to stack
     function push_implicit_statement(arena, is_none, type_name, kind_value, has_kind, &
                                      length_value, has_length, letter_ranges, &
-                                     line, column, parent_index) result(implicit_index)
+                                     line, column, parent_index, none_spec) &
+        result(implicit_index)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: is_none
         character(len=*), intent(in), optional :: type_name
@@ -172,13 +173,14 @@ contains
         logical, intent(in), optional :: has_length
         character(len=*), intent(in), optional :: letter_ranges(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: none_spec
         integer :: implicit_index
         type(implicit_statement_node) :: implicit_stmt
 
         implicit_stmt = create_implicit_statement(is_none, type_name, kind_value, &
                                                   has_kind, length_value, &
                                                   has_length, letter_ranges, &
-                                                  line, column)
+                                                  line, column, none_spec)
         call arena%push(implicit_stmt, "implicit_statement", parent_index)
         implicit_index = arena%size
     end function push_implicit_statement
