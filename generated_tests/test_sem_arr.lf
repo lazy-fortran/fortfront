@@ -1,4 +1,1 @@
-program test
-    integer :: arr(3)
-    arr = [1, 2, 3]
-end program
+arr = [1, 2, 3]

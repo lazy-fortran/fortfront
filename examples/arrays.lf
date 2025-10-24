@@ -1,6 +1,6 @@
 arr = [1, 2, 3, 4, 5]
 sum = 0
 do i = 1, 5
-    sum = sum + arr(i)
+sum = sum + arr(i)
 end do
 print *, "Sum =", sum

@@ -1,4 +1,1 @@
-program test
-    integer :: arr(10)
-    arr = [(i, i=1,10)]
-end program
+arr = [(i, i=1,10)]
