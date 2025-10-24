@@ -37,9 +37,6 @@ contains
                     return_type_str = trim(token%text)//" "//trim(lookahead%text)
                     token = parser%consume()
                     token = parser%consume()
-                else
-                    return_type_str = token%text
-                    token = parser%consume()
                 end if
             end select
         end if

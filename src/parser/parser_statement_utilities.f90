@@ -87,7 +87,14 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
                   "double", "type", "class", "procedure")
-                stmt_index = parse_declaration(parser, arena)
+                ! Check if this is actually an assignment like "double = 5"
+                next_token = parser%get_token_at_index(parser%current_token + 1)
+                if (next_token%kind == TK_OPERATOR .and. &
+                    (next_token%text == "=" .or. next_token%text == "=>")) then
+                    stmt_index = parse_assignment_simple(parser, arena)
+                else
+                    stmt_index = parse_declaration(parser, arena)
+                end if
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)
             case ("deallocate")
@@ -121,7 +128,15 @@ contains
                 stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
                                                     parser, arena)
             case default
-                stmt_index = skip_unknown_statement(parser)
+                ! Check if this might be an assignment with a keyword as target
+                ! (e.g., "double = 5" where "double" is both a keyword and a variable)
+                next_token = parser%get_token_at_index(parser%current_token + 1)
+                if (next_token%kind == TK_OPERATOR .and. &
+                    (next_token%text == "=" .or. next_token%text == "=>")) then
+                    stmt_index = parse_assignment_simple(parser, arena)
+                else
+                    stmt_index = skip_unknown_statement(parser)
+                end if
             end select
         case default
             stmt_index = parse_assignment_simple(parser, arena)
