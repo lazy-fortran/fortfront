@@ -8,6 +8,7 @@ program test_expression_iterative
     all_passed = test_deep_exponent_chain()
     all_passed = all_passed .and. test_deep_unary_minus_chain()
     all_passed = all_passed .and. test_logical_not_chain()
+    all_passed = all_passed .and. test_not_associated_postfix()
     all_passed = all_passed .and. test_mixed_precedence_output()
     all_passed = all_passed .and. test_extreme_parentheses_depth()
 
@@ -123,7 +124,8 @@ contains
             return
         end if
 
-        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_exponent_chain = .false.
@@ -192,7 +194,8 @@ contains
             return
         end if
 
-        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_unary_minus_chain = .false.
@@ -267,7 +270,8 @@ contains
             return
         end if
 
-        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_logical_not_chain = .false.
@@ -296,12 +300,89 @@ contains
             print *, '  FAIL: Did not find logical expression in output'
             test_logical_not_chain = .false.
         else if (count /= depth) then
-            print *, '  FAIL: Expected', depth, 'logical NOT operators but found', count
+            print *, '  FAIL: Expected', depth, &
+                'logical NOT operators but found', count
             test_logical_not_chain = .false.
         else
             print *, '  PASS: Logical NOT chain preserved'
         end if
     end function test_logical_not_chain
+
+    logical function test_not_associated_postfix()
+        character(len=:), allocatable :: input_file, output_file
+        character(len=256) :: error_msg
+        type(compilation_options_t) :: options
+        integer :: unit, iostat
+        character(len=512) :: line
+        logical :: found_if, found_allocate, found_deallocate
+
+        print *, "Testing logical NOT with associated and allocation..."
+        test_not_associated_postfix = .true.
+        input_file = get_temp_filepath('test_not_associated_postfix.lf')
+        output_file = get_temp_filepath('test_not_associated_postfix_out.f90')
+
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_ptr_flow'
+        write (unit, '(a)') '    integer, pointer :: ptr => null()'
+        write (unit, '(a)') '    if (.not. associated(ptr)) print *, 1'
+        write (unit, '(a)') '    allocate(ptr)'
+        write (unit, '(a)') '    deallocate(ptr)'
+        write (unit, '(a)') 'end program test_ptr_flow'
+        close (unit)
+
+        options%output_file = output_file
+        call compile_source(input_file, options, error_msg)
+        if (len_trim(error_msg) > 0) then
+            print *, '  FAIL: Compilation error:', trim(error_msg)
+            test_not_associated_postfix = .false.
+            return
+        end if
+
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
+        if (iostat /= 0) then
+            print *, '  FAIL: Could not open generated file'
+            test_not_associated_postfix = .false.
+            return
+        end if
+
+        found_if = .false.
+        found_allocate = .false.
+        found_deallocate = .false.
+        do
+            read (unit, '(a)', iostat=iostat) line
+            if (iostat /= 0) exit
+            if (.not. found_if) then
+                if (index(line, 'if (.not. associated(ptr)) then') > 0) then
+                    found_if = .true.
+                end if
+            end if
+            if (.not. found_allocate) then
+                if (index(line, 'allocate(ptr)') > 0) then
+                    found_allocate = .true.
+                end if
+            end if
+            if (.not. found_deallocate) then
+                if (index(line, 'deallocate(ptr)') > 0) then
+                    found_deallocate = .true.
+                end if
+            end if
+        end do
+        close (unit)
+
+        if (.not. found_if) then
+            print *, '  FAIL: Logical NOT with associated lost arguments'
+            test_not_associated_postfix = .false.
+        else if (.not. found_allocate) then
+            print *, '  FAIL: ALLOCATE statement was dropped'
+            test_not_associated_postfix = .false.
+        else if (.not. found_deallocate) then
+            print *, '  FAIL: DEALLOCATE statement was dropped'
+            test_not_associated_postfix = .false.
+        else
+            print *, '  PASS: Prefix and postfix intrinsics preserved'
+        end if
+    end function test_not_associated_postfix
 
     logical function test_mixed_precedence_output()
         character(len=:), allocatable :: input_file, output_file
@@ -333,7 +414,8 @@ contains
             return
         end if
 
-        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_mixed_precedence_output = .false.
@@ -402,7 +484,8 @@ contains
             return
         end if
 
-        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', &
+              iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file for extreme nesting'
             test_extreme_parentheses_depth = .false.
