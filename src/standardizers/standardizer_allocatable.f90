@@ -440,6 +440,9 @@ contains
         ! by allocatable reassignment logic (fixes issue #1738)
         if (is_type_component(arena, decl_index)) return
 
+        ! Skip PARAMETER constants - allocatable conflicts with parameter
+        if (stmt%is_parameter) return
+
         if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
             call handle_multi_variable_declaration_allocatable( &
                 arena, decl_index, assigned_vars, assignment_counts, var_count, &
@@ -850,6 +853,11 @@ contains
 
         apply_allocatable_attributes = .false.
         is_character = .false.
+
+        ! Never apply allocatable to PARAMETER declarations - they conflict
+        if (decl%is_parameter) then
+            return
+        end if
 
         if (allocated(decl%type_name)) then
             if (trim(decl%type_name) == "character") then
