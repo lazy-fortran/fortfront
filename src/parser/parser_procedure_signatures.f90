@@ -1,6 +1,7 @@
 module parser_procedure_signatures_module
     use string_utils_mod, only: to_lower
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR, &
+                          TK_NEWLINE, TK_WHITESPACE, TK_STRING
     use parser_state_module, only: parser_state_t
     use parser_parameter_handling_module, only: parse_typed_parameters, &
                                                 merge_parameter_attributes
@@ -18,6 +19,7 @@ module parser_procedure_signatures_module
     public :: merge_parameter_attributes_if_needed
     public :: ensure_recursive_prefix
     public :: parse_subroutine_header
+    public :: parse_bind_c_clause
 
 contains
 
@@ -293,5 +295,74 @@ contains
             subroutine_name = "unnamed_subroutine"
         end if
     end subroutine parse_subroutine_header
+
+    subroutine parse_bind_c_clause(parser, bind_c_clause)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: bind_c_clause
+
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered_text
+        character(len=:), allocatable :: clause_text
+
+        bind_c_clause = ""
+        token = parser%peek()
+
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+        lowered_text = to_lower(token%text)
+        if (trim(lowered_text) /= "bind") return
+
+        clause_text = "bind"
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            clause_text = trim(clause_text)//"("
+            token = parser%consume()
+
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                clause_text = trim(clause_text)//trim(token%text)
+                token = parser%consume()
+
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    clause_text = trim(clause_text)//","
+                    token = parser%consume()
+
+                    token = parser%peek()
+                    if (token%kind == TK_WHITESPACE) then
+                        clause_text = trim(clause_text)//" "
+                        token = parser%consume()
+                    end if
+
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                        clause_text = trim(clause_text)//trim(token%text)
+                        token = parser%consume()
+
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                            clause_text = trim(clause_text)//"="
+                            token = parser%consume()
+
+                            token = parser%peek()
+                            if (token%kind == TK_STRING) then
+                                clause_text = trim(clause_text)//trim(token%text)
+                                token = parser%consume()
+                            end if
+                        end if
+                    end if
+                end if
+            end if
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                clause_text = trim(clause_text)//")"
+                token = parser%consume()
+            end if
+        end if
+
+        bind_c_clause = clause_text
+    end subroutine parse_bind_c_clause
 
 end module parser_procedure_signatures_module

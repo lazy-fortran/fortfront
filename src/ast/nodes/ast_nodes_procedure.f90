@@ -25,6 +25,7 @@ module ast_nodes_procedure
         character(len=16), allocatable :: prefix_keywords(:)
         integer, allocatable :: body_indices(:)
         logical :: is_recursive = .false.
+        character(len=:), allocatable :: bind_c_clause
     contains
         procedure :: accept => function_def_accept
         procedure :: to_json => function_def_to_json
@@ -39,6 +40,7 @@ module ast_nodes_procedure
         character(len=16), allocatable :: prefix_keywords(:)
         integer, allocatable :: body_indices(:)
         logical :: is_recursive = .false.
+        character(len=:), allocatable :: bind_c_clause
     contains
         procedure :: accept => subroutine_def_accept
         procedure :: to_json => subroutine_def_to_json
@@ -114,6 +116,7 @@ contains
         if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
+        if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause
     end subroutine function_def_assign
 
     ! Implementation for subroutine_def_node
@@ -163,6 +166,7 @@ contains
         if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
         lhs%is_recursive = rhs%is_recursive
+        if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause
     end subroutine subroutine_def_assign
 
     ! Implementation for subroutine_call_node
