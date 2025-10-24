@@ -78,7 +78,9 @@ contains
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
         call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
-                                  body_indices, infer_recursive_from_body)
+                                  body_indices, infer_recursive_from_body, &
+                                  parse_function_proc=parse_function_definition, &
+                                  parse_subroutine_proc=parse_subroutine_definition)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)
@@ -108,8 +110,10 @@ contains
 
         call parse_function_prefix_keywords(parser, prefix_buffer, &
                                             prefix_keywords=prefix_keywords, &
-                                            has_recursive_keyword=has_recursive_keyword, &
-                                            return_type_from_prefix=return_type_from_prefix)
+                                            has_recursive_keyword= &
+                                            has_recursive_keyword, &
+                                            return_type_from_prefix= &
+                                            return_type_from_prefix)
 
         call parse_function_signature(parser, return_type_str, function_name, &
                                       line, column, is_valid, &
@@ -122,7 +126,9 @@ contains
         call parse_parameter_list(parser, arena, param_indices)
         call parse_function_result_clause(parser, result_variable_name)
         call parse_procedure_body(parser, arena, function_name, "function", &
-                                  body_indices, infer_recursive_from_body)
+                                  body_indices, infer_recursive_from_body, &
+                                  parse_function_proc=parse_function_definition, &
+                                  parse_subroutine_proc=parse_subroutine_definition)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)
@@ -169,7 +175,9 @@ contains
         call parse_parameter_list(parser, arena, param_indices)
         call parse_function_result_clause(parser, result_variable_name)
         call parse_procedure_body(parser, arena, function_name, "function", &
-                                  body_indices, infer_recursive_from_body)
+                                  body_indices, infer_recursive_from_body, &
+                                  parse_function_proc=parse_function_definition, &
+                                  parse_subroutine_proc=parse_subroutine_definition)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)
@@ -207,7 +215,9 @@ contains
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
         call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
-                                  body_indices, infer_recursive_from_body)
+                                  body_indices, infer_recursive_from_body, &
+                                  parse_function_proc=parse_function_definition, &
+                                  parse_subroutine_proc=parse_subroutine_definition)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)

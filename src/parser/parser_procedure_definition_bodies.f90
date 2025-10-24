@@ -6,9 +6,8 @@ module parser_procedure_definition_bodies_module
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
     use parser_statement_utilities_module, only: parse_statement_in_if_block
-    use parser_procedure_definitions_module, only: parse_function_definition, &
-                                                    parse_subroutine_definition
-    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
+                                           append_prefix_token
     use ast_nodes_misc, only: contains_node
     use ast_arena_modern, only: ast_arena_t
     implicit none
@@ -16,16 +15,40 @@ module parser_procedure_definition_bodies_module
 
     public :: parse_procedure_body
 
+    abstract interface
+        function parse_function_definition_iface(parser, arena, prefix_buffer, &
+                                                 prefix_list) result(func_index)
+            import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+            character(len=16), intent(in), optional :: prefix_list(:)
+            integer :: func_index
+        end function parse_function_definition_iface
+
+        function parse_subroutine_definition_iface(parser, arena, prefix_buffer) &
+            result(sub_index)
+            import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+            integer :: sub_index
+        end function parse_subroutine_definition_iface
+    end interface
+
 contains
 
     subroutine parse_procedure_body(parser, arena, procedure_name, end_keyword, &
-                                    body_indices, infer_recursive_flag)
+                                    body_indices, infer_recursive_flag, &
+                                    parse_function_proc, parse_subroutine_proc)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: procedure_name
         character(len=*), intent(in) :: end_keyword
         integer, allocatable, intent(out) :: body_indices(:)
         logical, intent(inout), optional :: infer_recursive_flag
+        procedure(parse_function_definition_iface), optional :: parse_function_proc
+        procedure(parse_subroutine_definition_iface), optional :: parse_subroutine_proc
 
         type(token_t) :: token
         integer :: stmt_index
@@ -44,8 +67,9 @@ contains
 
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
                 token = parser%consume()
-                call parse_contains_section(parser, arena, procedure_name, end_keyword, &
-                                            body_indices)
+                call parse_contains_section(parser, arena, procedure_name, &
+                                            end_keyword, body_indices, &
+                                            parse_function_proc, parse_subroutine_proc)
                 exit
             end if
 
@@ -446,12 +470,15 @@ contains
     end function parse_do_statement_tokens
 
     subroutine parse_contains_section(parser, arena, procedure_name, end_keyword, &
-                                       body_indices)
+                                      body_indices, parse_function_proc, &
+                                      parse_subroutine_proc)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: procedure_name
         character(len=*), intent(in) :: end_keyword
         integer, allocatable, intent(inout) :: body_indices(:)
+        procedure(parse_function_definition_iface), optional :: parse_function_proc
+        procedure(parse_subroutine_definition_iface), optional :: parse_subroutine_proc
         type(token_t) :: token
         type(parser_prefix_buffer_t) :: prefix_buffer
         type(contains_node) :: contains_stmt
@@ -475,7 +502,11 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. token%text == "function") then
-                proc_index = parse_function_definition(parser, arena, prefix_buffer)
+                if (.not. present(parse_function_proc)) then
+                    token = parser%consume()
+                    cycle
+                end if
+                proc_index = parse_function_proc(parser, arena, prefix_buffer)
                 if (proc_index > 0) then
                     body_indices = [body_indices, proc_index]
                 end if
@@ -483,14 +514,60 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+                if (.not. present(parse_subroutine_proc)) then
+                    token = parser%consume()
+                    cycle
+                end if
+                proc_index = parse_subroutine_proc(parser, arena, prefix_buffer)
                 if (proc_index > 0) then
                     body_indices = [body_indices, proc_index]
                 end if
                 cycle
             end if
 
-            ! Skip other tokens (like prefix keywords)
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                block
+                    character(len=:), allocatable :: lowered, lookahead_lower
+                    character(len=16), allocatable :: stored(:)
+                    type(token_t) :: lookahead
+                    lowered = to_lower(token%text)
+                    select case (trim(lowered))
+                    case ("pure", "elemental", "impure", "recursive", &
+                          "nonrecursive", "non_recursive", "module")
+                        call prefix_buffer%get_all(stored)
+                        call append_prefix_token(stored, trim(lowered))
+                        call prefix_buffer%set(stored)
+                        if (allocated(stored)) deallocate (stored)
+                        token = parser%consume()
+                        cycle
+                    case ("integer", "real", "logical", "character", "complex", &
+                          "double", "procedure")
+                        call prefix_buffer%get_all(stored)
+                        if (trim(lowered) == "double") then
+                            lookahead = parser%get_token_at_index( &
+                                        parser%current_token + 1)
+                            lookahead_lower = to_lower(trim(lookahead%text))
+                            select case (trim(lookahead_lower))
+                            case ("precision", "complex")
+                                call append_prefix_token( &
+                                    stored, trim(token%text)//" "// &
+                                    trim(lookahead%text))
+                                call prefix_buffer%set(stored)
+                                if (allocated(stored)) deallocate (stored)
+                                token = parser%consume()
+                                token = parser%consume()
+                                cycle
+                            end select
+                        end if
+                        call append_prefix_token(stored, trim(token%text))
+                        call prefix_buffer%set(stored)
+                        if (allocated(stored)) deallocate (stored)
+                        token = parser%consume()
+                        cycle
+                    end select
+                end block
+            end if
+
             token = parser%consume()
         end do
     end subroutine parse_contains_section
