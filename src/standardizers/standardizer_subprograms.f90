@@ -688,6 +688,9 @@ contains
                                                      param%is_array, &
                                                      param%is_allocatable)
                         end if
+                        if (param%has_intent .and. allocated(param%intent)) then
+                            fn_param_intent(i) = param%intent
+                        end if
                     class default
                         ! Try to get a reasonable default name
                         write (param_names(i), '(a,i0)') "param", i
@@ -1127,6 +1130,9 @@ contains
                         end select
                     type is (declaration_node)
                         param_names(i) = param%var_name
+                        if (param%has_intent .and. allocated(param%intent)) then
+                            sb_param_intent(i) = param%intent
+                        end if
                     class default
                         ! Try to get a reasonable default name
                         write (param_names(i), '(a,i0)') "param", i

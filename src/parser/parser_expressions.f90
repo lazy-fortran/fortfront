@@ -98,11 +98,16 @@ contains
         type(token_t), intent(in) :: token
         type(operator_entry_t) :: entry
         character(len=:), allocatable :: lowered
+        integer :: last_char
+        integer :: idx
+        logical :: is_defined_op
 
         entry = operator_entry_t()
         if (token%kind /= TK_OPERATOR) return
 
         lowered = to_lower(token%text)
+        is_defined_op = .false.
+        last_char = len_trim(lowered)
 
         select case (lowered)
         case (".eqv.", ".neqv.")
@@ -131,8 +136,24 @@ contains
             entry%precedence = PREC_POWER
             entry%right_associative = .true.
         case default
-            ! Not an infix operator handled here
-            return
+            ! Defined binary operators use logical AND precedence per F2018 table 10.1
+            if (last_char >= 4) then
+                if (lowered(1:1) == '.' .and. &
+                    lowered(last_char:last_char) == '.') then
+                    is_defined_op = .true.
+                    do idx = 2, last_char - 1
+                        select case (lowered(idx:idx))
+                        case ('a':'z', '0':'9', '_')
+                        case default
+                            is_defined_op = .false.
+                            exit
+                        end select
+                    end do
+                end if
+            end if
+            if (.not. is_defined_op) return
+            entry%symbol = token%text
+            entry%precedence = PREC_LOGICAL_AND
         end select
 
         entry%token = token
