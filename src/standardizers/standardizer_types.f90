@@ -5,6 +5,7 @@ module standardizer_types
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_loops
+    use ast_nodes_misc, only: complex_literal_node
     use type_system_unified
     use type_string_utils, only: mono_type_to_string
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
@@ -180,6 +181,14 @@ contains
         type is (binary_op_node)
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
+            end if
+        type is (complex_literal_node)
+            ! Complex literals should always be complex type (Issue #1851)
+            if (node%inferred_type%kind > 0) then
+                expr_type => node%inferred_type
+            else
+                allocate (expr_type)
+                expr_type = create_mono_type(TCOMPLEX)
             end if
         end select
     end function get_expression_type
