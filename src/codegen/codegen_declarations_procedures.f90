@@ -706,13 +706,13 @@ contains
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=:), allocatable :: decl_code
         character(len=64), allocatable :: local_vars(:)
-        integer :: i, j, stmt_idx, n_locals
+        integer :: i, stmt_idx, n_locals, capacity
         character(len=64) :: var_name
         character(len=:), allocatable :: result_name
 
         decl_code = ""
-        allocate (local_vars(100))
         n_locals = 0
+        capacity = 0
 
         result_name = ""
         if (allocated(func%result_variable)) then
@@ -747,8 +747,10 @@ contains
 
                     if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
                         then
+                        call ensure_local_var_capacity(local_vars, capacity, &
+                                                       n_locals + 1)
                         n_locals = n_locals + 1
-                        if (n_locals <= size(local_vars)) local_vars(n_locals) = var_name
+                        local_vars(n_locals) = var_name
                         decl_code = decl_code // "    " // &
                                     mono_type_to_string(target%inferred_type, &
                                                         include_shape=.true., &
@@ -758,8 +760,6 @@ contains
                 end select
             end select
         end do
-
-        deallocate (local_vars)
     end function collect_local_variable_decls
 
     logical function is_parameter_name(name, param_map) result(is_param)
@@ -780,11 +780,12 @@ contains
 
     logical function is_local_var_collected(name, collected, n) result(found)
         character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: collected(:)
+        character(len=*), allocatable, intent(in) :: collected(:)
         integer, intent(in) :: n
         integer :: i
 
         found = .false.
+        if (.not. allocated(collected)) return
         do i = 1, n
             if (trim(collected(i)) == trim(name)) then
                 found = .true.
@@ -792,4 +793,28 @@ contains
             end if
         end do
     end function is_local_var_collected
+
+    subroutine ensure_local_var_capacity(local_vars, capacity, required_size)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: capacity
+        integer, intent(in) :: required_size
+        character(len=64), allocatable :: grown(:)
+        integer :: new_capacity
+
+        if (capacity >= required_size) return
+
+        if (capacity > 0) then
+            new_capacity = max(capacity * 2, required_size)
+            allocate (grown(new_capacity))
+            grown = ''
+            grown(1:capacity) = local_vars(1:capacity)
+            call move_alloc(grown, local_vars)
+        else
+            new_capacity = max(4, required_size)
+            allocate (local_vars(new_capacity))
+            local_vars = ''
+        end if
+
+        capacity = new_capacity
+    end subroutine ensure_local_var_capacity
 end module codegen_declarations_procedures
