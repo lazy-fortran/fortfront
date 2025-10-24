@@ -93,6 +93,10 @@ contains
             attr_info%is_volatile = .true.
             token = parser%consume()
             handled = .true.
+        case ("protected")
+            attr_info%is_protected = .true.
+            token = parser%consume()
+            handled = .true.
         case default
             handled = .false.
         end select
