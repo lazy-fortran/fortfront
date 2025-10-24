@@ -326,8 +326,10 @@ contains
         end do
 
         if (header_decl_count > 0) then
-            declaration_statements_code = generate_grouped_body( &
-                arena, header_decl_indices(1:header_decl_count), 1)
+            associate (decl_indices => header_decl_indices(:header_decl_count))
+                declaration_statements_code = generate_grouped_body( &
+                                              arena, decl_indices, 1)
+            end associate
         end if
 
         if (allocated(header_decl_indices)) then
@@ -371,7 +373,8 @@ contains
         type is (comment_node)
             ! Legacy statement comments (COMMON/EQUIVALENCE) are header statements
             ! Keep them in the specification section ahead of other declarations
-            if (is_legacy_statement_comment(ib) .or. non_use_count == 0) then
+            if (is_legacy_statement_comment(ib) .or. &
+                ((non_use_count == 0) .and. header_decl_count == 0)) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
                 if (is_legacy_statement_comment(ib)) then
@@ -385,7 +388,7 @@ contains
                 end if
             end if
         type is (blank_line_node)
-            if (non_use_count == 0) then
+            if (non_use_count == 0 .and. header_decl_count == 0) then
                 is_header_stmt = .true.
                 stmt_code = generate_code_from_arena(arena, body_index)
                 call append_header_trivia(stmt_code, use_statements_code, &
