@@ -1,4 +1,5 @@
 program test_issue_1774_user_defined_operators
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -21,9 +22,11 @@ contains
         character(len=1), parameter :: nl = new_line('A')
 
         input_code = "module operator_mod" // nl // &
+                     "    use, intrinsic :: iso_fortran_env," // &
+                     " only: dp => real64" // nl // &
                      "    implicit none" // nl // &
                      "    type :: vector" // nl // &
-                     "        real :: x, y" // nl // &
+                     "        real(dp) :: x, y" // nl // &
                      "    end type vector" // nl // &
                      "    " // nl // &
                      "    interface operator(.dot.)" // nl // &
@@ -31,7 +34,7 @@ contains
                      "    end interface" // nl // &
                      "    " // nl // &
                      "contains" // nl // &
-                     "    real function dot_product_vec(a, b)" // nl // &
+                     "    real(dp) function dot_product_vec(a, b)" // nl // &
                      "        type(vector), intent(in) :: a, b" // nl // &
                      "        dot_product_vec = a%x * b%x + a%y * b%y" // nl // &
                      "    end function dot_product_vec" // nl // &
@@ -41,10 +44,10 @@ contains
                      "    use operator_mod" // nl // &
                      "    implicit none" // nl // &
                      "    type(vector) :: v1, v2" // nl // &
-                     "    real :: result" // nl // &
+                     "    real(dp) :: result" // nl // &
                      "    " // nl // &
-                     "    v1 = vector(1.0, 2.0)" // nl // &
-                     "    v2 = vector(3.0, 4.0)" // nl // &
+                     "    v1 = vector(1.0_dp, 2.0_dp)" // nl // &
+                     "    v2 = vector(3.0_dp, 4.0_dp)" // nl // &
                      "    result = v1 .dot. v2" // nl // &
                      "    print *, 'Dot product:', result" // nl // &
                      "end program test_operator_defined"

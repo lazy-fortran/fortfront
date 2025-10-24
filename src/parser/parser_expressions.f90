@@ -98,11 +98,16 @@ contains
         type(token_t), intent(in) :: token
         type(operator_entry_t) :: entry
         character(len=:), allocatable :: lowered
+        integer :: last_char
+        integer :: idx
+        logical :: is_defined_op
 
         entry = operator_entry_t()
         if (token%kind /= TK_OPERATOR) return
 
         lowered = to_lower(token%text)
+        is_defined_op = .false.
+        last_char = len_trim(lowered)
 
         select case (lowered)
         case (".eqv.", ".neqv.")
@@ -131,35 +136,24 @@ contains
             entry%precedence = PREC_POWER
             entry%right_associative = .true.
         case default
-            ! User-defined operators (.dot., .cross., etc) - treat as multiplication precedence
-            ! Only handle .name. pattern where name is alphabetic
-            lowered = to_lower(token%text)
-            if (len_trim(lowered) >= 4) then
-                if (lowered(1:1) == '.' .and. lowered(len_trim(lowered):len_trim(lowered)) == '.') then
-                    ! Check if middle part is alphabetic
-                    block
-                        integer :: i, char_code
-                        logical :: is_alpha
-                        is_alpha = .true.
-                        do i = 2, len_trim(lowered) - 1
-                            char_code = iachar(lowered(i:i))
-                            if ((char_code < iachar('a') .or. char_code > iachar('z')) .and. &
-                                (char_code < iachar('0') .or. char_code > iachar('9')) .and. &
-                                lowered(i:i) /= '_') then
-                                is_alpha = .false.
-                                exit
-                            end if
-                        end do
-                        if (is_alpha) then
-                            entry%symbol = token%text
-                            entry%precedence = PREC_FACTOR
-                            return
-                        end if
-                    end block
+            ! Defined binary operators use logical AND precedence per F2018 table 10.1
+            if (last_char >= 4) then
+                if (lowered(1:1) == '.' .and. &
+                    lowered(last_char:last_char) == '.') then
+                    is_defined_op = .true.
+                    do idx = 2, last_char - 1
+                        select case (lowered(idx:idx))
+                        case ('a':'z', '0':'9', '_')
+                        case default
+                            is_defined_op = .false.
+                            exit
+                        end select
+                    end do
                 end if
             end if
-            ! Not an infix operator handled here
-            return
+            if (.not. is_defined_op) return
+            entry%symbol = token%text
+            entry%precedence = PREC_LOGICAL_AND
         end select
 
         entry%token = token
