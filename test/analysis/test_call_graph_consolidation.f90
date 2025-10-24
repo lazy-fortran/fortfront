@@ -62,19 +62,20 @@ contains
 
         graph = build_call_graph(arena, root_index)
 
-        call assert_procedure(graph, '__MULTI_UNIT__')
+        call assert_procedure(graph, 'main')
         call assert_procedure(graph, '__MULTI_UNIT__::driver')
         call assert_procedure(graph, '__MULTI_UNIT__::outer')
-        call assert_procedure(graph, '__MULTI_UNIT__::helper')
-        call assert_procedure(graph, '__MULTI_UNIT__::inner')
-        call assert_procedure(graph, 'main')
+        call assert_procedure(graph, '__MULTI_UNIT__::outer::helper')
+        call assert_procedure(graph, '__MULTI_UNIT__::outer::inner')
 
         call assert_unique_procedures(graph)
         call assert_no_cycles(graph)
 
         call assert_edge(graph, '__MULTI_UNIT__::driver', '__MULTI_UNIT__::outer')
-        call assert_edge(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::helper')
-        call assert_edge(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::inner')
+        call assert_edge(graph, '__MULTI_UNIT__::outer', &
+                         '__MULTI_UNIT__::outer::helper')
+        call assert_edge(graph, '__MULTI_UNIT__::outer::helper', &
+                         '__MULTI_UNIT__::outer::inner')
     end subroutine test_internal_procedures
 
     subroutine test_module_and_program_scopes()
@@ -120,10 +121,10 @@ contains
         graph = build_call_graph(arena, root_index)
 
         call assert_procedure(graph, 'math_mod::compute')
-        call assert_procedure(graph, 'math_mod::helper')
+        call assert_procedure(graph, 'math_mod::compute::helper')
         call assert_procedure(graph, '__MULTI_UNIT__::run')
 
-        call assert_edge(graph, 'math_mod::compute', 'math_mod::helper')
+        call assert_edge(graph, 'math_mod::compute', 'math_mod::compute::helper')
         call assert_edge(graph, '__MULTI_UNIT__::run', 'math_mod::compute')
 
         call assert_unique_procedures(graph)

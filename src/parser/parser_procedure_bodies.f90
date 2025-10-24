@@ -331,13 +331,6 @@ contains
                 end if
             end if
 
-            ! Stop parsing body if we encounter another function or subroutine definition
-            ! This prevents consuming tokens that belong to subsequent procedures
-            if (token%kind == TK_KEYWORD .and. &
-                (token%text == "function" .or. token%text == "subroutine")) then
-                exit  ! Don't consume, let the module parser handle it
-            end if
-
             if (token_is_identifier_like(token)) then
                 integer :: stmt_index_local
 
