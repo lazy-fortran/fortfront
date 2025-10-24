@@ -165,6 +165,7 @@ contains
         character(len=:), allocatable :: callee_simple
         integer :: sep
         integer :: call_index
+        integer :: parent_sep
 
         invoked_from_parent_scope = .false.
         parent_scope = trim(proc_name)
@@ -173,6 +174,12 @@ contains
             parent_scope = trim(parent_scope(:sep - 1))
         else
             parent_scope = ''
+        end if
+
+        parent_sep = index(parent_scope, '::', back=.true.)
+        if (parent_sep > 0) then
+            invoked_from_parent_scope = .false.
+            return
         end if
 
         do call_index = 1, builder%graph%call_count
@@ -332,12 +339,23 @@ contains
         subroutine apply_renames(name)
             character(len=:), allocatable, intent(inout) :: name
             integer :: idx
+            integer :: old_len
+            character(len=:), allocatable :: suffix
 
             if (.not. allocated(renames)) return
             do idx = 1, rename_count
                 if (trim(name) == renames(idx)%old_name) then
                     name = renames(idx)%new_name
                     exit
+                end if
+                old_len = len_trim(renames(idx)%old_name)
+                if (len_trim(name) > old_len + 2) then
+                    if (name(1:old_len) == trim(renames(idx)%old_name) .and. &
+                        name(old_len + 1:old_len + 2) == '::') then
+                        suffix = name(old_len + 1:len_trim(name))
+                        name = trim(renames(idx)%new_name) // trim(suffix)
+                        exit
+                    end if
                 end if
             end do
         end subroutine apply_renames
