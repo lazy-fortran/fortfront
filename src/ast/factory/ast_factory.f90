@@ -52,7 +52,7 @@ module ast_factory
     ! Array-related nodes
     use ast_factory_arrays, only: &
         push_array_section, push_array_bounds, push_array_slice, &
-        push_range_expression
+        push_range_expression, push_assumed_size_bounds
 
     ! Statement nodes
     use ast_factory_statements, only: &
@@ -105,7 +105,7 @@ module ast_factory
 
     ! Array-related nodes
     public :: push_array_section, push_array_bounds, push_array_slice
-    public :: push_range_expression
+    public :: push_range_expression, push_assumed_size_bounds
 
     ! Statement nodes
     public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
