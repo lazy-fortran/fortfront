@@ -225,6 +225,7 @@ contains
         lhs%is_save = rhs%is_save
         lhs%is_volatile = rhs%is_volatile
         lhs%is_protected = rhs%is_protected
+        lhs%is_asynchronous = rhs%is_asynchronous
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if
