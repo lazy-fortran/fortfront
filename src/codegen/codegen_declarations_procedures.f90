@@ -80,6 +80,11 @@ contains
         end if
 
         signature = signature // params_clause // result_clause
+        if (allocated(node%bind_c_clause)) then
+            if (len_trim(node%bind_c_clause) > 0) then
+                signature = signature // " " // trim(node%bind_c_clause)
+            end if
+        end if
     end function compose_function_signature
 
     function gather_function_prefix(node, recursive_in_prefix) result(prefix)
@@ -337,6 +342,11 @@ contains
             signature = trim(prefix) // " subroutine " // node%name // params_clause
         else
             signature = "subroutine " // node%name // params_clause
+        end if
+        if (allocated(node%bind_c_clause)) then
+            if (len_trim(node%bind_c_clause) > 0) then
+                signature = signature // " " // trim(node%bind_c_clause)
+            end if
         end if
     end function compose_subroutine_signature
 

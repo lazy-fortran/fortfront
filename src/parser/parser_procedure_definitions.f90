@@ -7,7 +7,7 @@ module parser_procedure_definitions_module
         parse_function_prefix_keywords, parse_function_signature, &
         parse_function_result_clause, parse_parameter_list, &
         merge_parameter_attributes_if_needed, ensure_recursive_prefix, &
-        parse_subroutine_header
+        parse_subroutine_header, parse_bind_c_clause
     use parser_procedure_definition_bodies_module, only: parse_procedure_body
     use parser_interface_blocks_module, only: parse_interface_block, &
                                               set_interface_procedure_parser
@@ -62,7 +62,7 @@ contains
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: sub_index
 
-        character(len=:), allocatable :: subroutine_name
+        character(len=:), allocatable :: subroutine_name, bind_c_clause
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
@@ -77,6 +77,7 @@ contains
                                             has_recursive_keyword=has_recursive_keyword)
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
+        call parse_bind_c_clause(parser, bind_c_clause)
         call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
                                   body_indices, infer_recursive_from_body, &
                                   parse_function_proc=parse_function_definition, &
@@ -88,7 +89,8 @@ contains
         sub_index = push_subroutine_def(arena, subroutine_name, param_indices, &
                                         body_indices, line, column, &
                                         is_recursive=has_recursive_keyword, &
-                                        prefix_keywords=prefix_keywords)
+                                        prefix_keywords=prefix_keywords, &
+                                        bind_c_clause=bind_c_clause)
     end function parse_interface_subroutine
 
     function parse_interface_function(parser, arena, prefix_buffer) &
@@ -100,7 +102,7 @@ contains
 
         character(len=:), allocatable :: function_name, return_type_str, &
                                          result_variable_name, &
-                                         return_type_from_prefix
+                                         return_type_from_prefix, bind_c_clause
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword, is_valid, infer_recursive_from_body
@@ -125,6 +127,7 @@ contains
 
         call parse_parameter_list(parser, arena, param_indices)
         call parse_function_result_clause(parser, result_variable_name)
+        call parse_bind_c_clause(parser, bind_c_clause)
         call parse_procedure_body(parser, arena, function_name, "function", &
                                   body_indices, infer_recursive_from_body, &
                                   parse_function_proc=parse_function_definition, &
@@ -138,7 +141,8 @@ contains
                                        line, column, &
                                        result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
-                                       prefix_keywords=prefix_keywords)
+                                       prefix_keywords=prefix_keywords, &
+                                       bind_c_clause=bind_c_clause)
     end function parse_interface_function
 
     function parse_function_definition(parser, arena, prefix_buffer, prefix_list) &
