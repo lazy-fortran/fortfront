@@ -282,6 +282,27 @@ contains
 
                     ! Check for two-word end constructs
                     if (tokens(i)%text == "end") then
+                        block
+                            integer :: kw_pos
+                            kw_pos = i + 1
+                            ! Skip whitespace between end and next keyword
+                            do while (kw_pos <= size(tokens) .and. &
+                                (tokens(kw_pos)%kind == TK_WHITESPACE .or. &
+                                 tokens(kw_pos)%kind == TK_COMMENT))
+                                kw_pos = kw_pos + 1
+                            end do
+                            if (kw_pos <= size(tokens) .and. &
+                                tokens(kw_pos)%kind == TK_KEYWORD) then
+                                if (tokens(kw_pos)%text == "do" .and. &
+                                    tokens(stmt_start)%text == "do") then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        stmt_end = kw_pos
+                                        exit
+                                    end if
+                                end if
+                            end if
+                        end block
                         if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == &
                             TK_KEYWORD) then
                             if (tokens(i + 1)%text == "do" .and. &
