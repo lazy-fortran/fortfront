@@ -60,6 +60,8 @@ module ast_nodes_data
         ! attribute is present (for constants)
         logical :: is_save = .false.  ! Whether save
         ! attribute is present
+        logical :: is_volatile = .false.  ! Whether volatile
+        ! attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -217,6 +219,7 @@ contains
         lhs%is_external = rhs%is_external
         lhs%is_parameter = rhs%is_parameter
         lhs%is_save = rhs%is_save
+        lhs%is_volatile = rhs%is_volatile
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if
