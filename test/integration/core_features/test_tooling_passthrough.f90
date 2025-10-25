@@ -12,10 +12,10 @@ program test_tooling_passthrough
 
     input_text = ''
     first_line = .true.
-    open (newunit=unit_num, file='examples/external_tool_example.f90', &
+    open (newunit=unit_num, file='examples/f90/external_tool_example.f90', &
           status='old', action='read', iostat=ios)
     if (ios /= 0) then
-        print *, 'FAIL: could not open examples/external_tool_example.f90'
+        print *, 'FAIL: could not open examples/f90/external_tool_example.f90'
         stop 1
     end if
 

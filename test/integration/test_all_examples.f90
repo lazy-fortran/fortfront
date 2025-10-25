@@ -399,13 +399,13 @@ contains
         ! Create unique temp file name for this extension
         list_file = 'examples_list' // trim(extension) // '.txt'
 
-        ! List files with this extension
+        ! List files with this extension (recursively search subdirectories)
         if (is_windows) then
-            list_command = 'cmd /C "dir /B ' // trim(examples_dir) // '\*' // &
+            list_command = 'cmd /C "dir /B /S ' // trim(examples_dir) // '\*' // &
                            trim(extension) // ' > ' // trim(list_file) // ' 2>nul"'
         else
-            list_command = 'ls ' // trim(examples_dir) // '/*' // &
-                           trim(extension) // ' > ' // trim(list_file) // &
+            list_command = 'find ' // trim(examples_dir) // ' -name "*' // &
+                           trim(extension) // '" -type f > ' // trim(list_file) // &
                                & ' 2>/dev/null || true'
         end if
 
@@ -427,22 +427,12 @@ contains
 
             if (len_trim(line) == 0) cycle
 
-            ! Build full path
-            if (is_windows) then
-                call test_single_example(trim(examples_dir)//'\'//trim(line), &
-                    & fortfront_exe, &
-                                         test_count, pass_count, fail_count, &
-                                             skip_count, &
-                                         xfail_count, xpass_count, is_windows, &
-                                         expected_failures, num_expected_failures)
-            else
-                ! On Unix, ls gives full path already
-                call test_single_example(trim(line), fortfront_exe, &
-                                         test_count, pass_count, fail_count, &
-                                         skip_count, &
-                                         xfail_count, xpass_count, is_windows, &
-                                         expected_failures, num_expected_failures)
-            end if
+            ! On both Windows (dir /S) and Unix (find), we get full paths
+            call test_single_example(trim(line), fortfront_exe, &
+                                     test_count, pass_count, fail_count, &
+                                     skip_count, &
+                                     xfail_count, xpass_count, is_windows, &
+                                     expected_failures, num_expected_failures)
         end do
 
         close (unit_num)
