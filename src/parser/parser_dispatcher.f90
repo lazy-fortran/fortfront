@@ -27,7 +27,8 @@ module parser_dispatcher_module
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
-    use parser_statement_data_module, only: parse_data_statement
+    use parser_statement_data_module, only: parse_data_statement, &
+                                            get_data_additional_indices
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_control_flow_router_module, only: route_control_flow
     use ast_arena_modern, only: ast_arena_t
@@ -176,7 +177,8 @@ contains
                     (next_token%text == "=" .or. next_token%text == "=>")) then
                     stmt_index = parse_assignment_or_expression(parser, arena)
                 else
-                    stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+                    stmt_index = parse_type_or_declaration(parser, arena, &
+                                                           prefix_buffer)
                 end if
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
@@ -200,10 +202,24 @@ contains
                 stmt_index = parse_end_statement(parser, arena)
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
+                block
+                    integer, allocatable :: extra_indices(:)
+                    extra_indices = get_data_additional_indices()
+                    if (size(extra_indices) > 0) then
+                        if (allocated(additional_indices)) then
+                            block
+                                integer, allocatable :: temp(:)
+                                call move_alloc(additional_indices, temp)
+                            end block
+                        end if
+                        call move_alloc(extra_indices, additional_indices)
+                    end if
+                end block
             case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(lowered_keyword, parser, arena)
             case ("enum", "enumerator")
-                stmt_index = parse_unsupported_statement(lowered_keyword, parser, arena)
+                stmt_index = parse_unsupported_statement(lowered_keyword, &
+                                                         parser, arena)
             case default
                 if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                      stmt_index)) then
@@ -589,7 +605,7 @@ contains
         column = token%column
 
         error_msg = "Unsupported Fortran feature: " // trim(keyword) // &
-                   " constructs are not supported"
+                    " constructs are not supported"
 
         stmt_index = push_error_node(arena, error_msg, keyword, line, column)
     end function parse_unsupported_statement
@@ -607,7 +623,8 @@ contains
         line = token%line
         column = token%column
 
-        error_msg = "Unsupported Fortran feature: submodule constructs are not supported"
+        error_msg = &
+            "Unsupported Fortran feature: submodule constructs are not supported"
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
