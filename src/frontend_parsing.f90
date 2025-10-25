@@ -354,18 +354,50 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: i
         logical :: is_start
+        integer :: lookahead
+        integer :: keyword_idx
 
         is_start = .false.
-        if (i <= size(tokens)) then
-            if (tokens(i)%kind == TK_KEYWORD) then
-                if (tokens(i)%text == "program" .or. tokens(i)%text == "module" .or. &
-                    tokens(i)%text == "function" .or. tokens(i)%text == &
-                    "subroutine" .or. &
-                    tokens(i)%text == "type") then
-                    is_start = .true.
-                end if
-            end if
+        if (i > size(tokens)) return
+        keyword_idx = i
+
+        if (tokens(keyword_idx)%kind == TK_NUMBER) then
+            keyword_idx = keyword_idx + 1
         end if
+
+        do while (keyword_idx <= size(tokens))
+            select case (tokens(keyword_idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                keyword_idx = keyword_idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (keyword_idx > size(tokens)) return
+        if (tokens(keyword_idx)%kind /= TK_KEYWORD) return
+
+        select case (to_lower(trim(tokens(keyword_idx)%text)))
+        case ("program", "module", "function", "subroutine", "type")
+            is_start = .true.
+        case ("block")
+            lookahead = keyword_idx + 1
+            do while (lookahead <= size(tokens))
+                select case (tokens(lookahead)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    lookahead = lookahead + 1
+                    cycle
+                case (TK_KEYWORD, TK_IDENTIFIER)
+                    if (to_lower(trim(tokens(lookahead)%text)) == "data") then
+                        is_start = .true.
+                    end if
+                    exit
+                case default
+                    exit
+                end select
+            end do
+        end select
     end function is_program_unit_start
 
     ! Check if unit has meaningful content
