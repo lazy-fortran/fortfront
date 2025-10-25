@@ -6,6 +6,7 @@ module semantic_undefined_variable_checker
                               call_or_subscript_node, array_literal_node, program_node
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
+    use ast_nodes_io, only: print_statement_node, read_statement_node
     use type_system_unified, only: poly_type_t, mono_type_t, &
                                    create_poly_type, type_var_t
     use semantic_declaration_utils, only: fetch_declaration_type
@@ -124,6 +125,20 @@ contains
                     end do
                 end if
                 call push(node%condition_index)
+
+            type is (print_statement_node)
+                if (allocated(node%expression_indices)) then
+                    do i = size(node%expression_indices), 1, -1
+                        call push(node%expression_indices(i))
+                    end do
+                end if
+
+            type is (read_statement_node)
+                if (allocated(node%var_indices)) then
+                    do i = size(node%var_indices), 1, -1
+                        call push(node%var_indices(i))
+                    end do
+                end if
 
             class default
                 cycle
