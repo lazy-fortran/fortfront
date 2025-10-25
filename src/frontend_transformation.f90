@@ -13,7 +13,10 @@ module frontend_transformation
                                  analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization
-    use codegen_arena_interface, only: generate_code_from_arena, set_global_signatures
+    use codegen_arena_interface, only: generate_code_from_arena, set_global_signatures, &
+        get_global_signatures
+    use ast_monomorphization, only: transform_monomorphization
+    use call_graph_signatures_mod, only: signatures_map_t
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
@@ -659,6 +662,9 @@ contains
             end if
             return  ! Error message already set, output generated
         end if
+
+        ! Phase 3.5: Monomorphization (AST transformation)
+        call run_monomorphization_phase(compiler_arena, prog_index)
 
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
@@ -1578,5 +1584,20 @@ contains
         ! Note: We don't change root_index because the program is still the root
         ! Code generation will emit both the module and the program
     end subroutine wrap_ast_in_module_and_program
+
+    ! Run monomorphization phase (AST transformation)
+    subroutine run_monomorphization_phase(compiler_arena, prog_index)
+        type(compiler_arena_t), intent(inout) :: compiler_arena
+        integer, intent(in) :: prog_index
+        type(signatures_map_t) :: signatures
+
+        call compiler_arena%next_phase("monomorphization")
+
+        ! Get signatures from global storage
+        signatures = get_global_signatures()
+
+        ! Transform AST to add monomorphized variants
+        call transform_monomorphization(compiler_arena%ast, prog_index, signatures)
+    end subroutine run_monomorphization_phase
 
 end module frontend_transformation
