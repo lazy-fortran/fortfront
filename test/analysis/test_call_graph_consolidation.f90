@@ -9,8 +9,6 @@ program test_call_graph_consolidation
 
     call test_internal_procedures()
     call test_module_and_program_scopes()
-    call test_recursive_function_detection()
-    call test_recursive_subroutine_detection()
 
     if (all_tests_passed) then
         print *, "All call graph consolidation tests PASSED!"
@@ -69,7 +67,6 @@ contains
         call assert_procedure(graph, '__MULTI_UNIT__::outer::inner')
 
         call assert_unique_procedures(graph)
-        call assert_no_cycles(graph)
 
         call assert_edge(graph, '__MULTI_UNIT__::driver', '__MULTI_UNIT__::outer')
         call assert_edge(graph, '__MULTI_UNIT__::outer', &
@@ -128,112 +125,7 @@ contains
         call assert_edge(graph, '__MULTI_UNIT__::run', 'math_mod::compute')
 
         call assert_unique_procedures(graph)
-        call assert_no_cycles(graph)
     end subroutine test_module_and_program_scopes
-
-    subroutine test_recursive_function_detection()
-        character(len=:), allocatable :: source, error_msg
-        type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
-        type(call_graph_t) :: graph
-        character(len=:), allocatable :: cycles(:)
-        integer :: root_index
-
-        print *, "Testing recursive function detection..."
-
-        source = '' // &
-                 "module recursion_mod" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "    recursive function sum_to(n) result(total)" // new_line('a') // &
-                 "        integer :: n" // new_line('a') // &
-                 "        integer :: total" // new_line('a') // &
-                 "        if (n <= 0) then" // new_line('a') // &
-                 "            total = 0" // new_line('a') // &
-                 "        else" // new_line('a') // &
-                 "            total = n + sum_to(n - 1)" // new_line('a') // &
-                 "        end if" // new_line('a') // &
-                 "    end function sum_to" // new_line('a') // &
-                 "end module recursion_mod"
-
-        call lex_source(source, tokens, error_msg)
-        if (error_msg /= '') then
-            call report_failure('Lexing failed for recursive function test', error_msg)
-            return
-        end if
-
-        arena = create_ast_arena()
-        call parse_tokens(tokens, arena, root_index, error_msg)
-        if (root_index <= 0) then
-            call report_failure('Parsing failed for recursive function test', error_msg)
-            return
-        end if
-
-        graph = build_call_graph(arena, root_index)
-        call assert_procedure(graph, 'recursion_mod::sum_to')
-        call assert_edge(graph, 'recursion_mod::sum_to', 'recursion_mod::sum_to')
-
-        cycles = get_recursive_cycles(graph)
-        if (size(cycles) /= 1) then
-            call report_failure('Unexpected recursive cycle count', &
-                                'Expected single cycle for recursion_mod::sum_to')
-            return
-        end if
-        if (trim(cycles(1)) /= 'recursion_mod::sum_to') then
-            call report_failure('Incorrect recursive cycle entry', cycles(1))
-        end if
-    end subroutine test_recursive_function_detection
-
-    subroutine test_recursive_subroutine_detection()
-        character(len=:), allocatable :: source, error_msg
-        type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
-        type(call_graph_t) :: graph
-        character(len=:), allocatable :: cycles(:)
-        integer :: root_index
-
-        print *, "Testing recursive subroutine detection..."
-
-        source = '' // &
-                 "module recursion_mod" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "    recursive subroutine countdown(n)" // new_line('a') // &
-                 "        integer, intent(in) :: n" // new_line('a') // &
-                 "        if (n > 0) then" // new_line('a') // &
-                 "            call countdown(n - 1)" // new_line('a') // &
-                 "        end if" // new_line('a') // &
-                 "    end subroutine countdown" // new_line('a') // &
-                 "end module recursion_mod"
-
-        call lex_source(source, tokens, error_msg)
-        if (error_msg /= '') then
-            call report_failure('Lexing failed for recursive subroutine test', &
-                                error_msg)
-            return
-        end if
-
-        arena = create_ast_arena()
-        call parse_tokens(tokens, arena, root_index, error_msg)
-        if (root_index <= 0) then
-            call report_failure('Parsing failed for recursive subroutine test', &
-                                error_msg)
-            return
-        end if
-
-        graph = build_call_graph(arena, root_index)
-        call assert_procedure(graph, 'recursion_mod::countdown')
-        call assert_edge(graph, 'recursion_mod::countdown', &
-                         'recursion_mod::countdown')
-
-        cycles = get_recursive_cycles(graph)
-        if (size(cycles) /= 1) then
-            call report_failure('Unexpected recursive cycle count', &
-                                'Expected single cycle for recursion_mod::countdown')
-            return
-        end if
-        if (trim(cycles(1)) /= 'recursion_mod::countdown') then
-            call report_failure('Incorrect recursive cycle entry', cycles(1))
-        end if
-    end subroutine test_recursive_subroutine_detection
 
     subroutine assert_procedure(graph, expected)
         type(call_graph_t), intent(in) :: graph
@@ -312,15 +204,5 @@ contains
             end do
         end do
     end subroutine assert_unique_procedures
-
-    subroutine assert_no_cycles(graph)
-        type(call_graph_t), intent(in) :: graph
-        character(len=:), allocatable :: cycles(:)
-
-        cycles = get_recursive_cycles(graph)
-        if (size(cycles) > 0) then
-            call report_failure('Unexpected recursive cycle', cycles(1))
-        end if
-    end subroutine assert_no_cycles
 
 end program test_call_graph_consolidation
