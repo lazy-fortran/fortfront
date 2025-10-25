@@ -80,6 +80,50 @@ program test_monomorphization
         stop 1
     end if
 
+    ! Test 4: Return type specialization propagates correctly
+    print *, "Testing return type specialization..."
+    input = &
+        "function square(x)" // new_line('A') // &
+        "    square = x * x" // new_line('A') // &
+        "end function" // new_line('A') // &
+        "" // new_line('A') // &
+        "y = square(5)" // new_line('A') // &
+        "z = square(3.0)" // new_line('A')
+
+    call transform_lazy_fortran_string(input, output, error_msg)
+
+    test_passed = .false.
+    if (index(output, "real function square__k3") > 0 .or. &
+        index(output, "real(8) function square__k3") > 0) then
+        if (index(output, "integer function square__k3") == 0) then
+            test_passed = .true.
+        end if
+    end if
+
+    if (test_passed) then
+        print *, "  PASS: Real specialization has correct return type"
+    else
+        print *, "  FAIL: Real specialization return type incorrect"
+        print *, "  Output:", output
+        stop 1
+    end if
+
+    test_passed = .false.
+    if (index(output, "real :: z") > 0 .or. &
+        index(output, "real(8) :: z") > 0) then
+        if (index(output, "integer :: z") == 0) then
+            test_passed = .true.
+        end if
+    end if
+
+    if (test_passed) then
+        print *, "  PASS: Assignment result typed correctly"
+    else
+        print *, "  FAIL: Assignment result type incorrect"
+        print *, "  Output:", output
+        stop 1
+    end if
+
     print *, ""
     print *, "All monomorphization tests passed!"
 

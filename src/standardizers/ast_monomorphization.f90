@@ -1,6 +1,6 @@
 module ast_monomorphization
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node
+    use ast_nodes_core, only: program_node, call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, &
                                    get_procedure_name, get_procedure_params, &
                                    get_procedure_body, get_procedure_return_type, &
@@ -13,6 +13,8 @@ module ast_monomorphization
     use ast_base, only: string_t
     use call_graph_signatures_mod, only: signatures_map_t, type_signature_t
     use codegen_name_mangling, only: mangle_procedure_name
+    use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: mono_type_t
     use uid_generator, only: generate_uid
     implicit none
     private
@@ -107,6 +109,7 @@ contains
         type(function_def_node) :: new_func
         integer, allocatable :: new_param_indices(:)
         character(len=:), allocatable :: mangled_name, return_type
+        character(len=:), allocatable :: result_name
         integer :: i
 
         call get_function_node(arena, func_idx, orig_func)
@@ -116,16 +119,36 @@ contains
         end if
 
         mangled_name = mangle_procedure_name(orig_func%name, signature%param_kinds)
-        return_type = get_kind_type_string(signature%return_kind)
+        return_type = determine_return_type_string(arena, signature, orig_func)
 
         if (allocated(orig_func%param_indices)) then
             allocate (new_param_indices(size(orig_func%param_indices)))
             do i = 1, size(orig_func%param_indices)
                 new_param_indices(i) = clone_parameter_with_kind(arena, &
-                    orig_func%param_indices(i), signature%param_kinds(i))
+                                   orig_func%param_indices(i), signature%param_kinds(i))
             end do
         else
             allocate (new_param_indices(0))
+        end if
+
+        if (allocated(orig_func%result_variable)) then
+            if (len_trim(orig_func%result_variable) > 0) then
+                result_name = trim(orig_func%result_variable)
+            end if
+        end if
+
+        if (.not. allocated(result_name)) then
+            if (allocated(orig_func%name)) then
+                if (len_trim(orig_func%name) > 0) then
+                    result_name = trim(orig_func%name)
+                end if
+            end if
+        end if
+
+        if (.not. allocated(result_name)) then
+            result_name = mangled_name
+        else if (len_trim(result_name) == 0) then
+            result_name = mangled_name
         end if
 
         new_func = create_function_def( &
@@ -135,7 +158,7 @@ contains
                    body_indices=orig_func%body_indices, &
                    line=orig_func%line, &
                    column=orig_func%column, &
-                   result_variable=mangled_name)
+                   result_variable=result_name)
 
         call arena%push(new_func)
         new_idx = arena%size
@@ -157,6 +180,14 @@ contains
         end if
 
         type_name = get_kind_type_string(kind_value)
+        if (len_trim(type_name) == 0) then
+            if (allocated(orig_param%type_name)) then
+                if (len_trim(orig_param%type_name) > 0) then
+                    type_name = trim(orig_param%type_name)
+                end if
+            end if
+        end if
+        if (len_trim(type_name) == 0) type_name = "real"
 
         new_param%uid = generate_uid()
         new_param%name = orig_param%name
@@ -245,6 +276,113 @@ contains
         idx = arena%size
     end function create_use_statement_node
 
+    function determine_return_type_string(arena, signature, orig_func) &
+        result(type_str)
+        type(ast_arena_t), intent(inout) :: arena
+        type(type_signature_t), intent(in) :: signature
+        type(function_def_node), pointer, intent(in) :: orig_func
+        character(len=:), allocatable :: type_str
+        type(call_or_subscript_node), pointer :: call_node
+        type(mono_type_t) :: inferred_type
+        logical :: has_value
+
+        type_str = ""
+
+        if (signature%call_site_node > 0) then
+            call get_call_node(arena, signature%call_site_node, call_node)
+            if (associated(call_node)) then
+                inferred_type = call_node%inferred_type
+                call inferred_type%sync_from_arena()
+                type_str = trim(mono_type_to_string(inferred_type, &
+                                                    include_shape=.false., fallback=''))
+                if (len_trim(type_str) == 0) then
+                    type_str = get_kind_type_string(inferred_type%kind)
+                end if
+            end if
+        end if
+
+        if (len_trim(type_str) == 0) then
+            has_value = associated(orig_func)
+            if (has_value) has_value = allocated(orig_func%return_type)
+            if (has_value) then
+                if (len_trim(orig_func%return_type) > 0) then
+                    type_str = trim(orig_func%return_type)
+                end if
+            end if
+        end if
+
+        if (len_trim(type_str) == 0) then
+            type_str = get_kind_type_string(signature%return_kind)
+        end if
+
+        if (allocated(signature%param_kinds)) then
+            if (size(signature%param_kinds) > 0) then
+                if (len_trim(type_str) == 0) then
+                    type_str = fallback_return_type_from_params( &
+                        signature%param_kinds)
+                else if (trim(type_str) == "integer") then
+                    if (any(signature%param_kinds /= 2)) then
+                        type_str = fallback_return_type_from_params( &
+                            signature%param_kinds)
+                    end if
+                end if
+            end if
+        end if
+
+        if (len_trim(type_str) == 0) type_str = "real"
+    end function determine_return_type_string
+
+    function fallback_return_type_from_params(param_kinds) result(type_str)
+        integer, intent(in) :: param_kinds(:)
+        character(len=:), allocatable :: type_str
+        integer :: i
+        integer :: best_rank
+
+        type_str = ""
+        best_rank = -1
+
+        do i = 1, size(param_kinds)
+            select case (param_kinds(i))
+            case (9)  ! TDOUBLE
+                if (best_rank < 4) then
+                    type_str = "real(8)"
+                    best_rank = 4
+                end if
+            case (8)  ! TCOMPLEX
+                if (best_rank < 3) then
+                    type_str = "complex"
+                    best_rank = 3
+                end if
+            case (3)  ! TREAL
+                if (best_rank < 2) then
+                    type_str = "real"
+                    best_rank = 2
+                end if
+            case (4)  ! TCHAR
+                if (best_rank < 2) then
+                    type_str = "character"
+                    best_rank = 2
+                end if
+            case (5)  ! TLOGICAL
+                if (best_rank < 1) then
+                    type_str = "logical"
+                    best_rank = 1
+                end if
+            case (2)  ! TINT
+                if (best_rank < 0) then
+                    type_str = "integer"
+                    best_rank = 0
+                end if
+            case default
+                if (best_rank < 0) then
+                    type_str = get_kind_type_string(param_kinds(i))
+                    if (len_trim(type_str) > 0) best_rank = 0
+                end if
+            end select
+            if (best_rank == 4) exit
+        end do
+    end function fallback_return_type_from_params
+
     function get_kind_type_string(kind_value) result(type_str)
         integer, intent(in) :: kind_value
         character(len=:), allocatable :: type_str
@@ -259,8 +397,12 @@ contains
             type_str = "character"
         case (5)  ! TLOGICAL
             type_str = "logical"
+        case (8)  ! TCOMPLEX
+            type_str = "complex"
+        case (9)  ! TDOUBLE
+            type_str = "real(8)"
         case default
-            type_str = "integer"  ! Default fallback
+            type_str = ""
         end select
     end function get_kind_type_string
 
@@ -294,7 +436,7 @@ contains
 
         ! If no signatures found, allocate empty array
         if (num_sigs == 0 .and. .not. allocated(sigs)) then
-            allocate(sigs(0))
+            allocate (sigs(0))
         end if
     end function get_function_signatures
 
@@ -327,6 +469,21 @@ contains
             node_ptr => n
         end select
     end subroutine get_function_node
+
+    subroutine get_call_node(arena, idx, node_ptr)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx
+        type(call_or_subscript_node), pointer, intent(out) :: node_ptr
+
+        nullify (node_ptr)
+        if (idx < 1 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (n => arena%entries(idx)%node)
+        type is (call_or_subscript_node)
+            node_ptr => n
+        end select
+    end subroutine get_call_node
 
     subroutine get_parameter_node(arena, idx, node_ptr)
         type(ast_arena_t), intent(inout) :: arena
