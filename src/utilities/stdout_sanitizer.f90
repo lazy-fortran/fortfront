@@ -26,9 +26,15 @@ contains
 
     subroutine sanitize_redirected_stdout()
         integer(c_int) :: status
+
         status = ff_sanitize_fd(STDOUT_FD)
         if (status < 0_c_int) then
-            call report_sanitizer_failure(status)
+            select case (status)
+            case (-2_c_int)
+                ! Non-seekable stdout (pipes, sockets); nothing to sanitize
+            case default
+                call report_sanitizer_failure(status)
+            end select
         end if
     end subroutine sanitize_redirected_stdout
 

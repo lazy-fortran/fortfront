@@ -1,7 +1,6 @@
 program test_cli_integration
     use iso_fortran_env, only: error_unit
     implicit none
-
     integer :: test_count, pass_count
     logical :: is_windows
     logical :: run_system
@@ -141,11 +140,12 @@ contains
         logical, intent(in) :: on_windows
         character(len=:), allocatable :: cmd
         if (on_windows) then
-            cmd = 'cmd /C "type ' // trim(in_file) // ' | "' // trim(exe) // '"' // &
-                  ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
+            cmd = 'cmd /C "set FORTFRONT_TRACE=0 && type ' // trim(in_file) // &
+                  ' | "' // trim(exe) // '" > ' // trim(out_file) // ' 2> ' // &
+                  trim(err_file) // '"'
         else
-            cmd = 'sh -lc "cat ' // trim(in_file) // ' | ' // trim(exe) // &
-                  ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
+            cmd = 'sh -lc "cat ' // trim(in_file) // ' | FORTFRONT_TRACE=0 ' // &
+                  trim(exe) // ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
         end if
     end function build_pipe_command
 
@@ -365,7 +365,7 @@ contains
 
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
                 & '" test_input.lf > test_output.txt 2> test_error.txt"'
         else
             command = build_pipe_command(executable_path, 'test_input.lf', &
@@ -695,10 +695,10 @@ contains
 
         ! Run with an unknown flag; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
                 & '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
         else
-            command = timeout_wrapper('20') // executable_path // &
+            command = 'FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // executable_path // &
                       ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
@@ -734,10 +734,10 @@ contains
 
         ! Run with a single dash; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
                 & '" - > test_output_dash.txt 2>test_error_dash.txt"'
         else
-            command = timeout_wrapper('20') // executable_path // &
+            command = 'FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // executable_path // &
                       ' - > test_output_dash.txt 2>test_error_dash.txt'
         end if
         call execute_command_line(command, exitstat=run_status)
@@ -962,11 +962,11 @@ contains
         end if
 
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
                 & '" --help > help_out.txt 2>help_err.txt"'
         else
-            command = 'bash -lc "' // timeout_wrapper('20') // executable_path // &
-                & ' --help > help_out.txt 2>help_err.txt"'
+            command = 'bash -lc "FORTFRONT_TRACE=0 ' // timeout_wrapper('20') // &
+                executable_path // ' --help > help_out.txt 2>help_err.txt"'
         end if
         call execute_command_line(command, exitstat=run_status)
 
@@ -976,14 +976,14 @@ contains
         if (success) then
             open (unit=31, file='help_err.txt', status='old', action='read', iostat=ios)
             if (ios == 0) then
-                do
-                    read (31, '(A)', iostat=ios) line
-                    if (ios /= 0) exit
-                    if (len_trim(line) > 0) then
+               do
+                   read (31, '(A)', iostat=ios) line
+                   if (ios /= 0) exit
+                   if (len_trim(line) > 0) then
                         success = .false.
                         exit
-                    end if
-                end do
+                   end if
+               end do
                 close (31)
             else
                 success = .false.
