@@ -93,6 +93,7 @@ contains
         integer, intent(in) :: body_indices(:)
         type(parameter_info_t), intent(inout) :: param_map(:)
         integer :: j, idx
+        integer :: name_idx
         character(len=:), allocatable :: intent_str
 
         do j = 1, size(body_indices)
@@ -107,9 +108,24 @@ contains
                                             .true., body_node%is_optional, &
                                             body_node%is_target)
             type is (declaration_node)
-                call update_parameter_entry(param_map, body_node%var_name, &
-                                            body_node%intent, body_node%has_intent, &
-                                            body_node%is_optional, body_node%is_target)
+                if (body_node%is_multi_declaration .and. &
+                    allocated(body_node%var_names)) then
+                    do name_idx = 1, size(body_node%var_names)
+                        if (len_trim(body_node%var_names(name_idx)) == 0) cycle
+                        call update_parameter_entry(param_map, &
+                                                    body_node%var_names(name_idx), &
+                                                    body_node%intent, &
+                                                    body_node%has_intent, &
+                                                    body_node%is_optional, &
+                                                    body_node%is_target)
+                    end do
+                else
+                    call update_parameter_entry(param_map, body_node%var_name, &
+                                                body_node%intent, &
+                                                body_node%has_intent, &
+                                                body_node%is_optional, &
+                                                body_node%is_target)
+                end if
             end select
         end do
     end subroutine merge_parameter_details_from_body
@@ -625,9 +641,9 @@ contains
                                                     state%defined_func_count, rhs%name)
         type is (array_literal_node)
             type_name = mono_type_to_string(rhs%inferred_type, &
-                include_shape=.true., &
-                standardize_real=standardize_types_enabled, &
-                fallback='')
+                                            include_shape=.true., &
+                                           standardize_real=standardize_types_enabled, &
+                                            fallback='')
         end select
     end function infer_function_return_type_from_rhs
 
@@ -706,7 +722,7 @@ contains
     end subroutine process_allocate_variables
 
     subroutine add_allocate_variable(state, stmt, name, inferred_type, rank, &
-                                      standardize_types_enabled)
+                                     standardize_types_enabled)
         type(program_decl_state_t), intent(inout) :: state
         type(allocate_statement_node), intent(in) :: stmt
         character(len=*), intent(in) :: name
@@ -734,9 +750,9 @@ contains
 
         if (.not. allocated(base_type)) then
             base_type = mono_type_to_string(inferred_type, &
-                include_shape=.false., &
-                standardize_real=standardize_types_enabled, &
-                fallback='integer')
+                                            include_shape=.false., &
+                                           standardize_real=standardize_types_enabled, &
+                                            fallback='integer')
         end if
 
         if (len_trim(base_type) == 0) base_type = 'integer'
@@ -756,7 +772,7 @@ contains
             lowered = to_lower(type_buf)
             if (index(lowered, 'dimension(') == 0) then
                 type_buf = trim(type_buf) // ', dimension(' // &
-                          trim(dimension_spec) // ')'
+                    trim(dimension_spec) // ')'
             end if
         end if
 
