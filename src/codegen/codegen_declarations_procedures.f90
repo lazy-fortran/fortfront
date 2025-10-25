@@ -4,6 +4,7 @@ module codegen_declarations_procedures
                               intent_type_to_string
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_core, only: identifier_node, assignment_node
+    use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_misc, only: implicit_statement_node
     use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
@@ -399,6 +400,7 @@ contains
 
         body = maybe_add_function_implicit_none(arena, body_indices)
         body = body // collect_subroutine_parameter_decls(arena, node, param_map)
+        body = body // collect_subroutine_local_variable_decls(arena, node, param_map)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
@@ -758,6 +760,12 @@ contains
                                     " :: " // trim(var_name) // new_line('A')
                     end if
                 end select
+            type is (print_statement_node)
+                call collect_vars_from_print(arena, stmt, param_map, local_vars, &
+                                            n_locals, capacity, result_name, decl_code)
+            type is (read_statement_node)
+                call collect_vars_from_read(arena, stmt, param_map, local_vars, &
+                                           n_locals, capacity, result_name, decl_code)
             end select
         end do
     end function collect_local_variable_decls
@@ -817,4 +825,281 @@ contains
 
         capacity = new_capacity
     end subroutine ensure_local_var_capacity
+
+    subroutine collect_vars_from_print(arena, stmt, param_map, local_vars, &
+                                      n_locals, capacity, result_name, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(print_statement_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals, capacity
+        character(len=*), intent(in) :: result_name
+        character(len=:), allocatable, intent(inout) :: decl_code
+        integer :: j, expr_idx
+        character(len=64) :: var_name
+
+        if (.not. allocated(stmt%expression_indices)) return
+
+        do j = 1, size(stmt%expression_indices)
+            expr_idx = stmt%expression_indices(j)
+            if (expr_idx <= 0 .or. expr_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(expr_idx)%node)) cycle
+
+            select type (expr => arena%entries(expr_idx)%node)
+            type is (identifier_node)
+                if (.not. allocated(expr%name)) cycle
+
+                var_name = trim(expr%name)
+
+                if (len_trim(result_name) > 0 .and. var_name == result_name) cycle
+                if (is_parameter_name(var_name, param_map)) cycle
+
+                if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+                    call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+                    n_locals = n_locals + 1
+                    local_vars(n_locals) = var_name
+                    decl_code = decl_code // "    real :: " // trim(var_name) // &
+                                new_line('A')
+                end if
+            end select
+        end do
+    end subroutine collect_vars_from_print
+
+    subroutine collect_vars_from_read(arena, stmt, param_map, local_vars, &
+                                     n_locals, capacity, result_name, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(read_statement_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals, capacity
+        character(len=*), intent(in) :: result_name
+        character(len=:), allocatable, intent(inout) :: decl_code
+        integer :: j, var_idx
+        character(len=64) :: var_name
+
+        if (.not. allocated(stmt%var_indices)) return
+
+        do j = 1, size(stmt%var_indices)
+            var_idx = stmt%var_indices(j)
+            if (var_idx <= 0 .or. var_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(var_idx)%node)) cycle
+
+            select type (var => arena%entries(var_idx)%node)
+            type is (identifier_node)
+                if (.not. allocated(var%name)) cycle
+
+                var_name = trim(var%name)
+
+                if (len_trim(result_name) > 0 .and. var_name == result_name) cycle
+                if (is_parameter_name(var_name, param_map)) cycle
+
+                if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+                    call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+                    n_locals = n_locals + 1
+                    local_vars(n_locals) = var_name
+                    decl_code = decl_code // "    real :: " // trim(var_name) // &
+                                new_line('A')
+                end if
+            end select
+        end do
+    end subroutine collect_vars_from_read
+
+    function collect_subroutine_local_variable_decls(arena, sub, param_map) &
+        result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable :: decl_code
+        character(len=64), allocatable :: local_vars(:)
+        character(len=64), allocatable :: declared_vars(:)
+        integer :: i, stmt_idx, n_locals, n_declared, capacity, decl_capacity
+        character(len=64) :: var_name
+
+        decl_code = ""
+        n_locals = 0
+        n_declared = 0
+        capacity = 0
+        decl_capacity = 0
+
+        if (.not. allocated(sub%body_indices)) return
+
+        ! First pass: collect already declared variables
+        do i = 1, size(sub%body_indices)
+            stmt_idx = sub%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (allocated(stmt%var_names)) then
+                    call add_declared_vars(stmt%var_names, declared_vars, &
+                                          n_declared, decl_capacity)
+                else if (allocated(stmt%var_name)) then
+                    call add_single_declared_var(stmt%var_name, declared_vars, &
+                                                n_declared, decl_capacity)
+                end if
+            end select
+        end do
+
+        ! Second pass: collect local variables that need declarations
+        do i = 1, size(sub%body_indices)
+            stmt_idx = sub%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (assignment_node)
+                if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
+
+                select type (target => arena%entries(stmt%target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (target%inferred_type%kind == 0) cycle
+
+                    var_name = trim(target%name)
+
+                    if (is_parameter_name(var_name, param_map)) cycle
+                    if (is_local_var_collected(var_name, declared_vars, n_declared)) cycle
+
+                    if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
+                        then
+                        block
+                            character(len=:), allocatable :: type_str
+                            call ensure_local_var_capacity(local_vars, capacity, &
+                                                           n_locals + 1)
+                            n_locals = n_locals + 1
+                            local_vars(n_locals) = var_name
+                            type_str = mono_type_to_string(target%inferred_type, &
+                                                           include_shape=.true., &
+                                                           fallback='integer')
+                            decl_code = decl_code // "    " // type_str // &
+                                        " :: " // trim(var_name) // new_line('A')
+                        end block
+                    end if
+                end select
+            type is (print_statement_node)
+                call collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
+                                                n_locals, capacity, declared_vars, &
+                                                n_declared, decl_code)
+            type is (read_statement_node)
+                call collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
+                                               n_locals, capacity, declared_vars, &
+                                               n_declared, decl_code)
+            end select
+        end do
+    end function collect_subroutine_local_variable_decls
+
+    subroutine collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
+                                          n_locals, capacity, declared_vars, &
+                                          n_declared, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(print_statement_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals, capacity
+        character(len=64), allocatable, intent(in) :: declared_vars(:)
+        integer, intent(in) :: n_declared
+        character(len=:), allocatable, intent(inout) :: decl_code
+        integer :: j, expr_idx
+        character(len=64) :: var_name
+
+        if (.not. allocated(stmt%expression_indices)) return
+
+        do j = 1, size(stmt%expression_indices)
+            expr_idx = stmt%expression_indices(j)
+            if (expr_idx <= 0 .or. expr_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(expr_idx)%node)) cycle
+
+            select type (expr => arena%entries(expr_idx)%node)
+            type is (identifier_node)
+                if (.not. allocated(expr%name)) cycle
+
+                var_name = trim(expr%name)
+
+                if (is_parameter_name(var_name, param_map)) cycle
+                if (is_local_var_collected(var_name, declared_vars, n_declared)) cycle
+
+                if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+                    call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+                    n_locals = n_locals + 1
+                    local_vars(n_locals) = var_name
+                    decl_code = decl_code // "    real :: " // trim(var_name) // &
+                                new_line('A')
+                end if
+            end select
+        end do
+    end subroutine collect_vars_from_print_sub
+
+    subroutine collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
+                                         n_locals, capacity, declared_vars, &
+                                         n_declared, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(read_statement_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals, capacity
+        character(len=64), allocatable, intent(in) :: declared_vars(:)
+        integer, intent(in) :: n_declared
+        character(len=:), allocatable, intent(inout) :: decl_code
+        integer :: j, var_idx
+        character(len=64) :: var_name
+
+        if (.not. allocated(stmt%var_indices)) return
+
+        do j = 1, size(stmt%var_indices)
+            var_idx = stmt%var_indices(j)
+            if (var_idx <= 0 .or. var_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(var_idx)%node)) cycle
+
+            select type (var => arena%entries(var_idx)%node)
+            type is (identifier_node)
+                if (.not. allocated(var%name)) cycle
+
+                var_name = trim(var%name)
+
+                if (is_parameter_name(var_name, param_map)) cycle
+                if (is_local_var_collected(var_name, declared_vars, n_declared)) cycle
+
+                if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+                    call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+                    n_locals = n_locals + 1
+                    local_vars(n_locals) = var_name
+                    decl_code = decl_code // "    real :: " // trim(var_name) // &
+                                new_line('A')
+                end if
+            end select
+        end do
+    end subroutine collect_vars_from_read_sub
+
+    subroutine add_declared_vars(var_names, declared_vars, n_declared, capacity)
+        character(len=*), intent(in) :: var_names(:)
+        character(len=64), allocatable, intent(inout) :: declared_vars(:)
+        integer, intent(inout) :: n_declared, capacity
+        integer :: i
+
+        do i = 1, size(var_names)
+            if (len_trim(var_names(i)) == 0) cycle
+            if (.not. is_local_var_collected(trim(var_names(i)), declared_vars, &
+                                            n_declared)) then
+                call ensure_local_var_capacity(declared_vars, capacity, n_declared + 1)
+                n_declared = n_declared + 1
+                declared_vars(n_declared) = trim(var_names(i))
+            end if
+        end do
+    end subroutine add_declared_vars
+
+    subroutine add_single_declared_var(var_name, declared_vars, n_declared, capacity)
+        character(len=*), intent(in) :: var_name
+        character(len=64), allocatable, intent(inout) :: declared_vars(:)
+        integer, intent(inout) :: n_declared, capacity
+
+        if (len_trim(var_name) == 0) return
+        if (.not. is_local_var_collected(trim(var_name), declared_vars, n_declared)) &
+            then
+            call ensure_local_var_capacity(declared_vars, capacity, n_declared + 1)
+            n_declared = n_declared + 1
+            declared_vars(n_declared) = trim(var_name)
+        end if
+    end subroutine add_single_declared_var
 end module codegen_declarations_procedures

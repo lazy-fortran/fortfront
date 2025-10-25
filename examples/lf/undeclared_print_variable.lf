@@ -1,0 +1,4 @@
+! Example: Undeclared variable in print statement
+! Fortfront should infer type and add declaration
+
+print *, x
