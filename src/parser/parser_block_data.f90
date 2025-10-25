@@ -1,6 +1,6 @@
 module parser_block_data_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+                          TK_COMMENT, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_STRING
@@ -17,12 +17,19 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: block_data_index
         type(token_t) :: token
+        type(token_t) :: next_token
         character(len=:), allocatable :: block_name, statement_text
+        character(len=:), allocatable :: header_label, end_label
+        character(len=:), allocatable :: pending_end_label
         integer :: line, column, stmt_start_pos
+        integer :: lookahead
         integer, allocatable :: statement_indices(:)
         integer :: stmt_index
 
         block_name = ""
+        header_label = ""
+        end_label = ""
+        pending_end_label = ""
         allocate (statement_indices(0))
 
         ! Skip leading trivia before the BLOCK DATA header
@@ -39,6 +46,25 @@ contains
         if (parser%is_at_end()) then
             block_data_index = 0
             return
+        end if
+
+        token = parser%peek()
+        if (token%kind == TK_NUMBER) then
+            header_label = trim(token%text)
+            token = parser%consume()
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                select case (token%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    token = parser%consume()
+                case default
+                    exit
+                end select
+            end do
+            if (parser%is_at_end()) then
+                block_data_index = 0
+                return
+            end if
         end if
 
         token = parser%consume()
@@ -92,11 +118,61 @@ contains
         do while (.not. parser%is_at_end())
             token = parser%peek()
 
+            ! Detect optional statement label preceding END BLOCK DATA
+            if (token%kind == TK_NUMBER) then
+                pending_end_label = ""
+                lookahead = parser%current_token + 1
+                do while (lookahead <= size(parser%tokens))
+                    next_token = parser%tokens(lookahead)
+                    select case (next_token%kind)
+                    case (TK_WHITESPACE, TK_COMMENT)
+                        lookahead = lookahead + 1
+                        cycle
+                    case (TK_NEWLINE)
+                        pending_end_label = ""
+                        exit
+                    case default
+                        exit
+                    end select
+                end do
+
+                if (lookahead <= size(parser%tokens)) then
+                    next_token = parser%tokens(lookahead)
+                    if (next_token%kind == TK_KEYWORD) then
+                        if (to_lower(trim(next_token%text)) == "end") then
+                            pending_end_label = trim(token%text)
+                            token = parser%consume()
+                            do while (.not. parser%is_at_end())
+                                token = parser%peek()
+                                select case (token%kind)
+                                case (TK_WHITESPACE, TK_COMMENT)
+                                    token = parser%consume()
+                                case default
+                                    exit
+                                end select
+                            end do
+                            if (parser%is_at_end()) exit
+                            token = parser%peek()
+                        else
+                            pending_end_label = ""
+                        end if
+                    else
+                        pending_end_label = ""
+                    end if
+                else
+                    pending_end_label = ""
+                end if
+            else
+                pending_end_label = ""
+            end if
+
             if (token%kind == TK_KEYWORD .and. &
                 to_lower(trim(token%text)) == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. to_lower(trim(parser%tokens(parser%current_token + 1)%text)) == "block") then
+                        TK_KEYWORD .and. &
+                        to_lower(trim(parser%tokens(parser%current_token + &
+                                                    1)%text)) == "block") then
                         token = parser%consume()
                         token = parser%consume()
                         if (.not. parser%is_at_end()) then
@@ -111,6 +187,9 @@ contains
                             if (token%kind == TK_IDENTIFIER) then
                                 token = parser%consume()
                             end if
+                        end if
+                        if (len_trim(pending_end_label) > 0) then
+                            end_label = pending_end_label
                         end if
                         exit
                     end if
@@ -136,9 +215,9 @@ contains
 
             if (len(statement_text) > 0) then
                 stmt_index = push_literal(arena, trim(statement_text), &
-                                         LITERAL_STRING, &
-                                         line=parser%tokens(stmt_start_pos)%line, &
-                                         column=parser%tokens(stmt_start_pos)%column)
+                                          LITERAL_STRING, &
+                                          line=parser%tokens(stmt_start_pos)%line, &
+                                          column=parser%tokens(stmt_start_pos)%column)
                 if (stmt_index > 0) then
                     statement_indices = [statement_indices, stmt_index]
                 end if
@@ -146,7 +225,8 @@ contains
         end do
 
         block_data_index = push_block_data(arena, block_name, statement_indices, &
-                                           line, column)
+                                           line, column, header_label=header_label, &
+                                           end_label=end_label)
     end function parse_block_data
 
 end module parser_block_data_module

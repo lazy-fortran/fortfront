@@ -76,7 +76,8 @@ contains
             unit_index = parse_block_data_unit(trimmed_tokens, arena)
         else if (is_type_start(trimmed_tokens, 1)) then
             ! Type definitions should be parsed as structured constructs
-            unit_index = parse_statement_dispatcher(trimmed_tokens, arena, prefix_buffer)
+            unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
+                                                    prefix_buffer)
         else
             ! Mixed module/main files still require implicit main detection
             unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
@@ -310,13 +311,40 @@ contains
         integer, intent(in) :: pos
         logical :: is_start
         integer :: lookahead
+        integer :: current_pos
         character(len=:), allocatable :: keyword_text
 
         is_start = .false.
         if (pos > size(tokens)) return
-        if (to_lower(trim(tokens(pos)%text)) /= "block") return
 
-        lookahead = pos + 1
+        current_pos = pos
+        do while (current_pos <= size(tokens))
+            select case (tokens(current_pos)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                current_pos = current_pos + 1
+                cycle
+            case (TK_NUMBER)
+                current_pos = current_pos + 1
+                do while (current_pos <= size(tokens))
+                    select case (tokens(current_pos)%kind)
+                    case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                        current_pos = current_pos + 1
+                        cycle
+                    case default
+                        exit
+                    end select
+                end do
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (current_pos > size(tokens)) return
+        if (tokens(current_pos)%kind /= TK_KEYWORD) return
+        if (to_lower(trim(tokens(current_pos)%text)) /= "block") return
+
+        lookahead = current_pos + 1
         do while (lookahead <= size(tokens))
             select case (tokens(lookahead)%kind)
             case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)

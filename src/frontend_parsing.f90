@@ -436,6 +436,7 @@ contains
         integer :: i, nesting_level
         integer :: next_pos
         integer :: name_pos
+        integer :: block_keyword_pos
         character(len=:), allocatable :: unit_type
         character(len=:), allocatable :: keyword_text
         character(len=:), allocatable :: next_keyword
@@ -447,28 +448,49 @@ contains
         nesting_level = 0
         in_module_contains = .false.
         unit_type = ""
+        block_keyword_pos = start_pos
 
         ! Determine the unit type from the first keyword
         if (start_pos <= size(tokens)) then
-            if (tokens(start_pos)%kind == TK_KEYWORD) then
+            select case (tokens(start_pos)%kind)
+            case (TK_KEYWORD)
                 unit_type = to_lower(trim(tokens(start_pos)%text))
-                if (unit_type == "block") then
-                    next_pos = start_pos + 1
-                    do while (next_pos <= size(tokens))
-                        select case (tokens(next_pos)%kind)
-                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                            next_pos = next_pos + 1
-                            cycle
-                        case (TK_KEYWORD, TK_IDENTIFIER)
-                            if (to_lower(trim(tokens(next_pos)%text)) == "data") then
-                                unit_type = "blockdata"
-                            end if
-                            exit
-                        case default
-                            exit
-                        end select
-                    end do
-                end if
+                if (unit_type == "block") block_keyword_pos = start_pos
+            case (TK_NUMBER)
+                next_pos = start_pos + 1
+                do while (next_pos <= size(tokens))
+                    select case (tokens(next_pos)%kind)
+                    case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                        next_pos = next_pos + 1
+                        cycle
+                    case (TK_KEYWORD)
+                        if (to_lower(trim(tokens(next_pos)%text)) == "block") then
+                            unit_type = "block"
+                            block_keyword_pos = next_pos
+                        end if
+                        exit
+                    case default
+                        exit
+                    end select
+                end do
+            end select
+
+            if (unit_type == "block") then
+                next_pos = block_keyword_pos + 1
+                do while (next_pos <= size(tokens))
+                    select case (tokens(next_pos)%kind)
+                    case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                        next_pos = next_pos + 1
+                        cycle
+                    case (TK_KEYWORD, TK_IDENTIFIER)
+                        if (to_lower(trim(tokens(next_pos)%text)) == "data") then
+                            unit_type = "blockdata"
+                        end if
+                        exit
+                    case default
+                        exit
+                    end select
+                end do
             end if
         end if
 
@@ -545,7 +567,8 @@ contains
                                     if (nesting_level == 0) then
                                         unit_end = i + 1
                                         if (i + 2 <= size(tokens)) then
-                                            if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                            if (tokens(i + 2)%kind == &
+                                                TK_IDENTIFIER) then
                                                 unit_end = i + 2
                                             end if
                                         end if
@@ -661,7 +684,7 @@ contains
             end do
         else if (unit_type == "blockdata") then
             ! For BLOCK DATA units, find "end block data"
-            do i = start_pos + 2, size(tokens)
+            do i = block_keyword_pos + 2, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
