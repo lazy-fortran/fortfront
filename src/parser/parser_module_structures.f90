@@ -17,7 +17,8 @@ module parser_module_structures_module
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use ast_types, only: LITERAL_STRING
-    use parser_type_specifications_module, only: parse_implicit_statement
+    use parser_type_specifications_module, only: parse_implicit_statement, &
+                                                 take_implicit_additional_indices
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -131,6 +132,14 @@ contains
                         call parse_simple_implicit_in_module(parser, arena, stmt_index)
                         if (stmt_index > 0) then
                             declaration_indices = [declaration_indices, stmt_index]
+                            block
+                                integer, allocatable :: extra_indices(:)
+                                extra_indices = take_implicit_additional_indices()
+                                if (size(extra_indices) > 0) then
+                                    declaration_indices = [declaration_indices, &
+                                                           extra_indices]
+                                end if
+                            end block
                         end if
                         cycle  ! Continue to next iteration
                     case ("interface")
@@ -290,11 +299,14 @@ contains
                             ! Type keyword - might be function return type
                             call prefix_buffer%get_all(stored)
                             if (trim(lowered) == "double") then
-                                lookahead = parser%get_token_at_index(parser%current_token + 1)
+                                lookahead = parser%get_token_at_index( &
+                                            parser%current_token + 1)
                                 lookahead_lower = to_lower(trim(lookahead%text))
                                 select case (trim(lookahead_lower))
                                 case ("precision", "complex")
-                                    call append_prefix_token(stored, trim(token%text)//" "//trim(lookahead%text))
+                                    call append_prefix_token(stored, &
+                                                             trim(token%text)//" "// &
+                                                             trim(lookahead%text))
                                     call prefix_buffer%set(stored)
                                     if (allocated(stored)) deallocate (stored)
                                     token = parser%consume()
