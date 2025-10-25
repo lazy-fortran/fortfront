@@ -14,6 +14,8 @@ module frontend_transformation
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
+    use ast_monomorphization, only: transform_monomorphization
+    use call_graph_signatures_mod, only: signatures_map_t
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
@@ -244,6 +246,7 @@ contains
         type(token_t), allocatable, target :: tokens(:)
         integer :: prog_index
         logical :: has_functions, has_subroutines, has_main_code
+        type(signatures_map_t) :: signatures
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
@@ -301,12 +304,16 @@ contains
         end if
 
         ! Run semantic analysis and standardization (but not code generation yet)
-        call run_semantic_analysis_phase(shared_arena, prog_index, error_msg)
+        call run_semantic_analysis_phase(shared_arena, prog_index, error_msg, &
+            signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             call run_code_generation_phase(shared_arena, prog_index, output)
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
+
+        ! Run monomorphization (AST transformation)
+        call run_monomorphization_phase(shared_arena, prog_index, signatures)
 
         call run_standardization_phase(shared_arena, prog_index)
 
@@ -646,9 +653,11 @@ contains
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
+        type(signatures_map_t) :: signatures
 
         ! Phase 3: Semantic Analysis
-        call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
+        call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
+            signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             ! CRITICAL FIX for Issue #1120: Generate output even with semantic errors
             ! Continue to code generation to provide useful output to user
@@ -660,6 +669,9 @@ contains
             return  ! Error message already set, output generated
         end if
 
+        ! Phase 3.5: Monomorphization (AST transformation)
+        call run_monomorphization_phase(compiler_arena, prog_index, signatures)
+
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
 
@@ -668,10 +680,12 @@ contains
     end subroutine run_final_phases
 
     ! Run semantic analysis phase
-    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
+    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
+        signatures)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: error_msg
+        type(signatures_map_t), intent(out) :: signatures
 
         call compiler_arena%next_phase("semantic")
         block
@@ -686,6 +700,9 @@ contains
             call trace_enter('semantic:analyze_program')
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             call trace_leave('semantic:analyze_program')
+
+            ! Return signatures for AST transformation
+            signatures = ctx%signatures
 
             ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
@@ -1575,5 +1592,17 @@ contains
         ! Note: We don't change root_index because the program is still the root
         ! Code generation will emit both the module and the program
     end subroutine wrap_ast_in_module_and_program
+
+    ! Run monomorphization phase (AST transformation)
+    subroutine run_monomorphization_phase(compiler_arena, prog_index, signatures)
+        type(compiler_arena_t), intent(inout) :: compiler_arena
+        integer, intent(in) :: prog_index
+        type(signatures_map_t), intent(in) :: signatures
+
+        call compiler_arena%next_phase("monomorphization")
+
+        ! Transform AST to add monomorphized variants
+        call transform_monomorphization(compiler_arena%ast, prog_index, signatures)
+    end subroutine run_monomorphization_phase
 
 end module frontend_transformation
