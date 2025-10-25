@@ -637,14 +637,32 @@ contains
             type_buf = mono_type_to_string(id%inferred_type, &
                                            include_shape=.true., &
                                            standardize_real=standardize_types_enabled, &
-                                           fallback='real')
-            if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
-                func_return_type = infer_function_return_type_from_rhs(arena, &
-                                                                       stmt, state)
-                if (len_trim(func_return_type) > 0) type_buf = trim(func_return_type)
-            end if
-            if (len_trim(type_buf) == 0) type_buf = 'real'
+                                           fallback='')
+            type_buf = canonicalize_type(type_buf)
+            func_return_type = infer_function_return_type_from_rhs(arena, stmt, &
+                                                                   state)
+            func_return_type = canonicalize_type(func_return_type)
 
+            if (len_trim(func_return_type) > 0) then
+                block
+                    character(len=:), allocatable :: curr_lower
+                    character(len=:), allocatable :: func_lower
+
+                    curr_lower = to_lower(trim(type_buf))
+                    func_lower = to_lower(trim(func_return_type))
+
+                    if (len_trim(type_buf) == 0) then
+                        type_buf = func_return_type
+                    else if (curr_lower == 'integer' .and. func_lower /= &
+                             'integer') then
+                        type_buf = func_return_type
+                    else if (curr_lower == 'real' .and. func_lower /= 'real') then
+                        type_buf = func_return_type
+                    end if
+                end block
+            end if
+
+            if (len_trim(type_buf) == 0) type_buf = 'real'
             call try_add_variable(state, name_buf, trim(type_buf))
         end select
     end subroutine process_assignment_target
@@ -669,12 +687,36 @@ contains
             if (len_trim(rhs%name) == 0) return
             type_name = lookup_function_return_type(state%defined_func_names, &
                                                     state%defined_func_types, &
-                                                    state%defined_func_count, rhs%name)
+                                                    state%defined_func_count, &
+                                                    rhs%name)
+            type_name = canonicalize_type(type_name)
+            if (len_trim(type_name) == 0) then
+                type_name = deduce_type_from_arguments(arena, rhs, &
+                                                       standardize_types_enabled)
+            else
+                block
+                    character(len=:), allocatable :: inferred_type
+                    character(len=:), allocatable :: current_lower
+                    character(len=:), allocatable :: inferred_lower
+
+                    current_lower = to_lower(trim(type_name))
+                    if (current_lower == 'integer') then
+                        inferred_type = deduce_type_from_arguments( &
+                                        arena, rhs, standardize_types_enabled)
+                        inferred_lower = to_lower(trim(inferred_type))
+                        if (len_trim(inferred_lower) > 0 .and. &
+                            inferred_lower /= 'integer') then
+                            type_name = inferred_type
+                        end if
+                    end if
+                end block
+            end if
         type is (array_literal_node)
-            type_name = mono_type_to_string(rhs%inferred_type, &
-                                            include_shape=.true., &
-                                           standardize_real=standardize_types_enabled, &
-                                            fallback='')
+            type_name = mono_type_to_string( &
+                rhs%inferred_type, &
+                include_shape=.true., &
+                standardize_real=standardize_types_enabled, &
+                fallback='')
         end select
     end function infer_function_return_type_from_rhs
 
@@ -698,18 +740,35 @@ contains
         type is (call_or_subscript_node)
             name_buf = trim(val%name)
             if (len_trim(name_buf) == 0) return
-            type_buf = mono_type_to_string(val%inferred_type, &
-                                           include_shape=.true., &
-                                           standardize_real=standardize_types_enabled, &
-                                           fallback='real')
-            if (len_trim(type_buf) == 0 .or. trim(type_buf) == 'real') then
-                func_return_type = &
-                    lookup_function_return_type(state%defined_func_names, &
-                                                state%defined_func_types, &
-                                                state%defined_func_count, &
-                                                name_buf)
-                if (len_trim(func_return_type) > 0) type_buf = trim(func_return_type)
+            type_buf = mono_type_to_string( &
+                val%inferred_type, &
+                include_shape=.true., &
+                standardize_real=standardize_types_enabled, &
+                fallback='')
+            type_buf = canonicalize_type(type_buf)
+            func_return_type = infer_function_return_type_from_rhs(arena, stmt, &
+                                                                   state)
+            func_return_type = canonicalize_type(func_return_type)
+
+            if (len_trim(func_return_type) > 0) then
+                block
+                    character(len=:), allocatable :: curr_lower
+                    character(len=:), allocatable :: func_lower
+
+                    curr_lower = to_lower(trim(type_buf))
+                    func_lower = to_lower(trim(func_return_type))
+
+                    if (len_trim(type_buf) == 0) then
+                        type_buf = func_return_type
+                    else if (curr_lower == 'integer' .and. func_lower /= &
+                             'integer') then
+                        type_buf = func_return_type
+                    else if (curr_lower == 'real' .and. func_lower /= 'real') then
+                        type_buf = func_return_type
+                    end if
+                end block
             end if
+
             if (len_trim(type_buf) == 0) type_buf = 'real'
             call try_add_function_reference(state, name_buf, trim(type_buf))
         end select
@@ -780,10 +839,11 @@ contains
         end if
 
         if (.not. allocated(base_type)) then
-            base_type = mono_type_to_string(inferred_type, &
-                                            include_shape=.false., &
-                                           standardize_real=standardize_types_enabled, &
-                                            fallback='integer')
+            base_type = mono_type_to_string( &
+                        inferred_type, &
+                        include_shape=.false., &
+                        standardize_real=standardize_types_enabled, &
+                        fallback='integer')
         end if
 
         if (len_trim(base_type) == 0) base_type = 'integer'
@@ -832,14 +892,42 @@ contains
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: type_name
+        integer :: i, existing_idx
+        character(len=:), allocatable :: normalized_type
+        character(len=:), allocatable :: current_lower
+        character(len=:), allocatable :: new_lower
 
         if (len_trim(name) == 0) return
         if (state%func_count >= program_decl_max_vars) return
         if (exists_in_list(state%declared_names, state%declared_count, name)) return
-        if (exists_in_list(state%func_names, state%func_count, name)) return
+        normalized_type = canonicalize_type(type_name)
+
+        existing_idx = 0
+        do i = 1, state%func_count
+            if (trim(state%func_names(i)) == trim(name)) then
+                existing_idx = i
+                exit
+            end if
+        end do
+
+        if (existing_idx > 0) then
+            current_lower = to_lower(trim(state%func_types(existing_idx)))
+            new_lower = to_lower(trim(normalized_type))
+            if (len_trim(new_lower) == 0) return
+            if (current_lower == 'integer' .and. new_lower /= 'integer') then
+                state%func_types(existing_idx) = normalized_type
+            else if (current_lower == 'real' .and. new_lower /= 'real') then
+                state%func_types(existing_idx) = normalized_type
+            else if (current_lower /= new_lower .and. new_lower == 'real(8)' &
+                     .and. current_lower == 'real') then
+                state%func_types(existing_idx) = normalized_type
+            end if
+            return
+        end if
+
         state%func_count = state%func_count + 1
         state%func_names(state%func_count) = name
-        state%func_types(state%func_count) = type_name
+        state%func_types(state%func_count) = normalized_type
     end subroutine try_add_function_reference
 
     function emit_program_declarations(state) result(code)
@@ -887,6 +975,99 @@ contains
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
     end function emit_program_declarations
+
+    pure function canonicalize_type(type_str) result(canon)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: canon
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(trim(type_str))
+        if (len_trim(lowered) == 0) then
+            canon = ""
+            return
+        end if
+
+        select case (lowered)
+        case ('double precision')
+            canon = 'real(8)'
+        case default
+            canon = trim(type_str)
+        end select
+    end function canonicalize_type
+
+    function deduce_type_from_arguments(arena, call_node, standardize_real) &
+        result(type_str)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        logical, intent(in) :: standardize_real
+        character(len=:), allocatable :: type_str
+        integer :: i, arg_idx
+        logical :: has_character
+        logical :: has_complex
+        logical :: has_double
+        logical :: has_real
+        logical :: has_logical
+        logical :: has_integer
+        character(len=:), allocatable :: arg_type
+        character(len=:), allocatable :: lowered
+
+        type_str = ""
+        has_character = .false.
+        has_complex = .false.
+        has_double = .false.
+        has_real = .false.
+        has_logical = .false.
+        has_integer = .false.
+
+        if (.not. allocated(call_node%arg_indices)) return
+
+        do i = 1, size(call_node%arg_indices)
+            arg_idx = call_node%arg_indices(i)
+            if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+
+            select type (arg_node => arena%entries(arg_idx)%node)
+            class default
+                arg_type = canonicalize_type(mono_type_to_string( &
+                                             arg_node%inferred_type, &
+                                             include_shape=.false., &
+                                             standardize_real=standardize_real, &
+                                             fallback=''))
+            end select
+
+            lowered = to_lower(trim(arg_type))
+            if (len_trim(lowered) == 0) cycle
+            if (index(lowered, 'character') == 1) then
+                has_character = .true.
+            else if (lowered == 'complex') then
+                has_complex = .true.
+            else if (lowered == 'logical') then
+                has_logical = .true.
+            else if (lowered == 'real(8)') then
+                has_double = .true.
+            else if (index(lowered, 'real(') == 1) then
+                has_double = .true.
+            else if (lowered == 'real') then
+                has_real = .true.
+            else
+                has_integer = .true.
+            end if
+        end do
+
+        if (has_character) then
+            type_str = 'character'
+        else if (has_complex) then
+            type_str = 'complex'
+        else if (has_double) then
+            type_str = 'real(8)'
+        else if (has_real) then
+            type_str = 'real'
+        else if (has_logical) then
+            type_str = 'logical'
+        else if (has_integer) then
+            type_str = 'integer'
+        end if
+    end function deduce_type_from_arguments
 
     ! Helper function to check if a name exists in a list
     logical function exists_in_list(list, count, name)
