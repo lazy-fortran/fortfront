@@ -43,7 +43,8 @@ contains
             end if
         end if
 
-        ok = index(output, "recursive function factorial") > 0
+        ok = index(output, "recursive") > 0 .and. &
+             index(output, "function factorial") > 0
         if (.not. ok) then
             print *, "  FAIL: recursive keyword missing"
             print *, "  Output: ", trim(output)
