@@ -129,8 +129,7 @@ module fortfront
     ! Re-export call graph analysis functionality
     use call_graph_module, only: call_graph_t, create_call_graph, &
                                  procedure_info_t, call_edge_t, build_call_graph, &
-                                 get_all_procedures, find_unused_procedures, &
-                                 get_callers, get_callees, find_recursive_cycles, &
+                                 get_all_procedures, get_callers, get_callees, &
                                  cg_is_procedure_used => is_procedure_used
 
     ! Variable usage tracking for issue #16
@@ -185,12 +184,10 @@ module fortfront
     ! Call graph and control-flow utilities (lean re-export)
     use call_graph_module, only: build_call_graph_from_arena => build_call_graph, &
                                  call_graph_t, call_edge_t, &
-                                 get_unused_procedures => find_unused_procedures, &
                                  get_procedure_callers => get_callers, &
                                  get_procedure_callees => get_callees, &
                                  is_procedure_used, &
-                                 get_all_procedures_in_graph => get_all_procedures, &
-                                 get_recursive_cycles => find_recursive_cycles
+                                 get_all_procedures_in_graph => get_all_procedures
 
     implicit none
     public
