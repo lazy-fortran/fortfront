@@ -1,23 +1,14 @@
 program test_issue_1897_typed_array_constructor
-    use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                              iostat_eor
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
-    source = 'program typed_array_issue_1897' // new_line('a') // &
-             '    implicit none' // new_line('a') // &
-             '    real :: arr1(5)' // new_line('a') // &
-             '    integer :: arr2(3)' // new_line('a') // &
-             '' // new_line('a') // &
-             '    arr1 = (/ real :: 1, 2, 3, 4, 5 /)' // new_line('a') // &
-             '    arr2 = (/ integer :: 1.5, 2.7, 3.9 /)' // new_line('a') // &
-             '' // new_line('a') // &
-             '    print *, ''Real array:'', arr1' // new_line('a') // &
-             '    print *, ''Integer array:'', arr2' // new_line('a') // &
-             'end program typed_array_issue_1897'
-
+    call read_example('examples/f90/issue_1897_typed_array_constructor.f90', source)
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
     if (allocated(error_msg)) then
@@ -66,4 +57,21 @@ program test_issue_1897_typed_array_constructor
     end if
 
     print *, 'PASS: typed array constructors preserved with correct declarations'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            print *, 'FAIL: failed to read ', trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_issue_1897_typed_array_constructor
