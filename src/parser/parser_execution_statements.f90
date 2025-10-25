@@ -44,7 +44,8 @@ module parser_execution_statements_module
                                             get_data_additional_indices
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
-    use parser_type_specifications_module, only: parse_implicit_statement
+    use parser_type_specifications_module, only: parse_implicit_statement, &
+                                                 take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
@@ -312,6 +313,19 @@ contains
             select case (lowered)
             case ("implicit")
                 stmt_index = parse_implicit_statement(parser_ref, arena_ref)
+                block
+                    integer, allocatable :: extra_indices(:)
+                    if (allocated(additional_execution_indices)) then
+                        block
+                            integer, allocatable :: temp(:)
+                            call move_alloc(additional_execution_indices, temp)
+                        end block
+                    end if
+                    extra_indices = take_implicit_additional_indices()
+                    if (size(extra_indices) > 0) then
+                        call move_alloc(extra_indices, additional_execution_indices)
+                    end if
+                end block
             case ("real", "integer", "logical", "character", "complex", "double", &
                   "class", "procedure")
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
@@ -457,7 +471,7 @@ contains
             column = token%column
 
             error_msg = "Unsupported Fortran feature: " // trim(keyword) // &
-                       " constructs are not supported"
+                        " constructs are not supported"
 
             if (trim(keyword) == "enum") then
                 do while (.not. parser_ref%is_at_end())
