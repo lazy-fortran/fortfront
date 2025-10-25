@@ -558,7 +558,7 @@ contains
                 array_type = node%inferred_type%get_arg(1)
                 if (array_type%kind == TCHAR .and. array_type%size > 0) then
                     elements_code = generate_char_elements_code( &
-                        arena, node%element_indices, array_type%size)
+                                    arena, node%element_indices, array_type%size)
                 else
                     elements_code = generate_elements_code_from_indices(arena, &
                         & node%element_indices)
@@ -596,7 +596,7 @@ contains
                     end do
                     if (all_char .and. max_len_fallback > 0) then
                         elements_code = generate_char_elements_code( &
-                            arena, node%element_indices, max_len_fallback)
+                                        arena, node%element_indices, max_len_fallback)
                     else
                         elements_code = generate_elements_code_from_indices(arena, &
                             & node%element_indices)
@@ -623,28 +623,57 @@ contains
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
                     ! The element should be a do loop node
-                    code = generate_implied_do_array(arena, node%element_indices(1))
+                    if (allocated(node%type_spec)) then
+                        code = generate_implied_do_array(arena, &
+                                                         node%element_indices(1), &
+                                                         node%type_spec)
+                    else
+                        code = generate_implied_do_array(arena, &
+                                                         node%element_indices(1))
+                    end if
                 else
                     ! Empty array - needs type spec, default to integer
-                    code = "[integer ::]"
+                    if (allocated(node%type_spec)) then
+                        code = "(/ " // trim(node%type_spec) // " :: /)"
+                    else
+                        code = "[integer ::]"
+                    end if
                 end if
             else
                 ! Legacy syntax: (/ 1, 2, 3 /)
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
-                    code = "(/ " // elements_code // " /)"
+                    if (allocated(node%type_spec)) then
+                        code = "(/ " // trim(node%type_spec) // " :: " // &
+                               trim(elements_code) // " /)"
+                    else
+                        code = "(/ " // elements_code // " /)"
+                    end if
                 else
                     ! Empty array - needs type spec, default to integer
-                    code = "[integer ::]"
+                    if (allocated(node%type_spec)) then
+                        code = "(/ " // trim(node%type_spec) // " :: /)"
+                    else
+                        code = "[integer ::]"
+                    end if
                 end if
             end if
         else
             ! Default to legacy syntax
             if (allocated(node%element_indices) .and. &
                 size(node%element_indices) > 0) then
-                code = "(/ " // elements_code // " /)"
+                if (allocated(node%type_spec)) then
+                    code = "(/ " // trim(node%type_spec) // " :: " // &
+                           trim(elements_code) // " /)"
+                else
+                    code = "(/ " // elements_code // " /)"
+                end if
             else
-                code = "[integer ::]"  ! Empty array constructor with type specification
+                if (allocated(node%type_spec)) then
+                    code = "(/ " // trim(node%type_spec) // " :: /)"
+                else
+                    code = "[integer ::]"  ! Empty array constructor with type specification
+                end if
             end if
         end if
     end function generate_code_array_literal
@@ -958,11 +987,13 @@ contains
     end function generate_implied_do_inner
 
     ! Generate implied do array constructor from do loop node
-    function generate_implied_do_array(arena, do_index) result(code)
+    function generate_implied_do_array(arena, do_index, type_spec) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: do_index
+        character(len=*), intent(in), optional :: type_spec
         character(len=:), allocatable :: code
         character(len=:), allocatable :: expr_code, start_code, end_code, step_code
+        character(len=:), allocatable :: inner
 
         ! Get the do loop node
         select type (node => arena%entries(do_index)%node)
@@ -1015,22 +1046,30 @@ contains
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
                 step_code = trim(step_code)
                 if (allocated(node%var_name)) then
-                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
-                           start_code // ", " // end_code // ", " // &
-                           step_code // ") /)"
+                    inner = "(" // expr_code // ", " // node%var_name // "=" // &
+                            start_code // ", " // end_code // ", " // step_code // ")"
                 else
-                    code = "(/ (" // expr_code // ", i=" // &
-                           start_code // ", " // end_code // ", " // &
-                           step_code // ") /)"
+                    inner = "(" // expr_code // ", i=" // start_code // ", " // &
+                            end_code // ", " // step_code // ")"
                 end if
             else
                 if (allocated(node%var_name)) then
-                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
-                           start_code // ", " // end_code // ") /)"
+                    inner = "(" // expr_code // ", " // node%var_name // "=" // &
+                            start_code // ", " // end_code // ")"
                 else
-                    code = "(/ (" // expr_code // ", i=" // &
-                           start_code // ", " // end_code // ") /)"
+                    inner = "(" // expr_code // ", i=" // start_code // ", " // &
+                            end_code // ")"
                 end if
+            end if
+
+            if (present(type_spec)) then
+                if (len_trim(type_spec) > 0) then
+                    code = "(/ " // trim(type_spec) // " :: " // trim(inner) // " /)"
+                else
+                    code = "(/ " // trim(inner) // " /)"
+                end if
+            else
+                code = "(/ " // trim(inner) // " /)"
             end if
         class default
             ! Not a do loop node - fallback

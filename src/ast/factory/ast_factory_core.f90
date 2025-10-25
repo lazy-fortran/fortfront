@@ -4,13 +4,15 @@ module ast_factory_core
                               identifier_node, literal_node, binary_op_node, &
                               call_or_subscript_node, array_literal_node, &
                               component_access_node, range_subscript_node, &
-                  create_array_literal, create_component_access, create_range_subscript, &
+                              create_array_literal, create_component_access, &
+                              create_range_subscript, &
                               create_pointer_assignment
     use ast_nodes_misc, only: complex_literal_node
     use uid_generator, only: generate_uid
     use ast_base, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
-    use error_handling, only: result_t, success_result, create_error_result, critical_result, &
+    use error_handling, only: result_t, success_result, create_error_result, &
+                              critical_result, &
                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
     implicit none
     private
@@ -38,7 +40,7 @@ contains
                                 ERROR_MEMORY, &
                                 component="ast_factory_core", &
                                 context=context, &
-                        suggestion="Initialize arena with create_ast_arena() before use" &
+                      suggestion="Initialize arena with create_ast_arena() before use" &
                                 )
             return
         end if
@@ -49,7 +51,7 @@ contains
                                 ERROR_INTERNAL, &
                                 component="ast_factory_core", &
                                 context=context, &
-                    suggestion="Check for memory corruption or incorrect initialization" &
+                  suggestion="Check for memory corruption or incorrect initialization" &
                                 )
             return
         end if
@@ -58,7 +60,8 @@ contains
     end function validate_arena
 
     ! Node index validation utility
-    function validate_node_index(arena, node_index, context, allow_zero) result(validation_result)
+    function validate_node_index(arena, node_index, context, allow_zero) &
+        result(validation_result)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: context
@@ -80,7 +83,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                        suggestion="Ensure node index comes from valid push_* operation" &
+                      suggestion="Ensure node index comes from valid push_* operation" &
                                 )
             return
         end if
@@ -91,7 +94,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                       suggestion="Check that referenced node was created in this arena" &
+                     suggestion="Check that referenced node was created in this arena" &
                                 )
             return
         end if
@@ -102,7 +105,7 @@ contains
                                 ERROR_VALIDATION, &
                                 component="ast_factory_core", &
                                 context=context, &
-                  suggestion="Ensure referenced node is still valid and not deallocated" &
+                suggestion="Ensure referenced node is still valid and not deallocated" &
                                 )
             return
         end if
@@ -206,7 +209,8 @@ contains
     end function push_identifier
 
     ! Create literal node and add to stack
-   function push_literal(arena, value, kind, line, column, parent_index) result(lit_index)
+    function push_literal(arena, value, kind, line, column, parent_index) &
+        result(lit_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: value
         integer, intent(in) :: kind
@@ -225,15 +229,23 @@ contains
 
     ! Create array literal node and add to stack
     function push_array_literal(arena, element_indices, line, column, &
-                                parent_index, syntax_style) result(array_index)
+                                parent_index, syntax_style, type_spec) &
+        result(array_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: syntax_style
+        character(len=*), intent(in), optional :: type_spec
         integer :: array_index
         type(array_literal_node) :: array_lit
 
-        array_lit = create_array_literal(element_indices, line, column, syntax_style)
+        if (present(type_spec)) then
+            array_lit = create_array_literal(element_indices, line, column, &
+                                             syntax_style, type_spec)
+        else
+            array_lit = create_array_literal(element_indices, line, column, &
+                                             syntax_style)
+        end if
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
     end function push_array_literal
