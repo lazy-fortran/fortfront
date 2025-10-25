@@ -6,20 +6,20 @@ program test_issue_1578_block_data
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
-    source = "block data init_data" // new_line('a') // &
-             "    implicit none" // new_line('a') // &
-             "    integer :: global_val" // new_line('a') // &
-             "    common /shared/ global_val" // new_line('a') // &
-             "    data global_val /999/" // new_line('a') // &
-             "end block data init_data" // new_line('a') // &
-             "" // new_line('a') // &
-             "program test_blockdata" // new_line('a') // &
+    source = "program test_blockdata" // new_line('a') // &
              "    implicit none" // new_line('a') // &
              "    integer :: global_val" // new_line('a') // &
              "    common /shared/ global_val" // new_line('a') // &
              "" // new_line('a') // &
              "    print *, global_val" // new_line('a') // &
-             "end program test_blockdata"
+             "end program test_blockdata" // new_line('a') // &
+             "" // new_line('a') // &
+             "block data init_data" // new_line('a') // &
+             "    implicit none" // new_line('a') // &
+             "    integer :: global_val" // new_line('a') // &
+             "    common /shared/ global_val" // new_line('a') // &
+             "    data global_val /999/" // new_line('a') // &
+             "end block data init_data"
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -30,7 +30,7 @@ program test_issue_1578_block_data
         end if
     end if
 
-    if (index(output, 'block data') == 0) then
+    if (index(output, 'block data init_data') == 0) then
         print *, 'FAIL: BLOCK DATA construct lost'
         print *, 'Output:'
         print *, trim(output)
@@ -44,7 +44,8 @@ program test_issue_1578_block_data
         stop 1
     end if
 
-    if (index(output, 'common') == 0) then
+    if (index(output, 'common /shared/') == 0 .and. &
+        index(output, 'common/shared') == 0) then
         print *, 'FAIL: COMMON block lost'
         print *, 'Output:'
         print *, trim(output)
@@ -58,12 +59,19 @@ program test_issue_1578_block_data
         stop 1
     end if
 
-    if (index(output, 'data') == 0) then
-        print *, 'FAIL: DATA statement lost'
+    if (index(output, 'data global_val') == 0) then
+        print *, 'FAIL: DATA statement for global_val missing'
         print *, 'Output:'
         print *, trim(output)
         stop 1
     end if
 
-    print *, 'PASS: BLOCK DATA and COMMON blocks preserved'
+    if (index(output, 'program main') > 0) then
+        print *, 'FAIL: Unexpected synthetic program main wrapper emitted'
+        print *, 'Output:'
+        print *, trim(output)
+        stop 1
+    end if
+
+    print *, 'PASS: BLOCK DATA preserved after explicit program'
 end program test_issue_1578_block_data

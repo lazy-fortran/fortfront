@@ -1,6 +1,6 @@
 module parser_block_data_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT
+                          TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: LITERAL_STRING
@@ -22,36 +22,87 @@ contains
         integer, allocatable :: statement_indices(:)
         integer :: stmt_index
 
+        block_name = ""
+        allocate (statement_indices(0))
+
+        ! Skip leading trivia before the BLOCK DATA header
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                token = parser%consume()
+            case default
+                exit
+            end select
+        end do
+
+        if (parser%is_at_end()) then
+            block_data_index = 0
+            return
+        end if
+
         token = parser%consume()
+        if (.not. (token%kind == TK_KEYWORD .and. &
+                   to_lower(trim(token%text)) == "block")) then
+            block_data_index = 0
+            return
+        end if
+
         line = token%line
         column = token%column
 
-        token = parser%consume()
+        ! Skip whitespace between BLOCK and DATA
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_WHITESPACE) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
 
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            block_name = token%text
-        else
-            block_name = ""
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD) then
+                if (to_lower(trim(token%text)) == "data") then
+                    token = parser%consume()
+                end if
+            end if
         end if
 
-        allocate (statement_indices(0))
+        ! Consume optional whitespace/comments before the optional block name
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                token = parser%consume()
+            case default
+                exit
+            end select
+        end do
+
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER) then
+                block_name = token%text
+                token = parser%consume()
+            end if
+        end if
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
 
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            if (token%kind == TK_KEYWORD .and. &
+                to_lower(trim(token%text)) == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "block") then
+                        TK_KEYWORD .and. to_lower(trim(parser%tokens(parser%current_token + 1)%text)) == "block") then
                         token = parser%consume()
                         token = parser%consume()
                         if (.not. parser%is_at_end()) then
                             token = parser%peek()
                             if (token%kind == TK_KEYWORD .and. &
-                                token%text == "data") then
+                                to_lower(trim(token%text)) == "data") then
                                 token = parser%consume()
                             end if
                         end if
