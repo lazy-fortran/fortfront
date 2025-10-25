@@ -15,6 +15,9 @@ module parser_statement_data_module
 
     public :: parse_data_statement
     public :: parse_namelist_statement
+    public :: get_data_additional_indices
+
+    integer, allocatable :: pending_data_assignment_indices(:)
 
 contains
 
@@ -24,121 +27,331 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(token_t) :: token
-        type(token_t) :: target_token
-        integer :: target_index
+        type(token_t) :: data_token
+        integer, allocatable :: object_indices(:)
         integer, allocatable :: element_indices(:)
-        integer :: value_index
-        logical :: expect_value
+        integer, allocatable :: assignment_indices(:)
+        integer :: initial_size
+        logical :: objects_ok
+        logical :: values_ok
+        logical :: emit_ok
+        logical :: have_assignments
 
         stmt_index = 0
+        call reset_pending_assignments()
 
-        token = parser%consume()
+        data_token = parser%consume()
         call skip_trivia(parser)
 
-        token = parser%peek()
-        if (token%kind /= TK_IDENTIFIER) then
-            call parser%error("Expected identifier after DATA keyword")
-            return
-        end if
-
-        target_token = parser%consume()
-        if (present(parent_index)) then
-            target_index = push_identifier(arena, trim(target_token%text), &
-                                           target_token%line, target_token%column, &
-                                           parent_index)
-        else
-            target_index = push_identifier(arena, trim(target_token%text), &
-                                           target_token%line, target_token%column)
-        end if
-        if (target_index <= 0) return
-
-        call skip_trivia(parser)
-        token = parser%peek()
-        if (token%kind /= TK_OPERATOR .or. trim(token%text) /= "/") then
-            call parser%error("Expected '/' to begin DATA value list")
-            return
-        end if
-        token = parser%consume()
-
-        expect_value = .true.
-        call skip_trivia(parser)
+        allocate (assignment_indices(0))
+        have_assignments = .false.
 
         do
-            token = parser%peek()
-            if (token%kind == TK_EOF) then
-                call parser%error("Unexpected end of statement inside DATA value list")
-                return
-            end if
+            initial_size = size(assignment_indices)
 
-            if (token%kind == TK_OPERATOR .and. trim(token%text) == "/") then
-                if (expect_value) then
-                    call parser%error("DATA statement value list cannot be empty")
-                    return
-                end if
-                exit
-            end if
-
-            value_index = parse_expression_until(parser, arena, [",", "/"])
-            if (value_index <= 0) return
-            call expand_repeat_count(arena, value_index, element_indices)
+            call parse_object_list(object_indices, objects_ok)
+            if (.not. objects_ok) return
 
             call skip_trivia(parser)
             token = parser%peek()
-            if (token%kind == TK_OPERATOR) then
-                select case (trim(token%text))
-                case (",")
-                    token = parser%consume()
-                    expect_value = .true.
-                    call skip_trivia(parser)
-                    cycle
-                case ("/")
-                    expect_value = .false.
-                case default
-                    call parser%error("Unexpected token in DATA statement value list")
-                    return
-                end select
-            else
-                call parser%error("Unexpected token in DATA statement value list")
+            if (token%kind /= TK_OPERATOR .or. trim(token%text) /= "/") then
+                call parser%error("Expected '/' to begin DATA value list")
                 return
+            end if
+            token = parser%consume()
+            call skip_trivia(parser)
+
+            call parse_value_list(element_indices, values_ok)
+            if (.not. values_ok) return
+
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. trim(token%text) /= "/") then
+                call parser%error("Expected '/' to end DATA value list")
+                return
+            end if
+            token = parser%consume()
+
+            call emit_assignments(object_indices, element_indices, &
+                                  assignment_indices, emit_ok)
+            if (.not. emit_ok) return
+            if (size(assignment_indices) > initial_size) have_assignments = .true.
+
+            call skip_trivia(parser)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. trim(token%text) == ",") then
+                token = parser%consume()
+                call skip_trivia(parser)
+            else
+                exit
             end if
         end do
 
-        token = parser%consume()
-
-        if (.not. allocated(element_indices)) then
-            call parser%error("DATA statement requires at least one value")
+        if (.not. have_assignments) then
+            call parser%error("DATA statement produced no assignments")
             return
         end if
 
-        block
+        if (size(assignment_indices) == 0) then
+            call parser%error("DATA statement produced no assignments")
+            return
+        end if
+
+        stmt_index = assignment_indices(1)
+        call store_pending_assignments(assignment_indices)
+    contains
+        subroutine reset_pending_assignments()
+            if (allocated(pending_data_assignment_indices)) then
+                deallocate (pending_data_assignment_indices)
+            end if
+        end subroutine reset_pending_assignments
+
+        subroutine store_pending_assignments(assignments)
+            integer, intent(in) :: assignments(:)
+            integer :: count
+
+            if (allocated(pending_data_assignment_indices)) then
+                deallocate (pending_data_assignment_indices)
+            end if
+
+            count = size(assignments)
+            if (count > 1) then
+                allocate (pending_data_assignment_indices(count - 1))
+                pending_data_assignment_indices = assignments(2:)
+            end if
+        end subroutine store_pending_assignments
+
+        subroutine parse_object_list(objects, success)
+            integer, allocatable, intent(out) :: objects(:)
+            logical, intent(out) :: success
+            type(token_t) :: current
+            integer :: object_index
+            logical :: expect_object
+
+            allocate (objects(0))
+            success = .false.
+            expect_object = .true.
+
+            do
+                current = parser%peek()
+                if (current%kind == TK_EOF) then
+                    call parser%error("Unexpected end of statement inside DATA "// &
+                                      "object list")
+                    return
+                end if
+
+                if (current%kind == TK_OPERATOR .and. trim(current%text) == "/") then
+                    if (expect_object) then
+                        call parser%error("DATA statement object list cannot be empty")
+                        return
+                    end if
+                    exit
+                end if
+
+                object_index = parse_expression_until(parser, arena, [",", "/"])
+                if (object_index <= 0) return
+                call append_index(objects, object_index)
+                expect_object = .false.
+
+                call skip_trivia(parser)
+                current = parser%peek()
+                if (current%kind == TK_OPERATOR) then
+                    select case (trim(current%text))
+                    case (",")
+                        current = parser%consume()
+                        call skip_trivia(parser)
+                        expect_object = .true.
+                        cycle
+                    case ("/")
+                        exit
+                    case default
+                        call parser%error("Unexpected token in DATA object list")
+                        return
+                    end select
+                else
+                    call parser%error("Unexpected token in DATA object list")
+                    return
+                end if
+            end do
+
+            if (expect_object) then
+                call parser%error("DATA statement object list cannot be empty")
+                return
+            end if
+
+            success = .true.
+        end subroutine parse_object_list
+
+        subroutine parse_value_list(values, success)
+            integer, allocatable, intent(out) :: values(:)
+            logical, intent(out) :: success
+            type(token_t) :: current
+            integer :: value_index
+            logical :: expect_value
+
+            allocate (values(0))
+            success = .false.
+            expect_value = .true.
+
+            do
+                current = parser%peek()
+                if (current%kind == TK_EOF) then
+                    call parser%error("Unexpected end of statement inside DATA "// &
+                                      "value list")
+                    return
+                end if
+
+                if (current%kind == TK_OPERATOR .and. trim(current%text) == "/") then
+                    if (expect_value) then
+                        call parser%error("DATA statement value list cannot be empty")
+                        return
+                    end if
+                    exit
+                end if
+
+                value_index = parse_expression_until(parser, arena, [",", "/"])
+                if (value_index <= 0) return
+                call expand_repeat_count(arena, value_index, values)
+
+                call skip_trivia(parser)
+                current = parser%peek()
+                if (current%kind == TK_OPERATOR) then
+                    select case (trim(current%text))
+                    case (",")
+                        current = parser%consume()
+                        expect_value = .true.
+                        call skip_trivia(parser)
+                        cycle
+                    case ("/")
+                        expect_value = .false.
+                    case default
+                        call parser%error("Unexpected token in DATA statement "// &
+                                          "value list")
+                        return
+                    end select
+                else
+                    call parser%error("Unexpected token in DATA statement value list")
+                    return
+                end if
+            end do
+
+            if (expect_value) then
+                call parser%error("DATA statement value list cannot be empty")
+                return
+            end if
+
+            success = .true.
+        end subroutine parse_value_list
+
+        subroutine emit_assignments(objects, values, assignments, success)
+            integer, allocatable, intent(in) :: objects(:)
+            integer, allocatable, intent(in) :: values(:)
+            integer, allocatable, intent(inout) :: assignments(:)
+            logical, intent(out) :: success
+            integer :: target_index
+            integer :: assign_index
             integer :: array_index
             integer :: element_count
-            element_count = size(element_indices)
-            if (present(parent_index)) then
-                array_index = push_array_literal(arena, element_indices, &
-                                                 target_token%line, &
-                                                 target_token%column, &
-                                                 parent_index, syntax_style="legacy")
-            else
-                array_index = push_array_literal(arena, element_indices, &
-                                                 target_token%line, &
-                                                 target_token%column, &
-                                                 syntax_style="legacy")
-            end if
-            if (array_index <= 0) return
+            integer :: i
+            integer :: node_line
+            integer :: node_column
+            success = .false.
 
-            call annotate_array_literal(arena, array_index, element_count)
-
-            if (present(parent_index)) then
-                stmt_index = push_assignment(arena, target_index, array_index, &
-                                             target_token%line, target_token%column, &
-                                             parent_index)
-            else
-                stmt_index = push_assignment(arena, target_index, array_index, &
-                                             target_token%line, target_token%column)
+            if (size(objects) == 0) then
+                call parser%error("DATA statement requires at least one object")
+                return
             end if
-        end block
-    contains
+
+            if (size(objects) == 1) then
+                target_index = objects(1)
+                call get_node_position(target_index, node_line, node_column)
+
+                if (size(values) == 0) then
+                    call parser%error("DATA statement requires at least one value")
+                    return
+                else if (size(values) == 1) then
+                    if (present(parent_index)) then
+                        assign_index = push_assignment(arena, target_index, &
+                                                       values(1), node_line, &
+                                                       node_column, parent_index)
+                    else
+                        assign_index = push_assignment(arena, target_index, &
+                                                       values(1), node_line, &
+                                                       node_column)
+                    end if
+                    if (assign_index <= 0) return
+                    call append_index(assignments, assign_index)
+                else
+                    element_count = size(values)
+                    if (present(parent_index)) then
+                        array_index = push_array_literal(arena, values, node_line, &
+                                                         node_column, parent_index, &
+                                                         syntax_style="legacy")
+                    else
+                        array_index = push_array_literal(arena, values, node_line, &
+                                                         node_column, &
+                                                         syntax_style="legacy")
+                    end if
+                    if (array_index <= 0) return
+                    call annotate_array_literal(arena, array_index, element_count)
+
+                    if (present(parent_index)) then
+                        assign_index = push_assignment(arena, target_index, &
+                                                       array_index, node_line, &
+                                                       node_column, parent_index)
+                    else
+                        assign_index = push_assignment(arena, target_index, &
+                                                       array_index, node_line, &
+                                                       node_column)
+                    end if
+                    if (assign_index <= 0) return
+                    call append_index(assignments, assign_index)
+                end if
+            else
+                if (size(values) /= size(objects)) then
+                    call parser%error("DATA statement requires matching number "// &
+                                      "of objects and values")
+                    return
+                end if
+
+                do i = 1, size(objects)
+                    target_index = objects(i)
+                    call get_node_position(target_index, node_line, node_column)
+                    if (present(parent_index)) then
+                        assign_index = push_assignment(arena, target_index, &
+                                                       values(i), node_line, &
+                                                       node_column, parent_index)
+                    else
+                        assign_index = push_assignment(arena, target_index, &
+                                                       values(i), node_line, &
+                                                       node_column)
+                    end if
+                    if (assign_index <= 0) return
+                    call append_index(assignments, assign_index)
+                end do
+            end if
+
+            success = .true.
+        end subroutine emit_assignments
+
+        subroutine get_node_position(node_index, line, column)
+            integer, intent(in) :: node_index
+            integer, intent(out) :: line
+            integer, intent(out) :: column
+
+            line = data_token%line
+            column = data_token%column
+
+            if (node_index <= 0) return
+            if (node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+
+            select type (node => arena%entries(node_index)%node)
+            class default
+                if (node%line > 0) line = node%line
+                if (node%column > 0) column = node%column
+            end select
+        end subroutine get_node_position
+
         subroutine expand_repeat_count(arena, value_index, indices)
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: value_index
@@ -328,5 +541,15 @@ contains
             end if
         end do
     end subroutine skip_trivia
+
+    function get_data_additional_indices() result(indices)
+        integer, allocatable :: indices(:)
+
+        if (allocated(pending_data_assignment_indices)) then
+            call move_alloc(pending_data_assignment_indices, indices)
+        else
+            allocate (indices(0))
+        end if
+    end function get_data_additional_indices
 
 end module parser_statement_data_module
