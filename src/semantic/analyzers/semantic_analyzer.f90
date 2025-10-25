@@ -1266,6 +1266,7 @@ contains
 
     subroutine collect_call_signature(ctx, arena, call_node, return_type, &
         node_index)
+        use, intrinsic :: iso_fortran_env, only: error_unit
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node

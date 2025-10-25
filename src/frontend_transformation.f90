@@ -312,6 +312,9 @@ contains
             return
         end if
 
+        ! Run monomorphization (AST transformation)
+        call run_monomorphization_phase(shared_arena, prog_index, signatures)
+
         call run_standardization_phase(shared_arena, prog_index)
 
         ! AST-BASED WRAPPING: Analyze and modify AST directly

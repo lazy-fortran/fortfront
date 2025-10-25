@@ -22,6 +22,7 @@ module ast_monomorphization
 contains
 
     subroutine transform_monomorphization(arena, root_index, signatures)
+        use, intrinsic :: iso_fortran_env, only: error_unit
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
         type(signatures_map_t), intent(in) :: signatures
@@ -248,27 +249,18 @@ contains
         integer, intent(in) :: kind_value
         character(len=:), allocatable :: type_str
 
+        ! kind_value is from type_constants: TINT=2, TREAL=3, TCHAR=4, TLOGICAL=5
         select case (kind_value)
-        case (4)
+        case (2)  ! TINT
             type_str = "integer"
-        case (8)
-            type_str = "integer"
-        case (16)
-            type_str = "integer"
-        case (32)
+        case (3)  ! TREAL
             type_str = "real"
-        case (64)
-            type_str = "real"
-        case (128)
-            type_str = "real"
-        case (84)
-            type_str = "complex"
-        case (168)
-            type_str = "complex"
-        case (1)
+        case (4)  ! TCHAR
+            type_str = "character"
+        case (5)  ! TLOGICAL
             type_str = "logical"
         case default
-            type_str = "real"
+            type_str = "integer"  ! Default fallback
         end select
     end function get_kind_type_string
 
@@ -276,23 +268,18 @@ contains
         integer, intent(in) :: encoded_kind
         integer :: kind_val
 
+        ! For type constants (TINT=2, TREAL=3, etc.), default Fortran kinds
         select case (encoded_kind)
-        case (4, 8, 16)
-            kind_val = encoded_kind
-        case (32)
-            kind_val = 4
-        case (64)
-            kind_val = 8
-        case (128)
-            kind_val = 16
-        case (84)
-            kind_val = 4
-        case (168)
-            kind_val = 8
-        case (1)
-            kind_val = 1
+        case (2)  ! TINT
+            kind_val = 4  ! integer(4)
+        case (3)  ! TREAL
+            kind_val = 8  ! real(8)
+        case (4)  ! TCHAR
+            kind_val = 1  ! character(len=1)
+        case (5)  ! TLOGICAL
+            kind_val = 4  ! logical(4)
         case default
-            kind_val = 8
+            kind_val = 4  ! Default to integer(4)
         end select
     end function get_actual_kind_value
 
@@ -300,18 +287,15 @@ contains
         type(signatures_map_t), intent(in) :: signatures
         character(len=*), intent(in) :: func_name
         type(type_signature_t), allocatable :: sigs(:)
-        integer :: i
+        integer :: num_sigs
 
-        do i = 1, signatures%proc_count
-            if (signatures%proc_sigs(i)%procedure_name == func_name) then
-                allocate (sigs(signatures%proc_sigs(i)%sig_count))
-                sigs = signatures%proc_sigs(i)%signatures( &
-                    1:signatures%proc_sigs(i)%sig_count)
-                return
-            end if
-        end do
+        ! Use the type-bound procedure to get signatures
+        num_sigs = signatures%get_signatures(func_name, sigs)
 
-        allocate (sigs(0))
+        ! If no signatures found, allocate empty array
+        if (num_sigs == 0 .and. .not. allocated(sigs)) then
+            allocate(sigs(0))
+        end if
     end function get_function_signatures
 
     subroutine get_program_node(arena, idx, node_ptr)
