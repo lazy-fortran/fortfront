@@ -44,13 +44,19 @@ contains
         character(len=:), allocatable :: intrinsic_sig
         integer :: i
         logical :: is_intrinsic_func
+        type(mono_type_t), allocatable :: arg_types(:)
+        integer :: deduced_kind
 
         typ = create_mono_type(TREAL)
 
         if (allocated(call_node%arg_indices)) then
+            allocate (arg_types(size(call_node%arg_indices)))
             do i = 1, size(call_node%arg_indices)
                 arg_type = get_type_fn(arena, call_node%arg_indices(i))
+                arg_types(i) = arg_type
             end do
+        else
+            allocate (arg_types(0))
         end if
 
         if (allocated(call_node%name)) then
@@ -94,7 +100,61 @@ contains
                 typ = create_mono_type(TREAL)
             end if
         end if
+
+        if (allocated(arg_types)) then
+            deduced_kind = deduce_return_kind_from_args(arg_types)
+            if (deduced_kind > 0) then
+                select case (typ%kind)
+                case (TVAR)
+                    typ = create_mono_type(deduced_kind)
+                case (TREAL)
+                    if (deduced_kind /= TREAL) typ = create_mono_type(deduced_kind)
+                case (TINT)
+                    if (deduced_kind /= TINT) typ = create_mono_type(deduced_kind)
+                case default
+                    if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
+                end select
+            end if
+        end if
     end function infer_function_call_type
+
+    integer function deduce_return_kind_from_args(arg_types) result(kind_value)
+        type(mono_type_t), intent(in) :: arg_types(:)
+        integer :: i
+        integer :: best_kind
+        integer :: current_kind
+
+        best_kind = 0
+        do i = 1, size(arg_types)
+            block
+                type(mono_type_t) :: type_copy
+                type_copy = arg_types(i)
+                call type_copy%sync_from_arena()
+                current_kind = type_copy%kind
+            end block
+            if (current_kind <= 0) cycle
+            select case (current_kind)
+            case (TDOUBLE)
+                kind_value = TDOUBLE
+                return
+            case (TCOMPLEX)
+                if (best_kind /= TDOUBLE) best_kind = TCOMPLEX
+            case (TREAL)
+                if (best_kind /= TDOUBLE .and. best_kind /= TCOMPLEX) &
+                    best_kind = TREAL
+            case (TCHAR)
+                if (best_kind == 0) best_kind = TCHAR
+            case (TLOGICAL)
+                if (best_kind == 0) best_kind = TLOGICAL
+            case (TINT)
+                if (best_kind == 0) best_kind = TINT
+            case default
+                if (best_kind == 0) best_kind = current_kind
+            end select
+        end do
+
+        kind_value = best_kind
+    end function deduce_return_kind_from_args
 
     logical function find_return_type(arena, func_name, return_type) result(found)
         type(ast_arena_t), intent(in) :: arena
