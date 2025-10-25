@@ -213,7 +213,8 @@ contains
                 dst%proc_sigs(i)%sig_capacity = src%proc_sigs(i)%sig_capacity
 
                 if (allocated(src%proc_sigs(i)%signatures)) then
-                    allocate (dst%proc_sigs(i)%signatures(dst%proc_sigs(i)%sig_capacity))
+                    allocate (dst%proc_sigs(i)%signatures( &
+                        dst%proc_sigs(i)%sig_capacity))
                     do j = 1, dst%proc_sigs(i)%sig_count
                         if (allocated(src%proc_sigs(i)%signatures(j)%param_kinds)) then
                             allocate (dst%proc_sigs(i)%signatures(j)%param_kinds( &
