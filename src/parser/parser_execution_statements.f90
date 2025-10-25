@@ -40,7 +40,8 @@ module parser_execution_statements_module
                                                  is_control_flow_keyword
     use parser_do_constructs_module, only: parse_do_loop
     use parser_statement_data_module, only: parse_data_statement, &
-                                            parse_namelist_statement
+                                            parse_namelist_statement, &
+                                            get_data_additional_indices
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
     use parser_type_specifications_module, only: parse_implicit_statement
@@ -320,6 +321,21 @@ contains
                 stmt_index = parse_print_statement(parser_ref, arena_ref)
             case ("data")
                 stmt_index = parse_data_statement(parser_ref, arena_ref)
+                block
+                    integer, allocatable :: extra_indices(:)
+
+                    if (allocated(additional_execution_indices)) then
+                        block
+                            integer, allocatable :: temp(:)
+                            call move_alloc(additional_execution_indices, temp)
+                        end block
+                    end if
+
+                    extra_indices = get_data_additional_indices()
+                    if (size(extra_indices) > 0) then
+                        call move_alloc(extra_indices, additional_execution_indices)
+                    end if
+                end block
             case ("use")
                 stmt_index = parse_use_statement(parser_ref, arena_ref)
             case ("write")
