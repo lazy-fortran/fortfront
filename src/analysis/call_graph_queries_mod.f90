@@ -21,21 +21,6 @@ contains
         simple_name = trim(simple_name)
     end function simple_name_of
 
-    pure logical function names_match(full_name, target_simple)
-        character(len=*), intent(in) :: full_name
-        character(len=*), intent(in) :: target_simple
-
-        character(len=max_proc_name_len) :: candidate
-
-        if (trim(full_name) == trim(target_simple)) then
-            names_match = .true.
-            return
-        end if
-
-        candidate = simple_name_of(full_name)
-        names_match = trim(candidate) == trim(target_simple)
-    end function names_match
-
     function get_callers(graph, procedure_name) result(caller_names)
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: procedure_name
