@@ -3,7 +3,8 @@ module codegen_declarations_inference
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node, program_node, array_literal_node
     use ast_nodes_misc, only: contains_node, use_statement_node, &
-                              allocate_statement_node
+                              allocate_statement_node, interface_block_node, &
+                              module_procedure_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node
@@ -438,6 +439,7 @@ contains
         integer, intent(in) :: decl_idx
         type(program_decl_state_t), intent(inout) :: state
         integer :: k
+        integer :: proc_idx
 
         select type (decl => arena%entries(decl_idx)%node)
         type is (declaration_node)
@@ -448,8 +450,37 @@ contains
             else if (allocated(decl%var_name)) then
                 call record_use_associated_name(state, trim(decl%var_name))
             end if
+        type is (interface_block_node)
+            if (allocated(decl%name)) then
+                call record_use_associated_name(state, trim(decl%name))
+            end if
+            if (allocated(decl%procedure_indices)) then
+                do k = 1, size(decl%procedure_indices)
+                    proc_idx = decl%procedure_indices(k)
+                    if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+                    select type (iface_item => arena%entries(proc_idx)%node)
+                    type is (module_procedure_node)
+                        if (.not. allocated(iface_item%procedure_names)) cycle
+                        call record_module_procedure_names(state, iface_item)
+                    end select
+                end do
+            end if
         end select
     end subroutine extract_declaration_names
+
+    subroutine record_module_procedure_names(state, node)
+        type(program_decl_state_t), intent(inout) :: state
+        type(module_procedure_node), intent(in) :: node
+        integer :: i
+
+        if (.not. allocated(node%procedure_names)) return
+        do i = 1, size(node%procedure_names)
+            if (.not. allocated(node%procedure_names(i)%s)) cycle
+            call record_use_associated_name(state, &
+                                            trim(node%procedure_names(i)%s))
+        end do
+    end subroutine record_module_procedure_names
 
     subroutine extract_procedure_names(arena, proc_idx, state)
         type(ast_arena_t), intent(in) :: arena
