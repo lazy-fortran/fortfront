@@ -394,7 +394,8 @@ contains
                             lookahead_idx = lookahead_idx + 1
                             cycle
                         case (TK_KEYWORD, TK_IDENTIFIER)
-                            if (to_lower(trim(lookahead_token%text)) == "interface") then
+                            if (to_lower(trim(lookahead_token%text)) == &
+                                "interface") then
                                 is_abstract_interface = .true.
                             end if
                             exit
