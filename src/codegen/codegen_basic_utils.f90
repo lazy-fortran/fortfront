@@ -33,7 +33,8 @@ contains
             ! Find the end of the current line
             line_start = pos
             line_end = pos
-            do while (line_end <= len_input)
+            do
+                if (line_end > len_input) exit
                 if (input_code(line_end:line_end) == char(10) .or. &
                     input_code(line_end:line_end) == char(13)) exit
                 line_end = line_end + 1
@@ -55,12 +56,18 @@ contains
 
             ! Skip newline character(s)
             if (line_end <= len_input) then
-                if (input_code(line_end:line_end) == char(13) .and. &
-                    line_end + 1 <= len_input .and. &
-                    input_code(line_end + 1:line_end + 1) == char(10)) then
-                    pos = line_end + 2  ! CRLF
+                if (input_code(line_end:line_end) == char(13)) then
+                    if (line_end + 1 <= len_input) then
+                        if (input_code(line_end + 1:line_end + 1) == char(10)) then
+                            pos = line_end + 2  ! CRLF
+                        else
+                            pos = line_end + 1  ! Lone CR
+                        end if
+                    else
+                        pos = line_end + 1
+                    end if
                 else
-                    pos = line_end + 1  ! LF or CR
+                    pos = line_end + 1  ! LF
                 end if
             else
                 pos = line_end + 1

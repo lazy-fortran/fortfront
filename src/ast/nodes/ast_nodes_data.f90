@@ -117,6 +117,8 @@ module ast_nodes_data
     ! BLOCK DATA node
     type, extends(ast_node), public :: block_data_node
         character(len=:), allocatable :: name  ! BLOCK DATA name (optional)
+        character(len=:), allocatable :: header_label  ! Optional statement label
+        character(len=:), allocatable :: end_label  ! Optional END label
         integer, allocatable :: statement_indices(:)  ! Statement indices
     contains
         procedure :: accept => block_data_accept
@@ -374,9 +376,28 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate (lhs%name)
+        end if
+
+        if (allocated(rhs%header_label)) then
+            lhs%header_label = rhs%header_label
+        else if (allocated(lhs%header_label)) then
+            deallocate (lhs%header_label)
+        end if
+
+        if (allocated(rhs%end_label)) then
+            lhs%end_label = rhs%end_label
+        else if (allocated(lhs%end_label)) then
+            deallocate (lhs%end_label)
+        end if
+
         if (allocated(rhs%statement_indices)) then
             lhs%statement_indices = rhs%statement_indices
+        else if (allocated(lhs%statement_indices)) then
+            deallocate (lhs%statement_indices)
         end if
     end subroutine block_data_assign
 
@@ -520,15 +541,23 @@ contains
     end function create_module
 
     ! Constructor for block data node
-    function create_block_data(name, statement_indices, line, column) result(node)
+    function create_block_data(name, statement_indices, line, column, header_label, &
+                               end_label) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: statement_indices(:)
         integer, intent(in), optional :: line, column
+        character(len=*), intent(in), optional :: header_label, end_label
         type(block_data_node) :: node
 
         node%uid = generate_uid()
         node%name = name
+        if (present(header_label)) then
+            if (len_trim(header_label) > 0) node%header_label = header_label
+        end if
+        if (present(end_label)) then
+            if (len_trim(end_label) > 0) node%end_label = end_label
+        end if
 
         if (present(statement_indices)) then
             if (size(statement_indices) > 0) then

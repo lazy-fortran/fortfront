@@ -20,7 +20,8 @@ contains
     ! Create function definition node and add to stack
     function push_function_def(arena, name, param_indices, return_type, body_indices, &
                                line, column, parent_index, result_variable, &
-                               is_recursive, prefix_keywords, bind_c_clause) result(func_index)
+                               is_recursive, prefix_keywords, bind_c_clause) &
+        result(func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
@@ -114,11 +115,13 @@ contains
             interface_block%kind = "interface"
         end if
         if (present(operator_symbol)) then
-            if (len_trim(operator_symbol) > 0) interface_block%operator = operator_symbol
+            if (len_trim(operator_symbol) > 0) interface_block%operator = &
+                operator_symbol
         end if
         if (present(is_abstract)) interface_block%is_abstract = is_abstract
         if (present(procedure_indices)) then
-            if (size(procedure_indices) > 0) interface_block%procedure_indices = procedure_indices
+            if (size(procedure_indices) > 0) interface_block%procedure_indices = &
+                procedure_indices
         end if
         interface_block%line = line
         interface_block%column = column
@@ -194,16 +197,24 @@ contains
     end function push_module_structured
 
     function push_block_data(arena, name, statement_indices, line, column, &
-                            parent_index) result(block_data_index)
+                             parent_index, header_label, end_label) &
+        result(block_data_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: statement_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: header_label, end_label
         integer :: block_data_index
         type(block_data_node) :: bd_node
 
         bd_node%uid = generate_uid()
         bd_node%name = name
+        if (present(header_label)) then
+            if (len_trim(header_label) > 0) bd_node%header_label = header_label
+        end if
+        if (present(end_label)) then
+            if (len_trim(end_label) > 0) bd_node%end_label = end_label
+        end if
         if (present(statement_indices)) then
             if (size(statement_indices) > 0) then
                 bd_node%statement_indices = statement_indices

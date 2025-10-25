@@ -40,6 +40,8 @@ contains
         logical, intent(in) :: has_explicit_program
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
+        integer :: first_token_pos
+        type(token_t), allocatable :: trimmed_tokens(:)
 
         ! Check for meaningful content first
         if (not_meaningful_program_unit(tokens)) then
@@ -47,25 +49,38 @@ contains
             return
         end if
 
+        first_token_pos = find_first_meaningful_token(tokens)
+        if (first_token_pos == 0) then
+            unit_index = 0
+            return
+        end if
+
+        trimmed_tokens = tokens(first_token_pos:)
+        if (size(trimmed_tokens) == 0) then
+            unit_index = 0
+            return
+        end if
+
         ! Determine unit type and parse accordingly
-        if (is_function_start(tokens, 1)) then
-            unit_index = parse_function_unit(tokens, arena)
-        else if (is_subroutine_start(tokens, 1)) then
-            unit_index = parse_subroutine_unit(tokens, arena)
-        else if (is_module_start(tokens, 1)) then
+        if (is_function_start(trimmed_tokens, 1)) then
+            unit_index = parse_function_unit(trimmed_tokens, arena)
+        else if (is_subroutine_start(trimmed_tokens, 1)) then
+            unit_index = parse_subroutine_unit(trimmed_tokens, arena)
+        else if (is_module_start(trimmed_tokens, 1)) then
             ! Parse the entire module with its content
-            unit_index = parse_module_unit(tokens, arena)
-        else if (is_program_start(tokens, 1)) then
-            unit_index = parse_explicit_program_unit(tokens, arena)
-        else if (is_block_data_start(tokens, 1)) then
+            unit_index = parse_module_unit(trimmed_tokens, arena)
+        else if (is_program_start(trimmed_tokens, 1)) then
+            unit_index = parse_explicit_program_unit(trimmed_tokens, arena)
+        else if (is_block_data_start(trimmed_tokens, 1)) then
             ! Parse BLOCK DATA unit
-            unit_index = parse_block_data_unit(tokens, arena)
-        else if (is_type_start(tokens, 1)) then
+            unit_index = parse_block_data_unit(trimmed_tokens, arena)
+        else if (is_type_start(trimmed_tokens, 1)) then
             ! Type definitions should be parsed as structured constructs
-            unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+            unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
+                                                    prefix_buffer)
         else
             ! Mixed module/main files still require implicit main detection
-            unit_index = parse_implicit_main_program(tokens, arena, &
+            unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
                                                      has_explicit_program)
         end if
     end function parse_program_unit
@@ -296,13 +311,40 @@ contains
         integer, intent(in) :: pos
         logical :: is_start
         integer :: lookahead
+        integer :: current_pos
         character(len=:), allocatable :: keyword_text
 
         is_start = .false.
         if (pos > size(tokens)) return
-        if (to_lower(trim(tokens(pos)%text)) /= "block") return
 
-        lookahead = pos + 1
+        current_pos = pos
+        do while (current_pos <= size(tokens))
+            select case (tokens(current_pos)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                current_pos = current_pos + 1
+                cycle
+            case (TK_NUMBER)
+                current_pos = current_pos + 1
+                do while (current_pos <= size(tokens))
+                    select case (tokens(current_pos)%kind)
+                    case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                        current_pos = current_pos + 1
+                        cycle
+                    case default
+                        exit
+                    end select
+                end do
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (current_pos > size(tokens)) return
+        if (tokens(current_pos)%kind /= TK_KEYWORD) return
+        if (to_lower(trim(tokens(current_pos)%text)) /= "block") return
+
+        lookahead = current_pos + 1
         do while (lookahead <= size(tokens))
             select case (tokens(lookahead)%kind)
             case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
@@ -317,5 +359,23 @@ contains
             end select
         end do
     end function is_block_data_start
+
+    pure integer function find_first_meaningful_token(tokens) result(pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i
+
+        pos = 0
+        do i = 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case (TK_EOF)
+                return
+            case default
+                pos = i
+                return
+            end select
+        end do
+    end function find_first_meaningful_token
 
 end module frontend_program_units

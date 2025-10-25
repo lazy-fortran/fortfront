@@ -226,6 +226,57 @@ contains
                     stmt_index = parse_as_expression(tokens, arena)
                 end if
             end select
+        case (TK_NUMBER)
+            block
+                integer :: lookahead_idx
+                logical :: matched_block_data
+
+                matched_block_data = .false.
+                lookahead_idx = parser%current_token + 1
+                do while (lookahead_idx <= size(parser%tokens))
+                    next_token = parser%tokens(lookahead_idx)
+                    select case (next_token%kind)
+                    case (TK_WHITESPACE, TK_COMMENT)
+                        lookahead_idx = lookahead_idx + 1
+                        cycle
+                    case (TK_NEWLINE)
+                        exit
+                    case (TK_KEYWORD)
+                        if (to_lower(trim(next_token%text)) == "block") then
+                            lookahead_idx = lookahead_idx + 1
+                            do while (lookahead_idx <= size(parser%tokens))
+                                next_token = parser%tokens(lookahead_idx)
+                                select case (next_token%kind)
+                                case (TK_WHITESPACE, TK_COMMENT)
+                                    lookahead_idx = lookahead_idx + 1
+                                    cycle
+                                case (TK_KEYWORD, TK_IDENTIFIER)
+                                    if (to_lower(trim(next_token%text)) == &
+                                        "data") then
+                                        matched_block_data = .true.
+                                    end if
+                                    exit
+                                case default
+                                    exit
+                                end select
+                            end do
+                        end if
+                        exit
+                    case default
+                        exit
+                    end select
+                end do
+
+                if (matched_block_data) then
+                    stmt_index = parse_block_data(parser, arena)
+                else
+                    if (.not. try_handle_prefix_sequence(parser, arena, &
+                                                         prefix_buffer, &
+                                                         stmt_index)) then
+                        stmt_index = parse_as_expression(tokens, arena)
+                    end if
+                end if
+            end block
         case (TK_IDENTIFIER)
             lowered_keyword = to_lower(trim(first_token%text))
             if (lowered_keyword == "class") then

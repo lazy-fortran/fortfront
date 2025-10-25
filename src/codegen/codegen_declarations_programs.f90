@@ -955,13 +955,23 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: body_code
+        character(len=:), allocatable :: header_line
+        character(len=:), allocatable :: end_line
         integer :: i
 
-        code = "block data"
-        if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        header_line = ""
+        if (allocated(node%header_label)) then
+            if (len_trim(node%header_label) > 0) then
+                header_line = trim(node%header_label) // " "
+            end if
         end if
-        code = code // new_line('A')
+        header_line = header_line // "block data"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) header_line = header_line // " " // &
+                                                       trim(node%name)
+        end if
+
+        code = header_line // new_line('A')
 
         if (allocated(node%statement_indices)) then
             do i = 1, size(node%statement_indices)
@@ -972,10 +982,18 @@ contains
             end do
         end if
 
-        code = code // "end block data"
-        if (allocated(node%name)) then
-            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end_line = ""
+        if (allocated(node%end_label)) then
+            if (len_trim(node%end_label) > 0) then
+                end_line = trim(node%end_label) // " "
+            end if
         end if
+        end_line = end_line // "end block data"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) end_line = end_line // " " // trim(node%name)
+        end if
+
+        code = code // end_line
     end function generate_code_block_data
 
     function build_module_header(arena, node) result(header)
