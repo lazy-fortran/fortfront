@@ -111,6 +111,7 @@ module ast_nodes_core
     type, extends(ast_node), public :: array_literal_node
         integer, allocatable :: element_indices(:)  ! Indices to array elements
         character(len=:), allocatable :: element_type  ! Type of array elements
+        character(len=:), allocatable :: type_spec  ! Optional explicit type-spec
         character(len=:), allocatable :: syntax_style  ! "modern" for [...] or "legacy" for (/ ... /)
     contains
         procedure :: accept => array_literal_accept
@@ -489,6 +490,7 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
         if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
+        if (allocated(rhs%type_spec)) lhs%type_spec = rhs%type_spec
         if (allocated(rhs%syntax_style)) lhs%syntax_style = rhs%syntax_style
     end subroutine array_literal_assign
 
@@ -507,10 +509,12 @@ contains
         if (present(column)) node%column = column
     end function create_pointer_assignment
 
-    function create_array_literal(element_indices, line, column, syntax_style) result(node)
+    function create_array_literal(element_indices, line, column, syntax_style, &
+                                  type_spec) result(node)
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column
         character(len=*), intent(in), optional :: syntax_style
+        character(len=*), intent(in), optional :: type_spec
         type(array_literal_node) :: node
         node%element_indices = element_indices
         node%uid = generate_uid()
@@ -520,6 +524,9 @@ contains
             node%syntax_style = syntax_style
         else
             node%syntax_style = "modern"  ! default to modern syntax
+        end if
+        if (present(type_spec)) then
+            if (len_trim(type_spec) > 0) node%type_spec = trim(type_spec)
         end if
     end function create_array_literal
 
