@@ -4,6 +4,7 @@ module standardizer_driver
     use ast_nodes_data, only: module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_program, only: standardize_program
+    use standardizer_module, only: standardize_module
     use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
     implicit none
     private
@@ -57,6 +58,7 @@ contains
                     if (original_index == root_tracker) root_tracker = current_index
                 end if
             type is (module_node)
+                call standardize_module(arena, node, current_index)
                 if (allocated(node%declaration_indices)) then
                     call push_many(node%declaration_indices, .true.)
                 end if

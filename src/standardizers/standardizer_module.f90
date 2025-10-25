@@ -5,6 +5,8 @@ module standardizer_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: module_node
+    use standardizer_subprograms, only: standardize_function_def, &
+                                        standardize_subroutine_def
     implicit none
     private
 
@@ -27,11 +29,9 @@ contains
         ! All other declarations are left as-is
         select type (node => arena%entries(root_index)%node)
         type is (function_def_node)
-            ! Inside a module - don't wrap in program, just leave as-is
-            ! Functions inside modules are already properly structured
+            call standardize_function_def(arena, node, root_index)
         type is (subroutine_def_node)
-            ! Inside a module - don't wrap in program, just leave as-is
-            ! Subroutines inside modules are already properly structured
+            call standardize_subroutine_def(arena, node, root_index)
         class default
             ! For declarations and other node types inside modules, no action needed
         end select
