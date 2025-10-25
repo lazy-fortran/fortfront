@@ -955,6 +955,7 @@ contains
                 select type (target => arena%entries(stmt%target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle
+                    if (target%inferred_type%kind == 0) cycle
 
                     var_name = trim(target%name)
 
@@ -969,13 +970,9 @@ contains
                                                            n_locals + 1)
                             n_locals = n_locals + 1
                             local_vars(n_locals) = var_name
-                            if (target%inferred_type%kind > 0) then
-                                type_str = mono_type_to_string(target%inferred_type, &
-                                                               include_shape=.true., &
-                                                               fallback='integer')
-                            else
-                                type_str = 'integer'
-                            end if
+                            type_str = mono_type_to_string(target%inferred_type, &
+                                                           include_shape=.true., &
+                                                           fallback='integer')
                             decl_code = decl_code // "    " // type_str // &
                                         " :: " // trim(var_name) // new_line('A')
                         end block
