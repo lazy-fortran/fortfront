@@ -179,7 +179,7 @@ contains
                                                            id_token%line, &
                                                            id_token%column)
 
-                            ! For simple module assignments, just consume the rest of the line
+                            ! For simple module assignments, consume rest of line
                             ! We'll create a simple identifier node for the RHS
                             block
                                 type(token_t) :: rhs_token
@@ -226,7 +226,7 @@ contains
                             end block
                         else
                             ! Not an assignment, just consume the identifier
-                            ! This handles other statement types that we don't parse fully yet
+                            ! Handles other statement types not fully parsed
                         end if
                     end block
                     cycle  ! Continue to next iteration
@@ -322,7 +322,7 @@ contains
                         end select
                     end block
                 end if
-                ! Don't consume function/subroutine - let them be handled by the checks above
+                ! Don't consume function/subroutine - handled by checks above
                 if (.not. (token%kind == TK_KEYWORD .and. &
                            (token%text == "function" .or. token%text == &
                             "subroutine"))) then
