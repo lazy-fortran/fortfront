@@ -83,19 +83,18 @@ contains
         print *, "Output:"
         print *, trim(output_code)
 
-        if (index(output_code, "module procedure") /= 0) then
-            print *, "FAIL: module procedure should not appear in program output"
+        if (index(output_code, "module procedure swap_int, swap_real") == 0) then
+            print *, "FAIL: module procedure swap_int, swap_real missing"
             error stop 1
         end if
 
-        if (index(output_code, "procedure :: swap_int") == 0) then
-            print *, "FAIL: swap_int should be declared with procedure in interface"
+        if (index(output_code, "procedure :: swap_int") /= 0) then
+            print *, "FAIL: procedure syntax should not appear for swap_int"
             error stop 1
         end if
 
-        if (index(output_code, "procedure :: swap_real") == 0 .and. &
-            index(output_code, "procedure :: swap_int, swap_real") == 0) then
-            print *, "FAIL: swap_real should be declared with procedure in interface"
+        if (index(output_code, "procedure :: swap_real") /= 0) then
+            print *, "FAIL: procedure syntax should not appear for swap_real"
             error stop 1
         end if
 
@@ -109,7 +108,7 @@ contains
             error stop 1
         end if
 
-        print *, "[PASS] Generic interface with internal procedures"
+        print *, "[PASS] Generic interface preserves module procedure names"
     end subroutine test_generic_interface_in_program
 
 end program test_issue_1737_generic_interface

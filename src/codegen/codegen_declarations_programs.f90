@@ -24,9 +24,6 @@ module codegen_declarations_programs
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
 
-    logical, save :: context_in_program_interface = .false.
-    character(len=:), allocatable, save :: context_internal_names(:)
-
 contains
 
     ! Generate code for program nodes
@@ -354,105 +351,18 @@ contains
         integer, intent(inout) :: header_decl_indices(:)
         integer, intent(inout) :: header_decl_count
         logical :: is_header_stmt
-        character(len=:), allocatable :: stmt_code
-        character(len=:), allocatable :: lowered_value
-        character(len=:), allocatable :: internal_names(:)
-        logical :: needs_internal_adjustment
 
         if (body_index <= 0 .or. body_index > arena%size) return
         if (.not. allocated(arena%entries(body_index)%node)) return
 
-        is_header_stmt = .false.
-
-        select type (ib => arena%entries(body_index)%node)
-        type is (use_statement_node)
-            is_header_stmt = .true.
-            stmt_code = generate_code_from_arena(arena, body_index)
-            use_statements_code = use_statements_code // "    " // stmt_code // &
-                                  new_line('A')
-        type is (comment_node)
-            ! Legacy statement comments (COMMON/EQUIVALENCE) are header statements
-            ! Keep them in the specification section ahead of other declarations
-            if (is_legacy_statement_comment(ib) .or. &
-                ((non_use_count == 0) .and. header_decl_count == 0)) then
-                is_header_stmt = .true.
-                stmt_code = generate_code_from_arena(arena, body_index)
-                if (is_legacy_statement_comment(ib)) then
-                    ! Legacy statements go after implicit but before other declarations
-                    implicit_statements_code = implicit_statements_code // "    " // &
-                                               stmt_code // new_line('A')
-                else
-                    call append_header_trivia(stmt_code, use_statements_code, &
-                                              implicit_statements_code, &
-                                              interface_blocks_code)
-                end if
-            end if
-        type is (blank_line_node)
-            if (non_use_count == 0 .and. header_decl_count == 0) then
-                is_header_stmt = .true.
-                stmt_code = generate_code_from_arena(arena, body_index)
-                call append_header_trivia(stmt_code, use_statements_code, &
-                                          implicit_statements_code, &
-                                          interface_blocks_code)
-            end if
-        type is (implicit_statement_node)
-            is_header_stmt = .true.
-            if (ib%is_none) has_implicit = .true.
-            stmt_code = generate_code_from_arena(arena, body_index)
-            if (len_trim(stmt_code) > 0) then
-                implicit_statements_code = implicit_statements_code // "    " // &
-                                           trim(stmt_code) // new_line('A')
-            end if
-        type is (derived_type_node)
-            is_header_stmt = .true.
-            stmt_code = generate_code_from_arena(arena, body_index)
-            if (len_trim(stmt_code) > 0) then
-                implicit_statements_code = implicit_statements_code // &
-                                           indent_lines(stmt_code, 1)
-                if (stmt_code(len(stmt_code):len(stmt_code)) /= new_line('A')) then
-                    implicit_statements_code = implicit_statements_code // &
-                                               new_line('A')
-                end if
-            end if
-        type is (declaration_node)
-            is_header_stmt = .true.
-            if (header_decl_count < size(header_decl_indices)) then
-                header_decl_count = header_decl_count + 1
-                header_decl_indices(header_decl_count) = body_index
-            end if
-        type is (interface_block_node)
-            is_header_stmt = .true.
-            call collect_program_internal_names(arena, prog_node, internal_names)
-            needs_internal_adjustment = interface_has_internal_module_procedures( &
-                                        arena, ib, internal_names)
-            if (needs_internal_adjustment) then
-                call enable_program_interface_context(internal_names)
-            end if
-            stmt_code = generate_code_from_arena(arena, body_index)
-            if (needs_internal_adjustment) then
-                call disable_program_interface_context()
-            end if
-            if (allocated(internal_names)) then
-                deallocate (internal_names)
-            end if
-            if (len_trim(stmt_code) > 0) then
-                interface_blocks_code = interface_blocks_code // &
-                                        indent_lines(stmt_code, 1) // new_line('A')
-            end if
-        type is (literal_node)
-            if (allocated(ib%value)) then
-                lowered_value = to_lower(ib%value)
-                if (index(lowered_value, 'implicit none') > 0) then
-                    has_implicit = .true.
-                    is_header_stmt = .true.
-                    if (len_trim(ib%value) > 0) then
-                        implicit_statements_code = implicit_statements_code // &
-                                                   "    " // trim(ib%value) // &
-                                                   new_line('A')
-                    end if
-                end if
-            end if
-        end select
+        is_header_stmt = classify_and_process_header_node(arena, body_index, &
+                                                          has_implicit, &
+                                                          use_statements_code, &
+                                                          implicit_statements_code, &
+                                                          interface_blocks_code, &
+                                                          non_use_count, &
+                                                          header_decl_count, &
+                                                          header_decl_indices)
 
         if (is_header_stmt) return
 
@@ -461,6 +371,205 @@ contains
             non_use_indices(non_use_count) = body_index
         end if
     end subroutine categorize_header_entry
+
+    logical function classify_and_process_header_node(arena, body_index, &
+                                                      has_implicit, &
+                                                      use_statements_code, &
+                                                      implicit_statements_code, &
+                                                      interface_blocks_code, &
+                                                      non_use_count, &
+                                                      header_decl_count, &
+                                                      header_decl_indices) result(is_header)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        logical, intent(inout) :: has_implicit
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        integer, intent(in) :: non_use_count
+        integer, intent(inout) :: header_decl_count
+        integer, intent(inout) :: header_decl_indices(:)
+        character(len=:), allocatable :: stmt_code
+
+        is_header = .false.
+
+        select type (ib => arena%entries(body_index)%node)
+        type is (use_statement_node)
+            call process_use_statement(arena, body_index, use_statements_code)
+            is_header = .true.
+        type is (comment_node)
+            is_header = process_comment_node(arena, body_index, ib, non_use_count, &
+                                            header_decl_count, use_statements_code, &
+                                            implicit_statements_code, &
+                                            interface_blocks_code)
+        type is (blank_line_node)
+            is_header = process_blank_line(arena, body_index, non_use_count, &
+                                          header_decl_count, use_statements_code, &
+                                          implicit_statements_code, &
+                                          interface_blocks_code)
+        type is (implicit_statement_node)
+            call process_implicit_statement(arena, body_index, ib, has_implicit, &
+                                           implicit_statements_code)
+            is_header = .true.
+        type is (derived_type_node)
+            call process_derived_type(arena, body_index, implicit_statements_code)
+            is_header = .true.
+        type is (declaration_node)
+            call process_declaration(body_index, header_decl_count, &
+                                    header_decl_indices)
+            is_header = .true.
+        type is (interface_block_node)
+            call process_interface_block(arena, body_index, interface_blocks_code)
+            is_header = .true.
+        type is (literal_node)
+            is_header = process_literal_node(ib, has_implicit, &
+                                            implicit_statements_code)
+        end select
+    end function classify_and_process_header_node
+
+    subroutine process_use_statement(arena, body_index, use_statements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, body_index)
+        use_statements_code = use_statements_code // "    " // stmt_code // &
+                              new_line('A')
+    end subroutine process_use_statement
+
+    logical function process_comment_node(arena, body_index, ib, non_use_count, &
+                                         header_decl_count, use_statements_code, &
+                                         implicit_statements_code, &
+                                         interface_blocks_code) result(is_header)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        type(comment_node), intent(in) :: ib
+        integer, intent(in) :: non_use_count
+        integer, intent(in) :: header_decl_count
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        character(len=:), allocatable :: stmt_code
+
+        is_header = .false.
+        if (is_legacy_statement_comment(ib) .or. &
+            ((non_use_count == 0) .and. header_decl_count == 0)) then
+            is_header = .true.
+            stmt_code = generate_code_from_arena(arena, body_index)
+            if (is_legacy_statement_comment(ib)) then
+                implicit_statements_code = implicit_statements_code // "    " // &
+                                           stmt_code // new_line('A')
+            else
+                call append_header_trivia(stmt_code, use_statements_code, &
+                                          implicit_statements_code, &
+                                          interface_blocks_code)
+            end if
+        end if
+    end function process_comment_node
+
+    logical function process_blank_line(arena, body_index, non_use_count, &
+                                       header_decl_count, use_statements_code, &
+                                       implicit_statements_code, &
+                                       interface_blocks_code) result(is_header)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        integer, intent(in) :: non_use_count
+        integer, intent(in) :: header_decl_count
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        character(len=:), allocatable :: stmt_code
+
+        is_header = .false.
+        if (non_use_count == 0 .and. header_decl_count == 0) then
+            is_header = .true.
+            stmt_code = generate_code_from_arena(arena, body_index)
+            call append_header_trivia(stmt_code, use_statements_code, &
+                                      implicit_statements_code, &
+                                      interface_blocks_code)
+        end if
+    end function process_blank_line
+
+    subroutine process_implicit_statement(arena, body_index, ib, has_implicit, &
+                                         implicit_statements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        type(implicit_statement_node), intent(in) :: ib
+        logical, intent(inout) :: has_implicit
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable :: stmt_code
+
+        if (ib%is_none) has_implicit = .true.
+        stmt_code = generate_code_from_arena(arena, body_index)
+        if (len_trim(stmt_code) > 0) then
+            implicit_statements_code = implicit_statements_code // "    " // &
+                                       trim(stmt_code) // new_line('A')
+        end if
+    end subroutine process_implicit_statement
+
+    subroutine process_derived_type(arena, body_index, implicit_statements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, body_index)
+        if (len_trim(stmt_code) > 0) then
+            implicit_statements_code = implicit_statements_code // &
+                                       indent_lines(stmt_code, 1)
+            if (stmt_code(len(stmt_code):len(stmt_code)) /= new_line('A')) then
+                implicit_statements_code = implicit_statements_code // new_line('A')
+            end if
+        end if
+    end subroutine process_derived_type
+
+    subroutine process_declaration(body_index, header_decl_count, &
+                                   header_decl_indices)
+        integer, intent(in) :: body_index
+        integer, intent(inout) :: header_decl_count
+        integer, intent(inout) :: header_decl_indices(:)
+
+        if (header_decl_count < size(header_decl_indices)) then
+            header_decl_count = header_decl_count + 1
+            header_decl_indices(header_decl_count) = body_index
+        end if
+    end subroutine process_declaration
+
+    subroutine process_interface_block(arena, body_index, interface_blocks_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, body_index)
+        if (len_trim(stmt_code) > 0) then
+            interface_blocks_code = interface_blocks_code // &
+                                    indent_lines(stmt_code, 1) // new_line('A')
+        end if
+    end subroutine process_interface_block
+
+    logical function process_literal_node(ib, has_implicit, &
+                                         implicit_statements_code) result(is_header)
+        type(literal_node), intent(in) :: ib
+        logical, intent(inout) :: has_implicit
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable :: lowered_value
+
+        is_header = .false.
+        if (allocated(ib%value)) then
+            lowered_value = to_lower(ib%value)
+            if (index(lowered_value, 'implicit none') > 0) then
+                has_implicit = .true.
+                is_header = .true.
+                if (len_trim(ib%value) > 0) then
+                    implicit_statements_code = implicit_statements_code // &
+                                               "    " // trim(ib%value) // &
+                                               new_line('A')
+                end if
+            end if
+        end if
+    end function process_literal_node
 
     subroutine append_header_trivia(fragment, use_code, implicit_code, interface_code)
         character(len=*), intent(in) :: fragment
@@ -812,206 +921,6 @@ contains
         end select
     end function collect_trivial_program_trivia
 
-    subroutine collect_program_internal_names(arena, prog_node, names)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog_node
-        character(len=:), allocatable, intent(out) :: names(:)
-        integer :: i, idx
-        integer :: count
-        integer :: max_len
-        integer :: name_len
-
-        count = 0
-        max_len = 0
-
-        if (.not. allocated(prog_node%body_indices)) then
-            allocate (character(len=1) :: names(0))
-            return
-        end if
-
-        do i = 1, size(prog_node%body_indices)
-            idx = prog_node%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-            select type (body => arena%entries(idx)%node)
-            type is (subroutine_def_node)
-                if (allocated(body%name)) then
-                    name_len = len_trim(body%name)
-                    if (name_len > 0) then
-                        count = count + 1
-                        if (name_len > max_len) max_len = name_len
-                    end if
-                end if
-            type is (function_def_node)
-                if (allocated(body%name)) then
-                    name_len = len_trim(body%name)
-                    if (name_len > 0) then
-                        count = count + 1
-                        if (name_len > max_len) max_len = name_len
-                    end if
-                end if
-            end select
-        end do
-
-        if (count == 0 .or. max_len == 0) then
-            allocate (character(len=1) :: names(0))
-            return
-        end if
-
-        allocate (character(len=max_len) :: names(count))
-        count = 0
-
-        do i = 1, size(prog_node%body_indices)
-            idx = prog_node%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-            select type (body => arena%entries(idx)%node)
-            type is (subroutine_def_node)
-                if (allocated(body%name)) then
-                    name_len = len_trim(body%name)
-                    if (name_len > 0) then
-                        count = count + 1
-                        names(count) = to_lower(adjustl(trim(body%name)))
-                    end if
-                end if
-            type is (function_def_node)
-                if (allocated(body%name)) then
-                    name_len = len_trim(body%name)
-                    if (name_len > 0) then
-                        count = count + 1
-                        names(count) = to_lower(adjustl(trim(body%name)))
-                    end if
-                end if
-            end select
-        end do
-    end subroutine collect_program_internal_names
-
-    logical function interface_has_internal_module_procedures( &
-        arena, interface_node, internal_names) result(has_internal)
-        type(ast_arena_t), intent(in) :: arena
-        type(interface_block_node), intent(in) :: interface_node
-        character(len=*), intent(in) :: internal_names(:)
-        integer :: i, proc_idx
-
-        has_internal = .false.
-        if (size(internal_names) == 0) return
-        if (.not. allocated(interface_node%procedure_indices)) return
-
-        do i = 1, size(interface_node%procedure_indices)
-            proc_idx = interface_node%procedure_indices(i)
-            if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(proc_idx)%node)) cycle
-            select type (proc => arena%entries(proc_idx)%node)
-            type is (module_procedure_node)
-                if (module_procedure_targets_internal(proc, internal_names)) then
-                    has_internal = .true.
-                    return
-                end if
-            end select
-        end do
-    end function interface_has_internal_module_procedures
-
-    logical function module_procedure_targets_internal(proc_node, internal_names) &
-        result(targets_internal)
-        type(module_procedure_node), intent(in) :: proc_node
-        character(len=*), intent(in) :: internal_names(:)
-        integer :: i
-
-        targets_internal = .false.
-        if (size(internal_names) == 0) return
-        if (.not. allocated(proc_node%procedure_names)) return
-
-        do i = 1, size(proc_node%procedure_names)
-            if (.not. allocated(proc_node%procedure_names(i)%s)) cycle
-            if (name_in_list(proc_node%procedure_names(i)%s, internal_names)) then
-                targets_internal = .true.
-                return
-            end if
-        end do
-    end function module_procedure_targets_internal
-
-    logical function name_in_list(name, names) result(found)
-        character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: names(:)
-        integer :: i
-        character(len=:), allocatable :: lowered
-
-        found = .false.
-        if (size(names) == 0) return
-
-        lowered = to_lower(adjustl(trim(name)))
-        if (len_trim(lowered) == 0) return
-
-        do i = 1, size(names)
-            if (len_trim(names(i)) == 0) cycle
-            if (lowered == trim(names(i))) then
-                found = .true.
-                return
-            end if
-        end do
-    end function name_in_list
-
-    subroutine enable_program_interface_context(internal_names)
-        character(len=*), intent(in) :: internal_names(:)
-        integer :: i
-
-        call disable_program_interface_context()
-        context_in_program_interface = .true.
-
-        if (size(internal_names) == 0) return
-
-        allocate (character(len=len(internal_names(1))) :: context_internal_names( &
-                  size(internal_names)))
-        do i = 1, size(internal_names)
-            context_internal_names(i) = to_lower(trim(internal_names(i)))
-        end do
-    end subroutine enable_program_interface_context
-
-    subroutine disable_program_interface_context()
-        context_in_program_interface = .false.
-        if (allocated(context_internal_names)) then
-            deallocate (context_internal_names)
-        end if
-    end subroutine disable_program_interface_context
-
-    logical function is_internal_name(name) result(is_internal)
-        character(len=*), intent(in) :: name
-        integer :: i
-        character(len=:), allocatable :: lowered
-
-        is_internal = .false.
-        if (.not. context_in_program_interface) return
-        if (.not. allocated(context_internal_names)) return
-
-        lowered = to_lower(adjustl(trim(name)))
-        if (len_trim(lowered) == 0) return
-
-        do i = 1, size(context_internal_names)
-            if (len_trim(context_internal_names(i)) == 0) cycle
-            if (lowered == trim(context_internal_names(i))) then
-                is_internal = .true.
-                return
-            end if
-        end do
-    end function is_internal_name
-
-    subroutine append_name_to_list(list, name)
-        character(len=:), allocatable, intent(inout) :: list
-        character(len=*), intent(in) :: name
-        character(len=:), allocatable :: cleaned
-
-        cleaned = adjustl(trim(name))
-        if (len_trim(cleaned) == 0) return
-
-        if (.not. allocated(list)) then
-            list = cleaned
-        else if (len_trim(list) == 0) then
-            list = cleaned
-        else
-            list = trim(list) // ", " // cleaned
-        end if
-    end subroutine append_name_to_list
-
     ! Generate grouped body with context
     function generate_grouped_body_with_context(arena, body_indices, indent, &
                                                 has_exec_before_contains) result(code)
@@ -1233,40 +1142,6 @@ contains
         integer :: i
         character(len=:), allocatable :: name_text
         logical :: first_name
-        character(len=:), allocatable :: module_names
-        character(len=:), allocatable :: internal_names
-
-        if (context_in_program_interface) then
-            module_names = ""
-            internal_names = ""
-            if (allocated(node%procedure_names)) then
-                do i = 1, size(node%procedure_names)
-                    if (.not. allocated(node%procedure_names(i)%s)) cycle
-                    name_text = trim(node%procedure_names(i)%s)
-                    if (len_trim(name_text) == 0) cycle
-                    if (is_internal_name(name_text)) then
-                        call append_name_to_list(internal_names, name_text)
-                    else
-                        call append_name_to_list(module_names, name_text)
-                    end if
-                end do
-            end if
-
-            code = ""
-            if (len_trim(module_names) > 0) then
-                code = "module procedure " // trim(module_names)
-            end if
-            if (len_trim(internal_names) > 0) then
-                if (len_trim(code) > 0) then
-                    code = trim(code) // new_line('A') // "procedure :: " // &
-                           trim(internal_names)
-                else
-                    code = "procedure :: " // trim(internal_names)
-                end if
-            end if
-            return
-        end if
-
         code = "module procedure"
         first_name = .true.
         if (allocated(node%procedure_names)) then
@@ -1284,25 +1159,4 @@ contains
         end if
     end function generate_code_module_procedure
 
-    logical function interface_has_module_procedures(arena, interface_node) &
-        result(has_module_proc)
-        type(ast_arena_t), intent(in) :: arena
-        type(interface_block_node), intent(in) :: interface_node
-        integer :: i, proc_idx
-
-        has_module_proc = .false.
-        if (.not. allocated(interface_node%procedure_indices)) return
-
-        do i = 1, size(interface_node%procedure_indices)
-            proc_idx = interface_node%procedure_indices(i)
-            if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(proc_idx)%node)) cycle
-
-            select type (proc_node => arena%entries(proc_idx)%node)
-            type is (module_procedure_node)
-                has_module_proc = .true.
-                return
-            end select
-        end do
-    end function interface_has_module_procedures
 end module codegen_declarations_programs
