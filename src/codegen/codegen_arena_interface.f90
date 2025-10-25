@@ -1,5 +1,6 @@
 module codegen_arena_interface
     use ast_arena_modern, only: ast_arena_t
+    use call_graph_signatures_mod, only: signatures_map_t
     implicit none
     private
 
@@ -16,7 +17,11 @@ module codegen_arena_interface
     ! Module variable to hold the actual implementation
     procedure(arena_generator_interface), pointer :: arena_generator => null()
 
+    ! Module variable to hold call site signatures for monomorphization
+    type(signatures_map_t), save :: global_signatures
+
     public :: set_arena_generator, generate_code_from_arena
+    public :: set_global_signatures, get_global_signatures
 
 contains
 
@@ -40,5 +45,17 @@ contains
 
         code = arena_generator(arena, node_index)
     end function generate_code_from_arena
+
+    ! Set the global signatures map for monomorphization
+    subroutine set_global_signatures(signatures)
+        type(signatures_map_t), intent(in) :: signatures
+        global_signatures = signatures
+    end subroutine set_global_signatures
+
+    ! Get the global signatures map
+    function get_global_signatures() result(signatures)
+        type(signatures_map_t) :: signatures
+        signatures = global_signatures
+    end function get_global_signatures
 
 end module codegen_arena_interface

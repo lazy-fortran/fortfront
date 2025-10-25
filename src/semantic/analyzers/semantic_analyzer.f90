@@ -56,6 +56,8 @@ module semantic_analyzer
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
+    use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map, &
+        add_signature
     implicit none
     private
 
@@ -71,6 +73,7 @@ module semantic_analyzer
         logical :: respect_implicit_none = .true.
         type(type_annotation_t), allocatable :: parser_type_hints(:)
         type(type_hierarchy_t) :: type_hierarchy
+        type(signatures_map_t) :: signatures
     contains
         procedure :: get_context_name => semantic_get_context_name
         procedure :: clone_context => semantic_clone_context
@@ -125,6 +128,7 @@ contains
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
         ctx%respect_implicit_none = .true.
         ctx%type_hierarchy = create_type_hierarchy()
+        ctx%signatures = create_signatures_map()
 
         ! Create real -> real type for math functions
         real_type = create_mono_type(TREAL)
@@ -732,6 +736,7 @@ contains
             type is (call_or_subscript_node)
                 node_type = infer_function_call_type(arena, expr, this%scopes, &
                                                       get_node_type_with_arena)
+                call collect_call_signature(this, arena, expr, node_type, node_index)
                 call finalize_node(node_index, node_type)
             type is (subroutine_call_node)
                 node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
@@ -1020,6 +1025,7 @@ contains
         copy%errors = this%errors
         copy%strict_mode = this%strict_mode
         copy%respect_implicit_none = this%respect_implicit_none
+        copy%signatures = this%signatures
     end subroutine semantic_context_deep_copy
 
     subroutine semantic_context_assign(lhs, rhs)
@@ -1033,6 +1039,7 @@ contains
         lhs%errors = rhs%errors
         lhs%strict_mode = rhs%strict_mode
         lhs%respect_implicit_none = rhs%respect_implicit_none
+        lhs%signatures = rhs%signatures
     end subroutine semantic_context_assign
 
     function semantic_context_has_errors(this) result(has_errors)
@@ -1256,5 +1263,34 @@ contains
 
         allocate (cloned, source=temp_context)
     end function semantic_clone_context
+
+    subroutine collect_call_signature(ctx, arena, call_node, return_type, &
+        node_index)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        type(mono_type_t), intent(in) :: return_type
+        integer, intent(in) :: node_index
+        integer, allocatable :: param_kinds(:)
+        integer :: return_kind
+        integer :: i
+        type(mono_type_t) :: arg_type
+
+        if (.not. allocated(call_node%name)) return
+        if (.not. allocated(call_node%arg_indices)) return
+
+        allocate (param_kinds(size(call_node%arg_indices)))
+
+        do i = 1, size(call_node%arg_indices)
+            arg_type = get_inferred_type_from_arena(ctx, arena, &
+                call_node%arg_indices(i))
+            param_kinds(i) = arg_type%get_kind()
+        end do
+
+        return_kind = return_type%get_kind()
+
+        call add_signature(ctx%signatures, call_node%name, param_kinds, &
+                          return_kind, node_index, 0, 0)
+    end subroutine collect_call_signature
 
 end module semantic_analyzer

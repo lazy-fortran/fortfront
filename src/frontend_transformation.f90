@@ -13,7 +13,7 @@ module frontend_transformation
                                  analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization
-    use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_arena_interface, only: generate_code_from_arena, set_global_signatures
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
@@ -686,6 +686,9 @@ contains
             call trace_enter('semantic:analyze_program')
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             call trace_leave('semantic:analyze_program')
+
+            ! Store signatures for codegen monomorphization
+            call set_global_signatures(ctx%signatures)
 
             ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
