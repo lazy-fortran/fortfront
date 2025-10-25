@@ -3,9 +3,9 @@ module semantic_function_array
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_poly_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY, &
-                                   type_args_allocated, type_args_size, &
-                                   type_args_element
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
+                                   TDOUBLE, TFUN, TARRAY, type_args_allocated, &
+                                   type_args_size, type_args_element
     use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node
@@ -15,6 +15,7 @@ module semantic_function_array
                                 array_bounds_node
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use semantic_validation_utils, only: int_to_str
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -233,9 +234,11 @@ contains
         end interface
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type, promoted_type, first_type
+        type(mono_type_t) :: explicit_type
         type(mono_type_t), allocatable :: args(:), inner_args(:)
         integer :: i, elem_array_size, first_array_size, max_char_len
         logical :: has_real, all_arrays, consistent_sizes
+        character(len=:), allocatable :: explicit_spec
 
         if (.not. allocated(array_lit%element_indices) .or. &
             size(array_lit%element_indices) == 0) then
@@ -243,6 +246,22 @@ contains
             args(1) = create_mono_type(TINT)
             typ = create_mono_type(TARRAY, args=args)
             return
+        end if
+
+        if (allocated(array_lit%type_spec)) then
+            explicit_spec = trim(array_lit%type_spec)
+            if (len_trim(explicit_spec) > 0) then
+                explicit_type = mono_type_from_type_spec(explicit_spec)
+                if (explicit_type%kind > 0) then
+                    if (allocated(args)) deallocate (args)
+                    allocate (args(1))
+                    args(1) = explicit_type
+                    typ = create_mono_type(TARRAY, args=args, &
+                                           array_size=size(array_lit%element_indices))
+                    deallocate (args)
+                    return
+                end if
+            end if
         end if
 
         first_type = get_type_fn(arena, array_lit%element_indices(1))
@@ -389,6 +408,76 @@ contains
             typ%size = 0
         end if
     end function infer_array_intrinsic_type
+
+    function mono_type_from_type_spec(type_spec) result(explicit_type)
+        character(len=*), intent(in) :: type_spec
+        type(mono_type_t) :: explicit_type
+        character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: lowered
+        integer :: char_len
+
+        explicit_type%kind = 0
+        explicit_type%size = 0
+
+        trimmed = adjustl(trim(type_spec))
+        if (len_trim(trimmed) == 0) return
+
+        lowered = to_lower(trimmed)
+
+        if (index(lowered, 'double precision') == 1) then
+            explicit_type = create_mono_type(TDOUBLE)
+            return
+        else if (index(lowered, 'integer') == 1) then
+            explicit_type = create_mono_type(TINT)
+            return
+        else if (index(lowered, 'real') == 1) then
+            explicit_type = create_mono_type(TREAL)
+            return
+        else if (index(lowered, 'logical') == 1) then
+            explicit_type = create_mono_type(TLOGICAL)
+            return
+        else if (index(lowered, 'complex') == 1) then
+            explicit_type = create_mono_type(TCOMPLEX)
+            return
+        else if (index(lowered, 'character') == 1) then
+            char_len = extract_first_integer(trimmed)
+            if (char_len > 0) then
+                explicit_type = create_mono_type(TCHAR, char_size=char_len)
+            else
+                explicit_type = create_mono_type(TCHAR)
+            end if
+            return
+        end if
+    end function mono_type_from_type_spec
+
+    pure function extract_first_integer(text) result(value)
+        character(len=*), intent(in) :: text
+        integer :: value
+        integer :: i
+        integer :: buf_len
+        character(len=32) :: buffer
+        integer :: ios
+
+        value = -1
+        buf_len = 0
+        buffer = ' '
+
+        do i = 1, len_trim(text)
+            if (text(i:i) >= '0' .and. text(i:i) <= '9') then
+                if (buf_len < len(buffer)) then
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = text(i:i)
+                end if
+            else if (buf_len > 0) then
+                exit
+            end if
+        end do
+
+        if (buf_len > 0) then
+            read (buffer(1:buf_len), *, iostat=ios) value
+            if (ios /= 0) value = -1
+        end if
+    end function extract_first_integer
 
     function infer_reshape_dimensions(arena, shape_idx) result(ndims)
         type(ast_arena_t), intent(in) :: arena
