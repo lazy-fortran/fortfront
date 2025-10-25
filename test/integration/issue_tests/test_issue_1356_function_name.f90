@@ -10,7 +10,7 @@ program test_issue_1356_function_name
     character(len=:), allocatable :: lower_output_text
     character(len=:), allocatable :: error_msg
 
-    call read_example('examples/issue_1356_function_name.lf', input_text)
+    call read_example('examples/lf/issue_1356_function_name.lf', input_text)
 
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
 

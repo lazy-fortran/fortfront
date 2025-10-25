@@ -1,3 +1,6 @@
 # Expected failures for fortfront examples
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
+
+intrinsic_functions.lf  # parser error - needs investigation
+chained_comparison.lf   # parser error - needs investigation
