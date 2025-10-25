@@ -1593,7 +1593,7 @@ contains
     ! Run monomorphization phase (AST transformation)
     subroutine run_monomorphization_phase(compiler_arena, prog_index, signatures)
         type(compiler_arena_t), intent(inout) :: compiler_arena
-        integer, intent(inout) :: prog_index
+        integer, intent(in) :: prog_index
         type(signatures_map_t), intent(in) :: signatures
 
         call compiler_arena%next_phase("monomorphization")
