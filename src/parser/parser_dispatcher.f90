@@ -12,6 +12,7 @@ module parser_dispatcher_module
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
                                                parse_include_statement, parse_module
+    use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement
@@ -75,6 +76,8 @@ contains
             select case (lowered_keyword)
             case ("use")
                 stmt_index = parse_use_statement(parser, arena)
+            case ("intrinsic")
+                stmt_index = parse_intrinsic_statement(parser, arena)
             case ("include")
                 stmt_index = parse_include_statement(parser, arena)
             case ("print")

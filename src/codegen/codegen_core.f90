@@ -25,9 +25,10 @@ module codegen_core
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
-                              import_statement_node, &
+                              intrinsic_statement_node, import_statement_node, &
                               visibility_statement_node, namelist_statement_node, &
-                              contains_node, end_statement_node, interface_block_node, &
+                              contains_node, end_statement_node, &
+                              interface_block_node, &
                               module_procedure_node
     use ast_error_nodes, only: error_node_t
     use ast_nodes_control
@@ -138,6 +139,8 @@ contains
             code = generate_code_namelist_statement(node)
         type is (use_statement_node)
             code = generate_code_use_statement(node)
+        type is (intrinsic_statement_node)
+            code = generate_code_intrinsic_statement(node)
         type is (import_statement_node)
             code = generate_code_import_statement(node)
         type is (implicit_statement_node)

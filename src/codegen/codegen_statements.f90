@@ -30,6 +30,7 @@ module codegen_statements
     public :: generate_code_cycle
     public :: generate_code_exit
     public :: generate_code_use_statement
+    public :: generate_code_intrinsic_statement
     public :: generate_code_import_statement
     public :: generate_code_visibility_statement
     public :: generate_code_namelist_statement
@@ -141,7 +142,7 @@ contains
                 if (node%arg_indices(i) > 0 .and. &
                     node%arg_indices(i) <= arena%size) then
                     args_code = args_code // &
-                        generate_code_from_arena(arena, node%arg_indices(i))
+                                generate_code_from_arena(arena, node%arg_indices(i))
                 end if
             end do
             code = code // "(" // args_code // ")"
@@ -176,7 +177,8 @@ contains
                 if (node%expression_indices(i) > 0 .and. &
                     node%expression_indices(i) <= arena%size) then
                     args_code = args_code // &
-                        generate_code_from_arena(arena, node%expression_indices(i))
+                                generate_code_from_arena(arena, &
+                                                         node%expression_indices(i))
                 end if
             end do
         end if
@@ -224,7 +226,7 @@ contains
                     node%arg_indices(i) <= arena%size) then
                     ! Use recursive code generation for proper expression handling
                     args_code = args_code // &
-                        generate_code_from_arena(arena, node%arg_indices(i))
+                                generate_code_from_arena(arena, node%arg_indices(i))
                 end if
             end do
         end if
@@ -269,7 +271,7 @@ contains
                 if (node%var_indices(i) > 0 .and. &
                     node%var_indices(i) <= arena%size) then
                     vars_code = vars_code // &
-                        generate_code_from_arena(arena, node%var_indices(i))
+                                generate_code_from_arena(arena, node%var_indices(i))
                 end if
             end do
         end if
@@ -512,6 +514,31 @@ contains
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_use_statement
 
+    function generate_code_intrinsic_statement(node) result(code)
+        type(intrinsic_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+
+        code = "intrinsic"
+        if (node%has_double_colon) then
+            code = code // " ::"
+        end if
+
+        if (allocated(node%procedure_names)) then
+            do i = 1, size(node%procedure_names)
+                if (allocated(node%procedure_names(i)%s)) then
+                    if (i == 1) then
+                        code = code // " " // trim(node%procedure_names(i)%s)
+                    else
+                        code = code // ", " // trim(node%procedure_names(i)%s)
+                    end if
+                end if
+            end do
+        end if
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_intrinsic_statement
+
     function generate_code_import_statement(node) result(code)
         type(import_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
@@ -625,8 +652,9 @@ contains
                         node%letter_specs(i)%end_letter) then
                         letter_part = letter_part // node%letter_specs(i)%start_letter
                     else
-                        letter_part = letter_part // node%letter_specs(i)%start_letter &
-                            // "-" // node%letter_specs(i)%end_letter
+                        letter_part = letter_part // &
+                                      node%letter_specs(i)%start_letter &
+                                      // "-" // node%letter_specs(i)%end_letter
                     end if
                 end do
             end if
@@ -747,22 +775,22 @@ contains
         if (node%stat_var_index > 0 .and. &
             node%stat_var_index <= arena%size) then
             args = args // ", stat=" // &
-                generate_code_from_arena(arena, node%stat_var_index)
+                   generate_code_from_arena(arena, node%stat_var_index)
         end if
         if (node%errmsg_var_index > 0 .and. &
             node%errmsg_var_index <= arena%size) then
             args = args // ", errmsg=" // &
-                generate_code_from_arena(arena, node%errmsg_var_index)
+                   generate_code_from_arena(arena, node%errmsg_var_index)
         end if
         if (node%source_expr_index > 0 .and. &
             node%source_expr_index <= arena%size) then
             args = args // ", source=" // &
-                generate_code_from_arena(arena, node%source_expr_index)
+                   generate_code_from_arena(arena, node%source_expr_index)
         end if
         if (node%mold_expr_index > 0 .and. &
             node%mold_expr_index <= arena%size) then
             args = args // ", mold=" // &
-                generate_code_from_arena(arena, node%mold_expr_index)
+                   generate_code_from_arena(arena, node%mold_expr_index)
         end if
 
         code = "allocate(" // args // ")"
@@ -784,22 +812,22 @@ contains
         if (allocated(node%var_indices)) then
             do i = 1, size(node%var_indices)
                 if (i > 1) args = args // ", "
-        if (node%var_indices(i) > 0 .and. &
-            node%var_indices(i) <= arena%size) then
-            args = args // generate_code_from_arena(arena, node%var_indices(i))
-        end if
+                if (node%var_indices(i) > 0 .and. &
+                    node%var_indices(i) <= arena%size) then
+                    args = args // generate_code_from_arena(arena, node%var_indices(i))
+                end if
             end do
         end if
 
         if (node%stat_var_index > 0 .and. &
             node%stat_var_index <= arena%size) then
             args = args // ", stat=" // &
-                generate_code_from_arena(arena, node%stat_var_index)
+                   generate_code_from_arena(arena, node%stat_var_index)
         end if
         if (node%errmsg_var_index > 0 .and. &
             node%errmsg_var_index <= arena%size) then
             args = args // ", errmsg=" // &
-                generate_code_from_arena(arena, node%errmsg_var_index)
+                   generate_code_from_arena(arena, node%errmsg_var_index)
         end if
 
         code = "deallocate(" // args // ")"
