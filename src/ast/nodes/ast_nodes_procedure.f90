@@ -21,6 +21,7 @@ module ast_nodes_procedure
         character(len=:), allocatable :: name
         integer, allocatable :: param_indices(:)
         character(len=:), allocatable :: return_type
+        logical :: has_return_type_in_header = .false.
         character(len=:), allocatable :: result_variable
         character(len=16), allocatable :: prefix_keywords(:)
         integer, allocatable :: body_indices(:)
@@ -111,6 +112,7 @@ contains
         ! Copy derived class fields
         lhs%name = rhs%name
         lhs%return_type = rhs%return_type
+        lhs%has_return_type_in_header = rhs%has_return_type_in_header
         lhs%is_recursive = rhs%is_recursive
         if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
         if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
@@ -232,6 +234,7 @@ contains
             end if
         end if
         node%return_type = return_type
+        node%has_return_type_in_header = len_trim(return_type) > 0
         if (present(result_variable)) then
             node%result_variable = result_variable
         end if

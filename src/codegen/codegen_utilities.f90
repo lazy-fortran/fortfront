@@ -495,6 +495,7 @@ contains
         logical :: has_return_type_in_signature
         logical :: keep_result_decl
         logical :: force_keep_result_decl
+        logical :: has_header_return_type
         character(len=:), allocatable :: lowered_return
         logical :: has_dimensions
 
@@ -502,6 +503,7 @@ contains
         indent_str = repeat("    ", indent)
         code = ""
         force_keep_result_decl = .false.
+        has_header_return_type = .false.
         call get_type_standardization(standardize_types_enabled)
 
         ! Determine if we should skip result variable declarations
@@ -509,13 +511,13 @@ contains
         result_var_name = ""
         select type (proc_node)
         type is (function_def_node)
-            if (allocated(proc_node%return_type) .and. &
-                len_trim(proc_node%return_type) > 0) then
-                if (allocated(proc_node%result_variable)) then
-                    result_var_name = trim(proc_node%result_variable)
-                else if (allocated(proc_node%name)) then
-                    result_var_name = trim(proc_node%name)
-                end if
+            if (allocated(proc_node%result_variable)) then
+                result_var_name = trim(proc_node%result_variable)
+            else if (allocated(proc_node%name)) then
+                result_var_name = trim(proc_node%name)
+            end if
+            has_header_return_type = proc_node%has_return_type_in_header
+            if (has_header_return_type) then
                 lowered_return = to_lower(trim(proc_node%return_type))
                 if (index(lowered_return, "len=") > 0) then
                     force_keep_result_decl = .true.
@@ -524,6 +526,10 @@ contains
                                                    has_return_type_in_signature)
             end if
         end select
+
+        if (len_trim(result_var_name) > 0 .and. .not. has_header_return_type) then
+            force_keep_result_decl = .true.
+        end if
 
         ! First pass: collect parameter declarations from the body to capture
         ! types and attributes. Attributes may appear inside the body rather
@@ -570,7 +576,8 @@ contains
                                                 normalize_character_type(node, &
                                                                          type_name)
                                         else if (standardize_types_enabled .and. &
-                                                 to_lower(trim(type_name)) == 'real' .and. &
+                                                 to_lower(trim(type_name)) == &
+                                                 'real' .and. &
                                                  .not. node%has_kind) then
                                             type_name = "real(8)"
                                         end if
@@ -695,7 +702,8 @@ contains
                                         type_name = &
                                             normalize_character_type(node, type_name)
                                     else if (standardize_types_enabled .and. &
-                                             to_lower(trim(type_name)) == 'real' .and. &
+                                             to_lower(trim(type_name)) == &
+                                             'real' .and. &
                                              .not. node%has_kind) then
                                         type_name = "real(8)"
                                     end if
