@@ -5,7 +5,7 @@ module semantic_function_analysis
                                    create_mono_type, create_type_var, &
                                    create_poly_type, create_fun_type, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, &
-                                   TARRAY
+                                   TARRAY, TDOUBLE
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
@@ -15,6 +15,7 @@ module semantic_function_analysis
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use scope_manager, only: scope_stack_t
     use semantic_validation_utils, only: update_identifier_type_in_arena, int_to_str
+    use semantic_literal_type_helpers, only: literal_numeric_type
     use semantic_type_operations, only: get_common_type, &
                                         instantiate_type_scheme_op
     use string_utils_mod, only: int_to_string
@@ -58,7 +59,8 @@ contains
                 index(var_name, 'msg') > 0 .or. index(var_name, 'text') > 0) then
                 ! String-like variable names
                 typ = create_mono_type(TCHAR)
-            else if (index(var_name, 'num') > 0 .or. index(var_name, 'count') > 0 .or. &
+            else if (index(var_name, 'num') > 0 .or. index(var_name, &
+                                                           'count') > 0 .or. &
                      index(var_name, 'idx') > 0) then
                 ! Number-like variable names
                 typ = create_mono_type(TINT)
@@ -71,7 +73,8 @@ contains
     end function infer_type_from_usage_context
 
     ! Analyze function parameters and extract their types
-    subroutine analyze_function_parameters(arena, func_node, param_types, param_names, &
+    subroutine analyze_function_parameters(arena, func_node, param_types, &
+                                           param_names, &
                                            scopes, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
@@ -83,6 +86,7 @@ contains
         integer :: i, idx, arg_idx
         type(mono_type_t) :: temp_type
         type(mono_type_t) :: inferred_arg_type
+        type(mono_type_t) :: literal_type
         type(poly_type_t) :: scheme
         character(len=64), allocatable :: stored_names(:)
         character(len=64) :: param_name
@@ -139,7 +143,8 @@ contains
             if (temp_type%kind == TVAR) then
                 if (temp_type%var%id == 0) then
                     temp_type = create_mono_type(TVAR, &
-                                                 var=create_type_var(next_var_id, "arg"))
+                                                 var=create_type_var(next_var_id, &
+                                                                     "arg"))
                     next_var_id = next_var_id + 1
                 end if
                 if (len_trim(trimmed_name) > 0) then
@@ -171,8 +176,15 @@ contains
                     end if
                     select type (arg_node => arena%entries(arg_idx)%node)
                     type is (literal_node)
-                        if (arg_node%literal_kind == LITERAL_INTEGER) then
-                            param_types(i) = create_mono_type(TINT)
+                        literal_type = literal_numeric_type(arg_node)
+                        if (literal_type%kind == 0) cycle
+                        if (param_types(i)%kind == 0 .or. &
+                            param_types(i)%kind == TVAR) then
+                            param_types(i) = literal_type
+                        else if (param_types(i)%kind == TREAL) then
+                            if (literal_type%kind == TDOUBLE) then
+                                param_types(i) = literal_type
+                            end if
                         end if
                     type is (identifier_node)
                         if (arg_node%inferred_type%kind == TINT) then
@@ -464,7 +476,8 @@ contains
 
         if (search_start >= 1) then
             call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, program_index, &
+                                              param_types, scope_index, &
+                                              program_index, &
                                               search_start, 1, -1, typ)
             if (typ%kind /= 0) return
         end if
@@ -477,7 +490,8 @@ contains
 
         if (forward_start <= arena%size) then
             call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, program_index, &
+                                              param_types, scope_index, &
+                                              program_index, &
                                               forward_start, arena%size, 1, typ)
         end if
     end function infer_identifier_type_from_context
@@ -846,11 +860,12 @@ contains
                 if (len_trim(param_name) > 0) then
                     trimmed_name = trim(param_name)
                     inferred_arg_type = infer_type_from_usage_context(trimmed_name, &
-                                                                       next_var_id)
+                                                                      next_var_id)
                     param_types(i) = inferred_arg_type
                 else
                     param_types(i) = create_mono_type(TVAR, &
-                                                      var=create_type_var(next_var_id, "p"))
+                                                      var=create_type_var(next_var_id, &
+                                                                          "p"))
                     next_var_id = next_var_id + 1
                 end if
             else

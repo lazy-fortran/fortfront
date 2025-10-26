@@ -110,7 +110,11 @@ program test_monomorphization
 
     test_passed = .false.
     if (index(output, "real :: z") > 0 .or. &
-        index(output, "real(8) :: z") > 0) then
+        index(output, "real(8) :: z") > 0 .or. &
+        index(output, "real :: y, z") > 0 .or. &
+        index(output, "real :: y,z") > 0 .or. &
+        index(output, "real(8) :: y, z") > 0 .or. &
+        index(output, "real(8) :: y,z") > 0) then
         if (index(output, "integer :: z") == 0) then
             test_passed = .true.
         end if
