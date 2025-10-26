@@ -1,6 +1,7 @@
 module codegen_control_flow
     use iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
     use ast_nodes_control
     use type_system_unified
     use string_types, only: string_t
@@ -44,7 +45,8 @@ contains
                 code = code // new_line('A') // body_code
                 code = code // repeat("    ", indent_level) // end_stmt
             else
-                code = code // new_line('A') // repeat("    ", indent_level) // end_stmt
+                code = code // new_line('A') // repeat("    ", indent_level) &
+                       // end_stmt
             end if
         else
             code = code // new_line('A') // repeat("    ", indent_level) // end_stmt
@@ -57,8 +59,9 @@ contains
         type(if_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: cond_code, body_code
+        character(len=:), allocatable :: cond_code, body_code, single_line
         integer :: i, indent_level
+        logical :: has_no_elseif, has_no_else
 
         indent_level = 0
 
@@ -70,13 +73,32 @@ contains
         end if
 
         ! Skip IF with empty condition (malformed node from parser bug like issue #1736)
-        ! Check if condition generated empty code - this indicates a parser error
         if (len_trim(cond_code) == 0) then
             code = ""
             return
         end if
 
-        ! Generate if statement
+        has_no_elseif = .not. allocated(node%elseif_blocks)
+        if (.not. has_no_elseif) then
+            has_no_elseif = size(node%elseif_blocks) == 0
+        end if
+
+        has_no_else = .not. allocated(node%else_body_indices)
+        if (.not. has_no_else) then
+            has_no_else = size(node%else_body_indices) == 0
+        end if
+
+        if (has_no_elseif .and. has_no_else) then
+            single_line = try_generate_single_line_if(arena, node, cond_code)
+            if (allocated(single_line)) then
+                if (len(single_line) > 0) then
+                    code = single_line
+                    return
+                end if
+            end if
+        end if
+
+        ! Generate if statement in block form
         code = "if (" // cond_code // ") then"
 
         ! Generate then body
@@ -120,6 +142,35 @@ contains
         ! Generate end if
         code = code // new_line('A') // repeat("    ", indent_level) // "end if"
     end function generate_code_if
+
+    ! Try to generate single-line IF statement if conditions are met
+    function try_generate_single_line_if(arena, node, cond_code) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(if_node), intent(in) :: node
+        character(len=*), intent(in) :: cond_code
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: stmt_code
+        integer :: stmt_index
+
+        if (.not. allocated(node%then_body_indices)) return
+        if (size(node%then_body_indices) /= 1) return
+
+        stmt_index = node%then_body_indices(1)
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+
+        select type (stmt_node => arena%entries(stmt_index)%node)
+        class default
+            if (stmt_node%line /= node%line) return
+
+            stmt_code = generate_code_from_arena(arena, stmt_index)
+            stmt_code = trim(adjustl(stmt_code))
+            if (len_trim(stmt_code) == 0) return
+            if (index(stmt_code, new_line('A')) /= 0) return
+
+            code = "if (" // trim(adjustl(cond_code)) // ") " // stmt_code
+        end select
+    end function try_generate_single_line_if
 
     ! Generate code for do loops
     function generate_code_do_loop(arena, node, node_index) result(code)
@@ -166,7 +217,8 @@ contains
         if (node%is_concurrent) then
             ! DO CONCURRENT syntax: do concurrent (var = start:end[:step])
             if (allocated(node%label)) then
-                code = trim(adjustl(node%label)) // ": do concurrent (" // var_code // &
+                code = trim(adjustl(node%label)) // ": do concurrent (" // &
+                       var_code // &
                        " = " // start_code // ":" // end_code
                 end_keyword = "end do " // trim(adjustl(node%label))
             else
@@ -278,10 +330,12 @@ contains
                                         if (value_node%end_value > 0) then
                                             upper_code = generate_code_from_arena( &
                                                          arena, value_node%end_value)
-                                            case_code = trim(adjustl(lower_code)) // ":" // &
+                                            case_code = trim(adjustl(lower_code)) &
+                                                        // ":" // &
                                                         trim(adjustl(upper_code))
                                         else
-                                            case_code = trim(adjustl(lower_code)) // ":"
+                                            case_code = &
+                                                trim(adjustl(lower_code)) // ":"
                                         end if
                                     class default
                                         case_code = generate_code_from_arena( &
@@ -297,7 +351,8 @@ contains
                         ! Generate case body
                         if (allocated(case_node%body_indices)) then
                             body_code = generate_grouped_body_internal( &
-                                        arena, case_node%body_indices, indent_level + 1)
+                                        arena, case_node%body_indices, &
+                                        indent_level + 1)
                             if (len(body_code) > 0) then
                                 code = code // new_line('A') // body_code
                             end if
@@ -309,7 +364,8 @@ contains
 
         ! Handle default case if present
         if (node%default_index > 0 .and. node%default_index <= arena%size) then
-            code = code // new_line('A') // repeat("    ", indent_level) // "case default"
+            code = code // new_line('A') // repeat("    ", indent_level) // &
+                   "case default"
 
             if (allocated(arena%entries(node%default_index)%node)) then
                 select type (default_node => arena%entries(node%default_index)%node)
@@ -361,7 +417,8 @@ contains
             do i = 1, size(node%guard_indices)
                 if (node%guard_indices(i) > 0 .and. &
                     node%guard_indices(i) <= arena%size) then
-                    select type (guard_node => arena%entries(node%guard_indices(i))%node)
+                    select type (guard_node => &
+                                 arena%entries(node%guard_indices(i))%node)
                     type is (type_guard_block_node)
                         ! Generate type guard statement
                         code = code // new_line('A') // repeat("    ", indent_level)
@@ -374,14 +431,15 @@ contains
                         ! Generate type name
                         if (guard_node%type_name_index > 0) then
                             type_name_code = generate_code_from_arena( &
-                                             arena, guard_node%type_name_index)
+                                arena, guard_node%type_name_index)
                             code = code // " (" // type_name_code // ")"
                         end if
 
                         ! Generate guard body
                         if (allocated(guard_node%body_indices)) then
                             body_code = generate_grouped_body_internal( &
-                                        arena, guard_node%body_indices, indent_level + 1)
+                                        arena, guard_node%body_indices, &
+                                        indent_level + 1)
                             if (len(body_code) > 0) then
                                 code = code // new_line('A') // body_code
                             end if
@@ -600,7 +658,7 @@ contains
         integer, intent(in) :: indent
         character(len=:), allocatable :: code
 
-        ! Use stub implementation
+        ! Delegate to shared body generation utility
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_internal
 
