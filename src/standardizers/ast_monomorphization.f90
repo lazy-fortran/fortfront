@@ -1,6 +1,7 @@
 module ast_monomorphization
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node, call_or_subscript_node
+    use ast_nodes_core, only: program_node, call_or_subscript_node, &
+                              create_program
     use ast_nodes_procedure, only: function_def_node, &
                                    get_procedure_name, get_procedure_params, &
                                    get_procedure_body, get_procedure_return_type, &
@@ -27,78 +28,309 @@ contains
 
     subroutine transform_monomorphization(arena, root_index, signatures)
         type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: root_index
+        integer, intent(inout) :: root_index
         type(signatures_map_t), intent(in) :: signatures
-        type(program_node), pointer :: prog
-        integer :: i, j, func_idx
+        type(program_node), pointer :: root_prog
+        logical :: is_multi_unit
+        integer :: body_size
+        integer, allocatable :: preserved_indices(:)
+        integer, allocatable :: module_indices(:)
+        integer, allocatable :: program_indices(:)
+        character(len=128), allocatable :: module_names(:)
+        integer :: preserved_count, module_count, program_count
+
+        call get_program_node(arena, root_index, root_prog)
+        if (.not. associated(root_prog)) return
+        if (.not. allocated(root_prog%body_indices)) return
+
+        is_multi_unit = trim(root_prog%name) == "__MULTI_UNIT__"
+        body_size = size(root_prog%body_indices)
+
+        allocate (preserved_indices(max(1, body_size)))
+        allocate (module_indices(max(1, body_size)))
+        allocate (program_indices(max(1, body_size)))
+        allocate (character(len=128) :: module_names(max(1, body_size)))
+
+        preserved_count = 0
+        module_count = 0
+        program_count = 0
+
+        call process_program_body_children(arena, root_prog, signatures, &
+            preserved_indices, preserved_count, module_indices, &
+            module_count, module_names, program_indices, program_count)
+
+        if (module_count == 0) then
+            root_prog%body_indices = preserved_indices(1:preserved_count)
+            return
+        end if
+
+        call finalize_monomorphized_root(arena, root_index, root_prog, &
+            is_multi_unit, preserved_indices, preserved_count, &
+            module_indices, module_count, module_names, program_indices, &
+            program_count)
+
+    end subroutine transform_monomorphization
+
+    subroutine process_program_body_children(arena, root_prog, signatures, &
+        preserved_indices, preserved_count, module_indices, module_count, &
+        module_names, program_indices, program_count)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), pointer, intent(in) :: root_prog
+        type(signatures_map_t), intent(in) :: signatures
+        integer, allocatable, intent(inout) :: preserved_indices(:)
+        integer, intent(inout) :: preserved_count
+        integer, allocatable, intent(inout) :: module_indices(:)
+        integer, intent(inout) :: module_count
+        character(len=*), allocatable, intent(inout) :: module_names(:)
+        integer, allocatable, intent(inout) :: program_indices(:)
+        integer, intent(inout) :: program_count
+        integer :: i, j, child_idx
         character(len=:), allocatable :: func_name
         type(type_signature_t), allocatable :: func_sigs(:)
-        integer, allocatable :: new_body_indices(:), variant_indices(:)
-        integer, allocatable :: module_indices(:)
-        integer :: new_body_count, module_count, interface_idx, mod_proc_idx
-        integer :: mod_idx, use_idx
+        integer, allocatable :: variant_indices(:)
+        integer :: interface_idx, mod_proc_idx, mod_idx
 
-        call get_program_node(arena, root_index, prog)
-        if (.not. associated(prog)) return
-        if (.not. allocated(prog%body_indices)) return
+        do i = 1, size(root_prog%body_indices)
+            child_idx = root_prog%body_indices(i)
+            if (child_idx < 1 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
 
-        new_body_count = 0
-        module_count = 0
-        allocate (new_body_indices(size(prog%body_indices) * 2))
-        allocate (module_indices(64))
+            select type (node => arena%entries(child_idx)%node)
+            type is (function_def_node)
+                func_name = get_function_name(arena, child_idx)
+                func_sigs = get_function_signatures(signatures, func_name)
 
-        do i = 1, size(prog%body_indices)
-            func_idx = prog%body_indices(i)
-            if (.not. is_function_node(arena, func_idx)) then
-                new_body_count = new_body_count + 1
-                new_body_indices(new_body_count) = func_idx
-                cycle
-            end if
+                if (size(func_sigs) <= 1) then
+                    preserved_count = preserved_count + 1
+                    preserved_indices(preserved_count) = child_idx
+                    if (allocated(func_sigs)) deallocate (func_sigs)
+                    cycle
+                end if
 
-            func_name = get_function_name(arena, func_idx)
-            func_sigs = get_function_signatures(signatures, func_name)
+                allocate (variant_indices(size(func_sigs)))
+                do j = 1, size(func_sigs)
+                    variant_indices(j) = clone_function_with_signature( &
+                        arena, child_idx, func_sigs(j))
+                end do
 
-            if (size(func_sigs) <= 1) then
-                new_body_count = new_body_count + 1
-                new_body_indices(new_body_count) = func_idx
-                cycle
-            end if
+                mod_proc_idx = create_module_procedure_node( &
+                    arena, func_name, variant_indices)
+                interface_idx = create_interface_node( &
+                    arena, func_name, mod_proc_idx)
+                mod_idx = create_module_for_function( &
+                    arena, func_name, interface_idx, variant_indices)
 
-            allocate (variant_indices(size(func_sigs)))
-            do j = 1, size(func_sigs)
-                variant_indices(j) = clone_function_with_signature( &
-                                     arena, func_idx, func_sigs(j))
-            end do
+                module_count = module_count + 1
+                if (module_count > size(module_indices)) then
+                    call resize_integer_array(module_indices, module_count * 2)
+                end if
+                if (module_count > size(module_names)) then
+                    call resize_character_array(module_names, module_count * 2)
+                end if
+                module_indices(module_count) = mod_idx
+                module_names(module_count) = adjustl("auto_" // trim(func_name))
 
-            mod_proc_idx = create_module_procedure_node( &
-                           arena, func_name, variant_indices)
-            interface_idx = create_interface_node( &
-                            arena, func_name, mod_proc_idx)
-            mod_idx = create_module_for_function( &
-                      arena, func_name, interface_idx, variant_indices)
-            use_idx = create_use_statement_node( &
-                      arena, "auto_"//func_name)
+                call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
+                call set_parent_if_valid(arena, interface_idx, mod_idx)
+                do j = 1, size(variant_indices)
+                    call set_parent_if_valid(arena, variant_indices(j), mod_idx)
+                end do
 
-            module_count = module_count + 1
-            if (module_count > size(module_indices)) then
-                call resize_integer_array(module_indices, module_count * 2)
-            end if
-            module_indices(module_count) = mod_idx
-
-            new_body_count = new_body_count + 1
-            new_body_indices(new_body_count) = use_idx
-
-            deallocate (variant_indices)
-            deallocate (func_sigs)
+                if (allocated(func_sigs)) deallocate (func_sigs)
+                if (allocated(variant_indices)) deallocate (variant_indices)
+            type is (program_node)
+                if (trim(node%name) /= "__MULTI_UNIT__") then
+                    program_count = program_count + 1
+                    program_indices(program_count) = child_idx
+                end if
+                preserved_count = preserved_count + 1
+                preserved_indices(preserved_count) = child_idx
+            class default
+                preserved_count = preserved_count + 1
+                preserved_indices(preserved_count) = child_idx
+            end select
         end do
+    end subroutine process_program_body_children
+
+    subroutine finalize_monomorphized_root(arena, root_index, root_prog, &
+        is_multi_unit, preserved_indices, preserved_count, module_indices, &
+        module_count, module_names, program_indices, program_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        type(program_node), pointer, intent(inout) :: root_prog
+        logical, intent(in) :: is_multi_unit
+        integer, intent(in) :: preserved_indices(:)
+        integer, intent(in) :: preserved_count
+        integer, intent(in) :: module_indices(:)
+        integer, intent(in) :: module_count
+        character(len=*), intent(in) :: module_names(:)
+        integer, intent(inout) :: program_indices(:)
+        integer, intent(inout) :: program_count
+        integer, allocatable :: final_body(:)
+        integer :: original_root_index
+        integer :: i, child_idx
+
+        if (is_multi_unit) then
+            allocate (final_body(module_count + preserved_count))
+            final_body(1:module_count) = module_indices(1:module_count)
+            if (preserved_count > 0) then
+                final_body(module_count + 1:) = preserved_indices(1:preserved_count)
+            end if
+            root_prog%body_indices = final_body
+            do i = 1, module_count
+                call set_parent_if_valid(arena, module_indices(i), root_index)
+            end do
+        else
+            root_prog%body_indices = preserved_indices(1:preserved_count)
+            original_root_index = root_index
+            call create_multi_unit_root(arena, root_index, module_indices, &
+                module_count, original_root_index, root_prog%line, root_prog%column)
+            call get_program_node(arena, root_index, root_prog)
+            program_count = 1
+            program_indices(1) = original_root_index
+        end if
+
+        if (program_count == 0) then
+            if (is_multi_unit) then
+                do i = 1, size(root_prog%body_indices)
+                    child_idx = root_prog%body_indices(i)
+                    if (child_idx < 1 .or. child_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                    select type (prog_node => arena%entries(child_idx)%node)
+                    type is (program_node)
+                        if (trim(prog_node%name) /= "__MULTI_UNIT__") then
+                            program_count = program_count + 1
+                            program_indices(program_count) = child_idx
+                        end if
+                    end select
+                end do
+            else
+                program_count = program_count + 1
+                program_indices(program_count) = root_index
+            end if
+        end if
 
         do i = 1, module_count
-            new_body_count = new_body_count + 1
-            new_body_indices(new_body_count) = module_indices(i)
+            call set_parent_if_valid(arena, module_indices(i), root_index)
         end do
 
-        prog%body_indices = new_body_indices(1:new_body_count)
-    end subroutine transform_monomorphization
+        do i = 1, program_count
+            call ensure_program_has_uses(arena, program_indices(i), &
+                module_names, module_count)
+        end do
+    end subroutine finalize_monomorphized_root
+
+    subroutine create_multi_unit_root(arena, root_index, module_indices, &
+                                      module_count, original_prog_idx, line, column)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        integer, intent(in) :: module_indices(:)
+        integer, intent(in) :: module_count
+        integer, intent(in) :: original_prog_idx
+        integer, intent(in) :: line
+        integer, intent(in) :: column
+        integer, allocatable :: body(:)
+        type(program_node) :: multi_prog
+        integer :: i
+
+        allocate (body(module_count + 1))
+        if (module_count > 0) then
+            body(1:module_count) = module_indices(1:module_count)
+        end if
+        body(module_count + 1) = original_prog_idx
+
+        multi_prog = create_program("__MULTI_UNIT__", body, line=line, &
+                                    column=column)
+        call arena%push(multi_prog)
+        root_index = arena%size
+        do i = 1, module_count
+            call set_parent_if_valid(arena, module_indices(i), root_index)
+        end do
+        call set_parent_if_valid(arena, original_prog_idx, root_index)
+    end subroutine create_multi_unit_root
+
+    subroutine ensure_program_has_uses(arena, prog_idx, module_names, module_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: prog_idx
+        character(len=*), intent(in) :: module_names(:)
+        integer, intent(in) :: module_count
+        type(program_node), pointer :: prog
+        logical, allocatable :: need_use(:)
+        integer :: i, insert_count
+        integer, allocatable :: inserted_indices(:)
+        integer :: orig_size
+        integer, allocatable :: updated_body(:)
+
+        if (module_count <= 0) return
+
+        call get_program_node(arena, prog_idx, prog)
+        if (.not. associated(prog)) return
+
+        allocate (need_use(module_count))
+        need_use = .true.
+
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) < 1 .or. &
+                    prog%body_indices(i) > arena%size) cycle
+                if (.not. allocated(arena%entries(prog%body_indices(i))%node)) cycle
+                select type (use_node => arena%entries(prog%body_indices(i))%node)
+                type is (use_statement_node)
+                    call mark_existing_use(use_node%module_name, module_names, &
+                                           need_use)
+                end select
+            end do
+        end if
+
+        insert_count = count(need_use)
+        if (insert_count <= 0) return
+
+        allocate (inserted_indices(insert_count))
+        insert_count = 0
+        do i = 1, module_count
+            if (.not. need_use(i)) cycle
+            insert_count = insert_count + 1
+            inserted_indices(insert_count) = create_use_statement_node( &
+                                         arena, trim(module_names(i)))
+            call set_parent_if_valid(arena, inserted_indices(insert_count), &
+                                     prog_idx)
+        end do
+
+        orig_size = 0
+        if (allocated(prog%body_indices)) orig_size = size(prog%body_indices)
+        allocate (updated_body(insert_count + orig_size))
+
+        if (insert_count > 0) updated_body(1:insert_count) = inserted_indices
+        if (orig_size > 0) then
+            updated_body(insert_count + 1:) = prog%body_indices
+        end if
+
+        prog%body_indices = updated_body
+    end subroutine ensure_program_has_uses
+
+    subroutine mark_existing_use(use_name, module_names, need_use)
+        character(len=*), intent(in) :: use_name
+        character(len=*), intent(in) :: module_names(:)
+        logical, intent(inout) :: need_use(:)
+        integer :: i
+
+        do i = 1, size(module_names)
+            if (.not. need_use(i)) cycle
+            if (trim(module_names(i)) == trim(use_name)) then
+                need_use(i) = .false.
+            end if
+        end do
+    end subroutine mark_existing_use
+
+    subroutine set_parent_if_valid(arena, child_idx, parent_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: child_idx
+        integer, intent(in) :: parent_idx
+
+        if (child_idx < 1 .or. child_idx > arena%size) return
+        if (.not. allocated(arena%entries(child_idx)%node)) return
+        arena%entries(child_idx)%parent_index = parent_idx
+    end subroutine set_parent_if_valid
 
     function clone_function_with_signature(arena, func_idx, signature) &
         result(new_idx)
@@ -112,9 +344,6 @@ contains
         integer, allocatable :: body_indices_copy(:)
         character(len=:), allocatable :: mangled_name, return_type
         character(len=:), allocatable :: result_name
-        character(len=:), allocatable :: lowered_return
-        integer :: i
-        type(declaration_node) :: decl_copy
 
         call get_function_node(arena, func_idx, orig_func)
         if (.not. associated(orig_func)) then
@@ -122,8 +351,41 @@ contains
             return
         end if
 
-        mangled_name = mangle_procedure_name(orig_func%name, signature%param_kinds)
+        if (allocated(signature%param_type_strings)) then
+            mangled_name = mangle_procedure_name(orig_func%name, &
+                signature%param_kinds, signature%param_type_strings)
+        else
+            mangled_name = mangle_procedure_name(orig_func%name, &
+                signature%param_kinds)
+        end if
         return_type = determine_return_type_string(arena, signature, orig_func)
+
+        new_param_indices = clone_function_parameters(arena, orig_func, signature)
+        result_name = determine_result_name(orig_func, mangled_name)
+        body_indices_copy = clone_function_body_with_updated_result( &
+            arena, orig_func, result_name, return_type)
+
+        new_func = create_function_def( &
+            name=mangled_name, &
+            param_indices=new_param_indices, &
+            return_type=return_type, &
+            body_indices=body_indices_copy, &
+            line=orig_func%line, &
+            column=orig_func%column, &
+            result_variable=result_name)
+        new_func%inferred_type = orig_func%inferred_type
+
+        call arena%push(new_func)
+        new_idx = arena%size
+    end function clone_function_with_signature
+
+    function clone_function_parameters(arena, orig_func, signature) &
+        result(new_param_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), pointer, intent(in) :: orig_func
+        type(type_signature_t), intent(in) :: signature
+        integer, allocatable :: new_param_indices(:)
+        integer :: i
 
         if (allocated(orig_func%param_indices)) then
             allocate (new_param_indices(size(orig_func%param_indices)))
@@ -131,43 +393,57 @@ contains
                 if (allocated(signature%param_type_strings)) then
                     if (size(signature%param_type_strings) >= i) then
                         new_param_indices(i) = clone_parameter_with_kind( &
-                                               arena, orig_func%param_indices(i), &
-                                               signature%param_kinds(i), &
-                                               signature%param_type_strings(i))
+                            arena, orig_func%param_indices(i), &
+                            signature%param_kinds(i), &
+                            signature%param_type_strings(i))
                     else
                         new_param_indices(i) = clone_parameter_with_kind( &
-                                               arena, orig_func%param_indices(i), &
-                                               signature%param_kinds(i))
+                            arena, orig_func%param_indices(i), &
+                            signature%param_kinds(i))
                     end if
                 else
                     new_param_indices(i) = clone_parameter_with_kind( &
-                                           arena, orig_func%param_indices(i), &
-                                           signature%param_kinds(i))
+                        arena, orig_func%param_indices(i), &
+                        signature%param_kinds(i))
                 end if
             end do
         else
             allocate (new_param_indices(0))
         end if
+    end function clone_function_parameters
+
+    function determine_result_name(orig_func, mangled_name) result(result_name)
+        type(function_def_node), pointer, intent(in) :: orig_func
+        character(len=*), intent(in) :: mangled_name
+        character(len=:), allocatable :: result_name
 
         if (allocated(orig_func%result_variable)) then
             if (len_trim(orig_func%result_variable) > 0) then
                 result_name = trim(orig_func%result_variable)
+                return
             end if
         end if
 
-        if (.not. allocated(result_name)) then
-            if (allocated(orig_func%name)) then
-                if (len_trim(orig_func%name) > 0) then
-                    result_name = trim(orig_func%name)
-                end if
+        if (allocated(orig_func%name)) then
+            if (len_trim(orig_func%name) > 0) then
+                result_name = trim(orig_func%name)
+                return
             end if
         end if
 
-        if (.not. allocated(result_name)) then
-            result_name = mangled_name
-        else if (len_trim(result_name) == 0) then
-            result_name = mangled_name
-        end if
+        result_name = mangled_name
+    end function determine_result_name
+
+    function clone_function_body_with_updated_result(arena, orig_func, &
+        result_name, return_type) result(body_indices_copy)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), pointer, intent(in) :: orig_func
+        character(len=*), intent(in) :: result_name
+        character(len=*), intent(in) :: return_type
+        integer, allocatable :: body_indices_copy(:)
+        character(len=:), allocatable :: lowered_return
+        integer :: i
+        type(declaration_node) :: decl_copy
 
         if (len_trim(return_type) > 0) then
             lowered_return = to_lower(return_type)
@@ -184,58 +460,32 @@ contains
                 if (.not. allocated(arena%entries(body_indices_copy(i))%node)) cycle
                 select type (decl => arena%entries(body_indices_copy(i))%node)
                 type is (declaration_node)
-                    if (allocated(result_name)) then
-                        if (len_trim(result_name) > 0) then
-                            if (allocated(decl%var_name)) then
-                                if (trim(decl%var_name) == trim(result_name)) then
-                                    decl_copy = decl
-                                    decl_copy%uid = generate_uid()
-                                    if (len_trim(return_type) > 0) then
-                                        decl_copy%type_name = trim(return_type)
-                                    end if
-                                    decl_copy%has_kind = .false.
-                                    if (allocated(lowered_return)) then
-                                        if (index(lowered_return, &
-                                                  "allocatable") > 0) then
-                                            decl_copy%is_allocatable = .true.
-                                        else
-                                            decl_copy%is_allocatable = .false.
-                                        end if
-                                        if (index(lowered_return, &
-                                                  "dimension(") > 0) then
-                                            decl_copy%is_array = .true.
-                                        else
-                                            decl_copy%is_array = .false.
-                                        end if
-                                    else
-                                        decl_copy%is_allocatable = .false.
-                                        decl_copy%is_array = .false.
-                                    end if
-                                    call arena%push(decl_copy)
-                                    body_indices_copy(i) = arena%size
-                                end if
-                            end if
-                        end if
+                    if (len_trim(result_name) == 0) cycle
+                    if (.not. allocated(decl%var_name)) cycle
+                    if (trim(decl%var_name) /= trim(result_name)) cycle
+                    decl_copy = decl
+                    decl_copy%uid = generate_uid()
+                    if (len_trim(return_type) > 0) then
+                        decl_copy%type_name = trim(return_type)
                     end if
+                    decl_copy%has_kind = .false.
+                    if (len_trim(lowered_return) > 0) then
+                        decl_copy%is_allocatable = &
+                            index(lowered_return, "allocatable") > 0
+                        decl_copy%is_array = &
+                            index(lowered_return, "dimension(") > 0
+                    else
+                        decl_copy%is_allocatable = .false.
+                        decl_copy%is_array = .false.
+                    end if
+                    call arena%push(decl_copy)
+                    body_indices_copy(i) = arena%size
                 end select
             end do
         else
             allocate (body_indices_copy(0))
         end if
-
-        new_func = create_function_def( &
-                   name=mangled_name, &
-                   param_indices=new_param_indices, &
-                   return_type=return_type, &
-                   body_indices=body_indices_copy, &
-                   line=orig_func%line, &
-                   column=orig_func%column, &
-                   result_variable=result_name)
-        new_func%inferred_type = orig_func%inferred_type
-
-        call arena%push(new_func)
-        new_idx = arena%size
-    end function clone_function_with_signature
+    end function clone_function_body_with_updated_result
 
     function clone_parameter_with_kind(arena, param_idx, kind_value, type_override) &
         result(new_idx)
@@ -721,5 +971,21 @@ contains
         temp(1:old_size) = arr(1:old_size)
         call move_alloc(temp, arr)
     end subroutine resize_integer_array
+
+    subroutine resize_character_array(arr, new_size)
+        character(len=*), allocatable, intent(inout) :: arr(:)
+        integer, intent(in) :: new_size
+        integer :: old_size, limit, i
+        character(len=len(arr(1))), allocatable :: temp(:)
+
+        old_size = size(arr)
+        allocate (temp(new_size))
+        limit = min(old_size, new_size)
+        temp = ''
+        do i = 1, limit
+            temp(i) = arr(i)
+        end do
+        call move_alloc(temp, arr)
+    end subroutine resize_character_array
 
 end module ast_monomorphization
