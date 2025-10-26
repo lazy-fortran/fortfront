@@ -16,7 +16,7 @@ module semantic_function_array
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use semantic_validation_utils, only: int_to_str
     use string_utils_mod, only: to_lower
-    use semantic_function_analysis, only: collapse_array_rank
+    use semantic_array_type_builders, only: collapse_array_rank
     implicit none
     private
 
