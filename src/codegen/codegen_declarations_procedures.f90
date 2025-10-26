@@ -213,7 +213,8 @@ contains
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
-            filtered_body_indices, 1, param_map, node)
+                                                         filtered_body_indices, 1, &
+                                                         param_map, node)
         call reorder_import_lines(body)
     end function build_function_body_section
 
@@ -404,7 +405,8 @@ contains
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
-            filtered_body_indices, 1, param_map, node)
+                                                         filtered_body_indices, 1, &
+                                                         param_map, node)
         call reorder_import_lines(body)
     end function build_subroutine_body_section
 
@@ -427,8 +429,8 @@ contains
         character(len=*), intent(in) :: return_type_code
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: lowered_return
-        integer :: i, decl_index
-        logical :: has_explicit_result_clause
+        integer :: i, decl_index, k
+        logical :: has_header_return_type
 
         omit = .false.
         result_name = ""
@@ -442,16 +444,7 @@ contains
 
         if (.not. allocated(node%name)) return
 
-        has_explicit_result_clause = .false.
-        if (allocated(node%result_variable)) then
-            if (len_trim(node%result_variable) > 0) then
-                if (trim(node%result_variable) /= trim(node%name)) then
-                    has_explicit_result_clause = .true.
-                end if
-            end if
-        end if
-
-        if (has_explicit_result_clause) return
+        has_header_return_type = node%has_return_type_in_header
 
         if (.not. allocated(node%body_indices)) return
 
@@ -464,13 +457,20 @@ contains
             if (.not. allocated(arena%entries(decl_index)%node)) cycle
             select type (decl => arena%entries(decl_index)%node)
             type is (declaration_node)
-                if (trim(decl%var_name) /= trim(result_name)) cycle
-                if (.not. decl%is_array) then
-                    if (.not. allocated(decl%dimension_indices)) cycle
-                    if (size(decl%dimension_indices) == 0) cycle
+                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                    do k = 1, size(decl%var_names)
+                        if (trim(decl%var_names(k)) == trim(result_name)) then
+                            if (has_header_return_type) cycle
+                            omit = .true.
+                            return
+                        end if
+                    end do
+                else
+                    if (trim(decl%var_name) /= trim(result_name)) cycle
+                    if (has_header_return_type) cycle
+                    omit = .true.
+                    return
                 end if
-                omit = .true.
-                return
             end select
         end do
     end function should_omit_return_type
@@ -545,7 +545,8 @@ contains
     end function parameter_has_declaration
 
     ! Collect parameter declarations for undeclared subroutine parameters
-    function collect_subroutine_parameter_decls(arena, sub, param_map) result(decl_code)
+    function collect_subroutine_parameter_decls(arena, sub, param_map) &
+        result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: sub
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -563,7 +564,7 @@ contains
             if (.not. allocated(arena%entries(param_idx)%node)) cycle
 
             has_declaration = subroutine_parameter_has_declaration(arena, sub, &
-                                                                    param_map, i)
+                                                                   param_map, i)
 
             if (.not. has_declaration .and. i <= size(param_map)) then
                 call append_parameter_declaration(arena, param_idx, param_map(i), &
@@ -659,7 +660,8 @@ contains
             integer :: pos_char
             pos_char = index(decl_line, 'character(len=:)')
             if (pos_char > 0) then
-                decl_line = decl_line(1:pos_char+13) // '*)' // decl_line(pos_char+17:)
+                decl_line = decl_line(1:pos_char + 13) // '*)' // &
+                            decl_line(pos_char + 17:)
             end if
         end block
         decl_code = decl_code // decl_line // new_line('A')
@@ -677,7 +679,7 @@ contains
         ! For parameters, convert character(len=:) to character(len=*)
         pos = index(param_type, 'character(len=:)')
         if (pos > 0) then
-            param_type = param_type(1:pos+13) // '*' // param_type(pos+16:)
+            param_type = param_type(1:pos + 13) // '*' // param_type(pos + 16:)
         end if
     end function get_param_type_from_identifier
 
@@ -762,10 +764,11 @@ contains
                 end select
             type is (print_statement_node)
                 call collect_vars_from_print(arena, stmt, param_map, local_vars, &
-                                            n_locals, capacity, result_name, decl_code)
+                                             n_locals, capacity, &
+                                             result_name, decl_code)
             type is (read_statement_node)
                 call collect_vars_from_read(arena, stmt, param_map, local_vars, &
-                                           n_locals, capacity, result_name, decl_code)
+                                            n_locals, capacity, result_name, decl_code)
             end select
         end do
     end function collect_local_variable_decls
@@ -827,7 +830,7 @@ contains
     end subroutine ensure_local_var_capacity
 
     subroutine collect_vars_from_print(arena, stmt, param_map, local_vars, &
-                                      n_locals, capacity, result_name, decl_code)
+                                       n_locals, capacity, result_name, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(print_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -866,7 +869,7 @@ contains
     end subroutine collect_vars_from_print
 
     subroutine collect_vars_from_read(arena, stmt, param_map, local_vars, &
-                                     n_locals, capacity, result_name, decl_code)
+                                      n_locals, capacity, result_name, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(read_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -933,10 +936,10 @@ contains
             type is (declaration_node)
                 if (allocated(stmt%var_names)) then
                     call add_declared_vars(stmt%var_names, declared_vars, &
-                                          n_declared, decl_capacity)
+                                           n_declared, decl_capacity)
                 else if (allocated(stmt%var_name)) then
                     call add_single_declared_var(stmt%var_name, declared_vars, &
-                                                n_declared, decl_capacity)
+                                                 n_declared, decl_capacity)
                 end if
             end select
         end do
@@ -960,7 +963,8 @@ contains
                     var_name = trim(target%name)
 
                     if (is_parameter_name(var_name, param_map)) cycle
-                    if (is_local_var_collected(var_name, declared_vars, n_declared)) cycle
+                    if (is_local_var_collected(var_name, declared_vars, &
+                                               n_declared)) cycle
 
                     if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
                         then
@@ -980,19 +984,19 @@ contains
                 end select
             type is (print_statement_node)
                 call collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
-                                                n_locals, capacity, declared_vars, &
-                                                n_declared, decl_code)
+                                                 n_locals, capacity, declared_vars, &
+                                                 n_declared, decl_code)
             type is (read_statement_node)
                 call collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
-                                               n_locals, capacity, declared_vars, &
-                                               n_declared, decl_code)
+                                                n_locals, capacity, declared_vars, &
+                                                n_declared, decl_code)
             end select
         end do
     end function collect_subroutine_local_variable_decls
 
     subroutine collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
-                                          n_locals, capacity, declared_vars, &
-                                          n_declared, decl_code)
+                                           n_locals, capacity, declared_vars, &
+                                           n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(print_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -1032,8 +1036,8 @@ contains
     end subroutine collect_vars_from_print_sub
 
     subroutine collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
-                                         n_locals, capacity, declared_vars, &
-                                         n_declared, decl_code)
+                                          n_locals, capacity, declared_vars, &
+                                          n_declared, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(read_statement_node), intent(in) :: stmt
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -1081,7 +1085,7 @@ contains
         do i = 1, size(var_names)
             if (len_trim(var_names(i)) == 0) cycle
             if (.not. is_local_var_collected(trim(var_names(i)), declared_vars, &
-                                            n_declared)) then
+                                             n_declared)) then
                 call ensure_local_var_capacity(declared_vars, capacity, n_declared + 1)
                 n_declared = n_declared + 1
                 declared_vars(n_declared) = trim(var_names(i))
