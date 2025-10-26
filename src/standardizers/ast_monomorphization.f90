@@ -2,10 +2,10 @@ module ast_monomorphization
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, call_or_subscript_node, &
                               create_program
-    use ast_nodes_procedure, only: function_def_node, &
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    get_procedure_name, get_procedure_params, &
                                    get_procedure_body, get_procedure_return_type, &
-                                   create_function_def
+                                   create_function_def, create_subroutine_def
     use ast_nodes_data, only: module_node, parameter_declaration_node, &
                               declaration_node, create_module
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
@@ -84,11 +84,8 @@ contains
         character(len=*), allocatable, intent(inout) :: module_names(:)
         integer, allocatable, intent(inout) :: program_indices(:)
         integer, intent(inout) :: program_count
-        integer :: i, j, child_idx
-        character(len=:), allocatable :: func_name
-        type(type_signature_t), allocatable :: func_sigs(:)
-        integer, allocatable :: variant_indices(:)
-        integer :: interface_idx, mod_proc_idx, mod_idx
+        integer :: i, child_idx
+        logical :: handled
 
         do i = 1, size(root_prog%body_indices)
             child_idx = root_prog%body_indices(i)
@@ -97,47 +94,12 @@ contains
 
             select type (node => arena%entries(child_idx)%node)
             type is (function_def_node)
-                func_name = get_function_name(arena, child_idx)
-                func_sigs = get_function_signatures(signatures, func_name)
-
-                if (size(func_sigs) <= 1) then
+                call process_specializable_procedure(child_idx, node%name, .true., &
+                    handled)
+                if (.not. handled) then
                     preserved_count = preserved_count + 1
                     preserved_indices(preserved_count) = child_idx
-                    if (allocated(func_sigs)) deallocate (func_sigs)
-                    cycle
                 end if
-
-                allocate (variant_indices(size(func_sigs)))
-                do j = 1, size(func_sigs)
-                    variant_indices(j) = clone_function_with_signature( &
-                        arena, child_idx, func_sigs(j))
-                end do
-
-                mod_proc_idx = create_module_procedure_node( &
-                    arena, func_name, variant_indices)
-                interface_idx = create_interface_node( &
-                    arena, func_name, mod_proc_idx)
-                mod_idx = create_module_for_function( &
-                    arena, func_name, interface_idx, variant_indices)
-
-                module_count = module_count + 1
-                if (module_count > size(module_indices)) then
-                    call resize_integer_array(module_indices, module_count * 2)
-                end if
-                if (module_count > size(module_names)) then
-                    call resize_character_array(module_names, module_count * 2)
-                end if
-                module_indices(module_count) = mod_idx
-                module_names(module_count) = adjustl("auto_" // trim(func_name))
-
-                call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
-                call set_parent_if_valid(arena, interface_idx, mod_idx)
-                do j = 1, size(variant_indices)
-                    call set_parent_if_valid(arena, variant_indices(j), mod_idx)
-                end do
-
-                if (allocated(func_sigs)) deallocate (func_sigs)
-                if (allocated(variant_indices)) deallocate (variant_indices)
             type is (program_node)
                 if (trim(node%name) /= "__MULTI_UNIT__") then
                     program_count = program_count + 1
@@ -145,11 +107,75 @@ contains
                 end if
                 preserved_count = preserved_count + 1
                 preserved_indices(preserved_count) = child_idx
+            type is (subroutine_def_node)
+                call process_specializable_procedure(child_idx, node%name, .false., &
+                    handled)
+                if (.not. handled) then
+                    preserved_count = preserved_count + 1
+                    preserved_indices(preserved_count) = child_idx
+                end if
             class default
                 preserved_count = preserved_count + 1
                 preserved_indices(preserved_count) = child_idx
             end select
         end do
+    contains
+
+        subroutine process_specializable_procedure(proc_idx, proc_name, is_function, &
+                                                   handled)
+            integer, intent(in) :: proc_idx
+            character(len=*), intent(in) :: proc_name
+            logical, intent(in) :: is_function
+            logical, intent(out) :: handled
+            type(type_signature_t), allocatable :: proc_sigs(:)
+            integer, allocatable :: variant_indices(:)
+            integer :: interface_idx, mod_proc_idx, mod_idx
+            integer :: j
+
+            proc_sigs = get_procedure_signatures(signatures, proc_name)
+            if (size(proc_sigs) <= 1) then
+                handled = .false.
+                if (allocated(proc_sigs)) deallocate (proc_sigs)
+                return
+            end if
+
+            handled = .true.
+            allocate (variant_indices(size(proc_sigs)))
+            do j = 1, size(proc_sigs)
+                if (is_function) then
+                    variant_indices(j) = clone_function_with_signature( &
+                        arena, proc_idx, proc_sigs(j))
+                else
+                    variant_indices(j) = clone_subroutine_with_signature( &
+                        arena, proc_idx, proc_sigs(j))
+                end if
+            end do
+
+            mod_proc_idx = create_module_procedure_node(arena, proc_name, &
+                variant_indices)
+            interface_idx = create_interface_node(arena, proc_name, mod_proc_idx)
+            mod_idx = create_module_for_function(arena, proc_name, interface_idx, &
+                                                 variant_indices)
+
+            module_count = module_count + 1
+            if (module_count > size(module_indices)) then
+                call resize_integer_array(module_indices, module_count * 2)
+            end if
+            if (module_count > size(module_names)) then
+                call resize_character_array(module_names, module_count * 2)
+            end if
+            module_indices(module_count) = mod_idx
+            module_names(module_count) = adjustl("auto_" // trim(proc_name))
+
+            call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
+            call set_parent_if_valid(arena, interface_idx, mod_idx)
+            do j = 1, size(variant_indices)
+                call set_parent_if_valid(arena, variant_indices(j), mod_idx)
+            end do
+
+            if (allocated(proc_sigs)) deallocate (proc_sigs)
+            if (allocated(variant_indices)) deallocate (variant_indices)
+        end subroutine process_specializable_procedure
     end subroutine process_program_body_children
 
     subroutine finalize_monomorphized_root(arena, root_index, root_prog, &
@@ -385,32 +411,105 @@ contains
         type(function_def_node), pointer, intent(in) :: orig_func
         type(type_signature_t), intent(in) :: signature
         integer, allocatable :: new_param_indices(:)
-        integer :: i
 
-        if (allocated(orig_func%param_indices)) then
-            allocate (new_param_indices(size(orig_func%param_indices)))
-            do i = 1, size(orig_func%param_indices)
-                if (allocated(signature%param_type_strings)) then
-                    if (size(signature%param_type_strings) >= i) then
-                        new_param_indices(i) = clone_parameter_with_kind( &
-                            arena, orig_func%param_indices(i), &
-                            signature%param_kinds(i), &
-                            signature%param_type_strings(i))
-                    else
-                        new_param_indices(i) = clone_parameter_with_kind( &
-                            arena, orig_func%param_indices(i), &
-                            signature%param_kinds(i))
-                    end if
-                else
-                    new_param_indices(i) = clone_parameter_with_kind( &
-                        arena, orig_func%param_indices(i), &
-                        signature%param_kinds(i))
-                end if
-            end do
-        else
-            allocate (new_param_indices(0))
-        end if
+        new_param_indices = clone_parameter_list(arena, orig_func%param_indices, &
+                                                 signature)
     end function clone_function_parameters
+
+    function clone_parameter_list(arena, param_indices, signature) &
+        result(new_param_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(in) :: param_indices(:)
+        type(type_signature_t), intent(in) :: signature
+        integer, allocatable :: new_param_indices(:)
+        integer :: count, i
+        integer :: kind_value
+
+        if (.not. allocated(param_indices)) then
+            allocate (new_param_indices(0))
+            return
+        end if
+
+        count = size(param_indices)
+        allocate (new_param_indices(count))
+
+        do i = 1, count
+            if (allocated(signature%param_kinds)) then
+                if (i <= size(signature%param_kinds)) then
+                    kind_value = signature%param_kinds(i)
+                else
+                    kind_value = signature%param_kinds(size(signature%param_kinds))
+                end if
+            else
+                kind_value = 0
+            end if
+
+            if (allocated(signature%param_type_strings)) then
+                if (i <= size(signature%param_type_strings)) then
+                    new_param_indices(i) = clone_parameter_with_kind( &
+                        arena, param_indices(i), kind_value, &
+                        signature%param_type_strings(i))
+                    cycle
+                end if
+            end if
+
+            new_param_indices(i) = clone_parameter_with_kind( &
+                arena, param_indices(i), kind_value)
+        end do
+    end function clone_parameter_list
+
+    function clone_subroutine_with_signature(arena, sub_idx, signature) &
+        result(new_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: sub_idx
+        type(type_signature_t), intent(in) :: signature
+        integer :: new_idx
+        type(subroutine_def_node), pointer :: orig_subr
+        type(subroutine_def_node) :: new_subr
+        integer, allocatable :: new_param_indices(:)
+        integer, allocatable :: body_indices_copy(:)
+        character(len=:), allocatable :: mangled_name
+
+        call get_subroutine_node(arena, sub_idx, orig_subr)
+        if (.not. associated(orig_subr)) then
+            new_idx = 0
+            return
+        end if
+
+        if (allocated(signature%param_type_strings)) then
+            mangled_name = mangle_procedure_name(orig_subr%name, &
+                signature%param_kinds, signature%param_type_strings)
+        else
+            mangled_name = mangle_procedure_name(orig_subr%name, &
+                signature%param_kinds)
+        end if
+
+        new_param_indices = clone_parameter_list(arena, orig_subr%param_indices, &
+                                                 signature)
+
+        if (allocated(orig_subr%body_indices)) then
+            allocate (body_indices_copy(size(orig_subr%body_indices)))
+            body_indices_copy = orig_subr%body_indices
+        else
+            allocate (body_indices_copy(0))
+        end if
+
+        new_subr = create_subroutine_def( &
+            name=mangled_name, &
+            param_indices=new_param_indices, &
+            body_indices=body_indices_copy, &
+            line=orig_subr%line, &
+            column=orig_subr%column, &
+            prefix_keywords=orig_subr%prefix_keywords, &
+            is_recursive=orig_subr%is_recursive)
+        new_subr%inferred_type = orig_subr%inferred_type
+        if (allocated(orig_subr%bind_c_clause)) then
+            new_subr%bind_c_clause = orig_subr%bind_c_clause
+        end if
+
+        call arena%push(new_subr)
+        new_idx = arena%size
+    end function clone_subroutine_with_signature
 
     function determine_result_name(orig_func, mangled_name) result(result_name)
         type(function_def_node), pointer, intent(in) :: orig_func
@@ -569,7 +668,8 @@ contains
 
         allocate (proc_names(size(variant_indices)))
         do i = 1, size(variant_indices)
-            proc_names(i)%s = get_function_name(arena, variant_indices(i))
+            proc_names(i)%s = get_procedure_name_from_arena(arena, &
+                variant_indices(i))
         end do
 
         mod_proc = create_module_procedure(proc_names)
@@ -856,20 +956,18 @@ contains
         end select
     end function get_actual_kind_value
 
-    function get_function_signatures(signatures, func_name) result(sigs)
+    function get_procedure_signatures(signatures, proc_name) result(sigs)
         type(signatures_map_t), intent(in) :: signatures
-        character(len=*), intent(in) :: func_name
+        character(len=*), intent(in) :: proc_name
         type(type_signature_t), allocatable :: sigs(:)
         integer :: num_sigs
 
-        ! Use the type-bound procedure to get signatures
-        num_sigs = signatures%get_signatures(func_name, sigs)
+        num_sigs = signatures%get_signatures(proc_name, sigs)
 
-        ! If no signatures found, allocate empty array
         if (num_sigs == 0 .and. .not. allocated(sigs)) then
             allocate (sigs(0))
         end if
-    end function get_function_signatures
+    end function get_procedure_signatures
 
     subroutine get_program_node(arena, idx, node_ptr)
         type(ast_arena_t), intent(inout) :: arena
@@ -900,6 +998,21 @@ contains
             node_ptr => n
         end select
     end subroutine get_function_node
+
+    subroutine get_subroutine_node(arena, idx, node_ptr)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx
+        type(subroutine_def_node), pointer, intent(out) :: node_ptr
+
+        nullify (node_ptr)
+        if (idx < 1 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (n => arena%entries(idx)%node)
+        type is (subroutine_def_node)
+            node_ptr => n
+        end select
+    end subroutine get_subroutine_node
 
     subroutine get_call_node(arena, idx, node_ptr)
         type(ast_arena_t), intent(inout) :: arena
@@ -959,6 +1072,23 @@ contains
             name = ""
         end if
     end function get_function_name
+
+    function get_procedure_name_from_arena(arena, idx) result(name)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: idx
+        character(len=:), allocatable :: name
+
+        if (idx < 1 .or. idx > arena%size) then
+            name = ""
+            return
+        end if
+        if (.not. allocated(arena%entries(idx)%node)) then
+            name = ""
+            return
+        end if
+
+        name = get_procedure_name(arena%entries(idx)%node)
+    end function get_procedure_name_from_arena
 
     subroutine resize_integer_array(arr, new_size)
         integer, allocatable, intent(inout) :: arr(:)
