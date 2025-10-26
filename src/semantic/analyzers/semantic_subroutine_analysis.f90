@@ -30,67 +30,91 @@ contains
         character(len=64), allocatable, intent(out) :: stored_names(:)
         integer, intent(inout) :: next_var_id
 
-        integer :: i, arg_idx
-        type(mono_type_t) :: temp_type, inferred_arg_type
-        character(len=64) :: param_name, trimmed_name
+        integer :: i
+        type(mono_type_t) :: temp_type
+        character(len=64) :: param_name
+        character(len=64) :: stored_name
 
         allocate (param_types(size(sub_node%param_indices)))
         allocate (stored_names(size(sub_node%param_indices)))
 
         do i = 1, size(sub_node%param_indices)
-            param_name = ''
-            temp_type%kind = 0
-            if (sub_node%param_indices(i) > 0 .and. &
-                sub_node%param_indices(i) <= arena%size) then
-                arg_idx = sub_node%param_indices(i)
-                if (allocated(arena%entries(arg_idx)%node)) then
-                    select type (arg => arena%entries(arg_idx)%node)
-                    type is (identifier_node)
-                        if (allocated(arg%name)) then
-                            param_name = arg%name
-                            temp_type = arg%inferred_type
-                        end if
-                    type is (parameter_declaration_node)
-                        if (allocated(arg%name)) then
-                            param_name = arg%name
-                            temp_type = arg%inferred_type
-                        end if
-                    type is (declaration_node)
-                        if (allocated(arg%var_name)) then
-                            param_name = arg%var_name
-                            if (allocated(arg%type_name) .and. &
-                                len_trim(arg%type_name) > 0) then
-                                temp_type = declaration_type_to_mono(arg%type_name)
-                            else
-                                temp_type = arg%inferred_type
-                            end if
-                        end if
-                    end select
-                end if
-            end if
-
-            trimmed_name = trim(param_name)
-            if (len_trim(trimmed_name) == 0) then
-                trimmed_name = 'arg' // trim(int_to_str(i))
-            end if
-            stored_names(i) = trimmed_name
-
-            if (temp_type%kind == 0) then
-                if (len_trim(trimmed_name) > 0) then
-                    inferred_arg_type = infer_type_from_usage_context(trimmed_name, &
-                                                                      next_var_id)
-                    param_types(i) = inferred_arg_type
-                else
-                    param_types(i) = create_mono_type(TVAR, &
-                                                      var=create_type_var(next_var_id, &
-                                                                          "p"))
-                    next_var_id = next_var_id + 1
-                end if
-            else
-                param_types(i) = temp_type
-            end if
+            call gather_subroutine_param_seed(arena, sub_node%param_indices(i), &
+                                              param_name, temp_type)
+            stored_name = derive_stored_param_name(param_name, i)
+            stored_names(i) = stored_name
+            call initialize_param_type(param_types(i), stored_name, temp_type, &
+                                       next_var_id)
         end do
     end subroutine extract_subroutine_param_info
+
+    subroutine gather_subroutine_param_seed(arena, entry_index, param_name, seed_type)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: entry_index
+        character(len=64), intent(out) :: param_name
+        type(mono_type_t), intent(out) :: seed_type
+
+        param_name = ''
+        seed_type%kind = 0
+        if (entry_index <= 0 .or. entry_index > arena%size) return
+        if (.not. allocated(arena%entries(entry_index)%node)) return
+
+        select type (arg => arena%entries(entry_index)%node)
+        type is (identifier_node)
+            if (allocated(arg%name)) then
+                param_name = arg%name
+                seed_type = arg%inferred_type
+            end if
+        type is (parameter_declaration_node)
+            if (allocated(arg%name)) then
+                param_name = arg%name
+                seed_type = arg%inferred_type
+            end if
+        type is (declaration_node)
+            if (allocated(arg%var_name)) then
+                param_name = arg%var_name
+                if (allocated(arg%type_name) .and. len_trim(arg%type_name) > 0) then
+                    seed_type = declaration_type_to_mono(arg%type_name)
+                else
+                    seed_type = arg%inferred_type
+                end if
+            end if
+        end select
+    end subroutine gather_subroutine_param_seed
+
+    function derive_stored_param_name(candidate_name, index) result(resolved_name)
+        character(len=*), intent(in) :: candidate_name
+        integer, intent(in) :: index
+        character(len=64) :: resolved_name
+        character(len=:), allocatable :: fallback
+
+        resolved_name = trim(candidate_name)
+        if (len_trim(resolved_name) > 0) return
+        fallback = 'arg' // trim(int_to_str(index))
+        resolved_name = fallback
+    end function derive_stored_param_name
+
+    subroutine initialize_param_type(param_type, param_name, seed_type, next_var_id)
+        type(mono_type_t), intent(out) :: param_type
+        character(len=*), intent(in) :: param_name
+        type(mono_type_t), intent(in) :: seed_type
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: inferred_arg_type
+
+        if (seed_type%kind == 0) then
+            if (len_trim(param_name) > 0) then
+                inferred_arg_type = infer_type_from_usage_context(param_name, &
+                                                                  next_var_id)
+                param_type = inferred_arg_type
+            else
+                param_type = create_mono_type(TVAR, &
+                                              var=create_type_var(next_var_id, "p"))
+                next_var_id = next_var_id + 1
+            end if
+        else
+            param_type = seed_type
+        end if
+    end subroutine initialize_param_type
 
     subroutine update_subroutine_param_nodes(arena, sub_node, param_types, &
                                              stored_names)
@@ -150,48 +174,89 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         integer, intent(inout) :: next_var_id
 
-        integer :: i, arg_idx, call_idx
-        type(mono_type_t) :: inferred_arg_type, literal_type
+        integer :: call_idx
 
         do call_idx = 1, arena%size
-            if (.not. allocated(arena%entries(call_idx)%node)) cycle
-            select type (call_node => arena%entries(call_idx)%node)
-            type is (subroutine_call_node)
-                if (.not. allocated(call_node%name)) cycle
-                if (trim(call_node%name) /= subroutine_name) cycle
-                if (.not. allocated(call_node%arg_indices)) cycle
-                do i = 1, min(size(call_node%arg_indices), size(param_types))
-                    arg_idx = call_node%arg_indices(i)
-                    if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(arg_idx)%node)) cycle
-                    select type (arg_node => arena%entries(arg_idx)%node)
-                    type is (literal_node)
-                        literal_type = literal_numeric_type(arg_node)
-                        call merge_parameter_type(param_types(i), literal_type)
-                    type is (identifier_node)
-                        call merge_parameter_type(param_types(i), &
-                                                  arg_node%inferred_type)
-                        inferred_arg_type = &
-     &                    infer_identifier_type_from_context(arena, arg_node%name, &
-     &                    param_names, param_types, scopes, arg_idx, next_var_id)
-                        call merge_parameter_type(param_types(i), &
-                                                  inferred_arg_type)
-                    type is (call_or_subscript_node)
-                        call merge_parameter_type(param_types(i), &
-                                                  arg_node%inferred_type)
-                    end select
-
-                    inferred_arg_type = &
-     &                infer_expression_type_static(arena, arg_idx, param_names, &
-     &                param_types)
-                    if (inferred_arg_type%kind /= 0) then
-                        call merge_parameter_type(param_types(i), &
-                                                  inferred_arg_type)
-                    end if
-                end do
-            end select
+            call update_param_types_from_call(arena, call_idx, subroutine_name, &
+                                              param_names, param_types, scopes, &
+                                              next_var_id)
         end do
     end subroutine infer_subroutine_param_types_from_calls
+
+    subroutine update_param_types_from_call(arena, call_idx, subroutine_name, &
+                                            param_names, param_types, scopes, &
+                                            next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: call_idx
+        character(len=*), intent(in) :: subroutine_name
+        character(len=64), allocatable, intent(inout) :: param_names(:)
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+        integer :: arg_limit
+        integer :: i
+        integer :: arg_idx
+
+        if (.not. allocated(arena%entries(call_idx)%node)) return
+
+        select type (call_node => arena%entries(call_idx)%node)
+        type is (subroutine_call_node)
+            if (.not. allocated(call_node%name)) return
+            if (trim(call_node%name) /= subroutine_name) return
+            if (.not. allocated(call_node%arg_indices)) return
+
+            arg_limit = min(size(call_node%arg_indices), size(param_types))
+            do i = 1, arg_limit
+                arg_idx = call_node%arg_indices(i)
+                call update_param_type_from_argument(arena, arg_idx, i, &
+                                                     param_names, param_types, &
+                                                     scopes, next_var_id)
+            end do
+        end select
+    end subroutine update_param_types_from_call
+
+    subroutine update_param_type_from_argument(arena, arg_idx, param_index, &
+                                               param_names, param_types, scopes, &
+                                               next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: arg_idx
+        integer, intent(in) :: param_index
+        character(len=64), allocatable, intent(inout) :: param_names(:)
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: inferred_arg_type
+        type(mono_type_t) :: literal_type
+
+        if (param_index <= 0) return
+        if (param_index > size(param_types)) return
+        if (arg_idx <= 0 .or. arg_idx > arena%size) return
+        if (.not. allocated(arena%entries(arg_idx)%node)) return
+
+        select type (arg_node => arena%entries(arg_idx)%node)
+        type is (literal_node)
+            literal_type = literal_numeric_type(arg_node)
+            call merge_parameter_type(param_types(param_index), literal_type)
+        type is (identifier_node)
+            call merge_parameter_type(param_types(param_index), arg_node%inferred_type)
+            inferred_arg_type = infer_identifier_type_from_context(arena, &
+                                                                   arg_node%name, &
+                                                                   param_names, &
+                                                                   param_types, &
+                                                                   scopes, &
+                                                                   arg_idx, &
+                                                                   next_var_id)
+            call merge_parameter_type(param_types(param_index), inferred_arg_type)
+        type is (call_or_subscript_node)
+            call merge_parameter_type(param_types(param_index), arg_node%inferred_type)
+        end select
+
+        inferred_arg_type = infer_expression_type_static(arena, arg_idx, param_names, &
+                                                         param_types)
+        if (inferred_arg_type%kind /= 0) then
+            call merge_parameter_type(param_types(param_index), inferred_arg_type)
+        end if
+    end subroutine update_param_type_from_argument
 
     subroutine analyze_subroutine_parameters(arena, sub_node, param_types, &
                                              param_names, scopes, next_var_id)
