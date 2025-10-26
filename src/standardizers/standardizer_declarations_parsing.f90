@@ -13,27 +13,10 @@ module standardizer_declarations_parsing
 
 contains
 
-    subroutine apply_type_string_to_decl(arena, prog_index, var_name, &
-                                         var_type, decl_node)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: prog_index
-        character(len=*), intent(in) :: var_name, var_type
-        type(declaration_node), intent(inout) :: decl_node
-        integer :: dim_pos
-        logical :: has_dimension_attr
-        character(len=:), allocatable :: lowered_type
-        character(len=:), allocatable :: base_part
-        character(len=:), allocatable :: attr_part
-        character(len=:), allocatable :: filtered_attr
-        character(len=:), allocatable :: attr_trim
-        character(len=:), allocatable :: component
-        character(len=:), allocatable :: lowered_component
-        integer :: comma_pos, paren_pos, close_pos
-        integer :: kind_val, ios
-        integer :: comp_start, comp_end, local_comma
-
-        has_dimension_attr = .false.
-        lowered_type = to_lower(var_type)
+    subroutine parse_base_and_attributes(var_type, base_part, attr_part)
+        character(len=*), intent(in) :: var_type
+        character(len=:), allocatable, intent(out) :: base_part, attr_part
+        integer :: comma_pos
 
         comma_pos = index(var_type, ',')
         if (comma_pos > 0) then
@@ -43,6 +26,12 @@ contains
             base_part = trim(var_type)
             attr_part = ''
         end if
+    end subroutine parse_base_and_attributes
+
+    subroutine extract_kind_from_base(base_part, decl_node)
+        character(len=:), allocatable, intent(inout) :: base_part
+        type(declaration_node), intent(inout) :: decl_node
+        integer :: paren_pos, close_pos, kind_val, ios
 
         decl_node%has_kind = .false.
         decl_node%kind_value = 0
@@ -64,62 +53,100 @@ contains
                 end if
             end if
         end if
+    end subroutine extract_kind_from_base
 
-        decl_node%type_name = trim(base_part)
+    subroutine remove_dimension_attrs(attr_part, filtered_attr)
+        character(len=:), allocatable, intent(inout) :: attr_part
+        character(len=:), allocatable, intent(out) :: filtered_attr
+        character(len=:), allocatable :: attr_trim, lowered_component
+        integer :: dim_pos, comp_start, comp_end, local_comma
+
         filtered_attr = ""
-        if (len_trim(attr_part) > 0) then
-            attr_trim = trim(attr_part)
-            if (len_trim(attr_trim) > 0) then
-                lowered_component = to_lower(attr_trim)
-                do
-                    dim_pos = index(lowered_component, 'dimension(')
-                    if (dim_pos == 0) exit
-                    comp_start = dim_pos
-                    comp_end = comp_start + len('dimension(')
-                    local_comma = 1
-                    do while (comp_end <= len(lowered_component) .and. &
-                              local_comma > 0)
-                        select case (lowered_component(comp_end:comp_end))
-                        case ('(')
-                            local_comma = local_comma + 1
-                        case (')')
-                            local_comma = local_comma - 1
-                        end select
-                        comp_end = comp_end + 1
-                    end do
-                    comp_end = comp_end - 1
-                    if (comp_end < comp_start) exit
-                    attr_trim = attr_trim(:comp_start - 1) // &
-                                attr_trim(comp_end + 1:)
-                    lowered_component = to_lower(attr_trim)
-                end do
+        if (len_trim(attr_part) == 0) return
 
-                attr_trim = trim(attr_trim)
-                if (len_trim(attr_trim) > 0) then
-                    comp_start = 1
-                    do
-                        if (comp_start > len_trim(attr_trim)) exit
-                        local_comma = index(attr_trim(comp_start:), ',')
-                        if (local_comma > 0) then
-                            comp_end = comp_start + local_comma - 2
-                        else
-                            comp_end = len_trim(attr_trim)
-                        end if
-                        if (comp_end >= comp_start) then
-                            component = trim(attr_trim(comp_start:comp_end))
-                            if (len_trim(component) > 0) then
-                                if (len_trim(filtered_attr) > 0) then
-                                    filtered_attr = filtered_attr // ', '
-                                end if
-                                filtered_attr = filtered_attr // component
-                            end if
-                        end if
-                        if (local_comma == 0) exit
-                        comp_start = comp_end + 2
-                    end do
+        attr_trim = trim(attr_part)
+        if (len_trim(attr_trim) == 0) return
+
+        lowered_component = to_lower(attr_trim)
+        do
+            dim_pos = index(lowered_component, 'dimension(')
+            if (dim_pos == 0) exit
+            comp_start = dim_pos
+            comp_end = comp_start + len('dimension(')
+            local_comma = 1
+            do while (comp_end <= len(lowered_component) .and. local_comma > 0)
+                select case (lowered_component(comp_end:comp_end))
+                case ('(')
+                    local_comma = local_comma + 1
+                case (')')
+                    local_comma = local_comma - 1
+                end select
+                comp_end = comp_end + 1
+            end do
+            comp_end = comp_end - 1
+            if (comp_end < comp_start) exit
+            attr_trim = attr_trim(:comp_start - 1) // attr_trim(comp_end + 1:)
+            lowered_component = to_lower(attr_trim)
+        end do
+
+        attr_part = attr_trim
+    end subroutine remove_dimension_attrs
+
+    subroutine build_filtered_attrs(attr_part, filtered_attr)
+        character(len=:), allocatable, intent(in) :: attr_part
+        character(len=:), allocatable, intent(inout) :: filtered_attr
+        character(len=:), allocatable :: attr_trim, component
+        integer :: comp_start, comp_end, local_comma
+
+        attr_trim = trim(attr_part)
+        if (len_trim(attr_trim) == 0) return
+
+        comp_start = 1
+        do
+            if (comp_start > len_trim(attr_trim)) exit
+            local_comma = index(attr_trim(comp_start:), ',')
+            if (local_comma > 0) then
+                comp_end = comp_start + local_comma - 2
+            else
+                comp_end = len_trim(attr_trim)
+            end if
+            if (comp_end >= comp_start) then
+                component = trim(attr_trim(comp_start:comp_end))
+                if (len_trim(component) > 0) then
+                    if (len_trim(filtered_attr) > 0) then
+                        filtered_attr = filtered_attr // ', '
+                    end if
+                    filtered_attr = filtered_attr // component
                 end if
             end if
-        end if
+            if (local_comma == 0) exit
+            comp_start = comp_end + 2
+        end do
+    end subroutine build_filtered_attrs
+
+    subroutine apply_type_string_to_decl(arena, prog_index, var_name, &
+                                         var_type, decl_node)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: prog_index
+        character(len=*), intent(in) :: var_name, var_type
+        type(declaration_node), intent(inout) :: decl_node
+        integer :: dim_pos
+        logical :: has_dimension_attr
+        character(len=:), allocatable :: lowered_type
+        character(len=:), allocatable :: base_part
+        character(len=:), allocatable :: attr_part
+        character(len=:), allocatable :: filtered_attr
+
+        has_dimension_attr = .false.
+        lowered_type = to_lower(var_type)
+
+        call parse_base_and_attributes(var_type, base_part, attr_part)
+        call extract_kind_from_base(base_part, decl_node)
+
+        decl_node%type_name = trim(base_part)
+        call remove_dimension_attrs(attr_part, filtered_attr)
+        call build_filtered_attrs(attr_part, filtered_attr)
+
         if (len_trim(filtered_attr) > 0) then
             decl_node%type_name = trim(decl_node%type_name) // ', ' // &
                                   trim(filtered_attr)
