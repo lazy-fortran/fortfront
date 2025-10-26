@@ -58,12 +58,160 @@ contains
         code = code // indent_str // stmt_code // new_line('A')
     end subroutine process_procedure_def
 
+    pure logical function is_valid_body_entry(arena, idx) result(valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        if (idx <= 0) then
+            valid = .false.
+            return
+        end if
+        if (idx > arena%size) then
+            valid = .false.
+            return
+        end if
+        if (.not. allocated(arena%entries(idx)%node)) then
+            valid = .false.
+            return
+        end if
+
+        valid = .true.
+    end function is_valid_body_entry
+
+    subroutine handle_contains_entry(in_contains_section, code, i)
+        logical, intent(inout) :: in_contains_section
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(inout) :: i
+
+        in_contains_section = .true.
+        code = code // "contains" // new_line('A')
+        i = i + 1
+    end subroutine handle_contains_entry
+
+    subroutine handle_end_statement(i)
+        integer, intent(inout) :: i
+
+        i = i + 1
+    end subroutine handle_end_statement
+
+    subroutine handle_procedure_entry(arena, body_indices, i, indent_str, &
+                                      in_contains_section, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(inout) :: i
+        character(len=*), intent(in) :: indent_str
+        logical, intent(in) :: in_contains_section
+        character(len=:), allocatable, intent(inout) :: code
+
+        call process_procedure_def(arena, body_indices(i), indent_str, &
+                                   in_contains_section, i, code)
+        i = i + 1
+    end subroutine handle_procedure_entry
+
+    subroutine handle_declaration_entry(node, arena, body_indices, i, indent, &
+                                        indent_str, in_contains_section, code)
+        type(declaration_node), intent(in) :: node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(inout) :: i
+        integer, intent(in) :: indent
+        character(len=*), intent(in) :: indent_str
+        logical, intent(in) :: in_contains_section
+        character(len=:), allocatable, intent(inout) :: code
+
+        if (is_type_definition_declaration(node)) then
+            i = i + 1
+            return
+        end if
+        if (.not. in_contains_section .and. node%initializer_index == 0) then
+            call process_grouped_declarations(arena, body_indices, i, indent_str, &
+                                              code)
+        else
+            call process_single_statement(arena, body_indices(i), indent, code)
+            i = i + 1
+        end if
+    end subroutine handle_declaration_entry
+
+    subroutine handle_comment_entry(arena, idx, code, i)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(inout) :: i
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, idx)
+        code = code // stmt_code // new_line('A')
+        i = i + 1
+    end subroutine handle_comment_entry
+
+    subroutine handle_blank_line_entry(code, i)
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(inout) :: i
+
+        code = code // new_line('A')
+        i = i + 1
+    end subroutine handle_blank_line_entry
+
+    subroutine handle_default_entry(arena, idx, indent, code, i)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        integer, intent(in) :: indent
+        character(len=:), allocatable, intent(inout) :: code
+        integer, intent(inout) :: i
+
+        call process_single_statement(arena, idx, indent, code)
+        i = i + 1
+    end subroutine handle_default_entry
+
+    subroutine process_body_entry(arena, body_indices, i, indent, indent_str, &
+                                  in_contains_section, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(inout) :: i
+        integer, intent(in) :: indent
+        character(len=*), intent(in) :: indent_str
+        logical, intent(inout) :: in_contains_section
+        character(len=:), allocatable, intent(inout) :: code
+
+        select type (node => arena%entries(body_indices(i))%node)
+        type is (contains_node)
+            call handle_contains_entry(in_contains_section, code, i)
+
+        type is (end_statement_node)
+            call handle_end_statement(i)
+
+        type is (function_def_node)
+            call handle_procedure_entry(arena, body_indices, i, indent_str, &
+                                        in_contains_section, code)
+
+        type is (subroutine_def_node)
+            call handle_procedure_entry(arena, body_indices, i, indent_str, &
+                                        in_contains_section, code)
+
+        type is (declaration_node)
+            call handle_declaration_entry(node, arena, body_indices, i, indent, &
+                                          indent_str, in_contains_section, code)
+
+        type is (parameter_declaration_node)
+            call process_grouped_parameters(arena, body_indices, i, &
+                                            indent_str, code)
+
+        type is (comment_node)
+            call handle_comment_entry(arena, body_indices(i), code, i)
+
+        type is (blank_line_node)
+            call handle_blank_line_entry(code, i)
+
+        class default
+            call handle_default_entry(arena, body_indices(i), indent, code, i)
+        end select
+    end subroutine process_body_entry
+
     function generate_grouped_body(arena, body_indices, indent) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: stmt_code
         character(len=:), allocatable :: indent_str
         integer :: i
         logical :: in_contains_section
@@ -74,65 +222,12 @@ contains
         i = 1
 
         do while (i <= size(body_indices))
-            if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) then
+            if (.not. is_valid_body_entry(arena, body_indices(i))) then
                 i = i + 1
                 cycle
             end if
-            if (.not. allocated(arena%entries(body_indices(i))%node)) then
-                i = i + 1
-                cycle
-            end if
-
-            select type (node => arena%entries(body_indices(i))%node)
-            type is (contains_node)
-                in_contains_section = .true.
-                code = code // "contains" // new_line('A')
-                i = i + 1
-
-            type is (end_statement_node)
-                i = i + 1
-
-            type is (function_def_node)
-                call process_procedure_def(arena, body_indices(i), indent_str, &
-                                           in_contains_section, i, code)
-                i = i + 1
-
-            type is (subroutine_def_node)
-                call process_procedure_def(arena, body_indices(i), indent_str, &
-                                           in_contains_section, i, code)
-                i = i + 1
-
-            type is (declaration_node)
-                if (is_type_definition_declaration(node)) then
-                    i = i + 1
-                    cycle
-                end if
-                if (.not. in_contains_section .and. node%initializer_index == 0) then
-                    call process_grouped_declarations(arena, body_indices, i, &
-                                                      indent_str, code)
-                else
-                    call process_single_statement(arena, body_indices(i), indent, &
-                                                  code)
-                    i = i + 1
-                end if
-
-            type is (parameter_declaration_node)
-                call process_grouped_parameters(arena, body_indices, i, &
-                                                indent_str, code)
-
-            type is (comment_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // stmt_code // new_line('A')
-                i = i + 1
-
-            type is (blank_line_node)
-                code = code // new_line('A')
-                i = i + 1
-
-            class default
-                call process_single_statement(arena, body_indices(i), indent, code)
-                i = i + 1
-            end select
+            call process_body_entry(arena, body_indices, i, indent, indent_str, &
+                                    in_contains_section, code)
         end do
     end function generate_grouped_body
 
