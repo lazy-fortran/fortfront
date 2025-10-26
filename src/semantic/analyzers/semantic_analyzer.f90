@@ -1,63 +1,88 @@
 module semantic_analyzer
     ! Core semantic analysis - split to comply with 1000-line limit (Issue #1593)
     use type_system_unified, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
-        substitution_t, allocation_info_t, create_mono_type, create_type_var, &
-        create_poly_type, create_fun_type, free_type_vars, compose_substitutions, &
-        occurs_check, TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY, TCOMPLEX, &
-        TDOUBLE, TDERIVED, type_args_allocated, type_args_size, type_args_element
+                                   substitution_t, allocation_info_t, &
+                                   create_mono_type, &
+                                   create_type_var, &
+                                   create_poly_type, create_fun_type, free_type_vars, &
+                                   compose_substitutions, &
+                                   occurs_check, TVAR, TINT, TREAL, TCHAR, TLOGICAL, &
+                                   TFUN, TARRAY, &
+                                   TCOMPLEX, &
+                                   TDOUBLE, TDERIVED, type_args_allocated, &
+                                   type_args_size, &
+                                   type_args_element
     use scope_manager
     use ast_arena_modern, only: ast_arena_t
     use semantic_inference_helpers, only: check_implicit_none
     use semantic_validation_utils, only: validate_array_bounds, &
-        check_shape_conformance, update_identifier_type_in_arena, int_to_str
+                                         check_shape_conformance, &
+                                         update_identifier_type_in_arena, int_to_str
     use semantic_function_analysis, only: infer_type_from_usage_context, &
-        analyze_function_parameters, determine_function_return_type, &
-        create_function_scope, analyze_subroutine_parameters, &
-        create_subroutine_scope
+                                          analyze_function_parameters, &
+                                          determine_function_return_type, &
+                                          create_function_scope, &
+                                          analyze_subroutine_parameters, &
+                                          create_subroutine_scope
     use semantic_type_operations, only: generate_fresh_type_var_op, &
-        apply_substitution_to_type, generalize_type_op, &
-        instantiate_type_scheme_op, get_common_type
+                                        apply_substitution_to_type, &
+                                        generalize_type_op, &
+                                        instantiate_type_scheme_op, get_common_type
     use semantic_assignment_inference, only: process_assignment_inference, &
-        ensure_var_declared_from_arena
+                                             ensure_var_declared_from_arena
     use semantic_binary_operations, only: infer_string_concatenation, &
-        infer_comparison_operation, infer_logical_operation
+                                          infer_comparison_operation, &
+                                          infer_logical_operation
     use semantic_inference_helpers, only: process_if_node_branches, &
-        process_do_while_node_body, process_where_node_clauses, &
-        process_where_stmt_node, process_forall_node_body, &
-        process_select_case_blocks, process_associate_node_body, &
-        process_stop_node_code, process_pause_node_code, &
-        process_nullify_node_code, process_declaration_variables
+                                          process_do_while_node_body, &
+                                          process_where_node_clauses, &
+                                          process_where_stmt_node, &
+                                          process_forall_node_body, &
+                                          process_select_case_blocks, &
+                                          process_associate_node_body, &
+                                          process_stop_node_code, &
+                                          process_pause_node_code, &
+                                          process_nullify_node_code, &
+                                          process_declaration_variables
     use parser_type_hooks_module, only: type_annotation_t, &
-        consume_type_annotations, has_type_annotations
+                                        consume_type_annotations, has_type_annotations
     use semantic_annotation_utils, only: type_from_annotation
     use semantic_literal_identifier, only: infer_literal_type, infer_identifier_type
     use semantic_binary_ops_core, only: infer_binary_operation, rewrite_operator
     use semantic_function_array, only: infer_function_call_type, &
-        infer_array_slice_type, infer_array_literal_type
+                                       infer_array_slice_type, infer_array_literal_type
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
-        assignment_node, call_or_subscript_node, array_literal_node, program_node
+                              assignment_node, call_or_subscript_node, &
+                              array_literal_node, &
+                              program_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
-        subroutine_def_node
+                                   subroutine_def_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, where_node, &
-        where_stmt_node, forall_node, select_case_node, case_block_node, &
-        associate_node, association_t, cycle_node, exit_node, stop_node, &
-        return_node, entry_node, continue_node, elsewhere_clause_t, pause_node, &
-        nullify_node
+                                 where_stmt_node, forall_node, select_case_node, &
+                                 case_block_node, &
+                                 associate_node, association_t, cycle_node, &
+                                 exit_node, &
+                                 stop_node, &
+                                 return_node, entry_node, continue_node, &
+                                 elsewhere_clause_t, &
+                                 pause_node, &
+                                 nullify_node
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
-        array_bounds_node, range_expression_node, get_array_slice_node
+                                array_bounds_node, range_expression_node, &
+                                get_array_slice_node
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node
     use ast_nodes_io, only: read_statement_node, print_statement_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
-        create_error_result, ERROR_SEMANTIC
+                              create_error_result, ERROR_SEMANTIC
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
     use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map, &
-        add_signature
+                                         add_signature
     implicit none
     private
 
@@ -371,7 +396,7 @@ contains
                 call finalize_node(node_index, local_type)
             type is (identifier_node)
                 local_type = infer_identifier_type(expr, this%scopes, this%errors, &
-                                                    this%strict_mode, this%next_var_id)
+                                                   this%strict_mode, this%next_var_id)
                 call finalize_node(node_index, local_type)
             type is (binary_op_node)
                 post_frame = current
@@ -405,7 +430,7 @@ contains
                 end if
             type is (array_slice_node)
                 local_type = infer_array_slice_type(arena, expr, &
-                                                     get_node_type_with_arena)
+                                                    get_node_type_with_arena)
                 call finalize_node(node_index, local_type)
             type is (subroutine_call_node)
                 post_frame = current
@@ -728,14 +753,14 @@ contains
                     left_t = get_node_type(expr%left_index)
                     right_t = get_node_type(expr%right_index)
                     node_type = infer_binary_operation(arena, node_index, expr, &
-                                                        left_t, right_t)
+                                                       left_t, right_t)
                     call this%unify(left_t, create_mono_type(TCHAR))
                     call this%unify(right_t, create_mono_type(TCHAR))
                 end block
                 call finalize_node(node_index, node_type)
             type is (call_or_subscript_node)
                 node_type = infer_function_call_type(arena, expr, this%scopes, &
-                                                      get_node_type_with_arena)
+                                                     get_node_type_with_arena)
                 call collect_call_signature(this, arena, expr, node_type, node_index)
                 call finalize_node(node_index, node_type)
             type is (subroutine_call_node)
@@ -764,7 +789,7 @@ contains
                 call finalize_node(node_index, node_type)
             type is (array_literal_node)
                 node_type = infer_array_literal_type(arena, expr, &
-                                                      get_node_type_with_arena)
+                                                     get_node_type_with_arena)
                 call finalize_node(node_index, node_type)
             type is (if_node)
                 call process_if_node_branches(expr, node_type)
@@ -1067,8 +1092,6 @@ contains
         end do
     end function semantic_get_type_hint
 
-
-
     function infer_assignment(ctx, arena, assignment, assignment_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -1079,6 +1102,7 @@ contains
         integer :: lhs_index
         lhs_index = assignment%target_index
         expr_typ = get_inferred_type_from_arena(ctx, arena, assignment%value_index)
+        call ensure_string_literal_type(arena, assignment%value_index, expr_typ)
         updated_expr_typ = expr_typ
 
         ! Use extracted assignment processing
@@ -1234,13 +1258,80 @@ contains
         end do
     end subroutine infer_allocate_statement
 
+    subroutine ensure_string_literal_type(arena, value_index, expr_typ)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: value_index
+        type(mono_type_t), intent(inout) :: expr_typ
+        integer :: literal_length
+
+        if (value_index <= 0) return
+        if (value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+
+        select type (value_node => arena%entries(value_index)%node)
+        type is (literal_node)
+            if (value_node%literal_kind == LITERAL_STRING) then
+                literal_length = compute_string_literal_length(value_node)
+                expr_typ = create_mono_type(TCHAR, char_size=literal_length)
+                call set_node_inferred_type(arena, value_index, expr_typ)
+            end if
+        end select
+    end subroutine ensure_string_literal_type
+
+    pure integer function compute_string_literal_length(literal) result(len_value)
+        type(literal_node), intent(in) :: literal
+        character(len=:), allocatable :: trimmed_value
+        character(len=:), allocatable :: inner_value
+        character(len=1) :: quote_char
+        integer :: trimmed_length
+        integer :: i
+
+        len_value = 0
+        if (.not. allocated(literal%value)) return
+
+        trimmed_value = adjustl(trim(literal%value))
+        trimmed_length = len_trim(trimmed_value)
+        if (trimmed_length < 2) then
+            len_value = trimmed_length
+            return
+        end if
+
+        quote_char = trimmed_value(1:1)
+        if (quote_char /= '"' .and. quote_char /= "'") then
+            len_value = trimmed_length
+            return
+        end if
+
+        if (trimmed_value(trimmed_length:trimmed_length) /= quote_char) then
+            len_value = trimmed_length
+            return
+        end if
+
+        if (trimmed_length == 2) then
+            len_value = 0
+            return
+        end if
+
+        inner_value = trimmed_value(2:trimmed_length - 1)
+        len_value = len(inner_value)
+
+        i = 1
+        do while (i <= len(inner_value) - 1)
+            if (inner_value(i:i) == quote_char .and. &
+                inner_value(i + 1:i + 1) == quote_char) then
+                len_value = len_value - 1
+                i = i + 2
+            else
+                i = i + 1
+            end if
+        end do
+    end function compute_string_literal_length
+
     function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx
         logical :: has_errors
         has_errors = ctx%errors%has_errors()
     end function has_semantic_errors
-
-
 
     function semantic_get_context_name(this) result(name)
         class(semantic_context_t), intent(in) :: this
@@ -1265,7 +1356,7 @@ contains
     end function semantic_clone_context
 
     subroutine collect_call_signature(ctx, arena, call_node, return_type, &
-        node_index)
+                                      node_index)
         use, intrinsic :: iso_fortran_env, only: error_unit
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -1284,14 +1375,14 @@ contains
 
         do i = 1, size(call_node%arg_indices)
             arg_type = get_inferred_type_from_arena(ctx, arena, &
-                call_node%arg_indices(i))
+                                                    call_node%arg_indices(i))
             param_kinds(i) = arg_type%get_kind()
         end do
 
         return_kind = return_type%get_kind()
 
         call add_signature(ctx%signatures, call_node%name, param_kinds, &
-                          return_kind, node_index, 0, 0)
+                           return_kind, node_index, 0, 0)
     end subroutine collect_call_signature
 
 end module semantic_analyzer

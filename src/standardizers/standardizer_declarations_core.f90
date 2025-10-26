@@ -12,7 +12,6 @@ module standardizer_declarations_core
     use ast_nodes_loops
     use ast_nodes_control
     use ast_nodes_io
-    use ast_base, only: LITERAL_INTEGER
     use uid_generator, only: generate_uid
     use ast_factory
     use type_system_unified
@@ -22,6 +21,7 @@ module standardizer_declarations_core
     use standardizer_types
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use string_utils_mod, only: int_to_string
+    use type_string_utils, only: is_character_type_string, mono_type_to_string
     use ast_nodes_misc, only: comment_node
     implicit none
     private
@@ -1004,19 +1004,23 @@ contains
 
                                 ! Set dimension indices, storing literals in arena
                                 do i = 1, ndims
-                                    if (dim_sizes(i) > 0 .and. &
-                                        .not. node%inferred_type%alloc_info%is_allocatable) then
-                                        write (size_str, '(i0)') dim_sizes(i)
-                                        size_literal%uid = generate_uid()
-                                        size_literal%value = trim(size_str)
-                                        size_literal%literal_kind = LITERAL_INTEGER
-                                        size_literal%line = 1
-                                        size_literal%column = 1
-                                        call arena%push(size_literal, "literal", &
-                                                        prog_index)
-                                        decl_node%dimension_indices(i) = arena%size
+                                    if (dim_sizes(i) > 0) then
+                                        if (.not. node%inferred_type%alloc_info% &
+                                            is_allocatable) then
+                                            write (size_str, '(i0)') dim_sizes(i)
+                                            size_literal%uid = generate_uid()
+                                            size_literal%value = trim(size_str)
+                                            size_literal%literal_kind = LITERAL_INTEGER
+                                            size_literal%line = 1
+                                            size_literal%column = 1
+                                            call arena%push(size_literal, "literal", &
+                                                            prog_index)
+                                            decl_node%dimension_indices(i) = arena%size
+                                        else
+                                            decl_node%dimension_indices(i) = 0
+                                        end if
                                     else
-                                        decl_node%dimension_indices(i) = 0  ! Allocatable
+                                        decl_node%dimension_indices(i) = 0
                                     end if
                                 end do
 
@@ -1135,6 +1139,10 @@ contains
                 if (stmt%selector_index > 0) call push(stmt%selector_index)
                 if (allocated(stmt%case_indices)) call push_many(stmt%case_indices)
                 if (stmt%default_index > 0) call push(stmt%default_index)
+            type is (case_block_node)
+                if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
+            type is (case_default_node)
+                if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
             type is (print_statement_node)
                 if (allocated(stmt%expression_indices)) then
                     call push_many(stmt%expression_indices)
@@ -1317,6 +1325,7 @@ contains
         character(len=64) :: var_type
         integer :: existing_idx
         integer :: i
+        integer :: literal_length
 
         if (assign_index <= 0 .or. assign_index > arena%size) return
         if (.not. allocated(arena%entries(assign_index)%node)) return
@@ -1366,68 +1375,42 @@ contains
 
                                     ! If get_expression_type didn't work, check for intrinsic functions
                                     if (len_trim(var_type) == 0) then
-                                        select type (val_node => &
-                                                 arena%entries(assign%value_index)%node)
-                                        type is (call_or_subscript_node)
-                                            block
-                                                character(len=:), allocatable :: &
-                                                    intrinsic_sig
-
-                                          if (is_intrinsic_function(val_node%name)) then
-                                                    intrinsic_sig = &
-                                                        get_intrinsic_signature( &
-                                                        val_node%name)
-                                                   if (len_trim(intrinsic_sig) > 0) then
-                                                        ! Parse the return type from the signature
-                                                        if (index(intrinsic_sig, &
-                                                                  "real(") == 1) then
-                                                            var_type = "real"
-                                                        else if (index(intrinsic_sig, &
-                                                                  "integer(") == 1) then
-                                                            var_type = "integer"
-                                                        else if (index(intrinsic_sig, &
-                                                                  "logical(") == 1) then
-                                                            var_type = "logical"
-                                                        else if (index(intrinsic_sig, &
-                                                                "character(") == 1) then
-                                                            var_type = &
-                                                         "character(len=:), allocatable"
-                                                        else
-                                                            ! Default to real for mathematical intrinsics
-                                                            var_type = "real"
-                                                        end if
-                                                    end if
-                                                end if
-                                            end block
-                                        end select
+                                        call infer_type_from_intrinsic_call( &
+                                            arena, assign%value_index, var_type)
                                     end if
 
                                     ! Prefer integer for pure-integer binary expressions
                                     if (len_trim(var_type) == 0) then
-                                        if (is_integer_expression(arena, &
-                                                               assign%value_index)) then
+                                        if (is_integer_expression( &
+                                            arena, assign%value_index)) then
                                             var_type = "integer"
                                         end if
                                     end if
 
                                     ! If that failed, check for string concatenation as special case
                                     if (len_trim(var_type) == 0) then
-                                        var_type = handle_string_concatenation(arena, &
-                                                                     assign%value_index)
+                                        var_type = handle_string_concatenation( &
+                                                   arena, assign%value_index)
                                     end if
 
                                     ! If still no type found, try to infer from binary operation structure
                                     if (len_trim(var_type) == 0) then
-                                        var_type = &
-                                            infer_type_from_binary_operation(arena, &
-                                                                     assign%value_index)
+                                        var_type = infer_type_from_binary_operation( &
+                                                   arena, assign%value_index)
                                     end if
                                 end if
                             end if
                         end if
 
-                        ! CRITICAL FIX for Issue #1060: Ensure variable always gets a type
-                        ! If all type inference failed, provide default type for mathematical expressions
+                        if (len_trim(var_type) == 0) then
+                            literal_length = get_string_length_from_node( &
+                                             arena, assign%value_index)
+                            if (literal_length >= 0) then
+                                var_type = build_character_type_from_length( &
+                                           literal_length)
+                            end if
+                        end if
+
                         if (len_trim(var_type) == 0) then
                             var_type = "real"  ! Default for mathematical expressions
                         end if
@@ -1436,7 +1419,15 @@ contains
                         ! as allocatable for character strings needing deferred length
                         if (existing_idx > 0) then
                             if (len_trim(var_type) > 0) then
-                                var_types(existing_idx) = trim(var_type)
+                                if (is_character_type_string( &
+                                    var_types(existing_idx)) .and. &
+                                    is_character_type_string(var_type)) then
+                                    var_types(existing_idx) = &
+                                        merge_character_type_lengths( &
+                                        var_types(existing_idx), var_type)
+                                else
+                                    var_types(existing_idx) = trim(var_type)
+                                end if
                             end if
                             if (index(var_types(existing_idx), 'character(') &
                                 == 1 .and. &
@@ -1718,16 +1709,233 @@ contains
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
+        character(len=:), allocatable :: inferred_type
+        logical :: success_flag
+        logical :: standardize_flag
+
+        standardize_flag = standardizer_type_standardization_enabled
+
+        if (identifier%inferred_type%kind > 0) then
+            inferred_type = mono_type_to_string( &
+                            identifier%inferred_type, include_shape=.false., &
+                            prefer_len_zero_char=.true., &
+                            standardize_real=standardize_flag, &
+                            success=success_flag)
+            if (success_flag) then
+                if (len_trim(inferred_type) > 0) then
+                    call collect_identifier_var_with_type( &
+                        identifier, trim(inferred_type), var_names, var_types, &
+                        var_declared, var_count, function_names, func_count)
+                    return
+                end if
+            end if
+        end if
 
         call add_variable(identifier%name, "real", var_names, var_types, &
                           var_declared, var_count, function_names, func_count)
     end subroutine collect_identifier_var
 
-    function get_string_length_from_node(arena, node_index) result(length)
+    recursive function get_string_length_from_node(arena, node_index) result(length)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer :: length
-        length = 0  ! Basic stub
+        integer :: left_len
+        integer :: right_len
+
+        length = -1
+        if (node_index <= 0) return
+        if (node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (node%literal_kind == LITERAL_STRING) then
+                if (allocated(node%value)) then
+                    length = compute_string_literal_length(node%value)
+                else
+                    length = 0
+                end if
+            end if
+        type is (binary_op_node)
+            if (allocated(node%operator)) then
+                if (trim(node%operator) == "//") then
+                    left_len = get_string_length_from_node(arena, &
+                                                           node%left_index)
+                    right_len = get_string_length_from_node(arena, &
+                                                            node%right_index)
+                    if (left_len >= 0 .and. right_len >= 0) then
+                        length = left_len + right_len
+                    end if
+                end if
+            end if
+        class default
+            length = -1
+        end select
     end function get_string_length_from_node
+
+    subroutine infer_type_from_intrinsic_call(arena, value_index, var_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: value_index
+        character(len=64), intent(inout) :: var_type
+        character(len=:), allocatable :: intrinsic_sig
+
+        if (len_trim(var_type) > 0) return
+        if (value_index <= 0) return
+        if (value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+
+        select type (val_node => arena%entries(value_index)%node)
+        type is (call_or_subscript_node)
+            if (.not. is_intrinsic_function(val_node%name)) return
+            intrinsic_sig = get_intrinsic_signature(val_node%name)
+            if (len_trim(intrinsic_sig) == 0) return
+
+            if (index(intrinsic_sig, "real(") == 1) then
+                var_type = "real"
+            else if (index(intrinsic_sig, "integer(") == 1) then
+                var_type = "integer"
+            else if (index(intrinsic_sig, "logical(") == 1) then
+                var_type = "logical"
+            else if (index(intrinsic_sig, "character(") == 1) then
+                var_type = "character(len=:), allocatable"
+            else
+                var_type = "real"
+            end if
+        end select
+    end subroutine infer_type_from_intrinsic_call
+
+    pure function build_character_type_from_length(len_value) result(type_str)
+        integer, intent(in) :: len_value
+        character(len=64) :: type_str
+        character(len=32) :: buffer
+
+        type_str = ""
+        if (len_value < 0) return
+
+        write (buffer, '(i0)') len_value
+        type_str = "character(len=" // trim(buffer) // ")"
+    end function build_character_type_from_length
+
+    pure function merge_character_type_lengths(existing, incoming) result(result_type)
+        character(len=*), intent(in) :: existing
+        character(len=*), intent(in) :: incoming
+        character(len=64) :: result_type
+        integer :: existing_len
+        integer :: incoming_len
+
+        if (is_deferred_character_length(existing) .or. &
+            is_deferred_character_length(incoming)) then
+            result_type = "character(len=:), allocatable"
+            return
+        end if
+
+        existing_len = extract_character_length(existing)
+        incoming_len = extract_character_length(incoming)
+
+        if (incoming_len < 0) then
+            result_type = trim(existing)
+        else if (existing_len < 0) then
+            result_type = build_character_type_from_length(incoming_len)
+        else
+            result_type = build_character_type_from_length( &
+                          max(existing_len, incoming_len))
+        end if
+    end function merge_character_type_lengths
+
+    pure integer function extract_character_length(type_str) result(len_value)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: lowered
+        integer :: len_pos
+        integer :: close_pos
+        integer :: ios
+
+        len_value = -1
+        lowered = to_lower(adjustl(trim(type_str)))
+        if (len(lowered) == 0) return
+        if (index(lowered, "character") /= 1) return
+
+        len_pos = index(lowered, "len=")
+        if (len_pos <= 0) return
+        if (len_pos + 4 > len(lowered)) return
+
+        if (lowered(len_pos + 4:len_pos + 4) == ':' .or. &
+            lowered(len_pos + 4:len_pos + 4) == '*') then
+            len_value = -1
+            return
+        end if
+
+        close_pos = index(lowered(len_pos:), ")")
+        if (close_pos <= 0) return
+        if (len_pos + close_pos - 2 < len_pos + 4) return
+
+        read (lowered(len_pos + 4:len_pos + close_pos - 2), *, iostat=ios) len_value
+        if (ios /= 0) len_value = -1
+    end function extract_character_length
+
+    pure logical function is_deferred_character_length(type_str) result(is_deferred)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: lowered
+        integer :: len_pos
+
+        lowered = to_lower(adjustl(trim(type_str)))
+        len_pos = index(lowered, "len=")
+        if (len_pos <= 0) then
+            is_deferred = .false.
+            return
+        end if
+
+        if (len_pos + 4 > len(lowered)) then
+            is_deferred = .false.
+            return
+        end if
+
+        is_deferred = (lowered(len_pos + 4:len_pos + 4) == ':' .or. &
+                       lowered(len_pos + 4:len_pos + 4) == '*')
+    end function is_deferred_character_length
+
+    pure integer function compute_string_literal_length(literal) result(len_value)
+        character(len=*), intent(in) :: literal
+        character(len=:), allocatable :: trimmed_literal
+        character(len=:), allocatable :: inner
+        character(len=1) :: quote_char
+        integer :: trimmed_len
+        integer :: i
+
+        trimmed_literal = adjustl(trim(literal))
+        trimmed_len = len_trim(trimmed_literal)
+        if (trimmed_len < 2) then
+            len_value = trimmed_len
+            return
+        end if
+
+        quote_char = trimmed_literal(1:1)
+        if (quote_char /= '"' .and. quote_char /= "'") then
+            len_value = trimmed_len
+            return
+        end if
+
+        if (trimmed_literal(trimmed_len:trimmed_len) /= quote_char) then
+            len_value = trimmed_len
+            return
+        end if
+
+        if (trimmed_len == 2) then
+            len_value = 0
+            return
+        end if
+
+        inner = trimmed_literal(2:trimmed_len - 1)
+        len_value = len(inner)
+
+        i = 1
+        do while (i <= len(inner) - 1)
+            if (inner(i:i) == quote_char .and. inner(i + 1:i + 1) == quote_char) then
+                len_value = len_value - 1
+                i = i + 2
+            else
+                i = i + 1
+            end if
+        end do
+    end function compute_string_literal_length
 
 end module standardizer_declarations_core
