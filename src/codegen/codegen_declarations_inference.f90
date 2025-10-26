@@ -735,9 +735,6 @@ contains
 
                     if (len_trim(type_buf) == 0) then
                         type_buf = func_return_type
-                    else if (curr_lower == 'integer' .and. func_lower /= &
-                             'integer') then
-                        type_buf = func_return_type
                     else if (curr_lower == 'real' .and. func_lower /= 'real') then
                         type_buf = func_return_type
                     end if

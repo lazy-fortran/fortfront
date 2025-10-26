@@ -8,6 +8,8 @@ module call_graph_signatures_mod
 
     type :: type_signature_t
         integer, allocatable :: param_kinds(:)
+        character(len=:), allocatable :: param_type_strings(:)
+        character(len=:), allocatable :: return_type_string
         integer :: return_kind = 0
         integer :: call_site_node = 0
         integer :: line = 0
@@ -48,15 +50,47 @@ contains
         type(type_signature_t), intent(in) :: new_sig
         logical :: exists
         integer :: i, j
+        integer :: n_params
+        logical :: param_types_match
+        logical :: return_type_match
 
         exists = .false.
         do i = 1, size(signatures)
             if (.not. allocated(signatures(i)%param_kinds)) cycle
             if (.not. allocated(new_sig%param_kinds)) cycle
-            if (size(signatures(i)%param_kinds) /= size(new_sig%param_kinds)) cycle
+            n_params = size(signatures(i)%param_kinds)
+            if (n_params /= size(new_sig%param_kinds)) cycle
 
-            if (all(signatures(i)%param_kinds == new_sig%param_kinds) .and. &
-                signatures(i)%return_kind == new_sig%return_kind) then
+            if (.not. all(signatures(i)%param_kinds == new_sig%param_kinds)) cycle
+            if (signatures(i)%return_kind /= new_sig%return_kind) cycle
+
+            param_types_match = .true.
+            if (allocated(signatures(i)%param_type_strings) .or. &
+                allocated(new_sig%param_type_strings)) then
+                if (.not. allocated(signatures(i)%param_type_strings)) cycle
+                if (.not. allocated(new_sig%param_type_strings)) cycle
+                if (size(signatures(i)%param_type_strings) /= &
+                    size(new_sig%param_type_strings)) cycle
+                do j = 1, size(signatures(i)%param_type_strings)
+                    if (trim(signatures(i)%param_type_strings(j)) /= &
+                        trim(new_sig%param_type_strings(j))) then
+                        param_types_match = .false.
+                        exit
+                    end if
+                end do
+            end if
+            if (.not. param_types_match) cycle
+
+            return_type_match = .true.
+            if (allocated(signatures(i)%return_type_string) .or. &
+                allocated(new_sig%return_type_string)) then
+                if (.not. allocated(signatures(i)%return_type_string)) cycle
+                if (.not. allocated(new_sig%return_type_string)) cycle
+                if (trim(signatures(i)%return_type_string) /= &
+                    trim(new_sig%return_type_string)) cycle
+            end if
+
+            if (return_type_match) then
                 exists = .true.
                 return
             end if
@@ -64,18 +98,22 @@ contains
     end function signature_exists
 
     subroutine add_signature(map, proc_name, param_kinds, return_kind, &
-                            call_site_node, line, column)
+                            call_site_node, line, column, param_type_strings, &
+                            return_type_string)
         type(signatures_map_t), intent(inout) :: map
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: param_kinds(:)
         integer, intent(in) :: return_kind
         integer, intent(in) :: call_site_node
         integer, intent(in) :: line, column
+        character(len=*), intent(in), optional :: param_type_strings(:)
+        character(len=*), intent(in), optional :: return_type_string
 
         type(type_signature_t) :: new_sig
         type(procedure_signatures_t), allocatable :: temp_procs(:)
         type(type_signature_t), allocatable :: temp_sigs(:)
         integer :: proc_idx, i
+        integer :: max_len
 
         allocate (new_sig%param_kinds(size(param_kinds)))
         new_sig%param_kinds = param_kinds
@@ -83,6 +121,27 @@ contains
         new_sig%call_site_node = call_site_node
         new_sig%line = line
         new_sig%column = column
+
+        if (present(param_type_strings)) then
+            max_len = 0
+            do i = 1, size(param_type_strings)
+                max_len = max(max_len, len_trim(param_type_strings(i)))
+            end do
+            if (max_len < 1) max_len = 1
+            allocate (character(len=max_len) :: new_sig%param_type_strings( &
+                size(param_type_strings)))
+            do i = 1, size(param_type_strings)
+                new_sig%param_type_strings(i) = trim(param_type_strings(i))
+            end do
+        end if
+
+        if (present(return_type_string)) then
+            if (len_trim(return_type_string) > 0) then
+                allocate (character(len=len_trim(return_type_string)) :: &
+                    new_sig%return_type_string)
+                new_sig%return_type_string = trim(return_type_string)
+            end if
+        end if
 
         proc_idx = 0
         do i = 1, map%proc_count
@@ -140,16 +199,20 @@ contains
     end subroutine add_signature
 
     subroutine signatures_map_add_signature(this, proc_name, param_kinds, &
-                                           return_kind, call_site_node, line, column)
+                                           return_kind, call_site_node, line, column, &
+                                           param_type_strings, return_type_string)
         class(signatures_map_t), intent(inout) :: this
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: param_kinds(:)
         integer, intent(in) :: return_kind
         integer, intent(in) :: call_site_node
         integer, intent(in) :: line, column
+        character(len=*), intent(in), optional :: param_type_strings(:)
+        character(len=*), intent(in), optional :: return_type_string
 
         call add_signature(this, proc_name, param_kinds, return_kind, &
-                          call_site_node, line, column)
+                          call_site_node, line, column, param_type_strings, &
+                          return_type_string)
     end subroutine signatures_map_add_signature
 
     function get_unique_signatures(map, proc_name, unique_sigs) result(count)
@@ -198,7 +261,8 @@ contains
     subroutine signatures_map_deep_copy(dst, src)
         class(signatures_map_t), intent(out) :: dst
         class(signatures_map_t), intent(in) :: src
-        integer :: i, j
+        integer :: i, j, k
+        integer :: max_len
 
         dst%proc_count = src%proc_count
         dst%proc_capacity = src%proc_capacity
@@ -230,6 +294,29 @@ contains
                             src%proc_sigs(i)%signatures(j)%line
                         dst%proc_sigs(i)%signatures(j)%column = &
                             src%proc_sigs(i)%signatures(j)%column
+                        if (allocated(src%proc_sigs(i)%signatures(j)%param_type_strings)) then
+                            max_len = 0
+                            do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
+                                max_len = max(max_len, len_trim( &
+                                    src%proc_sigs(i)%signatures(j)%param_type_strings(k)))
+                            end do
+                            if (max_len < 1) max_len = 1
+                            allocate (character(len=max_len) :: &
+                                dst%proc_sigs(i)%signatures(j)%param_type_strings( &
+                                size(src%proc_sigs(i)%signatures(j)%param_type_strings)))
+                            do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
+                                dst%proc_sigs(i)%signatures(j)%param_type_strings(k) = &
+                                    trim(src%proc_sigs(i)%signatures(j)%param_type_strings(k))
+                            end do
+                        end if
+                        if (allocated(src%proc_sigs(i)%signatures(j)%return_type_string)) then
+                            max_len = len_trim(src%proc_sigs(i)%signatures(j)%return_type_string)
+                            if (max_len < 1) max_len = 1
+                            allocate (character(len=max_len) :: &
+                                dst%proc_sigs(i)%signatures(j)%return_type_string)
+                            dst%proc_sigs(i)%signatures(j)%return_type_string = &
+                                trim(src%proc_sigs(i)%signatures(j)%return_type_string)
+                        end if
                     end do
                 end if
             end do

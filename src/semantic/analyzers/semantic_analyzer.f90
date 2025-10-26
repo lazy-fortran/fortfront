@@ -81,8 +81,8 @@ module semantic_analyzer
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
-    use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map, &
-                                         add_signature
+    use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map
+    use semantic_call_signature_collector, only: collect_call_signature
     implicit none
     private
 
@@ -761,7 +761,8 @@ contains
             type is (call_or_subscript_node)
                 node_type = infer_function_call_type(arena, expr, this%scopes, &
                                                      get_node_type_with_arena)
-                call collect_call_signature(this, arena, expr, node_type, node_index)
+                call collect_call_signature(this%signatures, arena, expr, &
+                                            node_type, node_index)
                 call finalize_node(node_index, node_type)
             type is (subroutine_call_node)
                 node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
@@ -1355,34 +1356,5 @@ contains
         allocate (cloned, source=temp_context)
     end function semantic_clone_context
 
-    subroutine collect_call_signature(ctx, arena, call_node, return_type, &
-                                      node_index)
-        use, intrinsic :: iso_fortran_env, only: error_unit
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(call_or_subscript_node), intent(in) :: call_node
-        type(mono_type_t), intent(in) :: return_type
-        integer, intent(in) :: node_index
-        integer, allocatable :: param_kinds(:)
-        integer :: return_kind
-        integer :: i
-        type(mono_type_t) :: arg_type
-
-        if (.not. allocated(call_node%name)) return
-        if (.not. allocated(call_node%arg_indices)) return
-
-        allocate (param_kinds(size(call_node%arg_indices)))
-
-        do i = 1, size(call_node%arg_indices)
-            arg_type = get_inferred_type_from_arena(ctx, arena, &
-                                                    call_node%arg_indices(i))
-            param_kinds(i) = arg_type%get_kind()
-        end do
-
-        return_kind = return_type%get_kind()
-
-        call add_signature(ctx%signatures, call_node%name, param_kinds, &
-                           return_kind, node_index, 0, 0)
-    end subroutine collect_call_signature
 
 end module semantic_analyzer
