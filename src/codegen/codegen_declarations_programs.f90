@@ -5,7 +5,8 @@ module codegen_declarations_programs
                               call_or_subscript_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
                               implicit_statement_node, use_statement_node, &
-                              interface_block_node, module_procedure_node
+                              intrinsic_statement_node, interface_block_node, &
+                              module_procedure_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: declaration_node, module_node, block_data_node, &
                               derived_type_node
@@ -246,12 +247,14 @@ contains
         logical :: has_implicit
         character(len=:), allocatable :: use_statements_code
         character(len=:), allocatable :: implicit_statements_code
+        character(len=:), allocatable :: intrinsic_statements_code
         character(len=:), allocatable :: interface_blocks_code
         character(len=:), allocatable :: declaration_statements_code
         character(len=:), allocatable :: extra_decls
 
         call gather_program_header_entries(arena, node, has_implicit, &
                                            use_statements_code, &
+                                           intrinsic_statements_code, &
                                            implicit_statements_code, &
                                            declaration_statements_code, &
                                            interface_blocks_code, non_use_indices, &
@@ -263,6 +266,10 @@ contains
             code = code // implicit_statements_code
         else if (.not. has_implicit) then
             code = code // "    implicit none" // new_line('A')
+        end if
+
+        if (len(intrinsic_statements_code) > 0) then
+            code = code // intrinsic_statements_code
         end if
 
         if (len(declaration_statements_code) > 0) then
@@ -280,6 +287,7 @@ contains
 
     subroutine gather_program_header_entries(arena, node, has_implicit, &
                                              use_statements_code, &
+                                             intrinsic_statements_code, &
                                              implicit_statements_code, &
                                              declaration_statements_code, &
                                              interface_blocks_code, non_use_indices, &
@@ -288,6 +296,7 @@ contains
         type(program_node), intent(in) :: node
         logical, intent(out) :: has_implicit
         character(len=:), allocatable, intent(out) :: use_statements_code
+        character(len=:), allocatable, intent(out) :: intrinsic_statements_code
         character(len=:), allocatable, intent(out) :: implicit_statements_code
         character(len=:), allocatable, intent(out) :: declaration_statements_code
         character(len=:), allocatable, intent(out) :: interface_blocks_code
@@ -299,6 +308,7 @@ contains
 
         has_implicit = .false.
         use_statements_code = ""
+        intrinsic_statements_code = ""
         implicit_statements_code = ""
         declaration_statements_code = ""
         interface_blocks_code = ""
@@ -316,6 +326,7 @@ contains
         do i = 1, size(node%body_indices)
             call categorize_header_entry(arena, node, node%body_indices(i), &
                                          has_implicit, use_statements_code, &
+                                         intrinsic_statements_code, &
                                          implicit_statements_code, &
                                          interface_blocks_code, non_use_indices, &
                                          non_use_count, header_decl_indices, &
@@ -335,8 +346,9 @@ contains
     end subroutine gather_program_header_entries
 
     subroutine categorize_header_entry(arena, prog_node, body_index, has_implicit, &
-                                       use_statements_code, implicit_statements_code, &
-                                       interface_blocks_code, non_use_indices, &
+                                       use_statements_code, intrinsic_statements_code, &
+                                       implicit_statements_code, interface_blocks_code, &
+                                       non_use_indices, &
                                        non_use_count, header_decl_indices, &
                                        header_decl_count)
         type(ast_arena_t), intent(in) :: arena
@@ -344,6 +356,7 @@ contains
         integer, intent(in) :: body_index
         logical, intent(inout) :: has_implicit
         character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         integer, intent(inout) :: non_use_indices(:)
@@ -358,6 +371,7 @@ contains
         is_header_stmt = classify_and_process_header_node(arena, body_index, &
                                                           has_implicit, &
                                                           use_statements_code, &
+                                                          intrinsic_statements_code, &
                                                           implicit_statements_code, &
                                                           interface_blocks_code, &
                                                           non_use_count, &
@@ -375,15 +389,18 @@ contains
     logical function classify_and_process_header_node(arena, body_index, &
                                                       has_implicit, &
                                                       use_statements_code, &
+                                                      intrinsic_statements_code, &
                                                       implicit_statements_code, &
                                                       interface_blocks_code, &
                                                       non_use_count, &
                                                       header_decl_count, &
-                                                      header_decl_indices) result(is_header)
+                                                      header_decl_indices) &
+        result(is_header)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_index
         logical, intent(inout) :: has_implicit
         character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         integer, intent(in) :: non_use_count
@@ -397,33 +414,38 @@ contains
         type is (use_statement_node)
             call process_use_statement(arena, body_index, use_statements_code)
             is_header = .true.
+        type is (intrinsic_statement_node)
+            call process_intrinsic_statement(arena, body_index, intrinsic_statements_code)
+            is_header = .true.
         type is (comment_node)
             is_header = process_comment_node(arena, body_index, ib, non_use_count, &
-                                            header_decl_count, use_statements_code, &
-                                            implicit_statements_code, &
-                                            interface_blocks_code)
+                                             header_decl_count, use_statements_code, &
+                                             intrinsic_statements_code, &
+                                             implicit_statements_code, &
+                                             interface_blocks_code)
         type is (blank_line_node)
             is_header = process_blank_line(arena, body_index, non_use_count, &
-                                          header_decl_count, use_statements_code, &
-                                          implicit_statements_code, &
-                                          interface_blocks_code)
+                                           header_decl_count, use_statements_code, &
+                                           intrinsic_statements_code, &
+                                           implicit_statements_code, &
+                                           interface_blocks_code)
         type is (implicit_statement_node)
             call process_implicit_statement(arena, body_index, ib, has_implicit, &
-                                           implicit_statements_code)
+                                            implicit_statements_code)
             is_header = .true.
         type is (derived_type_node)
             call process_derived_type(arena, body_index, implicit_statements_code)
             is_header = .true.
         type is (declaration_node)
             call process_declaration(body_index, header_decl_count, &
-                                    header_decl_indices)
+                                     header_decl_indices)
             is_header = .true.
         type is (interface_block_node)
             call process_interface_block(arena, body_index, interface_blocks_code)
             is_header = .true.
         type is (literal_node)
             is_header = process_literal_node(ib, has_implicit, &
-                                            implicit_statements_code)
+                                             implicit_statements_code)
         end select
     end function classify_and_process_header_node
 
@@ -438,16 +460,29 @@ contains
                               new_line('A')
     end subroutine process_use_statement
 
+    subroutine process_intrinsic_statement(arena, body_index, intrinsic_statements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, body_index)
+        intrinsic_statements_code = intrinsic_statements_code // "    " // &
+                                    stmt_code // new_line('A')
+    end subroutine process_intrinsic_statement
+
     logical function process_comment_node(arena, body_index, ib, non_use_count, &
-                                         header_decl_count, use_statements_code, &
-                                         implicit_statements_code, &
-                                         interface_blocks_code) result(is_header)
+                                          header_decl_count, use_statements_code, &
+                                          intrinsic_statements_code, &
+                                          implicit_statements_code, &
+                                          interface_blocks_code) result(is_header)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_index
         type(comment_node), intent(in) :: ib
         integer, intent(in) :: non_use_count
         integer, intent(in) :: header_decl_count
         character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         character(len=:), allocatable :: stmt_code
@@ -462,6 +497,7 @@ contains
                                            stmt_code // new_line('A')
             else
                 call append_header_trivia(stmt_code, use_statements_code, &
+                                          intrinsic_statements_code, &
                                           implicit_statements_code, &
                                           interface_blocks_code)
             end if
@@ -469,14 +505,16 @@ contains
     end function process_comment_node
 
     logical function process_blank_line(arena, body_index, non_use_count, &
-                                       header_decl_count, use_statements_code, &
-                                       implicit_statements_code, &
-                                       interface_blocks_code) result(is_header)
+                                        header_decl_count, use_statements_code, &
+                                        intrinsic_statements_code, &
+                                        implicit_statements_code, &
+                                        interface_blocks_code) result(is_header)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_index
         integer, intent(in) :: non_use_count
         integer, intent(in) :: header_decl_count
         character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         character(len=:), allocatable :: stmt_code
@@ -486,13 +524,14 @@ contains
             is_header = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
             call append_header_trivia(stmt_code, use_statements_code, &
+                                      intrinsic_statements_code, &
                                       implicit_statements_code, &
                                       interface_blocks_code)
         end if
     end function process_blank_line
 
     subroutine process_implicit_statement(arena, body_index, ib, has_implicit, &
-                                         implicit_statements_code)
+                                          implicit_statements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_index
         type(implicit_statement_node), intent(in) :: ib
@@ -550,7 +589,7 @@ contains
     end subroutine process_interface_block
 
     logical function process_literal_node(ib, has_implicit, &
-                                         implicit_statements_code) result(is_header)
+                                          implicit_statements_code) result(is_header)
         type(literal_node), intent(in) :: ib
         logical, intent(inout) :: has_implicit
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
@@ -571,9 +610,10 @@ contains
         end if
     end function process_literal_node
 
-    subroutine append_header_trivia(fragment, use_code, implicit_code, interface_code)
+    subroutine append_header_trivia(fragment, use_code, intrinsic_code, implicit_code, interface_code)
         character(len=*), intent(in) :: fragment
         character(len=:), allocatable, intent(inout) :: use_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_code
         character(len=:), allocatable, intent(inout) :: implicit_code
         character(len=:), allocatable, intent(inout) :: interface_code
         character(len=:), allocatable :: trimmed_fragment
@@ -589,6 +629,14 @@ contains
                 interface_code = interface_code // trimmed_fragment
             else
                 interface_code = interface_code // "    " // &
+                                 trim(trimmed_fragment) // &
+                                 new_line('A')
+            end if
+        else if (len(intrinsic_code) > 0) then
+            if (is_blank) then
+                intrinsic_code = intrinsic_code // trimmed_fragment
+            else
+                intrinsic_code = intrinsic_code // "    " // &
                                  trim(trimmed_fragment) // &
                                  new_line('A')
             end if

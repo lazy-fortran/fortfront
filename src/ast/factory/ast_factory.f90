@@ -56,11 +56,12 @@ module ast_factory
 
     ! Statement nodes
     use ast_factory_statements, only: &
-        push_use_statement, push_visibility_statement, push_namelist_statement, &
-        push_implicit_statement, push_include_statement, push_import_statement, &
-        push_end_statement, push_stop, push_return, push_entry, push_continue, &
-        push_goto, push_error_stop, push_cycle, push_exit, push_allocate, &
-        push_deallocate, push_io_implied_do, push_pause, push_nullify
+        push_use_statement, push_intrinsic_statement, push_visibility_statement, &
+        push_namelist_statement, push_implicit_statement, push_include_statement, &
+        push_import_statement, push_end_statement, push_stop, push_return, &
+        push_entry, push_continue, push_goto, push_error_stop, push_cycle, &
+        push_exit, push_allocate, push_deallocate, push_io_implied_do, &
+        push_pause, push_nullify
 
     ! Error nodes
     use ast_factory_errors, only: push_error_node
@@ -96,7 +97,8 @@ module ast_factory
     public :: push_print_statement, push_write_statement, push_read_statement
     public :: push_read_statement_with_err, push_read_statement_with_end
     public :: push_read_statement_with_all_specifiers, push_write_statement_with_iostat
-    public :: push_write_statement_with_format, push_write_statement_with_runtime_format
+    public :: push_write_statement_with_format, &
+              push_write_statement_with_runtime_format
     public :: push_format_statement, push_open_statement, push_close_statement
     public :: push_inquire_statement, push_backspace_statement, push_rewind_statement
     public :: push_endfile_statement
@@ -111,7 +113,8 @@ module ast_factory
     public :: push_range_expression, push_assumed_size_bounds
 
     ! Statement nodes
-    public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
+    public :: push_use_statement, push_intrinsic_statement, &
+              push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement, push_stop, push_return, push_entry, push_continue, &
               push_goto, push_error_stop, push_pause, push_nullify

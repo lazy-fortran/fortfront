@@ -490,7 +490,7 @@ contains
               'endfunction', 'endinterface', 'endmodule', 'endprogram', &
               'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
               'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
-              'non_recursive')
+              'non_recursive', 'intrinsic', 'non_intrinsic')
             keyword = .true.
         case default
             keyword = .false.
