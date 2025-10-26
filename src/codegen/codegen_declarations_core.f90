@@ -6,9 +6,9 @@ module codegen_declarations_core
     use string_utils_mod, only: int_to_string, to_lower
     use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, &
                                    TDOUBLE, TDERIVED
-    use codegen_utilities, only: is_character_type_string, &
-                                 normalize_character_type, &
-                                 normalize_character_type_param
+    use type_string_utils, only: is_character_type_string
+    use codegen_character_normalization, only: normalize_character_type, &
+                                               normalize_character_type_param
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
     use declaration_attribute_utils, only: declaration_attribute_info_t, &

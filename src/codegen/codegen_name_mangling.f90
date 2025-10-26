@@ -1,5 +1,7 @@
 module codegen_name_mangling
-    use string_utils_mod, only: int_to_string
+    use string_utils_mod, only: int_to_string, to_lower
+    use type_constants, only: TINT, TREAL, TCHAR, TLOGICAL, TARRAY, &
+                              TCOMPLEX, TDOUBLE
     implicit none
     private
 
@@ -8,9 +10,10 @@ module codegen_name_mangling
 
 contains
 
-    function mangle_procedure_name(base_name, signature) result(mangled_name)
+    function mangle_procedure_name(base_name, signature, param_types) result(mangled_name)
         character(len=*), intent(in) :: base_name
         integer, intent(in) :: signature(:)
+        character(len=*), intent(in), optional :: param_types(:)
         character(len=:), allocatable :: mangled_name
         character(len=:), allocatable :: suffix
         integer :: i
@@ -23,39 +26,150 @@ contains
         suffix = ""
         do i = 1, size(signature)
             if (i > 1) suffix = suffix // "_"
-            suffix = suffix // kind_to_string(signature(i))
+            if (present(param_types)) then
+                if (i <= size(param_types)) then
+                    suffix = suffix // kind_to_string(signature(i), param_types(i))
+                else
+                    suffix = suffix // kind_to_string(signature(i))
+                end if
+            else
+                suffix = suffix // kind_to_string(signature(i))
+            end if
         end do
 
         mangled_name = trim(base_name) // "__" // suffix
     end function mangle_procedure_name
 
-    function kind_to_string(kind_value) result(kind_str)
+    function kind_to_string(kind_value, type_hint) result(kind_str)
         integer, intent(in) :: kind_value
+        character(len=*), intent(in), optional :: type_hint
         character(len=:), allocatable :: kind_str
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: base_from_hint
+        integer :: rank
+
+        rank = 0
+        if (present(type_hint)) then
+            lowered = to_lower(trim(type_hint))
+            rank = extract_rank_from_type(lowered)
+        else
+            lowered = ""
+        end if
 
         select case (kind_value)
-        case (4)
+        case (TINT)
             kind_str = "i32"
-        case (8)
-            kind_str = "i64"
-        case (16)
-            kind_str = "i128"
-        case (32)
+        case (TREAL)
             kind_str = "r32"
-        case (64)
+        case (TDOUBLE)
             kind_str = "r64"
-        case (128)
-            kind_str = "r128"
-        case (84)
-            kind_str = "c32"
-        case (168)
+        case (TCOMPLEX)
             kind_str = "c64"
-        case (1)
-            kind_str = "l8"
+        case (TCHAR)
+            kind_str = "ch"
+        case (TLOGICAL)
+            kind_str = "l32"
+        case (TARRAY)
+            if (present(type_hint)) then
+                base_from_hint = infer_base_from_type(lowered)
+                kind_str = base_from_hint
+            else
+                kind_str = "arr"
+            end if
         case default
-            kind_str = "k" // trim(int_to_string(kind_value))
+            if (present(type_hint)) then
+                base_from_hint = infer_base_from_type(lowered)
+                kind_str = base_from_hint
+            else
+                select case (kind_value)
+                case (4)
+                    kind_str = "i32"
+                case (8)
+                    kind_str = "i64"
+                case (16)
+                    kind_str = "i128"
+                case (32)
+                    kind_str = "r32"
+                case (64)
+                    kind_str = "r64"
+                case (128)
+                    kind_str = "r128"
+                case (84)
+                    kind_str = "c32"
+                case (168)
+                    kind_str = "c64"
+                case (1)
+                    kind_str = "l8"
+                case default
+                    kind_str = "k" // trim(int_to_string(kind_value))
+                end select
+            end if
         end select
+
+        if (rank > 0) then
+            kind_str = trim(kind_str) // "rank" // trim(int_to_string(rank))
+        end if
     end function kind_to_string
+
+    function infer_base_from_type(type_desc) result(base)
+        character(len=*), intent(in) :: type_desc
+        character(len=:), allocatable :: base
+
+        if (index(type_desc, 'double precision') > 0 .or. &
+            index(type_desc, 'real(8)') > 0 ) then
+            base = 'r64'
+        else if (index(type_desc, 'real(16)') > 0 ) then
+            base = 'r128'
+        else if (index(type_desc, 'real') > 0) then
+            base = 'r32'
+        else if (index(type_desc, 'integer') > 0) then
+            base = 'i32'
+        else if (index(type_desc, 'complex(16)') > 0 .or. &
+                 index(type_desc, 'complex(8)') > 0 .or. &
+                 index(type_desc, 'double complex') > 0) then
+            base = 'c128'
+        else if (index(type_desc, 'complex') > 0) then
+            base = 'c64'
+        else if (index(type_desc, 'logical') > 0) then
+            base = 'l32'
+        else if (index(type_desc, 'character') > 0) then
+            base = 'ch'
+        else
+            base = 'arr'
+        end if
+    end function infer_base_from_type
+
+    integer function extract_rank_from_type(type_desc) result(rank)
+        character(len=*), intent(in) :: type_desc
+        integer :: pos, end_pos, i
+        character(len=:), allocatable :: inside
+
+        rank = 0
+        pos = index(type_desc, 'dimension(')
+        if (pos <= 0) return
+
+        pos = pos + len('dimension(')
+        end_pos = pos
+        do while (end_pos <= len(type_desc) .and. type_desc(end_pos:end_pos) /= ')')
+            end_pos = end_pos + 1
+        end do
+        if (end_pos > len(type_desc)) then
+            inside = type_desc(pos:)
+        else
+            inside = type_desc(pos:end_pos - 1)
+        end if
+
+        inside = adjustl(inside)
+        if (len_trim(inside) == 0) then
+            rank = 1
+            return
+        end if
+
+        rank = 1
+        do i = 1, len_trim(inside)
+            if (inside(i:i) == ',') rank = rank + 1
+        end do
+    end function extract_rank_from_type
 
     function type_signature_to_string(signature) result(sig_str)
         integer, intent(in) :: signature(:)

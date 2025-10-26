@@ -3,7 +3,7 @@ module codegen_parameter_mapping
     use ast_nodes_core, only: identifier_node
     use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                               intent_type_to_string
-    use codegen_utilities, only: parameter_info_t
+    use codegen_parameter_info, only: parameter_info_t
     implicit none
     private
     public :: build_parameter_map

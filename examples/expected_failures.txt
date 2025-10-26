@@ -4,4 +4,3 @@
 
 intrinsic_functions.lf  # parser error - needs investigation
 chained_comparison.lf   # parser error - needs investigation
-monomorphization_simple.lf  # requires full monomorphization (issue #1863)

@@ -6,7 +6,7 @@ module codegen_module_generation
                               module_procedure_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
-    use codegen_utilities, only: generate_grouped_body
+    use codegen_grouped_body, only: generate_grouped_body
     implicit none
     private
     public :: generate_code_module
@@ -258,4 +258,3 @@ contains
     end function generate_code_module_procedure
 
 end module codegen_module_generation
-

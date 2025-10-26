@@ -40,9 +40,9 @@ program test_monomorphization
     print *, "Testing type-specific variants..."
     test_passed = .false.
     ! Check for integer variant (k2 = TINT)
-    if (index(output, "add__k2_k2") > 0) then
-        ! Check for double precision variant (k9 = TDOUBLE)
-        if (index(output, "add__k9_k9") > 0) then
+    if (index(output, "add__i32_i32") > 0) then
+        ! Check for double precision variant (r64)
+        if (index(output, "add__r64_r64") > 0) then
             test_passed = .true.
         end if
     end if
@@ -93,9 +93,10 @@ program test_monomorphization
     call transform_lazy_fortran_string(input, output, error_msg)
 
     test_passed = .false.
-    if (index(output, "real function square__k3") > 0 .or. &
-        index(output, "real(8) function square__k3") > 0) then
-        if (index(output, "integer function square__k3") == 0) then
+    if (index(output, "real function square__r32") > 0 .or. &
+        index(output, "real(8) function square__r64") > 0) then
+        if (index(output, "integer function square__r32") == 0 .and. &
+            index(output, "integer function square__r64") == 0) then
             test_passed = .true.
         end if
     end if
