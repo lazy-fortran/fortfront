@@ -21,6 +21,8 @@ module semantic_function_analysis
                                         instantiate_type_scheme_op
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: mono_type_to_string
+    use semantic_array_type_builders, only: build_deferred_shape_array, &
+                                             collapse_array_rank
     implicit none
     private
 
@@ -331,8 +333,11 @@ contains
         type(mono_type_t) :: inferred
         integer :: i, stmt_index
         type(mono_type_t) :: expr_type
+        type(mono_type_t) :: best_type
+        integer :: rank
 
         inferred%kind = 0
+        best_type%kind = 0
         if (.not. allocated(func_node%body_indices)) return
 
         do i = 1, size(func_node%body_indices)
@@ -349,13 +354,25 @@ contains
                     if (trim(target%name) /= trim(result_name)) cycle
                     expr_type = infer_expression_type_static( &
                                 arena, stmt%value_index, param_names, param_types)
-                    if (expr_type%kind /= 0) then
-                        inferred = expr_type
-                        return
+                    if (expr_type%kind /= 0 .and. best_type%kind == 0) then
+                        best_type = expr_type
                     end if
+                type is (call_or_subscript_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (trim(target%name) /= trim(result_name)) cycle
+                    if (.not. allocated(target%arg_indices)) cycle
+                    rank = size(target%arg_indices)
+                    if (rank <= 0) cycle
+                    expr_type = infer_expression_type_static( &
+                                arena, stmt%value_index, param_names, param_types)
+                    if (expr_type%kind == 0) expr_type = create_mono_type(TREAL)
+                    inferred = build_deferred_shape_array(expr_type, rank)
+                    if (inferred%kind /= 0) return
                 end select
             end select
         end do
+
+        if (best_type%kind /= 0) inferred = best_type
     end function infer_result_type_from_assignments
 
     recursive function infer_expression_type_static( &
@@ -365,7 +382,7 @@ contains
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: typ
-        integer :: i
+        integer :: i, rank
         type(mono_type_t) :: left_typ, right_typ
 
         typ%kind = 0
@@ -450,7 +467,26 @@ contains
                 end if
             end block
         type is (call_or_subscript_node)
-            if (node%inferred_type%kind > 0) typ = node%inferred_type
+            if (node%inferred_type%kind > 0) then
+                typ = node%inferred_type
+            else if (allocated(node%name)) then
+                if (allocated(param_names) .and. allocated(param_types)) then
+                    do i = 1, size(param_names)
+                        if (trim(param_names(i)) /= trim(node%name)) cycle
+                        rank = 0
+                        if (allocated(node%arg_indices)) rank = size(node%arg_indices)
+                        typ = collapse_array_rank(param_types(i), rank)
+                        if (typ%kind == 0) then
+                            typ = param_types(i)
+                            if (typ%kind == TARRAY) then
+                                typ = collapse_array_rank(typ, rank)
+                            end if
+                        end if
+                        if (typ%kind == 0) typ = create_mono_type(TREAL)
+                        exit
+                    end do
+                end if
+            end if
         end select
     end function infer_expression_type_static
 
@@ -545,7 +581,9 @@ contains
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         integer, intent(in) :: scope_index, program_index
         type(mono_type_t) :: candidate
+        type(mono_type_t) :: element_type
         integer :: name_idx, target_idx
+        integer :: rank, i
 
         candidate%kind = 0
         if (.not. allocated(arena%entries(entry_index)%node)) return
@@ -577,7 +615,40 @@ contains
                 if (trim(target%name) /= lowered_name) return
                 candidate = infer_expression_type_static(arena, node%value_index, &
                                                          param_names, param_types)
+            type is (call_or_subscript_node)
+                if (.not. allocated(target%name)) return
+                if (trim(target%name) /= lowered_name) return
+                if (.not. allocated(target%arg_indices)) return
+                rank = size(target%arg_indices)
+                if (rank <= 0) return
+                element_type = infer_expression_type_static( &
+                               arena, node%value_index, param_names, param_types)
+                if (element_type%kind == 0) element_type = create_mono_type(TREAL)
+                candidate = build_deferred_shape_array(element_type, rank)
+                return
             end select
+        type is (call_or_subscript_node)
+            if (.not. allocated(node%name)) return
+            if (trim(node%name) /= lowered_name) return
+            if (.not. allocated(node%arg_indices)) return
+            rank = size(node%arg_indices)
+            if (rank <= 0) return
+            element_type%kind = 0
+            if (allocated(param_names) .and. allocated(param_types)) then
+                do i = 1, size(param_names)
+                    if (trim(param_names(i)) /= lowered_name) cycle
+                    element_type = param_types(i)
+                    exit
+                end do
+            end if
+            if (element_type%kind == TARRAY) then
+                element_type = collapse_array_rank(element_type, rank)
+            end if
+            if (element_type%kind <= 0 .or. element_type%kind == TFUN) then
+                element_type = create_mono_type(TREAL)
+            end if
+            candidate = build_deferred_shape_array(element_type, rank)
+            return
         type is (binary_op_node)
             if (is_identifier_reference(arena, node%left_index, lowered_name)) then
                 if (node%right_index > 0) then
@@ -933,7 +1004,7 @@ contains
 
     ! Update arena nodes with inferred parameter types
     subroutine update_subroutine_param_nodes(arena, sub_node, param_types, &
-                                            stored_names)
+                                             stored_names)
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(in) :: sub_node
         type(mono_type_t), allocatable, intent(inout) :: param_types(:)
