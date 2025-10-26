@@ -37,12 +37,14 @@ module codegen_declarations_inference
         character(len=64) :: defined_func_names(program_decl_max_vars)
         character(len=64) :: defined_func_types(program_decl_max_vars)
         character(len=64) :: use_associated_names(program_decl_max_vars)
+        character(len=64) :: use_module_names(program_decl_max_vars)
         integer :: declared_count
         integer :: var_count
         integer :: func_count
         integer :: internal_count
         integer :: defined_func_count
         integer :: use_associated_count
+        integer :: use_module_count
     end type program_decl_state_t
 
 contains
@@ -330,6 +332,8 @@ contains
         call initialize_program_decl_state(state)
         call populate_defined_function_table(arena, state)
         call collect_use_associated_symbols(arena, prog, state)
+        call collect_local_module_exports(arena, prog, state)
+        call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
 
@@ -350,12 +354,14 @@ contains
         state%defined_func_names = ""
         state%defined_func_types = ""
         state%use_associated_names = ""
+        state%use_module_names = ""
         state%declared_count = 0
         state%var_count = 0
         state%func_count = 0
         state%internal_count = 0
         state%defined_func_count = 0
         state%use_associated_count = 0
+        state%use_module_count = 0
     end subroutine initialize_program_decl_state
 
     subroutine populate_defined_function_table(arena, state)
@@ -380,6 +386,9 @@ contains
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (use_stmt => arena%entries(idx)%node)
             type is (use_statement_node)
+                if (allocated(use_stmt%module_name)) then
+                    call record_use_module_name(state, trim(use_stmt%module_name))
+                end if
                 if (use_stmt%has_only .and. allocated(use_stmt%only_list)) then
                     do j = 1, size(use_stmt%only_list)
                         if (.not. allocated(use_stmt%only_list(j)%s)) cycle
@@ -402,11 +411,54 @@ contains
         end do
     end subroutine collect_use_associated_symbols
 
+    subroutine collect_local_module_exports(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+        character(len=:), allocatable :: module_name
+
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (mod => arena%entries(idx)%node)
+            type is (module_node)
+                if (.not. allocated(mod%name)) cycle
+                module_name = trim(mod%name)
+                if (index(module_name, "auto_") /= 1) then
+                    if (.not. module_is_used(state, module_name)) cycle
+                end if
+                call record_module_exports(arena, mod, state)
+            end select
+        end do
+    end subroutine collect_local_module_exports
+
+    subroutine collect_auto_module_exports(arena, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i
+        character(len=:), allocatable :: module_name
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (mod => arena%entries(i)%node)
+            type is (module_node)
+                if (.not. allocated(mod%name)) cycle
+                module_name = trim(mod%name)
+                if (index(module_name, "auto_") /= 1) cycle
+                call record_module_exports(arena, mod, state)
+            end select
+        end do
+    end subroutine collect_auto_module_exports
+
     subroutine collect_module_symbols(arena, module_name, state)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: module_name
         type(program_decl_state_t), intent(inout) :: state
-        integer :: i, j, decl_idx, proc_idx
+        integer :: i
 
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
@@ -414,25 +466,35 @@ contains
             type is (module_node)
                 if (.not. allocated(mod_node%name)) cycle
                 if (trim(mod_node%name) /= module_name) cycle
-                if (allocated(mod_node%declaration_indices)) then
-                    do j = 1, size(mod_node%declaration_indices)
-                        decl_idx = mod_node%declaration_indices(j)
-                        if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
-                        if (.not. allocated(arena%entries(decl_idx)%node)) cycle
-                        call extract_declaration_names(arena, decl_idx, state)
-                    end do
-                end if
-                if (allocated(mod_node%procedure_indices)) then
-                    do j = 1, size(mod_node%procedure_indices)
-                        proc_idx = mod_node%procedure_indices(j)
-                        if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
-                        if (.not. allocated(arena%entries(proc_idx)%node)) cycle
-                        call extract_procedure_names(arena, proc_idx, state)
-                    end do
-                end if
+                call record_module_exports(arena, mod_node, state)
             end select
         end do
     end subroutine collect_module_symbols
+
+    subroutine record_module_exports(arena, mod_node, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: mod_node
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: j, decl_idx, proc_idx
+
+        if (allocated(mod_node%declaration_indices)) then
+            do j = 1, size(mod_node%declaration_indices)
+                decl_idx = mod_node%declaration_indices(j)
+                if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(decl_idx)%node)) cycle
+                call extract_declaration_names(arena, decl_idx, state)
+            end do
+        end if
+
+        if (allocated(mod_node%procedure_indices)) then
+            do j = 1, size(mod_node%procedure_indices)
+                proc_idx = mod_node%procedure_indices(j)
+                if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+                call extract_procedure_names(arena, proc_idx, state)
+            end do
+        end if
+    end subroutine record_module_exports
 
     subroutine extract_declaration_names(arena, decl_idx, state)
         type(ast_arena_t), intent(in) :: arena
@@ -506,6 +568,26 @@ contains
         state%use_associated_count = state%use_associated_count + 1
         state%use_associated_names(state%use_associated_count) = name
     end subroutine record_use_associated_name
+
+    subroutine record_use_module_name(state, module_name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: module_name
+
+        if (len_trim(module_name) == 0) return
+        if (state%use_module_count >= program_decl_max_vars) return
+        if (exists_in_list(state%use_module_names, &
+                           state%use_module_count, module_name)) return
+        state%use_module_count = state%use_module_count + 1
+        state%use_module_names(state%use_module_count) = module_name
+    end subroutine record_use_module_name
+
+    logical function module_is_used(state, module_name)
+        type(program_decl_state_t), intent(in) :: state
+        character(len=*), intent(in) :: module_name
+
+        module_is_used = exists_in_list(state%use_module_names, &
+                                        state%use_module_count, module_name)
+    end function module_is_used
 
     subroutine collect_declared_symbols(arena, prog, state)
         type(ast_arena_t), intent(in) :: arena
@@ -968,6 +1050,7 @@ contains
             if (exists_in_list(state%internal_funcs, state%internal_count, &
                                trim(state%func_names(i)))) cycle
             if (is_intrinsic_function(trim(state%func_names(i)))) cycle
+            if (module_is_used(state, "auto_"//trim(state%func_names(i)))) cycle
             if (exists_in_list(state%use_associated_names, &
                                state%use_associated_count, &
                                trim(state%func_names(i)))) cycle
