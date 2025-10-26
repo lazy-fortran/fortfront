@@ -34,18 +34,33 @@ contains
         type(mono_type_t) :: return_type
         character(len=:), allocatable :: result_name
 
-        return_type%kind = 0
         result_name = resolve_result_variable_name(arena, func_node)
-        if (len_trim(result_name) > 0) then
-            return_type = find_declared_result_type(arena, func_node, result_name)
-            if (return_type%kind /= 0) return
-            return_type = infer_result_type_from_assignments( &
-                          arena, func_node, result_name, param_names, param_types)
-            if (return_type%kind /= 0) return
+        return_type = derive_result_type_candidate(arena, func_node, result_name, &
+                                                   param_names, param_types)
+        if (return_type%kind == 0) then
+            return_type = fallback_result_type(func_node, result_name, next_var_id)
         end if
-        return_type = fallback_result_type(func_node, result_name, next_var_id)
         call ensure_return_type_seed(return_type, next_var_id)
     end function determine_function_return_type
+
+    function derive_result_type_candidate(arena, func_node, result_name, &
+                                          param_names, param_types) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_node
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t) :: candidate
+
+        candidate%kind = 0
+        if (len_trim(result_name) == 0) return
+
+        candidate = find_declared_result_type(arena, func_node, result_name)
+        if (candidate%kind /= 0) return
+
+        candidate = infer_result_type_from_assignments(arena, func_node, result_name, &
+                                                       param_names, param_types)
+    end function derive_result_type_candidate
 
     subroutine ensure_return_type_seed(return_type, next_var_id)
         type(mono_type_t), intent(inout) :: return_type
@@ -109,28 +124,45 @@ contains
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: result_type
+
+        result_type%kind = 0
+        if (.not. allocated(func_node%body_indices)) return
+
+        result_type = select_best_assignment_type( &
+                      arena, func_node%body_indices, result_name, param_names, &
+                      param_types)
+    end function infer_result_type_from_assignments
+
+    function select_best_assignment_type(arena, body_indices, result_name, &
+                                         param_names, param_types) result(selected)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t) :: selected
         type(mono_type_t) :: candidate
         type(mono_type_t) :: best
         integer :: i
         integer :: stmt_index
 
-        result_type%kind = 0
+        selected%kind = 0
         best%kind = 0
-        if (.not. allocated(func_node%body_indices)) return
 
-        do i = 1, size(func_node%body_indices)
-            stmt_index = func_node%body_indices(i)
+        do i = 1, size(body_indices)
+            stmt_index = body_indices(i)
             candidate = evaluate_result_assignment(arena, stmt_index, result_name, &
                                                    param_names, param_types)
             if (candidate%kind == 0) cycle
             if (candidate%kind /= TVAR) then
-                result_type = candidate
+                selected = candidate
                 return
             end if
             if (best%kind == 0) best = candidate
         end do
-        if (best%kind /= 0) result_type = best
-    end function infer_result_type_from_assignments
+
+        if (best%kind /= 0) selected = best
+    end function select_best_assignment_type
 
     function evaluate_result_assignment(arena, stmt_index, result_name, &
                                         param_names, param_types) result(candidate)
@@ -234,15 +266,28 @@ contains
         type(mono_type_t), intent(in) :: return_type
         type(scope_stack_t), intent(inout) :: scopes
         character(len=:), allocatable :: func_name
-        character(len=:), allocatable :: result_name
 
         func_name = select_function_name(func_node)
         call scopes%enter_function(func_name)
+        call register_function_scope_details(arena, func_node, func_index, func_name, &
+                                             return_type, scopes)
+    end subroutine create_function_scope
+
+    subroutine register_function_scope_details(arena, func_node, func_index, &
+                                               func_name, &
+                                               return_type, scopes)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        integer, intent(in) :: func_index
+        character(len=*), intent(in) :: func_name
+        type(mono_type_t), intent(in) :: return_type
+        type(scope_stack_t), intent(inout) :: scopes
+        character(len=:), allocatable :: result_name
 
         result_name = resolve_scope_result_name(arena, func_node, func_name)
         call register_result_symbols(scopes, result_name, func_name, return_type)
         call update_function_metadata(arena, func_index, result_name, return_type)
-    end subroutine create_function_scope
+    end subroutine register_function_scope_details
 
     function select_function_name(func_node) result(name)
         type(function_def_node), intent(in) :: func_node
