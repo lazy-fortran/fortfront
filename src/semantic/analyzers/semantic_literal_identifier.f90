@@ -3,14 +3,14 @@ module semantic_literal_identifier
     use type_system_unified, only: type_env_t, type_var_t, mono_type_t, &
                                    poly_type_t, create_mono_type, create_type_var, &
                                    create_poly_type, TVAR, TINT, TREAL, TCHAR, &
-                                   TLOGICAL, TDOUBLE
+                                   TLOGICAL
     use scope_manager, only: scope_stack_t
     use error_handling, only: error_collection_t, result_t, create_error_result, &
                               ERROR_SEMANTIC
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node
     use semantic_function_analysis, only: infer_type_from_usage_context
-    use string_utils_mod, only: to_lower
+    use semantic_literal_type_helpers, only: infer_real_literal_kind
     implicit none
     private
 
@@ -27,7 +27,7 @@ contains
         case (LITERAL_INTEGER)
             typ = create_mono_type(TINT)
         case (LITERAL_REAL)
-            typ = infer_real_literal_type(lit)
+            typ = infer_real_literal_kind(lit)
         case (LITERAL_STRING)
             if (allocated(lit%value) .and. len(lit%value) >= 2) then
                 typ = create_mono_type(TCHAR, char_size=len(lit%value) - 2)
@@ -97,92 +97,4 @@ contains
         mutable_scheme = scheme
         typ = mutable_scheme%get_mono()
     end function instantiate_scheme_simple
-
-    function infer_real_literal_type(lit) result(typ)
-        type(literal_node), intent(in) :: lit
-        type(mono_type_t) :: typ
-        character(len=:), allocatable :: literal_value
-        character(len=:), allocatable :: lowered_value
-        character(len=:), allocatable :: kind_token
-        integer :: underscore_pos
-        integer :: read_status
-        integer :: kind_int
-
-        typ = create_mono_type(TREAL)
-        if (.not. allocated(lit%value)) return
-
-        literal_value = trim(lit%value)
-        if (len(literal_value) == 0) return
-
-        lowered_value = to_lower(literal_value)
-        if (contains_double_exponent(lowered_value)) then
-            typ = create_mono_type(TDOUBLE)
-            return
-        end if
-
-        underscore_pos = index(lowered_value, "_")
-        if (underscore_pos <= 0) return
-        if (underscore_pos == len(lowered_value)) return
-
-        kind_token = adjustl(lowered_value(underscore_pos + 1:))
-        kind_token = trim(kind_token)
-        if (len(kind_token) == 0) return
-
-        select case (kind_token)
-        case ("real64", "double", "doubleprecision", "dp")
-            typ = create_mono_type(TDOUBLE)
-            return
-        case ("real32", "sp")
-            typ = create_mono_type(TREAL)
-            return
-        case default
-            read (kind_token, *, iostat=read_status) kind_int
-            if (read_status /= 0) return
-            if (kind_int >= 8) then
-                typ = create_mono_type(TDOUBLE)
-            else
-                typ = create_mono_type(TREAL)
-            end if
-        end select
-    end function infer_real_literal_type
-
-    pure logical function contains_double_exponent(text) result(has_double)
-        character(len=*), intent(in) :: text
-        integer :: i
-        integer :: trimmed_length
-
-        has_double = .false.
-        trimmed_length = len_trim(text)
-
-        do i = 1, trimmed_length
-            if (text(i:i) /= 'd') cycle
-            if (i <= 1) cycle
-            if (.not. is_real_digit_or_dot(text(i - 1:i - 1))) cycle
-            if (i == trimmed_length) then
-                has_double = .true.
-                return
-            end if
-            if (.not. is_digit_or_sign(text(i + 1:i + 1))) cycle
-            has_double = .true.
-            return
-        end do
-    end function contains_double_exponent
-
-    pure logical function is_real_digit_or_dot(ch) result(is_valid)
-        character(len=1), intent(in) :: ch
-        integer :: code
-
-        code = iachar(ch)
-        is_valid = (ch == '.') .or. (code >= iachar('0') .and. code <= iachar('9'))
-    end function is_real_digit_or_dot
-
-    pure logical function is_digit_or_sign(ch) result(is_valid)
-        character(len=1), intent(in) :: ch
-        integer :: code
-
-        code = iachar(ch)
-        is_valid = (code >= iachar('0') .and. code <= iachar('9')) .or. ch == '+' &
-                   .or. ch == '-'
-    end function is_digit_or_sign
-
 end module semantic_literal_identifier
