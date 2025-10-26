@@ -109,6 +109,23 @@ program test_monomorphization
     end if
 
     test_passed = .false.
+    if (index(output, "integer :: y") > 0 .or. &
+        index(output, "integer :: y,") > 0) then
+        if (index(output, "real :: y") == 0 .and. &
+            index(output, "real(8) :: y") == 0) then
+            test_passed = .true.
+        end if
+    end if
+
+    if (test_passed) then
+        print *, "  PASS: Integer specialization propagates to callers"
+    else
+        print *, "  FAIL: Integer assignment type incorrect"
+        print *, "  Output:", output
+        stop 1
+    end if
+
+    test_passed = .false.
     if (index(output, "real :: z") > 0 .or. &
         index(output, "real(8) :: z") > 0 .or. &
         index(output, "real :: y, z") > 0 .or. &
@@ -121,9 +138,9 @@ program test_monomorphization
     end if
 
     if (test_passed) then
-        print *, "  PASS: Assignment result typed correctly"
+        print *, "  PASS: Real specialization propagates to callers"
     else
-        print *, "  FAIL: Assignment result type incorrect"
+        print *, "  FAIL: Real assignment type incorrect"
         print *, "  Output:", output
         stop 1
     end if
