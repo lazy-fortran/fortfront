@@ -6,7 +6,7 @@ module codegen_procedure_shared
     use ast_nodes_misc, only: implicit_statement_node
     use codegen_declarations_core, only: build_parameter_dimensions, &
                                          fix_character_len_placeholder
-    use codegen_utilities, only: parameter_info_t
+    use codegen_parameter_info, only: parameter_info_t
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: mono_type_to_string
     implicit none
@@ -370,4 +370,3 @@ contains
     end subroutine add_single_declared_var
 
 end module codegen_procedure_shared
-

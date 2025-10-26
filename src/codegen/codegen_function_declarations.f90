@@ -17,8 +17,9 @@ module codegen_function_declarations
                                         is_parameter_name, ensure_local_var_capacity, &
                                         is_local_var_collected
     use codegen_type_utils, only: get_type_standardization
-    use codegen_utilities, only: parameter_info_t, generate_grouped_body_with_params, &
-                                 reorder_import_lines
+    use codegen_grouped_body_params, only: generate_grouped_body_with_params
+    use codegen_import_reorder, only: reorder_import_lines
+    use codegen_parameter_info, only: parameter_info_t
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     implicit none

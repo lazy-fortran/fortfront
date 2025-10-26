@@ -13,8 +13,9 @@ module codegen_subroutine_declarations
                                         is_parameter_name, ensure_local_var_capacity, &
                                         is_local_var_collected, add_declared_vars, &
                                         add_single_declared_var
-    use codegen_utilities, only: parameter_info_t, generate_grouped_body_with_params, &
-                                 reorder_import_lines
+    use codegen_grouped_body_params, only: generate_grouped_body_with_params
+    use codegen_import_reorder, only: reorder_import_lines
+    use codegen_parameter_info, only: parameter_info_t
     implicit none
     private
     public :: generate_code_subroutine_def
@@ -317,4 +318,3 @@ contains
     end subroutine collect_vars_from_read_sub
 
 end module codegen_subroutine_declarations
-

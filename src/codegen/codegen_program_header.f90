@@ -8,7 +8,7 @@ module codegen_program_header
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_declarations_inference, only: collect_program_variable_decls
     use codegen_indent, only: indent_lines
-    use codegen_utilities, only: generate_grouped_body
+    use codegen_grouped_body, only: generate_grouped_body
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -469,4 +469,3 @@ contains
     end function is_legacy_statement_comment
 
 end module codegen_program_header
-
