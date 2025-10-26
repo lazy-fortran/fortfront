@@ -1550,7 +1550,7 @@ contains
         end do
     end subroutine mark_variable_declared
 
-    ! Collect identifier variable with type - stub implementation
+    ! Collect identifier variable with type
     subroutine collect_identifier_var_with_type(identifier, var_type, &
                                                 var_names, var_types, var_declared, &
                                                 var_count, &
@@ -1568,7 +1568,7 @@ contains
                           var_declared, var_count, function_names, func_count)
     end subroutine collect_identifier_var_with_type
 
-    ! Basic type inference functions - stub implementations for now
+    ! Basic type inference functions
     function handle_string_concatenation(arena, expr_index) result(var_type)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
@@ -1698,7 +1698,7 @@ contains
 
     end function is_integer_expression
 
-    ! Collect identifier variable - stub implementation
+    ! Collect identifier variable
     subroutine collect_identifier_var(identifier, var_names, var_types, &
                                       var_declared, var_count, &
                                       function_names, func_count)
