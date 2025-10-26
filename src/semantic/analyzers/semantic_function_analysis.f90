@@ -11,7 +11,8 @@ module semantic_function_analysis
     use ast_nodes_core, only: identifier_node, assignment_node, &
                               call_or_subscript_node, literal_node, binary_op_node, &
                               program_node, array_literal_node
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   subroutine_call_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use scope_manager, only: scope_stack_t
     use semantic_validation_utils, only: update_identifier_type_in_arena, int_to_str
@@ -859,29 +860,18 @@ contains
         if (len_trim(first_assigned) > 0) res_name = first_assigned
     end function detect_result_name
 
-    ! Analyze subroutine parameters and extract their types
-    subroutine analyze_subroutine_parameters(arena, sub_node, param_types, &
-                                             param_names, scopes, next_var_id)
+    ! Extract initial parameter names and types from subroutine declaration
+    subroutine extract_subroutine_param_info(arena, sub_node, param_types, &
+                                             stored_names, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(in) :: sub_node
         type(mono_type_t), allocatable, intent(out) :: param_types(:)
-        character(len=64), allocatable, intent(out) :: param_names(:)
-        type(scope_stack_t), intent(inout) :: scopes
+        character(len=64), allocatable, intent(out) :: stored_names(:)
         integer, intent(inout) :: next_var_id
 
-        integer :: i, idx, arg_idx
-        type(mono_type_t) :: temp_type
-        type(mono_type_t) :: inferred_arg_type
-        type(poly_type_t) :: scheme
-        character(len=64), allocatable :: stored_names(:)
-        character(len=64) :: param_name
-        character(len=64) :: trimmed_name
-
-        if (.not. allocated(sub_node%param_indices)) then
-            allocate (param_types(0))
-            allocate (param_names(0))
-            return
-        end if
+        integer :: i, arg_idx
+        type(mono_type_t) :: temp_type, inferred_arg_type
+        character(len=64) :: param_name, trimmed_name
 
         allocate (param_types(size(sub_node%param_indices)))
         allocate (stored_names(size(sub_node%param_indices)))
@@ -918,11 +908,14 @@ contains
                 end if
             end if
 
-            stored_names(i) = param_name
+            trimmed_name = trim(param_name)
+            if (len_trim(trimmed_name) == 0) then
+                trimmed_name = 'arg' // trim(int_to_str(i))
+            end if
+            stored_names(i) = trimmed_name
 
             if (temp_type%kind == 0) then
-                if (len_trim(param_name) > 0) then
-                    trimmed_name = trim(param_name)
+                if (len_trim(trimmed_name) > 0) then
                     inferred_arg_type = infer_type_from_usage_context(trimmed_name, &
                                                                       next_var_id)
                     param_types(i) = inferred_arg_type
@@ -936,6 +929,17 @@ contains
                 param_types(i) = temp_type
             end if
         end do
+    end subroutine extract_subroutine_param_info
+
+    ! Update arena nodes with inferred parameter types
+    subroutine update_subroutine_param_nodes(arena, sub_node, param_types, &
+                                            stored_names)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        character(len=64), allocatable, intent(inout) :: stored_names(:)
+
+        integer :: i, idx
 
         do i = 1, size(param_types)
             idx = sub_node%param_indices(i)
@@ -945,15 +949,15 @@ contains
             select type (arg => arena%entries(idx)%node)
             type is (parameter_declaration_node)
                 if (allocated(arg%name)) then
-                    stored_names(i) = arg%name
+                    stored_names(i) = trim(arg%name)
                 end if
             type is (declaration_node)
                 if (allocated(arg%var_name)) then
-                    stored_names(i) = arg%var_name
+                    stored_names(i) = trim(arg%var_name)
                 end if
             type is (identifier_node)
                 if (allocated(arg%name)) then
-                    stored_names(i) = arg%name
+                    stored_names(i) = trim(arg%name)
                 end if
             end select
         end do
@@ -974,6 +978,99 @@ contains
                 arena%entries(sub_node%param_indices(i))%node = param_node
             end select
         end do
+    end subroutine update_subroutine_param_nodes
+
+    ! Infer subroutine parameter types from call sites
+    subroutine infer_subroutine_param_types_from_calls(arena, subroutine_name, &
+                                                       param_names, param_types, &
+                                                       scopes, next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: subroutine_name
+        character(len=64), allocatable, intent(inout) :: param_names(:)
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+
+        integer :: i, arg_idx, call_idx
+        type(mono_type_t) :: inferred_arg_type, literal_type
+
+        do call_idx = 1, arena%size
+            if (.not. allocated(arena%entries(call_idx)%node)) cycle
+            select type (call_node => arena%entries(call_idx)%node)
+            type is (subroutine_call_node)
+                if (.not. allocated(call_node%name)) cycle
+                if (trim(call_node%name) /= subroutine_name) cycle
+                if (.not. allocated(call_node%arg_indices)) cycle
+                do i = 1, min(size(call_node%arg_indices), size(param_types))
+                    arg_idx = call_node%arg_indices(i)
+                    if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+                    select type (arg_node => arena%entries(arg_idx)%node)
+                    type is (literal_node)
+                        literal_type = literal_numeric_type(arg_node)
+                        call merge_parameter_type(param_types(i), literal_type)
+                    type is (identifier_node)
+                        call merge_parameter_type(param_types(i), &
+                                                  arg_node%inferred_type)
+                        inferred_arg_type = &
+     &                    infer_identifier_type_from_context(arena, arg_node%name, &
+     &                    param_names, param_types, scopes, arg_idx, next_var_id)
+                        call merge_parameter_type(param_types(i), &
+                                                  inferred_arg_type)
+                    type is (call_or_subscript_node)
+                        call merge_parameter_type(param_types(i), &
+                                                  arg_node%inferred_type)
+                    end select
+
+                    inferred_arg_type = &
+     &                infer_expression_type_static(arena, arg_idx, param_names, &
+     &                param_types)
+                    if (inferred_arg_type%kind /= 0) then
+                        call merge_parameter_type(param_types(i), &
+                                                  inferred_arg_type)
+                    end if
+                end do
+            end select
+        end do
+    end subroutine infer_subroutine_param_types_from_calls
+
+    ! Analyze subroutine parameters and extract their types
+    subroutine analyze_subroutine_parameters(arena, sub_node, param_types, &
+                                             param_names, scopes, next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        type(mono_type_t), allocatable, intent(out) :: param_types(:)
+        character(len=64), allocatable, intent(out) :: param_names(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+
+        integer :: i
+        type(poly_type_t) :: scheme
+        character(len=64), allocatable :: stored_names(:)
+        character(:), allocatable :: subroutine_name
+
+        if (.not. allocated(sub_node%param_indices)) then
+            allocate (param_types(0))
+            allocate (param_names(0))
+            return
+        end if
+
+        call extract_subroutine_param_info(arena, sub_node, param_types, &
+                                           stored_names, next_var_id)
+
+        if (allocated(sub_node%name)) then
+            subroutine_name = trim(sub_node%name)
+        else
+            subroutine_name = ''
+        end if
+
+        if (len_trim(subroutine_name) > 0) then
+            call infer_subroutine_param_types_from_calls(arena, subroutine_name, &
+                                                         stored_names, param_types, &
+                                                         scopes, next_var_id)
+        end if
+
+        call update_subroutine_param_nodes(arena, sub_node, param_types, stored_names)
 
         do i = 1, size(param_types)
             if (len_trim(stored_names(i)) == 0) cycle
