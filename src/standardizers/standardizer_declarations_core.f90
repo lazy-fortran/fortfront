@@ -300,6 +300,8 @@ contains
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (use_statement_node)
                         keep_scanning = .true.
+                    type is (intrinsic_statement_node)
+                        keep_scanning = .true.
                     type is (comment_node)
                         ! Legacy statement comments (COMMON/EQUIVALENCE) are treated as declarations
                         if (is_legacy_statement_comment(stmt)) then

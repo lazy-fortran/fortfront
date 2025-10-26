@@ -3,10 +3,11 @@ module ast_factory_statements
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
-                              visibility_statement_node, namelist_statement_node, &
-                              include_statement_node, import_statement_node, &
-                              end_statement_node, allocate_statement_node, &
-                              deallocate_statement_node, create_implicit_statement
+                              intrinsic_statement_node, visibility_statement_node, &
+                              namelist_statement_node, include_statement_node, &
+                              import_statement_node, end_statement_node, &
+                              allocate_statement_node, deallocate_statement_node, &
+                              create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
                                  error_stop_node, cycle_node, exit_node, &
                                  continue_node, pause_node, nullify_node
@@ -15,7 +16,8 @@ module ast_factory_statements
     private
 
     ! Public statement node creation functions
-    public :: push_use_statement, push_visibility_statement, push_namelist_statement, &
+    public :: push_use_statement, push_intrinsic_statement, &
+              push_visibility_statement, push_namelist_statement, &
               push_implicit_statement, push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_entry, push_continue, push_goto, &
@@ -71,6 +73,34 @@ contains
         call arena%push(use_stmt, "use_statement", parent_index)
         use_index = arena%size
     end function push_use_statement
+
+    function push_intrinsic_statement(arena, procedure_names, line, column, &
+                                      parent_index, has_double_colon) &
+        result(stmt_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: procedure_names(:)
+        integer, intent(in), optional :: line, column, parent_index
+        logical, intent(in), optional :: has_double_colon
+        integer :: stmt_index
+        type(intrinsic_statement_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        if (present(has_double_colon)) node%has_double_colon = has_double_colon
+
+        if (size(procedure_names) > 0) then
+            allocate (node%procedure_names(size(procedure_names)))
+            do i = 1, size(procedure_names)
+                node%procedure_names(i) = string_t(trim(procedure_names(i)))
+            end do
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+
+        call arena%push(node, "intrinsic_statement", parent_index)
+        stmt_index = arena%size
+    end function push_intrinsic_statement
 
     function push_visibility_statement(arena, is_private, names, line, column, &
                                        parent_index, has_double_colon) &

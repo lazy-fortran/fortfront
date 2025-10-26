@@ -44,6 +44,7 @@ module parser_execution_statements_module
                                             get_data_additional_indices
     use parser_call_module, only: parse_call_statement
     use parser_import_statements_module, only: parse_use_statement
+    use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -352,6 +353,8 @@ contains
                 end block
             case ("use")
                 stmt_index = parse_use_statement(parser_ref, arena_ref)
+            case ("intrinsic")
+                stmt_index = parse_intrinsic_statement(parser_ref, arena_ref)
             case ("write")
                 stmt_index = parse_write_statement(parser_ref, arena_ref)
             case ("read")

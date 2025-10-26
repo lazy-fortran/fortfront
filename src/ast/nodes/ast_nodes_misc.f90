@@ -88,6 +88,17 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type use_statement_node
 
+    ! Intrinsic statement node
+    type, extends(ast_node), public :: intrinsic_statement_node
+        type(string_t), allocatable :: procedure_names(:)
+        logical :: has_double_colon = .false.
+    contains
+        procedure :: accept => intrinsic_statement_accept
+        procedure :: to_json => intrinsic_statement_to_json
+        procedure :: assign => intrinsic_statement_assign
+        generic :: assignment(=) => assign
+    end type intrinsic_statement_node
+
     type, extends(ast_node), public :: visibility_statement_node
         type(string_t), allocatable :: names(:)
         logical :: is_private = .false.
@@ -208,9 +219,11 @@ module ast_nodes_misc
 
     ! Constructors migrated from ast_core
     public :: create_comment, create_blank_line, create_end_statement
-    public :: create_use_statement, create_visibility_statement, create_include_statement
+    public :: create_use_statement, create_visibility_statement, &
+              create_include_statement
     public :: create_import_statement
-    public :: create_implicit_statement, create_interface_block, create_module_procedure
+    public :: create_implicit_statement, create_interface_block, &
+              create_module_procedure
 
 contains
 
@@ -286,7 +299,8 @@ contains
         character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         integer, intent(in), optional :: line, column
-        logical, intent(in), optional :: has_double_colon, is_intrinsic, is_non_intrinsic
+        logical, intent(in), optional :: has_double_colon, is_intrinsic, &
+                                         is_non_intrinsic
         type(use_statement_node) :: node
         integer :: i
 
@@ -696,6 +710,63 @@ contains
         lhs%is_intrinsic = rhs%is_intrinsic
         lhs%is_non_intrinsic = rhs%is_non_intrinsic
     end subroutine use_statement_assign
+
+    ! Intrinsic statement implementations
+    subroutine intrinsic_statement_accept(this, visitor)
+        class(intrinsic_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine intrinsic_statement_accept
+
+    subroutine intrinsic_statement_to_json(this, json, parent)
+        class(intrinsic_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'intrinsic_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'has_double_colon', this%has_double_colon)
+        if (allocated(this%procedure_names)) then
+            do i = 1, size(this%procedure_names)
+                if (allocated(this%procedure_names(i)%s)) then
+                    call json%add(obj, 'procedure_'//trim(adjustl(int_to_string(i))), &
+                                  this%procedure_names(i)%s)
+                end if
+            end do
+        end if
+        call json%add(parent, obj)
+    end subroutine intrinsic_statement_to_json
+
+    subroutine intrinsic_statement_assign(lhs, rhs)
+        class(intrinsic_statement_node), intent(inout) :: lhs
+        class(intrinsic_statement_node), intent(in) :: rhs
+        integer :: i
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+
+        lhs%has_double_colon = rhs%has_double_colon
+
+        if (allocated(lhs%procedure_names)) then
+            deallocate (lhs%procedure_names)
+        end if
+        if (allocated(rhs%procedure_names)) then
+            allocate (lhs%procedure_names(size(rhs%procedure_names)))
+            do i = 1, size(rhs%procedure_names)
+                lhs%procedure_names(i) = rhs%procedure_names(i)
+            end do
+        end if
+    end subroutine intrinsic_statement_assign
 
     subroutine visibility_statement_accept(this, visitor)
         class(visibility_statement_node), intent(in) :: this
@@ -1245,7 +1316,8 @@ contains
         if (allocated(rhs%type_spec%type_name)) then
             lhs%type_spec%type_name = rhs%type_spec%type_name
         else
-            if (allocated(lhs%type_spec%type_name)) deallocate (lhs%type_spec%type_name)
+            if (allocated(lhs%type_spec%type_name)) deallocate &
+                (lhs%type_spec%type_name)
         end if
         lhs%type_spec%has_kind = rhs%type_spec%has_kind
         lhs%type_spec%kind_value = rhs%type_spec%kind_value
