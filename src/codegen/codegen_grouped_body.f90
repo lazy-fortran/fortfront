@@ -149,6 +149,183 @@ contains
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_context
 
+    subroutine emit_declaration_statement(arena, idx, indent_str, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        character(len=*), intent(in) :: indent_str
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, idx)
+        code = code // indent_str // stmt_code // new_line('A')
+    end subroutine emit_declaration_statement
+
+    pure logical function is_groupable_declaration(node) result(can_group)
+        type(declaration_node), intent(in) :: node
+
+        if (node%is_multi_declaration) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_array) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_allocatable) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_pointer) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_target) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_external) then
+            can_group = .false.
+            return
+        end if
+        if (node%is_parameter) then
+            can_group = .false.
+            return
+        end if
+        if (node%initializer_index > 0) then
+            can_group = .false.
+            return
+        end if
+
+        can_group = .true.
+    end function is_groupable_declaration
+
+    subroutine extend_declaration_group(arena, body_indices, start_pos, first_node, &
+                                        grouped_names, group_count, next_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: start_pos
+        type(declaration_node), intent(in) :: first_node
+        character(len=64), allocatable, intent(inout) :: grouped_names(:)
+        integer, intent(inout) :: group_count
+        integer, intent(out) :: next_index
+        integer :: j
+
+        j = start_pos
+        do while (j <= size(body_indices))
+            if (body_indices(j) <= 0) exit
+            if (body_indices(j) > arena%size) exit
+            if (.not. allocated(arena%entries(body_indices(j))%node)) exit
+            select type (next_node => arena%entries(body_indices(j))%node)
+            type is (declaration_node)
+                if (can_group_declarations(first_node, next_node)) then
+                    group_count = group_count + 1
+                    call append_name(grouped_names, group_count, &
+                                     trim(next_node%var_name))
+                    j = j + 1
+                else
+                    exit
+                end if
+            class default
+                exit
+            end select
+        end do
+        next_index = j
+    end subroutine extend_declaration_group
+
+    function build_grouped_statement(first_node, grouped_names, group_count) &
+        result(stmt)
+        type(declaration_node), intent(in) :: first_node
+        character(len=64), allocatable, intent(in) :: grouped_names(:)
+        integer, intent(in) :: group_count
+        character(len=:), allocatable :: stmt
+        character(len=:), allocatable :: intent_text
+        character(len=:), allocatable :: var_list
+        character(len=64), allocatable :: sorted_names(:)
+
+        sorted_names = grouped_names
+        call sort_names(sorted_names, group_count)
+        var_list = build_var_list(sorted_names, group_count)
+
+        if (first_node%has_intent) then
+            intent_text = first_node%intent
+        else
+            intent_text = ""
+        end if
+
+        stmt = generate_grouped_declaration(first_node%type_name, &
+                                            first_node%kind_value, &
+                                            first_node%has_kind, &
+                                            intent_text, &
+                                            var_list, &
+                                            first_node%is_optional, &
+                                            first_node%is_target)
+    end function build_grouped_statement
+
+    subroutine extend_parameter_group(arena, body_indices, start_pos, var_list, &
+                                      next_index, first_node)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: start_pos
+        character(len=:), allocatable, intent(inout) :: var_list
+        integer, intent(out) :: next_index
+        type(parameter_declaration_node), intent(in) :: first_node
+        integer :: j
+
+        j = start_pos
+        do while (j <= size(body_indices))
+            if (body_indices(j) <= 0) exit
+            if (body_indices(j) > arena%size) exit
+            if (.not. allocated(arena%entries(body_indices(j))%node)) exit
+            select type (next_node => arena%entries(body_indices(j))%node)
+            type is (parameter_declaration_node)
+                if (can_group_parameters(first_node, next_node)) then
+                    var_list = var_list // ", " // trim(next_node%name)
+                    j = j + 1
+                else
+                    exit
+                end if
+            class default
+                exit
+            end select
+        end do
+        next_index = j
+    end subroutine extend_parameter_group
+
+    function build_parameter_statement(first_node, var_list) result(stmt)
+        type(parameter_declaration_node), intent(in) :: first_node
+        character(len=*), intent(in) :: var_list
+        character(len=:), allocatable :: stmt
+        character(len=:), allocatable :: base_type
+
+        if (allocated(first_node%type_name)) then
+            base_type = first_node%type_name
+        else
+            base_type = "real"
+        end if
+
+        if (is_character_type_string(base_type)) then
+            stmt = normalize_character_type_param(base_type, &
+                                                  first_node%has_kind, &
+                                                  first_node%kind_value)
+        else
+            stmt = base_type
+            if (first_node%has_kind .and. first_node%kind_value > 0) then
+                stmt = stmt // "(" // &
+                       trim(adjustl(int_to_string(first_node%kind_value))) // ")"
+            end if
+        end if
+
+        if (first_node%intent_type /= INTENT_NONE) then
+            stmt = stmt // ", intent(" // &
+                   intent_type_to_string(first_node%intent_type) // ")"
+        end if
+        if (first_node%is_optional) then
+            stmt = stmt // ", optional"
+        end if
+
+        stmt = stmt // " :: " // var_list
+    end function build_parameter_statement
+
     subroutine process_grouped_declarations(arena, body_indices, i, indent_str, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
@@ -157,18 +334,16 @@ contains
         character(len=:), allocatable, intent(inout) :: code
 
         type(declaration_node) :: first_node
-        character(len=:), allocatable :: var_list
         character(len=:), allocatable :: stmt_code
         character(len=64), allocatable :: grouped_names(:)
         integer :: group_count
-        integer :: j
-        integer :: k
+        integer :: next_index
 
         select type (node => arena%entries(body_indices(i))%node)
         type is (declaration_node)
-            if (node%is_multi_declaration) then
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_str // stmt_code // new_line('A')
+            if (.not. is_groupable_declaration(node)) then
+                call emit_declaration_statement(arena, body_indices(i), &
+                                                indent_str, code)
                 i = i + 1
                 return
             end if
@@ -178,59 +353,19 @@ contains
             allocate (grouped_names(group_count))
             grouped_names(1) = trim(node%var_name)
 
-            if (node%is_array .or. node%is_allocatable .or. node%is_pointer .or. &
-                node%is_target .or. node%is_external .or. node%is_parameter .or. &
-                node%initializer_index > 0) then
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_str // stmt_code // new_line('A')
-                i = i + 1
+            call extend_declaration_group(arena, body_indices, i + 1, first_node, &
+                                          grouped_names, group_count, next_index)
+
+            if (group_count == 1) then
+                call emit_declaration_statement(arena, body_indices(i), &
+                                                indent_str, code)
+                i = next_index
                 return
             end if
 
-            j = i + 1
-            do while (j <= size(body_indices))
-                if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) exit
-                if (.not. allocated(arena%entries(body_indices(j))%node)) exit
-                select type (next_node => arena%entries(body_indices(j))%node)
-                type is (declaration_node)
-                    if (can_group_declarations(first_node, next_node)) then
-                        group_count = group_count + 1
-                        call append_name(grouped_names, group_count, &
-                                         trim(next_node%var_name))
-                        j = j + 1
-                    else
-                        exit
-                    end if
-                class default
-                    exit
-                end select
-            end do
-
-            if (group_count == 1) then
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_str // stmt_code // new_line('A')
-                i = j
-            else
-                call sort_names(grouped_names, group_count)
-                var_list = build_var_list(grouped_names, group_count)
-                block
-                    character(len=:), allocatable :: intent_text
-                    if (first_node%has_intent) then
-                        intent_text = first_node%intent
-                    else
-                        intent_text = ""
-                    end if
-                    stmt_code = generate_grouped_declaration(first_node%type_name, &
-                                                             first_node%kind_value, &
-                                                             first_node%has_kind, &
-                                                             intent_text, &
-                                                             var_list, &
-                                                             first_node%is_optional, &
-                                                             first_node%is_target)
-                end block
-                code = code // indent_str // stmt_code // new_line('A')
-                i = j
-            end if
+            stmt_code = build_grouped_statement(first_node, grouped_names, group_count)
+            code = code // indent_str // stmt_code // new_line('A')
+            i = next_index
         end select
     end subroutine process_grouped_declarations
 
@@ -244,53 +379,19 @@ contains
         type(parameter_declaration_node) :: first_node
         character(len=:), allocatable :: var_list
         character(len=:), allocatable :: stmt_code
-        integer :: j
+        integer :: next_index
 
         select type (node => arena%entries(body_indices(i))%node)
         type is (parameter_declaration_node)
             first_node = node
             var_list = trim(node%name)
 
-            j = i + 1
-            do while (j <= size(body_indices))
-                if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) exit
-                if (.not. allocated(arena%entries(body_indices(j))%node)) exit
-                select type (next_node => arena%entries(body_indices(j))%node)
-                type is (parameter_declaration_node)
-                    if (can_group_parameters(first_node, next_node)) then
-                        var_list = var_list // ", " // trim(next_node%name)
-                        j = j + 1
-                    else
-                        exit
-                    end if
-                class default
-                    exit
-                end select
-            end do
+            call extend_parameter_group(arena, body_indices, i + 1, var_list, &
+                                        next_index, first_node)
 
-            if (allocated(first_node%type_name)) then
-                stmt_code = first_node%type_name
-            else
-                stmt_code = "real"
-            end if
-            if (is_character_type_string(stmt_code)) then
-                stmt_code = normalize_character_type_param(stmt_code, &
-                                                           first_node%has_kind, &
-                                                           first_node%kind_value)
-            else if (first_node%has_kind .and. first_node%kind_value > 0) then
-                stmt_code = stmt_code // "(" // &
-                            trim(adjustl(int_to_string(first_node%kind_value))) // ")"
-            end if
-            if (first_node%intent_type /= INTENT_NONE) then
-                stmt_code = stmt_code // ", intent(" // &
-                            intent_type_to_string(first_node%intent_type) // ")"
-            end if
-            if (first_node%is_optional) then
-                stmt_code = stmt_code // ", optional"
-            end if
-            stmt_code = stmt_code // " :: " // var_list
+            stmt_code = build_parameter_statement(first_node, var_list)
             code = code // indent_str // stmt_code // new_line('A')
-            i = j
+            i = next_index
         end select
     end subroutine process_grouped_parameters
 

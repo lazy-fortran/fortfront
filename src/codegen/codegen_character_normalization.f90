@@ -11,16 +11,81 @@ module codegen_character_normalization
 
 contains
 
+    pure subroutine try_extract_length_from_star(trimmed_str, open_paren, has_length, &
+                                                 length_spec)
+        character(len=*), intent(in) :: trimmed_str
+        integer, intent(in) :: open_paren
+        logical, intent(inout) :: has_length
+        character(len=:), allocatable, intent(inout) :: length_spec
+        integer :: star_pos
+        integer :: trimmed_len
+        character(len=:), allocatable :: candidate
+
+        if (has_length) return
+
+        star_pos = index(trimmed_str, "*")
+        if (star_pos <= 0) return
+        if (open_paren /= 0) then
+            if (star_pos > open_paren) return
+        end if
+
+        trimmed_len = len_trim(trimmed_str)
+        if (star_pos >= trimmed_len) return
+
+        candidate = trim(trimmed_str(star_pos + 1:trimmed_len))
+        if (len_trim(candidate) == 0) return
+
+        length_spec = candidate
+        has_length = .true.
+    end subroutine try_extract_length_from_star
+
+    pure subroutine try_extract_length_from_parentheses(trimmed_str, open_paren, &
+                                                        has_length, length_spec)
+        character(len=*), intent(in) :: trimmed_str
+        integer, intent(in) :: open_paren
+        logical, intent(inout) :: has_length
+        character(len=:), allocatable, intent(inout) :: length_spec
+        integer :: close_paren
+        integer :: depth
+        integer :: last_char
+        integer :: idx
+        character(len=:), allocatable :: candidate
+
+        if (has_length) return
+        if (open_paren <= 0) return
+
+        depth = 0
+        close_paren = 0
+        last_char = len_trim(trimmed_str)
+
+        do idx = open_paren + 1, last_char
+            select case (trimmed_str(idx:idx))
+            case ("(")
+                depth = depth + 1
+            case (")")
+                if (depth == 0) then
+                    close_paren = idx
+                    exit
+                else
+                    depth = depth - 1
+                end if
+            end select
+        end do
+
+        if (close_paren <= open_paren + 1) return
+
+        candidate = trim(trimmed_str(open_paren + 1:close_paren - 1))
+        if (len_trim(candidate) == 0) return
+
+        length_spec = candidate
+        has_length = .true.
+    end subroutine try_extract_length_from_parentheses
+
     subroutine extract_character_length(type_str, has_length, length_spec)
         character(len=*), intent(in) :: type_str
         logical, intent(out) :: has_length
         character(len=:), allocatable, intent(out) :: length_spec
-        integer :: star_pos
         integer :: open_paren
-        integer :: close_paren
-        integer :: depth
-        integer :: i
-        integer :: last_char
         character(len=:), allocatable :: trimmed_str
 
         has_length = .false.
@@ -29,41 +94,12 @@ contains
         trimmed_str = trim(type_str)
         open_paren = index(trimmed_str, "(")
 
-        star_pos = index(trimmed_str, "*")
-        if (star_pos > 0) then
-            if (open_paren == 0 .or. star_pos < open_paren) then
-                if (star_pos < len_trim(trimmed_str)) then
-                    length_spec = trim(trimmed_str(star_pos + 1:))
-                    if (len_trim(length_spec) > 0) then
-                        has_length = .true.
-                        return
-                    end if
-                end if
-            end if
-        end if
+        call try_extract_length_from_star(trimmed_str, open_paren, has_length, &
+                                          length_spec)
+        if (has_length) return
 
-        if (open_paren > 0) then
-            depth = 0
-            close_paren = 0
-            last_char = len_trim(trimmed_str)
-            do i = open_paren + 1, last_char
-                select case (trimmed_str(i:i))
-                case ("(")
-                    depth = depth + 1
-                case (")")
-                    if (depth == 0) then
-                        close_paren = i
-                        exit
-                    else
-                        depth = depth - 1
-                    end if
-                end select
-            end do
-            if (close_paren > open_paren + 1) then
-                length_spec = trim(trimmed_str(open_paren + 1:close_paren - 1))
-                if (len_trim(length_spec) > 0) has_length = .true.
-            end if
-        end if
+        call try_extract_length_from_parentheses(trimmed_str, open_paren, &
+                                                 has_length, length_spec)
     end subroutine extract_character_length
 
     subroutine preprocess_character_type(raw_type, trimmed, has_length, length_spec, &
