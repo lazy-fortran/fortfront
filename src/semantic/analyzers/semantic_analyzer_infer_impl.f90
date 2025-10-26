@@ -112,15 +112,8 @@ contains
 
         subroutine handle_previsit(current)
             type(infer_frame_t), intent(in) :: current
-            type(infer_frame_t) :: post_frame
             integer :: node_index
-            integer :: i, j
-            type(mono_type_t) :: local_type
-            type(poly_type_t) :: int_scheme
-            type(mono_type_t), allocatable :: param_types(:)
-            character(len=64), allocatable :: param_names(:)
-            type(mono_type_t) :: return_type
-            type(mono_type_t) :: control_type
+            type(mono_type_t) :: node_type
 
             node_index = current%node_index
             if (node_index <= 0 .or. node_index > arena%size) then
@@ -134,349 +127,75 @@ contains
 
             select type (expr => arena%entries(node_index)%node)
             type is (literal_node)
-                local_type = infer_literal_type(expr)
-                call finalize_node(node_index, local_type)
+                call finalize_node(node_index, infer_literal_type(expr))
             type is (complex_literal_node)
-                local_type = create_mono_type(TCOMPLEX)
-                call finalize_node(node_index, local_type)
+                call finalize_node(node_index, create_mono_type(TCOMPLEX))
             type is (identifier_node)
-                local_type = infer_identifier_type(expr, this%scopes, this%errors, &
-                                                   this%strict_mode, this%next_var_id)
-                call finalize_node(node_index, local_type)
+                node_type = infer_identifier_type(expr, this%scopes, this%errors, &
+                                                  this%strict_mode, this%next_var_id)
+                call finalize_node(node_index, node_type)
             type is (binary_op_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                call push_child(expr%right_index)
-                call push_child(expr%left_index)
+                call schedule_binary_operation(current, expr)
             type is (call_or_subscript_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%arg_indices)) then
-                    do i = size(expr%arg_indices), 1, -1
-                        call push_child(expr%arg_indices(i))
-                    end do
-                end if
+                call schedule_call_or_subscript(current, expr)
             type is (program_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
+                call schedule_program_body(current, expr)
             type is (array_slice_node)
-                local_type = infer_array_slice_type(arena, expr, &
-                                                    get_node_type_with_arena)
-                call finalize_node(node_index, local_type)
+                node_type = infer_array_slice_type(arena, expr, &
+                                                   get_node_type_with_arena)
+                call finalize_node(node_index, node_type)
             type is (subroutine_call_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%arg_indices)) then
-                    do i = size(expr%arg_indices), 1, -1
-                        call push_child(expr%arg_indices(i))
-                    end do
-                end if
+                call schedule_subroutine_call(current, expr)
             type is (function_def_node)
-                call analyze_function_parameters( &
-                    arena, expr, param_types, param_names, this%scopes, &
-                    this%next_var_id)
-                return_type = determine_function_return_type( &
-                              arena, expr, param_names, param_types, this%next_var_id)
-                call create_function_scope( &
-                    arena, expr, node_index, return_type, this%scopes)
-                post_frame = current
-                post_frame%state = STATE_POST
-                post_frame%leave_scope = .true.
-                post_frame%has_cached_type = .true.
-                post_frame%cached_type = return_type
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                if (allocated(param_types)) then
-                    post_frame%param_types = param_types
-                else
-                    allocate (post_frame%param_types(0))
-                end if
-                call push_frame_local(post_frame)
-                if (allocated(param_types)) deallocate (param_types)
-                if (allocated(param_names)) deallocate (param_names)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
+                call prepare_function_definition(current, expr, node_index)
             type is (subroutine_def_node)
-                call analyze_subroutine_parameters( &
-                    arena, expr, param_types, param_names, this%scopes, &
-                    this%next_var_id)
-                call create_subroutine_scope( &
-                    arena, expr, node_index, this%scopes)
-                post_frame = current
-                post_frame%state = STATE_POST
-                post_frame%leave_scope = .true.
-                post_frame%has_cached_type = .false.
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                if (allocated(param_types)) then
-                    post_frame%param_types = param_types
-                else
-                    allocate (post_frame%param_types(0))
-                end if
-                call push_frame_local(post_frame)
-                if (allocated(param_types)) deallocate (param_types)
-                if (allocated(param_names)) deallocate (param_names)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
+                call prepare_subroutine_definition(current, expr, node_index)
             type is (assignment_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                call push_child(expr%target_index)
-                call push_child(expr%value_index)
+                call schedule_assignment_node(current, expr)
             type is (array_literal_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%element_indices)) then
-                    do i = size(expr%element_indices), 1, -1
-                        call push_child(expr%element_indices(i))
-                    end do
-                end if
+                call schedule_array_literal_node(current, expr)
             type is (do_loop_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
-                if (expr%end_expr_index > 0) call push_child(expr%end_expr_index)
-                if (expr%start_expr_index > 0) call push_child(expr%start_expr_index)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
+                call schedule_do_loop_node(current, expr)
             type is (declaration_node)
                 call handle_declaration(expr, node_index)
             type is (if_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%then_body_indices)) then
-                    do i = size(expr%then_body_indices), 1, -1
-                        call push_child(expr%then_body_indices(i))
-                    end do
-                end if
-                call push_child(expr%condition_index)
+                call schedule_if_node(current, expr)
             type is (do_while_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
-                call push_child(expr%condition_index)
+                call schedule_do_while_node(current, expr)
             type is (where_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%elsewhere_clauses)) then
-                    do i = size(expr%elsewhere_clauses), 1, -1
-                        if (allocated(expr%elsewhere_clauses(i)%body_indices)) then
-                            do j = size(expr%elsewhere_clauses(i)%body_indices), 1, -1
-                                call push_child( &
-                                    expr%elsewhere_clauses(i)%body_indices(j))
-                            end do
-                        end if
-                        if (expr%elsewhere_clauses(i)%mask_index > 0) then
-                            call push_child(expr%elsewhere_clauses(i)%mask_index)
-                        end if
-                    end do
-                end if
-                if (allocated(expr%where_body_indices)) then
-                    do i = size(expr%where_body_indices), 1, -1
-                        call push_child(expr%where_body_indices(i))
-                    end do
-                end if
-                call push_child(expr%mask_expr_index)
+                call schedule_where_node(current, expr)
             type is (where_stmt_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                call push_child(expr%assignment_index)
-                call push_child(expr%mask_expr_index)
+                call schedule_where_stmt_node(current, expr)
             type is (forall_node)
-                call process_forall_node_body(expr, int_scheme, control_type)
-                call this%scopes%enter_block()
-                if (allocated(expr%index_names)) then
-                    do i = 1, size(expr%index_names)
-                        call this%scopes%define(expr%index_names(i), int_scheme)
-                    end do
-                end if
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                post_frame%leave_scope = .true.
-                post_frame%has_cached_type = .true.
-                post_frame%cached_type = control_type
-                call push_frame_local(post_frame)
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
+                call prepare_forall_node(current, expr)
             type is (select_case_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%case_indices)) then
-                    do i = size(expr%case_indices), 1, -1
-                        call push_child(expr%case_indices(i))
-                    end do
-                end if
-                call push_child(expr%selector_index)
+                call schedule_select_case_node(current, expr)
             type is (associate_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                post_frame%leave_scope = .true.
-                call push_frame_local(post_frame)
-                call this%scopes%enter_block()
-                if (allocated(expr%body_indices)) then
-                    do i = size(expr%body_indices), 1, -1
-                        call push_child(expr%body_indices(i))
-                    end do
-                end if
-                if (allocated(expr%associations)) then
-                    do i = size(expr%associations), 1, -1
-                        if (expr%associations(i)%expr_index > 0) then
-                            post_frame = current
-                            if (allocated(post_frame%param_types)) then
-                                deallocate (post_frame%param_types)
-                            end if
-                            post_frame%node_index = current%node_index
-                            post_frame%state = STATE_ASSOC_DEFINE
-                            post_frame%aux_index = i
-                            post_frame%leave_scope = .false.
-                            post_frame%has_cached_type = .false.
-                            call push_frame_local(post_frame)
-                            call push_child(expr%associations(i)%expr_index)
-                        end if
-                    end do
-                end if
+                call prepare_associate_node(current, expr)
             type is (stop_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                call push_child(expr%stop_code_index)
+                call schedule_single_child_frame(current, expr%stop_code_index)
             type is (pause_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                call push_child(expr%pause_code_index)
+                call schedule_single_child_frame(current, expr%pause_code_index)
             type is (nullify_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%pointer_indices)) then
-                    do i = size(expr%pointer_indices), 1, -1
-                        if (expr%pointer_indices(i) > 0) then
-                            call push_child(expr%pointer_indices(i))
-                        end if
-                    end do
-                end if
-            type is (cycle_node)
-                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
-                call finalize_node(node_index, local_type)
-            type is (exit_node)
-                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
-                call finalize_node(node_index, local_type)
-            type is (return_node)
-                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
-                call finalize_node(node_index, local_type)
-            type is (entry_node)
-                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
-                call finalize_node(node_index, local_type)
-            type is (continue_node)
-                local_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
-                call finalize_node(node_index, local_type)
+                call schedule_nullify_node(current, expr)
             type is (read_statement_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%var_indices)) then
-                    do i = size(expr%var_indices), 1, -1
-                        call push_child(expr%var_indices(i))
-                    end do
-                end if
+                call schedule_read_statement_node(current, expr)
             type is (allocate_statement_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%var_indices)) then
-                    do i = size(expr%var_indices), 1, -1
-                        call push_child(expr%var_indices(i))
-                    end do
-                end if
+                call schedule_allocate_statement_node(current, expr)
             type is (print_statement_node)
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
-                if (allocated(expr%expression_indices)) then
-                    do i = size(expr%expression_indices), 1, -1
-                        call push_child(expr%expression_indices(i))
-                    end do
-                end if
+                call schedule_print_statement_node(current, expr)
+            type is (cycle_node)
+                call finalize_node(node_index, control_flow_type())
+            type is (exit_node)
+                call finalize_node(node_index, control_flow_type())
+            type is (return_node)
+                call finalize_node(node_index, control_flow_type())
+            type is (entry_node)
+                call finalize_node(node_index, control_flow_type())
+            type is (continue_node)
+                call finalize_node(node_index, control_flow_type())
             class default
-                post_frame = current
-                if (allocated(post_frame%param_types)) deallocate &
-                    (post_frame%param_types)
-                post_frame%state = STATE_POST
-                call push_frame_local(post_frame)
+                call schedule_default_post(current)
             end select
         end subroutine handle_previsit
 
@@ -493,43 +212,15 @@ contains
 
             select type (expr => arena%entries(node_index)%node)
             type is (binary_op_node)
-                block
-                    type(mono_type_t) :: left_t, right_t
-                    left_t = get_node_type(expr%left_index)
-                    right_t = get_node_type(expr%right_index)
-                    node_type = infer_binary_operation(arena, node_index, expr, &
-                                                       left_t, right_t)
-                    call this%unify(left_t, create_mono_type(TCHAR))
-                    call this%unify(right_t, create_mono_type(TCHAR))
-                end block
-                call finalize_node(node_index, node_type)
+                call finalize_binary_operation(node_index, expr)
             type is (call_or_subscript_node)
-                node_type = infer_function_call_type(arena, expr, this%scopes, &
-                                                     get_node_type_with_arena)
-                call collect_call_signature(this%signatures, arena, expr, &
-                                            node_type, node_index)
-                call finalize_node(node_index, node_type)
+                call finalize_call_or_subscript(node_index, expr)
             type is (subroutine_call_node)
-                node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
-                call finalize_node(node_index, node_type)
+                call finalize_subroutine_call(node_index)
             type is (do_loop_node)
-                block
-                    type(mono_type_t), allocatable :: args(:)
-                    allocate (args(1))
-                    args(1) = create_mono_type(TINT)
-                    node_type = create_mono_type(TARRAY, args=args)
-                end block
-                call finalize_node(node_index, node_type)
+                call finalize_do_loop_node(node_index)
             type is (function_def_node)
-                node_type = build_function_type(current)
-                call finalize_node(node_index, node_type)
-                if (allocated(expr%name)) then
-                    block
-                        type(poly_type_t) :: func_scheme
-                        func_scheme = this%generalize(node_type)
-                        call this%scopes%define(trim(expr%name), func_scheme)
-                    end block
-                end if
+                call finalize_function_definition(current, expr, node_index)
             type is (assignment_node)
                 node_type = infer_assignment(this, arena, expr, node_index)
                 call finalize_node(node_index, node_type)
@@ -616,6 +307,483 @@ contains
                 end if
             end select
         end subroutine handle_association
+
+        subroutine init_post_frame(source, target)
+            type(infer_frame_t), intent(in) :: source
+            type(infer_frame_t), intent(out) :: target
+
+            target = source
+            if (allocated(target%param_types)) deallocate (target%param_types)
+            target%state = STATE_POST
+            target%aux_index = 0
+            target%leave_scope = .false.
+            target%has_cached_type = .false.
+        end subroutine init_post_frame
+
+        subroutine adopt_param_types(frame, param_types)
+            type(infer_frame_t), intent(inout) :: frame
+            type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+
+            if (allocated(frame%param_types)) deallocate (frame%param_types)
+            if (allocated(param_types)) then
+                call move_alloc(param_types, frame%param_types)
+            else
+                allocate (frame%param_types(0))
+            end if
+        end subroutine adopt_param_types
+
+        function control_flow_type() result(t)
+            type(mono_type_t) :: t
+
+            t = create_mono_type(TVAR, var=create_type_var(0, "control"))
+        end function control_flow_type
+
+        subroutine schedule_binary_operation(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(binary_op_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            call push_child(expr%right_index)
+            call push_child(expr%left_index)
+        end subroutine schedule_binary_operation
+
+        subroutine schedule_call_or_subscript(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(call_or_subscript_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%arg_indices)) then
+                do i = size(expr%arg_indices), 1, -1
+                    call push_child(expr%arg_indices(i))
+                end do
+            end if
+        end subroutine schedule_call_or_subscript
+
+        subroutine schedule_program_body(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(program_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+        end subroutine schedule_program_body
+
+        subroutine schedule_subroutine_call(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(subroutine_call_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%arg_indices)) then
+                do i = size(expr%arg_indices), 1, -1
+                    call push_child(expr%arg_indices(i))
+                end do
+            end if
+        end subroutine schedule_subroutine_call
+
+        subroutine schedule_assignment_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(assignment_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            call push_child(expr%target_index)
+            call push_child(expr%value_index)
+        end subroutine schedule_assignment_node
+
+        subroutine schedule_array_literal_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(array_literal_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%element_indices)) then
+                do i = size(expr%element_indices), 1, -1
+                    call push_child(expr%element_indices(i))
+                end do
+            end if
+        end subroutine schedule_array_literal_node
+
+        subroutine schedule_do_loop_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(do_loop_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
+            if (expr%end_expr_index > 0) call push_child(expr%end_expr_index)
+            if (expr%start_expr_index > 0) call push_child(expr%start_expr_index)
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+        end subroutine schedule_do_loop_node
+
+        subroutine schedule_if_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(if_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%then_body_indices)) then
+                do i = size(expr%then_body_indices), 1, -1
+                    call push_child(expr%then_body_indices(i))
+                end do
+            end if
+            call push_child(expr%condition_index)
+        end subroutine schedule_if_node
+
+        subroutine schedule_do_while_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(do_while_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+            call push_child(expr%condition_index)
+        end subroutine schedule_do_while_node
+
+        subroutine schedule_where_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(where_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i, j
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%elsewhere_clauses)) then
+                do i = size(expr%elsewhere_clauses), 1, -1
+                    if (allocated(expr%elsewhere_clauses(i)%body_indices)) then
+                        do j = size(expr%elsewhere_clauses(i)%body_indices), 1, -1
+                            call push_child(expr%elsewhere_clauses(i)%body_indices(j))
+                        end do
+                    end if
+                    if (expr%elsewhere_clauses(i)%mask_index > 0) then
+                        call push_child(expr%elsewhere_clauses(i)%mask_index)
+                    end if
+                end do
+            end if
+            if (allocated(expr%where_body_indices)) then
+                do i = size(expr%where_body_indices), 1, -1
+                    call push_child(expr%where_body_indices(i))
+                end do
+            end if
+            call push_child(expr%mask_expr_index)
+        end subroutine schedule_where_node
+
+        subroutine schedule_where_stmt_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(where_stmt_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            call push_child(expr%assignment_index)
+            call push_child(expr%mask_expr_index)
+        end subroutine schedule_where_stmt_node
+
+        subroutine prepare_function_definition(current, expr, node_index)
+            type(infer_frame_t), intent(in) :: current
+            type(function_def_node), intent(in) :: expr
+            integer, intent(in) :: node_index
+            type(infer_frame_t) :: post_frame
+            type(mono_type_t), allocatable :: param_types(:)
+            character(len=64), allocatable :: param_names(:)
+            type(mono_type_t) :: return_type
+            integer :: i
+
+            call analyze_function_parameters(arena, expr, param_types, param_names, &
+                                             this%scopes, this%next_var_id)
+            return_type = determine_function_return_type(arena, expr, param_names, &
+                                                         param_types, this%next_var_id)
+            call create_function_scope(arena, expr, node_index, return_type, &
+                                       this%scopes)
+
+            call init_post_frame(current, post_frame)
+            post_frame%leave_scope = .true.
+            post_frame%has_cached_type = .true.
+            post_frame%cached_type = return_type
+            call adopt_param_types(post_frame, param_types)
+            call push_frame_local(post_frame)
+
+            if (allocated(param_names)) deallocate (param_names)
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+        end subroutine prepare_function_definition
+
+        subroutine prepare_subroutine_definition(current, expr, node_index)
+            type(infer_frame_t), intent(in) :: current
+            type(subroutine_def_node), intent(in) :: expr
+            integer, intent(in) :: node_index
+            type(infer_frame_t) :: post_frame
+            type(mono_type_t), allocatable :: param_types(:)
+            character(len=64), allocatable :: param_names(:)
+            integer :: i
+
+            call analyze_subroutine_parameters(arena, expr, param_types, param_names, &
+                                               this%scopes, this%next_var_id)
+            call create_subroutine_scope(arena, expr, node_index, this%scopes)
+
+            call init_post_frame(current, post_frame)
+            post_frame%leave_scope = .true.
+            call adopt_param_types(post_frame, param_types)
+            call push_frame_local(post_frame)
+
+            if (allocated(param_names)) deallocate (param_names)
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+        end subroutine prepare_subroutine_definition
+
+        subroutine prepare_forall_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(forall_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            type(poly_type_t) :: int_scheme
+            type(mono_type_t) :: control_type
+            integer :: i
+
+            call process_forall_node_body(expr, int_scheme, control_type)
+            call this%scopes%enter_block()
+            if (allocated(expr%index_names)) then
+                do i = 1, size(expr%index_names)
+                    call this%scopes%define(expr%index_names(i), int_scheme)
+                end do
+            end if
+
+            call init_post_frame(current, post_frame)
+            post_frame%leave_scope = .true.
+            post_frame%has_cached_type = .true.
+            post_frame%cached_type = control_type
+            call push_frame_local(post_frame)
+
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+        end subroutine prepare_forall_node
+
+        subroutine schedule_select_case_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(select_case_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%case_indices)) then
+                do i = size(expr%case_indices), 1, -1
+                    call push_child(expr%case_indices(i))
+                end do
+            end if
+            call push_child(expr%selector_index)
+        end subroutine schedule_select_case_node
+
+        subroutine prepare_associate_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(associate_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            post_frame%leave_scope = .true.
+            call push_frame_local(post_frame)
+            call this%scopes%enter_block()
+
+            if (allocated(expr%body_indices)) then
+                do i = size(expr%body_indices), 1, -1
+                    call push_child(expr%body_indices(i))
+                end do
+            end if
+
+            if (allocated(expr%associations)) then
+                do i = size(expr%associations), 1, -1
+                    if (expr%associations(i)%expr_index <= 0) cycle
+                    call init_post_frame(current, post_frame)
+                    post_frame%node_index = current%node_index
+                    post_frame%state = STATE_ASSOC_DEFINE
+                    post_frame%aux_index = i
+                    call push_frame_local(post_frame)
+                    call push_child(expr%associations(i)%expr_index)
+                end do
+            end if
+        end subroutine prepare_associate_node
+
+        subroutine schedule_nullify_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(nullify_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%pointer_indices)) then
+                do i = size(expr%pointer_indices), 1, -1
+                    if (expr%pointer_indices(i) > 0) then
+                        call push_child(expr%pointer_indices(i))
+                    end if
+                end do
+            end if
+        end subroutine schedule_nullify_node
+
+        subroutine schedule_read_statement_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(read_statement_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%var_indices)) then
+                do i = size(expr%var_indices), 1, -1
+                    call push_child(expr%var_indices(i))
+                end do
+            end if
+        end subroutine schedule_read_statement_node
+
+        subroutine schedule_allocate_statement_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(allocate_statement_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%var_indices)) then
+                do i = size(expr%var_indices), 1, -1
+                    call push_child(expr%var_indices(i))
+                end do
+            end if
+        end subroutine schedule_allocate_statement_node
+
+        subroutine schedule_print_statement_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(print_statement_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            if (allocated(expr%expression_indices)) then
+                do i = size(expr%expression_indices), 1, -1
+                    call push_child(expr%expression_indices(i))
+                end do
+            end if
+        end subroutine schedule_print_statement_node
+
+        subroutine schedule_single_child_frame(current, child_index)
+            type(infer_frame_t), intent(in) :: current
+            integer, intent(in) :: child_index
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            call push_child(child_index)
+        end subroutine schedule_single_child_frame
+
+        subroutine schedule_default_post(current)
+            type(infer_frame_t), intent(in) :: current
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+        end subroutine schedule_default_post
+
+        subroutine finalize_binary_operation(node_index, expr)
+            integer, intent(in) :: node_index
+            type(binary_op_node), intent(in) :: expr
+            type(mono_type_t) :: left_t
+            type(mono_type_t) :: right_t
+            type(mono_type_t) :: node_type
+
+            left_t = get_node_type(expr%left_index)
+            right_t = get_node_type(expr%right_index)
+            node_type = infer_binary_operation(arena, node_index, expr, &
+                                               left_t, right_t)
+            call this%unify(left_t, create_mono_type(TCHAR))
+            call this%unify(right_t, create_mono_type(TCHAR))
+            call finalize_node(node_index, node_type)
+        end subroutine finalize_binary_operation
+
+        subroutine finalize_call_or_subscript(node_index, expr)
+            integer, intent(in) :: node_index
+            type(call_or_subscript_node), intent(inout) :: expr
+            type(mono_type_t) :: node_type
+
+            node_type = infer_function_call_type(arena, expr, this%scopes, &
+                                                 get_node_type_with_arena)
+            call collect_call_signature(this%signatures, arena, expr, node_type, &
+                                        node_index)
+            call finalize_node(node_index, node_type)
+        end subroutine finalize_call_or_subscript
+
+        subroutine finalize_subroutine_call(node_index)
+            integer, intent(in) :: node_index
+            type(mono_type_t) :: node_type
+
+            node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
+            call finalize_node(node_index, node_type)
+        end subroutine finalize_subroutine_call
+
+        subroutine finalize_do_loop_node(node_index)
+            integer, intent(in) :: node_index
+            type(mono_type_t), allocatable :: args(:)
+            type(mono_type_t) :: node_type
+
+            allocate (args(1))
+            args(1) = create_mono_type(TINT)
+            node_type = create_mono_type(TARRAY, args=args)
+            call finalize_node(node_index, node_type)
+            if (allocated(args)) deallocate (args)
+        end subroutine finalize_do_loop_node
+
+        subroutine finalize_function_definition(current, expr, node_index)
+            type(infer_frame_t), intent(in) :: current
+            type(function_def_node), intent(in) :: expr
+            integer, intent(in) :: node_index
+            type(mono_type_t) :: node_type
+            type(poly_type_t) :: func_scheme
+
+            node_type = build_function_type(current)
+            call finalize_node(node_index, node_type)
+            if (allocated(expr%name)) then
+                func_scheme = this%generalize(node_type)
+                call this%scopes%define(trim(expr%name), func_scheme)
+            end if
+        end subroutine finalize_function_definition
 
         subroutine finalize_node(node_idx, raw_type)
             integer, intent(in) :: node_idx
