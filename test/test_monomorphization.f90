@@ -128,6 +128,28 @@ program test_monomorphization
         stop 1
     end if
 
+    ! Test 5: Monomorphized interfaces should not emit external declarations
+    print *, "Testing external declaration suppression..."
+    input = &
+        "function square(x)" // new_line('A') // &
+        "    square = x * x" // new_line('A') // &
+        "end function" // new_line('A') // &
+        "" // new_line('A') // &
+        "y = square(5)" // new_line('A') // &
+        "z = square(3.0)" // new_line('A')
+
+    call transform_lazy_fortran_string(input, output, error_msg)
+
+    test_passed = index(output, "external :: square") == 0
+
+    if (test_passed) then
+        print *, "  PASS: External declaration suppressed"
+    else
+        print *, "  FAIL: External declaration still present"
+        print *, "  Output:", output
+        stop 1
+    end if
+
     print *, ""
     print *, "All monomorphization tests passed!"
 
