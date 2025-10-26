@@ -1,5 +1,5 @@
 program test_merge_intent_fix
-    use codegen_utilities, only: generate_grouped_body
+    use codegen_grouped_body, only: generate_grouped_body
     use codegen_core, only: initialize_codegen
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_data, only: create_declaration

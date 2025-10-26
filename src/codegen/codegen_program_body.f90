@@ -2,7 +2,7 @@ module codegen_program_body
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use codegen_loop_vars_mod, only: add_loop_variable_decls
-    use codegen_utilities, only: generate_grouped_body_context
+    use codegen_grouped_body, only: generate_grouped_body_context
     use string_utils_mod, only: to_lower
     implicit none
     private
