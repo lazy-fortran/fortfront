@@ -16,6 +16,7 @@ module semantic_function_array
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use semantic_validation_utils, only: int_to_str
     use string_utils_mod, only: to_lower
+    use semantic_function_analysis, only: collapse_array_rank
     implicit none
     private
 
@@ -28,7 +29,7 @@ contains
     function infer_function_call_type(arena, call_node, scopes, get_type_fn) &
         result(typ)
         type(ast_arena_t), intent(inout) :: arena
-        type(call_or_subscript_node), intent(in) :: call_node
+        type(call_or_subscript_node), intent(inout) :: call_node
         type(scope_stack_t), intent(inout) :: scopes
         interface
             function get_type_fn(a, idx) result(t)
@@ -41,13 +42,21 @@ contains
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: arg_type
+        type(mono_type_t) :: scheme_mono
+        type(mono_type_t) :: base_array_type
         character(len=:), allocatable :: intrinsic_sig
         integer :: i
+        integer :: subscript_rank
         logical :: is_intrinsic_func
+        logical :: has_function_scheme
+        logical :: treat_as_array_access
         type(mono_type_t), allocatable :: arg_types(:)
         integer :: deduced_kind
 
         typ = create_mono_type(TREAL)
+        is_intrinsic_func = .false.
+        has_function_scheme = .false.
+        treat_as_array_access = .false.
 
         if (allocated(call_node%arg_indices)) then
             allocate (arg_types(size(call_node%arg_indices)))
@@ -64,41 +73,64 @@ contains
         end if
 
         if (allocated(scheme)) then
-            typ = scheme%get_mono()
-            if (typ%kind == TFUN .and. type_args_allocated(typ) .and. &
+            scheme_mono = scheme%get_mono()
+            has_function_scheme = (scheme_mono%kind == TFUN)
+            typ = scheme_mono
+            if (has_function_scheme .and. type_args_allocated(typ) .and. &
                 type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)
             end if
-        else if (allocated(call_node%name) .and. &
-                 find_return_type(arena, call_node%name, typ)) then
-            continue
-        else
-            is_intrinsic_func = is_intrinsic_function(call_node%name)
+        else if (allocated(call_node%name)) then
+            if (find_return_type(arena, call_node%name, typ)) then
+                has_function_scheme = .true.
+            else
+                is_intrinsic_func = is_intrinsic_function(call_node%name)
 
-            if (is_intrinsic_func) then
-                intrinsic_sig = get_intrinsic_signature(call_node%name)
+                if (is_intrinsic_func) then
+                    intrinsic_sig = get_intrinsic_signature(call_node%name)
 
-                if (len_trim(intrinsic_sig) > 0) then
-                    if (index(intrinsic_sig, "real(") == 1) then
-                        typ = create_mono_type(TREAL)
-                    else if (index(intrinsic_sig, "integer(") == 1) then
-                        typ = create_mono_type(TINT)
-                    else if (index(intrinsic_sig, "logical(") == 1) then
-                        typ = create_mono_type(TLOGICAL)
-                    else if (index(intrinsic_sig, "character(") == 1) then
-                        typ = create_mono_type(TCHAR)
-                    else if (index(intrinsic_sig, "array(") == 1) then
-                        typ = infer_array_intrinsic_type(arena, call_node, &
-                                                         get_type_fn)
+                    if (len_trim(intrinsic_sig) > 0) then
+                        if (index(intrinsic_sig, "real(") == 1) then
+                            typ = create_mono_type(TREAL)
+                        else if (index(intrinsic_sig, "integer(") == 1) then
+                            typ = create_mono_type(TINT)
+                        else if (index(intrinsic_sig, "logical(") == 1) then
+                            typ = create_mono_type(TLOGICAL)
+                        else if (index(intrinsic_sig, "character(") == 1) then
+                            typ = create_mono_type(TCHAR)
+                        else if (index(intrinsic_sig, "array(") == 1) then
+                            typ = infer_array_intrinsic_type(arena, call_node, &
+                                                             get_type_fn)
+                        else
+                            typ = create_mono_type(TREAL)
+                        end if
                     else
                         typ = create_mono_type(TREAL)
                     end if
                 else
                     typ = create_mono_type(TREAL)
                 end if
-            else
-                typ = create_mono_type(TREAL)
             end if
+        else
+            typ = create_mono_type(TREAL)
+        end if
+
+        subscript_rank = 0
+        if (allocated(call_node%arg_indices)) subscript_rank = &
+            size(call_node%arg_indices)
+
+        treat_as_array_access = call_node%is_array_access
+        if (.not. treat_as_array_access) then
+            treat_as_array_access = subscript_rank > 0 .and. &
+                                    .not. has_function_scheme .and. &
+                                    .not. is_intrinsic_func
+        end if
+
+        if (treat_as_array_access .and. typ%kind == TARRAY) then
+            base_array_type = collapse_array_rank(typ, subscript_rank)
+            if (base_array_type%kind == 0) base_array_type = typ
+            typ = base_array_type
+            call_node%is_array_access = .true.
         end if
 
         if (allocated(arg_types)) then
@@ -453,6 +485,10 @@ contains
                     args(1) = typ
                     typ = create_mono_type(TARRAY, args=args)
                     typ%size = 0
+                    typ%alloc_info%is_allocatable = .true.
+                    typ%alloc_info%needs_allocation_check = .true.
+                    typ%alloc_info%is_pointer = .false.
+                    typ%alloc_info%needs_allocatable_string = .false.
                     deallocate (args)
                 end do
             else
@@ -460,12 +496,20 @@ contains
                 args(1) = element_type
                 typ = create_mono_type(TARRAY, args=args)
                 typ%size = 0
+                typ%alloc_info%is_allocatable = .true.
+                typ%alloc_info%needs_allocation_check = .true.
+                typ%alloc_info%is_pointer = .false.
+                typ%alloc_info%needs_allocatable_string = .false.
             end if
         else
             allocate (args(1))
             args(1) = create_mono_type(TREAL)
             typ = create_mono_type(TARRAY, args=args)
             typ%size = 0
+            typ%alloc_info%is_allocatable = .true.
+            typ%alloc_info%needs_allocation_check = .true.
+            typ%alloc_info%is_pointer = .false.
+            typ%alloc_info%needs_allocatable_string = .false.
         end if
     end function infer_array_intrinsic_type
 
