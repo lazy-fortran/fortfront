@@ -629,6 +629,116 @@ contains
         end select
     end function is_identifier_reference
 
+    function check_assignment_for_identifier(arena, node, lowered_name, &
+                                             param_names, param_types, scope_index, &
+                                             program_index) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: scope_index, program_index
+        type(mono_type_t) :: candidate
+        type(mono_type_t) :: element_type
+        integer :: target_idx, rank
+
+        candidate%kind = 0
+        target_idx = node%target_index
+        if (target_idx <= 0 .or. target_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_idx)%node)) return
+        if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
+                                              program_index)) return
+        select type (target => arena%entries(target_idx)%node)
+        type is (identifier_node)
+            if (trim(target%name) /= lowered_name) return
+            candidate = infer_expression_type_static(arena, node%value_index, &
+                                                     param_names, param_types)
+        type is (call_or_subscript_node)
+            if (.not. allocated(target%name)) return
+            if (trim(target%name) /= lowered_name) return
+            if (.not. allocated(target%arg_indices)) return
+            rank = size(target%arg_indices)
+            if (rank <= 0) return
+            element_type = infer_expression_type_static( &
+                           arena, node%value_index, param_names, param_types)
+            if (element_type%kind == 0) element_type = create_mono_type(TREAL)
+            candidate = build_deferred_shape_array(element_type, rank)
+        end select
+    end function check_assignment_for_identifier
+
+    function check_call_for_identifier(arena, node, lowered_name, &
+                                       param_names, param_types) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t) :: candidate
+        type(mono_type_t) :: element_type
+        integer :: rank, i
+
+        candidate%kind = 0
+        if (.not. allocated(node%name)) return
+        if (trim(node%name) /= lowered_name) return
+        if (.not. allocated(node%arg_indices)) return
+        rank = size(node%arg_indices)
+        if (rank <= 0) return
+        element_type%kind = 0
+        if (allocated(param_names) .and. allocated(param_types)) then
+            do i = 1, size(param_names)
+                if (trim(param_names(i)) /= lowered_name) cycle
+                element_type = param_types(i)
+                exit
+            end do
+        end if
+        if (element_type%kind == TARRAY) then
+            element_type = collapse_array_rank(element_type, rank)
+        end if
+        if (element_type%kind <= 0 .or. element_type%kind == TFUN) then
+            element_type = create_mono_type(TREAL)
+        end if
+        candidate = build_deferred_shape_array(element_type, rank)
+    end function check_call_for_identifier
+
+    function check_binary_op_for_identifier(arena, node, lowered_name, &
+                                           param_names, param_types, &
+                                           entry_index) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(binary_op_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: entry_index
+        type(mono_type_t) :: candidate
+
+        candidate%kind = 0
+        if (is_identifier_reference(arena, node%left_index, lowered_name)) then
+            if (node%right_index > 0) then
+                candidate = infer_expression_type_static(arena, node%right_index, &
+                                                         param_names, param_types)
+            else
+                candidate%kind = 0
+            end if
+            if (candidate%kind == 0) then
+                candidate = infer_expression_type_static(arena, entry_index, &
+                                                         param_names, param_types)
+            end if
+            if (candidate%kind /= 0) return
+        end if
+        if (is_identifier_reference(arena, node%right_index, lowered_name)) then
+            if (node%left_index > 0) then
+                candidate = infer_expression_type_static(arena, node%left_index, &
+                                                         param_names, param_types)
+            else
+                candidate%kind = 0
+            end if
+            if (candidate%kind == 0) then
+                candidate = infer_expression_type_static(arena, entry_index, &
+                                                         param_names, param_types)
+            end if
+        end if
+    end function check_binary_op_for_identifier
+
     function infer_identifier_type_at_index(arena, entry_index, lowered_name, &
                                             param_names, param_types, scope_index, &
                                             program_index) result(candidate)
@@ -639,9 +749,7 @@ contains
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         integer, intent(in) :: scope_index, program_index
         type(mono_type_t) :: candidate
-        type(mono_type_t) :: element_type
-        integer :: name_idx, target_idx
-        integer :: rank, i
+        integer :: name_idx
 
         candidate%kind = 0
         if (.not. allocated(arena%entries(entry_index)%node)) return
@@ -663,76 +771,16 @@ contains
                 end do
             end if
         type is (assignment_node)
-            target_idx = node%target_index
-            if (target_idx <= 0 .or. target_idx > arena%size) return
-            if (.not. allocated(arena%entries(target_idx)%node)) return
-            if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
-                                                  program_index)) return
-            select type (target => arena%entries(target_idx)%node)
-            type is (identifier_node)
-                if (trim(target%name) /= lowered_name) return
-                candidate = infer_expression_type_static(arena, node%value_index, &
-                                                         param_names, param_types)
-            type is (call_or_subscript_node)
-                if (.not. allocated(target%name)) return
-                if (trim(target%name) /= lowered_name) return
-                if (.not. allocated(target%arg_indices)) return
-                rank = size(target%arg_indices)
-                if (rank <= 0) return
-                element_type = infer_expression_type_static( &
-                               arena, node%value_index, param_names, param_types)
-                if (element_type%kind == 0) element_type = create_mono_type(TREAL)
-                candidate = build_deferred_shape_array(element_type, rank)
-                return
-            end select
+            candidate = check_assignment_for_identifier(arena, node, lowered_name, &
+                                                        param_names, param_types, &
+                                                        scope_index, program_index)
         type is (call_or_subscript_node)
-            if (.not. allocated(node%name)) return
-            if (trim(node%name) /= lowered_name) return
-            if (.not. allocated(node%arg_indices)) return
-            rank = size(node%arg_indices)
-            if (rank <= 0) return
-            element_type%kind = 0
-            if (allocated(param_names) .and. allocated(param_types)) then
-                do i = 1, size(param_names)
-                    if (trim(param_names(i)) /= lowered_name) cycle
-                    element_type = param_types(i)
-                    exit
-                end do
-            end if
-            if (element_type%kind == TARRAY) then
-                element_type = collapse_array_rank(element_type, rank)
-            end if
-            if (element_type%kind <= 0 .or. element_type%kind == TFUN) then
-                element_type = create_mono_type(TREAL)
-            end if
-            candidate = build_deferred_shape_array(element_type, rank)
-            return
+            candidate = check_call_for_identifier(arena, node, lowered_name, &
+                                                  param_names, param_types)
         type is (binary_op_node)
-            if (is_identifier_reference(arena, node%left_index, lowered_name)) then
-                if (node%right_index > 0) then
-                    candidate = infer_expression_type_static(arena, node%right_index, &
-                                                             param_names, param_types)
-                else
-                    candidate%kind = 0
-                end if
-                if (candidate%kind == 0) then
-                    candidate = infer_expression_type_static(arena, entry_index, &
-                                                             param_names, param_types)
-                end if
-                if (candidate%kind /= 0) return
-            end if
-            if (is_identifier_reference(arena, node%right_index, lowered_name)) then
-                if (node%left_index > 0) then
-                    candidate = infer_expression_type_static(arena, node%left_index, &
-                                                             param_names, param_types)
-                else
-                    candidate%kind = 0
-                end if
-                if (candidate%kind == 0) then
-                    candidate = infer_expression_type_static(arena, entry_index, &
-                                                             param_names, param_types)
-                end if
-            end if
+            candidate = check_binary_op_for_identifier(arena, node, lowered_name, &
+                                                       param_names, param_types, &
+                                                       entry_index)
         end select
     end function infer_identifier_type_at_index
 
