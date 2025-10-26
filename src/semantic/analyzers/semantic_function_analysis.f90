@@ -72,6 +72,36 @@ contains
         end select
     end function infer_type_from_usage_context
 
+    subroutine merge_parameter_type(current_type, candidate_type)
+        type(mono_type_t), intent(inout) :: current_type
+        type(mono_type_t), intent(in) :: candidate_type
+        type(mono_type_t) :: merged_type
+
+        if (candidate_type%kind <= 0) return
+
+        if (current_type%kind <= 0) then
+            current_type = candidate_type
+            return
+        end if
+
+        if (current_type%kind == TVAR) then
+            current_type = candidate_type
+            return
+        end if
+
+        if (candidate_type%kind == TVAR) return
+
+        if (current_type%kind == candidate_type%kind) return
+
+        if (candidate_type%kind == TDOUBLE .and. current_type%kind == TREAL) then
+            current_type = candidate_type
+            return
+        end if
+
+        merged_type = get_common_type(current_type, candidate_type)
+        if (merged_type%kind > 0) current_type = merged_type
+    end subroutine merge_parameter_type
+
     ! Analyze function parameters and extract their types
     subroutine analyze_function_parameters(arena, func_node, param_types, &
                                            param_names, &
@@ -177,27 +207,16 @@ contains
                     select type (arg_node => arena%entries(arg_idx)%node)
                     type is (literal_node)
                         literal_type = literal_numeric_type(arg_node)
-                        if (literal_type%kind == 0) cycle
-                        if (param_types(i)%kind == 0 .or. &
-                            param_types(i)%kind == TVAR) then
-                            param_types(i) = literal_type
-                        else if (param_types(i)%kind == TREAL) then
-                            if (literal_type%kind == TDOUBLE) then
-                                param_types(i) = literal_type
-                            end if
-                        end if
+                        call merge_parameter_type(param_types(i), literal_type)
                     type is (identifier_node)
-                        if (arg_node%inferred_type%kind == TINT) then
-                            param_types(i) = create_mono_type(TINT)
-                        else
-                            inferred_arg_type = &
-                                infer_identifier_type_from_context( &
-                                arena, arg_node%name, stored_names, param_types, &
-                                scopes, arg_idx, next_var_id)
-                            if (inferred_arg_type%kind == TINT) then
-                                param_types(i) = inferred_arg_type
-                            end if
-                        end if
+                        call merge_parameter_type( &
+                            param_types(i), arg_node%inferred_type)
+                        inferred_arg_type = infer_identifier_type_from_context( &
+                                            arena, arg_node%name, stored_names, &
+                                            param_types, scopes, arg_idx, &
+                                            next_var_id)
+                        call merge_parameter_type(param_types(i), &
+                                                  inferred_arg_type)
                     end select
                 end do
             end select
@@ -496,6 +515,25 @@ contains
         end if
     end function infer_identifier_type_from_context
 
+    logical function is_identifier_reference(arena, node_index, lowered_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: lowered_name
+
+        is_identifier_reference = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name)) then
+                if (trim(node%name) == lowered_name) then
+                    is_identifier_reference = .true.
+                end if
+            end if
+        end select
+    end function is_identifier_reference
+
     function infer_identifier_type_at_index(arena, entry_index, lowered_name, &
                                             param_names, param_types, scope_index, &
                                             program_index) result(candidate)
@@ -539,6 +577,32 @@ contains
                 candidate = infer_expression_type_static(arena, node%value_index, &
                                                          param_names, param_types)
             end select
+        type is (binary_op_node)
+            if (is_identifier_reference(arena, node%left_index, lowered_name)) then
+                if (node%right_index > 0) then
+                    candidate = infer_expression_type_static(arena, node%right_index, &
+                                                             param_names, param_types)
+                else
+                    candidate%kind = 0
+                end if
+                if (candidate%kind == 0) then
+                    candidate = infer_expression_type_static(arena, entry_index, &
+                                                             param_names, param_types)
+                end if
+                if (candidate%kind /= 0) return
+            end if
+            if (is_identifier_reference(arena, node%right_index, lowered_name)) then
+                if (node%left_index > 0) then
+                    candidate = infer_expression_type_static(arena, node%left_index, &
+                                                             param_names, param_types)
+                else
+                    candidate%kind = 0
+                end if
+                if (candidate%kind == 0) then
+                    candidate = infer_expression_type_static(arena, entry_index, &
+                                                             param_names, param_types)
+                end if
+            end if
         end select
     end function infer_identifier_type_at_index
 
