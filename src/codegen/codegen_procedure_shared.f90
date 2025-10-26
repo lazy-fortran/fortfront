@@ -1,0 +1,373 @@
+module codegen_procedure_shared
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: identifier_node
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                              intent_type_to_string
+    use ast_nodes_misc, only: implicit_statement_node
+    use codegen_declarations_core, only: build_parameter_dimensions, &
+                                         fix_character_len_placeholder
+    use codegen_utilities, only: parameter_info_t
+    use string_utils_mod, only: int_to_string
+    use type_string_utils, only: mono_type_to_string
+    implicit none
+    private
+    public :: build_parameter_clause
+    public :: derive_parameter_name
+    public :: filter_implicit_statements
+    public :: maybe_add_procedure_implicit_none
+    public :: apply_default_intents
+    public :: gather_prefix
+    public :: copy_indices
+    public :: append_parameter_declaration
+    public :: get_param_type_from_identifier
+    public :: get_param_type_from_param_decl
+    public :: get_param_type_fallback
+    public :: is_parameter_name
+    public :: is_local_var_collected
+    public :: ensure_local_var_capacity
+    public :: add_declared_vars
+    public :: add_single_declared_var
+
+contains
+
+    function build_parameter_clause(arena, param_indices) result(clause)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
+        character(len=:), allocatable :: clause
+        integer :: i
+
+        if (size(param_indices) == 0) then
+            clause = "()"
+            return
+        end if
+
+        clause = "("
+        do i = 1, size(param_indices)
+            if (i > 1) clause = clause // ", "
+            clause = clause // derive_parameter_name(arena, param_indices(i), i)
+        end do
+        clause = clause // ")"
+    end function build_parameter_clause
+
+    function derive_parameter_name(arena, param_index, fallback_index) result(name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        integer, intent(in) :: fallback_index
+        character(len=:), allocatable :: name
+
+        name = "param" // trim(adjustl(int_to_string(fallback_index)))
+
+        if (param_index <= 0 .or. param_index > arena%size) return
+        if (.not. allocated(arena%entries(param_index)%node)) return
+
+        select type (param_node => arena%entries(param_index)%node)
+        type is (identifier_node)
+            name = param_node%name
+        type is (parameter_declaration_node)
+            name = param_node%name
+        type is (declaration_node)
+            name = param_node%var_name
+        end select
+    end function derive_parameter_name
+
+    subroutine filter_implicit_statements(arena, body_indices, filtered_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, allocatable, intent(out) :: filtered_indices(:)
+        integer :: j, count
+        logical :: is_implicit_none
+
+        count = 0
+        do j = 1, size(body_indices)
+            is_implicit_none = .false.
+            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                if (allocated(arena%entries(body_indices(j))%node)) then
+                    select type (body_node => arena%entries(body_indices(j))%node)
+                    type is (implicit_statement_node)
+                        is_implicit_none = body_node%is_none
+                    end select
+                end if
+            end if
+            if (.not. is_implicit_none) count = count + 1
+        end do
+
+        allocate (filtered_indices(count))
+        count = 0
+        do j = 1, size(body_indices)
+            is_implicit_none = .false.
+            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                if (allocated(arena%entries(body_indices(j))%node)) then
+                    select type (body_node => arena%entries(body_indices(j))%node)
+                    type is (implicit_statement_node)
+                        is_implicit_none = body_node%is_none
+                    end select
+                end if
+            end if
+            if (.not. is_implicit_none) then
+                count = count + 1
+                filtered_indices(count) = body_indices(j)
+            end if
+        end do
+    end subroutine filter_implicit_statements
+
+    function maybe_add_procedure_implicit_none(arena, body_indices) result(prolog)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=:), allocatable :: prolog
+        integer :: j
+        logical :: has_implicit_none
+        logical :: has_other_implicit
+
+        prolog = ""
+        has_implicit_none = .false.
+        has_other_implicit = .false.
+
+        do j = 1, size(body_indices)
+            if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+            if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+            select type (body_node => arena%entries(body_indices(j))%node)
+            type is (implicit_statement_node)
+                if (body_node%is_none) then
+                    has_implicit_none = .true.
+                else
+                    has_other_implicit = .true.
+                end if
+            end select
+        end do
+
+        if (has_other_implicit) return
+        prolog = "    implicit none" // new_line('A')
+    end function maybe_add_procedure_implicit_none
+
+    subroutine apply_default_intents(prefix_keywords, param_map)
+        character(len=*), intent(in) :: prefix_keywords(:)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: i, j
+
+        do j = 1, size(prefix_keywords)
+            select case (trim(prefix_keywords(j)))
+            case ("pure", "elemental")
+                do i = 1, size(param_map)
+                    if (.not. allocated(param_map(i)%name)) cycle
+                    if (len_trim(param_map(i)%intent_str) == 0) then
+                        param_map(i)%intent_str = "in"
+                    end if
+                end do
+            end select
+        end do
+    end subroutine apply_default_intents
+
+    function gather_prefix(prefix_keywords, recursive_in_prefix) result(prefix)
+        character(len=*), allocatable, intent(in) :: prefix_keywords(:)
+        logical, intent(out) :: recursive_in_prefix
+        character(len=:), allocatable :: prefix
+        integer :: i
+        character(len=:), allocatable :: term
+
+        prefix = ""
+        recursive_in_prefix = .false.
+
+        if (.not. allocated(prefix_keywords)) return
+
+        do i = 1, size(prefix_keywords)
+            term = prefix_keywords(i)
+            if (len_trim(term) == 0) cycle
+            if (len(prefix) > 0) prefix = prefix // " "
+            prefix = prefix // trim(term)
+            if (trim(term) == "recursive") recursive_in_prefix = .true.
+        end do
+    end function gather_prefix
+
+    subroutine copy_indices(source, target)
+        integer, allocatable, intent(in) :: source(:)
+        integer, allocatable, intent(out) :: target(:)
+
+        if (allocated(source)) then
+            allocate (target(size(source)))
+            target = source
+        else
+            allocate (target(0))
+        end if
+    end subroutine copy_indices
+
+    subroutine append_parameter_declaration(arena, param_idx, param_info, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_idx
+        type(parameter_info_t), intent(in) :: param_info
+        character(len=:), allocatable, intent(inout) :: decl_code
+        character(len=:), allocatable :: param_type
+        character(len=:), allocatable :: decl_line
+        character(len=:), allocatable :: intent_str
+        character(len=:), allocatable :: dim_clause
+
+        if (len_trim(param_info%name) == 0) return
+
+        select type (param_node => arena%entries(param_idx)%node)
+        type is (identifier_node)
+            param_type = get_param_type_from_identifier(param_node)
+        type is (parameter_declaration_node)
+            param_type = get_param_type_from_param_decl(param_node)
+            intent_str = intent_type_to_string(param_node%intent_type)
+            if (len_trim(intent_str) > 0) then
+                param_type = trim(param_type) // ", intent(" // trim(intent_str) // ")"
+            end if
+            if (param_node%is_optional) then
+                param_type = trim(param_type) // ", optional"
+            end if
+            if (param_node%is_target) then
+                param_type = trim(param_type) // ", target"
+            end if
+        class default
+            param_type = get_param_type_fallback(param_node)
+        end select
+
+        decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
+
+        select type (param_node => arena%entries(param_idx)%node)
+        type is (parameter_declaration_node)
+            if (param_node%is_array) then
+                dim_clause = build_parameter_dimensions(arena, param_node)
+                decl_line = trim(decl_line) // trim(dim_clause)
+            end if
+        end select
+
+        decl_line = fix_character_len_placeholder(decl_line)
+        block
+            integer :: pos_char
+            pos_char = index(decl_line, 'character(len=:)')
+            if (pos_char > 0) then
+                decl_line = decl_line(1:pos_char + 13) // '*)' // &
+                            decl_line(pos_char + 17:)
+            end if
+        end block
+        decl_code = decl_code // decl_line // new_line('A')
+    end subroutine append_parameter_declaration
+
+    function get_param_type_from_identifier(param_node) result(param_type)
+        type(identifier_node), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+        integer :: pos
+
+        param_type = mono_type_to_string(param_node%inferred_type, &
+                                         include_shape=.true., fallback='real')
+        if (len_trim(param_type) == 0) param_type = 'real'
+
+        pos = index(param_type, 'character(len=:)')
+        if (pos > 0) then
+            param_type = param_type(1:pos + 13) // '*' // param_type(pos + 16:)
+        end if
+    end function get_param_type_from_identifier
+
+    function get_param_type_from_param_decl(param_node) result(param_type)
+        type(parameter_declaration_node), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+
+        if (allocated(param_node%type_name) .and. &
+            len_trim(param_node%type_name) > 0) then
+            param_type = param_node%type_name
+        else
+            param_type = mono_type_to_string(param_node%inferred_type, &
+                                             include_shape=.true., fallback='real')
+            if (len_trim(param_type) == 0) param_type = 'real'
+        end if
+    end function get_param_type_from_param_decl
+
+    function get_param_type_fallback(param_node) result(param_type)
+        class(*), intent(in) :: param_node
+        character(len=:), allocatable :: param_type
+
+        param_type = 'real'
+    end function get_param_type_fallback
+
+    logical function is_parameter_name(name, param_map) result(is_param)
+        character(len=*), intent(in) :: name
+        type(parameter_info_t), intent(in) :: param_map(:)
+        integer :: i
+
+        is_param = .false.
+        do i = 1, size(param_map)
+            if (allocated(param_map(i)%name)) then
+                if (trim(param_map(i)%name) == trim(name)) then
+                    is_param = .true.
+                    return
+                end if
+            end if
+        end do
+    end function is_parameter_name
+
+    logical function is_local_var_collected(name, collected, n) result(found)
+        character(len=*), intent(in) :: name
+        character(len=*), allocatable, intent(in) :: collected(:)
+        integer, intent(in) :: n
+        integer :: i
+
+        found = .false.
+        if (.not. allocated(collected)) return
+        do i = 1, n
+            if (trim(collected(i)) == trim(name)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function is_local_var_collected
+
+    subroutine ensure_local_var_capacity(local_vars, capacity, required_size)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: capacity
+        integer, intent(in) :: required_size
+        character(len=64), allocatable :: grown(:)
+        integer :: new_capacity
+
+        if (capacity >= required_size) return
+
+        if (capacity > 0) then
+            new_capacity = max(capacity * 2, required_size)
+            allocate (grown(new_capacity))
+            grown = ''
+            grown(1:capacity) = local_vars(1:capacity)
+            call move_alloc(grown, local_vars)
+        else
+            new_capacity = max(4, required_size)
+            allocate (local_vars(new_capacity))
+            local_vars = ''
+        end if
+
+        capacity = new_capacity
+    end subroutine ensure_local_var_capacity
+
+    subroutine add_declared_vars(var_names, declared_vars, n_declared, capacity)
+        character(len=*), intent(in) :: var_names(:)
+        character(len=64), allocatable, intent(inout) :: declared_vars(:)
+        integer, intent(inout) :: n_declared
+        integer, intent(inout) :: capacity
+        integer :: i
+
+        do i = 1, size(var_names)
+            if (len_trim(var_names(i)) == 0) cycle
+            if (.not. is_local_var_collected(trim(var_names(i)), declared_vars, &
+                                             n_declared)) then
+                call ensure_local_var_capacity(declared_vars, capacity, &
+                                               n_declared + 1)
+                n_declared = n_declared + 1
+                declared_vars(n_declared) = trim(var_names(i))
+            end if
+        end do
+    end subroutine add_declared_vars
+
+    subroutine add_single_declared_var(var_name, declared_vars, n_declared, capacity)
+        character(len=*), intent(in) :: var_name
+        character(len=64), allocatable, intent(inout) :: declared_vars(:)
+        integer, intent(inout) :: n_declared
+        integer, intent(inout) :: capacity
+
+        if (len_trim(var_name) == 0) return
+        if (.not. is_local_var_collected(trim(var_name), declared_vars, n_declared)) &
+            then
+            call ensure_local_var_capacity(declared_vars, capacity, n_declared + 1)
+            n_declared = n_declared + 1
+            declared_vars(n_declared) = trim(var_name)
+        end if
+    end subroutine add_single_declared_var
+
+end module codegen_procedure_shared
+
