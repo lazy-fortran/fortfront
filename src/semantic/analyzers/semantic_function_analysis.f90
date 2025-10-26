@@ -22,7 +22,7 @@ module semantic_function_analysis
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: mono_type_to_string
     use semantic_array_type_builders, only: build_deferred_shape_array, &
-                                             collapse_array_rank
+                                            collapse_array_rank
     implicit none
     private
 
@@ -105,131 +105,149 @@ contains
         if (merged_type%kind > 0) current_type = merged_type
     end subroutine merge_parameter_type
 
-    ! Analyze function parameters and extract their types
-    subroutine analyze_function_parameters(arena, func_node, param_types, &
-                                           param_names, &
-                                           scopes, next_var_id)
+    subroutine fetch_parameter_metadata(arena, param_index, param_name, param_type)
         type(ast_arena_t), intent(inout) :: arena
-        type(function_def_node), intent(in) :: func_node
-        type(mono_type_t), allocatable, intent(out) :: param_types(:)
-        character(len=64), allocatable, intent(out) :: param_names(:)
-        type(scope_stack_t), intent(inout) :: scopes
-        integer, intent(inout) :: next_var_id
+        integer, intent(in) :: param_index
+        character(len=64), intent(out) :: param_name
+        type(mono_type_t), intent(out) :: param_type
 
-        integer :: i, idx, arg_idx
-        type(mono_type_t) :: temp_type
-        type(mono_type_t) :: inferred_arg_type
-        type(mono_type_t) :: literal_type
-        type(poly_type_t) :: scheme
-        character(len=64), allocatable :: stored_names(:)
-        character(len=64) :: param_name
+        param_name = ''
+        param_type%kind = 0
+
+        if (param_index <= 0 .or. param_index > arena%size) return
+        if (.not. allocated(arena%entries(param_index)%node)) return
+
+        select type (param_node => arena%entries(param_index)%node)
+        type is (identifier_node)
+            param_name = param_node%name
+        type is (parameter_declaration_node)
+            param_name = param_node%name
+            param_type = declaration_type_to_mono(param_node%type_name)
+            if (param_type%kind == 0 .and. param_node%inferred_type%kind > 0) then
+                param_type = param_node%inferred_type
+            end if
+        type is (declaration_node)
+            param_name = param_node%var_name
+            param_type = declaration_type_to_mono(param_node%type_name)
+            if (param_type%kind == 0 .and. param_node%inferred_type%kind > 0) then
+                param_type = param_node%inferred_type
+            end if
+        class default
+            param_name = ''
+        end select
+    end subroutine fetch_parameter_metadata
+
+    subroutine ensure_parameter_seed(param_type, param_name, next_var_id)
+        type(mono_type_t), intent(inout) :: param_type
+        character(len=*), intent(in) :: param_name
+        integer, intent(inout) :: next_var_id
         character(len=64) :: trimmed_name
 
-        if (.not. allocated(func_node%param_indices)) then
-            allocate (param_types(0))
-            allocate (param_names(0))
-            return
+        trimmed_name = trim(param_name)
+
+        if (param_type%kind /= TVAR) return
+
+        if (param_type%var%id == 0) then
+            param_type = create_mono_type(TVAR, &
+                                          var=create_type_var(next_var_id, "arg"))
+            next_var_id = next_var_id + 1
         end if
 
-        allocate (param_types(size(func_node%param_indices)))
-        allocate (stored_names(size(func_node%param_indices)))
+        if (len_trim(trimmed_name) == 0) return
 
-        do i = 1, size(func_node%param_indices)
-            param_name = ''
-            temp_type%kind = 0
-            if (func_node%param_indices(i) > 0 .and. &
-                func_node%param_indices(i) <= arena%size) then
-                if (allocated(arena%entries(func_node%param_indices(i))%node)) then
-                    select type (param_node => &
-                                 arena%entries(func_node%param_indices(i))%node)
-                    type is (identifier_node)
-                        param_name = param_node%name
-                    type is (parameter_declaration_node)
-                        param_name = param_node%name
-                        temp_type = declaration_type_to_mono(param_node%type_name)
-                        if (temp_type%kind == 0 .and. &
-                            param_node%inferred_type%kind > 0) then
-                            temp_type = param_node%inferred_type
-                        end if
-                    type is (declaration_node)
-                        param_name = param_node%var_name
-                        temp_type = declaration_type_to_mono(param_node%type_name)
-                        if (temp_type%kind == 0 .and. &
-                            param_node%inferred_type%kind > 0) then
-                            temp_type = param_node%inferred_type
-                        end if
-                    class default
-                        param_name = ''
-                    end select
-                end if
+        select case (trimmed_name(1:1))
+        case ('i', 'j', 'k', 'l', 'm', 'n')
+            param_type = create_mono_type(TINT)
+        end select
+    end subroutine ensure_parameter_seed
+
+    subroutine extract_param_info(arena, func_node, param_types, param_names, &
+                                  next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        character(len=64), allocatable, intent(inout) :: param_names(:)
+        integer, intent(inout) :: next_var_id
+        integer :: i
+        character(len=64) :: source_name
+        character(len=64) :: final_name
+        type(mono_type_t) :: source_type
+
+        do i = 1, size(param_types)
+            call fetch_parameter_metadata(arena, func_node%param_indices(i), &
+                                          source_name, source_type)
+            final_name = trim(source_name)
+            if (len_trim(final_name) == 0) then
+                final_name = 'arg' // trim(int_to_str(i))
             end if
-
-            trimmed_name = trim(param_name)
-            if (len_trim(trimmed_name) == 0) then
-                trimmed_name = 'arg' // trim(int_to_str(i))
+            final_name = trim(final_name)
+            if (source_type%kind == 0) then
+                source_type = infer_type_from_usage_context(final_name, next_var_id)
             end if
-
-            if (temp_type%kind == 0) then
-                temp_type = infer_type_from_usage_context(trimmed_name, next_var_id)
-            end if
-
-            if (temp_type%kind == TVAR) then
-                if (temp_type%var%id == 0) then
-                    temp_type = create_mono_type(TVAR, &
-                                                 var=create_type_var(next_var_id, &
-                                                                     "arg"))
-                    next_var_id = next_var_id + 1
-                end if
-                if (len_trim(trimmed_name) > 0) then
-                    select case (trimmed_name(1:1))
-                    case ('i', 'j', 'k', 'l', 'm', 'n')
-                        temp_type = create_mono_type(TINT)
-                    end select
-                end if
-            end if
-
-            param_types(i) = temp_type
-            stored_names(i) = trimmed_name
-
+            call ensure_parameter_seed(source_type, final_name, next_var_id)
+            param_names(i) = final_name
+            param_types(i) = source_type
         end do
+    end subroutine extract_param_info
+
+    subroutine infer_types_from_call_sites(arena, func_node, param_types, &
+                                           param_names, scopes, next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+        integer :: idx
+        integer :: i
+        integer :: arg_idx
+        type(mono_type_t) :: inferred_arg_type
+        type(mono_type_t) :: literal_type
+
+        if (.not. allocated(func_node%name)) return
 
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (call_node => arena%entries(idx)%node)
             type is (call_or_subscript_node)
-                if (.not. allocated(func_node%name)) cycle
                 if (.not. allocated(call_node%name)) cycle
                 if (trim(call_node%name) /= trim(func_node%name)) cycle
                 if (.not. allocated(call_node%arg_indices)) cycle
                 do i = 1, min(size(call_node%arg_indices), size(param_types))
                     arg_idx = call_node%arg_indices(i)
                     if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(arg_idx)%node)) then
-                        cycle
-                    end if
+                    if (.not. allocated(arena%entries(arg_idx)%node)) cycle
                     select type (arg_node => arena%entries(arg_idx)%node)
                     type is (literal_node)
                         literal_type = literal_numeric_type(arg_node)
                         call merge_parameter_type(param_types(i), literal_type)
                     type is (identifier_node)
-                        call merge_parameter_type( &
-                            param_types(i), arg_node%inferred_type)
-                        inferred_arg_type = infer_identifier_type_from_context( &
-                                            arena, arg_node%name, stored_names, &
-                                            param_types, scopes, arg_idx, &
-                                            next_var_id)
+                        call merge_parameter_type(param_types(i), &
+                                                  arg_node%inferred_type)
+                        inferred_arg_type = &
+                            infer_identifier_type_from_context( &
+                            arena, arg_node%name, param_names, param_types, &
+                            scopes, arg_idx, next_var_id)
                         call merge_parameter_type(param_types(i), &
                                                   inferred_arg_type)
                     end select
                 end do
             end select
         end do
+    end subroutine infer_types_from_call_sites
+
+    subroutine update_arena_param_nodes(arena, func_node, param_types)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer :: i
 
         do i = 1, size(param_types)
-            if (func_node%param_indices(i) <= 0 .or. func_node%param_indices(i) > &
-                & arena%size) cycle
+            if (func_node%param_indices(i) <= 0 .or. &
+                func_node%param_indices(i) > arena%size) cycle
             if (.not. allocated(arena%entries(func_node%param_indices(i))%node)) cycle
-            select type (param_node => arena%entries(func_node%param_indices(i))%node)
+            select type (param_node => &
+                         arena%entries(func_node%param_indices(i))%node)
             type is (identifier_node)
                 param_node%inferred_type = param_types(i)
                 arena%entries(func_node%param_indices(i))%node = param_node
@@ -241,16 +259,56 @@ contains
                 arena%entries(func_node%param_indices(i))%node = param_node
             end select
         end do
+    end subroutine update_arena_param_nodes
+
+    subroutine register_params_in_scope(arena, param_names, param_types, scopes)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer :: i
+        type(poly_type_t) :: scheme
 
         do i = 1, size(param_types)
-            if (len_trim(stored_names(i)) == 0) cycle
-            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=param_types(i))
-            call scopes%define(trim(stored_names(i)), scheme)
+            if (len_trim(param_names(i)) == 0) cycle
+            scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                      mono=param_types(i))
+            call scopes%define(trim(param_names(i)), scheme)
             call update_identifier_type_in_arena( &
-                arena, trim(stored_names(i)), param_types(i))
+                arena, trim(param_names(i)), param_types(i))
         end do
+    end subroutine register_params_in_scope
 
-        param_names = stored_names
+    ! Analyze function parameters and extract their types
+    subroutine analyze_function_parameters(arena, func_node, param_types, &
+                                           param_names, &
+                                           scopes, next_var_id)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(mono_type_t), allocatable, intent(out) :: param_types(:)
+        character(len=64), allocatable, intent(out) :: param_names(:)
+        type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(inout) :: next_var_id
+
+        integer :: param_count
+
+        if (.not. allocated(func_node%param_indices)) then
+            allocate (param_types(0))
+            allocate (param_names(0))
+            return
+        end if
+
+        param_count = size(func_node%param_indices)
+
+        allocate (param_types(param_count))
+        allocate (param_names(param_count))
+
+        call extract_param_info(arena, func_node, param_types, param_names, &
+                                next_var_id)
+        call infer_types_from_call_sites(arena, func_node, param_types, param_names, &
+                                         scopes, next_var_id)
+        call update_arena_param_nodes(arena, func_node, param_types)
+        call register_params_in_scope(arena, param_names, param_types, scopes)
 
     end subroutine analyze_function_parameters
 
@@ -571,6 +629,116 @@ contains
         end select
     end function is_identifier_reference
 
+    function check_assignment_for_identifier(arena, node, lowered_name, &
+                                             param_names, param_types, scope_index, &
+                                             program_index) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: scope_index, program_index
+        type(mono_type_t) :: candidate
+        type(mono_type_t) :: element_type
+        integer :: target_idx, rank
+
+        candidate%kind = 0
+        target_idx = node%target_index
+        if (target_idx <= 0 .or. target_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_idx)%node)) return
+        if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
+                                              program_index)) return
+        select type (target => arena%entries(target_idx)%node)
+        type is (identifier_node)
+            if (trim(target%name) /= lowered_name) return
+            candidate = infer_expression_type_static(arena, node%value_index, &
+                                                     param_names, param_types)
+        type is (call_or_subscript_node)
+            if (.not. allocated(target%name)) return
+            if (trim(target%name) /= lowered_name) return
+            if (.not. allocated(target%arg_indices)) return
+            rank = size(target%arg_indices)
+            if (rank <= 0) return
+            element_type = infer_expression_type_static( &
+                           arena, node%value_index, param_names, param_types)
+            if (element_type%kind == 0) element_type = create_mono_type(TREAL)
+            candidate = build_deferred_shape_array(element_type, rank)
+        end select
+    end function check_assignment_for_identifier
+
+    function check_call_for_identifier(arena, node, lowered_name, &
+                                       param_names, param_types) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t) :: candidate
+        type(mono_type_t) :: element_type
+        integer :: rank, i
+
+        candidate%kind = 0
+        if (.not. allocated(node%name)) return
+        if (trim(node%name) /= lowered_name) return
+        if (.not. allocated(node%arg_indices)) return
+        rank = size(node%arg_indices)
+        if (rank <= 0) return
+        element_type%kind = 0
+        if (allocated(param_names) .and. allocated(param_types)) then
+            do i = 1, size(param_names)
+                if (trim(param_names(i)) /= lowered_name) cycle
+                element_type = param_types(i)
+                exit
+            end do
+        end if
+        if (element_type%kind == TARRAY) then
+            element_type = collapse_array_rank(element_type, rank)
+        end if
+        if (element_type%kind <= 0 .or. element_type%kind == TFUN) then
+            element_type = create_mono_type(TREAL)
+        end if
+        candidate = build_deferred_shape_array(element_type, rank)
+    end function check_call_for_identifier
+
+    function check_binary_op_for_identifier(arena, node, lowered_name, &
+                                           param_names, param_types, &
+                                           entry_index) result(candidate)
+        type(ast_arena_t), intent(in) :: arena
+        type(binary_op_node), intent(in) :: node
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: entry_index
+        type(mono_type_t) :: candidate
+
+        candidate%kind = 0
+        if (is_identifier_reference(arena, node%left_index, lowered_name)) then
+            if (node%right_index > 0) then
+                candidate = infer_expression_type_static(arena, node%right_index, &
+                                                         param_names, param_types)
+            else
+                candidate%kind = 0
+            end if
+            if (candidate%kind == 0) then
+                candidate = infer_expression_type_static(arena, entry_index, &
+                                                         param_names, param_types)
+            end if
+            if (candidate%kind /= 0) return
+        end if
+        if (is_identifier_reference(arena, node%right_index, lowered_name)) then
+            if (node%left_index > 0) then
+                candidate = infer_expression_type_static(arena, node%left_index, &
+                                                         param_names, param_types)
+            else
+                candidate%kind = 0
+            end if
+            if (candidate%kind == 0) then
+                candidate = infer_expression_type_static(arena, entry_index, &
+                                                         param_names, param_types)
+            end if
+        end if
+    end function check_binary_op_for_identifier
+
     function infer_identifier_type_at_index(arena, entry_index, lowered_name, &
                                             param_names, param_types, scope_index, &
                                             program_index) result(candidate)
@@ -581,9 +749,7 @@ contains
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         integer, intent(in) :: scope_index, program_index
         type(mono_type_t) :: candidate
-        type(mono_type_t) :: element_type
-        integer :: name_idx, target_idx
-        integer :: rank, i
+        integer :: name_idx
 
         candidate%kind = 0
         if (.not. allocated(arena%entries(entry_index)%node)) return
@@ -605,76 +771,16 @@ contains
                 end do
             end if
         type is (assignment_node)
-            target_idx = node%target_index
-            if (target_idx <= 0 .or. target_idx > arena%size) return
-            if (.not. allocated(arena%entries(target_idx)%node)) return
-            if (.not. identifier_visible_in_scope(arena, target_idx, scope_index, &
-                                                  program_index)) return
-            select type (target => arena%entries(target_idx)%node)
-            type is (identifier_node)
-                if (trim(target%name) /= lowered_name) return
-                candidate = infer_expression_type_static(arena, node%value_index, &
-                                                         param_names, param_types)
-            type is (call_or_subscript_node)
-                if (.not. allocated(target%name)) return
-                if (trim(target%name) /= lowered_name) return
-                if (.not. allocated(target%arg_indices)) return
-                rank = size(target%arg_indices)
-                if (rank <= 0) return
-                element_type = infer_expression_type_static( &
-                               arena, node%value_index, param_names, param_types)
-                if (element_type%kind == 0) element_type = create_mono_type(TREAL)
-                candidate = build_deferred_shape_array(element_type, rank)
-                return
-            end select
+            candidate = check_assignment_for_identifier(arena, node, lowered_name, &
+                                                        param_names, param_types, &
+                                                        scope_index, program_index)
         type is (call_or_subscript_node)
-            if (.not. allocated(node%name)) return
-            if (trim(node%name) /= lowered_name) return
-            if (.not. allocated(node%arg_indices)) return
-            rank = size(node%arg_indices)
-            if (rank <= 0) return
-            element_type%kind = 0
-            if (allocated(param_names) .and. allocated(param_types)) then
-                do i = 1, size(param_names)
-                    if (trim(param_names(i)) /= lowered_name) cycle
-                    element_type = param_types(i)
-                    exit
-                end do
-            end if
-            if (element_type%kind == TARRAY) then
-                element_type = collapse_array_rank(element_type, rank)
-            end if
-            if (element_type%kind <= 0 .or. element_type%kind == TFUN) then
-                element_type = create_mono_type(TREAL)
-            end if
-            candidate = build_deferred_shape_array(element_type, rank)
-            return
+            candidate = check_call_for_identifier(arena, node, lowered_name, &
+                                                  param_names, param_types)
         type is (binary_op_node)
-            if (is_identifier_reference(arena, node%left_index, lowered_name)) then
-                if (node%right_index > 0) then
-                    candidate = infer_expression_type_static(arena, node%right_index, &
-                                                             param_names, param_types)
-                else
-                    candidate%kind = 0
-                end if
-                if (candidate%kind == 0) then
-                    candidate = infer_expression_type_static(arena, entry_index, &
-                                                             param_names, param_types)
-                end if
-                if (candidate%kind /= 0) return
-            end if
-            if (is_identifier_reference(arena, node%right_index, lowered_name)) then
-                if (node%left_index > 0) then
-                    candidate = infer_expression_type_static(arena, node%left_index, &
-                                                             param_names, param_types)
-                else
-                    candidate%kind = 0
-                end if
-                if (candidate%kind == 0) then
-                    candidate = infer_expression_type_static(arena, entry_index, &
-                                                             param_names, param_types)
-                end if
-            end if
+            candidate = check_binary_op_for_identifier(arena, node, lowered_name, &
+                                                       param_names, param_types, &
+                                                       entry_index)
         end select
     end function infer_identifier_type_at_index
 
