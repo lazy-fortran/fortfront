@@ -32,6 +32,32 @@ module codegen_grouped_body
 
 contains
 
+    subroutine process_single_statement(arena, idx, indent, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        integer, intent(in) :: indent
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, idx)
+        code = code // indent_lines(stmt_code, indent) // new_line('A')
+    end subroutine process_single_statement
+
+    subroutine process_procedure_def(arena, idx, indent_str, in_contains, i, &
+                                     code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        character(len=*), intent(in) :: indent_str
+        logical, intent(in) :: in_contains
+        integer, intent(in) :: i
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable :: stmt_code
+
+        if (in_contains .and. i > 1) code = code // new_line('A')
+        stmt_code = generate_code_from_arena(arena, idx)
+        code = code // indent_str // stmt_code // new_line('A')
+    end subroutine process_procedure_def
+
     function generate_grouped_body(arena, body_indices, indent) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
@@ -67,19 +93,13 @@ contains
                 i = i + 1
 
             type is (function_def_node)
-                if (in_contains_section .and. i > 1) then
-                    code = code // new_line('A')
-                end if
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_str // stmt_code // new_line('A')
+                call process_procedure_def(arena, body_indices(i), indent_str, &
+                                           in_contains_section, i, code)
                 i = i + 1
 
             type is (subroutine_def_node)
-                if (in_contains_section .and. i > 1) then
-                    code = code // new_line('A')
-                end if
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_str // stmt_code // new_line('A')
+                call process_procedure_def(arena, body_indices(i), indent_str, &
+                                           in_contains_section, i, code)
                 i = i + 1
 
             type is (declaration_node)
@@ -91,8 +111,8 @@ contains
                     call process_grouped_declarations(arena, body_indices, i, &
                                                       indent_str, code)
                 else
-                    stmt_code = generate_code_from_arena(arena, body_indices(i))
-                    code = code // indent_lines(stmt_code, indent) // new_line('A')
+                    call process_single_statement(arena, body_indices(i), indent, &
+                                                  code)
                     i = i + 1
                 end if
 
@@ -109,69 +129,8 @@ contains
                 code = code // new_line('A')
                 i = i + 1
 
-            type is (write_statement_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (print_statement_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (read_statement_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (format_statement_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (goto_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (return_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (entry_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (continue_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (stop_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (error_stop_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (cycle_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
-            type is (exit_node)
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
-                i = i + 1
-
             class default
-                stmt_code = generate_code_from_arena(arena, body_indices(i))
-                code = code // indent_lines(stmt_code, indent) // new_line('A')
+                call process_single_statement(arena, body_indices(i), indent, code)
                 i = i + 1
             end select
         end do
