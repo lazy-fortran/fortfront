@@ -35,7 +35,6 @@ contains
         integer :: scope_index
         integer :: program_index
         integer :: search_start
-        integer :: forward_start
         character(len=64) :: lowered_name
 
         typ%kind = 0
@@ -48,21 +47,10 @@ contains
 
         call determine_anchor_context(arena, anchor_index, scope_index, &
                                       program_index, search_start)
-
-        if (search_start >= 1) then
-            call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, &
-                                              program_index, search_start, 1, -1, typ)
-            if (typ%kind /= 0) return
-        end if
-
-        forward_start = compute_forward_start(anchor_index, arena%size)
-        if (forward_start <= arena%size) then
-            call search_identifier_type_range(arena, lowered_name, param_names, &
-                                              param_types, scope_index, &
-                                              program_index, forward_start, &
-                                              arena%size, 1, typ)
-        end if
+        call search_identifier_type_bidirectional(arena, lowered_name, param_names, &
+                                                  param_types, scope_index, &
+                                                  program_index, search_start, &
+                                                  anchor_index, typ)
     end function infer_identifier_type_from_context
 
     subroutine instantiate_scope_type(scopes, lowered_name, next_var_id, typ)
@@ -97,6 +85,39 @@ contains
             search_start = arena%size
         end if
     end subroutine determine_anchor_context
+
+    subroutine search_identifier_type_bidirectional(arena, lowered_name, param_names, &
+                                                    param_types, scope_index, &
+                                                    program_index, search_start, &
+                                                    anchor_index, typ)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: lowered_name
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: scope_index
+        integer, intent(in) :: program_index
+        integer, intent(in) :: search_start
+        integer, intent(in) :: anchor_index
+        type(mono_type_t), intent(inout) :: typ
+        integer :: forward_start
+
+        if (typ%kind /= 0) return
+
+        if (search_start >= 1) then
+            call search_identifier_type_range(arena, lowered_name, param_names, &
+                                              param_types, scope_index, &
+                                              program_index, search_start, 1, -1, typ)
+            if (typ%kind /= 0) return
+        end if
+
+        forward_start = compute_forward_start(anchor_index, arena%size)
+        if (forward_start <= arena%size) then
+            call search_identifier_type_range(arena, lowered_name, param_names, &
+                                              param_types, scope_index, &
+                                              program_index, forward_start, &
+                                              arena%size, 1, typ)
+        end if
+    end subroutine search_identifier_type_bidirectional
 
     integer function compute_forward_start(anchor_index, arena_size) result(start)
         integer, intent(in) :: anchor_index
