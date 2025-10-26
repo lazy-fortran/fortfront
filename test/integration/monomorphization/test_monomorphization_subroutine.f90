@@ -26,6 +26,10 @@ program test_monomorphization_subroutine
         error stop 1
     end if
 
+    write (error_unit, '(A)') '=== GENERATED OUTPUT ==='
+    write (error_unit, '(A)') trim(output)
+    write (error_unit, '(A)') '=== END OUTPUT ==='
+
     call assert_contains(output, 'scale__i32_i32', &
         'missing integer specialization for scale')
     call assert_contains(output, 'scale__r64_r64', &
