@@ -59,8 +59,8 @@ contains
         type(if_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: cond_code, body_code, stmt_code
-        integer :: i, indent_level, stmt_index
+        character(len=:), allocatable :: cond_code, body_code
+        integer :: i, indent_level
         logical :: has_no_elseif, has_no_else
 
         indent_level = 0
@@ -73,7 +73,6 @@ contains
         end if
 
         ! Skip IF with empty condition (malformed node from parser bug like issue #1736)
-        ! Check if condition generated empty code - this indicates a parser error
         if (len_trim(cond_code) == 0) then
             code = ""
             return
@@ -90,31 +89,8 @@ contains
         end if
 
         if (has_no_elseif .and. has_no_else) then
-            if (allocated(node%then_body_indices)) then
-                if (size(node%then_body_indices) == 1) then
-                    stmt_index = node%then_body_indices(1)
-                    if (stmt_index > 0 .and. stmt_index <= arena%size) then
-                        if (allocated(arena%entries(stmt_index)%node)) then
-                            select type (stmt_node => arena%entries(stmt_index)%node)
-                            class default
-                                if (stmt_node%line == node%line) then
-                                    stmt_code = generate_code_from_arena( &
-                                                arena, stmt_index)
-                                    stmt_code = trim(adjustl(stmt_code))
-                                    if (len_trim(stmt_code) > 0) then
-                                        if (index(stmt_code, new_line('A')) == 0) then
-                                            code = "if (" // &
-                                                   trim(adjustl(cond_code)) // &
-                                                   ") " // stmt_code
-                                            return
-                                        end if
-                                    end if
-                                end if
-                            end select
-                        end if
-                    end if
-                end if
-            end if
+            code = try_generate_single_line_if(arena, node, cond_code)
+            if (allocated(code)) return
         end if
 
         ! Generate if statement in block form
@@ -161,6 +137,35 @@ contains
         ! Generate end if
         code = code // new_line('A') // repeat("    ", indent_level) // "end if"
     end function generate_code_if
+
+    ! Try to generate single-line IF statement if conditions are met
+    function try_generate_single_line_if(arena, node, cond_code) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(if_node), intent(in) :: node
+        character(len=*), intent(in) :: cond_code
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: stmt_code
+        integer :: stmt_index
+
+        if (.not. allocated(node%then_body_indices)) return
+        if (size(node%then_body_indices) /= 1) return
+
+        stmt_index = node%then_body_indices(1)
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+
+        select type (stmt_node => arena%entries(stmt_index)%node)
+        class default
+            if (stmt_node%line /= node%line) return
+
+            stmt_code = generate_code_from_arena(arena, stmt_index)
+            stmt_code = trim(adjustl(stmt_code))
+            if (len_trim(stmt_code) == 0) return
+            if (index(stmt_code, new_line('A')) /= 0) return
+
+            code = "if (" // trim(adjustl(cond_code)) // ") " // stmt_code
+        end select
+    end function try_generate_single_line_if
 
     ! Generate code for do loops
     function generate_code_do_loop(arena, node, node_index) result(code)
@@ -648,7 +653,7 @@ contains
         integer, intent(in) :: indent
         character(len=:), allocatable :: code
 
-        ! Use stub implementation
+        ! Delegate to shared body generation utility
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_internal
 
