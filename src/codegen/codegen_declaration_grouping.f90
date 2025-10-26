@@ -18,58 +18,119 @@ module codegen_declaration_grouping
 
 contains
 
+    pure logical function declarations_share_basic_flags(node1, node2) result(match)
+        type(declaration_node), intent(in) :: node1
+        type(declaration_node), intent(in) :: node2
+
+        if (node1%initializer_index > 0) then
+            match = .false.
+            return
+        end if
+        if (node2%initializer_index > 0) then
+            match = .false.
+            return
+        end if
+        if (node1%is_array .or. node2%is_array) then
+            match = .false.
+            return
+        end if
+        if (node1%is_allocatable .neqv. node2%is_allocatable) then
+            match = .false.
+            return
+        end if
+        if (node1%is_pointer .neqv. node2%is_pointer) then
+            match = .false.
+            return
+        end if
+        if (node1%is_target .neqv. node2%is_target) then
+            match = .false.
+            return
+        end if
+        if (node1%is_external .neqv. node2%is_external) then
+            match = .false.
+            return
+        end if
+        if (node1%is_parameter .neqv. node2%is_parameter) then
+            match = .false.
+            return
+        end if
+
+        match = .true.
+    end function declarations_share_basic_flags
+
+    pure logical function declarations_have_matching_types(node1, node2) result(match)
+        type(declaration_node), intent(in) :: node1
+        type(declaration_node), intent(in) :: node2
+        logical :: both_have_names
+
+        both_have_names = len_trim(node1%type_name) > 0 .and. &
+                          len_trim(node2%type_name) > 0
+        if (both_have_names) then
+            match = trim(node1%type_name) == trim(node2%type_name)
+            return
+        end if
+
+        if (node1%inferred_type%kind > 0 .and. node2%inferred_type%kind > 0) then
+            match = node1%inferred_type%kind == node2%inferred_type%kind
+        else
+            match = .false.
+        end if
+    end function declarations_have_matching_types
+
+    pure logical function declarations_match_attributes(node1, node2) result(match)
+        type(declaration_node), intent(in) :: node1
+        type(declaration_node), intent(in) :: node2
+        logical :: intents_match
+
+        if (node1%kind_value /= node2%kind_value) then
+            match = .false.
+            return
+        end if
+        if (node1%has_kind .neqv. node2%has_kind) then
+            match = .false.
+            return
+        end if
+
+        if (node1%has_intent .and. node2%has_intent) then
+            intents_match = trim(node1%intent) == trim(node2%intent)
+        else
+            intents_match = (.not. node1%has_intent) .and. (.not. node2%has_intent)
+        end if
+        if (.not. intents_match) then
+            match = .false.
+            return
+        end if
+
+        if (node1%is_optional .neqv. node2%is_optional) then
+            match = .false.
+            return
+        end if
+        if (node1%is_target .neqv. node2%is_target) then
+            match = .false.
+            return
+        end if
+
+        match = .true.
+    end function declarations_match_attributes
+
     function can_group_declarations(node1, node2) result(can_group)
         type(declaration_node), intent(in) :: node1
         type(declaration_node), intent(in) :: node2
         logical :: can_group
         logical :: types_match
 
-        if (node1%initializer_index > 0 .or. node2%initializer_index > 0) then
+        if (.not. declarations_share_basic_flags(node1, node2)) then
             can_group = .false.
             return
         end if
 
-        if (node1%is_array .or. node2%is_array) then
+        types_match = declarations_have_matching_types(node1, node2)
+        if (.not. types_match) then
             can_group = .false.
             return
         end if
 
-        if (node1%is_allocatable .neqv. node2%is_allocatable) then
-            can_group = .false.
-            return
-        end if
-        if (node1%is_pointer .neqv. node2%is_pointer) then
-            can_group = .false.
-            return
-        end if
-        if (node1%is_target .neqv. node2%is_target) then
-            can_group = .false.
-            return
-        end if
-        if (node1%is_external .neqv. node2%is_external) then
-            can_group = .false.
-            return
-        end if
-        if (node1%is_parameter .neqv. node2%is_parameter) then
-            can_group = .false.
-            return
-        end if
-
-        if (len_trim(node1%type_name) > 0 .and. len_trim(node2%type_name) > 0) then
-            types_match = trim(node1%type_name) == trim(node2%type_name)
-        else if (node1%inferred_type%kind > 0 .and. node2%inferred_type%kind > 0) then
-            types_match = node1%inferred_type%kind == node2%inferred_type%kind
-        else
-            types_match = .false.
-        end if
-
-        can_group = types_match .and. &
-                    (node1%kind_value == node2%kind_value) .and. &
-                    (node1%has_kind .eqv. node2%has_kind) .and. &
-                    ((node1%has_intent .and. node2%has_intent .and. &
-                      trim(node1%intent) == trim(node2%intent)) .or. &
-                     (.not. node1%has_intent .and. .not. node2%has_intent)) .and. &
-                    (node1%is_optional .eqv. node2%is_optional)
+        can_group = declarations_match_attributes(node1, node2)
     end function can_group_declarations
 
     function can_group_parameters(node1, node2) result(can_group)
@@ -87,14 +148,39 @@ contains
                     (node1%is_target .eqv. node2%is_target)
     end function can_group_parameters
 
+    subroutine resolve_parameter_metadata(node, param_map, intent_text, &
+                                          optional_flag, &
+                                          target_flag)
+        type(declaration_node), intent(in) :: node
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable, intent(out) :: intent_text
+        logical, intent(out) :: optional_flag
+        logical, intent(out) :: target_flag
+        integer :: idx
+
+        idx = find_parameter_info(param_map, node%var_name)
+        if (idx > 0) then
+            intent_text = param_map(idx)%intent_str
+            optional_flag = param_map(idx)%is_optional
+            target_flag = param_map(idx)%is_target
+            return
+        end if
+
+        if (node%has_intent) then
+            intent_text = node%intent
+        else
+            intent_text = ""
+        end if
+        optional_flag = node%is_optional
+        target_flag = node%is_target
+    end subroutine resolve_parameter_metadata
+
     function can_group_declarations_with_params(node1, node2, param_map) &
         result(can_group)
         type(declaration_node), intent(in) :: node1
         type(declaration_node), intent(in) :: node2
         type(parameter_info_t), intent(in) :: param_map(:)
         logical :: can_group
-        integer :: idx1
-        integer :: idx2
         character(len=:), allocatable :: intent1
         character(len=:), allocatable :: intent2
         logical :: optional1
@@ -102,46 +188,28 @@ contains
         logical :: target1
         logical :: target2
 
-        if (node1%initializer_index > 0 .or. node2%initializer_index > 0) then
+        if (.not. declarations_share_basic_flags(node1, node2)) then
             can_group = .false.
             return
         end if
 
-        idx1 = find_parameter_info(param_map, node1%var_name)
-        idx2 = find_parameter_info(param_map, node2%var_name)
-
-        if (idx1 > 0) then
-            intent1 = param_map(idx1)%intent_str
-            optional1 = param_map(idx1)%is_optional
-            target1 = param_map(idx1)%is_target
-        else
-            if (node1%has_intent) then
-                intent1 = node1%intent
-            else
-                intent1 = ""
-            end if
-            optional1 = node1%is_optional
-            target1 = node1%is_target
+        if (trim(node1%type_name) /= trim(node2%type_name)) then
+            can_group = .false.
+            return
+        end if
+        if (node1%kind_value /= node2%kind_value) then
+            can_group = .false.
+            return
+        end if
+        if (node1%has_kind .neqv. node2%has_kind) then
+            can_group = .false.
+            return
         end if
 
-        if (idx2 > 0) then
-            intent2 = param_map(idx2)%intent_str
-            optional2 = param_map(idx2)%is_optional
-            target2 = param_map(idx2)%is_target
-        else
-            if (node2%has_intent) then
-                intent2 = node2%intent
-            else
-                intent2 = ""
-            end if
-            optional2 = node2%is_optional
-            target2 = node2%is_target
-        end if
+        call resolve_parameter_metadata(node1, param_map, intent1, optional1, target1)
+        call resolve_parameter_metadata(node2, param_map, intent2, optional2, target2)
 
-        can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
-                    node1%kind_value == node2%kind_value .and. &
-                    node1%has_kind .eqv. node2%has_kind .and. &
-                    trim(intent1) == trim(intent2) .and. &
+        can_group = trim(intent1) == trim(intent2) .and. &
                     optional1 .eqv. optional2 .and. &
                     target1 .eqv. target2
     end function can_group_declarations_with_params
