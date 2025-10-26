@@ -59,7 +59,7 @@ contains
         type(if_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: cond_code, body_code
+        character(len=:), allocatable :: cond_code, body_code, single_line
         integer :: i, indent_level
         logical :: has_no_elseif, has_no_else
 
@@ -89,8 +89,13 @@ contains
         end if
 
         if (has_no_elseif .and. has_no_else) then
-            code = try_generate_single_line_if(arena, node, cond_code)
-            if (allocated(code)) return
+            single_line = try_generate_single_line_if(arena, node, cond_code)
+            if (allocated(single_line)) then
+                if (len(single_line) > 0) then
+                    code = single_line
+                    return
+                end if
+            end if
         end if
 
         ! Generate if statement in block form
