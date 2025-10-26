@@ -21,9 +21,9 @@ module semantic_analyzer
     use semantic_function_analysis, only: infer_type_from_usage_context, &
                                           analyze_function_parameters, &
                                           determine_function_return_type, &
-                                          create_function_scope, &
-                                          analyze_subroutine_parameters, &
-                                          create_subroutine_scope
+                                          create_function_scope
+    use semantic_subroutine_analysis, only: analyze_subroutine_parameters, &
+                                            create_subroutine_scope
     use semantic_type_operations, only: generate_fresh_type_var_op, &
                                         apply_substitution_to_type, &
                                         generalize_type_op, &
@@ -1355,6 +1355,5 @@ contains
 
         allocate (cloned, source=temp_context)
     end function semantic_clone_context
-
 
 end module semantic_analyzer
