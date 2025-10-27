@@ -1,6 +1,7 @@
 program test_issue_1966_double_precision_inference
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, &
+                                              input_unit, iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
 
     logical :: all_passed
@@ -20,6 +21,20 @@ program test_issue_1966_double_precision_inference
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            print *, 'FAIL: failed to read ', trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function check_double_expression()
         use, intrinsic :: iso_fortran_env, only: dp => real64
         implicit none
@@ -33,11 +48,8 @@ contains
         check_double_expression = .true.
         print *, 'Testing double precision expression assignment...'
 
-        source = 'pi = 3.141592653589793d0' // new_line('a') // &
-                 'radius = 5.0d0' // new_line('a') // &
-                 'area = pi * radius**2' // new_line('a') // &
-                 'print *, area'
-
+        call read_example('examples/lf/issue_1966_double_precision_expression.lf', &
+                          source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
