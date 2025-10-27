@@ -9,6 +9,7 @@ module semantic_function_array
     use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node
+    use ast_nodes_loops, only: do_loop_node
     use ast_nodes_procedure, only: function_def_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_bounds, only: array_slice_node, range_expression_node, &
@@ -17,6 +18,7 @@ module semantic_function_array
     use semantic_validation_utils, only: int_to_str
     use string_utils_mod, only: to_lower
     use semantic_array_type_builders, only: collapse_array_rank
+    use semantic_type_operations, only: get_common_type
     implicit none
     private
 
@@ -413,7 +415,8 @@ contains
             end if
         end if
 
-        first_type = get_type_fn(arena, array_lit%element_indices(1))
+        first_type = resolve_constructor_element_type( &
+                     arena, array_lit%element_indices(1), get_type_fn)
         promoted_type = first_type
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
@@ -429,7 +432,8 @@ contains
         end if
 
         do i = 2, size(array_lit%element_indices)
-            element_type = get_type_fn(arena, array_lit%element_indices(i))
+            element_type = resolve_constructor_element_type( &
+                           arena, array_lit%element_indices(i), get_type_fn)
 
             if (all_arrays .and. element_type%kind /= TARRAY) then
                 all_arrays = .false.
@@ -492,6 +496,77 @@ contains
                                    array_size=size(array_lit%element_indices))
         end if
     end function infer_array_literal_type
+
+    recursive function resolve_constructor_element_type(arena, element_index, &
+                                                        get_type_fn) &
+        result(resolved_type)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: element_index
+        interface
+            function get_type_fn(a, idx) result(t)
+                import :: mono_type_t, ast_arena_t
+                type(ast_arena_t), intent(inout) :: a
+                integer, intent(in) :: idx
+                type(mono_type_t) :: t
+            end function get_type_fn
+        end interface
+        type(mono_type_t) :: resolved_type
+
+        resolved_type%kind = 0
+        resolved_type%size = 0
+        if (element_index <= 0) return
+        if (element_index > arena%size) return
+        if (.not. allocated(arena%entries(element_index)%node)) return
+
+        select type (element_node => arena%entries(element_index)%node)
+        type is (do_loop_node)
+            resolved_type = resolve_implied_do_type(arena, element_index, &
+                                                    get_type_fn)
+        class default
+            resolved_type = get_type_fn(arena, element_index)
+        end select
+    end function resolve_constructor_element_type
+
+    recursive function resolve_implied_do_type(arena, loop_index, get_type_fn) &
+        result(resolved_type)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: loop_index
+        interface
+            function get_type_fn(a, idx) result(t)
+                import :: mono_type_t, ast_arena_t
+                type(ast_arena_t), intent(inout) :: a
+                integer, intent(in) :: idx
+                type(mono_type_t) :: t
+            end function get_type_fn
+        end interface
+        type(mono_type_t) :: resolved_type
+        type(mono_type_t) :: element_type
+        integer :: i
+
+        resolved_type%kind = 0
+        resolved_type%size = 0
+        if (loop_index <= 0) return
+        if (loop_index > arena%size) return
+        if (.not. allocated(arena%entries(loop_index)%node)) return
+
+        select type (loop_node => arena%entries(loop_index)%node)
+        type is (do_loop_node)
+            if (.not. allocated(loop_node%body_indices)) return
+            do i = 1, size(loop_node%body_indices)
+                element_type = resolve_constructor_element_type( &
+                               arena, loop_node%body_indices(i), get_type_fn)
+                if (element_type%kind == 0) cycle
+                if (resolved_type%kind == 0) then
+                    resolved_type = element_type
+                else
+                    resolved_type = get_common_type(resolved_type, element_type)
+                end if
+            end do
+            if (resolved_type%kind == 0) resolved_type = create_mono_type(TINT)
+        class default
+            resolved_type = get_type_fn(arena, loop_index)
+        end select
+    end function resolve_implied_do_type
 
     function infer_array_intrinsic_type(arena, call_node, get_type_fn) &
         result(typ)
