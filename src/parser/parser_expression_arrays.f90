@@ -238,6 +238,10 @@ contains
         type(token_t) :: current
         type(token_t) :: peek_token
         integer :: saved_pos
+        type(token_t) :: spec_token
+        integer :: paren_depth
+        character(len=:), allocatable :: type_spec_text
+        logical :: has_type_spec
 
         expr_index = 0
         if (.not. associated(helpers%parse_comparison) .or. &
@@ -245,6 +249,57 @@ contains
 
         element_count = 0
         allocate (temp_indices(20))
+        type_spec_text = ""
+        has_type_spec = .false.
+
+        do
+            peek_token = parser%peek()
+            if (peek_token%kind /= TK_NEWLINE .and. peek_token%kind /= &
+                TK_COMMENT) exit
+            current = parser%consume()
+        end do
+
+        peek_token = parser%peek()
+        if (peek_token%kind == TK_IDENTIFIER .or. &
+            peek_token%kind == TK_KEYWORD) then
+            saved_pos = parser%current_token
+            spec_token = parser%consume()
+            type_spec_text = spec_token%text
+            peek_token = parser%peek()
+
+            if (peek_token%text == "(") then
+                spec_token = parser%consume()
+                type_spec_text = trim(type_spec_text) // spec_token%text
+                paren_depth = 1
+                do while (paren_depth > 0)
+                    peek_token = parser%peek()
+                    if (peek_token%text == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (peek_token%text == ")") then
+                        paren_depth = paren_depth - 1
+                    end if
+                    spec_token = parser%consume()
+                    type_spec_text = type_spec_text // spec_token%text
+                end do
+                peek_token = parser%peek()
+            end if
+
+            if (peek_token%text == "::") then
+                current = parser%consume()
+                has_type_spec = .true.
+                type_spec_text = trim(adjustl(type_spec_text))
+                do
+                    peek_token = parser%peek()
+                    if (peek_token%kind /= TK_NEWLINE .and. &
+                        peek_token%kind /= TK_COMMENT) exit
+                    current = parser%consume()
+                end do
+            else
+                parser%current_token = saved_pos
+                type_spec_text = ""
+                has_type_spec = .false.
+            end if
+        end if
 
         do
             ! Skip newlines and comments inside array literals
@@ -262,8 +317,16 @@ contains
                 exit
             else if (peek_token%text == "(") then
                 saved_pos = parser%current_token
-                expr_index = parse_implied_do_constructor(parser, arena, start_token, &
-                                                          helpers)
+                if (has_type_spec) then
+                    expr_index = parse_implied_do_constructor(parser, arena, &
+                                                              start_token, &
+                                                              helpers, &
+                                                              type_spec_text)
+                else
+                    expr_index = parse_implied_do_constructor(parser, arena, &
+                                                              start_token, &
+                                                              helpers)
+                end if
                 if (expr_index > 0) return
                 parser%current_token = saved_pos
                 expr_index = 0
@@ -290,8 +353,18 @@ contains
             end if
             temp_indices(element_count) = expr_index
 
-            expr_index = try_parse_implied_do_loop(parser, arena, temp_indices, &
-                                                   element_count, start_token)
+            if (has_type_spec) then
+                expr_index = try_parse_implied_do_loop(parser, arena, &
+                                                       temp_indices, &
+                                                       element_count, &
+                                                       start_token, &
+                                                       type_spec_text)
+            else
+                expr_index = try_parse_implied_do_loop(parser, arena, &
+                                                       temp_indices, &
+                                                       element_count, &
+                                                       start_token)
+            end if
             if (expr_index > 0) exit
 
             current = parser%peek()
@@ -316,8 +389,18 @@ contains
         if (expr_index > 0) return
         allocate (element_indices(element_count))
         element_indices = temp_indices(1:element_count)
-        expr_index = push_array_literal(arena, element_indices, start_token%line, &
-                                        start_token%column, syntax_style="modern")
+        if (has_type_spec) then
+            expr_index = push_array_literal(arena, element_indices, &
+                                            start_token%line, &
+                                            start_token%column, &
+                                            syntax_style="modern", &
+                                            type_spec=type_spec_text)
+        else
+            expr_index = push_array_literal(arena, element_indices, &
+                                            start_token%line, &
+                                            start_token%column, &
+                                            syntax_style="modern")
+        end if
     end function parse_modern_array_literal
 
     recursive function parse_nested_implied_do(parser, arena, helpers) &
@@ -511,12 +594,13 @@ contains
         end if
     end function build_implied_do_node
 
-    function parse_implied_do_constructor(parser, arena, bracket_token, helpers) &
-        result(expr_index)
+    function parse_implied_do_constructor(parser, arena, bracket_token, helpers, &
+                                          type_spec) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: bracket_token
         type(array_parse_helpers_t), intent(in) :: helpers
+        character(len=*), intent(in), optional :: type_spec
         integer :: expr_index
         integer :: expr_elem_index
         integer :: start_index
@@ -530,9 +614,17 @@ contains
                                           helpers)) return
         if (.not. consume_implied_do_closers(parser)) return
 
-        expr_index = build_implied_do_node(arena, bracket_token, expr_elem_index, &
-                                           var_name, start_index, end_index, &
-                                           step_index)
+        if (present(type_spec)) then
+            expr_index = build_implied_do_node(arena, bracket_token, &
+                                               expr_elem_index, var_name, &
+                                               start_index, end_index, &
+                                               step_index, type_spec)
+        else
+            expr_index = build_implied_do_node(arena, bracket_token, &
+                                               expr_elem_index, var_name, &
+                                               start_index, end_index, &
+                                               step_index)
+        end if
     end function parse_implied_do_constructor
 
     function parse_legacy_implied_do_constructor(parser, arena, paren_token, &
@@ -581,12 +673,13 @@ contains
     end function parse_legacy_implied_do_constructor
 
     function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
-                                       bracket_token) result(expr_index)
+                                       bracket_token, type_spec) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: temp_indices(:)
         integer, intent(in) :: element_count
         type(token_t), intent(in) :: bracket_token
+        character(len=*), intent(in), optional :: type_spec
         integer :: expr_index
         type(token_t) :: next1
         type(token_t) :: next2
@@ -603,10 +696,18 @@ contains
                     integer, allocatable :: element_indices(:)
                     allocate (element_indices(element_count))
                     element_indices = temp_indices(1:element_count)
-                    expr_index = push_array_literal(arena, element_indices, &
-                                                    bracket_token%line, &
-                                                    bracket_token%column, &
-                                                    syntax_style="modern")
+                    if (present(type_spec)) then
+                        expr_index = push_array_literal(arena, element_indices, &
+                                                        bracket_token%line, &
+                                                        bracket_token%column, &
+                                                        syntax_style="modern", &
+                                                        type_spec=type_spec)
+                    else
+                        expr_index = push_array_literal(arena, element_indices, &
+                                                        bracket_token%line, &
+                                                        bracket_token%column, &
+                                                        syntax_style="modern")
+                    end if
                 end block
                 return
             else
