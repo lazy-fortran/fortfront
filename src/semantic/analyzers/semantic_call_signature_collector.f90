@@ -1,5 +1,6 @@
 module semantic_call_signature_collector
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use debug_trace, only: trace_is_enabled
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_procedure, only: subroutine_call_node
@@ -106,17 +107,20 @@ contains
         call extract_parameter_info(arena, call_node%arg_indices, param_kinds, &
                                     param_type_strings, n_args)
 
-        write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG collect_subroutine_signature name=', &
-            trim(call_node%name), n_args
-        if (allocated(param_kinds)) then
-            write (error_unit, '(A,*(1X,I0))') 'DEBUG kinds=', param_kinds
-        else
-            write (error_unit, '(A)') 'DEBUG kinds=<not allocated>'
-        end if
-        if (allocated(param_type_strings)) then
-            write (error_unit, '(A,*(1X,A))') 'DEBUG types=', param_type_strings
-        else
-            write (error_unit, '(A)') 'DEBUG types=<not allocated>'
+        if (trace_is_enabled()) then
+            write (error_unit, '(A,1X,A,1X,I0)') &
+                'DEBUG collect_subroutine_signature name=', &
+                trim(call_node%name), n_args
+            if (allocated(param_kinds)) then
+                write (error_unit, '(A,*(1X,I0))') 'DEBUG kinds=', param_kinds
+            else
+                write (error_unit, '(A)') 'DEBUG kinds=<not allocated>'
+            end if
+            if (allocated(param_type_strings)) then
+                write (error_unit, '(A,*(1X,A))') 'DEBUG types=', param_type_strings
+            else
+                write (error_unit, '(A)') 'DEBUG types=<not allocated>'
+            end if
         end if
 
         if (n_args > 0) then
