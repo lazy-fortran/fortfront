@@ -301,6 +301,9 @@ contains
         integer, intent(in) :: func_index
         integer :: i
         character(len=:), allocatable :: res_name
+        character(len=:), allocatable :: fallback_res_name
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: target_name
         logical :: has_decl
         integer :: decl_index
         integer :: name_pos
@@ -312,46 +315,59 @@ contains
 
         call get_standardizer_type_standardization(type_std_enabled)
 
-        ! If result variable not set, try to infer from first assignment target
-        if ((.not. allocated(func_def%result_variable)) .or. &
-            len_trim(func_def%result_variable) == 0) then
-            if (allocated(func_def%body_indices)) then
-                do i = 1, size(func_def%body_indices)
-                    if (func_def%body_indices(i) > 0 .and. &
-                        func_def%body_indices(i) <= &
-                        arena%size) then
-                       if (allocated(arena%entries(func_def%body_indices(i))%node)) then
-                            select type (stmt => &
-                                         arena%entries(func_def%body_indices(i))%node)
-                            type is (assignment_node)
-                                if (stmt%target_index > 0 .and. stmt%target_index <= &
-                                    arena%size) then
-                              if (allocated(arena%entries(stmt%target_index)%node)) then
-                                        select type (t => &
-                                                  arena%entries(stmt%target_index)%node)
-                                        type is (identifier_node)
-                                            res_name = t%name
-                                            exit
-                                        end select
-                                    end if
-                                end if
-                            end select
+        ! Infer a preferred result variable from assignments inside the function
+        res_name = ""
+        fallback_res_name = ""
+        function_name = ""
+        if (allocated(func_def%name)) function_name = trim(func_def%name)
+        if (allocated(func_def%body_indices)) then
+            function_scan: do i = 1, size(func_def%body_indices)
+                if (func_def%body_indices(i) <= 0) cycle
+                if (func_def%body_indices(i) > arena%size) cycle
+                if (.not. allocated(arena%entries(func_def%body_indices(i))%node)) &
+                    cycle
+                select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                type is (assignment_node)
+                    if (stmt%target_index <= 0) cycle
+                    if (stmt%target_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt%target_index)%node)) &
+                        cycle
+                    select type (t => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        if (.not. allocated(t%name)) cycle
+                        target_name = trim(t%name)
+                        if (len_trim(target_name) == 0) cycle
+                        if (len_trim(function_name) > 0) then
+                            if (trim(target_name) == trim(function_name)) then
+                                res_name = trim(function_name)
+                                exit function_scan
+                            end if
                         end if
-                    end if
-                end do
-            end if
-            if (allocated(res_name)) then
-                if (len_trim(res_name) > 0) then
-                    func_def%result_variable = trim(res_name)
-                    ! If result variable is not named result rename all occurrences
-                    ! within the function body only
-                    if (trim(res_name) /= 'result') then
-                        if (allocated(func_def%body_indices)) then
-                            call rename_identifier_in_arena(arena, 'result', &
-                                                            trim(res_name), &
-                                                            func_def%body_indices, &
-                                                            func_index)
+                        if (len_trim(fallback_res_name) == 0) then
+                            fallback_res_name = trim(target_name)
                         end if
+                    end select
+                end select
+            end do function_scan
+        end if
+        if (len_trim(res_name) == 0) then
+            if (len_trim(fallback_res_name) > 0) res_name = trim(fallback_res_name)
+        end if
+        if (len_trim(res_name) > 0) then
+            if ((.not. allocated(func_def%result_variable)) .or. &
+                len_trim(func_def%result_variable) == 0 .or. &
+                (len_trim(function_name) > 0 .and. &
+                 trim(res_name) == trim(function_name) .and. &
+                 trim(func_def%result_variable) /= trim(function_name))) then
+                func_def%result_variable = trim(res_name)
+                ! If result variable is not named result rename all occurrences
+                ! within the function body only
+                if (trim(res_name) /= 'result') then
+                    if (allocated(func_def%body_indices)) then
+                        call rename_identifier_in_arena(arena, 'result', &
+                                                        trim(res_name), &
+                                                        func_def%body_indices, &
+                                                        func_index)
                     end if
                 end if
             end if
@@ -519,6 +535,13 @@ contains
                 end block
             else
                 func_def%return_type = trim(decl%type_name)
+            end if
+        end if
+
+        if (allocated(func_def%name)) then
+            if (trim(func_def%result_variable) == trim(func_def%name)) then
+                arena%entries(func_index)%node = func_def
+                return
             end if
         end if
 
