@@ -82,6 +82,8 @@ module standardizer
         is_procedure_parameter, &
         is_type_component, &
         collect_string_vars_needing_allocatable
+    use standardizer_pointer_targets, only: &
+        mark_pointer_targets
 
     implicit none
 
@@ -147,6 +149,8 @@ module standardizer
         is_array_assignment, &
         is_procedure_parameter, &
         is_type_component, &
-        collect_string_vars_needing_allocatable
+        collect_string_vars_needing_allocatable, &
+        ! Pointer attribute helpers
+        mark_pointer_targets
 
 end module standardizer
