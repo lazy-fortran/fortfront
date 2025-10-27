@@ -1,5 +1,6 @@
 program test_issue_1813_matrix_ops
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use string_utils_mod, only: to_lower
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -9,6 +10,7 @@ contains
 
     subroutine test_matrix_literal_addition()
         character(len=:), allocatable :: input, output, error_msg
+        character(len=:), allocatable :: lowered
 
         input = 'A = [[1, 2], [3, 4]]' // new_line('A') // &
                 'B = [[5, 6], [7, 8]]' // new_line('A') // &
@@ -22,25 +24,27 @@ contains
             error stop 1
         end if
 
-        if (index(output, 'integer :: A(2,2)') == 0) then
-            print *, 'FAIL: A not declared as (2,2)'
+        lowered = to_lower(output)
+
+        if (index(lowered, 'integer :: a(2,2)') == 0) then
+            print *, 'FAIL: a not declared as (2,2)'
             print *, output
             error stop 1
         end if
 
-        if (index(output, 'integer :: B(2,2)') == 0) then
-            print *, 'FAIL: B not declared as (2,2)'
+        if (index(lowered, 'integer :: b(2,2)') == 0) then
+            print *, 'FAIL: b not declared as (2,2)'
             print *, output
             error stop 1
         end if
 
-        if (index(output, 'integer :: C(2,2)') == 0) then
-            print *, 'FAIL: C not declared as (2,2), issue #1813 not fixed'
+        if (index(lowered, 'integer :: c(2,2)') == 0) then
+            print *, 'FAIL: c not declared as (2,2), issue #1813 not fixed'
             print *, output
             error stop 1
         end if
 
-        if (index(output, 'C = A + B') == 0) then
+        if (index(lowered, 'c = a + b') == 0) then
             print *, 'FAIL: Matrix addition not preserved'
             print *, output
             error stop 1

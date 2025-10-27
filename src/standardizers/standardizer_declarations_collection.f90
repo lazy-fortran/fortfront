@@ -130,6 +130,10 @@ contains
             type(declaration_node), intent(in) :: decl
             character(len=:), allocatable :: type_str
             integer :: idx, k
+            character(len=64) :: normalized_name
+            character(len=64) :: normalized_existing
+
+            normalized_name = to_lower(trim(name))
 
             if (len_trim(name) == 0) return
             type_str = declaration_type_string(decl)
@@ -139,7 +143,8 @@ contains
 
             idx = 0
             do k = 1, var_count
-                if (trim(var_names(k)) == trim(name)) then
+                normalized_existing = to_lower(trim(var_names(k)))
+                if (trim(normalized_existing) == trim(normalized_name)) then
                     idx = k
                     exit
                 end if
@@ -300,12 +305,19 @@ contains
                     type is (identifier_node)
                         var_type = ""
                         existing_idx = 0
-                        do i = 1, var_count
-                            if (trim(var_names(i)) == trim(target%name)) then
-                                existing_idx = i
-                                exit
-                            end if
-                        end do
+                        block
+                            character(len=64) :: normalized_target
+                            character(len=64) :: normalized_existing
+                            normalized_target = to_lower(trim(target%name))
+                            do i = 1, var_count
+                                normalized_existing = to_lower(trim(var_names(i)))
+                                if (trim(normalized_existing) == &
+                                    trim(normalized_target)) then
+                                    existing_idx = i
+                                    exit
+                                end if
+                            end do
+                        end block
 
                         if (assign%value_index > 0 .and. &
                             assign%value_index <= arena%size) then
@@ -401,7 +413,7 @@ contains
                                 character(len=96) :: decl_type
                                 integer :: rank, idx
 
-                                base_name = trim(target%name)
+                                base_name = to_lower(trim(target%name))
                                 decl_type = ''
 
                                 if (assign%type_was_inferred .and. &

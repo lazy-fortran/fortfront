@@ -1,6 +1,7 @@
 module standardizer_declarations_variables
     use ast_nodes_core, only: identifier_node
     use standardizer_declarations_state, only: get_standardizer_type_standardization
+    use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
@@ -24,10 +25,16 @@ contains
         integer, intent(in) :: func_count
         integer :: i
         logical :: found, is_function
+        character(len=64) :: normalized_input
+        character(len=64) :: normalized_existing
+        character(len=64) :: normalized_function
+
+        normalized_input = to_lower(trim(var_name))
 
         is_function = .false.
         do i = 1, func_count
-            if (trim(function_names(i)) == trim(var_name)) then
+            normalized_function = to_lower(trim(function_names(i)))
+            if (trim(normalized_function) == trim(normalized_input)) then
                 is_function = .true.
                 exit
             end if
@@ -37,7 +44,8 @@ contains
 
         found = .false.
         do i = 1, var_count
-            if (trim(var_names(i)) == trim(var_name)) then
+            normalized_existing = to_lower(trim(var_names(i)))
+            if (trim(normalized_existing) == trim(normalized_input)) then
                 found = .true.
                 exit
             end if
@@ -46,7 +54,7 @@ contains
         if (.not. found) then
             var_count = var_count + 1
             if (var_count <= size(var_names)) then
-                var_names(var_count) = var_name
+                var_names(var_count) = normalized_input
                 var_types(var_count) = var_type
                 var_declared(var_count) = .true.
             end if
@@ -59,9 +67,14 @@ contains
         logical, intent(inout) :: var_declared(:)
         integer, intent(in) :: var_count
         integer :: i
+        character(len=64) :: normalized_input
+        character(len=64) :: normalized_existing
+
+        normalized_input = to_lower(trim(var_name))
 
         do i = 1, var_count
-            if (trim(var_names(i)) == trim(var_name)) then
+            normalized_existing = to_lower(trim(var_names(i)))
+            if (trim(normalized_existing) == trim(normalized_input)) then
                 var_declared(i) = .false.
                 return
             end if
@@ -122,4 +135,3 @@ contains
     end subroutine collect_identifier_var
 
 end module standardizer_declarations_variables
-

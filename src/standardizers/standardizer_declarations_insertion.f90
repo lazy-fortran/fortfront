@@ -334,7 +334,10 @@ contains
         allocate (var_types(100))
         allocate (var_declared(100))
         allocate (function_names(100))
+        var_names = ''
+        var_types = ''
         var_declared = .false.
+        function_names = ''
         var_count = 0
         func_count = 0
 
@@ -347,7 +350,7 @@ contains
                         type is (function_def_node)
                             if (func_count < size(function_names)) then
                                 func_count = func_count + 1
-                                function_names(func_count) = stmt%name
+                                function_names(func_count) = to_lower(trim(stmt%name))
                             end if
                         end select
                     end if
@@ -464,6 +467,10 @@ contains
         type(program_node), intent(in) :: prog
         character(len=*), intent(in) :: var_name
         integer :: i, j
+        character(len=64) :: target_name
+        character(len=64) :: candidate_name
+
+        target_name = to_lower(trim(var_name))
 
         has_explicit_declaration = .false.
 
@@ -474,14 +481,16 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
-                            if (trim(stmt%var_name) == trim(var_name)) then
+                            candidate_name = to_lower(trim(stmt%var_name))
+                            if (trim(candidate_name) == trim(target_name)) then
                                 has_explicit_declaration = .true.
                                 return
                             end if
                             if (stmt%is_multi_declaration .and. &
                                 allocated(stmt%var_names)) then
                                 do j = 1, size(stmt%var_names)
-                                    if (trim(stmt%var_names(j)) == trim(var_name)) then
+                                    candidate_name = to_lower(trim(stmt%var_names(j)))
+                                    if (trim(candidate_name) == trim(target_name)) then
                                         has_explicit_declaration = .true.
                                         return
                                     end if
