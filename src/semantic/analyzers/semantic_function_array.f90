@@ -472,6 +472,8 @@ contains
         integer :: ndims
         integer :: i
         character(len=:), allocatable :: func_name
+        character(len=:), allocatable :: lowered_name
+        integer :: num_args
 
         if (allocated(call_node%name)) then
             func_name = trim(call_node%name)
@@ -479,7 +481,19 @@ contains
             func_name = ""
         end if
 
-        if (func_name == "reshape") then
+        if (len_trim(func_name) > 0) then
+            lowered_name = to_lower(func_name)
+        else
+            lowered_name = ""
+        end if
+
+        num_args = 0
+        if (allocated(call_node%arg_indices)) then
+            num_args = size(call_node%arg_indices)
+        end if
+
+        select case (lowered_name)
+        case ("reshape")
             element_type = create_mono_type(TREAL)
             if (allocated(call_node%arg_indices) .and. &
                 size(call_node%arg_indices) >= 1) then
@@ -518,17 +532,47 @@ contains
                 typ%alloc_info%needs_allocation_check = .true.
                 typ%alloc_info%is_pointer = .false.
                 typ%alloc_info%needs_allocatable_string = .false.
+                deallocate (args)
             end if
-        else
-            allocate (args(1))
-            args(1) = create_mono_type(TREAL)
-            typ = create_mono_type(TARRAY, args=args)
-            typ%size = 0
-            typ%alloc_info%is_allocatable = .true.
-            typ%alloc_info%needs_allocation_check = .true.
-            typ%alloc_info%is_pointer = .false.
-            typ%alloc_info%needs_allocatable_string = .false.
-        end if
+            return
+        case ("size")
+            typ = create_mono_type(TINT)
+            return
+        case ("lbound", "ubound")
+            if (num_args >= 2) then
+                typ = create_mono_type(TINT)
+            else
+                allocate (args(1))
+                args(1) = create_mono_type(TINT)
+                typ = create_mono_type(TARRAY, args=args)
+                typ%size = 0
+                typ%alloc_info%is_allocatable = .true.
+                typ%alloc_info%needs_allocation_check = .true.
+                typ%alloc_info%is_pointer = .false.
+                typ%alloc_info%needs_allocatable_string = .false.
+                deallocate (args)
+            end if
+            return
+        end select
+
+        select case (lowered_name)
+        case ("shape", "maxloc", "minloc")
+            element_type = create_mono_type(TINT)
+        case ("any", "all")
+            element_type = create_mono_type(TLOGICAL)
+        case default
+            element_type = create_mono_type(TREAL)
+        end select
+
+        allocate (args(1))
+        args(1) = element_type
+        typ = create_mono_type(TARRAY, args=args)
+        typ%size = 0
+        typ%alloc_info%is_allocatable = .true.
+        typ%alloc_info%needs_allocation_check = .true.
+        typ%alloc_info%is_pointer = .false.
+        typ%alloc_info%needs_allocatable_string = .false.
+        deallocate (args)
     end function infer_array_intrinsic_type
 
     function mono_type_from_type_spec(type_spec) result(explicit_type)
