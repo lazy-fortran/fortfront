@@ -199,8 +199,15 @@ contains
         character(len=:), allocatable :: decl_line
         character(len=:), allocatable :: intent_str
         character(len=:), allocatable :: dim_clause
+        logical :: has_intent_attr
+        logical :: has_optional_attr
+        logical :: has_target_attr
 
         if (len_trim(param_info%name) == 0) return
+
+        has_intent_attr = .false.
+        has_optional_attr = .false.
+        has_target_attr = .false.
 
         select type (param_node => arena%entries(param_idx)%node)
         type is (identifier_node)
@@ -210,16 +217,41 @@ contains
             intent_str = intent_type_to_string(param_node%intent_type)
             if (len_trim(intent_str) > 0) then
                 param_type = trim(param_type) // ", intent(" // trim(intent_str) // ")"
+                has_intent_attr = .true.
             end if
             if (param_node%is_optional) then
                 param_type = trim(param_type) // ", optional"
+                has_optional_attr = .true.
             end if
             if (param_node%is_target) then
                 param_type = trim(param_type) // ", target"
+                has_target_attr = .true.
             end if
         class default
             param_type = get_param_type_fallback(param_node)
         end select
+
+        if (.not. has_intent_attr) then
+            if (allocated(param_info%intent_str)) then
+                if (len_trim(param_info%intent_str) > 0) then
+                    param_type = trim(param_type) // ", intent(" // &
+                                 trim(param_info%intent_str) // ")"
+                    has_intent_attr = .true.
+                end if
+            end if
+        end if
+        if (.not. has_optional_attr) then
+            if (param_info%is_optional) then
+                param_type = trim(param_type) // ", optional"
+                has_optional_attr = .true.
+            end if
+        end if
+        if (.not. has_target_attr) then
+            if (param_info%is_target) then
+                param_type = trim(param_type) // ", target"
+                has_target_attr = .true.
+            end if
+        end if
 
         decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
 

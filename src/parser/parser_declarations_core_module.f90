@@ -194,6 +194,9 @@ contains
                              is_external=attr_info%is_external, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
+                             is_target=attr_info%is_target, &
+                             intent_value=attr_info%intent, &
+                             is_optional=attr_info%is_optional, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
                              is_volatile=attr_info%is_volatile, &
@@ -206,7 +209,10 @@ contains
                              kind_value=type_spec%kind_value, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
+                             is_target=attr_info%is_target, &
                              is_external=attr_info%is_external, &
+                             intent_value=attr_info%intent, &
+                             is_optional=attr_info%is_optional, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
                              is_volatile=attr_info%is_volatile, &
@@ -219,7 +225,10 @@ contains
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
                              dimension_indices=attr_info%global_dimension_indices, &
+                             intent_value=attr_info%intent, &
+                             is_optional=attr_info%is_optional, &
                              is_allocatable=attr_info%is_allocatable, &
+                             is_target=attr_info%is_target, &
                              is_external=attr_info%is_external, &
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter, &
@@ -231,9 +240,12 @@ contains
             else
                 decl_index = push_declaration( &
                              arena, type_spec%type_name, trim_name_array(var_names), &
+                             intent_value=attr_info%intent, &
+                             is_optional=attr_info%is_optional, &
                              is_external=attr_info%is_external, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
+                             is_target=attr_info%is_target, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
                              is_volatile=attr_info%is_volatile, &

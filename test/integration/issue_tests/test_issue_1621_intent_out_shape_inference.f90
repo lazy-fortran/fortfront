@@ -6,6 +6,7 @@ program test_issue_1621_intent_out_shape_inference
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
+    logical :: has_n1_decl, has_n2_decl
 
     source = 'module m_intent_out' // new_line('a') // &
              '' // new_line('a') // &
@@ -42,8 +43,21 @@ program test_issue_1621_intent_out_shape_inference
         end if
     end if
 
-    if (index(transformed, 'integer :: n1') == 0 .and. &
-        index(transformed, 'integer :: n1,') == 0) then
+    has_n1_decl = (index(transformed, 'integer :: n1') > 0) .or. &
+                  (index(transformed, 'integer :: n1,') > 0) .or. &
+                  (index(transformed, 'integer, intent(in) :: n1') > 0) .or. &
+                  (index(transformed, 'integer, intent(in) :: n1,') > 0) .or. &
+                  (index(transformed, ':: n1, n2') > 0) .or. &
+                  (index(transformed, ':: n1,n2') > 0)
+
+    has_n2_decl = (index(transformed, 'integer :: n2') > 0) .or. &
+                  (index(transformed, 'integer :: n1, n2') > 0) .or. &
+                  (index(transformed, 'integer :: n1,n2') > 0) .or. &
+                  (index(transformed, 'integer, intent(in) :: n2') > 0) .or. &
+                  (index(transformed, 'integer, intent(in) :: n1, n2') > 0) .or. &
+                  (index(transformed, 'integer, intent(in) :: n1,n2') > 0)
+
+    if (.not. (has_n1_decl .and. has_n2_decl)) then
         print *, 'FAIL: parameter declarations n1,n2 missing'
         print *, 'Output:'
         print *, trim(transformed)

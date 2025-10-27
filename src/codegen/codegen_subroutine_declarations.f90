@@ -89,7 +89,7 @@ contains
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
 
-        call build_parameter_map(arena, param_indices, body_indices, param_map)
+        call build_parameter_map(arena, param_indices, body_indices, param_map, node)
         if (allocated(node%prefix_keywords)) then
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
