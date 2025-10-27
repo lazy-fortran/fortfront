@@ -24,6 +24,7 @@ module ast_nodes_procedure
         logical :: has_return_type_in_header = .false.
         character(len=:), allocatable :: result_variable
         character(len=16), allocatable :: prefix_keywords(:)
+        character(len=:), allocatable :: param_intents(:)
         integer, allocatable :: body_indices(:)
         logical :: is_recursive = .false.
         character(len=:), allocatable :: bind_c_clause
@@ -39,6 +40,7 @@ module ast_nodes_procedure
         character(len=:), allocatable :: name
         integer, allocatable :: param_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
+        character(len=:), allocatable :: param_intents(:)
         integer, allocatable :: body_indices(:)
         logical :: is_recursive = .false.
         character(len=:), allocatable :: bind_c_clause
@@ -116,6 +118,7 @@ contains
         lhs%is_recursive = rhs%is_recursive
         if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
         if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
+        if (allocated(rhs%param_intents)) lhs%param_intents = rhs%param_intents
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
         if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause
@@ -166,6 +169,7 @@ contains
         lhs%name = rhs%name
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
+        if (allocated(rhs%param_intents)) lhs%param_intents = rhs%param_intents
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
         lhs%is_recursive = rhs%is_recursive
         if (allocated(rhs%bind_c_clause)) lhs%bind_c_clause = rhs%bind_c_clause

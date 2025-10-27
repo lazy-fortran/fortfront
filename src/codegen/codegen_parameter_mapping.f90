@@ -1,8 +1,10 @@
 module codegen_parameter_mapping
     use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
     use ast_nodes_core, only: identifier_node
     use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                               intent_type_to_string
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use codegen_parameter_info, only: parameter_info_t
     implicit none
     private
@@ -10,25 +12,42 @@ module codegen_parameter_mapping
 
 contains
 
-    subroutine build_parameter_map(arena, param_indices, body_indices, param_map)
+    subroutine build_parameter_map(arena, param_indices, body_indices, &
+                                   param_map, owner)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_indices(:)
         integer, intent(in) :: body_indices(:)
         type(parameter_info_t), allocatable, intent(out) :: param_map(:)
+        class(ast_node), intent(in), optional :: owner
         integer :: param_count
+        integer :: i
+        character(len=:), allocatable :: owner_intent
 
         param_count = size(param_indices)
         allocate (param_map(param_count))
 
-        call seed_parameter_map_from_params(arena, param_indices, param_map)
+        call seed_parameter_map_from_params(arena, param_indices, param_map, owner)
         call merge_parameter_details_from_body(arena, body_indices, param_map)
+
+        if (present(owner)) then
+            do i = 1, size(param_map)
+                if (len_trim(param_map(i)%intent_str) == 0) then
+                    owner_intent = get_owner_intent(owner, i)
+                    if (len_trim(owner_intent) > 0) then
+                        param_map(i)%intent_str = trim(owner_intent)
+                    end if
+                end if
+            end do
+        end if
     end subroutine build_parameter_map
 
-    subroutine seed_parameter_map_from_params(arena, param_indices, param_map)
+    subroutine seed_parameter_map_from_params(arena, param_indices, param_map, owner)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: param_indices(:)
         type(parameter_info_t), intent(inout) :: param_map(:)
+        class(ast_node), intent(in), optional :: owner
         integer :: i, idx
+        character(len=:), allocatable :: owner_intent
 
         do i = 1, size(param_indices)
             param_map(i)%name = ""
@@ -49,6 +68,13 @@ contains
                 param_map(i)%is_optional = param_node%is_optional
                 param_map(i)%is_target = param_node%is_target
             end select
+
+            if (len_trim(param_map(i)%intent_str) == 0) then
+                owner_intent = get_owner_intent(owner, i)
+                if (len_trim(owner_intent) > 0) then
+                    param_map(i)%intent_str = trim(owner_intent)
+                end if
+            end if
         end do
     end subroutine seed_parameter_map_from_params
 
@@ -108,10 +134,39 @@ contains
             if (.not. allocated(param_map(i)%name)) cycle
             if (trim(param_map(i)%name) /= trim(name)) cycle
 
-            if (has_intent) param_map(i)%intent_str = intent_value
+            if (has_intent .and. len_trim(intent_value) > 0) then
+                param_map(i)%intent_str = trim(intent_value)
+            end if
             param_map(i)%is_optional = is_optional
             param_map(i)%is_target = is_target
             return
         end do
     end subroutine update_parameter_entry
+
+    function get_owner_intent(owner, idx) result(intent_value)
+        class(ast_node), intent(in), optional :: owner
+        integer, intent(in) :: idx
+        character(len=:), allocatable :: intent_value
+
+        intent_value = ""
+        if (.not. present(owner)) return
+
+        select type (owner)
+        type is (function_def_node)
+            if (allocated(owner%param_intents)) then
+                if (idx > 0 .and. idx <= size(owner%param_intents)) then
+                    intent_value = trim(owner%param_intents(idx))
+                end if
+            end if
+        type is (subroutine_def_node)
+            if (allocated(owner%param_intents)) then
+                if (idx > 0 .and. idx <= size(owner%param_intents)) then
+                    intent_value = trim(owner%param_intents(idx))
+                end if
+            end if
+        class default
+            ! No additional intent metadata available
+        end select
+    end function get_owner_intent
+
 end module codegen_parameter_mapping

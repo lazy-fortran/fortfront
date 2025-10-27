@@ -6,8 +6,10 @@ program test_issue_1705_real_literal_generic
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
     logical :: success
+    logical :: has_real_dummy
 
-    print *, "=== Issue #1705: Real literals preserve precision in generic interfaces ==="
+    print *, &
+        "=== Issue #1705: Real literals preserve precision in generic interfaces ==="
 
     source = &
         "module math_mod" // new_line('a') // &
@@ -51,8 +53,11 @@ program test_issue_1705_real_literal_generic
         ! Function signatures should remain as real, not real(8)
         if (index(output, "real(8) :: a, b") > 0) success = .false.
         ! Real type should be preserved (note: could be real or real(4))
-        if (index(output, "real :: a, b") == 0 .and. &
-            index(output, "real(4) :: a, b") == 0) success = .false.
+        has_real_dummy = (index(output, "real :: a, b") > 0) .or. &
+                         (index(output, "real(4) :: a, b") > 0) .or. &
+                         (index(output, "real, intent(in) :: a, b") > 0) .or. &
+                         (index(output, "real(4), intent(in) :: a, b") > 0)
+        if (.not. has_real_dummy) success = .false.
     end if
 
     if (success) then
