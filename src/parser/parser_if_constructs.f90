@@ -313,11 +313,13 @@ contains
         type(token_t) :: paren_token
         type(token_t), allocatable, target :: remaining_tokens(:)
         integer :: i, n
+        integer :: paren_depth
 
         ! Check for opening parenthesis
         paren_token = parser%peek()
         if (paren_token%kind == TK_OPERATOR .and. paren_token%text == "(") then
             paren_token = parser%consume()  ! consume '('
+            paren_depth = 1
 
             ! Count remaining tokens
             n = 0
@@ -336,9 +338,17 @@ contains
             ! Simple approach: advance until we find the closing paren or 'then'
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
-                if (paren_token%kind == TK_OPERATOR .and. paren_token%text == ")") then
-                    paren_token = parser%consume()  ! consume the ')'
-                    exit
+                if (paren_token%kind == TK_OPERATOR) then
+                    if (paren_token%text == "(") then
+                        paren_depth = paren_depth + 1
+                        paren_token = parser%consume()
+                        cycle
+                    else if (paren_token%text == ")") then
+                        paren_depth = paren_depth - 1
+                        paren_token = parser%consume()  ! consume ')'
+                        if (paren_depth <= 0) exit
+                        cycle
+                    end if
                 else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == &
                          "then") then
                     exit  ! Don't consume 'then', let caller handle it
@@ -488,13 +498,6 @@ contains
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
                                                                   callbacks=callbacks, &
                                                          consumed_count=consumed_tokens)
-                    end if
-
-                    ! DEBUG TEMP
-                    if (allocated(stmt_indices)) then
-                        write (*,'(A,*(I0,1X))') 'parse_if_body stmt_indices:', stmt_indices
-                    else
-                        write (*,'(A)') 'parse_if_body stmt_indices: <not allocated>'
                     end if
 
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
