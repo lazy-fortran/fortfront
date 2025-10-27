@@ -1,5 +1,6 @@
 program test_issue_1963_debug_output
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                              iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -20,6 +21,20 @@ program test_issue_1963_debug_output
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            print *, 'FAIL: failed to read ', trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function ensure_debug_absent()
         implicit none
         character(len=:), allocatable :: source
@@ -31,12 +46,7 @@ contains
         ensure_debug_absent = .true.
         print *, 'Validating that CLI output is free of debug noise...'
 
-        source = 'subroutine increment(x, delta)' // new_line('a') // &
-                 '    x = x + delta' // new_line('a') // &
-                 'end subroutine increment' // new_line('a') // new_line('a') // &
-                 'value = 10' // new_line('a') // &
-                 'step = 5' // new_line('a') // &
-                 'call increment(value, step)' // new_line('a')
+        call read_example('examples/lf/issue_1963_debug_output.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

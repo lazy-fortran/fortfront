@@ -1,0 +1,7 @@
+subroutine increment(x, delta)
+    x = x + delta
+end subroutine increment
+
+value = 10
+step = 5
+call increment(value, step)
