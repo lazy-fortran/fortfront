@@ -1,6 +1,7 @@
 module codegen_function_declarations
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node
+    use ast_nodes_loops, only: do_loop_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_procedure, only: function_def_node
@@ -142,11 +143,11 @@ contains
 
         result_clause = ""
         if (.not. allocated(node%result_variable)) return
-        if (len_trim(node%result_variable) == 0) return
+        result_name = trim(node%result_variable)
+        if (len_trim(result_name) == 0) return
 
-        result_name = node%result_variable
         if (allocated(node%name)) then
-            if (trim(result_name) == trim(node%name)) return
+            if (result_name == trim(node%name)) return
         end if
 
         result_clause = " result(" // result_name // ")"
@@ -376,6 +377,9 @@ contains
                 call collect_vars_from_read(arena, stmt, param_map, local_vars, &
                                             n_locals, capacity, result_name, &
                                             decl_code)
+            type is (do_loop_node)
+                call collect_loop_var(stmt, param_map, local_vars, n_locals, &
+                                      capacity, result_name, decl_code)
             end select
         end do
     end function collect_local_variable_decls
@@ -461,5 +465,34 @@ contains
             end select
         end do
     end subroutine collect_vars_from_read
+
+    subroutine collect_loop_var(loop_node, param_map, local_vars, n_locals, &
+                                capacity, result_name, decl_code)
+        type(do_loop_node), intent(in) :: loop_node
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals
+        integer, intent(inout) :: capacity
+        character(len=*), intent(in) :: result_name
+        character(len=:), allocatable, intent(inout) :: decl_code
+        character(len=64) :: var_name
+
+        if (.not. allocated(loop_node%var_name)) return
+
+        var_name = trim(loop_node%var_name)
+        if (len_trim(var_name) == 0) return
+
+        if (len_trim(result_name) > 0 .and. var_name == result_name) return
+        if (is_parameter_name(var_name, param_map)) return
+        if (index(decl_code, "integer :: "//trim(var_name)) > 0) return
+
+        if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+            call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+            n_locals = n_locals + 1
+            local_vars(n_locals) = var_name
+            decl_code = decl_code // "    integer :: " // trim(var_name) // &
+                        new_line('A')
+        end if
+    end subroutine collect_loop_var
 
 end module codegen_function_declarations
