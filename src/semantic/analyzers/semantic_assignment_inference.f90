@@ -30,7 +30,8 @@ module semantic_assignment_inference
 contains
 
     ! Set assignment node type fields for standardizer (Issue #1851)
-    subroutine set_assignment_type_fields(arena, assignment_index, value_index, expr_typ)
+    subroutine set_assignment_type_fields(arena, assignment_index, &
+                                          value_index, expr_typ)
         use type_string_utils, only: mono_type_to_string
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: assignment_index, value_index
@@ -77,8 +78,12 @@ contains
         type(poly_type_t) :: scheme
         type(poly_type_t), allocatable :: existing_scheme
         type(result_t) :: error_result
+        character(len=:), allocatable :: call_name_lower
+        logical :: dim_present
+        logical :: override_expr_type
 
         updated_expr_typ = expr_typ
+        override_expr_type = .false.
 
         ! Override type for complex literals (Issue #1851)
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
@@ -86,6 +91,41 @@ contains
                 select type (value_node => arena%entries(assignment%value_index)%node)
                 type is (complex_literal_node)
                     updated_expr_typ = create_mono_type(TCOMPLEX)
+                end select
+            end if
+        end if
+
+        ! Normalize inquiry intrinsic return types
+        if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
+            if (allocated(arena%entries(assignment%value_index)%node)) then
+                select type (value_node => arena%entries(assignment%value_index)%node)
+                type is (call_or_subscript_node)
+                    if (allocated(value_node%name)) then
+                        call_name_lower = to_lower(trim(value_node%name))
+                        select case (call_name_lower)
+                        case ("size")
+                            updated_expr_typ = create_mono_type(TINT)
+                            override_expr_type = .true.
+                        case ("lbound", "ubound")
+                            dim_present = call_has_dim_argument(value_node)
+                            if (dim_present) then
+                                updated_expr_typ = create_mono_type(TINT)
+                                override_expr_type = .true.
+                            else
+                                block
+                                    type(mono_type_t) :: int_type
+                                    int_type = create_mono_type(TINT)
+                                    updated_expr_typ = rebuild_array_with_base( &
+                                                       value_node%inferred_type, &
+                                                       int_type)
+                                end block
+                                override_expr_type = .true.
+                            end if
+                        end select
+                        if (override_expr_type) then
+                            value_node%inferred_type = updated_expr_typ
+                        end if
+                    end if
                 end select
             end if
         end if
@@ -134,16 +174,25 @@ contains
                     ! DEBUG: Force complex type for variables assigned from complex literals
                     block
                         type(mono_type_t) :: final_type
+                        integer :: value_idx
+                        logical :: needs_complex_override
+
                         final_type = updated_expr_typ
-                        if (assignment%value_index > 0 .and. &
-                            assignment%value_index <= arena%size) then
-                            if (allocated(arena%entries(assignment%value_index)%node)) then
-                                select type (v => arena%entries(assignment%value_index)%node)
-                                type is (complex_literal_node)
-                                    final_type = create_mono_type(TCOMPLEX)
-                                end select
-                            end if
+                        value_idx = assignment%value_index
+                        needs_complex_override = value_idx > 0 .and. &
+                                                 value_idx <= arena%size
+
+                        if (needs_complex_override) then
+                            associate (entry => arena%entries(value_idx))
+                                if (allocated(entry%node)) then
+                                    select type (v => entry%node)
+                                    type is (complex_literal_node)
+                                        final_type = create_mono_type(TCOMPLEX)
+                                    end select
+                                end if
+                            end associate
                         end if
+
                         scheme = create_poly_type(forall_vars=[type_var_t ::], &
                                                   mono=final_type)
                     end block
@@ -151,7 +200,8 @@ contains
 
                     ! Set assignment node fields for standardizer (Issue #1851)
                     call set_assignment_type_fields(arena, assignment_index, &
-                                                    assignment%value_index, updated_expr_typ)
+                                                    assignment%value_index, &
+                                                    updated_expr_typ)
                 type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, lhs_node, &
                                                  expr_typ, updated_expr_typ, scopes)
@@ -493,6 +543,43 @@ contains
             base_type = 'real'
         end select
     end function get_base_type_name
+
+    logical function call_has_dim_argument(call_node) result(has_dim)
+        type(call_or_subscript_node), intent(in) :: call_node
+
+        if (.not. allocated(call_node%arg_indices)) then
+            has_dim = .false.
+        else
+            has_dim = size(call_node%arg_indices) >= 2
+        end if
+    end function call_has_dim_argument
+
+    recursive function rebuild_array_with_base(original, base_type) &
+        result(result_type)
+        type(mono_type_t), intent(in) :: original
+        type(mono_type_t), intent(in) :: base_type
+        type(mono_type_t) :: result_type
+        type(mono_type_t) :: element_type
+        type(mono_type_t), allocatable :: args(:)
+
+        if (original%kind /= TARRAY) then
+            result_type = base_type
+            return
+        end if
+
+        if (original%has_args()) then
+            element_type = rebuild_array_with_base(original%get_arg(1), base_type)
+        else
+            element_type = base_type
+        end if
+
+        allocate (args(1))
+        args(1) = element_type
+        result_type = create_mono_type(TARRAY, args=args)
+        result_type%size = original%size
+        result_type%alloc_info = original%alloc_info
+        deallocate (args)
+    end function rebuild_array_with_base
 
     subroutine ensure_var_declared_from_arena(arena, name, scopes, &
                                               generalize_fn, next_var_id)
