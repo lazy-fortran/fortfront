@@ -499,8 +499,9 @@ contains
         expect_operand = .false.
     end subroutine handle_closing_paren
 
-    subroutine handle_operand_token(parser, arena, view, operands, prefix_stack, &
-                                    token, expect_operand)
+    recursive subroutine handle_operand_token(parser, arena, view, operands, &
+                                              prefix_stack, token, &
+                                              expect_operand)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
@@ -714,7 +715,7 @@ contains
     end function parse_expression
 
     ! Parse logical EQV/NEQV operators (lowest precedence)
-    function parse_logical_eqv(parser, arena) result(expr_index)
+    recursive function parse_logical_eqv(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -723,7 +724,7 @@ contains
     end function parse_logical_eqv
 
     ! Parse logical OR operators
-    function parse_logical_or(parser, arena) result(expr_index)
+    recursive function parse_logical_or(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -732,7 +733,7 @@ contains
     end function parse_logical_or
 
     ! Parse logical AND operators
-    function parse_logical_and(parser, arena) result(expr_index)
+    recursive function parse_logical_and(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -741,7 +742,7 @@ contains
     end function parse_logical_and
 
     ! Parse comparison operators
-    function parse_comparison(parser, arena) result(expr_index)
+    recursive function parse_comparison(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -750,7 +751,7 @@ contains
     end function parse_comparison
 
     ! Parse string concatenation operator (//) - Issue #214
-    function parse_concatenation(parser, arena) result(expr_index)
+    recursive function parse_concatenation(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -758,7 +759,7 @@ contains
         expr_index = parse_expression_with_precedence(parser, arena, PREC_CONCAT)
     end function parse_concatenation
     ! Parse addition and subtraction
-    function parse_term(parser, arena) result(expr_index)
+    recursive function parse_term(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -767,7 +768,7 @@ contains
     end function parse_term
 
     ! Parse multiplication and division
-    function parse_factor(parser, arena) result(expr_index)
+    recursive function parse_factor(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -776,7 +777,7 @@ contains
     end function parse_factor
 
     ! Parse exponentiation (**) - right-associative
-    function parse_power(parser, arena) result(expr_index)
+    recursive function parse_power(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -785,7 +786,7 @@ contains
     end function parse_power
 
     ! Parse unary operators (+, -, .NOT.) - Issue #215
-    function parse_unary(parser, arena) result(expr_index)
+    recursive function parse_unary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -794,7 +795,7 @@ contains
     end function parse_unary
 
     ! Parse primary expressions (literals, identifiers, parentheses)
-    function parse_primary(parser, arena) result(expr_index)
+    recursive function parse_primary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -802,7 +803,8 @@ contains
         expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
     end function parse_primary
 
-    function parse_expression_until(parser, arena, terminators) result(expr_index)
+    recursive function parse_expression_until(parser, arena, terminators) &
+        result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: terminators(:)
@@ -827,7 +829,8 @@ contains
         end if
     end function parse_expression_until
 
-    function parse_postfix_chain(parser, arena, base_expr) result(expr_index)
+    recursive function parse_postfix_chain(parser, arena, base_expr) &
+        result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -846,7 +849,7 @@ contains
     !=================================================================================
 
     ! Parse range/slice operator (:) - lowest precedence after logical operators
-    function parse_range(parser, arena) result(expr_index)
+    recursive function parse_range(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -857,8 +860,8 @@ contains
         if (op_token%kind == TK_OPERATOR .and. op_token%text == "*") then
             op_token = parser%consume()
             expr_index = push_assumed_size_bounds(arena, &
-                                                 line=op_token%line, &
-                                                 column=op_token%column)
+                                                  line=op_token%line, &
+                                                  column=op_token%column)
             return
         end if
 

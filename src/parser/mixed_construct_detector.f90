@@ -3,7 +3,7 @@ module mixed_construct_detector
     ! Analyzes token stream to identify mixed constructs requiring module generation
 
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, TK_NEWLINE, &
-                          TK_WHITESPACE, TK_COMMENT, to_lower
+                          TK_WHITESPACE, TK_COMMENT, TK_OPERATOR, to_lower
     implicit none
     private
 
@@ -221,12 +221,19 @@ contains
                 end if
             end do
         else
-            ! For simple declarations, just find end of statement
+            ! For simple declarations, stop at next declaration, program unit,
+            ! or newline that does not continue
             do i = start_pos + 1, size(tokens)
-                if (tokens(i)%kind == TK_EOF) then
+                select case (tokens(i)%kind)
+                case (TK_EOF)
                     end_pos = i
                     return
-                end if
+                case (TK_NEWLINE)
+                    if (.not. line_continues(tokens, i)) then
+                        end_pos = i
+                        return
+                    end if
+                end select
                 ! Check for start of new construct
                 if (is_top_level_declaration(tokens, i) .or. &
                     is_explicit_program_unit(tokens, i)) then
@@ -239,6 +246,52 @@ contains
         ! Default to end of tokens
         end_pos = size(tokens)
     end subroutine find_declaration_range
+
+    logical function line_continues(tokens, newline_pos) result(continues)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: newline_pos
+        integer :: j
+        character(len=:), allocatable :: text
+
+        continues = .false.
+
+        ! Check for trailing ampersand before newline
+        j = newline_pos - 1
+        do while (j >= 1)
+            select case (tokens(j)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                j = j - 1
+                cycle
+            case (TK_OPERATOR)
+                text = trim(tokens(j)%text)
+                if (text == "&") then
+                    continues = .true.
+                end if
+                return
+            case default
+                exit
+            end select
+            exit
+        end do
+
+        ! Check for leading ampersand after newline
+        j = newline_pos + 1
+        do while (j <= size(tokens))
+            select case (tokens(j)%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                j = j + 1
+                cycle
+            case (TK_OPERATOR)
+                text = trim(tokens(j)%text)
+                if (text == "&") then
+                    continues = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function line_continues
 
     ! Find the end of a program unit construct
     subroutine find_program_unit_range(tokens, start_pos, end_pos)

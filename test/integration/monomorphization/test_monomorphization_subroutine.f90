@@ -1,0 +1,74 @@
+program test_monomorphization_subroutine
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use fortfront, only: transform_lazy_fortran_string
+    implicit none
+    character(len=:), allocatable :: input, output, error_msg
+    character(len=*), parameter :: tmp_file = 'fortfront_mono_subroutine.f90'
+    character(len=*), parameter :: compile_cmd = 'gfortran -fsyntax-only '
+    integer :: exit_code, unit
+    integer :: module_pos, program_pos
+
+    input = 'subroutine scale(value, factor)' // new_line('A') // &
+            '    value = value * factor' // new_line('A') // &
+            'end subroutine' // new_line('A') // new_line('A') // &
+            'integer :: i' // new_line('A') // &
+            'real :: r' // new_line('A') // &
+            'i = 3' // new_line('A') // &
+            'r = 2.5d0' // new_line('A') // &
+            'call scale(i, 2)' // new_line('A') // &
+            'call scale(r, 1.5d0)'
+
+    call transform_lazy_fortran_string(input, output, error_msg)
+
+    if (len_trim(error_msg) > 0) then
+        write (error_unit, '(A,A)') 'subroutine monomorphization error: ', &
+            trim(error_msg)
+        error stop 1
+    end if
+
+    write (error_unit, '(A)') '=== GENERATED OUTPUT ==='
+    write (error_unit, '(A)') trim(output)
+    write (error_unit, '(A)') '=== END OUTPUT ==='
+
+    call assert_contains(output, 'scale__i32_i32', &
+        'missing integer specialization for scale')
+    call assert_contains(output, 'scale__r64_r64', &
+        'missing real specialization for scale')
+    call assert_contains(output, 'interface scale', &
+        'missing generic interface for scale')
+    call assert_contains(output, '    use auto_scale', &
+        'program did not import generated module')
+
+    module_pos = index(output, 'module auto_scale')
+    program_pos = index(output, 'program main')
+    if (module_pos <= 0 .or. program_pos <= 0 .or. module_pos > program_pos) then
+        write (error_unit, '(A)') 'module auto_scale must precede program main'
+        error stop 1
+    end if
+
+    open (newunit=unit, file=tmp_file, status='replace', action='write')
+    write (unit, '(A)') trim(output)
+    close (unit)
+
+    call execute_command_line(compile_cmd // tmp_file, exitstat=exit_code, &
+                              wait=.true.)
+    call execute_command_line('rm -f ' // tmp_file, wait=.true.)
+    if (exit_code /= 0) then
+        write (error_unit, '(A)') 'gfortran rejected subroutine specialization output'
+        error stop 1
+    end if
+
+contains
+
+    subroutine assert_contains(text, token, message)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: token
+        character(len=*), intent(in) :: message
+
+        if (index(text, token) <= 0) then
+            write (error_unit, '(A)') trim(message)
+            error stop 1
+        end if
+    end subroutine assert_contains
+
+end program test_monomorphization_subroutine

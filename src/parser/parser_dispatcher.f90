@@ -341,13 +341,17 @@ contains
                     else if (has_comma) then
                         ! Multi-variable declaration - use parse_multi_declaration
                         decl_indices = parse_multi_declaration(parser, arena)
-                        if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            ! Return first declaration index
-                            stmt_index = decl_indices(1)
+                        if (allocated(decl_indices)) then
+                            if (size(decl_indices) > 0) then
+                                ! Return first declaration index
+                                stmt_index = decl_indices(1)
 
-                            ! Store additional indices if any
-                            if (size(decl_indices) > 1) then
-                                additional_indices = decl_indices(2:)
+                                ! Store additional indices if any
+                                if (size(decl_indices) > 1) then
+                                    additional_indices = decl_indices(2:)
+                                end if
+                            else
+                                stmt_index = parse_declaration(parser, arena)  ! Fallback
                             end if
                         else
                             stmt_index = parse_declaration(parser, arena)  ! Fallback
@@ -383,14 +387,16 @@ contains
         call parse_assignment_statement(parser, arena, stmt_index, extra_indices)
 
         ! Store additional indices from multi-assignment if any
-        if (allocated(extra_indices) .and. size(extra_indices) > 0) then
-            if (allocated(additional_indices)) then
-                block
-                    integer, allocatable :: temp(:)
-                    call move_alloc(additional_indices, temp)
-                end block
+        if (allocated(extra_indices)) then
+            if (size(extra_indices) > 0) then
+                if (allocated(additional_indices)) then
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(additional_indices, temp)
+                    end block
+                end if
+                additional_indices = extra_indices
             end if
-            additional_indices = extra_indices
         end if
 
     end function parse_assignment_or_expression

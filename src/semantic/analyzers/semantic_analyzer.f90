@@ -66,7 +66,8 @@ module semantic_analyzer
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
     use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map
-    use semantic_call_signature_collector, only: collect_call_signature
+    use semantic_call_signature_collector, only: collect_call_signature, &
+                                                 collect_subroutine_signature
     implicit none
     private
 
