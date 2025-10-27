@@ -11,15 +11,19 @@ program test_crlf_tokenization
     character(len=:), allocatable :: json_output
     character(len=:), allocatable :: input
     integer :: i
-    logical :: found_then, found_sum_neg
+    logical :: found_then, found_sum_neg, found_sum_pos
 
     input = &
         "program main" // char(13) // char(10) // &
         "    implicit none" // char(13) // char(10) // &
         "    integer :: a(6)" // char(13) // char(10) // &
+        "    sum_neg = 0" // char(13) // char(10) // &
+        "    sum_pos = 0" // char(13) // char(10) // &
         "    do i = 1, 6" // char(13) // char(10) // &
         "        if (a(i) < 0) then" // char(13) // char(10) // &
         "            sum_neg = sum_neg + a(i)" // char(13) // char(10) // &
+        "        else" // char(13) // char(10) // &
+        "            sum_pos = sum_pos + a(i)" // char(13) // char(10) // &
         "        end if" // char(13) // char(10) // &
         "    end do" // char(13) // char(10) // &
         "end program main" // char(13) // char(10)
@@ -28,6 +32,7 @@ program test_crlf_tokenization
 
     found_then = .false.
     found_sum_neg = .false.
+    found_sum_pos = .false.
 
     do i = 1, size(tokens)
         select case (tokens(i)%kind)
@@ -35,6 +40,7 @@ program test_crlf_tokenization
             if (tokens(i)%text == "then") found_then = .true.
         case (TK_IDENTIFIER)
             if (tokens(i)%text == "sum_neg") found_sum_neg = .true.
+            if (tokens(i)%text == "sum_pos") found_sum_pos = .true.
         end select
     end do
 
@@ -45,6 +51,11 @@ program test_crlf_tokenization
 
     if (.not. found_sum_neg) then
         print *, "FAIL: identifier 'sum_neg' missing for CRLF input"
+        stop 1
+    end if
+
+    if (.not. found_sum_pos) then
+        print *, "FAIL: identifier 'sum_pos' missing for CRLF input"
         stop 1
     end if
 
