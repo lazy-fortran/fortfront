@@ -754,6 +754,16 @@ contains
             integer, intent(in) :: node_index
             type(mono_type_t) :: node_type
 
+            if (node_index > 0 .and. node_index <= arena%size) then
+                if (allocated(arena%entries(node_index)%node)) then
+                    select type (call_expr => arena%entries(node_index)%node)
+                    type is (subroutine_call_node)
+                        call collect_subroutine_signature(this%signatures, arena, &
+                            call_expr, node_index)
+                    end select
+                end if
+            end if
+
             node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
             call finalize_node(node_index, node_type)
         end subroutine finalize_subroutine_call

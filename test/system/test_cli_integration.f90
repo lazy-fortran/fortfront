@@ -775,7 +775,7 @@ contains
         call write_text_file('-input_test.lf', 'print *, ''ok'''//new_line('a'))
 
         if (is_windows) then
-            command = 'cmd /C ""' // executable_path // &
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
                 & '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
@@ -910,8 +910,8 @@ contains
         ! Run with empty input (cross-platform)
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
-            command = 'cmd /C "type NUL | "' // executable_path // &
-                & '" > test_output3.txt 2>test_error3.txt"'
+            command = 'cmd /C "set FORTFRONT_TRACE=0 && type NUL | "' // &
+                      executable_path // '" > test_output3.txt 2>test_error3.txt"'
         else
             command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
                       executable_path // ' > test_output3.txt 2>test_error3.txt"'

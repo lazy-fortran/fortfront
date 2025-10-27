@@ -26,7 +26,7 @@ module parser_statement_core_module
                                             parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_statement_detection_module, only: is_block_if, find_statement_end, &
-                                                  extend_if_statement_end
+                                                 extend_if_statement_end
     implicit none
     private
 
@@ -40,8 +40,9 @@ module parser_statement_core_module
     integer, parameter :: STATEMENT_NO_NODE = -1
 
 contains
-    function parse_basic_statement_core(tokens, arena, parent_index, callbacks, &
-                                        consumed_count) result(stmt_indices)
+    recursive function parse_basic_statement_core(tokens, arena, parent_index, &
+                                                  callbacks, consumed_count) &
+        result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
