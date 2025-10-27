@@ -164,109 +164,191 @@ contains
         block
             character(len=:), allocatable :: lowered
             lowered = to_lower(first_token%text)
-            select case (lowered)
-            case ("if")
-                if (associated(callbacks%parse_if)) then
-                    if (present(parent_index)) then
-                        stmt_index = callbacks%parse_if(parser, arena, parent_index)
-                    else
-                        stmt_index = callbacks%parse_if(parser, arena)
-                    end if
-                end if
-            case ("do")
-                if (associated(callbacks%parse_do_loop)) then
-                    stmt_index = callbacks%parse_do_loop(parser, arena)
-                end if
-            case ("select", "selectcase")
-                ! Look ahead to distinguish SELECT CASE from SELECT TYPE
-                if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%text == "type") then
-                        if (associated(callbacks%parse_select_type)) then
-                            stmt_index = callbacks%parse_select_type(parser, arena)
-                        end if
-                    else
-                        if (associated(callbacks%parse_select_case)) then
-                            stmt_index = callbacks%parse_select_case(parser, arena)
-                        end if
-                    end if
-                else
-                    if (associated(callbacks%parse_select_case)) then
-                        stmt_index = callbacks%parse_select_case(parser, arena)
-                    end if
-                end if
-            case ("where")
-                if (associated(callbacks%parse_where)) then
-                    stmt_index = callbacks%parse_where(parser, arena)
-                end if
-            case ("forall")
-                if (associated(callbacks%parse_forall)) then
-                    stmt_index = callbacks%parse_forall(parser, arena)
-                end if
-            case ("associate")
-                if (associated(callbacks%parse_associate)) then
-                    stmt_index = callbacks%parse_associate(parser, arena)
-                end if
-            case ("print")
-                stmt_index = parse_print_statement(parser, arena)
-            case ("write")
-                stmt_index = parse_write_statement(parser, arena)
-            case ("read")
-                stmt_index = parse_read_statement(parser, arena)
-            case ("open")
-                stmt_index = parse_open_statement(parser, arena)
-            case ("close")
-                stmt_index = parse_close_statement(parser, arena)
-            case ("format")
-                stmt_index = parse_format_statement(parser, arena)
-            case ("inquire")
-                stmt_index = parse_inquire_statement(parser, arena)
-            case ("backspace")
-                stmt_index = parse_backspace_statement(parser, arena)
-            case ("rewind")
-                stmt_index = parse_rewind_statement(parser, arena)
-            case ("endfile")
-                stmt_index = parse_endfile_statement(parser, arena)
-            case ("allocate")
-                stmt_index = parse_allocate_statement(parser, arena)
-            case ("deallocate")
-                stmt_index = parse_deallocate_statement(parser, arena)
-            case ("data")
-                stmt_index = parse_data_statement(parser, arena, parent_index)
-            case ("cycle")
-                stmt_index = parse_cycle_statement(parser, arena)
-            case ("exit")
-                stmt_index = parse_exit_statement(parser, arena)
-            case ("return")
-                if (present(parent_index)) then
-                    stmt_index = parse_return_statement(parser, arena, parent_index)
-                else
-                    stmt_index = parse_return_statement(parser, arena)
-                end if
-            case ("call")
-                stmt_index = parse_call_statement(parser, arena)
-            case ("stop")
-                stmt_index = parse_stop_statement(parser, arena)
-            case ("pause")
-                stmt_index = parse_pause_statement(parser, arena)
-            case ("nullify")
-                stmt_index = parse_nullify_statement(parser, arena)
-            case ("continue")
-                stmt_index = parse_continue_statement(parser, arena)
-            case ("go", "goto")
-                stmt_index = parse_goto_statement(parser, arena)
-            case ("error")
-                stmt_index = parse_error_stop_statement(parser, arena)
-            case ("namelist")
-                stmt_index = parse_namelist_statement(parser, arena, parent_index)
-            case ("dimension")
+
+            stmt_index = handle_control_keyword(lowered, parser, arena, &
+                                                parent_index, callbacks)
+            if (stmt_index /= 0) return
+
+            stmt_index = handle_io_keyword(lowered, parser, arena)
+            if (stmt_index /= 0) return
+
+            stmt_index = handle_memory_keyword(lowered, parser, arena)
+            if (stmt_index /= 0) return
+
+            stmt_index = handle_data_keyword(lowered, parser, arena, parent_index)
+            if (stmt_index /= 0) return
+
+            stmt_index = handle_flow_keyword(lowered, parser, arena, parent_index, &
+                                             callbacks)
+            if (stmt_index /= 0) return
+
+            if (lowered == "dimension") then
                 if (parse_dimension_statement(parser, arena)) then
                     stmt_index = STATEMENT_NO_NODE
                 else
                     stmt_index = 0
                 end if
-            end select
+            end if
         end block
     end function parse_keyword_statement
+
+    integer function handle_control_keyword(keyword, parser, arena, parent_index, &
+                                            callbacks) result(stmt_index)
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        type(statement_callbacks_t), intent(in) :: callbacks
+
+        stmt_index = 0
+        select case (keyword)
+        case ("if")
+            if (associated(callbacks%parse_if)) then
+                if (present(parent_index)) then
+                    stmt_index = callbacks%parse_if(parser, arena, parent_index)
+                else
+                    stmt_index = callbacks%parse_if(parser, arena)
+                end if
+            end if
+        case ("do")
+            if (associated(callbacks%parse_do_loop)) then
+                stmt_index = callbacks%parse_do_loop(parser, arena)
+            end if
+        case ("select", "selectcase")
+            stmt_index = handle_select_keyword(parser, arena, callbacks)
+        case ("where")
+            if (associated(callbacks%parse_where)) then
+                stmt_index = callbacks%parse_where(parser, arena)
+            end if
+        case ("forall")
+            if (associated(callbacks%parse_forall)) then
+                stmt_index = callbacks%parse_forall(parser, arena)
+            end if
+        case ("associate")
+            if (associated(callbacks%parse_associate)) then
+                stmt_index = callbacks%parse_associate(parser, arena)
+            end if
+        end select
+    end function handle_control_keyword
+
+    integer function handle_select_keyword(parser, arena, callbacks) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(statement_callbacks_t), intent(in) :: callbacks
+        logical :: has_next_token
+
+        stmt_index = 0
+        has_next_token = parser%current_token + 1 <= size(parser%tokens)
+        if (has_next_token) then
+            if (parser%tokens(parser%current_token + 1)%text == "type") then
+                if (associated(callbacks%parse_select_type)) then
+                    stmt_index = callbacks%parse_select_type(parser, arena)
+                end if
+                return
+            end if
+        end if
+
+        if (associated(callbacks%parse_select_case)) then
+            stmt_index = callbacks%parse_select_case(parser, arena)
+        end if
+    end function handle_select_keyword
+
+    integer function handle_io_keyword(keyword, parser, arena) result(stmt_index)
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        stmt_index = 0
+        select case (keyword)
+        case ("print")
+            stmt_index = parse_print_statement(parser, arena)
+        case ("write")
+            stmt_index = parse_write_statement(parser, arena)
+        case ("read")
+            stmt_index = parse_read_statement(parser, arena)
+        case ("open")
+            stmt_index = parse_open_statement(parser, arena)
+        case ("close")
+            stmt_index = parse_close_statement(parser, arena)
+        case ("format")
+            stmt_index = parse_format_statement(parser, arena)
+        case ("inquire")
+            stmt_index = parse_inquire_statement(parser, arena)
+        case ("backspace")
+            stmt_index = parse_backspace_statement(parser, arena)
+        case ("rewind")
+            stmt_index = parse_rewind_statement(parser, arena)
+        case ("endfile")
+            stmt_index = parse_endfile_statement(parser, arena)
+        end select
+    end function handle_io_keyword
+
+    integer function handle_memory_keyword(keyword, parser, arena) result(stmt_index)
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        stmt_index = 0
+        select case (keyword)
+        case ("allocate")
+            stmt_index = parse_allocate_statement(parser, arena)
+        case ("deallocate")
+            stmt_index = parse_deallocate_statement(parser, arena)
+        end select
+    end function handle_memory_keyword
+
+    integer function handle_data_keyword(keyword, parser, arena, parent_index) &
+        result(stmt_index)
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+
+        stmt_index = 0
+        select case (keyword)
+        case ("data")
+            stmt_index = parse_data_statement(parser, arena, parent_index)
+        case ("namelist")
+            stmt_index = parse_namelist_statement(parser, arena, parent_index)
+        end select
+    end function handle_data_keyword
+
+    integer function handle_flow_keyword(keyword, parser, arena, parent_index, &
+                                         callbacks) result(stmt_index)
+        character(len=*), intent(in) :: keyword
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        type(statement_callbacks_t), intent(in) :: callbacks
+
+        stmt_index = 0
+        select case (keyword)
+        case ("cycle")
+            stmt_index = parse_cycle_statement(parser, arena)
+        case ("exit")
+            stmt_index = parse_exit_statement(parser, arena)
+        case ("return")
+            if (present(parent_index)) then
+                stmt_index = parse_return_statement(parser, arena, parent_index)
+            else
+                stmt_index = parse_return_statement(parser, arena)
+            end if
+        case ("call")
+            stmt_index = parse_call_statement(parser, arena)
+        case ("stop")
+            stmt_index = parse_stop_statement(parser, arena)
+        case ("pause")
+            stmt_index = parse_pause_statement(parser, arena)
+        case ("nullify")
+            stmt_index = parse_nullify_statement(parser, arena)
+        case ("continue")
+            stmt_index = parse_continue_statement(parser, arena)
+        case ("go", "goto")
+            stmt_index = parse_goto_statement(parser, arena)
+        case ("error")
+            stmt_index = parse_error_stop_statement(parser, arena)
+        end select
+    end function handle_flow_keyword
 
     integer function parse_identifier_statement(parser, arena, parent_index, tokens, &
                                                 callbacks) &
@@ -299,7 +381,8 @@ contains
                 if (keyword_token%kind == TK_KEYWORD) then
                     ! Rewind to before the label so the keyword parser handles it
                     parser%current_token = parser%current_token - 2
-                    stmt_index = parse_keyword_statement(keyword_token, parser, arena, &
+                    stmt_index = parse_keyword_statement(keyword_token, &
+                                                         parser, arena, &
                                                          parent_index, callbacks)
                     return
                 end if
@@ -308,7 +391,8 @@ contains
                                                       parent_index, tokens, &
                                                       id_token)
             case ("=", "=>")
-                stmt_index = parse_simple_assignment(parser, arena, parent_index, tokens, &
+                stmt_index = parse_simple_assignment(parser, arena, &
+                                                     parent_index, tokens, &
                                                      id_token)
             end select
         end if
