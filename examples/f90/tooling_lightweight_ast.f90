@@ -15,12 +15,20 @@ program tooling_lightweight_ast
     integer :: clock_rate
     real(dp) :: elapsed_seconds
     character(len=*), parameter :: lazy_code = &
-                                   'program tooling_demo' // new_line('a') // &
-                                   '  implicit none' // new_line('a') // &
-                                   '  integer :: value' // new_line('a') // &
-                                   '  value = 42' // new_line('a') // &
-                                   '  print *, value' // new_line('a') // &
-                                   'end program tooling_demo'
+                                   'a = [-5, -3, -1, 1, 3, 5]' // new_line('a') // &
+                                   'sum_neg = 0' // new_line('a') // &
+                                   'sum_pos = 0' // new_line('a') // &
+                                   '' // new_line('a') // &
+                                   'do i = 1, 6' // new_line('a') // &
+                                   '    if (a(i) < 0) then' // new_line('a') // &
+                                   '        sum_neg = sum_neg + a(i)' // new_line('a') // &
+                                   '    else' // new_line('a') // &
+                                   '        sum_pos = sum_pos + a(i)' // new_line('a') // &
+                                   '    end if' // new_line('a') // &
+                                   'end do' // new_line('a') // &
+                                   '' // new_line('a') // &
+                                   'print *, ''Sum negative:'', sum_neg' // new_line('a') // &
+                                   'print *, ''Sum positive:'', sum_pos'
 
     options = tooling_parse_options_t()
     options%run_semantics = .false.

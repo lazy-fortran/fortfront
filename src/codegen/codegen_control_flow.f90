@@ -11,6 +11,8 @@ module codegen_control_flow
     implicit none
     private
 
+    logical, parameter :: enable_single_line_if = .true.
+
     public :: generate_code_if
     public :: generate_code_do_loop
     public :: generate_code_do_while
@@ -88,7 +90,7 @@ contains
             has_no_else = size(node%else_body_indices) == 0
         end if
 
-        if (has_no_elseif .and. has_no_else) then
+        if (enable_single_line_if .and. has_no_elseif .and. has_no_else) then
             single_line = try_generate_single_line_if(arena, node, cond_code)
             if (allocated(single_line)) then
                 if (len(single_line) > 0) then
@@ -158,6 +160,8 @@ contains
         stmt_index = node%then_body_indices(1)
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
         if (.not. allocated(arena%entries(stmt_index)%node)) return
+
+        if (trim(arena%entries(stmt_index)%node_type) == "print_statement") return
 
         select type (stmt_node => arena%entries(stmt_index)%node)
         class default
