@@ -2,6 +2,7 @@ module ast_monomorphization
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, call_or_subscript_node, &
+                              assignment_node, identifier_node, literal_node, &
                               create_program
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    get_procedure_name, get_procedure_params, &
@@ -440,18 +441,6 @@ contains
             return
         end if
 
-        allocate (new_explicit(module_count + preserved_count))
-        if (module_count > 0) then
-            new_explicit(1:module_count) = module_indices(1:module_count)
-            do i = 1, module_count
-                call set_parent_if_valid(arena, module_indices(i), root_index)
-            end do
-        end if
-        if (preserved_count > 0) then
-            new_explicit(module_count + 1:) = preserved_indices(1:preserved_count)
-        end if
-        container%explicit_program_indices = new_explicit
-
         if (program_count == 0) then
             if (preserved_count > 0) then
                 do i = 1, preserved_count
@@ -531,6 +520,31 @@ contains
             end if
         end if
 
+        if (program_count > 0) then
+            do i = 1, program_count
+                call promote_double_literal_assignments(arena, program_indices(i))
+            end do
+        end if
+
+        if (module_count + preserved_count > 0) then
+            allocate (new_explicit(module_count + preserved_count))
+            if (module_count > 0) then
+                new_explicit(1:module_count) = module_indices(1:module_count)
+                do i = 1, module_count
+                    call set_parent_if_valid(arena, module_indices(i), root_index)
+                end do
+            end if
+            if (preserved_count > 0) then
+                new_explicit(module_count + 1:) = &
+                    preserved_indices(1:preserved_count)
+            end if
+            container%explicit_program_indices = new_explicit
+        else
+            if (allocated(container%explicit_program_indices)) then
+                deallocate (container%explicit_program_indices)
+            end if
+        end if
+
         do i = 1, program_count
             if (program_indices(i) < 1 .or. program_indices(i) > arena%size) cycle
             call ensure_program_has_uses(arena, program_indices(i), module_names, &
@@ -606,6 +620,100 @@ contains
             preserved_indices(preserved_count) = child_idx
         end select
     end subroutine process_container_entry
+
+    subroutine promote_double_literal_assignments(arena, prog_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: prog_idx
+        type(program_node), pointer :: prog
+        integer :: i, stmt_idx, target_idx, value_idx
+        integer :: promote_capacity
+        integer :: promote_count
+        character(len=64), allocatable :: promote_names(:)
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: target_name
+        logical :: already_present
+        integer :: j
+
+        call get_program_node(arena, prog_idx, prog)
+        if (.not. associated(prog)) return
+        if (.not. allocated(prog%body_indices)) return
+        if (size(prog%body_indices) == 0) return
+
+        promote_capacity = max(1, size(prog%body_indices))
+        allocate (character(len=64) :: promote_names(promote_capacity))
+        promote_names = ''
+        promote_count = 0
+
+        do i = 1, size(prog%body_indices)
+            stmt_idx = prog%body_indices(i)
+            if (stmt_idx < 1 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (assign => arena%entries(stmt_idx)%node)
+            type is (assignment_node)
+                value_idx = assign%value_index
+                if (value_idx < 1 .or. value_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(value_idx)%node)) cycle
+                select type (lit => arena%entries(value_idx)%node)
+                type is (literal_node)
+                    if (.not. allocated(lit%value)) cycle
+                    lowered = to_lower(trim(lit%value))
+                    if (index(lowered, 'd') <= 0) cycle
+                class default
+                    cycle
+                end select
+
+                target_idx = assign%target_index
+                if (target_idx < 1 .or. target_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(target_idx)%node)) cycle
+                select type (id => arena%entries(target_idx)%node)
+                type is (identifier_node)
+                    if (.not. allocated(id%name)) cycle
+                    target_name = adjustl(trim(id%name))
+                    if (len_trim(target_name) == 0) cycle
+                    already_present = .false.
+                    do j = 1, promote_count
+                        if (trim(promote_names(j)) == target_name) then
+                            already_present = .true.
+                            exit
+                        end if
+                    end do
+                    if (already_present) cycle
+                    if (promote_count >= promote_capacity) then
+                        call resize_character_array(promote_names, &
+                                                     max(2 * promote_capacity, 1))
+                        promote_capacity = size(promote_names)
+                    end if
+                    promote_count = promote_count + 1
+                    promote_names(promote_count) = target_name
+                end select
+            end select
+        end do
+
+        if (promote_count == 0) return
+
+        do i = 1, size(prog%body_indices)
+            stmt_idx = prog%body_indices(i)
+            if (stmt_idx < 1 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (decl => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (decl%is_multi_declaration) cycle
+                if (.not. allocated(decl%var_name)) cycle
+                target_name = adjustl(trim(decl%var_name))
+                if (len_trim(target_name) == 0) cycle
+                do j = 1, promote_count
+                    if (trim(promote_names(j)) == target_name) then
+                        decl%type_name = 'double precision'
+                        decl%has_kind = .false.
+                        decl%kind_value = 0
+                        exit
+                    end if
+                end do
+            end select
+        end do
+    end subroutine promote_double_literal_assignments
 
     subroutine finalize_monomorphized_root(arena, root_index, root_prog, &
                                            is_multi_unit, preserved_indices, &
