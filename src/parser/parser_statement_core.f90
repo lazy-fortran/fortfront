@@ -434,7 +434,7 @@ contains
     end function parse_simple_assignment
 
     integer function create_assignment_node(arena, target_index, value_index, &
-                                           id_token, operator_text, parent_index) &
+                                            id_token, operator_text, parent_index) &
         result(stmt_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: target_index, value_index
