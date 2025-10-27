@@ -18,6 +18,7 @@ module lexer_core
 
     ! Re-export main functions
     public :: tokenize_safe, tokenize_core, tokenize_core_safe
+    public :: normalize_line_endings
     public :: token_type_name
 
     ! Re-export scanning functions
@@ -31,6 +32,45 @@ module lexer_core
     public :: to_lower, resize_tokens, resize_trivia_buffer
 
 contains
+
+    pure function normalize_line_endings(source) result(normalized)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable :: normalized
+        character(len=:), allocatable :: buffer
+        integer :: src_len, i, write_pos
+        character :: c
+
+        src_len = len(source)
+        if (src_len == 0) then
+            allocate (character(len=0) :: normalized)
+            return
+        end if
+
+        allocate (character(len=src_len) :: buffer)
+        write_pos = 0
+
+        do i = 1, src_len
+            c = source(i:i)
+            select case (c)
+            case (char(13))
+                if (i < src_len) then
+                    if (source(i + 1:i + 1) == char(10)) cycle
+                end if
+                write_pos = write_pos + 1
+                buffer(write_pos:write_pos) = char(10)
+            case default
+                write_pos = write_pos + 1
+                buffer(write_pos:write_pos) = c
+            end select
+        end do
+
+        if (write_pos == 0) then
+            allocate (character(len=0) :: normalized)
+        else
+            allocate (character(len=write_pos) :: normalized)
+            normalized = buffer(1:write_pos)
+        end if
+    end function normalize_line_endings
 
     ! Main tokenization function with error handling
     function tokenize_safe(source) result(tokenize_res)
@@ -74,81 +114,84 @@ contains
     subroutine tokenize_core_safe(source, tokenize_res)
         character(len=*), intent(in) :: source
         type(tokenize_result_t), intent(inout) :: tokenize_res
+        character(len=:), allocatable :: src
         integer :: pos, line_num, col_num, source_len
         character :: c
+
+        src = normalize_line_endings(source)
 
         pos = 1
         line_num = 1
         col_num = 1
-        source_len = len(source)
+        source_len = len(src)
         tokenize_res%token_count = 0
 
         do while (pos <= source_len)
-            c = source(pos:pos)
+            c = src(pos:pos)
 
             select case (c)
             case (' ', char(9))  ! Space, tab
-                call skip_whitespace(source, pos, line_num, col_num)
+                call skip_whitespace(src, pos, line_num, col_num)
 
             case (char(10), char(13))  ! Newline
-                call handle_newline(source, pos, line_num, col_num, &
+                call handle_newline(src, pos, line_num, col_num, &
                                     tokenize_res%tokens, tokenize_res%token_count)
 
             case ('!')  ! Comment
-                call scan_comment(source, pos, line_num, col_num, &
+                call scan_comment(src, pos, line_num, col_num, &
                                   tokenize_res%tokens, tokenize_res%token_count)
 
             case ('''', '"')  ! String
-                call scan_string(source, pos, line_num, col_num, &
+                call scan_string(src, pos, line_num, col_num, &
                                  tokenize_res%tokens, tokenize_res%token_count)
 
             case ('0':'9')  ! Number
-                call scan_number(source, pos, line_num, col_num, &
+                call scan_number(src, pos, line_num, col_num, &
                                  tokenize_res%tokens, tokenize_res%token_count)
 
             case ('a':'z', 'A':'Z', '_')  ! Identifier
-                call scan_identifier(source, pos, line_num, col_num, &
+                call scan_identifier(src, pos, line_num, col_num, &
                                      tokenize_res%tokens, tokenize_res%token_count)
 
             case ('.')  ! Logical token, decimal number, or separator between numbers
                 if (pos < source_len) then
-                    if (source(pos + 1:pos + 1) >= '0' .and. source(pos + 1:pos + 1) &
+                    if (src(pos + 1:pos + 1) >= '0' .and. src(pos + 1:pos + 1) &
                         <= '9') then
                         ! Only treat as a decimal number if not immediately following a digit
                         block
                             logical :: prev_is_digit
                             if (pos > 1) then
-                                prev_is_digit = (source(pos - 1:pos - 1) >= '0' .and. &
-                                                 source(pos - 1:pos - 1) <= '9')
+                                prev_is_digit = (src(pos - 1:pos - 1) >= '0' .and. &
+                                                 src(pos - 1:pos - 1) <= '9')
                             else
                                 prev_is_digit = .false.
                             end if
                             if (prev_is_digit) then
                                 ! Pattern like "3.14.159": second dot should be an operator separator
-                                call scan_operator(source, pos, line_num, col_num, &
+                                call scan_operator(src, pos, line_num, col_num, &
                                                    tokenize_res%tokens, &
                                                    tokenize_res%token_count)
                             else
-                                call scan_number(source, pos, line_num, col_num, &
+                                call scan_number(src, pos, line_num, col_num, &
                                                  tokenize_res%tokens, &
                                                  tokenize_res%token_count)
                             end if
                         end block
                     else
                         ! Not followed by a digit: try logical token forms like .and., .true.
-                        call scan_logical_token(source, pos, line_num, col_num, &
+                        call scan_logical_token(src, pos, line_num, col_num, &
                                                 tokenize_res%tokens, &
                                                 tokenize_res%token_count)
                     end if
                 else
                     ! At end of source: treat as operator (defensive)
-                    call scan_operator(source, pos, line_num, col_num, &
+                    call scan_operator(src, pos, line_num, col_num, &
                                        tokenize_res%tokens, tokenize_res%token_count)
                 end if
 
             case default  ! Operator or unknown
                 if (is_operator_char(c)) then
-                    call scan_operator(source, pos, line_num, col_num, &
+                    call scan_operator(src, pos, line_num, col_num, &
                                        tokenize_res%tokens, tokenize_res%token_count)
                 else
                     ! Unknown character - skip
