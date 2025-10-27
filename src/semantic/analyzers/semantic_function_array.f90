@@ -334,9 +334,26 @@ contains
 
         if (.not. allocated(array_lit%element_indices) .or. &
             size(array_lit%element_indices) == 0) then
+            explicit_type%kind = 0
+            explicit_type%size = 0
+            if (allocated(array_lit%type_spec)) then
+                explicit_spec = trim(array_lit%type_spec)
+                if (len_trim(explicit_spec) > 0) then
+                    explicit_type = mono_type_from_type_spec(explicit_spec)
+                end if
+            end if
+            if (explicit_type%kind <= 0) then
+                explicit_type = create_mono_type(TINT)
+            end if
             allocate (args(1))
-            args(1) = create_mono_type(TINT)
+            args(1) = explicit_type
             typ = create_mono_type(TARRAY, args=args)
+            typ%size = 0
+            typ%alloc_info%is_allocatable = .true.
+            typ%alloc_info%needs_allocation_check = .true.
+            typ%alloc_info%is_pointer = .false.
+            typ%alloc_info%needs_allocatable_string = .false.
+            deallocate (args)
             return
         end if
 
