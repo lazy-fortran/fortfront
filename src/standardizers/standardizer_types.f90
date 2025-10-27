@@ -570,6 +570,14 @@ contains
                     end if
                 end if
 
+                if ((.not. allocated(elem_type_str) .or. &
+                     len_trim(elem_type_str) == 0) .and. &
+                    allocated(node%type_spec)) then
+                    if (len_trim(node%type_spec) > 0) then
+                        elem_type_str = trim(node%type_spec)
+                    end if
+                end if
+
                 ! CRITICAL FIX: Provide fallback element type if inference failed
                 if (.not. allocated(elem_type_str) .or. &
                     len_trim(elem_type_str) == 0) then
@@ -713,8 +721,13 @@ contains
                                            ", dimension(:), allocatable"
                             end if
                         else
-                            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                                ", dimension(", size(node%element_indices), ")"
+                            if (size(node%element_indices) == 0) then
+                                var_type = trim(elem_type_str) // &
+                                           ", dimension(:), allocatable"
+                            else
+                                write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                    ", dimension(", size(node%element_indices), ")"
+                            end if
                         end if
                     end block
                 end if
