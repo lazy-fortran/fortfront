@@ -18,12 +18,14 @@ module codegen_grouped_body_params_helpers
 contains
 
     subroutine process_multi_decl_params(arena, node, param_map, indent_str, &
-                                        standardize_types, code)
+                                         standardize_types, preserve_intent, &
+                                         code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=*), intent(in) :: indent_str
         logical, intent(in) :: standardize_types
+        logical, intent(in) :: preserve_intent
         character(len=:), allocatable, intent(inout) :: code
         logical :: found_params
         logical, allocatable :: is_param(:)
@@ -65,7 +67,8 @@ contains
                    // ")"
         end if
 
-        call add_intent_optional_target(node, param_map, first_param_idx, code)
+        call add_intent_optional_target(node, param_map, first_param_idx, &
+                                        preserve_intent, code)
 
         code = code // " :: "
         do j = 1, size(node%var_names)
@@ -80,21 +83,26 @@ contains
         deallocate (is_param)
     end subroutine process_multi_decl_params
 
-    subroutine add_intent_optional_target(node, param_map, first_param_idx, code)
+    subroutine add_intent_optional_target(node, param_map, first_param_idx, &
+                                          preserve_intent, code)
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
         integer, intent(in) :: first_param_idx
+        logical, intent(in) :: preserve_intent
         character(len=:), allocatable, intent(inout) :: code
         character(len=:), allocatable :: param_intent
 
-        if (node%has_intent) then
-            code = code // ", intent(" // node%intent // ")"
-        else if (allocated(param_map(first_param_idx)%intent_str)) then
-            param_intent = trim(param_map(first_param_idx)%intent_str)
-            if (len_trim(param_intent) > 0) then
-                code = code // ", intent(" // param_intent // ")"
+        if (preserve_intent) then
+            if (node%has_intent) then
+                code = code // ", intent(" // node%intent // ")"
+            else if (allocated(param_map(first_param_idx)%intent_str)) then
+                param_intent = trim(param_map(first_param_idx)%intent_str)
+                if (len_trim(param_intent) > 0) then
+                    code = code // ", intent(" // param_intent // ")"
+                end if
             end if
         end if
+
         if (node%is_optional .or. param_map(first_param_idx)%is_optional) then
             code = code // ", optional"
         end if
@@ -151,7 +159,7 @@ contains
     end subroutine process_nonparam_vars
 
     subroutine process_single_decl_param(arena, node, param_map, indent_str, &
-                                        standardize_types, code)
+                                         standardize_types, code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -262,8 +270,8 @@ contains
     end subroutine process_param_decl_node
 
     function should_skip_result_decl(node, result_var_name, &
-                                    has_return_type_in_signature, &
-                                    force_keep_result_decl) result(should_skip)
+                                     has_return_type_in_signature, &
+                                     force_keep_result_decl) result(should_skip)
         type(declaration_node), intent(in) :: node
         character(len=*), intent(in) :: result_var_name
         logical, intent(in) :: has_return_type_in_signature
@@ -280,9 +288,9 @@ contains
         has_dimensions = allocated(node%dimension_indices)
         if (has_dimensions) has_dimensions = size(node%dimension_indices) > 0
         keep_result_decl = node%is_multi_declaration .or. node%is_array .or. &
-                          has_dimensions .or. node%is_allocatable .or. &
-                          node%is_pointer .or. node%is_target .or. &
-                          node%is_parameter .or. node%has_initializer
+                           has_dimensions .or. node%is_allocatable .or. &
+                           node%is_pointer .or. node%is_target .or. &
+                           node%is_parameter .or. node%has_initializer
         if (force_keep_result_decl) keep_result_decl = .true.
         if (keep_result_decl) return
 

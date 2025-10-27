@@ -4,9 +4,10 @@ module frontend_transformation
     ! fortfront - Transformation functions module
     ! Contains string-based transformation functionality
 
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                          TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, TK_UNKNOWN
+    use lexer_core, only: token_t, tokenize_core, normalize_line_endings, &
+                          TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_UNKNOWN
     use compiler_arena, only: compiler_arena_t, create_compiler_arena
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
@@ -82,11 +83,14 @@ contains
         type(token_t), allocatable, target :: tokens(:)
         ! Use shared module-level arena for performance
         integer :: prog_index
+        character(len=:), allocatable :: source
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
         call trace_init()
+
+        source = normalize_line_endings(input)
 
         call trace_enter('transform_lazy_fortran_string')
         ! Initialize the codegen system (idempotent)
@@ -102,13 +106,13 @@ contains
         end if
 
         ! Handle empty or whitespace-only input
-        if (is_empty_or_whitespace_only(input)) then
+        if (is_empty_or_whitespace_only(source)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
-        if (contains_binary_data(input)) then
+        if (contains_binary_data(source)) then
             error_msg = '[INVALID_INPUT] Input appears to be binary data' // &
      &                new_line('A') // '  Source: <binary data omitted>' // &
      &                new_line('A') // '  Suggestion: Provide plain-text Fortran source'
@@ -119,24 +123,24 @@ contains
 
         ! Phase 1: Lexical Analysis
         call trace_enter('phase:lexer')
-        call run_lexical_analysis(input, tokens, shared_arena, error_msg)
+        call run_lexical_analysis(source, tokens, shared_arena, error_msg)
         call trace_leave('phase:lexer')
         if (error_msg /= "") then
-            call handle_lexical_error(input, error_msg, output, shared_arena)
+            call handle_lexical_error(source, error_msg, output, shared_arena)
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Detect standard Fortran inputs we should pass through unchanged
         if (is_probably_standard_fortran(tokens)) then
-            output = ensure_trailing_newline(input)
+            output = ensure_trailing_newline(source)
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
-        call validate_syntax_with_reporting(input, tokens, error_msg, output, &
+        call validate_syntax_with_reporting(source, tokens, error_msg, output, &
             & shared_arena)
         call trace_leave('phase:syntax')
         if (error_msg /= "") then
@@ -173,10 +177,10 @@ contains
         error_msg = ""
 
         ! Preserve a contiguous leading block of comment lines from the input
-        if (has_leading_comment(input)) then
+        if (has_leading_comment(source)) then
             block
                 character(len=:), allocatable :: lead
-                lead = extract_leading_comment_block(input)
+                lead = extract_leading_comment_block(source)
                 if (allocated(lead)) then
                     if (len_trim(lead) > 0) then
                         if (len_trim(output) > 0) then
@@ -249,6 +253,7 @@ contains
         integer :: prog_index
         logical :: has_functions, has_subroutines, has_main_code
         type(signatures_map_t) :: signatures
+        character(len=:), allocatable :: source
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
@@ -256,6 +261,8 @@ contains
         call trace_init()
         call trace_enter('transform_lazy_with_ast_wrapping')
         call initialize_codegen()
+
+        source = normalize_line_endings(input)
 
         ! Initialize or reset shared arena
         if (.not. shared_arena_initialized) then
@@ -266,27 +273,27 @@ contains
         end if
 
         ! Handle empty input
-        if (is_empty_or_whitespace_only(input)) then
+        if (is_empty_or_whitespace_only(source)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
         ! Run transformation pipeline up to AST construction
-        call run_lexical_analysis(input, tokens, shared_arena, error_msg)
+        call run_lexical_analysis(source, tokens, shared_arena, error_msg)
         if (error_msg /= "") then
-            call handle_lexical_error(input, error_msg, output, shared_arena)
+            call handle_lexical_error(source, error_msg, output, shared_arena)
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
         if (is_probably_standard_fortran(tokens)) then
-            output = ensure_trailing_newline(input)
+            output = ensure_trailing_newline(source)
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
-        call validate_syntax_with_reporting(input, tokens, error_msg, output, &
+        call validate_syntax_with_reporting(source, tokens, error_msg, output, &
                                             shared_arena)
         if (error_msg /= "") then
             call trace_leave('transform_lazy_with_ast_wrapping')
@@ -337,10 +344,10 @@ contains
         call run_code_generation_phase(shared_arena, prog_index, output)
 
         ! Preserve leading comments
-        if (has_leading_comment(input)) then
+        if (has_leading_comment(source)) then
             block
                 character(len=:), allocatable :: lead
-                lead = extract_leading_comment_block(input)
+                lead = extract_leading_comment_block(source)
                 if (allocated(lead) .and. len_trim(lead) > 0) then
                     output = trim(lead) // new_line('A') // trim(output)
                 end if

@@ -3,13 +3,13 @@ module codegen_grouped_body_params
     use ast_base, only: ast_node
     use ast_nodes_misc, only: contains_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use codegen_arena_utils, only: check_result_is_simple_scalar
     use codegen_grouped_body, only: generate_grouped_body
     use codegen_grouped_body_params_helpers, only: process_multi_decl_params, &
-                                                    process_single_decl_param, &
-                                                    process_param_decl_node, &
-                                                    should_skip_result_decl
+                                                   process_single_decl_param, &
+                                                   process_param_decl_node, &
+                                                   should_skip_result_decl
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t, find_parameter_info
     use codegen_type_utils, only: get_type_standardization
@@ -63,11 +63,12 @@ contains
     end subroutine init_result_var_info
 
     subroutine gen_param_declarations(arena, body_indices, param_map, &
-                                      indent_str, code)
+                                      indent_str, preserve_param_intent, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=*), intent(in) :: indent_str
+        logical, intent(in) :: preserve_param_intent
         character(len=:), allocatable, intent(inout) :: code
         integer :: i
 
@@ -81,7 +82,8 @@ contains
                 if (node%is_multi_declaration .and. allocated(node%var_names)) then
                     call process_multi_decl_params(arena, node, param_map, &
                                                    indent_str, &
-                                                   standardize_types_enabled, code)
+                                                   standardize_types_enabled, &
+                                                   preserve_param_intent, code)
                 else
                     call process_single_decl_param(arena, node, param_map, &
                                                    indent_str, &
@@ -137,9 +139,10 @@ contains
                 end if
 
                 if (.not. should_skip) then
-                    should_skip = should_skip_result_decl(node, result_var_name, &
-                                                          has_return_type_in_signature, &
-                                                          force_keep_result_decl)
+                    should_skip = should_skip_result_decl( &
+                                  node, result_var_name, &
+                                  has_return_type_in_signature, &
+                                  force_keep_result_decl)
                 end if
             type is (parameter_declaration_node)
                 param_idx = find_parameter_info(param_map, node%name)
@@ -166,6 +169,7 @@ contains
         character(len=:), allocatable :: result_var_name
         logical :: has_return_type_in_signature
         logical :: force_keep_result_decl
+        logical :: preserve_param_intent
         integer, allocatable :: filtered_indices(:)
         integer :: filtered_count
 
@@ -173,12 +177,24 @@ contains
         code = ""
         call get_type_standardization(standardize_types_enabled)
 
+        select type (proc_node)
+        type is (function_def_node)
+            preserve_param_intent = .true.
+        type is (subroutine_def_node)
+            preserve_param_intent = has_prefix_keyword(proc_node%prefix_keywords, &
+                                                       'pure') .or. &
+                                    has_prefix_keyword(proc_node%prefix_keywords, &
+                                                       'elemental')
+        class default
+            preserve_param_intent = .false.
+        end select
+
         call init_result_var_info(proc_node, arena, result_var_name, &
                                   has_return_type_in_signature, &
                                   force_keep_result_decl)
 
         call gen_param_declarations(arena, body_indices, param_map, indent_str, &
-                                    code)
+                                    preserve_param_intent, code)
 
         call build_filtered_indices(arena, body_indices, param_map, &
                                     result_var_name, &
@@ -195,5 +211,23 @@ contains
 
         deallocate (filtered_indices)
     end function generate_grouped_body_with_params
+
+    pure logical function has_prefix_keyword(prefixes, keyword) result(found)
+        character(len=16), allocatable, intent(in) :: prefixes(:)
+        character(len=*), intent(in) :: keyword
+        integer :: i
+        character(len=:), allocatable :: lowered_keyword
+
+        found = .false.
+        if (.not. allocated(prefixes)) return
+
+        lowered_keyword = to_lower(trim(keyword))
+        do i = 1, size(prefixes)
+            if (to_lower(trim(prefixes(i))) == lowered_keyword) then
+                found = .true.
+                return
+            end if
+        end do
+    end function has_prefix_keyword
 
 end module codegen_grouped_body_params

@@ -8,12 +8,14 @@ module fortfront_utils
 
     use ast_arena_modern, only: ast_arena_t, ast_arena_stats_t
     use ast_base, only: ast_node
-    use ast_nodes_core, only: program_node, assignment_node
+    use ast_nodes_core, only: program_node, assignment_node, identifier_node, &
+                              literal_node, call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
     use fortfront_types, only: source_range_t, diagnostic_t
     use fortfront_node_constants
+    use string_utils_mod, only: int_to_string
 
     implicit none
     private
@@ -288,9 +290,265 @@ contains
         integer, intent(in) :: root_index
         character(len=:), allocatable, intent(out) :: json_string
 
-        ! JSON functionality removed; return a minimal placeholder.
-        json_string = '{}'
+        integer :: entry_limit
+        integer :: node_count
+        integer :: i
+        integer :: emitted
+        character(len=:), allocatable :: fragment
+        character(len=:), allocatable :: nodes_json
+
+        if (.not. allocated(arena%entries)) then
+            json_string = '{"root":0,"nodes":[]}'
+            return
+        end if
+
+        entry_limit = size(arena%entries)
+        if (entry_limit == 0) then
+            json_string = '{"root":0,"nodes":[]}'
+            return
+        end if
+
+        node_count = 0
+        do i = 1, entry_limit
+            if (allocated(arena%entries(i)%node)) node_count = node_count + 1
+        end do
+
+        nodes_json = ""
+        emitted = 0
+        do i = 1, entry_limit
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            fragment = build_node_json(arena, i)
+            if (emitted > 0) nodes_json = nodes_json // ","
+            nodes_json = nodes_json // fragment
+            emitted = emitted + 1
+        end do
+
+        json_string = '{"root":' // trim(int_to_string(root_index)) // &
+                      ',"node_count":' // trim(int_to_string(node_count)) // &
+                      ',"nodes":[' // nodes_json // ']}'
     end subroutine ast_to_json
+
+    pure function build_node_json(arena, node_index) result(json)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: json
+        character(len=:), allocatable :: node_type
+        character(len=:), allocatable :: child_list
+        character(len=:), allocatable :: child_value
+        integer :: child_count
+        integer :: parent_index
+        integer :: j
+
+        if (allocated(arena%entries(node_index)%node_type)) then
+            node_type = trim(arena%entries(node_index)%node_type)
+            if (len_trim(node_type) == 0) node_type = "unknown"
+        else
+            node_type = "unknown"
+        end if
+
+        json = '{"index":' // trim(int_to_string(node_index)) // &
+               ',"type":"' // escape_json(node_type) // '"'
+
+        json = json // ',"line":' // &
+               trim(int_to_string(arena%entries(node_index)%node%line))
+        json = json // ',"column":' // &
+               trim(int_to_string(arena%entries(node_index)%node%column))
+
+        parent_index = arena%entries(node_index)%parent_index
+        json = json // ',"parent":' // trim(int_to_string(parent_index))
+
+        child_count = arena%entries(node_index)%child_count
+        child_list = "["
+        if (child_count > 0) then
+            if (allocated(arena%entries(node_index)%child_indices)) then
+                do j = 1, child_count
+                    if (j > 1) child_list = child_list // ","
+                    child_value = trim(int_to_string( &
+                                       arena%entries(node_index)%child_indices(j)))
+                    child_list = child_list // child_value
+                end do
+            end if
+        end if
+        child_list = child_list // "]"
+        json = json // ',"children":' // child_list
+
+        select type (node => arena%entries(node_index)%node)
+        type is (program_node)
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                end if
+            end if
+        type is (assignment_node)
+            json = json // ',"kind":"assignment"'
+            json = json // ',"target_index":' // &
+                   trim(int_to_string(node%target_index))
+            json = json // ',"value_index":' // &
+                   trim(int_to_string(node%value_index))
+            if (allocated(node%operator)) then
+                if (len_trim(node%operator) > 0) then
+                    json = json // ',"operator":"' // &
+                           escape_json(node%operator) // '"'
+                end if
+            end if
+        type is (identifier_node)
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                end if
+            end if
+        type is (literal_node)
+            if (allocated(node%value)) then
+                if (len_trim(node%value) > 0) then
+                    json = json // ',"value":"' // escape_json(node%value) // '"'
+                end if
+            end if
+            if (allocated(node%literal_type)) then
+                if (len_trim(node%literal_type) > 0) then
+                    json = json // ',"literal_type":"' // &
+                           escape_json(node%literal_type) // '"'
+                end if
+            end if
+        type is (call_or_subscript_node)
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    json = json // ',"name":"' // escape_json(node%name) // '"'
+                end if
+            end if
+            if (node%is_intrinsic) then
+                json = json // ',"is_intrinsic":true'
+                if (allocated(node%intrinsic_signature)) then
+                    if (len_trim(node%intrinsic_signature) > 0) then
+                        json = json // ',"intrinsic_signature":"' // &
+                               escape_json(node%intrinsic_signature) // '"'
+                    end if
+                end if
+            else
+                json = json // ',"is_intrinsic":false'
+            end if
+            if (node%is_array_access) then
+                json = json // ',"is_array_access":true'
+            end if
+        class default
+        end select
+
+        json = json // "}"
+    end function build_node_json
+
+    pure function escape_json(text) result(escaped)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: escaped
+        character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: buffer
+        integer :: len_text
+        integer :: i
+        integer :: pos
+        character :: ch
+        character :: backslash
+
+        len_text = len_trim(text)
+        if (len_text == 0) then
+            escaped = ""
+            return
+        end if
+
+        allocate (character(len=len_text) :: trimmed)
+        trimmed = text(1:len_text)
+
+        allocate (character(len=len_text*6) :: buffer)
+        backslash = achar(92)
+        pos = 1
+
+        do i = 1, len_text
+            ch = trimmed(i:i)
+            select case (ch)
+            case ('"')
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = '"'
+                pos = pos + 1
+            case ('\\')
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+            case (char(9))
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = 't'
+                pos = pos + 1
+            case (char(10))
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = 'n'
+                pos = pos + 1
+            case (char(13))
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = 'r'
+                pos = pos + 1
+            case (char(8))
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = 'b'
+                pos = pos + 1
+            case (char(12))
+                buffer(pos:pos) = backslash
+                pos = pos + 1
+                buffer(pos:pos) = 'f'
+                pos = pos + 1
+            case default
+                if (iachar(ch) < 32) then
+                    buffer(pos:pos) = backslash
+                    pos = pos + 1
+                    buffer(pos:pos) = 'u'
+                    pos = pos + 1
+                    buffer(pos:pos + 3) = hex4(iachar(ch))
+                    pos = pos + 4
+                else
+                    buffer(pos:pos) = ch
+                    pos = pos + 1
+                end if
+            end select
+        end do
+
+        pos = pos - 1
+        if (pos < 1) then
+            escaped = ""
+        else
+            allocate (character(len=pos) :: escaped)
+            escaped = buffer(1:pos)
+        end if
+    end function escape_json
+
+    pure function hex4(value) result(chars)
+        integer, intent(in) :: value
+        character(len=4) :: chars
+        integer :: idx
+        integer :: temp
+        integer :: digit
+
+        temp = value
+        do idx = 4, 1, -1
+            digit = mod(temp, 16)
+            temp = temp / 16
+            chars(idx:idx) = hex_digit(digit)
+        end do
+    end function hex4
+
+    pure function hex_digit(value) result(ch)
+        integer, intent(in) :: value
+        character :: ch
+
+        select case (value)
+        case (0:9)
+            ch = achar(iachar('0') + value)
+        case (10:15)
+            ch = achar(iachar('a') + value - 10)
+        case default
+            ch = '0'
+        end select
+    end function hex_digit
 
     ! Semantic info to JSON - actual implementation
     subroutine semantic_info_to_json(ctx, json_string)
