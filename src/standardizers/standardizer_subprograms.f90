@@ -250,7 +250,8 @@ contains
         character(len=:), allocatable :: return_type_str
         logical :: standardizer_type_standardization_enabled
 
-   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+        call get_standardizer_type_standardization( &
+            standardizer_type_standardization_enabled)
 
         ! Standardize return type
         if (allocated(func_def%return_type)) then
@@ -347,7 +348,8 @@ contains
                     if (trim(res_name) /= 'result') then
                         if (allocated(func_def%body_indices)) then
                             call rename_identifier_in_arena(arena, 'result', &
-                                                trim(res_name), func_def%body_indices, &
+                                                            trim(res_name), &
+                                                            func_def%body_indices, &
                                                             func_index)
                         end if
                     end if
@@ -600,7 +602,8 @@ contains
         n_params = size(func_def%param_indices)
         if (n_params == 0) return
 
-   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+        call get_standardizer_type_standardization( &
+            standardizer_type_standardization_enabled)
 
         ! Get parameter names
         allocate (param_names(n_params))
