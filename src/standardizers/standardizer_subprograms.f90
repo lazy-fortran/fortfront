@@ -631,25 +631,9 @@ contains
     end subroutine assign_return_type_with_kind
 
     logical function has_function_name_result(func_def) result(is_match)
-        use, intrinsic :: iso_fortran_env, only: error_unit
         type(function_def_node), intent(in) :: func_def
-        character(len=:), allocatable :: name_repr
-        character(len=:), allocatable :: result_repr
 
         is_match = .false.
-        if (allocated(func_def%name)) then
-            name_repr = trim(func_def%name)
-        else
-            name_repr = "<none>"
-        end if
-        if (allocated(func_def%result_variable)) then
-            result_repr = trim(func_def%result_variable)
-        else
-            result_repr = "<none>"
-        end if
-        write (error_unit, '(A,1X,L1,1X,L1,1X,A,1X,A)') "DEBUG HFR", &
-            allocated(func_def%name), allocated(func_def%result_variable), &
-            name_repr, result_repr
         if (.not. allocated(func_def%result_variable)) return
         if (.not. allocated(func_def%name)) return
         if (len_trim(func_def%name) == 0) return
