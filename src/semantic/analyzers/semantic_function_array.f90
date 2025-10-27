@@ -46,6 +46,7 @@ contains
         type(mono_type_t) :: scheme_mono
         type(mono_type_t) :: base_array_type
         character(len=:), allocatable :: intrinsic_sig
+        character(len=:), allocatable :: lowered_name
         integer :: i
         integer :: subscript_rank
         logical :: is_intrinsic_func
@@ -67,6 +68,12 @@ contains
             end do
         else
             allocate (arg_types(0))
+        end if
+
+        if (allocated(call_node%name)) then
+            lowered_name = to_lower(trim(call_node%name))
+        else
+            lowered_name = ""
         end if
 
         if (allocated(call_node%name)) then
@@ -116,6 +123,10 @@ contains
             typ = create_mono_type(TREAL)
         end if
 
+        if (is_intrinsic_func) then
+            call refine_character_intrinsic_result(lowered_name, arg_types, typ)
+        end if
+
         subscript_rank = 0
         if (allocated(call_node%arg_indices)) subscript_rank = &
             size(call_node%arg_indices)
@@ -150,6 +161,34 @@ contains
             end if
         end if
     end function infer_function_call_type
+
+    subroutine refine_character_intrinsic_result(name, arg_types, typ)
+        character(len=*), intent(in) :: name
+        type(mono_type_t), intent(in) :: arg_types(:)
+        type(mono_type_t), intent(inout) :: typ
+        type(mono_type_t) :: arg_copy
+        integer :: arg_len
+
+        if (name /= "trim" .and. name /= "adjustl" .and. name /= "adjustr") return
+        if (size(arg_types) <= 0) return
+
+        arg_copy = arg_types(1)
+        call arg_copy%sync_from_arena()
+        if (arg_copy%kind /= TCHAR) then
+            typ = create_mono_type(TCHAR)
+            typ%alloc_info%needs_allocatable_string = .true.
+            return
+        end if
+
+        arg_len = max(arg_copy%size, 0)
+        if (arg_copy%alloc_info%needs_allocatable_string) then
+            typ = create_mono_type(TCHAR)
+            typ%alloc_info%needs_allocatable_string = .true.
+        else
+            typ = create_mono_type(TCHAR, char_size=arg_len)
+            typ%alloc_info%needs_allocatable_string = .false.
+        end if
+    end subroutine refine_character_intrinsic_result
 
     integer function deduce_return_kind_from_args(arg_types) result(kind_value)
         type(mono_type_t), intent(in) :: arg_types(:)

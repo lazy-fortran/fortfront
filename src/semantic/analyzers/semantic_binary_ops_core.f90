@@ -26,14 +26,18 @@ contains
 
         if (binop%operator == "+") then
             if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
-                typ = infer_string_concatenation(left_typ, right_typ)
+                typ = infer_string_concatenation(arena, binop%left_index, &
+                                                 binop%right_index, left_typ, &
+                                                 right_typ)
                 call rewrite_operator(arena, binop_index, "//")
                 return
             end if
         end if
 
         if (binop%operator == "//") then
-            typ = infer_string_concatenation(left_typ, right_typ)
+            typ = infer_string_concatenation(arena, binop%left_index, &
+                                             binop%right_index, left_typ, &
+                                             right_typ)
         else if (binop%operator == "==" .or. binop%operator == "/=" .or. &
                  binop%operator == "<" .or. binop%operator == "<=" .or. &
                  binop%operator == ">" .or. binop%operator == ">=") then

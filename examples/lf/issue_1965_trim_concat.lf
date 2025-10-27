@@ -1,0 +1,4 @@
+name = 'Fortran'
+version = '90'
+full = trim(name) // ' ' // trim(version)
+print *, 'Full name:', full
