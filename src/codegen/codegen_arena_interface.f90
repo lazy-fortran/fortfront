@@ -27,7 +27,7 @@ contains
     end subroutine set_arena_generator
 
     ! Main dispatcher function
-    function generate_code_from_arena(arena, node_index) result(code)
+    recursive function generate_code_from_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code

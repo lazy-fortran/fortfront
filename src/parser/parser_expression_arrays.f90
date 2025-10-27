@@ -10,7 +10,7 @@ module parser_expression_arrays_module
     private
 
     abstract interface
-        integer function parse_expr_proc(parser, arena)
+        recursive integer function parse_expr_proc(parser, arena)
             import :: parser_state_t, ast_arena_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
