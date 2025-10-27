@@ -18,7 +18,8 @@ module ast_monomorphization
     use codegen_name_mangling, only: mangle_procedure_name
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
-                                   TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE, TARRAY
+                                   TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE, TARRAY, &
+                                   TVAR
     use uid_generator, only: generate_uid
     use string_utils_mod, only: to_lower
     implicit none
@@ -268,6 +269,10 @@ contains
             return
         end if
 
+        do j = 1, size(proc_sigs)
+            call normalize_signature_param_types(proc_sigs(j))
+        end do
+
         handled = .true.
         allocate (variant_indices(size(proc_sigs)))
         do j = 1, size(proc_sigs)
@@ -322,7 +327,13 @@ contains
         character(len=128), allocatable :: module_names(:)
         integer, allocatable :: program_indices(:)
         integer :: program_count
+        integer, allocatable :: program_body(:)
+        integer, allocatable :: use_indices(:)
         integer :: i, child_idx
+        integer :: total_body
+        integer :: idx
+        integer :: prog_idx
+        type(program_node) :: new_prog
         logical :: handled
         integer, allocatable :: new_explicit(:)
         integer, allocatable :: new_implicit(:)
@@ -459,6 +470,64 @@ contains
                         program_indices(program_count) = preserved_indices(i)
                     end select
                 end do
+            end if
+        end if
+
+        if (program_count == 0) then
+            total_body = 0
+            if (module_count > 0) total_body = total_body + module_count
+            if (implicit_preserved_count > 0) total_body = total_body + &
+                                                         implicit_preserved_count
+            if (preserved_count > 0) total_body = total_body + preserved_count
+
+            if (total_body > 0) then
+                allocate (program_body(total_body))
+                idx = 0
+                if (module_count > 0) then
+                    allocate (use_indices(module_count))
+                    do i = 1, module_count
+                        use_indices(i) = create_use_statement_node( &
+                                         arena, trim(module_names(i)))
+                        idx = idx + 1
+                        program_body(idx) = use_indices(i)
+                    end do
+                else
+                    if (.not. allocated(use_indices)) allocate (use_indices(0))
+                end if
+                if (implicit_preserved_count > 0) then
+                    do i = 1, implicit_preserved_count
+                        idx = idx + 1
+                        program_body(idx) = implicit_preserved(i)
+                    end do
+                end if
+                if (preserved_count > 0) then
+                    do i = 1, preserved_count
+                        idx = idx + 1
+                        program_body(idx) = preserved_indices(i)
+                    end do
+                end if
+
+                new_prog = create_program("main", program_body, line=0, column=0)
+                call arena%push(new_prog)
+                prog_idx = arena%size
+                call set_parent_if_valid(arena, prog_idx, root_index)
+                do i = 1, total_body
+                    call set_parent_if_valid(arena, program_body(i), prog_idx)
+                end do
+
+                if (program_count >= size(program_indices)) then
+                    call resize_integer_array(program_indices, max(1, &
+                                                 size(program_indices) * 2))
+                end if
+                program_count = 1
+                program_indices(1) = prog_idx
+
+                preserved_count = 1
+                preserved_indices(1) = prog_idx
+                implicit_preserved_count = 0
+                if (allocated(container%implicit_declaration_indices)) then
+                    deallocate (container%implicit_declaration_indices)
+                end if
             end if
         end if
 
@@ -705,8 +774,10 @@ contains
         character(len=*), intent(in) :: module_names(:)
         logical, intent(inout) :: need_use(:)
         integer :: i
+        integer :: limit
 
-        do i = 1, size(module_names)
+        limit = min(size(module_names), size(need_use))
+        do i = 1, limit
             if (.not. need_use(i)) cycle
             if (trim(module_names(i)) == trim(use_name)) then
                 need_use(i) = .false.
@@ -716,13 +787,144 @@ contains
 
     subroutine set_parent_if_valid(arena, child_idx, parent_idx)
         type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: child_idx
-        integer, intent(in) :: parent_idx
+       integer, intent(in) :: child_idx
+       integer, intent(in) :: parent_idx
 
-        if (child_idx < 1 .or. child_idx > arena%size) return
-        if (.not. allocated(arena%entries(child_idx)%node)) return
-        arena%entries(child_idx)%parent_index = parent_idx
-    end subroutine set_parent_if_valid
+       if (child_idx < 1 .or. child_idx > arena%size) return
+       if (.not. allocated(arena%entries(child_idx)%node)) return
+       arena%entries(child_idx)%parent_index = parent_idx
+   end subroutine set_parent_if_valid
+
+    subroutine normalize_signature_param_types(signature)
+        type(type_signature_t), intent(inout) :: signature
+        integer :: fallback_kind
+        integer :: i
+        integer :: mapped_kind
+
+        if (.not. allocated(signature%param_kinds)) return
+        if (size(signature%param_kinds) == 0) return
+
+        fallback_kind = determine_fallback_kind(signature%param_kinds, &
+                                                signature%param_type_strings)
+        if (fallback_kind <= 0 .or. fallback_kind == TVAR) return
+
+        do i = 1, size(signature%param_kinds)
+            if (signature%param_kinds(i) == TVAR .or. signature%param_kinds(i) <= 0) then
+                signature%param_kinds(i) = fallback_kind
+            end if
+            if (allocated(signature%param_type_strings)) then
+                if (i <= size(signature%param_type_strings)) then
+                    mapped_kind = map_type_string_to_kind(signature%param_type_strings(i))
+                    if (mapped_kind == TVAR .or. mapped_kind /= signature%param_kinds(i)) then
+                        signature%param_type_strings(i) = kind_to_string_local( &
+                                                       signature%param_kinds(i))
+                    end if
+                end if
+            end if
+        end do
+    end subroutine normalize_signature_param_types
+
+    integer function determine_fallback_kind(param_kinds, param_type_strings) &
+        result(kind_value)
+        integer, intent(in) :: param_kinds(:)
+        character(len=*), intent(in), optional :: param_type_strings(:)
+        integer :: i
+        integer :: candidate
+
+        kind_value = 0
+        do i = 1, size(param_kinds)
+            candidate = rank_kind(param_kinds(i))
+            if (candidate > rank_kind(kind_value)) then
+                kind_value = param_kinds(i)
+            end if
+            if (kind_value == TDOUBLE) return
+        end do
+
+        if (kind_value /= 0 .and. kind_value /= TVAR) return
+
+        if (present(param_type_strings)) then
+            do i = 1, size(param_type_strings)
+                candidate = map_type_string_to_kind(param_type_strings(i))
+                if (candidate == TVAR) cycle
+                if (rank_kind(candidate) > rank_kind(kind_value)) then
+                    kind_value = candidate
+                end if
+                if (kind_value == TDOUBLE) exit
+            end do
+        end if
+        if (kind_value == 0) kind_value = TVAR
+    contains
+        integer function rank_kind(kind_val) result(rank)
+            integer, intent(in) :: kind_val
+            select case (kind_val)
+            case (TDOUBLE)
+                rank = 6
+            case (TCOMPLEX)
+                rank = 5
+            case (TREAL)
+                rank = 4
+            case (TINT)
+                rank = 3
+            case (TLOGICAL)
+                rank = 2
+            case (TCHAR)
+                rank = 1
+            case default
+                rank = 0
+            end select
+        end function rank_kind
+    end function determine_fallback_kind
+
+    integer function map_type_string_to_kind(type_str) result(kind_val)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(adjustl(trim(type_str)))
+        if (len_trim(lowered) == 0) then
+            kind_val = TVAR
+            return
+        end if
+
+        if (index(lowered, 'double precision') == 1 .or. &
+            index(lowered, 'real(8)') == 1 .or. &
+            index(lowered, 'real(kind=8)') == 1) then
+            kind_val = TDOUBLE
+        else if (index(lowered, 'complex') == 1) then
+            kind_val = TCOMPLEX
+        else if (index(lowered, 'real') == 1) then
+            kind_val = TREAL
+        else if (index(lowered, 'integer') == 1) then
+            kind_val = TINT
+        else if (index(lowered, 'logical') == 1) then
+            kind_val = TLOGICAL
+        else if (index(lowered, 'character') == 1) then
+            kind_val = TCHAR
+        else
+            kind_val = TVAR
+        end if
+    end function map_type_string_to_kind
+
+    function kind_to_string_local(kind_value) result(str)
+        integer, intent(in) :: kind_value
+        character(len=:), allocatable :: str
+
+        select case (kind_value)
+        case (TDOUBLE)
+            str = 'double precision'
+        case (TCOMPLEX)
+            str = 'complex'
+        case (TREAL)
+            str = 'real'
+        case (TINT)
+            str = 'integer'
+        case (TLOGICAL)
+            str = 'logical'
+        case (TCHAR)
+            str = 'character'
+        case default
+            str = ''
+        end select
+    end function kind_to_string_local
 
     function clone_function_with_signature(arena, func_idx, signature) &
         result(new_idx)

@@ -671,11 +671,11 @@ contains
             return  ! Error message already set, output generated
         end if
 
-        ! Phase 3.5: Monomorphization (AST transformation)
-        call run_monomorphization_phase(compiler_arena, prog_index, signatures)
-
-        ! Phase 4: Standardization
+        ! Phase 3.5: Standardization (normalize structure before specialization)
         call run_standardization_phase(compiler_arena, prog_index)
+
+        ! Phase 4: Monomorphization (AST transformation)
+        call run_monomorphization_phase(compiler_arena, prog_index, signatures)
 
         ! Phase 5: Code Generation
         call run_code_generation_phase(compiler_arena, prog_index, output)
@@ -747,14 +747,14 @@ contains
         error_msg = ""
         have_error = .false.
 
-        if (allocated(container%explicit_program_indices)) then
-            do i = 1, size(container%explicit_program_indices)
-                call analyze_program_by_index(container%explicit_program_indices(i))
-            end do
-        end if
         if (allocated(container%implicit_declaration_indices)) then
             do i = 1, size(container%implicit_declaration_indices)
                 call analyze_program_by_index(container%implicit_declaration_indices(i))
+            end do
+        end if
+        if (allocated(container%explicit_program_indices)) then
+            do i = 1, size(container%explicit_program_indices)
+                call analyze_program_by_index(container%explicit_program_indices(i))
             end do
         end if
 
