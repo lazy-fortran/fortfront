@@ -347,7 +347,8 @@ contains
                     if (trim(res_name) /= 'result') then
                         if (allocated(func_def%body_indices)) then
                             call rename_identifier_in_arena(arena, 'result', &
-                                      trim(res_name), func_def%body_indices, func_index)
+                                                trim(res_name), func_def%body_indices, &
+                                                            func_index)
                         end if
                     end if
                 end if
@@ -599,8 +600,6 @@ contains
         n_params = size(func_def%param_indices)
         if (n_params == 0) return
 
-        print *, "DBG standardize_function_parameters invoked for", trim(func_def%name), "with", n_params, "params"
-
    call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         ! Get parameter names
@@ -761,9 +760,6 @@ contains
         if (n_params > 0) then
             allocate (character(len=8) :: func_def%param_intents(n_params))
             func_def%param_intents = fn_param_intent
-        end if
-        if (n_params > 0) then
-            print *, "DBG fn intents:", fn_param_intent
         end if
 
     contains
