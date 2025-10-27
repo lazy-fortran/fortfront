@@ -13,14 +13,7 @@ program test_issue_1968_lazy_function
 
     print *, "=== Issue #1968: lazy function result variable handling ==="
 
-    input_code = &
-        "function array_sum(arr, n)" // new_line('A') // &
-        "    total = 0.0" // new_line('A') // &
-        "    do i = 1, n" // new_line('A') // &
-        "        total = total + arr(i)" // new_line('A') // &
-        "    end do" // new_line('A') // &
-        "    array_sum = total" // new_line('A') // &
-        "end function"
+    call read_example('examples/lf/issue_1968_lazy_function_result.lf', input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -59,5 +52,37 @@ program test_issue_1968_lazy_function
     end if
 
     print *, "PASS: lazy function result variable generated correctly"
+
+contains
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, iostat, file_size
+        character(len=1), allocatable :: buffer(:)
+        integer :: i
+
+        open (newunit=unit, file=filepath, status='old', action='read', &
+              access='stream', iostat=iostat)
+        if (iostat /= 0) then
+            print *, "FAIL: Could not open file: ", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=iostat) buffer
+        close (unit)
+
+        if (iostat /= 0) then
+            print *, "FAIL: Could not read file: ", trim(filepath)
+            error stop 1
+        end if
+
+        allocate (character(len=file_size) :: content)
+        do i = 1, file_size
+            content(i:i) = buffer(i)
+        end do
+    end subroutine read_example
 
 end program test_issue_1968_lazy_function
