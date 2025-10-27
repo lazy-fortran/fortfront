@@ -284,25 +284,29 @@ contains
     subroutine record_use_associated_name(state, name)
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
+        character(len=64) :: normalized_name
 
-        if (len_trim(name) == 0) return
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
         if (state%use_associated_count >= program_decl_max_vars) return
         if (exists_in_list(state%use_associated_names, &
-                           state%use_associated_count, name)) return
+                           state%use_associated_count, normalized_name)) return
         state%use_associated_count = state%use_associated_count + 1
-        state%use_associated_names(state%use_associated_count) = name
+        state%use_associated_names(state%use_associated_count) = normalized_name
     end subroutine record_use_associated_name
 
     subroutine record_use_module_name(state, module_name)
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: module_name
+        character(len=64) :: normalized_name
 
-        if (len_trim(module_name) == 0) return
+        normalized_name = trim(to_lower(module_name))
+        if (len_trim(normalized_name) == 0) return
         if (state%use_module_count >= program_decl_max_vars) return
         if (exists_in_list(state%use_module_names, &
-                           state%use_module_count, module_name)) return
+                           state%use_module_count, normalized_name)) return
         state%use_module_count = state%use_module_count + 1
-        state%use_module_names(state%use_module_count) = module_name
+        state%use_module_names(state%use_module_count) = normalized_name
     end subroutine record_use_module_name
 
     logical function module_is_used(state, module_name)
@@ -355,22 +359,29 @@ contains
     subroutine record_declared_name(state, name)
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
+        character(len=64) :: normalized_name
 
-        if (len_trim(name) == 0) return
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
         if (state%declared_count >= program_decl_max_vars) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           normalized_name)) return
         state%declared_count = state%declared_count + 1
-        state%declared_names(state%declared_count) = name
+        state%declared_names(state%declared_count) = normalized_name
     end subroutine record_declared_name
 
     subroutine try_add_internal_function(state, name)
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
+        character(len=64) :: normalized_name
 
-        if (len_trim(name) == 0) return
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
         if (state%internal_count >= program_decl_max_vars) return
-        if (exists_in_list(state%internal_funcs, state%internal_count, name)) return
+        if (exists_in_list(state%internal_funcs, state%internal_count, &
+                           normalized_name)) return
         state%internal_count = state%internal_count + 1
-        state%internal_funcs(state%internal_count) = name
+        state%internal_funcs(state%internal_count) = normalized_name
     end subroutine try_add_internal_function
 
     subroutine collect_entry_points_from_function(arena, func, state)
@@ -631,12 +642,14 @@ contains
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: type_name
+        character(len=64) :: normalized_name
 
-        if (len_trim(name) == 0) return
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
         if (state%var_count >= program_decl_max_vars) return
-        if (exists_in_list(state%var_names, state%var_count, name)) return
+        if (exists_in_list(state%var_names, state%var_count, normalized_name)) return
         state%var_count = state%var_count + 1
-        state%var_names(state%var_count) = name
+        state%var_names(state%var_count) = normalized_name
         state%var_types(state%var_count) = type_name
     end subroutine try_add_variable
 
@@ -648,15 +661,20 @@ contains
         character(len=:), allocatable :: normalized_type
         character(len=:), allocatable :: current_lower
         character(len=:), allocatable :: new_lower
+        character(len=64) :: normalized_name
+        character(len=64) :: normalized_existing
 
-        if (len_trim(name) == 0) return
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
         if (state%func_count >= program_decl_max_vars) return
-        if (exists_in_list(state%declared_names, state%declared_count, name)) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           normalized_name)) return
         normalized_type = canonicalize_type(type_name)
 
         existing_idx = 0
         do i = 1, state%func_count
-            if (trim(state%func_names(i)) == trim(name)) then
+            normalized_existing = trim(to_lower(state%func_names(i)))
+            if (trim(normalized_existing) == trim(normalized_name)) then
                 existing_idx = i
                 exit
             end if
@@ -678,7 +696,7 @@ contains
         end if
 
         state%func_count = state%func_count + 1
-        state%func_names(state%func_count) = name
+        state%func_names(state%func_count) = normalized_name
         state%func_types(state%func_count) = normalized_type
     end subroutine try_add_function_reference
 
@@ -734,10 +752,14 @@ contains
         integer, intent(in) :: count
         character(len=*), intent(in) :: name
         integer :: i
+        character(len=64) :: normalized_target
+        character(len=64) :: normalized_entry
 
         exists_in_list = .false.
+        normalized_target = trim(to_lower(name))
         do i = 1, count
-            if (trim(list(i)) == trim(name)) then
+            normalized_entry = trim(to_lower(list(i)))
+            if (trim(normalized_entry) == trim(normalized_target)) then
                 exists_in_list = .true.
                 return
             end if
@@ -766,7 +788,7 @@ contains
                 if (len_trim(func_name) == 0) cycle
                 if (exists_in_list(func_names, count, func_name)) cycle
                 count = count + 1
-                func_names(count) = func_name
+                func_names(count) = trim(to_lower(func_name))
                 if (allocated(func%return_type)) then
                     if (len_trim(func%return_type) > 0) then
                         func_types(count) = trim(func%return_type)
@@ -775,4 +797,5 @@ contains
             end select
         end do
     end subroutine build_function_return_type_table
+
 end module codegen_program_variables

@@ -191,6 +191,10 @@ contains
         character(len=*), intent(in) :: var_name, var_type
         type(program_node) :: prog
         integer :: i, j, node_idx
+        character(len=64) :: target_name
+        character(len=64) :: candidate_name
+
+        target_name = to_lower(trim(var_name))
 
         if (prog_index <= 0 .or. prog_index > arena%size) return
         if (.not. allocated(arena%entries(prog_index)%node)) return
@@ -205,7 +209,8 @@ contains
                 select type (decl => arena%entries(node_idx)%node)
                 type is (declaration_node)
                     if (.not. decl%is_multi_declaration) then
-                        if (trim(decl%var_name) == trim(var_name)) then
+                        candidate_name = to_lower(trim(decl%var_name))
+                        if (trim(candidate_name) == trim(target_name)) then
                             call apply_type_string_to_decl(arena, prog_index, &
                                                            var_name, var_type, &
                                                            decl)
@@ -214,7 +219,8 @@ contains
                         end if
                     else if (allocated(decl%var_names)) then
                         do j = 1, size(decl%var_names)
-                            if (trim(decl%var_names(j)) == trim(var_name)) then
+                            candidate_name = to_lower(trim(decl%var_names(j)))
+                            if (trim(candidate_name) == trim(target_name)) then
                                 if (index(to_lower(var_type), 'dimension(') == 0) then
                                     call apply_type_string_to_decl(arena, &
                                                                    prog_index, &
