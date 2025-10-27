@@ -30,7 +30,7 @@ module frontend_transformation
                               mixed_construct_container_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
-    use debug_trace, only: trace_init, trace_enter, trace_leave
+    use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
 
     implicit none
@@ -1743,30 +1743,36 @@ contains
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         type(signatures_map_t), intent(in) :: signatures
+        logical :: trace_active
 
+        call trace_init()
         call compiler_arena%next_phase("monomorphization")
 
-        if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
-            if (allocated(compiler_arena%ast%entries(prog_index)%node_type)) then
-                write (error_unit, '(A,1X,A)') 'DEBUG run_mono node_type', &
-                    trim(compiler_arena%ast%entries(prog_index)%node_type)
+        trace_active = trace_is_enabled()
+
+        if (trace_active) then
+            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+                if (allocated(compiler_arena%ast%entries(prog_index)%node_type)) then
+                    write (error_unit, '(A,1X,A)') 'DEBUG run_mono node_type', &
+                        trim(compiler_arena%ast%entries(prog_index)%node_type)
+                else
+                    write (error_unit, '(A)') 'DEBUG run_mono node_type <not set>'
+                end if
+                if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
+                    select type (root_node => compiler_arena%ast%entries(prog_index)%node)
+                    type is (program_node)
+                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', trim(root_node%name)
+                    type is (module_node)
+                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', trim(root_node%name)
+                    class default
+                        write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root=other index', prog_index
+                    end select
+                else
+                    write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root node not allocated', prog_index
+                end if
             else
-                write (error_unit, '(A)') 'DEBUG run_mono node_type <not set>'
+                write (error_unit, '(A,1X,I0)') 'DEBUG run_mono invalid prog_index', prog_index
             end if
-            if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
-                select type (root_node => compiler_arena%ast%entries(prog_index)%node)
-                type is (program_node)
-                    write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', trim(root_node%name)
-                type is (module_node)
-                    write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', trim(root_node%name)
-                class default
-                    write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root=other index', prog_index
-                end select
-            else
-                write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root node not allocated', prog_index
-            end if
-        else
-            write (error_unit, '(A,1X,I0)') 'DEBUG run_mono invalid prog_index', prog_index
         end if
 
         ! Transform AST to add monomorphized variants

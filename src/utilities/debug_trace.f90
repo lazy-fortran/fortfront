@@ -10,7 +10,7 @@ module debug_trace
     integer, save :: file_u = -1
     character(len=256), save :: file_name = ''
 
-    public :: trace_init, trace_enter, trace_leave
+    public :: trace_init, trace_enter, trace_leave, trace_is_enabled
 
 contains
 
@@ -74,5 +74,9 @@ contains
         end if
         if (depth > 0) depth = depth - 1
     end subroutine trace_leave
+
+    pure logical function trace_is_enabled()
+        trace_is_enabled = enabled
+    end function trace_is_enabled
 
 end module debug_trace
