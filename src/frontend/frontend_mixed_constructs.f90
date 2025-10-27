@@ -2,8 +2,10 @@ module frontend_mixed_constructs
     ! Mixed construct detection and handling functionality
     ! Supports Issue #511 - mixed module/program constructs
 
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_UNKNOWN, TK_WHITESPACE
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
@@ -34,6 +36,10 @@ contains
         integer :: i, stmt_index, range_start, range_end
         type(token_t), allocatable, target :: range_tokens(:)
         character(len=:), allocatable :: module_name
+        logical, allocatable :: used_tokens(:)
+        integer :: num_tokens
+        character(len=8) :: dump_flag
+        integer :: env_status
 
         error_msg = ""
         allocate (implicit_indices(0))
@@ -88,6 +94,45 @@ contains
         end do
 
         ! Create the mixed construct container
+        num_tokens = size(tokens)
+        if (num_tokens > 0) then
+            allocate (used_tokens(num_tokens))
+            used_tokens = .false.
+
+            call get_environment_variable('FORTFRONT_DEBUG_MIXED', dump_flag, &
+                                           status=env_status)
+            if (env_status == 0 .and. len_trim(dump_flag) > 0) then
+                write (error_unit, '(A)') 'DEBUG mixed implicit ranges'
+                do i = 1, mixed_result%num_implicit_ranges
+                    write (error_unit, '(A,1X,I0,1X,I0)') '  range', &
+                        mixed_result%implicit_ranges(i, 1), &
+                        mixed_result%implicit_ranges(i, 2)
+                end do
+                write (error_unit, '(A)') 'DEBUG mixed explicit ranges'
+                do i = 1, mixed_result%num_explicit_ranges
+                    write (error_unit, '(A,1X,I0,1X,I0)') '  range', &
+                        mixed_result%explicit_ranges(i, 1), &
+                        mixed_result%explicit_ranges(i, 2)
+                end do
+            end if
+
+            do i = 1, mixed_result%num_implicit_ranges
+                range_start = mixed_result%implicit_ranges(i, 1)
+                range_end = mixed_result%implicit_ranges(i, 2)
+                call mark_token_range(used_tokens, range_start, range_end)
+            end do
+
+            do i = 1, mixed_result%num_explicit_ranges
+                range_start = mixed_result%explicit_ranges(i, 1)
+                range_end = mixed_result%explicit_ranges(i, 2)
+                call mark_token_range(used_tokens, range_start, range_end)
+            end do
+
+            call parse_remaining_statement_sequences(tokens, used_tokens, arena, &
+                                                     explicit_indices, error_msg)
+            if (len_trim(error_msg) > 0) return
+        end if
+
         prog_index = create_mixed_construct_container_arena(arena, module_name, &
                                                             implicit_indices, &
                                                             explicit_indices)
@@ -168,5 +213,99 @@ contains
         call arena%push(container_node, "mixed_construct_container", 0)
         container_index = arena%size
     end function create_mixed_construct_container_arena
+
+    subroutine mark_token_range(used_tokens, start_idx, end_idx)
+        logical, intent(inout) :: used_tokens(:)
+        integer, intent(in) :: start_idx, end_idx
+        integer :: j
+
+        if (size(used_tokens) == 0) return
+        if (start_idx < 1) return
+        do j = max(1, start_idx), min(end_idx, size(used_tokens))
+            used_tokens(j) = .true.
+        end do
+    end subroutine mark_token_range
+
+    subroutine parse_remaining_statement_sequences(tokens, used_tokens, arena, &
+                                                   explicit_indices, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        logical, intent(inout) :: used_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: explicit_indices(:)
+        character(len=*), intent(inout) :: error_msg
+        integer :: i, seq_start, seq_end, stmt_index
+        logical :: in_sequence
+        type(token_t), allocatable, target :: segment_tokens(:)
+
+        error_msg = ""
+        if (size(tokens) == 0) return
+
+        in_sequence = .false.
+        seq_start = 0
+        do i = 1, size(tokens)
+            if (.not. used_tokens(i) .and. token_has_content(tokens(i))) then
+                if (.not. in_sequence) then
+                    in_sequence = .true.
+                    seq_start = i
+                end if
+            else
+                if (in_sequence) then
+                    seq_end = i - 1
+                    call parse_sequence(tokens, seq_start, seq_end, arena, &
+                                        stmt_index, error_msg)
+                    if (len_trim(error_msg) > 0) return
+                    if (stmt_index > 0) call append_explicit(explicit_indices, &
+                                                             stmt_index)
+                    call mark_token_range(used_tokens, seq_start, seq_end)
+                    in_sequence = .false.
+                end if
+            end if
+        end do
+
+        if (in_sequence) then
+            seq_end = size(tokens)
+            call parse_sequence(tokens, seq_start, seq_end, arena, stmt_index, &
+                                error_msg)
+            if (len_trim(error_msg) > 0) return
+            if (stmt_index > 0) call append_explicit(explicit_indices, stmt_index)
+            call mark_token_range(used_tokens, seq_start, seq_end)
+        end if
+    contains
+        logical function token_has_content(token)
+            type(token_t), intent(in) :: token
+
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE, TK_EOF)
+                token_has_content = .false.
+            case default
+                token_has_content = len_trim(token%text) > 0
+            end select
+        end function token_has_content
+
+        subroutine parse_sequence(all_tokens, start_idx, end_idx, arena, &
+                                  stmt_index, error_msg)
+            type(token_t), intent(in) :: all_tokens(:)
+            integer, intent(in) :: start_idx, end_idx
+            type(ast_arena_t), intent(inout) :: arena
+            integer, intent(out) :: stmt_index
+            character(len=*), intent(inout) :: error_msg
+            type(token_t), allocatable, target :: local_tokens(:)
+
+            stmt_index = 0
+            if (start_idx < 1 .or. end_idx < start_idx) return
+
+            local_tokens = all_tokens(start_idx:end_idx)
+            call parse_tokens_with_dispatcher(local_tokens, arena, stmt_index, &
+                                              error_msg)
+        end subroutine parse_sequence
+
+        subroutine append_explicit(explicit_indices, stmt_index)
+            integer, allocatable, intent(inout) :: explicit_indices(:)
+            integer, intent(in) :: stmt_index
+
+            if (stmt_index <= 0) return
+            explicit_indices = [explicit_indices, stmt_index]
+        end subroutine append_explicit
+    end subroutine parse_remaining_statement_sequences
 
 end module frontend_mixed_constructs

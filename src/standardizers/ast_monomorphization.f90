@@ -237,6 +237,31 @@ contains
         proc_sigs = get_procedure_signatures(signatures, proc_name)
         write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
             trim(proc_name), size(proc_sigs)
+        if (size(proc_sigs) > 0) then
+            do j = 1, size(proc_sigs)
+                if (allocated(proc_sigs(j)%param_kinds)) then
+                    write (error_unit, '(A,1X,A,1X,*(I0,1X))') 'DEBUG signature kinds', &
+                        trim(proc_name), proc_sigs(j)%param_kinds
+                end if
+                if (allocated(proc_sigs(j)%param_type_strings)) then
+                    block
+                        integer :: t
+                        character(len=:), allocatable :: label
+                        label = ''
+                        do t = 1, size(proc_sigs(j)%param_type_strings)
+                            if (t > 1) label = label // ' '
+                            if (len_trim(proc_sigs(j)%param_type_strings(t)) == 0) then
+                                label = label // '<empty>'
+                            else
+                                label = label // trim(proc_sigs(j)%param_type_strings(t))
+                            end if
+                        end do
+                        write (error_unit, '(A,1X,A,1X,A)') 'DEBUG signature types', &
+                            trim(proc_name), trim(label)
+                    end block
+                end if
+            end do
+        end if
         if (size(proc_sigs) <= 1) then
             handled = .false.
             if (allocated(proc_sigs)) deallocate (proc_sigs)
