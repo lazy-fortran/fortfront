@@ -1601,6 +1601,29 @@ contains
 
         call compiler_arena%next_phase("monomorphization")
 
+        if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+            if (allocated(compiler_arena%ast%entries(prog_index)%node_type)) then
+                write (error_unit, '(A,1X,A)') 'DEBUG run_mono node_type', &
+                    trim(compiler_arena%ast%entries(prog_index)%node_type)
+            else
+                write (error_unit, '(A)') 'DEBUG run_mono node_type <not set>'
+            end if
+            if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
+                select type (root_node => compiler_arena%ast%entries(prog_index)%node)
+                type is (program_node)
+                    write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', trim(root_node%name)
+                type is (module_node)
+                    write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', trim(root_node%name)
+                class default
+                    write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root=other index', prog_index
+                end select
+            else
+                write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root node not allocated', prog_index
+            end if
+        else
+            write (error_unit, '(A,1X,I0)') 'DEBUG run_mono invalid prog_index', prog_index
+        end if
+
         ! Transform AST to add monomorphized variants
         call transform_monomorphization(compiler_arena%ast, prog_index, signatures)
     end subroutine run_monomorphization_phase
