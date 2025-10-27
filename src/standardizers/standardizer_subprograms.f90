@@ -7,6 +7,7 @@ module standardizer_subprograms
     use ast_nodes_procedure
     use ast_nodes_data
     use ast_nodes_misc
+    use ast_nodes_bounds, only: array_slice_node, array_bounds_node
     use ast_factory
     use type_system_unified
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
@@ -40,6 +41,23 @@ contains
         enabled = standardizer_type_standardization_enabled
     end subroutine get_standardizer_type_standardization
 
+    pure logical function is_type_variable_str(type_name) result(is_variable)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: trimmed
+        integer :: effective_length
+
+        trimmed = trim(type_name)
+        effective_length = len_trim(trimmed)
+        if (effective_length == 0) then
+            is_variable = .true.
+        else if (effective_length == len("type_variable") .and. &
+                 trim(trimmed) == "type_variable") then
+            is_variable = .true.
+        else
+            is_variable = trimmed(1:1) == "'"
+        end if
+    end function is_type_variable_str
+
     ! Shared helper to synchronize parameter declarations in function/subroutine bodies
     subroutine synchronize_parameter_declarations(arena, body_indices, param_names, &
                                                   param_names_found, param_optional, &
@@ -48,7 +66,7 @@ contains
                                                   param_type_inferred, &
                                                   param_has_kind, &
                                                   param_kind_value, param_is_array, &
-                                                  param_is_allocatable)
+                                                  param_is_allocatable, param_rank)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: body_indices(:)
@@ -64,6 +82,7 @@ contains
         integer, intent(inout), optional :: param_kind_value(:)
         logical, intent(inout), optional :: param_is_array(:)
         logical, intent(inout), optional :: param_is_allocatable(:)
+        integer, intent(inout), optional :: param_rank(:)
 
         integer :: i, current_index, n_params, param_idx, j, pidx
         logical :: is_param_decl, matched_multi
@@ -185,8 +204,7 @@ contains
 
             if (present(param_type)) then
                 if (allocated(stmt%type_name)) then
-                    ! Skip type_variable - treat as if type is not present
-                    if (trim(stmt%type_name) /= "type_variable") then
+                    if (.not. is_type_variable_str(stmt%type_name)) then
                         param_type(pidx) = trim(stmt%type_name)
                         if (present(param_type_inferred)) then
                             if (len_trim(param_type(pidx)) > 0) &
@@ -197,10 +215,53 @@ contains
             end if
             if (present(param_has_kind)) param_has_kind(pidx) = stmt%has_kind
             if (present(param_kind_value)) param_kind_value(pidx) = stmt%kind_value
-            if (present(param_is_array)) param_is_array(pidx) = stmt%is_array
+            if (present(param_is_array)) then
+                if (param_is_array(pidx)) then
+                    if (present(param_rank)) then
+                        if (param_rank(pidx) <= 0) then
+                            if (stmt%is_array .and. &
+                                allocated(stmt%dimension_indices)) then
+                                param_rank(pidx) = size(stmt%dimension_indices)
+                            else
+                                param_rank(pidx) = 1
+                            end if
+                        end if
+                        call ensure_deferred_shape(stmt, param_rank(pidx))
+                    else
+                        stmt%is_array = .true.
+                    end if
+                else
+                    param_is_array(pidx) = stmt%is_array
+                    if (present(param_rank)) then
+                        if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
+                            param_rank(pidx) = size(stmt%dimension_indices)
+                        end if
+                    end if
+                end if
+            else if (present(param_rank)) then
+                if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
+                    param_rank(pidx) = size(stmt%dimension_indices)
+                end if
+            end if
             if (present(param_is_allocatable)) &
                 param_is_allocatable(pidx) = stmt%is_allocatable
         end subroutine record_match
+
+        subroutine ensure_deferred_shape(stmt, desired_rank)
+            type(declaration_node), intent(inout) :: stmt
+            integer, intent(in) :: desired_rank
+            integer :: rank_size
+
+            if (desired_rank <= 0) return
+            stmt%is_array = .true.
+            if (allocated(stmt%dimension_indices)) then
+                rank_size = size(stmt%dimension_indices)
+                if (rank_size == desired_rank) return
+                deallocate (stmt%dimension_indices)
+            end if
+            allocate (stmt%dimension_indices(desired_rank))
+            stmt%dimension_indices = 0
+        end subroutine ensure_deferred_shape
 
         subroutine apply_type_standardization(stmt)
             type(declaration_node), intent(inout) :: stmt
@@ -301,6 +362,9 @@ contains
         integer, intent(in) :: func_index
         integer :: i
         character(len=:), allocatable :: res_name
+        character(len=:), allocatable :: fallback_res_name
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: target_name
         logical :: has_decl
         integer :: decl_index
         integer :: name_pos
@@ -312,46 +376,59 @@ contains
 
         call get_standardizer_type_standardization(type_std_enabled)
 
-        ! If result variable not set, try to infer from first assignment target
-        if ((.not. allocated(func_def%result_variable)) .or. &
-            len_trim(func_def%result_variable) == 0) then
-            if (allocated(func_def%body_indices)) then
-                do i = 1, size(func_def%body_indices)
-                    if (func_def%body_indices(i) > 0 .and. &
-                        func_def%body_indices(i) <= &
-                        arena%size) then
-                       if (allocated(arena%entries(func_def%body_indices(i))%node)) then
-                            select type (stmt => &
-                                         arena%entries(func_def%body_indices(i))%node)
-                            type is (assignment_node)
-                                if (stmt%target_index > 0 .and. stmt%target_index <= &
-                                    arena%size) then
-                              if (allocated(arena%entries(stmt%target_index)%node)) then
-                                        select type (t => &
-                                                  arena%entries(stmt%target_index)%node)
-                                        type is (identifier_node)
-                                            res_name = t%name
-                                            exit
-                                        end select
-                                    end if
-                                end if
-                            end select
+        ! Infer a preferred result variable from assignments inside the function
+        res_name = ""
+        fallback_res_name = ""
+        function_name = ""
+        if (allocated(func_def%name)) function_name = trim(func_def%name)
+        if (allocated(func_def%body_indices)) then
+            function_scan: do i = 1, size(func_def%body_indices)
+                if (func_def%body_indices(i) <= 0) cycle
+                if (func_def%body_indices(i) > arena%size) cycle
+                if (.not. allocated(arena%entries(func_def%body_indices(i))%node)) &
+                    cycle
+                select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                type is (assignment_node)
+                    if (stmt%target_index <= 0) cycle
+                    if (stmt%target_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt%target_index)%node)) &
+                        cycle
+                    select type (t => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        if (.not. allocated(t%name)) cycle
+                        target_name = trim(t%name)
+                        if (len_trim(target_name) == 0) cycle
+                        if (len_trim(function_name) > 0) then
+                            if (trim(target_name) == trim(function_name)) then
+                                res_name = trim(function_name)
+                                exit function_scan
+                            end if
                         end if
-                    end if
-                end do
-            end if
-            if (allocated(res_name)) then
-                if (len_trim(res_name) > 0) then
-                    func_def%result_variable = trim(res_name)
-                    ! If result variable is not named result rename all occurrences
-                    ! within the function body only
-                    if (trim(res_name) /= 'result') then
-                        if (allocated(func_def%body_indices)) then
-                            call rename_identifier_in_arena(arena, 'result', &
-                                                            trim(res_name), &
-                                                            func_def%body_indices, &
-                                                            func_index)
+                        if (len_trim(fallback_res_name) == 0) then
+                            fallback_res_name = trim(target_name)
                         end if
+                    end select
+                end select
+            end do function_scan
+        end if
+        if (len_trim(res_name) == 0) then
+            if (len_trim(fallback_res_name) > 0) res_name = trim(fallback_res_name)
+        end if
+        if (len_trim(res_name) > 0) then
+            if ((.not. allocated(func_def%result_variable)) .or. &
+                len_trim(func_def%result_variable) == 0 .or. &
+                (len_trim(function_name) > 0 .and. &
+                 trim(res_name) == trim(function_name) .and. &
+                 trim(func_def%result_variable) /= trim(function_name))) then
+                func_def%result_variable = trim(res_name)
+                ! If result variable is not named result rename all occurrences
+                ! within the function body only
+                if (trim(res_name) /= 'result') then
+                    if (allocated(func_def%body_indices)) then
+                        call rename_identifier_in_arena(arena, 'result', &
+                                                        trim(res_name), &
+                                                        func_def%body_indices, &
+                                                        func_index)
                     end if
                 end if
             end if
@@ -444,7 +521,7 @@ contains
         result_inferred = .false.
 
         if (allocated(func_def%return_type)) then
-            if (func_def%return_type == "type_variable" .or. &
+            if (is_type_variable_str(func_def%return_type) .or. &
                 func_def%return_type == "function" .or. &
                 func_def%return_type == "derived_type") then
                 func_def%return_type = ""
@@ -522,6 +599,13 @@ contains
             end if
         end if
 
+        if (allocated(func_def%name)) then
+            if (trim(func_def%result_variable) == trim(func_def%name)) then
+                arena%entries(func_index)%node = func_def
+                return
+            end if
+        end if
+
         decl%var_name = trim(func_def%result_variable)
         decl%intent = ""
         decl%has_intent = .false.
@@ -592,11 +676,15 @@ contains
         logical, allocatable :: fn_param_is_array(:)
         logical, allocatable :: fn_param_is_allocatable(:)
         logical, allocatable :: fn_param_type_inferred(:)
+        integer, allocatable :: fn_param_rank(:)
 
         integer :: i, j, n_params, n_body
         character(len=64), allocatable :: param_names(:)
         logical :: standardizer_type_standardization_enabled
         logical :: requires_intent_in
+        character(len=32) :: inferred_type_local
+        logical :: has_kind_local
+        integer :: kind_value_local
 
         if (.not. allocated(func_def%param_indices)) return
         n_params = size(func_def%param_indices)
@@ -616,6 +704,7 @@ contains
         allocate (fn_param_is_array(n_params))
         allocate (fn_param_is_allocatable(n_params))
         allocate (fn_param_type_inferred(n_params))
+        allocate (fn_param_rank(n_params))
         param_names_found = 0
         fn_param_optional = .false.
         fn_param_intent = ""
@@ -625,6 +714,7 @@ contains
         fn_param_is_array = .false.
         fn_param_is_allocatable = .false.
         fn_param_type_inferred = .true.
+        fn_param_rank = 0
 
         requires_intent_in = .false.
         if (allocated(func_def%prefix_keywords)) then
@@ -720,43 +810,70 @@ contains
             end if
         end do
 
+        call analyze_parameter_usage()
+
+        do i = 1, n_params
+            if (is_type_variable_str(fn_param_type(i))) then
+                call infer_parameter_type(param_names(i), inferred_type_local, &
+                                          has_kind_local, kind_value_local)
+                fn_param_type(i) = trim(inferred_type_local)
+                fn_param_has_kind(i) = has_kind_local
+                if (has_kind_local) then
+                    fn_param_kind_value(i) = kind_value_local
+                else
+                    fn_param_kind_value(i) = 0
+                end if
+                fn_param_type_inferred(i) = .true.
+            end if
+            if (fn_param_is_array(i)) then
+                if (fn_param_rank(i) <= 0) fn_param_rank(i) = 1
+                if (len_trim(fn_param_type(i)) == 0) fn_param_type(i) = "real"
+            end if
+        end do
+
         if (allocated(func_def%body_indices)) then
-            call synchronize_parameter_declarations(arena, func_def%body_indices, &
-                                                    param_names, param_names_found, &
-                                                    fn_param_optional, &
-                                                    fn_param_intent, &
-                                                    "in", &
-                                            standardizer_type_standardization_enabled, &
-                                                    param_type=fn_param_type, &
-                                           param_type_inferred=fn_param_type_inferred, &
-                                                    param_has_kind=fn_param_has_kind, &
-                                                 param_kind_value=fn_param_kind_value, &
-                                                    param_is_array=fn_param_is_array, &
-                                           param_is_allocatable=fn_param_is_allocatable)
+            call synchronize_parameter_declarations( &
+                arena, func_def%body_indices, &
+                param_names, param_names_found, &
+                fn_param_optional, &
+                fn_param_intent, &
+                "in", &
+                standardizer_type_standardization_enabled, &
+                param_type=fn_param_type, &
+                param_type_inferred=fn_param_type_inferred, &
+                param_has_kind=fn_param_has_kind, &
+                param_kind_value=fn_param_kind_value, &
+                param_is_array=fn_param_is_array, &
+                param_is_allocatable=fn_param_is_allocatable, &
+                param_rank=fn_param_rank)
         end if
 
         ! Add declarations for parameters not found
-        call add_missing_parameter_declarations_ext(arena, func_def, func_index, &
-                                                    param_names, param_names_found, &
-                                                    n_params, fn_param_optional, &
-                                                    fn_param_intent, fn_param_type, &
-                                                    fn_param_has_kind, &
-                                                    fn_param_kind_value, &
-                                                    fn_param_is_array, &
-                                                    fn_param_is_allocatable, &
-                                                    fn_param_type_inferred, &
-                                              standardizer_type_standardization_enabled)
+        call add_missing_parameter_declarations_ext( &
+            arena, func_def, func_index, &
+            param_names, param_names_found, &
+            n_params, fn_param_optional, &
+            fn_param_intent, fn_param_type, &
+            fn_param_has_kind, &
+            fn_param_kind_value, &
+            fn_param_is_array, &
+            fn_param_is_allocatable, &
+            fn_param_type_inferred, &
+            fn_param_rank, &
+            standardizer_type_standardization_enabled)
 
         if (requires_intent_in) then
-            call rebuild_parameter_declarations(arena, func_def, func_index, &
-                                                param_names, &
-                                                fn_param_optional, fn_param_type, &
-                                                fn_param_has_kind, &
-                                                fn_param_kind_value, &
-                                                fn_param_is_array, &
-                                                fn_param_is_allocatable, &
-                                                fn_param_type_inferred, &
-                                              standardizer_type_standardization_enabled)
+            call rebuild_parameter_declarations( &
+                arena, func_def, func_index, &
+                param_names, &
+                fn_param_optional, fn_param_type, &
+                fn_param_has_kind, &
+                fn_param_kind_value, &
+                fn_param_is_array, &
+                fn_param_is_allocatable, &
+                fn_param_type_inferred, &
+                fn_param_rank, &
+                standardizer_type_standardization_enabled)
         end if
 
         if (allocated(func_def%param_intents)) deallocate (func_def%param_intents)
@@ -766,6 +883,148 @@ contains
         end if
 
     contains
+        subroutine analyze_parameter_usage()
+            integer :: body_idx
+
+            if (.not. allocated(func_def%body_indices)) return
+            do body_idx = 1, size(func_def%body_indices)
+                call scan_node(arena, func_def%body_indices(body_idx))
+            end do
+        end subroutine analyze_parameter_usage
+
+        recursive subroutine scan_node(arena_local, node_index)
+            type(ast_arena_t), intent(in) :: arena_local
+            integer, intent(in) :: node_index
+            integer, allocatable :: child_indices(:)
+            integer :: j
+
+            if (node_index <= 0 .or. node_index > arena_local%size) return
+            if (.not. allocated(arena_local%entries(node_index)%node)) return
+
+            select type (node => arena_local%entries(node_index)%node)
+            type is (assignment_node)
+                call scan_node(arena_local, node%target_index)
+                call scan_node(arena_local, node%value_index)
+            type is (binary_op_node)
+                call scan_node(arena_local, node%left_index)
+                call scan_node(arena_local, node%right_index)
+            type is (call_or_subscript_node)
+                call handle_call_or_subscript(arena_local, node)
+                if (node%base_expr_index > 0) &
+                    call scan_node(arena_local, node%base_expr_index)
+                if (allocated(node%arg_indices)) then
+                    do j = 1, size(node%arg_indices)
+                        call scan_node(arena_local, node%arg_indices(j))
+                    end do
+                end if
+            type is (component_access_node)
+                call scan_node(arena_local, node%base_expr_index)
+            type is (array_slice_node)
+                call scan_node(arena_local, node%array_index)
+                do j = 1, node%num_dimensions
+                    if (node%bounds_indices(j) > 0) &
+                        call scan_node(arena_local, node%bounds_indices(j))
+                end do
+            type is (array_bounds_node)
+                if (node%lower_bound_index > 0) &
+                    call scan_node(arena_local, node%lower_bound_index)
+                if (node%upper_bound_index > 0) &
+                    call scan_node(arena_local, node%upper_bound_index)
+                if (node%stride_index > 0) &
+                    call scan_node(arena_local, node%stride_index)
+            class default
+                child_indices = get_child_list(arena_local, node_index)
+                do j = 1, size(child_indices)
+                    call scan_node(arena_local, child_indices(j))
+                end do
+            end select
+        end subroutine scan_node
+
+        subroutine handle_call_or_subscript(arena_local, node)
+            type(ast_arena_t), intent(in) :: arena_local
+            type(call_or_subscript_node), intent(in) :: node
+            character(len=:), allocatable :: target_name
+            integer :: idx
+            integer :: rank_size
+
+            target_name = ""
+            if (allocated(node%name)) target_name = trim(node%name)
+            if (len_trim(target_name) == 0) then
+                if (node%base_expr_index > 0) then
+                    target_name = resolve_name_from_index(arena_local, &
+                                                          node%base_expr_index)
+                end if
+            end if
+            if (len_trim(target_name) == 0) return
+            idx = find_param_index(target_name)
+            if (idx <= 0) return
+
+            fn_param_is_array(idx) = .true.
+            if (allocated(node%arg_indices)) then
+                rank_size = count(node%arg_indices > 0)
+            else
+                rank_size = 0
+            end if
+            if (rank_size <= 0) rank_size = 1
+            if (rank_size > fn_param_rank(idx)) fn_param_rank(idx) = rank_size
+        end subroutine handle_call_or_subscript
+
+        recursive function resolve_name_from_index(arena_local, idx) &
+            result(name)
+            type(ast_arena_t), intent(in) :: arena_local
+            integer, intent(in) :: idx
+            character(len=:), allocatable :: name
+
+            name = ""
+            if (idx <= 0 .or. idx > arena_local%size) return
+            if (.not. allocated(arena_local%entries(idx)%node)) return
+
+            select type (base => arena_local%entries(idx)%node)
+            type is (identifier_node)
+                if (allocated(base%name)) name = trim(base%name)
+            type is (call_or_subscript_node)
+                if (allocated(base%name)) then
+                    name = trim(base%name)
+                else if (base%base_expr_index > 0) then
+                    name = resolve_name_from_index(arena_local, &
+                                                   base%base_expr_index)
+                end if
+            type is (component_access_node)
+                name = resolve_name_from_index(arena_local, base%base_expr_index)
+            class default
+                name = ""
+            end select
+        end function resolve_name_from_index
+
+        function get_child_list(arena_local, node_index) result(indices)
+            type(ast_arena_t), intent(in) :: arena_local
+            integer, intent(in) :: node_index
+            integer, allocatable :: indices(:)
+            integer :: count_children
+
+            allocate (indices(0))
+            if (node_index <= 0 .or. node_index > arena_local%size) return
+            if (.not. allocated(arena_local%entries(node_index)%node)) return
+            count_children = arena_local%entries(node_index)%child_count
+            if (count_children <= 0) return
+            if (allocated(indices)) deallocate (indices)
+            allocate (indices(count_children))
+            indices = arena_local%entries(node_index)%child_indices(1:count_children)
+        end function get_child_list
+
+        integer function find_param_index(name) result(index)
+            character(len=*), intent(in) :: name
+            integer :: k
+
+            index = 0
+            do k = 1, n_params
+                if (trim(param_names(k)) == trim(name)) then
+                    index = k
+                    return
+                end if
+            end do
+        end function find_param_index
+
         subroutine apply_function_type(idx, type_present, type_text, has_kind_flag, &
                                        kind_value, inferred_present, inferred_text, &
                                        is_array_flag, is_alloc_flag)
@@ -781,11 +1040,11 @@ contains
 
             ! Check for valid types (not empty and not type_variable)
             if (type_present .and. len_trim(type_text) > 0 .and. &
-                trim(type_text) /= "type_variable") then
+                .not. is_type_variable_str(type_text)) then
                 fn_param_type(idx) = trim(type_text)
                 fn_param_type_inferred(idx) = .false.
             else if (inferred_present .and. len_trim(inferred_text) > 0 .and. &
-                     trim(inferred_text) /= "type_variable") then
+                     .not. is_type_variable_str(inferred_text)) then
                 fn_param_type(idx) = trim(inferred_text)
                 fn_param_type_inferred(idx) = .false.
             end if
@@ -812,6 +1071,7 @@ contains
                                                       param_is_array, &
                                                       param_is_allocatable, &
                                                       param_type_inferred, &
+                                                      param_rank, &
                                                       type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -826,6 +1086,7 @@ contains
         logical, intent(in) :: param_is_array(:)
         logical, intent(in) :: param_is_allocatable(:)
         logical, intent(in) :: param_type_inferred(:)
+        integer, intent(in) :: param_rank(:)
         logical, intent(in) :: type_std_enabled
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
@@ -860,10 +1121,12 @@ contains
                     param_decl%kind_value = 0
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
+                    if (allocated(param_decl%dimension_indices)) &
+                        deallocate (param_decl%dimension_indices)
                     inferred_local = param_type_inferred(i)
                     ! Check if we have a valid type (not empty and not type_variable)
                     if (len_trim(param_type(i)) > 0 .and. &
-                        trim(param_type(i)) /= "type_variable") then
+                        .not. is_type_variable_str(param_type(i))) then
                         param_decl%type_name = trim(param_type(i))
                         param_decl%has_kind = param_has_kind(i)
                         param_decl%kind_value = param_kind_value(i)
@@ -900,6 +1163,11 @@ contains
                     param_decl%initializer_index = 0
                     param_decl%line = 1
                     param_decl%column = 1
+                    param_decl%is_parameter = .true.
+
+                    if (param_decl%is_array) then
+                        call assign_deferred_shape(param_decl, param_rank(i))
+                    end if
 
                     call arena%push(param_decl, "declaration", func_index)
                     new_decl_count = new_decl_count + 1
@@ -916,6 +1184,33 @@ contains
             func_def%body_indices = new_body_indices
         end if
 
+    contains
+        subroutine assign_deferred_shape(decl_node, desired_rank)
+            type(declaration_node), intent(inout) :: decl_node
+            integer, intent(in) :: desired_rank
+            integer :: rank_size
+
+            if (desired_rank <= 0) then
+                decl_node%is_array = .true.
+                if (allocated(decl_node%dimension_indices)) then
+                    rank_size = size(decl_node%dimension_indices)
+                    if (rank_size == 1) return
+                    deallocate (decl_node%dimension_indices)
+                end if
+                allocate (decl_node%dimension_indices(1))
+                decl_node%dimension_indices = 0
+                return
+            end if
+
+            decl_node%is_array = .true.
+            if (allocated(decl_node%dimension_indices)) then
+                rank_size = size(decl_node%dimension_indices)
+                if (rank_size == desired_rank) return
+                deallocate (decl_node%dimension_indices)
+            end if
+            allocate (decl_node%dimension_indices(desired_rank))
+            decl_node%dimension_indices = 0
+        end subroutine assign_deferred_shape
     end subroutine add_missing_parameter_declarations_ext
 
     subroutine rebuild_parameter_declarations(arena, func_def, func_index, &
@@ -925,6 +1220,7 @@ contains
                                               param_is_array, &
                                               param_is_allocatable, &
                                               param_type_inferred, &
+                                              param_rank, &
                                               type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -937,6 +1233,7 @@ contains
         logical, intent(in) :: param_is_array(:)
         logical, intent(in) :: param_is_allocatable(:)
         logical, intent(in) :: param_type_inferred(:)
+        integer, intent(in) :: param_rank(:)
         logical, intent(in) :: type_std_enabled
         integer :: i, n_params, idx, pname_idx, name_idx
         type(declaration_node) :: param_decl
@@ -999,10 +1296,12 @@ contains
             param_decl%kind_value = 0
             param_decl%is_array = .false.
             param_decl%is_allocatable = .false.
+            if (allocated(param_decl%dimension_indices)) &
+                deallocate (param_decl%dimension_indices)
             inferred_local = param_type_inferred(i)
             ! Check if we have a valid type (not empty and not type_variable)
             if (len_trim(param_type(i)) > 0 .and. &
-                trim(param_type(i)) /= "type_variable") then
+                .not. is_type_variable_str(param_type(i))) then
                 param_decl%type_name = trim(param_type(i))
                 param_decl%has_kind = param_has_kind(i)
                 param_decl%kind_value = param_kind_value(i)
@@ -1029,6 +1328,10 @@ contains
             param_decl%initializer_index = 0
             param_decl%line = 1
             param_decl%column = 1
+            param_decl%is_parameter = .true.
+            if (param_decl%is_array) then
+                call assign_deferred_shape(param_decl, param_rank(i))
+            end if
             call arena%push(param_decl, "declaration", func_index)
             new_indices(i) = arena%size
         end do
@@ -1063,6 +1366,33 @@ contains
             end if
         end if
 
+    contains
+        subroutine assign_deferred_shape(decl_node, desired_rank)
+            type(declaration_node), intent(inout) :: decl_node
+            integer, intent(in) :: desired_rank
+            integer :: rank_size
+
+            if (desired_rank <= 0) then
+                decl_node%is_array = .true.
+                if (allocated(decl_node%dimension_indices)) then
+                    rank_size = size(decl_node%dimension_indices)
+                    if (rank_size == 1) return
+                    deallocate (decl_node%dimension_indices)
+                end if
+                allocate (decl_node%dimension_indices(1))
+                decl_node%dimension_indices = 0
+                return
+            end if
+
+            decl_node%is_array = .true.
+            if (allocated(decl_node%dimension_indices)) then
+                rank_size = size(decl_node%dimension_indices)
+                if (rank_size == desired_rank) return
+                deallocate (decl_node%dimension_indices)
+            end if
+            allocate (decl_node%dimension_indices(desired_rank))
+            decl_node%dimension_indices = 0
+        end subroutine assign_deferred_shape
     end subroutine rebuild_parameter_declarations
 
     ! Standardize a subroutine definition
@@ -1114,7 +1444,8 @@ contains
         n_params = size(sub_def%param_indices)
         if (n_params == 0) return
 
-   call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
+        call get_standardizer_type_standardization( &
+            standardizer_type_standardization_enabled)
 
         ! Get parameter names
         allocate (param_names(n_params))
@@ -1170,23 +1501,23 @@ contains
         end do
 
         if (allocated(sub_def%body_indices)) then
-            call synchronize_parameter_declarations(arena, sub_def%body_indices, &
-                                                    param_names, param_names_found, &
-                                                    sb_param_optional, &
-                                                    sb_param_intent, &
-                                                    "", &
-                                              standardizer_type_standardization_enabled)
+            call synchronize_parameter_declarations( &
+                arena, sub_def%body_indices, &
+                param_names, param_names_found, &
+                sb_param_optional, &
+                sb_param_intent, &
+                "", &
+                standardizer_type_standardization_enabled)
         end if
 
         ! Add declarations for parameters not found
-        call add_missing_subroutine_parameter_declarations_ext(arena, sub_def, &
-                                                               sub_index, &
-                                                               param_names, &
-                                                               param_names_found, &
-                                                               n_params, &
-                                                               sb_param_optional, &
-                                                               sb_param_intent, &
-                                              standardizer_type_standardization_enabled)
+        call add_missing_subroutine_parameter_declarations_ext( &
+            arena, sub_def, sub_index, &
+            param_names, param_names_found, &
+            n_params, &
+            sb_param_optional, &
+            sb_param_intent, &
+            standardizer_type_standardization_enabled)
 
         if (allocated(sub_def%param_intents)) deallocate (sub_def%param_intents)
         if (n_params > 0) then
@@ -1258,6 +1589,8 @@ contains
                     if (param_optional(i)) param_decl%is_optional = .true.
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
+                    if (allocated(param_decl%dimension_indices)) &
+                        deallocate (param_decl%dimension_indices)
                     param_decl%initializer_index = 0
                     param_decl%line = 1
                     param_decl%column = 1

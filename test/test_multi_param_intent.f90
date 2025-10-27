@@ -84,7 +84,9 @@ program test_multi_param_intent
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
     test_passed = index(result, "real(8) :: a, b, c, d") > 0 .or. &
-                  index(result, "real :: a, b, c, d") > 0
+                  index(result, "real :: a, b, c, d") > 0 .or. &
+                  index(result, "real(8), intent(in) :: a, b, c, d") > 0 .or. &
+                  index(result, "real, intent(in) :: a, b, c, d") > 0
 
     if (test_passed) then
         print *, "  PASS: Parameters with kind specifiers"
