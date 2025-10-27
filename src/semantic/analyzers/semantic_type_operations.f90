@@ -5,7 +5,7 @@ module semantic_type_operations
                                    substitution_t, &
                                    create_mono_type, create_type_var, &
                                    create_poly_type, compose_substitutions, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TDOUBLE
     use semantic_validation_utils, only: int_to_str
     implicit none
     private
@@ -97,7 +97,9 @@ contains
         right_base_kind = base_element_kind(right_typ)
 
         target_kind = left_base_kind
-        if (left_base_kind == TREAL .or. right_base_kind == TREAL) then
+        if (left_base_kind == TDOUBLE .or. right_base_kind == TDOUBLE) then
+            target_kind = TDOUBLE
+        else if (left_base_kind == TREAL .or. right_base_kind == TREAL) then
             target_kind = TREAL
         else if (left_base_kind == TINT .or. right_base_kind == TINT) then
             target_kind = TINT
