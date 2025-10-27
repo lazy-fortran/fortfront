@@ -13,7 +13,8 @@ module frontend_transformation
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
-                            get_standardizer_type_standardization
+                            get_standardizer_type_standardization, &
+                            mark_pointer_targets
     use codegen_arena_interface, only: generate_code_from_arena
     use ast_monomorphization, only: transform_monomorphization
     use call_graph_signatures_mod, only: signatures_map_t, type_signature_t, &
@@ -314,7 +315,7 @@ contains
 
         ! Run semantic analysis and standardization (but not code generation yet)
         call run_semantic_analysis_phase(shared_arena, prog_index, error_msg, &
-            signatures)
+                                         signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             call run_code_generation_phase(shared_arena, prog_index, output)
             call trace_leave('transform_lazy_with_ast_wrapping')
@@ -666,7 +667,7 @@ contains
 
         ! Phase 3: Semantic Analysis
         call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
-            signatures)
+                                         signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             ! CRITICAL FIX for Issue #1120: Generate output even with semantic errors
             ! Continue to code generation to provide useful output to user
@@ -690,7 +691,7 @@ contains
 
     ! Run semantic analysis phase
     subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
-        signatures)
+                                           signatures)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: error_msg
@@ -710,7 +711,8 @@ contains
 
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
-                    select type (root_node => compiler_arena%ast%entries(prog_index)%node)
+                    select type (root_node => &
+                                 compiler_arena%ast%entries(prog_index)%node)
                     type is (mixed_construct_container_node)
                         call analyze_container_semantics(compiler_arena%ast, &
                                                          root_node, signatures, &
@@ -820,8 +822,8 @@ contains
             if (source%proc_sigs(i)%sig_count <= 0) cycle
             do j = 1, source%proc_sigs(i)%sig_count
                 call add_signature_from_entry(target, &
-                    trim(source%proc_sigs(i)%procedure_name), &
-                    source%proc_sigs(i)%signatures(j))
+                                             trim(source%proc_sigs(i)%procedure_name), &
+                                              source%proc_sigs(i)%signatures(j))
             end do
         end do
     end subroutine merge_signature_maps
@@ -915,10 +917,12 @@ contains
         call normalize_multi_unit_container(compiler_arena%ast, prog_index)
         ! Skip standardization for multi-unit containers
         if (should_skip_standardization(compiler_arena, prog_index)) then
+            call mark_pointer_targets(compiler_arena%ast)
             return
         end if
 
         call standardize_ast(compiler_arena%ast, prog_index)
+        call mark_pointer_targets(compiler_arena%ast)
     end subroutine run_standardization_phase
 
     ! Check if should skip standardization
@@ -1766,19 +1770,25 @@ contains
                     write (error_unit, '(A)') 'DEBUG run_mono node_type <not set>'
                 end if
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
-                    select type (root_node => compiler_arena%ast%entries(prog_index)%node)
+                    select type (root_node => &
+                                 compiler_arena%ast%entries(prog_index)%node)
                     type is (program_node)
-                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', trim(root_node%name)
+                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=program', &
+                            trim(root_node%name)
                     type is (module_node)
-                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', trim(root_node%name)
+                        write (error_unit, '(A,1X,A)') 'DEBUG run_mono root=module', &
+                            trim(root_node%name)
                     class default
-                        write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root=other index', prog_index
+                        write (error_unit, '(A,1X,I0)') &
+                            'DEBUG run_mono root=other index', prog_index
                     end select
                 else
-                    write (error_unit, '(A,1X,I0)') 'DEBUG run_mono root node not allocated', prog_index
+                    write (error_unit, '(A,1X,I0)') &
+                        'DEBUG run_mono root node not allocated', prog_index
                 end if
             else
-                write (error_unit, '(A,1X,I0)') 'DEBUG run_mono invalid prog_index', prog_index
+                write (error_unit, '(A,1X,I0)') &
+                    'DEBUG run_mono invalid prog_index', prog_index
             end if
         end if
 
