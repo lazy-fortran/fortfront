@@ -163,6 +163,15 @@ contains
                 end select
             end if
         end if
+
+        if (is_intrinsic_func) then
+            select case (lowered_name)
+            case ("count")
+                typ = create_mono_type(TINT)
+            case ("any", "all")
+                typ = create_mono_type(TLOGICAL)
+            end select
+        end if
     end function infer_function_call_type
 
     subroutine refine_character_intrinsic_result(name, arg_types, typ)
@@ -205,6 +214,10 @@ contains
                 type(mono_type_t) :: type_copy
                 type_copy = arg_types(i)
                 call type_copy%sync_from_arena()
+                do while (type_copy%kind == TARRAY .and. type_copy%has_args())
+                    type_copy = type_copy%get_arg(1)
+                    call type_copy%sync_from_arena()
+                end do
                 current_kind = type_copy%kind
             end block
             if (current_kind <= 0) cycle
@@ -569,6 +582,77 @@ contains
         end select
     end function resolve_implied_do_type
 
+    pure logical function is_reduction_intrinsic(name) result(is_reduction)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(adjustl(trim(name)))
+        select case (lowered)
+        case ("sum", "product", "maxval", "minval", "any", "all", "count")
+            is_reduction = .true.
+        case default
+            is_reduction = .false.
+        end select
+    end function is_reduction_intrinsic
+
+    function infer_reduction_intrinsic_result(arena, call_node, get_type_fn, &
+                                              lowered_name) result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        interface
+            function get_type_fn(a, idx) result(t)
+                import :: mono_type_t, ast_arena_t
+                type(ast_arena_t), intent(inout) :: a
+                integer, intent(in) :: idx
+                type(mono_type_t) :: t
+            end function get_type_fn
+        end interface
+        character(len=*), intent(in) :: lowered_name
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: arg_type
+        type(mono_type_t) :: element_type
+        integer :: num_args
+        integer :: element_kind
+
+        typ = create_mono_type(TREAL)
+        element_kind = 0
+
+        num_args = 0
+        if (allocated(call_node%arg_indices)) num_args = &
+            size(call_node%arg_indices)
+
+        if (num_args >= 1) then
+            arg_type = get_type_fn(arena, call_node%arg_indices(1))
+            call arg_type%sync_from_arena()
+            element_type = arg_type
+
+            do while (element_type%kind == TARRAY .and. element_type%has_args())
+                element_type = element_type%get_arg(1)
+                call element_type%sync_from_arena()
+            end do
+
+            if (element_type%kind > 0) element_kind = element_type%kind
+        end if
+
+        select case (lowered_name)
+        case ("any", "all")
+            typ = create_mono_type(TLOGICAL)
+        case ("count")
+            typ = create_mono_type(TINT)
+        case default
+            if (element_kind > 0) then
+                typ = create_mono_type(element_kind)
+            else if (typ%kind <= 0) then
+                typ = create_mono_type(TREAL)
+            end if
+        end select
+
+        typ%alloc_info%is_allocatable = .false.
+        typ%alloc_info%needs_allocatable_string = .false.
+        typ%alloc_info%needs_allocation_check = .false.
+        typ%alloc_info%is_pointer = .false.
+    end function infer_reduction_intrinsic_result
+
     function infer_array_intrinsic_type(arena, call_node, get_type_fn) &
         result(typ)
         type(ast_arena_t), intent(inout) :: arena
@@ -613,6 +697,12 @@ contains
         num_args = 0
         if (allocated(call_node%arg_indices)) then
             num_args = size(call_node%arg_indices)
+        end if
+
+        if (is_reduction_intrinsic(lowered_name)) then
+            typ = infer_reduction_intrinsic_result(arena, call_node, &
+                                                   get_type_fn, lowered_name)
+            return
         end if
 
         select case (lowered_name)

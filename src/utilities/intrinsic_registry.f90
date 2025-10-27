@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 52
+        integer, parameter :: NUM_INTRINSICS = 53
         integer :: i
 
         if (registry_initialized) return
@@ -272,6 +272,12 @@ contains
                                  name="all", return_type="logical", &
                                  arg_types="logical_array", &
                                  description="True if all elements are true")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="count", return_type="integer", &
+                                 arg_types="logical_array", &
+                                 description="Number of true elements in array")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
