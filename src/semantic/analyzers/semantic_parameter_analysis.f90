@@ -13,8 +13,10 @@ module semantic_parameter_analysis
     use semantic_validation_utils, only: update_identifier_type_in_arena, &
                                          int_to_str
     use semantic_type_context, only: infer_type_from_usage_context, &
-                                     infer_identifier_type_from_context
+                                     infer_identifier_type_from_context, &
+                                     infer_expression_type_static
     use semantic_procedure_utils, only: declaration_type_to_mono
+    use semantic_function_array, only: find_return_type
     implicit none
     private
 
@@ -149,15 +151,18 @@ contains
         integer :: arg_idx
         type(mono_type_t) :: inferred_arg_type
         type(mono_type_t) :: literal_type
+        character(len=:), allocatable :: func_name
 
         if (.not. allocated(func_node%name)) return
+        func_name = trim(func_node%name)
+        if (len_trim(func_name) == 0) return
 
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (call_node => arena%entries(idx)%node)
             type is (call_or_subscript_node)
                 if (.not. allocated(call_node%name)) cycle
-                if (trim(call_node%name) /= trim(func_node%name)) cycle
+                if (trim(call_node%name) /= func_name) cycle
                 if (.not. allocated(call_node%arg_indices)) cycle
                 do i = 1, min(size(call_node%arg_indices), size(param_types))
                     arg_idx = call_node%arg_indices(i)
@@ -175,11 +180,56 @@ contains
                             arena, arg_node%name, param_names, param_types, &
                             scopes, arg_idx, next_var_id)
                         call merge_parameter_type(param_types(i), inferred_arg_type)
+                    type is (call_or_subscript_node)
+                        if (allocated(arg_node%name)) then
+                            if (trim(arg_node%name) == func_name) cycle
+                        end if
+                        inferred_arg_type = infer_expression_type_static( &
+                                            arena, arg_idx, param_names, &
+                                            param_types)
+                        if (inferred_arg_type%kind == 0 .or. &
+                            inferred_arg_type%kind == TVAR) then
+                            inferred_arg_type = resolve_call_argument_type( &
+                                                arena, arg_node, func_name, &
+                                                next_var_id)
+                        end if
+                        call merge_parameter_type(param_types(i), inferred_arg_type)
                     end select
                 end do
             end select
         end do
     end subroutine infer_parameter_types_from_calls
+
+    function resolve_call_argument_type(arena, call_node, current_name, &
+                                        next_var_id) &
+        result(arg_type)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        character(len=*), intent(in) :: current_name
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: arg_type
+        character(len=:), allocatable :: call_name
+        logical :: found_return
+
+        arg_type%kind = 0
+        if (call_node%inferred_type%kind > 0) then
+            arg_type = call_node%inferred_type
+            return
+        end if
+        if (.not. allocated(call_node%name)) return
+        if (call_node%is_array_access) return
+
+        call_name = trim(call_node%name)
+        if (len_trim(call_name) == 0) return
+        if (len_trim(current_name) > 0) then
+            if (call_name == trim(current_name)) return
+        end if
+
+        found_return = find_return_type(arena, call_name, arg_type)
+        if (found_return) return
+
+        arg_type = infer_type_from_usage_context(call_name, next_var_id)
+    end function resolve_call_argument_type
 
     subroutine update_parameter_nodes(arena, func_node, param_types)
         type(ast_arena_t), intent(inout) :: arena

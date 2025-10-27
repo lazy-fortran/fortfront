@@ -23,6 +23,7 @@ module semantic_function_array
     public :: infer_function_call_type
     public :: infer_array_slice_type
     public :: infer_array_literal_type
+    public :: find_return_type
 
 contains
 
