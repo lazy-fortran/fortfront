@@ -52,6 +52,17 @@ contains
                             write (error_unit, '(A,*(1X,I0))') &
                                 'DEBUG explicit programs=', &
                                 container%explicit_program_indices
+                            do i = 1, size(container%explicit_program_indices)
+                                if (container%explicit_program_indices(i) > 0 .and. &
+                                    container%explicit_program_indices(i) <= arena%size) then
+                                    if (allocated(arena%entries(container%explicit_program_indices(i))%node_type)) then
+                                        write (error_unit, '(A,1X,I0,1X,A)') &
+                                            'DEBUG explicit node', &
+                                            container%explicit_program_indices(i), &
+                                            trim(arena%entries(container%explicit_program_indices(i))%node_type)
+                                    end if
+                                end if
+                            end do
                         else
                             write (error_unit, '(A)') 'DEBUG explicit programs=<none>'
                         end if
@@ -59,6 +70,17 @@ contains
                             write (error_unit, '(A,*(1X,I0))') &
                                 'DEBUG implicit indices=', &
                                 container%implicit_declaration_indices
+                            do i = 1, size(container%implicit_declaration_indices)
+                                if (container%implicit_declaration_indices(i) > 0 .and. &
+                                    container%implicit_declaration_indices(i) <= arena%size) then
+                                    if (allocated(arena%entries(container%implicit_declaration_indices(i))%node_type)) then
+                                        write (error_unit, '(A,1X,I0,1X,A)') &
+                                            'DEBUG implicit node', &
+                                            container%implicit_declaration_indices(i), &
+                                            trim(arena%entries(container%implicit_declaration_indices(i))%node_type)
+                                    end if
+                                end if
+                            end do
                         else
                             write (error_unit, '(A)') 'DEBUG implicit indices=<none>'
                         end if
@@ -133,6 +155,7 @@ contains
         integer, allocatable, intent(inout) :: program_indices(:)
         integer, intent(inout) :: program_count
         integer :: i, child_idx
+        logical :: handled
 
         do i = 1, size(root_prog%body_indices)
             child_idx = root_prog%body_indices(i)
@@ -201,6 +224,16 @@ contains
         integer :: mod_proc_idx, interface_idx, mod_idx
         integer :: j
 
+        write (error_unit, '(A,1X,I0)') 'DEBUG signatures map count', signatures%proc_count
+        if (signatures%proc_count > 0) then
+            do j = 1, signatures%proc_count
+                if (.not. allocated(signatures%proc_sigs(j)%procedure_name)) cycle
+                write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG entry', &
+                    trim(signatures%proc_sigs(j)%procedure_name), &
+                    signatures%proc_sigs(j)%sig_count
+            end do
+        end if
+
         proc_sigs = get_procedure_signatures(signatures, proc_name)
         write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
             trim(proc_name), size(proc_sigs)
@@ -254,8 +287,11 @@ contains
         type(mixed_construct_container_node), intent(inout) :: container
         type(signatures_map_t), intent(in) :: signatures
         integer :: explicit_count
+        integer :: implicit_count
         integer, allocatable :: preserved_indices(:)
+        integer, allocatable :: implicit_preserved(:)
         integer :: preserved_count
+        integer :: implicit_preserved_count
         integer, allocatable :: module_indices(:)
         integer :: module_count
         character(len=128), allocatable :: module_names(:)
@@ -264,22 +300,91 @@ contains
         integer :: i, child_idx
         logical :: handled
         integer, allocatable :: new_explicit(:)
+        integer, allocatable :: new_implicit(:)
 
         explicit_count = 0
         if (allocated(container%explicit_program_indices)) then
             explicit_count = size(container%explicit_program_indices)
         end if
 
-        if (explicit_count == 0) return
+        implicit_count = 0
+        if (allocated(container%implicit_declaration_indices)) then
+            implicit_count = size(container%implicit_declaration_indices)
+        end if
+
+        if (explicit_count == 0 .and. implicit_count == 0) return
 
         allocate (preserved_indices(max(1, explicit_count)))
-        allocate (module_indices(max(1, explicit_count)))
-        allocate (character(len=128) :: module_names(max(1, explicit_count)))
+        if (implicit_count > 0) then
+            allocate (implicit_preserved(max(1, implicit_count)))
+        end if
+        allocate (module_indices(max(1, max(explicit_count, implicit_count))))
+        allocate (character(len=128) :: module_names(max(1, max(explicit_count, &
+                                                     implicit_count))))
         allocate (program_indices(max(1, explicit_count)))
 
         preserved_count = 0
+        implicit_preserved_count = 0
         module_count = 0
         program_count = 0
+
+        if (implicit_count > 0) then
+            do i = 1, implicit_count
+                child_idx = container%implicit_declaration_indices(i)
+                if (child_idx < 1 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+
+                select type (node => arena%entries(child_idx)%node)
+                type is (function_def_node)
+                    call process_specializable_procedure(arena, signatures, child_idx, &
+                        node%name, .true., handled, module_indices, module_count, &
+                        module_names)
+                    if (.not. handled) then
+                        implicit_preserved_count = implicit_preserved_count + 1
+                        if (implicit_preserved_count > size(implicit_preserved)) then
+                            call resize_integer_array(implicit_preserved, &
+                                                      implicit_preserved_count * 2)
+                        end if
+                        implicit_preserved(implicit_preserved_count) = child_idx
+                    end if
+                type is (subroutine_def_node)
+                    call process_specializable_procedure(arena, signatures, child_idx, &
+                        node%name, .false., handled, module_indices, module_count, &
+                        module_names)
+                    if (.not. handled) then
+                        implicit_preserved_count = implicit_preserved_count + 1
+                        if (implicit_preserved_count > size(implicit_preserved)) then
+                            call resize_integer_array(implicit_preserved, &
+                                                      implicit_preserved_count * 2)
+                        end if
+                        implicit_preserved(implicit_preserved_count) = child_idx
+                    end if
+                class default
+                    implicit_preserved_count = implicit_preserved_count + 1
+                    if (implicit_preserved_count > size(implicit_preserved)) then
+                        call resize_integer_array(implicit_preserved, &
+                                                  implicit_preserved_count * 2)
+                    end if
+                    implicit_preserved(implicit_preserved_count) = child_idx
+                end select
+            end do
+
+            if (implicit_preserved_count > 0) then
+                allocate (new_implicit(implicit_preserved_count))
+                new_implicit = implicit_preserved(1:implicit_preserved_count)
+                container%implicit_declaration_indices = new_implicit
+            else
+                if (allocated(container%implicit_declaration_indices)) then
+                    deallocate (container%implicit_declaration_indices)
+                end if
+            end if
+        else
+            if (allocated(container%implicit_declaration_indices)) then
+                if (size(container%implicit_declaration_indices) == 0) then
+                    deallocate (container%implicit_declaration_indices)
+                end if
+            end if
+        end if
 
         do i = 1, explicit_count
             child_idx = container%explicit_program_indices(i)
