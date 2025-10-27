@@ -38,64 +38,315 @@ end program
 
 ## Examples & Tests Organization
 
-### CRITICAL: Zero Duplication Policy
+### CRITICAL: Zero Duplication Policy - MANDATORY ENFORCEMENT
 **ONE canonical example, many references. NO DUPLICATION EVER.**
 
-### Directory Structure
+This is not a suggestion - it is an **absolute requirement**. Violations block PRs and must be fixed immediately.
+
+### EXCEPTION: Unit Tests vs Integration Tests - BOTH ARE REQUIRED
+
+**Unit tests with inline code are ENCOURAGED**. The zero-duplication policy applies to **END-TO-END tests ONLY**.
+
+**Test Hierarchy (ALL levels required)**:
+1. **Unit Tests** - Test individual functions/modules in isolation
+   - ✅ **Inline code ALLOWED and ENCOURAGED** for small, focused test inputs
+   - ✅ Test one function, one module, one specific code path
+   - ✅ Fast, targeted, specific to the unit under test
+   - Example: Testing a parser function with a 2-line input string
+
+2. **Integration Tests** - Test interactions between components
+   - ⚠️ **Use judgment**: Small inline snippets OK, large programs use examples/
+   - Test multiple components working together
+   - Example: Parser + semantic analyzer working on a small construct
+
+3. **End-to-End Tests** - Test complete pipeline with realistic programs
+   - ❌ **MUST use examples/**: These test complete transformation workflows
+   - ❌ **NO inline code**: Full programs belong in examples/
+   - Test: lexer → parser → semantic → codegen → compile → run
+   - Example: Full lazy Fortran program → standardized Fortran output
+
+**Decision Tree**:
+```
+Is this testing a SINGLE UNIT (function/module)?
+├─ YES → Unit test with inline code is PERFECT ✅
+└─ NO → Is it testing a complete program transformation?
+    ├─ YES → MUST use examples/ (end-to-end) ❌ inline
+    └─ NO → Integration test: use judgment (prefer examples/ for >10 lines)
+```
+
+### Directory Structure (STRICT)
 ```
 examples/
-├── f90/          # Standard Fortran examples (for round-trip validation)
-│   └── *.f90     # Tests that parser handles standard Fortran correctly
-└── lf/           # Lazy Fortran examples (for transformation testing)
-    └── *.lf      # Tests that type inference and standardization work
+├── f90/          # Standard Fortran examples (canonical source of truth)
+│   ├── *.f90     # Round-trip validation examples
+│   ├── issue_NNNN_description.f90  # Issue-specific standard Fortran
+│   └── feature_name.f90            # Feature demonstrations
+│
+└── lf/           # Lazy Fortran examples (canonical source of truth)
+    ├── *.lf      # Type inference and standardization examples
+    ├── issue_NNNN_description.lf   # Issue-specific lazy Fortran
+    └── feature_name.lf             # Feature demonstrations
 
 test/
-├── snapshots/
-│   └── cases/    # MUST be empty of .lf files (all moved to examples/)
-└── *.f90         # Test files that REFERENCE examples/, never inline duplicate content
+├── api/          # API tests (MUST use read_example)
+├── ast/          # AST tests (MUST use read_example)
+├── analysis/     # Analysis tests (MUST use read_example)
+├── codegen/      # Codegen tests (MUST use read_example)
+├── integration/  # Integration tests (MUST use read_example)
+│   ├── issue_tests/      # Issue-specific test logic
+│   ├── core_features/    # Core feature test logic
+│   └── array_tests/      # Array feature test logic
+└── *.f90         # All test files REFERENCE examples/, NEVER inline code
 ```
 
-### Rules
+### Mandatory Rules - ZERO TOLERANCE
 
-1. **Examples are canonical sources**
-   - `examples/` contains THE definitive example code
+#### 1. **Examples are canonical sources (ENFORCED)**
+   - `examples/` contains THE ONLY definitive example code
    - Examples demonstrate features, edge cases, and issue resolutions
    - Named descriptively: `generic_functions.lf`, `array_syntax.lf`, NOT `test_*.lf`
-   - Issue demonstrations: `issue_NNNN_description.lf` → rename to `feature_description.lf`
+   - Issue demonstrations: `issue_NNNN_description.lf` (keep issue number for traceability)
+   - Examples are documentation AND test inputs - dual purpose by design
 
-2. **Tests reference examples**
-   - Tests in `test/` MUST NOT duplicate example content inline
-   - Tests should read from `examples/` files when testing parsing/transformation
-   - If a test generates Lazy Fortran code, extract it to `examples/` and reference it
+#### 2. **End-to-End Tests MUST reference examples (ZERO INLINE CODE for full programs)**
+   - **ABSOLUTELY FORBIDDEN in end-to-end tests**: Full program inline code
+   - **ABSOLUTELY FORBIDDEN in end-to-end tests**: String concatenation with `new_line('a')` for complete programs
+   - **ALLOWED in unit tests**: Small, focused inline code for testing individual functions
+   - **REQUIRED for end-to-end**: Use `call read_example('examples/lf/file.lf', source)` pattern
+   - **REQUIRED for end-to-end**: Use `call read_example('examples/f90/file.f90', source)` pattern
    - This prevents drift: examples and tests stay synchronized automatically
 
-3. **Deduplication enforcement**
-   - Before ANY commit touching examples/ or test/:
-     - Run deduplication audit (see issue #1867)
-     - Verify zero .lf files remain in `test/snapshots/cases/`
-     - Verify no string literals in tests duplicate example file content
-   - CI MUST validate: no duplicates exist
+   **When to use inline code**:
+   - ✅ Unit test: Testing `parse_expression()` with `"x + 5"` - PERFECT
+   - ✅ Unit test: Testing `infer_type()` with `"val = 42"` - PERFECT
+   - ❌ End-to-end: Full program with functions, calls, I/O - USE examples/
 
-4. **Adding new examples**
+#### 3. **When you see inline code - EVALUATE THEN ACT**
+   - **IF** you see inline code → **STOP and EVALUATE**
+   - **ASK**: Is this a unit test or end-to-end test?
+
+   **If UNIT TEST** (testing single function/module):
+   - ✅ Inline code is FINE - keep it
+   - ✅ This is the PREFERRED pattern for unit tests
+   - Ensure it's focused and small (1-5 lines typical)
+
+   **If END-TO-END TEST** (testing complete transformation):
+   - ❌ **EXTRACT** the inline code to `examples/lf/` or `examples/f90/`
+   - **NAME** descriptively based on what it demonstrates
+   - **UPDATE** the test to use `read_example()`
+   - **VERIFY** the test still passes
+   - **COMMIT** with message: `refactor: extract end-to-end code to examples/ (fixes #NNNN)`
+   - This is **MANDATORY** for end-to-end tests
+
+#### 4. **Adding new examples (CORRECT PATTERN)**
    - Place in appropriate subdirectory: `examples/f90/` or `examples/lf/`
    - Use descriptive name reflecting what it demonstrates
-   - Update tests to reference the new example file
-   - Never inline the same code in both places
+   - Keep issue numbers for traceability: `issue_1234_array_bounds.lf`
+   - One example file per feature/issue/edge case
+   - Never inline the same code in multiple places
 
-5. **Adding new tests**
-   - If test needs Lazy Fortran input: create example file first, reference it
-   - If test needs standard Fortran: create example file first, reference it
-   - Never duplicate existing examples/ content
+#### 5. **Adding new tests (CORRECT PATTERNS)**
 
-### Rationale
-- **Single source of truth**: Examples are documentation AND test inputs
-- **No drift**: Tests always use current example code
+   **For UNIT TESTS** (testing individual functions) - ✅ INLINE CODE PREFERRED:
+   ```fortran
+   ! Testing a parser function - inline code is PERFECT
+   program test_parse_assignment
+       use parser, only: parse_assignment
+       implicit none
+       type(ast_node_t) :: node
+
+       node = parse_assignment("x = 42")
+       call assert_equal(node%variable_name, "x")
+       call assert_equal(node%value, 42)
+   end program
+   ```
+
+   **For END-TO-END TESTS** - ❌ MUST USE EXAMPLES:
+
+   **WRONG** (will be rejected for end-to-end):
+   ```fortran
+   source = 'function square(x)' // new_line('a') // &
+            '    result = x * x' // new_line('a') // &
+            'end function' // new_line('a') // &
+            'val = 5' // new_line('a') // &
+            'print *, square(val)'
+   call transform_lazy_fortran_string(source, output, errors)
+   ```
+
+   **CORRECT** (for end-to-end):
+   ```fortran
+   ! 1. Create examples/lf/square_function.lf with the code
+   ! 2. Reference it in test:
+   call read_example('examples/lf/square_function.lf', source)
+   call transform_lazy_fortran_string(source, output, errors)
+   ```
+
+   **Process for new tests**:
+   1. **DECIDE**: Unit test or end-to-end test?
+   2. **Unit test**: Write inline code directly - fast and focused
+   3. **End-to-end test**: Create example file FIRST, then reference it
+   4. Never duplicate examples - if similar code exists, reuse it
+
+#### 6. **Deduplication enforcement (CI VALIDATES)**
+   - Before ANY commit touching examples/ or test/:
+     - **VERIFY**: End-to-end tests use `read_example()` pattern (no full programs inline)
+     - **VERIFY**: Unit tests are focused and small (inline code OK here)
+     - **VERIFY**: No .lf or .f90 files in `test/` directories (except test logic)
+     - **VERIFY**: Large programs (>10 lines) are in examples/, not inline
+   - CI MUST fail on end-to-end violations
+   - Pre-commit hooks warn about large inline code blocks
+   - Pull requests with full programs inline are REJECTED
+
+### Rationale (WHY THIS MATTERS)
+
+**Maintenance Crisis Avoided**:
+- 161 test files had END-TO-END inline code (discovered in playtesting session #3)
+- 3,000-5,000 lines of duplicated FULL PROGRAMS
+- Every code pattern change required updating 161 string literals
+- Refactoring was BLOCKED by this duplication
+- **Note**: These were end-to-end tests that SHOULD have been using examples/
+
+**Benefits of Unit Tests with Inline Code**:
+- **Fast**: No file I/O overhead
+- **Focused**: Test exactly one thing with minimal input
+- **Clear**: Input visible right in the test
+- **Maintainable**: Change one test without affecting others
+
+**Benefits of End-to-End Tests Using Examples**:
+- **Single source of truth**: Change example once, all tests automatically updated
+- **No drift**: Tests always use current example code - impossible to get out of sync
 - **Clear purpose**: examples/ = documentation, test/ = validation logic
-- **Maintainability**: Change example once, all tests automatically updated
-- **Repository hygiene**: Obvious what each directory contains
+- **Discoverability**: Examples are visible in examples/ directory, not buried in test strings
+- **Reusability**: Multiple tests can reference the same example
+- **Maintainability**: Refactoring is no longer blocked by inline code
 
-### Migration Status
-See issue #1867 for ongoing reorganization work.
+**Test Pyramid - All Levels Required**:
+```
+        /\
+       /E2E\      ← Few end-to-end tests (use examples/)
+      /------\
+     /  INT   \   ← More integration tests (use judgment)
+    /----------\
+   /   UNIT     \ ← Many unit tests (inline code preferred)
+  /--------------\
+```
+
+**Code Review Efficiency**:
+- Unit test: "tests parse_expression() with 'x + 5'" - clear and focused ✅
+- End-to-end: "uses examples/lf/feature.lf" - clear intent ✅
+- End-to-end inline: 20 lines of concatenated string literal - REJECTED ❌
+
+### Example Migration (TEMPLATES)
+
+#### Migrating END-TO-END Tests (REQUIRED)
+
+**BEFORE** (WRONG - will be rejected for end-to-end):
+```fortran
+program test_function_inference_e2e
+    use transformation_api, only: transform_lazy_fortran_string
+    implicit none
+    character(len=:), allocatable :: source
+
+    ! Full program inline - this is END-TO-END test
+    source = 'function square(x)' // new_line('a') // &
+             '    result = x * x' // new_line('a') // &
+             'end function' // new_line('a') // &
+             'val = 5' // new_line('a') // &
+             'squared = square(val)'
+
+    call transform_lazy_fortran_string(source, output, errors)
+    ! ... assertions on full output ...
+end program
+```
+
+**AFTER** (CORRECT - for end-to-end):
+```fortran
+program test_function_inference_e2e
+    use transformation_api, only: transform_lazy_fortran_string
+    implicit none
+    character(len=:), allocatable :: source
+
+    call read_example('examples/lf/square_integer_inference.lf', source)
+    call transform_lazy_fortran_string(source, output, errors)
+    ! ... assertions on full output ...
+end program
+```
+
+**NEW FILE** `examples/lf/square_integer_inference.lf`:
+```fortran
+function square(x)
+    result = x * x
+end function
+
+val = 5
+squared = square(val)
+```
+
+#### Unit Tests (NO MIGRATION NEEDED)
+
+**CORRECT** (unit test - inline code is PERFECT):
+```fortran
+program test_type_inference_unit
+    use semantic_analyzer, only: infer_type
+    implicit none
+    type(mono_type_t) :: result_type
+
+    ! Unit test - testing ONE function with small input
+    result_type = infer_type("x = 42")
+    call assert_equal(result_type%kind, TYPE_INTEGER)
+end program
+```
+
+**This is the PREFERRED pattern for unit tests** - do not extract to examples!
+
+### Migration Status & Enforcement
+
+**Current Issues**:
+- #1975 - 161 test files with inline code (CRITICAL - must fix)
+- #1967 - Test/example organization cleanup
+
+**Enforcement Plan**:
+1. CI check blocks new inline code (prevents regression)
+2. Pre-commit hook warns on `new_line('a')` without `read_example`
+3. Gradual migration: extract top 20 highest-duplication files first
+4. Code review: inline code is automatic rejection
+
+**Migration Priority**:
+- P0: CI enforcement (prevents new violations)
+- P1: Top 20 files (addresses ~40% of problem)
+- P2: All remaining files (complete zero-duplication compliance)
+
+### Helper Utilities
+
+**Reading examples in tests**:
+```fortran
+! Already available in many test files:
+subroutine read_example(filepath, content)
+    character(len=*), intent(in) :: filepath
+    character(len=:), allocatable, intent(out) :: content
+    ! Reads file into allocatable string
+end subroutine
+```
+
+**Finding inline code violations**:
+```bash
+# Find test files with inline code:
+grep -r "new_line('a')" test/ | grep -v read_example
+
+# Count violations:
+find test -name "*.f90" -exec grep -l "new_line('a')" {} \; | wc -l
+```
+
+### Compliance Check
+
+Before ANY commit or PR:
+- [ ] **Unit tests**: Small, focused inline code is ENCOURAGED ✅
+- [ ] **End-to-end tests**: MUST use `read_example()` for full programs
+- [ ] All example programs in `examples/f90/` or `examples/lf/`
+- [ ] No full programs inline (>10 lines with functions/modules)
+- [ ] Example names are descriptive (feature-based, not test-based)
+- [ ] CI passes (validates end-to-end use examples/)
+- [ ] Test pyramid maintained: Many unit tests, some integration, few end-to-end
 
 ## Architecture Overview
 
