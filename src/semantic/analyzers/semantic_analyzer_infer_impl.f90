@@ -759,7 +759,7 @@ contains
                     select type (call_expr => arena%entries(node_index)%node)
                     type is (subroutine_call_node)
                         call collect_subroutine_signature(this%signatures, arena, &
-                            call_expr, node_index)
+                                                          call_expr, node_index)
                     end select
                 end if
             end if
@@ -772,9 +772,52 @@ contains
             integer, intent(in) :: node_index
             type(mono_type_t), allocatable :: args(:)
             type(mono_type_t) :: node_type
+            type(mono_type_t) :: element_type
+            type(mono_type_t) :: child_type
+            integer :: parent_index
+            integer :: i
+            logical :: is_implied_do
+
+            element_type = create_mono_type(TINT)
+            is_implied_do = .false.
+
+            if (node_index > 0 .and. node_index <= arena%size) then
+                parent_index = arena%entries(node_index)%parent_index
+                if (parent_index > 0 .and. parent_index <= arena%size) then
+                    if (allocated(arena%entries(parent_index)%node)) then
+                        select type (parent_node => arena%entries(parent_index)%node)
+                        type is (array_literal_node)
+                            is_implied_do = .true.
+                        end select
+                    end if
+                end if
+            end if
+
+            if (is_implied_do) then
+                element_type%kind = 0
+                element_type%size = 0
+                if (allocated(arena%entries(node_index)%node)) then
+                    select type (loop_node => arena%entries(node_index)%node)
+                    type is (do_loop_node)
+                        if (allocated(loop_node%body_indices)) then
+                            do i = 1, size(loop_node%body_indices)
+                                child_type = get_node_type(loop_node%body_indices(i))
+                                if (child_type%kind == 0) cycle
+                                if (element_type%kind == 0) then
+                                    element_type = child_type
+                                else
+                                    element_type = &
+                                        get_common_type(element_type, child_type)
+                                end if
+                            end do
+                        end if
+                    end select
+                end if
+                if (element_type%kind == 0) element_type = create_mono_type(TINT)
+            end if
 
             allocate (args(1))
-            args(1) = create_mono_type(TINT)
+            args(1) = element_type
             node_type = create_mono_type(TARRAY, args=args)
             call finalize_node(node_index, node_type)
             if (allocated(args)) deallocate (args)
