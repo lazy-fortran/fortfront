@@ -429,20 +429,69 @@ contains
                                            id_token%column)
         end if
 
-        stmt_index = create_assignment_node(arena, target_index, value_index, &
-                                            id_token, operator_text, parent_index)
+        stmt_index = create_assignment_node(arena, parent_index, target_index, &
+                                            value_index, id_token, operator_text)
     end function parse_simple_assignment
 
-    integer function create_assignment_node(arena, target_index, value_index, &
-                                           id_token, operator_text, parent_index) &
+    integer function find_assignment_operator(parser, paren_depth) result(left_end)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(inout) :: paren_depth
+        integer :: pos
+        type(token_t) :: current_token
+
+        left_end = parser%current_token - 1
+        do pos = parser%current_token, size(parser%tokens)
+            current_token = parser%tokens(pos)
+            if (current_token%kind == TK_EOF) exit
+            if (current_token%kind == TK_OPERATOR) then
+                select case (trim(current_token%text))
+                case ("(")
+                    paren_depth = paren_depth + 1
+                case (")")
+                    if (paren_depth > 0) paren_depth = paren_depth - 1
+                case ("=", "=>")
+                    if (paren_depth == 0) then
+                        left_end = pos - 1
+                        exit
+                    end if
+                end select
+            else if (current_token%kind == TK_NEWLINE) then
+                exit
+            end if
+            left_end = pos
+        end do
+    end function find_assignment_operator
+
+    subroutine build_lhs_tokens(lhs_tokens, id_token, parser, left_end)
+        type(token_t), allocatable, intent(out) :: lhs_tokens(:)
+        type(token_t), intent(in) :: id_token
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(in) :: left_end
+        integer :: lhs_len
+
+        lhs_len = 1 + max(0, left_end - parser%current_token + 1) + 1
+        allocate (lhs_tokens(lhs_len))
+        lhs_tokens(1) = id_token
+        if (lhs_len >= 3 .and. left_end >= parser%current_token) then
+            lhs_tokens(2:lhs_len - 1) = parser%tokens(parser%current_token:left_end)
+        end if
+        lhs_tokens(lhs_len)%kind = TK_EOF
+        lhs_tokens(lhs_len)%text = ""
+        lhs_tokens(lhs_len)%line = id_token%line
+        lhs_tokens(lhs_len)%column = id_token%column
+    end subroutine build_lhs_tokens
+
+    integer function create_assignment_node(arena, parent_index, target_index, &
+                                            value_index, id_token, assignment_op) &
         result(stmt_index)
         type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: target_index, value_index
-        type(token_t), intent(in) :: id_token
-        character(len=*), intent(in) :: operator_text
         integer, intent(in), optional :: parent_index
+        integer, intent(in) :: target_index
+        integer, intent(in) :: value_index
+        type(token_t), intent(in) :: id_token
+        character(len=*), intent(in) :: assignment_op
 
-        if (operator_text == "=>") then
+        if (assignment_op == "=>") then
             if (present(parent_index)) then
                 stmt_index = push_pointer_assignment(arena, target_index, &
                                                      value_index, id_token%line, &
@@ -456,11 +505,11 @@ contains
             if (present(parent_index)) then
                 stmt_index = push_assignment(arena, target_index, value_index, &
                                              id_token%line, id_token%column, &
-                                             parent_index, operator_text)
+                                             parent_index, assignment_op)
             else
                 stmt_index = push_assignment(arena, target_index, value_index, &
                                              id_token%line, id_token%column, &
-                                             operator_text=operator_text)
+                                             operator_text=assignment_op)
             end if
         end if
     end function create_assignment_node
@@ -472,56 +521,19 @@ contains
         integer, intent(in), optional :: parent_index
         type(token_t), intent(in) :: tokens(:)
         type(token_t), intent(in) :: id_token
-        integer :: left_end, pos, paren_depth
-        integer :: target_index, value_index, lhs_len, remaining_count
+        integer :: left_end, paren_depth
+        integer :: target_index, value_index, remaining_count
         type(token_t), allocatable, target :: lhs_tokens(:)
         type(token_t), allocatable, target :: rhs_tokens(:)
         type(token_t) :: current_token
         character(len=:), allocatable :: assignment_op
 
         stmt_index = 0
-        left_end = parser%current_token - 1
         paren_depth = 0
-
-        do pos = parser%current_token, size(parser%tokens)
-            current_token = parser%tokens(pos)
-            if (current_token%kind == TK_EOF) exit
-            if (current_token%kind == TK_OPERATOR) then
-                select case (trim(current_token%text))
-                case ("(")
-                    paren_depth = paren_depth + 1
-                case (")")
-                    if (paren_depth > 0) paren_depth = paren_depth - 1
-                case ("=")
-                    if (paren_depth == 0) then
-                        left_end = pos - 1
-                        exit
-                    end if
-                case ("=>")
-                    if (paren_depth == 0) then
-                        left_end = pos - 1
-                        exit
-                    end if
-                end select
-            else if (current_token%kind == TK_NEWLINE) then
-                exit
-            end if
-            left_end = pos
-        end do
-
+        left_end = find_assignment_operator(parser, paren_depth)
         if (left_end < parser%current_token - 1) return
 
-        lhs_len = 1 + max(0, left_end - parser%current_token + 1) + 1
-        allocate (lhs_tokens(lhs_len))
-        lhs_tokens(1) = id_token
-        if (lhs_len >= 3 .and. left_end >= parser%current_token) then
-            lhs_tokens(2:lhs_len - 1) = parser%tokens(parser%current_token:left_end)
-        end if
-        lhs_tokens(lhs_len)%kind = TK_EOF
-        lhs_tokens(lhs_len)%text = ""
-        lhs_tokens(lhs_len)%line = id_token%line
-        lhs_tokens(lhs_len)%column = id_token%column
-
+        call build_lhs_tokens(lhs_tokens, id_token, parser, left_end)
         target_index = parse_expression(lhs_tokens, arena)
         if (target_index <= 0) return
 
@@ -546,8 +558,8 @@ contains
         value_index = parse_expression(rhs_tokens, arena)
         if (value_index <= 0) return
 
-        stmt_index = create_assignment_node(arena, target_index, value_index, &
-                                            id_token, assignment_op, parent_index)
+        stmt_index = create_assignment_node(arena, parent_index, target_index, &
+                                            value_index, id_token, assignment_op)
     end function parse_complex_assignment
 
     logical function is_terminator_statement(first_token, tokens) result(is_terminator)
