@@ -490,6 +490,13 @@ contains
                                                          consumed_count=consumed_tokens)
                     end if
 
+                    ! DEBUG TEMP
+                    if (allocated(stmt_indices)) then
+                        write (*,'(A,*(I0,1X))') 'parse_if_body stmt_indices:', stmt_indices
+                    else
+                        write (*,'(A)') 'parse_if_body stmt_indices: <not allocated>'
+                    end if
+
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then
