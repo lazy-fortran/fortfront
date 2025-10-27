@@ -1,5 +1,6 @@
 program test_intrinsic_reduction_scalars
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -7,16 +8,8 @@ program test_intrinsic_reduction_scalars
     character(len=:), allocatable :: output_code
     character(len=:), allocatable :: error_msg
 
-    input_code = "program demo" // new_line('a') // &
-                 "    arr = [1.0_dp, 2.0_dp, 3.0_dp]" // new_line('a') // &
-                 "    total = sum(arr)" // new_line('a') // &
-                 "    high = maxval(arr)" // new_line('a') // &
-                 "    low = minval(arr)" // new_line('a') // &
-                 "    prod = product(arr)" // new_line('a') // &
-                 "    flags = [.true., .false., .true.]" // new_line('a') // &
-                 "    has_true = any(flags)" // new_line('a') // &
-                 "    true_count = count(flags)" // new_line('a') // &
-                 "end program demo"
+    call read_example('examples/lf/issue_1961_array_reduction_intrinsics.lf', &
+                      input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -45,6 +38,20 @@ program test_intrinsic_reduction_scalars
     call ensure_absent(output_code, "allocatable :: true_count")
 
 contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(a)') 'FAIL: failed to load example'
+            stop 1
+        end if
+    end subroutine read_example
 
     subroutine ensure_contains(text, pattern)
         character(len=*), intent(in) :: text
