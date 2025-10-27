@@ -1,0 +1,10 @@
+program demo
+    arr = [1.0, 2.0, 3.0]
+    total = sum(arr)
+    high = maxval(arr)
+    low = minval(arr)
+    prod = product(arr)
+    flags = [.true., .false., .true.]
+    has_true = any(flags)
+    true_count = count(flags)
+end program demo
