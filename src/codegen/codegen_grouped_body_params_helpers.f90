@@ -210,9 +210,17 @@ contains
                 code = code // "("
                 do j = 1, size(node%dimension_indices)
                     if (j > 1) code = code // ", "
-                    stmt_code = generate_code_from_arena(arena, &
-                                                         node%dimension_indices(j))
-                    code = code // stmt_code
+                    if (node%dimension_indices(j) <= 0) then
+                        code = code // ":"
+                    else
+                        stmt_code = generate_code_from_arena(arena, &
+                                                             node%dimension_indices(j))
+                        if (len_trim(stmt_code) == 0) then
+                            code = code // ":"
+                        else
+                            code = code // stmt_code
+                        end if
+                    end if
                 end do
                 code = code // ")"
             end if

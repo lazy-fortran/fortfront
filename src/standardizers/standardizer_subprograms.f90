@@ -7,13 +7,13 @@ module standardizer_subprograms
     use ast_nodes_procedure
     use ast_nodes_data
     use ast_nodes_misc
+    use ast_nodes_bounds, only: array_slice_node, array_bounds_node
     use ast_factory
     use type_system_unified
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use lexer_core, only: to_lower
     use type_string_utils, only: is_character_type_string
     use semantic_validation_utils, only: rename_identifier_in_arena
-    use fortfront_utils, only: traverse_ast
     implicit none
     private
 
@@ -828,18 +828,6 @@ contains
             if (fn_param_is_array(i)) then
                 if (fn_param_rank(i) <= 0) fn_param_rank(i) = 1
                 if (len_trim(fn_param_type(i)) == 0) fn_param_type(i) = "real"
-                if (index(fn_param_type(i), "dimension(") == 0) then
-                    block
-                        character(len=64) :: dim_clause
-                        integer :: r
-                        dim_clause = ":"
-                        do r = 2, fn_param_rank(i)
-                            dim_clause = trim(dim_clause) // ",:"
-                        end do
-                        fn_param_type(i) = trim(fn_param_type(i)) // ", dimension(" &
-                                           // trim(dim_clause) // ")"
-                    end block
-                end if
             end if
         end do
 
@@ -900,37 +888,129 @@ contains
 
             if (.not. allocated(func_def%body_indices)) return
             do body_idx = 1, size(func_def%body_indices)
-                if (func_def%body_indices(body_idx) <= 0) cycle
-                if (func_def%body_indices(body_idx) > arena%size) cycle
-                call traverse_ast(arena, func_def%body_indices(body_idx), &
-                                  parameter_usage_callback)
+                call scan_node(arena, func_def%body_indices(body_idx))
             end do
         end subroutine analyze_parameter_usage
 
-        subroutine parameter_usage_callback(arena_local, node_index)
+        recursive subroutine scan_node(arena_local, node_index)
             type(ast_arena_t), intent(in) :: arena_local
             integer, intent(in) :: node_index
-            integer :: idx
-            integer :: rank_size
+            integer, allocatable :: child_indices(:)
+            integer :: j
 
             if (node_index <= 0 .or. node_index > arena_local%size) return
             if (.not. allocated(arena_local%entries(node_index)%node)) return
 
             select type (node => arena_local%entries(node_index)%node)
+            type is (assignment_node)
+                call scan_node(arena_local, node%target_index)
+                call scan_node(arena_local, node%value_index)
+            type is (binary_op_node)
+                call scan_node(arena_local, node%left_index)
+                call scan_node(arena_local, node%right_index)
             type is (call_or_subscript_node)
-                if (.not. allocated(node%name)) return
-                idx = find_param_index(node%name)
-                if (idx <= 0) return
-                fn_param_is_array(idx) = .true.
+                call handle_call_or_subscript(arena_local, node)
+                if (node%base_expr_index > 0) &
+                    call scan_node(arena_local, node%base_expr_index)
                 if (allocated(node%arg_indices)) then
-                    rank_size = size(node%arg_indices)
-                    if (rank_size <= 0) rank_size = 1
-                else
-                    rank_size = 1
+                    do j = 1, size(node%arg_indices)
+                        call scan_node(arena_local, node%arg_indices(j))
+                    end do
                 end if
-                if (rank_size > fn_param_rank(idx)) fn_param_rank(idx) = rank_size
+            type is (component_access_node)
+                call scan_node(arena_local, node%base_expr_index)
+            type is (array_slice_node)
+                call scan_node(arena_local, node%array_index)
+                do j = 1, node%num_dimensions
+                    if (node%bounds_indices(j) > 0) &
+                        call scan_node(arena_local, node%bounds_indices(j))
+                end do
+            type is (array_bounds_node)
+                if (node%lower_bound_index > 0) &
+                    call scan_node(arena_local, node%lower_bound_index)
+                if (node%upper_bound_index > 0) &
+                    call scan_node(arena_local, node%upper_bound_index)
+                if (node%stride_index > 0) &
+                    call scan_node(arena_local, node%stride_index)
+            class default
+                child_indices = get_child_list(arena_local, node_index)
+                do j = 1, size(child_indices)
+                    call scan_node(arena_local, child_indices(j))
+                end do
             end select
-        end subroutine parameter_usage_callback
+        end subroutine scan_node
+
+        subroutine handle_call_or_subscript(arena_local, node)
+            type(ast_arena_t), intent(in) :: arena_local
+            type(call_or_subscript_node), intent(in) :: node
+            character(len=:), allocatable :: target_name
+            integer :: idx
+            integer :: rank_size
+
+            target_name = ""
+            if (allocated(node%name)) target_name = trim(node%name)
+            if (len_trim(target_name) == 0) then
+                if (node%base_expr_index > 0) then
+                    target_name = resolve_name_from_index(arena_local, &
+                                                          node%base_expr_index)
+                end if
+            end if
+            if (len_trim(target_name) == 0) return
+            idx = find_param_index(target_name)
+            if (idx <= 0) return
+
+            fn_param_is_array(idx) = .true.
+            if (allocated(node%arg_indices)) then
+                rank_size = count(node%arg_indices > 0)
+            else
+                rank_size = 0
+            end if
+            if (rank_size <= 0) rank_size = 1
+            if (rank_size > fn_param_rank(idx)) fn_param_rank(idx) = rank_size
+        end subroutine handle_call_or_subscript
+
+        recursive function resolve_name_from_index(arena_local, idx) &
+            result(name)
+            type(ast_arena_t), intent(in) :: arena_local
+            integer, intent(in) :: idx
+            character(len=:), allocatable :: name
+
+            name = ""
+            if (idx <= 0 .or. idx > arena_local%size) return
+            if (.not. allocated(arena_local%entries(idx)%node)) return
+
+            select type (base => arena_local%entries(idx)%node)
+            type is (identifier_node)
+                if (allocated(base%name)) name = trim(base%name)
+            type is (call_or_subscript_node)
+                if (allocated(base%name)) then
+                    name = trim(base%name)
+                else if (base%base_expr_index > 0) then
+                    name = resolve_name_from_index(arena_local, &
+                                                   base%base_expr_index)
+                end if
+            type is (component_access_node)
+                name = resolve_name_from_index(arena_local, base%base_expr_index)
+            class default
+                name = ""
+            end select
+        end function resolve_name_from_index
+
+        function get_child_list(arena_local, node_index) result(indices)
+            type(ast_arena_t), intent(in) :: arena_local
+            integer, intent(in) :: node_index
+            integer, allocatable :: indices(:)
+            integer :: count_children
+
+            allocate (indices(0))
+            if (node_index <= 0 .or. node_index > arena_local%size) return
+            if (.not. allocated(arena_local%entries(node_index)%node)) return
+            count_children = arena_local%entries(node_index)%child_count
+            if (count_children <= 0) return
+            if (allocated(indices)) deallocate (indices)
+            allocate (indices(count_children))
+            indices = arena_local%entries(node_index)%child_indices(1:count_children)
+        end function get_child_list
 
         integer function find_param_index(name) result(index)
             character(len=*), intent(in) :: name
@@ -1041,6 +1121,8 @@ contains
                     param_decl%kind_value = 0
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
+                    if (allocated(param_decl%dimension_indices)) &
+                        deallocate (param_decl%dimension_indices)
                     inferred_local = param_type_inferred(i)
                     ! Check if we have a valid type (not empty and not type_variable)
                     if (len_trim(param_type(i)) > 0 .and. &
@@ -1214,6 +1296,8 @@ contains
             param_decl%kind_value = 0
             param_decl%is_array = .false.
             param_decl%is_allocatable = .false.
+            if (allocated(param_decl%dimension_indices)) &
+                deallocate (param_decl%dimension_indices)
             inferred_local = param_type_inferred(i)
             ! Check if we have a valid type (not empty and not type_variable)
             if (len_trim(param_type(i)) > 0 .and. &
@@ -1505,6 +1589,8 @@ contains
                     if (param_optional(i)) param_decl%is_optional = .true.
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
+                    if (allocated(param_decl%dimension_indices)) &
+                        deallocate (param_decl%dimension_indices)
                     param_decl%initializer_index = 0
                     param_decl%line = 1
                     param_decl%column = 1
