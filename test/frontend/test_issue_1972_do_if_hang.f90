@@ -48,6 +48,8 @@ contains
                   len_trim(output) > 0 .and. &
                   index(output, "do i = 1, 6") > 0 .and. &
                   index(output, "if (a(i) < 0) then") > 0 .and. &
+                  index(output, "sum_neg = sum_neg + a(i)") > 0 .and. &
+                  index(output, "sum_pos = sum_pos + a(i)") > 0 .and. &
                   index(output, "end if") > 0 .and. &
                   index(output, "print *, 'Sum negative:'") > 0 .and. &
                   index(output, "print *, 'Sum positive:'") > 0
