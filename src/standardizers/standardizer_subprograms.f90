@@ -127,8 +127,8 @@ contains
                             logical :: has_kind_local
                             integer :: kind_value_local
                             call infer_parameter_type(param_names(param_idx), &
-                                                     inferred_type, &
-                                                     has_kind_local, kind_value_local)
+                                                      inferred_type, &
+                                                      has_kind_local, kind_value_local)
                             stmt%type_name = trim(inferred_type)
                             if (has_kind_local) then
                                 stmt%has_kind = .true.
@@ -347,7 +347,7 @@ contains
                     if (trim(res_name) /= 'result') then
                         if (allocated(func_def%body_indices)) then
                             call rename_identifier_in_arena(arena, 'result', &
-                                trim(res_name), func_def%body_indices, func_index)
+                                      trim(res_name), func_def%body_indices, func_index)
                         end if
                     end if
                 end if
@@ -414,11 +414,13 @@ contains
             if (.not. allocated(func_def%return_type) .or. &
                 len_trim(func_def%return_type) == 0) then
                 if (len_trim(existing_decl%type_name) > 0) then
-                    if (existing_decl%has_kind .and. existing_decl%kind_value > 0 .and. &
+                    if (existing_decl%has_kind .and. existing_decl%kind_value &
+                        > 0 .and. &
                         existing_decl%type_name /= "character") then
                         block
                             character(len=64) :: buffer
-                            write (buffer, '(A,"(",I0,")")') trim(existing_decl%type_name), &
+                            write (buffer, '(A,"(",I0,")")') &
+                                trim(existing_decl%type_name), &
                                 existing_decl%kind_value
                             func_def%return_type = trim(buffer)
                         end block
@@ -597,6 +599,8 @@ contains
         n_params = size(func_def%param_indices)
         if (n_params == 0) return
 
+        print *, "DBG standardize_function_parameters invoked for", trim(func_def%name), "with", n_params, "params"
+
    call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         ! Get parameter names
@@ -716,7 +720,8 @@ contains
 
         if (allocated(func_def%body_indices)) then
             call synchronize_parameter_declarations(arena, func_def%body_indices, &
-                                    param_names, param_names_found, fn_param_optional, &
+                                                    param_names, param_names_found, &
+                                                    fn_param_optional, &
                                                     fn_param_intent, &
                                                     "in", &
                                             standardizer_type_standardization_enabled, &
@@ -750,6 +755,15 @@ contains
                                                 fn_param_is_allocatable, &
                                                 fn_param_type_inferred, &
                                               standardizer_type_standardization_enabled)
+        end if
+
+        if (allocated(func_def%param_intents)) deallocate (func_def%param_intents)
+        if (n_params > 0) then
+            allocate (character(len=8) :: func_def%param_intents(n_params))
+            func_def%param_intents = fn_param_intent
+        end if
+        if (n_params > 0) then
+            print *, "DBG fn intents:", fn_param_intent
         end if
 
     contains
@@ -1158,7 +1172,8 @@ contains
 
         if (allocated(sub_def%body_indices)) then
             call synchronize_parameter_declarations(arena, sub_def%body_indices, &
-                                    param_names, param_names_found, sb_param_optional, &
+                                                    param_names, param_names_found, &
+                                                    sb_param_optional, &
                                                     sb_param_intent, &
                                                     "", &
                                               standardizer_type_standardization_enabled)
@@ -1173,6 +1188,12 @@ contains
                                                                sb_param_optional, &
                                                                sb_param_intent, &
                                               standardizer_type_standardization_enabled)
+
+        if (allocated(sub_def%param_intents)) deallocate (sub_def%param_intents)
+        if (n_params > 0) then
+            allocate (character(len=8) :: sub_def%param_intents(n_params))
+            sub_def%param_intents = sb_param_intent
+        end if
 
     end subroutine standardize_subroutine_parameters
 
