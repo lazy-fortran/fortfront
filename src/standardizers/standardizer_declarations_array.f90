@@ -4,6 +4,7 @@ module standardizer_declarations_array
     use ast_nodes_core, only: identifier_node, literal_node
     use ast_nodes_data, only: declaration_node
     use ast_base, only: LITERAL_INTEGER
+    use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t, TARRAY
     use uid_generator, only: generate_uid
     implicit none
@@ -288,6 +289,10 @@ contains
         character(len=20) :: size_str
         integer :: ndims
         integer, allocatable :: dim_sizes(:)
+        character(len=64) :: target_name
+        character(len=64) :: candidate_name
+
+        target_name = to_lower(trim(var_name))
 
         if (decl_node%is_parameter) return
 
@@ -295,7 +300,8 @@ contains
             if (allocated(arena%entries(j)%node)) then
                 select type (node => arena%entries(j)%node)
                 type is (identifier_node)
-                    if (trim(node%name) == trim(var_name)) then
+                    candidate_name = to_lower(trim(node%name))
+                    if (trim(candidate_name) == trim(target_name)) then
                         if (node%inferred_type%kind == TARRAY) then
                             decl_node%is_array = .true.
 
