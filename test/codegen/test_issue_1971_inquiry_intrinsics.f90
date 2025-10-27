@@ -9,12 +9,7 @@ program test_issue_1971_inquiry_intrinsics
 
     print *, "=== Codegen: inquiry intrinsics return scalar integers ==="
 
-    source = 'a = [1.0, 2.0, 3.0, 4.0, 5.0]' // new_line('a') // &
-             'n = size(a)' // new_line('a') // &
-             'lb = lbound(a, 1)' // new_line('a') // &
-             'ub = ubound(a, 1)' // new_line('a') // &
-             'print *, "Size:", n' // new_line('a')
-
+    call read_example('examples/lf/issue_1971_inquiry_intrinsics.lf', source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
     success = .true.
@@ -47,5 +42,31 @@ program test_issue_1971_inquiry_intrinsics
         end if
         stop 1
     end if
+
+contains
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, ios, file_size
+        character(len=1), allocatable :: buffer(:)
+        integer :: i
+
+        open (newunit=unit, file=filepath, status='old', &
+              access='stream', form='unformatted', iostat=ios)
+        if (ios /= 0) error stop 'Failed to open example file'
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=ios) buffer
+        close (unit)
+
+        if (ios /= 0) error stop 'Failed to read example file'
+
+        allocate (character(len=file_size) :: content)
+        do i = 1, file_size
+            content(i:i) = buffer(i)
+        end do
+    end subroutine read_example
 
 end program test_issue_1971_inquiry_intrinsics

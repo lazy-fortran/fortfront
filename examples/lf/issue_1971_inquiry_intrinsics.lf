@@ -1,0 +1,5 @@
+a = [1.0, 2.0, 3.0, 4.0, 5.0]
+n = size(a)
+lb = lbound(a, 1)
+ub = ubound(a, 1)
+print *, "Size:", n
