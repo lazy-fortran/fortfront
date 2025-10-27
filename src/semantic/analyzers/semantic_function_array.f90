@@ -17,7 +17,8 @@ module semantic_function_array
     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     use semantic_validation_utils, only: int_to_str
     use string_utils_mod, only: to_lower
-    use semantic_array_type_builders, only: collapse_array_rank
+    use semantic_array_type_builders, only: collapse_array_rank, &
+                                            build_deferred_shape_array
     use semantic_type_operations, only: get_common_type
     implicit none
     private
@@ -582,12 +583,20 @@ contains
         end interface
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type
+        type(mono_type_t) :: lhs_type
+        type(mono_type_t) :: rhs_type
+        type(mono_type_t) :: lhs_base
+        type(mono_type_t) :: rhs_base
+        type(mono_type_t) :: result_element
         type(mono_type_t), allocatable :: args(:)
+        type(mono_type_t), allocatable :: arg_types(:)
         integer :: ndims
         integer :: i
         character(len=:), allocatable :: func_name
         character(len=:), allocatable :: lowered_name
         integer :: num_args
+        integer :: lhs_rank
+        integer :: rhs_rank
 
         if (allocated(call_node%name)) then
             func_name = trim(call_node%name)
@@ -607,6 +616,72 @@ contains
         end if
 
         select case (lowered_name)
+        case ("matmul")
+            if (num_args < 2) then
+                element_type = create_mono_type(TREAL)
+                typ = build_deferred_shape_array(element_type, 1)
+                return
+            end if
+
+            allocate (arg_types(num_args))
+            do i = 1, num_args
+                arg_types(i) = get_type_fn(arena, call_node%arg_indices(i))
+                call arg_types(i)%sync_from_arena()
+            end do
+
+            lhs_type = arg_types(1)
+            rhs_type = arg_types(2)
+            call lhs_type%sync_from_arena()
+            call rhs_type%sync_from_arena()
+
+            lhs_rank = 0
+            rhs_rank = 0
+
+            lhs_base = lhs_type
+            do while (lhs_base%kind == TARRAY .and. lhs_base%has_args())
+                lhs_rank = lhs_rank + 1
+                lhs_base = lhs_base%get_arg(1)
+                call lhs_base%sync_from_arena()
+            end do
+
+            rhs_base = rhs_type
+            do while (rhs_base%kind == TARRAY .and. rhs_base%has_args())
+                rhs_rank = rhs_rank + 1
+                rhs_base = rhs_base%get_arg(1)
+                call rhs_base%sync_from_arena()
+            end do
+
+            lhs_base = collapse_array_rank(lhs_type, lhs_rank)
+            rhs_base = collapse_array_rank(rhs_type, rhs_rank)
+            call lhs_base%sync_from_arena()
+            call rhs_base%sync_from_arena()
+
+            result_element = get_common_type(lhs_base, rhs_base)
+            call result_element%sync_from_arena()
+
+            select case (lhs_rank)
+            case (2)
+                select case (rhs_rank)
+                case (2)
+                    typ = build_deferred_shape_array(result_element, 2)
+                    return
+                case (1)
+                    typ = build_deferred_shape_array(result_element, 1)
+                    return
+                end select
+            case (1)
+                select case (rhs_rank)
+                case (2)
+                    typ = build_deferred_shape_array(result_element, 1)
+                    return
+                case (1)
+                    typ = result_element
+                    return
+                end select
+            end select
+
+            typ = build_deferred_shape_array(result_element, 1)
+            return
         case ("reshape")
             element_type = create_mono_type(TREAL)
             if (allocated(call_node%arg_indices) .and. &
