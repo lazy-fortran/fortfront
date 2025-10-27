@@ -28,6 +28,9 @@ module ast_monomorphization
 
     public :: transform_monomorphization
 
+    logical, save :: debug_initialized = .false.
+    logical, save :: debug_enabled = .false.
+
 contains
 
     subroutine transform_monomorphization(arena, root_index, signatures)
@@ -49,63 +52,75 @@ contains
                 if (allocated(arena%entries(root_index)%node)) then
                     select type (container => arena%entries(root_index)%node)
                     type is (mixed_construct_container_node)
-                        write (error_unit, '(A)') 'DEBUG root is mixed container'
-                        if (allocated(container%explicit_program_indices)) then
-                            write (error_unit, '(A,*(1X,I0))') &
-                                'DEBUG explicit programs=', &
-                                container%explicit_program_indices
-                            do i = 1, size(container%explicit_program_indices)
-                                if (container%explicit_program_indices(i) > 0 .and. &
-                                    container%explicit_program_indices(i) <= arena%size) then
-                                    if (allocated(arena%entries(container%explicit_program_indices(i))%node_type)) then
-                                        write (error_unit, '(A,1X,I0,1X,A)') &
-                                            'DEBUG explicit node', &
-                                            container%explicit_program_indices(i), &
-                                            trim(arena%entries(container%explicit_program_indices(i))%node_type)
+                        if (debug_logging_enabled()) then
+                            write (error_unit, '(A)') 'DEBUG root is mixed container'
+                            if (allocated(container%explicit_program_indices)) then
+                                write (error_unit, '(A,*(1X,I0))') &
+                                    'DEBUG explicit programs=', &
+                                    container%explicit_program_indices
+                                do i = 1, size(container%explicit_program_indices)
+                                    if (container%explicit_program_indices(i) > 0 .and. &
+                                        container%explicit_program_indices(i) <= arena%size) then
+                                        if (allocated(arena%entries(container%explicit_program_indices(i))%node_type)) then
+                                            write (error_unit, '(A,1X,I0,1X,A)') &
+                                                'DEBUG explicit node', &
+                                                container%explicit_program_indices(i), &
+                                                trim(arena%entries(container%explicit_program_indices(i))%node_type)
+                                        end if
                                     end if
-                                end if
-                            end do
-                        else
-                            write (error_unit, '(A)') 'DEBUG explicit programs=<none>'
-                        end if
-                        if (allocated(container%implicit_declaration_indices)) then
-                            write (error_unit, '(A,*(1X,I0))') &
-                                'DEBUG implicit indices=', &
-                                container%implicit_declaration_indices
-                            do i = 1, size(container%implicit_declaration_indices)
-                                if (container%implicit_declaration_indices(i) > 0 .and. &
-                                    container%implicit_declaration_indices(i) <= arena%size) then
-                                    if (allocated(arena%entries(container%implicit_declaration_indices(i))%node_type)) then
-                                        write (error_unit, '(A,1X,I0,1X,A)') &
-                                            'DEBUG implicit node', &
-                                            container%implicit_declaration_indices(i), &
-                                            trim(arena%entries(container%implicit_declaration_indices(i))%node_type)
+                                end do
+                            else
+                                write (error_unit, '(A)') 'DEBUG explicit programs=<none>'
+                            end if
+                            if (allocated(container%implicit_declaration_indices)) then
+                                write (error_unit, '(A,*(1X,I0))') &
+                                    'DEBUG implicit indices=', &
+                                    container%implicit_declaration_indices
+                                do i = 1, size(container%implicit_declaration_indices)
+                                    if (container%implicit_declaration_indices(i) > 0 .and. &
+                                        container%implicit_declaration_indices(i) <= arena%size) then
+                                        if (allocated(arena%entries(container%implicit_declaration_indices(i))%node_type)) then
+                                            write (error_unit, '(A,1X,I0,1X,A)') &
+                                                'DEBUG implicit node', &
+                                                container%implicit_declaration_indices(i), &
+                                                trim(arena%entries(container%implicit_declaration_indices(i))%node_type)
+                                        end if
                                     end if
-                                end if
-                            end do
-                        else
-                            write (error_unit, '(A)') 'DEBUG implicit indices=<none>'
+                                end do
+                            else
+                                write (error_unit, '(A)') 'DEBUG implicit indices=<none>'
+                            end if
                         end if
                         call process_mixed_container(arena, root_index, container, &
                                                      signatures)
                     class default
-                        write (error_unit, '(A)') &
-                            'DEBUG root_prog not associated and not container'
+                        if (debug_logging_enabled()) then
+                            write (error_unit, '(A)') &
+                                'DEBUG root_prog not associated and not container'
+                        end if
                     end select
                 end if
             else
-                write (error_unit, '(A)') &
-                    'DEBUG root_prog not associated (invalid index)'
+                if (debug_logging_enabled()) then
+                    write (error_unit, '(A)') &
+                        'DEBUG root_prog not associated (invalid index)'
+                end if
             end if
             return
         end if
-        write (error_unit, '(A,1X,A)') 'DEBUG root_prog name', trim(root_prog%name)
+        if (debug_logging_enabled()) then
+            write (error_unit, '(A,1X,A)') 'DEBUG root_prog name', trim(root_prog%name)
+        end if
         if (.not. allocated(root_prog%body_indices)) then
-            write (error_unit, '(A)') 'DEBUG root_prog body not allocated'
+            if (debug_logging_enabled()) then
+                write (error_unit, '(A)') 'DEBUG root_prog body not allocated'
+            end if
             return
         end if
-        write (error_unit, '(A,1X,I0)') 'DEBUG root_prog body size', &
-            size(root_prog%body_indices)
+        if (debug_logging_enabled()) then
+            write (error_unit, '(A,1X,I0)') 'DEBUG root_prog body size', &
+                size(root_prog%body_indices)
+        end if
 
         is_multi_unit = trim(root_prog%name) == "__MULTI_UNIT__"
         body_size = size(root_prog%body_indices)
@@ -166,9 +181,11 @@ contains
 
             select type (node => arena%entries(child_idx)%node)
             type is (function_def_node)
-                write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=function', &
-                    child_idx, &
-                    trim(node%name)
+                if (debug_logging_enabled()) then
+                    write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=function', &
+                        child_idx, &
+                        trim(node%name)
+                end if
                 call process_specializable_procedure(arena, signatures, child_idx, &
                                                      node%name, .true., handled, &
                                                      module_indices, &
@@ -179,8 +196,10 @@ contains
                     preserved_indices(preserved_count) = child_idx
                 end if
             type is (program_node)
-                write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=program', child_idx, &
-                    trim(node%name)
+                if (debug_logging_enabled()) then
+                    write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=program', &
+                        child_idx, trim(node%name)
+                end if
                 if (trim(node%name) /= "__MULTI_UNIT__") then
                     program_count = program_count + 1
                     program_indices(program_count) = child_idx
@@ -188,8 +207,10 @@ contains
                 preserved_count = preserved_count + 1
                 preserved_indices(preserved_count) = child_idx
             type is (subroutine_def_node)
-                write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=subroutine', &
-                    child_idx, trim(node%name)
+                if (debug_logging_enabled()) then
+                    write (error_unit, '(A,1X,I0,1X,A)') 'DEBUG node=subroutine', &
+                        child_idx, trim(node%name)
+                end if
                 call process_specializable_procedure(arena, signatures, child_idx, &
                                                      node%name, .false., handled, &
                                                      module_indices, &
@@ -200,7 +221,9 @@ contains
                     preserved_indices(preserved_count) = child_idx
                 end if
             class default
-                write (error_unit, '(A,1X,I0)') 'DEBUG node=other', child_idx
+                if (debug_logging_enabled()) then
+                    write (error_unit, '(A,1X,I0)') 'DEBUG node=other', child_idx
+                end if
                 preserved_count = preserved_count + 1
                 preserved_indices(preserved_count) = child_idx
             end select
@@ -226,24 +249,30 @@ contains
         integer :: mod_proc_idx, interface_idx, mod_idx
         integer :: j
 
-        write (error_unit, '(A,1X,I0)') 'DEBUG signatures map count', signatures%proc_count
-        if (signatures%proc_count > 0) then
-            do j = 1, signatures%proc_count
-                if (.not. allocated(signatures%proc_sigs(j)%procedure_name)) cycle
-                write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG entry', &
-                    trim(signatures%proc_sigs(j)%procedure_name), &
-                    signatures%proc_sigs(j)%sig_count
-            end do
+        if (debug_logging_enabled()) then
+            write (error_unit, '(A,1X,I0)') 'DEBUG signatures map count', signatures%proc_count
+            if (signatures%proc_count > 0) then
+                do j = 1, signatures%proc_count
+                    if (.not. allocated(signatures%proc_sigs(j)%procedure_name)) cycle
+                    write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG entry', &
+                        trim(signatures%proc_sigs(j)%procedure_name), &
+                        signatures%proc_sigs(j)%sig_count
+                end do
+            end if
         end if
 
         proc_sigs = get_procedure_signatures(signatures, proc_name)
-        write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
-            trim(proc_name), size(proc_sigs)
+        if (debug_logging_enabled()) then
+            write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
+                trim(proc_name), size(proc_sigs)
+        end if
         if (size(proc_sigs) > 0) then
             do j = 1, size(proc_sigs)
                 if (allocated(proc_sigs(j)%param_kinds)) then
-                    write (error_unit, '(A,1X,A,1X,*(I0,1X))') 'DEBUG signature kinds', &
-                        trim(proc_name), proc_sigs(j)%param_kinds
+                    if (debug_logging_enabled()) then
+                        write (error_unit, '(A,1X,A,1X,*(I0,1X))') 'DEBUG signature kinds', &
+                            trim(proc_name), proc_sigs(j)%param_kinds
+                    end if
                 end if
                 if (allocated(proc_sigs(j)%param_type_strings)) then
                     block
@@ -258,8 +287,10 @@ contains
                                 label = label // trim(proc_sigs(j)%param_type_strings(t))
                             end if
                         end do
-                        write (error_unit, '(A,1X,A,1X,A)') 'DEBUG signature types', &
-                            trim(proc_name), trim(label)
+                        if (debug_logging_enabled()) then
+                            write (error_unit, '(A,1X,A,1X,A)') 'DEBUG signature types', &
+                                trim(proc_name), trim(label)
+                        end if
                     end block
                 end if
             end do
@@ -1768,6 +1799,31 @@ contains
 
         name = get_procedure_name(arena%entries(idx)%node)
     end function get_procedure_name_from_arena
+
+    logical function debug_logging_enabled() result(active)
+        character(len=64) :: val
+        character(len=64) :: lowered
+        integer :: stat
+
+        if (.not. debug_initialized) then
+            val = ''
+            call get_environment_variable('FORTFRONT_TRACE', val, status=stat)
+            if (stat == 0) then
+                lowered = to_lower(adjustl(trim(val)))
+                select case (trim(lowered))
+                case ('0', 'false', 'off', 'no', '')
+                    debug_enabled = .false.
+                case default
+                    debug_enabled = .true.
+                end select
+            else
+                debug_enabled = .false.
+            end if
+            debug_initialized = .true.
+        end if
+
+        active = debug_enabled
+    end function debug_logging_enabled
 
     subroutine resize_integer_array(arr, new_size)
         integer, allocatable, intent(inout) :: arr(:)
