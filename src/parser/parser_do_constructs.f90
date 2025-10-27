@@ -307,8 +307,9 @@ contains
                         end if
                     end if
                 case ("elseif", "else")
-                    ! No depth change for intermediate branches; advance to next token
-                    continue
+                    ! Advance but do not change depth; skip remaining checks
+                    idx = idx + 1
+                    cycle
                 end select
             case (TK_EOF)
                 exit
