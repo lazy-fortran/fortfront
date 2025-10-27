@@ -306,10 +306,9 @@ contains
                             end if
                         end if
                     end if
-                case ("elseif")
-                    cycle
-                case ("else")
-                    cycle
+                case ("elseif", "else")
+                    ! No depth change for intermediate branches; advance to next token
+                    continue
                 end select
             case (TK_EOF)
                 exit
@@ -440,7 +439,7 @@ contains
             ! Parse as do while loop
             if (allocated(loop_label)) then
                 loop_index = parse_do_while_from_do(parser, arena, line, column, &
-                                                   loop_label)
+                                                    loop_label)
             else
                 loop_index = parse_do_while_from_do(parser, arena, line, column)
             end if
@@ -516,14 +515,16 @@ contains
 
             if (step_index > 0) then
                 if (control_count == 1 .and. allocated(loop_label)) then
-                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                    loop_index = push_do_loop(arena, var_name, start_index, &
+                                              end_index, &
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
                                               is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 else
-                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                    loop_index = push_do_loop(arena, var_name, start_index, &
+                                              end_index, &
                                               step_index=step_index, &
                                               body_indices=[integer ::], &
                                               is_concurrent=is_concurrent, &
@@ -531,13 +532,15 @@ contains
                 end if
             else
                 if (control_count == 1 .and. allocated(loop_label)) then
-                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                    loop_index = push_do_loop(arena, var_name, start_index, &
+                                              end_index, &
                                               body_indices=[integer ::], &
                                               loop_label=loop_label, &
                                               is_concurrent=is_concurrent, &
                                               line=line, column=column)
                 else
-                    loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                    loop_index = push_do_loop(arena, var_name, start_index, &
+                                              end_index, &
                                               body_indices=[integer ::], &
                                               is_concurrent=is_concurrent, &
                                               line=line, column=column)
@@ -731,7 +734,8 @@ contains
                         end if
 
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                                  loop_index, callbacks)
+                                                                  loop_index, &
+                                                                  callbacks)
 
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then
@@ -787,14 +791,16 @@ contains
 
                     if (outer_step > 0) then
                         if (idx == 1 .and. allocated(loop_label)) then
-                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                            outer_index = push_do_loop(arena, outer_name, &
+                                                       outer_start, &
                                                        outer_end, &
                                                        step_index=outer_step, &
                                                        body_indices=[loop_index], &
                                                        loop_label=loop_label, &
                                                        line=line, column=column)
                         else
-                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                            outer_index = push_do_loop(arena, outer_name, &
+                                                       outer_start, &
                                                        outer_end, &
                                                        step_index=outer_step, &
                                                        body_indices=[loop_index], &
@@ -802,13 +808,15 @@ contains
                         end if
                     else
                         if (idx == 1 .and. allocated(loop_label)) then
-                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                            outer_index = push_do_loop(arena, outer_name, &
+                                                       outer_start, &
                                                        outer_end, &
                                                        body_indices=[loop_index], &
                                                        loop_label=loop_label, &
                                                        line=line, column=column)
                         else
-                            outer_index = push_do_loop(arena, outer_name, outer_start, &
+                            outer_index = push_do_loop(arena, outer_name, &
+                                                       outer_start, &
                                                        outer_end, &
                                                        body_indices=[loop_index], &
                                                        line=line, column=column)
@@ -970,11 +978,13 @@ contains
                         integer :: n
 
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                                  loop_index, callbacks)
+                                                                  loop_index, &
+                                                                  callbacks)
 
                         do n = 1, size(stmt_indices)
                             if (stmt_indices(n) > 0) then
-                                temp_body_indices = [temp_body_indices, stmt_indices(n)]
+                                temp_body_indices = [temp_body_indices, &
+                                                     stmt_indices(n)]
                             end if
                         end do
                     end block
