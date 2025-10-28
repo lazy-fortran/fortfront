@@ -7,8 +7,8 @@ program test_subroutine
 contains
 
     subroutine increment(val)
-    integer, intent(inout) :: val
     implicit none
+    integer, intent(inout) :: val
     val = val + 1 
 end subroutine increment
 end program test_subroutine
