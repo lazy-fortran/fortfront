@@ -38,8 +38,8 @@ module semantic_analyzer
     use semantic_annotation_utils, only: type_from_annotation
     use semantic_literal_identifier, only: infer_literal_type, infer_identifier_type
     use semantic_binary_ops_core, only: infer_binary_operation, rewrite_operator
-    use semantic_function_array, only: infer_function_call_type, &
-                                       infer_array_slice_type
+    use semantic_function_call, only: infer_function_call_type
+    use semantic_array_slice, only: infer_array_slice_type
     use semantic_array_literal, only: infer_array_literal_type
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
