@@ -1,5 +1,6 @@
 program test_close_in_control_flow
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -7,15 +8,20 @@ program test_close_in_control_flow
     print *, '=== CLOSE statements inside control flow constructs ==='
 
     all_passed = .true.
-    if (.not. run_close_test('simple IF block', source_if_block(), 1)) &
+    if (.not. run_close_test('simple IF block', &
+                             'examples/f90/close_if_block.f90', 1)) &
         & all_passed = .false.
-    if (.not. run_close_test('nested IF blocks', source_nested_if(), 1)) &
+    if (.not. run_close_test('nested IF blocks', &
+                             'examples/f90/close_nested_if.f90', 1)) &
         & all_passed = .false.
-    if (.not. run_close_test('DO loop', source_do_loop(), 1)) &
+    if (.not. run_close_test('DO loop', &
+                             'examples/f90/close_do_loop.f90', 1)) &
         & all_passed = .false.
-    if (.not. run_close_test('SELECT CASE branches', source_select_case(), 2)) &
+    if (.not. run_close_test('SELECT CASE branches', &
+                             'examples/f90/close_select_case.f90', 2)) &
         & all_passed = .false.
-    if (.not. run_close_test('multiple CLOSE statements', source_multiple_close(), 2)) &
+    if (.not. run_close_test('multiple CLOSE statements', &
+                             'examples/f90/close_multiple.f90', 2)) &
         & all_passed = .false.
 
     if (all_passed) then
@@ -27,16 +33,17 @@ program test_close_in_control_flow
 
 contains
 
-    logical function run_close_test(name, source, expected_count)
+    logical function run_close_test(name, example_path, expected_count)
         character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: example_path
         integer, intent(in) :: expected_count
-        character(len=:), allocatable :: output, error_msg, lowered
+        character(len=:), allocatable :: source, output, error_msg, lowered
         integer :: close_hits
 
         run_close_test = .true.
         print *, 'Running:', trim(name)
 
+        call read_example(example_path, source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
@@ -64,81 +71,50 @@ contains
         end if
     end function run_close_test
 
-    function source_if_block() result(source)
-        character(len=:), allocatable :: source
-        source = 'program close_if_block' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: unit' // new_line('a') // &
-                 '    unit = 10' // new_line('a') // &
-                 '    open(unit=unit, status=''scratch'')' // new_line('a') // &
-                 '    if (unit > 0) then' // new_line('a') // &
-                 '        close(unit)' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 'end program close_if_block'
-    end function source_if_block
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, ios, file_size
+        character(len=1), allocatable :: buffer(:)
 
-    function source_nested_if() result(source)
-        character(len=:), allocatable :: source
-        source = 'program close_nested_if' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: unit' // new_line('a') // &
-                 '    unit = 20' // new_line('a') // &
-                 '    open(unit=unit, status=''scratch'')' // new_line('a') // &
-                 '    if (unit > 0) then' // new_line('a') // &
-                 '        if (unit > 10) then' // new_line('a') // &
-                 '            close(unit)' // new_line('a') // &
-                 '        end if' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 'end program close_nested_if'
-    end function source_nested_if
+        ! Open file and get size
+        open(newunit=unit, file=path, status='old', action='read', &
+             form='formatted', iostat=ios)
+        if (ios /= 0) then
+            print *, 'FAIL: failed to open ', trim(path)
+            error stop 1
+        end if
 
-    function source_do_loop() result(source)
-        character(len=:), allocatable :: source
-        source = 'program close_do_loop' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: unit' // new_line('a') // &
-                 '    integer :: i' // new_line('a') // &
-                 '    unit = 30' // new_line('a') // &
-                 '    open(unit=unit, status=''scratch'')' // new_line('a') // &
-                 '    do i = 1, 2' // new_line('a') // &
-                 '        if (i == 2) then' // new_line('a') // &
-                 '            close(unit)' // new_line('a') // &
-                 '        end if' // new_line('a') // &
-                 '    end do' // new_line('a') // &
-                 'end program close_do_loop'
-    end function source_do_loop
+        ! Read entire file
+        inquire(unit=unit, size=file_size)
+        if (file_size > 0) then
+            allocate(buffer(file_size))
+            read(unit, '(A)', iostat=ios) buffer
+        end if
 
-    function source_select_case() result(source)
-        character(len=:), allocatable :: source
-        source = 'program close_select_case' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: unit' // new_line('a') // &
-                 '    integer :: choice' // new_line('a') // &
-                 '    unit = 40' // new_line('a') // &
-                 '    choice = 1' // new_line('a') // &
-                 '    open(unit=unit, status=''scratch'')' // new_line('a') // &
-                 '    select case (choice)' // new_line('a') // &
-                 '    case (1)' // new_line('a') // &
-                 '        close(unit)' // new_line('a') // &
-                 '    case default' // new_line('a') // &
-                 '        close(unit)' // new_line('a') // &
-                 '    end select' // new_line('a') // &
-                 'end program close_select_case'
-    end function source_select_case
+        ! Read file line by line into content
+        rewind(unit)
+        content = ''
+        do
+            block
+                character(len=10000) :: line
+                read(unit, '(A)', iostat=ios) line
+                if (ios == iostat_end) exit
+                if (ios /= 0) then
+                    print *, 'FAIL: error reading ', trim(path)
+                    close(unit)
+                    error stop 1
+                end if
+                if (len(content) > 0) then
+                    content = content // new_line('a') // trim(line)
+                else
+                    content = trim(line)
+                end if
+            end block
+        end do
 
-    function source_multiple_close() result(source)
-        character(len=:), allocatable :: source
-        source = 'program close_multiple' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: unit' // new_line('a') // &
-                 '    unit = 50' // new_line('a') // &
-                 '    open(unit=unit, status=''scratch'')' // new_line('a') // &
-                 '    if (unit > 0) then' // new_line('a') // &
-                 '        close(unit)' // new_line('a') // &
-                 '        close(unit)' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 'end program close_multiple'
-    end function source_multiple_close
+        close(unit)
+    end subroutine read_example
 
     integer function count_occurrences(buffer, pattern) result(total)
         character(len=*), intent(in) :: buffer
