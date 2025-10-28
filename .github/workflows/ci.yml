@@ -77,6 +77,12 @@ jobs:
         fpm --version
         python3 --version
 
+    - name: Check Test Duplication (CLAUDE.md compliance)
+      continue-on-error: true
+      run: |
+        echo "Checking for end-to-end test duplication violations..."
+        make check-duplication || echo "⚠️ Found test duplication violations - see issue #1975"
+
     - name: Build and Test
       run: |
         # Simulate a smaller Windows-like stack on Linux to catch stack bugs

@@ -301,20 +301,35 @@ end program
 
 ### Migration Status & Enforcement
 
-**Current Issues**:
-- #1975 - 161 test files with inline code (CRITICAL - must fix)
-- #1967 - Test/example organization cleanup
+**Issue #1975 - Test Deduplication Migration**
+
+**Current Status** (as of 2025-10-28):
+- Total end-to-end violations: 41 tests with >15 inline lines
+- Total warnings: 69 tests with 6-15 inline lines (review needed)
+- Migrated: 1 test (test_close_in_control_flow.f90 - 51 lines → 5 example files)
+
+**CI Enforcement** (ACTIVE):
+- ✅ Check script: `scripts/check_test_duplication.py`
+- ✅ Make target: `make check-duplication`
+- ✅ CI workflow: Non-blocking check in `.github/workflows/ci.yml`
+- Status: WARNING mode (provides visibility, does not block PRs during migration)
 
 **Enforcement Plan**:
-1. CI check blocks new inline code (prevents regression)
-2. Pre-commit hook warns on `new_line('a')` without `read_example`
-3. Gradual migration: extract top 20 highest-duplication files first
-4. Code review: inline code is automatic rejection
+1. ✅ CI check warns on new inline code (prevents regression awareness)
+2. 🔄 Gradual migration: Top violators first (41 end-to-end tests remaining)
+3. 📋 Review warnings: 69 integration tests need case-by-case evaluation
+4. 🎯 Future: Switch CI check to blocking mode once violations < 10
 
 **Migration Priority**:
-- P0: CI enforcement (prevents new violations)
-- P1: Top 20 files (addresses ~40% of problem)
-- P2: All remaining files (complete zero-duplication compliance)
+- P0: ✅ CI enforcement (completed - provides visibility)
+- P1: 🔄 Top 20 end-to-end tests (addresses ~50% of problem)
+- P2: 📋 Review 69 integration test warnings
+- P3: ⬜ All remaining files (complete zero-duplication compliance)
+
+**How to Check Status**:
+```bash
+make check-duplication  # Shows current violations and warnings
+```
 
 ### Helper Utilities
 
