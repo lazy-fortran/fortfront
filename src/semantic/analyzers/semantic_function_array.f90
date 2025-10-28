@@ -21,6 +21,16 @@ module semantic_function_array
                                             build_deferred_shape_array
     use semantic_type_operations, only: get_common_type
     implicit none
+
+    abstract interface
+        function get_type_lookup(a, idx) result(t)
+            import :: mono_type_t, ast_arena_t
+            type(ast_arena_t), intent(inout) :: a
+            integer, intent(in) :: idx
+            type(mono_type_t) :: t
+        end function get_type_lookup
+    end interface
+
     private
 
     public :: infer_function_call_type
@@ -35,14 +45,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(inout) :: call_node
         type(scope_stack_t), intent(inout) :: scopes
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: arg_type
@@ -110,7 +113,8 @@ contains
                         else if (index(intrinsic_sig, "character(") == 1) then
                             typ = create_mono_type(TCHAR)
                         else if (index(intrinsic_sig, "array(") == 1) then
-                            typ = infer_array_intrinsic_type(arena, call_node, &
+                            typ = infer_array_intrinsic_type(arena, &
+                                                             call_node, &
                                                              get_type_fn)
                         else
                             typ = create_mono_type(TREAL)
@@ -127,7 +131,8 @@ contains
         end if
 
         if (is_intrinsic_func) then
-            call refine_character_intrinsic_result(lowered_name, arg_types, typ)
+            call refine_character_intrinsic_result(lowered_name, &
+                                                   arg_types, typ)
         end if
 
         subscript_rank = 0
@@ -155,9 +160,11 @@ contains
                 case (TVAR)
                     typ = create_mono_type(deduced_kind)
                 case (TREAL)
-                    if (deduced_kind /= TREAL) typ = create_mono_type(deduced_kind)
+                    if (deduced_kind /= TREAL) typ = &
+                        create_mono_type(deduced_kind)
                 case (TINT)
-                    if (deduced_kind /= TINT) typ = create_mono_type(deduced_kind)
+                    if (deduced_kind /= TINT) typ = &
+                        create_mono_type(deduced_kind)
                 case default
                     if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
                 end select
@@ -181,7 +188,8 @@ contains
         type(mono_type_t) :: arg_copy
         integer :: arg_len
 
-        if (name /= "trim" .and. name /= "adjustl" .and. name /= "adjustr") return
+        if (name /= "trim" .and. name /= "adjustl" .and. name /= &
+            "adjustr") return
         if (size(arg_types) <= 0) return
 
         arg_copy = arg_types(1)
@@ -244,7 +252,8 @@ contains
         kind_value = best_kind
     end function deduce_return_kind_from_args
 
-    logical function find_return_type(arena, func_name, return_type) result(found)
+    logical function find_return_type(arena, func_name, return_type) &
+        result(found)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: func_name
         type(mono_type_t), intent(out) :: return_type
@@ -286,14 +295,7 @@ contains
     function infer_array_slice_type(arena, slice_node, get_type_fn) result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
         type(mono_type_t) :: source_type
         type(mono_type_t) :: walker_type
@@ -369,65 +371,118 @@ contains
         end do
     end function infer_array_slice_type
 
-    function infer_array_literal_type(arena, array_lit, get_type_fn) result(typ)
+    function infer_array_literal_type(arena, array_lit, get_type_fn) &
+        result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
-        type(mono_type_t) :: element_type, promoted_type, first_type
         type(mono_type_t) :: explicit_type
-        type(mono_type_t), allocatable :: args(:), inner_args(:)
-        integer :: i, elem_array_size, first_array_size, max_char_len
-        logical :: has_real, all_arrays, consistent_sizes
-        character(len=:), allocatable :: explicit_spec
+        type(mono_type_t) :: first_type
+        type(mono_type_t) :: promoted_type
+        logical :: all_arrays
+        logical :: consistent_sizes
+        logical :: has_real
+        integer :: elem_count
+        integer :: first_array_size
+        integer :: max_char_len
+
+        explicit_type = parse_explicit_element_type(array_lit)
 
         if (.not. allocated(array_lit%element_indices) .or. &
             size(array_lit%element_indices) == 0) then
-            explicit_type%kind = 0
-            explicit_type%size = 0
-            if (allocated(array_lit%type_spec)) then
-                explicit_spec = trim(array_lit%type_spec)
-                if (len_trim(explicit_spec) > 0) then
-                    explicit_type = mono_type_from_type_spec(explicit_spec)
-                end if
-            end if
-            if (explicit_type%kind <= 0) then
-                explicit_type = create_mono_type(TINT)
-            end if
-            allocate (args(1))
-            args(1) = explicit_type
-            typ = create_mono_type(TARRAY, args=args)
-            typ%size = 0
-            typ%alloc_info%is_allocatable = .true.
-            typ%alloc_info%needs_allocation_check = .true.
-            typ%alloc_info%is_pointer = .false.
-            typ%alloc_info%needs_allocatable_string = .false.
-            deallocate (args)
+            typ = build_empty_array_type(explicit_type)
             return
         end if
 
-        if (allocated(array_lit%type_spec)) then
-            explicit_spec = trim(array_lit%type_spec)
-            if (len_trim(explicit_spec) > 0) then
-                explicit_type = mono_type_from_type_spec(explicit_spec)
-                if (explicit_type%kind > 0) then
-                    if (allocated(args)) deallocate (args)
-                    allocate (args(1))
-                    args(1) = explicit_type
-                    typ = create_mono_type(TARRAY, args=args, &
-                                           array_size=size(array_lit%element_indices))
-                    deallocate (args)
-                    return
-                end if
-            end if
+        elem_count = size(array_lit%element_indices)
+
+        if (explicit_type%kind > 0) then
+            typ = build_explicit_array_type(explicit_type, elem_count)
+            return
         end if
+
+        call promote_array_element_types(arena, array_lit, get_type_fn, &
+                                         first_type, promoted_type, &
+                                         all_arrays, consistent_sizes, &
+                                         has_real, &
+                                         max_char_len, first_array_size)
+
+        typ = build_array_type_from_elements(elem_count, first_type, &
+                                             promoted_type, all_arrays, &
+                                             consistent_sizes, has_real, &
+                                             max_char_len, first_array_size)
+    end function infer_array_literal_type
+
+    function parse_explicit_element_type(array_lit) result(explicit_type)
+        type(array_literal_node), intent(in) :: array_lit
+        type(mono_type_t) :: explicit_type
+        character(len=:), allocatable :: explicit_spec
+
+        explicit_type%kind = 0
+        explicit_type%size = 0
+
+        if (.not. allocated(array_lit%type_spec)) return
+
+        explicit_spec = trim(array_lit%type_spec)
+        if (len_trim(explicit_spec) == 0) return
+
+        explicit_type = mono_type_from_type_spec(explicit_spec)
+    end function parse_explicit_element_type
+
+    function build_empty_array_type(explicit_type) result(array_type)
+        type(mono_type_t), intent(in) :: explicit_type
+        type(mono_type_t) :: array_type
+        type(mono_type_t) :: element_type
+        type(mono_type_t), allocatable :: args(:)
+
+        element_type = explicit_type
+        if (element_type%kind <= 0) then
+            element_type = create_mono_type(TINT)
+        end if
+
+        allocate (args(1))
+        args(1) = element_type
+
+        array_type = create_mono_type(TARRAY, args=args)
+        array_type%size = 0
+        array_type%alloc_info%is_allocatable = .true.
+        array_type%alloc_info%needs_allocation_check = .true.
+        array_type%alloc_info%is_pointer = .false.
+        array_type%alloc_info%needs_allocatable_string = .false.
+    end function build_empty_array_type
+
+    function build_explicit_array_type(explicit_type, element_count) &
+        result(array_type)
+        type(mono_type_t), intent(in) :: explicit_type
+        integer, intent(in) :: element_count
+        type(mono_type_t) :: array_type
+        type(mono_type_t), allocatable :: args(:)
+
+        allocate (args(1))
+        args(1) = explicit_type
+        array_type = create_mono_type(TARRAY, args=args, &
+                                      array_size=element_count)
+    end function build_explicit_array_type
+
+    subroutine promote_array_element_types(arena, array_lit, get_type_fn, &
+                                           first_type, promoted_type, &
+                                           all_arrays, consistent_sizes, &
+                                           has_real, max_char_len, &
+                                           first_array_size)
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_literal_node), intent(in) :: array_lit
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t), intent(out) :: first_type
+        type(mono_type_t), intent(out) :: promoted_type
+        logical, intent(out) :: all_arrays
+        logical, intent(out) :: consistent_sizes
+        logical, intent(out) :: has_real
+        integer, intent(out) :: max_char_len
+        integer, intent(out) :: first_array_size
+        type(mono_type_t) :: element_type
+        integer :: i
+        integer :: elem_array_size
 
         first_type = resolve_constructor_element_type( &
                      arena, array_lit%element_indices(1), get_type_fn)
@@ -436,14 +491,10 @@ contains
         all_arrays = (first_type%kind == TARRAY)
         consistent_sizes = .true.
         max_char_len = 0
+        first_array_size = 0
 
-        if (all_arrays) then
-            first_array_size = first_type%size
-        end if
-
-        if (first_type%kind == TCHAR) then
-            max_char_len = first_type%size
-        end if
+        if (all_arrays) first_array_size = first_type%size
+        if (first_type%kind == TCHAR) max_char_len = first_type%size
 
         do i = 2, size(array_lit%element_indices)
             element_type = resolve_constructor_element_type( &
@@ -465,7 +516,8 @@ contains
             if (element_type%kind == TREAL) then
                 has_real = .true.
                 if (.not. all_arrays) promoted_type = create_mono_type(TREAL)
-            else if (element_type%kind == TARRAY .and. element_type%has_args()) then
+            else if (element_type%kind == TARRAY .and. &
+                     element_type%has_args()) then
                 if (element_type%get_args_count() > 0) then
                     promoted_type = element_type%get_arg(1)
                     if (promoted_type%kind == TREAL) then
@@ -474,56 +526,72 @@ contains
                 end if
             end if
         end do
+    end subroutine promote_array_element_types
+
+    function build_array_type_from_elements(element_count, first_type, &
+                                            promoted_type, all_arrays, &
+                                            consistent_sizes, has_real, &
+                                            max_char_len, first_array_size) &
+        result(array_type)
+        integer, intent(in) :: element_count
+        type(mono_type_t), intent(in) :: first_type
+        type(mono_type_t), intent(in) :: promoted_type
+        logical, intent(in) :: all_arrays
+        logical, intent(in) :: consistent_sizes
+        logical, intent(in) :: has_real
+        integer, intent(in) :: max_char_len
+        integer, intent(in) :: first_array_size
+        type(mono_type_t) :: array_type
+        type(mono_type_t) :: result_promoted
+        type(mono_type_t), allocatable :: args(:)
+        type(mono_type_t), allocatable :: inner_args(:)
+
+        result_promoted = promoted_type
 
         if (all_arrays .and. consistent_sizes) then
-            if (first_type%has_args() .and. first_type%get_args_count() > 0) then
+            if (first_type%has_args() .and. &
+                first_type%get_args_count() > 0) then
                 if (has_real) then
-                    promoted_type = create_mono_type(TREAL)
+                    result_promoted = create_mono_type(TREAL)
                 else
-                    promoted_type = first_type%get_arg(1)
+                    result_promoted = first_type%get_arg(1)
                 end if
             else
-                promoted_type = create_mono_type(TINT)
+                result_promoted = create_mono_type(TINT)
             end if
 
             allocate (inner_args(1))
-            inner_args(1) = promoted_type
+            inner_args(1) = result_promoted
 
             allocate (args(1))
             args(1) = create_mono_type(TARRAY, args=inner_args, &
                                        array_size=first_array_size)
-            typ = create_mono_type(TARRAY, args=args, &
-                                   array_size=size(array_lit%element_indices))
+            array_type = create_mono_type(TARRAY, args=args, &
+                                          array_size=element_count)
             deallocate (inner_args)
         else
-            if (has_real .and. promoted_type%kind == TINT) then
-                promoted_type = create_mono_type(TREAL)
+            if (has_real .and. result_promoted%kind == TINT) then
+                result_promoted = create_mono_type(TREAL)
             end if
 
-            if (promoted_type%kind == TCHAR .and. max_char_len > 0) then
-                promoted_type = create_mono_type(TCHAR, char_size=max_char_len)
+            if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
+                result_promoted = create_mono_type(TCHAR, &
+                                                   char_size=max_char_len)
             end if
 
             allocate (args(1))
-            args(1) = promoted_type
-            typ = create_mono_type(TARRAY, args=args, &
-                                   array_size=size(array_lit%element_indices))
+            args(1) = result_promoted
+            array_type = create_mono_type(TARRAY, args=args, &
+                                          array_size=element_count)
         end if
-    end function infer_array_literal_type
+    end function build_array_type_from_elements
 
     recursive function resolve_constructor_element_type(arena, element_index, &
                                                         get_type_fn) &
         result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_index
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: resolved_type
 
         resolved_type%kind = 0
@@ -541,18 +609,12 @@ contains
         end select
     end function resolve_constructor_element_type
 
-    recursive function resolve_implied_do_type(arena, loop_index, get_type_fn) &
+    recursive function resolve_implied_do_type(arena, loop_index, &
+                                               get_type_fn) &
         result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: loop_index
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: resolved_type
         type(mono_type_t) :: element_type
         integer :: i
@@ -573,7 +635,8 @@ contains
                 if (resolved_type%kind == 0) then
                     resolved_type = element_type
                 else
-                    resolved_type = get_common_type(resolved_type, element_type)
+                    resolved_type = get_common_type(resolved_type, &
+                                                    element_type)
                 end if
             end do
             if (resolved_type%kind == 0) resolved_type = create_mono_type(TINT)
@@ -599,14 +662,7 @@ contains
                                               lowered_name) result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         character(len=*), intent(in) :: lowered_name
         type(mono_type_t) :: typ
         type(mono_type_t) :: arg_type
@@ -626,7 +682,8 @@ contains
             call arg_type%sync_from_arena()
             element_type = arg_type
 
-            do while (element_type%kind == TARRAY .and. element_type%has_args())
+            do while (element_type%kind == TARRAY .and. &
+                      element_type%has_args())
                 element_type = element_type%get_arg(1)
                 call element_type%sync_from_arena()
             end do
@@ -657,14 +714,7 @@ contains
         result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
-        interface
-            function get_type_fn(a, idx) result(t)
-                import :: mono_type_t, ast_arena_t
-                type(ast_arena_t), intent(inout) :: a
-                integer, intent(in) :: idx
-                type(mono_type_t) :: t
-            end function get_type_fn
-        end interface
+        procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type
         type(mono_type_t) :: lhs_type
@@ -777,7 +827,8 @@ contains
             if (allocated(call_node%arg_indices) .and. &
                 size(call_node%arg_indices) >= 1) then
                 element_type = get_type_fn(arena, call_node%arg_indices(1))
-                if (element_type%kind == TARRAY .and. element_type%has_args()) then
+                if (element_type%kind == TARRAY .and. &
+                    element_type%has_args()) then
                     element_type = element_type%get_arg(1)
                 end if
             end if
