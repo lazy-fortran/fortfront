@@ -28,7 +28,7 @@ These examples are validated end-to-end:
 - `function_test.lf` - Basic function definitions and calls
 - `test_sem_intrinsic.lf` - Semantic intrinsic handling
 - `test_sem_scope.lf` - Variable scoping validation
-- `test_std_do.lf` - Do-loop generation
+- `test_sem_ctor.lf` - Array constructor handling
 
 ### Expression Regression Suite
 - `test_comparison_associativity.lf`, `test_unary_precedence.lf`, and
@@ -45,9 +45,6 @@ These examples are validated end-to-end:
 
 #### String Operations
 - `test_std_concat.lf` - String concatenation
-
-#### Control Flow
-- `test_std_do.lf` - Do loops
 
 #### Type System
 - `test_sem_intrinsic.lf` - Intrinsic function handling
