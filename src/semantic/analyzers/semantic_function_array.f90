@@ -47,40 +47,83 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
-        type(poly_type_t), allocatable :: scheme
-        type(mono_type_t) :: arg_type
-        type(mono_type_t) :: scheme_mono
-        type(mono_type_t) :: base_array_type
-        character(len=:), allocatable :: intrinsic_sig
         character(len=:), allocatable :: lowered_name
-        integer :: i
-        integer :: subscript_rank
         logical :: is_intrinsic_func
         logical :: has_function_scheme
-        logical :: treat_as_array_access
         type(mono_type_t), allocatable :: arg_types(:)
-        integer :: deduced_kind
 
         typ = create_mono_type(TREAL)
         is_intrinsic_func = .false.
         has_function_scheme = .false.
-        treat_as_array_access = .false.
 
-        if (allocated(call_node%arg_indices)) then
-            allocate (arg_types(size(call_node%arg_indices)))
-            do i = 1, size(call_node%arg_indices)
-                arg_type = get_type_fn(arena, call_node%arg_indices(i))
-                arg_types(i) = arg_type
-            end do
-        else
-            allocate (arg_types(0))
-        end if
+        call gather_call_argument_types(arena, call_node, get_type_fn, &
+                                        arg_types)
 
         if (allocated(call_node%name)) then
             lowered_name = to_lower(trim(call_node%name))
         else
             lowered_name = ""
         end if
+
+        call resolve_function_call_type(arena, call_node, scopes, get_type_fn, &
+                                        typ, is_intrinsic_func, &
+                                        has_function_scheme)
+
+        if (is_intrinsic_func) then
+            call refine_character_intrinsic_result(lowered_name, &
+                                                   arg_types, typ)
+        end if
+
+        call apply_array_access_rules(call_node, has_function_scheme, &
+                                      is_intrinsic_func, typ)
+
+        call refine_type_from_arguments(arg_types, typ)
+
+        if (is_intrinsic_func) then
+            select case (lowered_name)
+            case ("count")
+                typ = create_mono_type(TINT)
+            case ("any", "all")
+                typ = create_mono_type(TLOGICAL)
+            end select
+        end if
+    end function infer_function_call_type
+
+    subroutine gather_call_argument_types(arena, call_node, get_type_fn, &
+                                          arg_types)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t), allocatable, intent(out) :: arg_types(:)
+        integer :: i
+
+        if (allocated(call_node%arg_indices)) then
+            allocate (arg_types(size(call_node%arg_indices)))
+            do i = 1, size(call_node%arg_indices)
+                arg_types(i) = get_type_fn(arena, call_node%arg_indices(i))
+            end do
+        else
+            allocate (arg_types(0))
+        end if
+    end subroutine gather_call_argument_types
+
+    subroutine resolve_function_call_type(arena, call_node, scopes, &
+                                          get_type_fn, typ, &
+                                          is_intrinsic_func, &
+                                          has_function_scheme)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(inout) :: call_node
+        type(scope_stack_t), intent(inout) :: scopes
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t), intent(inout) :: typ
+        logical, intent(out) :: is_intrinsic_func
+        logical, intent(out) :: has_function_scheme
+        type(poly_type_t), allocatable :: scheme
+        type(mono_type_t) :: scheme_mono
+        character(len=:), allocatable :: intrinsic_sig
+
+        is_intrinsic_func = .false.
+        has_function_scheme = .false.
 
         if (allocated(call_node%name)) then
             call scopes%lookup(call_node%name, scheme)
@@ -94,46 +137,57 @@ contains
                 type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)
             end if
-        else if (allocated(call_node%name)) then
-            if (find_return_type(arena, call_node%name, typ)) then
-                has_function_scheme = .true.
-            else
-                is_intrinsic_func = is_intrinsic_function(call_node%name)
+            return
+        end if
 
-                if (is_intrinsic_func) then
-                    intrinsic_sig = get_intrinsic_signature(call_node%name)
+        if (.not. allocated(call_node%name)) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
 
-                    if (len_trim(intrinsic_sig) > 0) then
-                        if (index(intrinsic_sig, "real(") == 1) then
-                            typ = create_mono_type(TREAL)
-                        else if (index(intrinsic_sig, "integer(") == 1) then
-                            typ = create_mono_type(TINT)
-                        else if (index(intrinsic_sig, "logical(") == 1) then
-                            typ = create_mono_type(TLOGICAL)
-                        else if (index(intrinsic_sig, "character(") == 1) then
-                            typ = create_mono_type(TCHAR)
-                        else if (index(intrinsic_sig, "array(") == 1) then
-                            typ = infer_array_intrinsic_type(arena, &
-                                                             call_node, &
-                                                             get_type_fn)
-                        else
-                            typ = create_mono_type(TREAL)
-                        end if
-                    else
-                        typ = create_mono_type(TREAL)
-                    end if
-                else
-                    typ = create_mono_type(TREAL)
-                end if
-            end if
+        if (find_return_type(arena, call_node%name, typ)) then
+            has_function_scheme = .true.
+            return
+        end if
+
+        is_intrinsic_func = is_intrinsic_function(call_node%name)
+
+        if (.not. is_intrinsic_func) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
+
+        intrinsic_sig = get_intrinsic_signature(call_node%name)
+
+        if (len_trim(intrinsic_sig) <= 0) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
+
+        if (index(intrinsic_sig, "real(") == 1) then
+            typ = create_mono_type(TREAL)
+        else if (index(intrinsic_sig, "integer(") == 1) then
+            typ = create_mono_type(TINT)
+        else if (index(intrinsic_sig, "logical(") == 1) then
+            typ = create_mono_type(TLOGICAL)
+        else if (index(intrinsic_sig, "character(") == 1) then
+            typ = create_mono_type(TCHAR)
+        else if (index(intrinsic_sig, "array(") == 1) then
+            typ = infer_array_intrinsic_type(arena, call_node, get_type_fn)
         else
             typ = create_mono_type(TREAL)
         end if
+    end subroutine resolve_function_call_type
 
-        if (is_intrinsic_func) then
-            call refine_character_intrinsic_result(lowered_name, &
-                                                   arg_types, typ)
-        end if
+    subroutine apply_array_access_rules(call_node, has_function_scheme, &
+                                        is_intrinsic_func, typ)
+        type(call_or_subscript_node), intent(inout) :: call_node
+        logical, intent(in) :: has_function_scheme
+        logical, intent(in) :: is_intrinsic_func
+        type(mono_type_t), intent(inout) :: typ
+        integer :: subscript_rank
+        logical :: treat_as_array_access
+        type(mono_type_t) :: base_array_type
 
         subscript_rank = 0
         if (allocated(call_node%arg_indices)) subscript_rank = &
@@ -152,34 +206,29 @@ contains
             typ = base_array_type
             call_node%is_array_access = .true.
         end if
+    end subroutine apply_array_access_rules
 
-        if (allocated(arg_types)) then
-            deduced_kind = deduce_return_kind_from_args(arg_types)
-            if (deduced_kind > 0) then
-                select case (typ%kind)
-                case (TVAR)
-                    typ = create_mono_type(deduced_kind)
-                case (TREAL)
-                    if (deduced_kind /= TREAL) typ = &
-                        create_mono_type(deduced_kind)
-                case (TINT)
-                    if (deduced_kind /= TINT) typ = &
-                        create_mono_type(deduced_kind)
-                case default
-                    if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
-                end select
-            end if
-        end if
+    subroutine refine_type_from_arguments(arg_types, typ)
+        type(mono_type_t), intent(in) :: arg_types(:)
+        type(mono_type_t), intent(inout) :: typ
+        integer :: deduced_kind
 
-        if (is_intrinsic_func) then
-            select case (lowered_name)
-            case ("count")
-                typ = create_mono_type(TINT)
-            case ("any", "all")
-                typ = create_mono_type(TLOGICAL)
-            end select
-        end if
-    end function infer_function_call_type
+        if (size(arg_types) <= 0) return
+
+        deduced_kind = deduce_return_kind_from_args(arg_types)
+        if (deduced_kind <= 0) return
+
+        select case (typ%kind)
+        case (TVAR)
+            typ = create_mono_type(deduced_kind)
+        case (TREAL)
+            if (deduced_kind /= TREAL) typ = create_mono_type(deduced_kind)
+        case (TINT)
+            if (deduced_kind /= TINT) typ = create_mono_type(deduced_kind)
+        case default
+            if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
+        end select
+    end subroutine refine_type_from_arguments
 
     subroutine refine_character_intrinsic_result(name, arg_types, typ)
         character(len=*), intent(in) :: name
