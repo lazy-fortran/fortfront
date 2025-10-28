@@ -4,3 +4,4 @@
 
 intrinsic_functions.lf  # parser error - needs investigation
 chained_comparison.lf   # parser error - needs investigation
+issue_1784_subroutine_wrapping.lf  # transformation regression tracked in #1784

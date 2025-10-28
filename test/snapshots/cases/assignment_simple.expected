@@ -1,8 +1,6 @@
 program main
     implicit none
-    integer :: x
-    integer :: y
-    integer :: z
+    integer :: x, y, z
     x = 5
     y = 10
     z = x + y

@@ -2,7 +2,7 @@ program main
     implicit none
     integer :: a(3)
     integer :: b(3)
-    integer :: c(2)
+    integer :: c(3)
     a = [1, 2, 3]
     b = [4, 5, 6]
     c = a + b

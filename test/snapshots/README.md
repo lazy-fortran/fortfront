@@ -4,9 +4,9 @@ This directory contains snapshot tests for the fortfront transpiler. Snapshot te
 
 ## Structure
 
-Each test resides in the `cases/` subdirectory and consists of two files:
-- Input file: `.lf` or `.f90` file containing Fortran code
-- Expected output: `.expected` file containing the transpiled result
+Each test stores its canonical source in `examples/` and the expected snapshot in `test/snapshots/cases/`:
+- Input file: `examples/lf/<name>.lf` or `examples/f90/<name>.f90`
+- Expected output: `test/snapshots/cases/<name>.expected`
 
 ## Running Tests
 
@@ -23,12 +23,12 @@ Each test resides in the `cases/` subdirectory and consists of two files:
 
 ## Adding New Tests
 
-1. Create input file in `test/snapshots/cases/`:
+1. Add or update the canonical input under `examples/`:
    ```bash
-   echo 'x = 5' > test/snapshots/cases/my_test.lf
+   $EDITOR examples/lf/my_test.lf
    ```
 
-2. Generate expected output:
+2. Generate the expected output snapshot:
    ```bash
    ./test/run_snapshots.sh --update
    ```
@@ -38,9 +38,9 @@ Each test resides in the `cases/` subdirectory and consists of two files:
    git diff test/snapshots/cases/
    ```
 
-4. If correct, commit both files:
+4. If correct, commit the example and snapshot:
    ```bash
-   git add test/snapshots/cases/my_test.lf test/snapshots/cases/my_test.expected
+   git add examples/lf/my_test.lf test/snapshots/cases/my_test.expected
    git commit -m "test: add snapshot test for feature X"
    ```
 
@@ -69,13 +69,13 @@ When you modify the transpiler and output format changes:
 
 ## Current Test Coverage
 
-- `assignment_simple.lf` - Basic variable assignments
-- `array_constructor.lf` - Array literal syntax
-- `array_operations.lf` - Array arithmetic
-- `do_loop.lf` - DO loop constructs
-- `function_simple.lf` - Function definitions
-- `if_statement.lf` - Conditional statements
-- `logical_ops.lf` - Logical operators
-- `nested_loops.lf` - Nested loop structures
-- `string_concat.lf` - String concatenation
-- `subroutine_simple.f90` - Subroutine definitions
+- `examples/lf/assignment_simple.lf` - Basic variable assignments
+- `examples/lf/array_constructor.lf` - Array literal syntax
+- `examples/lf/array_operations.lf` - Array arithmetic
+- `examples/lf/do_loop.lf` - DO loop constructs
+- `examples/lf/function_simple.lf` - Function definitions
+- `examples/lf/if_statement.lf` - Conditional statements
+- `examples/lf/logical_ops.lf` - Logical operators
+- `examples/lf/nested_loops.lf` - Nested loop structures
+- `examples/lf/string_concat.lf` - String concatenation
+- `examples/f90/subroutine_simple.f90` - Subroutine definitions
