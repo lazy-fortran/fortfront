@@ -420,7 +420,6 @@ contains
         end do
     end function infer_array_slice_type
 
-
     pure logical function is_reduction_intrinsic(name) result(is_reduction)
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: lowered
@@ -492,37 +491,18 @@ contains
         type(call_or_subscript_node), intent(in) :: call_node
         procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
-        type(mono_type_t) :: element_type
-        type(mono_type_t) :: lhs_type
-        type(mono_type_t) :: rhs_type
-        type(mono_type_t) :: lhs_base
-        type(mono_type_t) :: rhs_base
-        type(mono_type_t) :: result_element
-        type(mono_type_t), allocatable :: args(:)
-        type(mono_type_t), allocatable :: arg_types(:)
-        integer :: ndims
-        integer :: i
-        character(len=:), allocatable :: func_name
         character(len=:), allocatable :: lowered_name
         integer :: num_args
-        integer :: lhs_rank
-        integer :: rhs_rank
 
+        lowered_name = ""
         if (allocated(call_node%name)) then
-            func_name = trim(call_node%name)
-        else
-            func_name = ""
+            lowered_name = to_lower(trim(call_node%name))
         end if
 
-        if (len_trim(func_name) > 0) then
-            lowered_name = to_lower(func_name)
-        else
-            lowered_name = ""
-        end if
-
-        num_args = 0
         if (allocated(call_node%arg_indices)) then
             num_args = size(call_node%arg_indices)
+        else
+            num_args = 0
         end if
 
         if (is_reduction_intrinsic(lowered_name)) then
@@ -533,133 +513,144 @@ contains
 
         select case (lowered_name)
         case ("matmul")
-            if (num_args < 2) then
-                element_type = create_mono_type(TREAL)
-                typ = build_deferred_shape_array(element_type, 1)
-                return
-            end if
-
-            allocate (arg_types(num_args))
-            do i = 1, num_args
-                arg_types(i) = get_type_fn(arena, call_node%arg_indices(i))
-                call arg_types(i)%sync_from_arena()
-            end do
-
-            lhs_type = arg_types(1)
-            rhs_type = arg_types(2)
-            call lhs_type%sync_from_arena()
-            call rhs_type%sync_from_arena()
-
-            lhs_rank = 0
-            rhs_rank = 0
-
-            lhs_base = lhs_type
-            do while (lhs_base%kind == TARRAY .and. lhs_base%has_args())
-                lhs_rank = lhs_rank + 1
-                lhs_base = lhs_base%get_arg(1)
-                call lhs_base%sync_from_arena()
-            end do
-
-            rhs_base = rhs_type
-            do while (rhs_base%kind == TARRAY .and. rhs_base%has_args())
-                rhs_rank = rhs_rank + 1
-                rhs_base = rhs_base%get_arg(1)
-                call rhs_base%sync_from_arena()
-            end do
-
-            lhs_base = collapse_array_rank(lhs_type, lhs_rank)
-            rhs_base = collapse_array_rank(rhs_type, rhs_rank)
-            call lhs_base%sync_from_arena()
-            call rhs_base%sync_from_arena()
-
-            result_element = get_common_type(lhs_base, rhs_base)
-            call result_element%sync_from_arena()
-
-            select case (lhs_rank)
-            case (2)
-                select case (rhs_rank)
-                case (2)
-                    typ = build_deferred_shape_array(result_element, 2)
-                    return
-                case (1)
-                    typ = build_deferred_shape_array(result_element, 1)
-                    return
-                end select
-            case (1)
-                select case (rhs_rank)
-                case (2)
-                    typ = build_deferred_shape_array(result_element, 1)
-                    return
-                case (1)
-                    typ = result_element
-                    return
-                end select
-            end select
-
-            typ = build_deferred_shape_array(result_element, 1)
-            return
+            typ = handle_matmul_intrinsic(arena, call_node, get_type_fn, &
+                                          num_args)
         case ("reshape")
-            element_type = create_mono_type(TREAL)
-            if (allocated(call_node%arg_indices) .and. &
-                size(call_node%arg_indices) >= 1) then
+            typ = handle_reshape_intrinsic(arena, call_node, get_type_fn)
+        case ("size")
+            typ = create_mono_type(TINT)
+        case ("lbound", "ubound")
+            typ = handle_bound_intrinsic(num_args)
+        case default
+            typ = handle_generic_array_intrinsic(lowered_name)
+        end select
+    end function infer_array_intrinsic_type
+
+    function handle_matmul_intrinsic(arena, call_node, get_type_fn, num_args) &
+        result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        integer, intent(in) :: num_args
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: lhs_type
+        type(mono_type_t) :: rhs_type
+        type(mono_type_t) :: lhs_base
+        type(mono_type_t) :: rhs_base
+        type(mono_type_t) :: result_element
+        type(mono_type_t), allocatable :: arg_types(:)
+        integer :: lhs_rank
+        integer :: rhs_rank
+        integer :: i
+
+        if (num_args < 2) then
+            typ = build_deferred_shape_array(create_mono_type(TREAL), 1)
+            return
+        end if
+
+        call gather_call_argument_types(arena, call_node, get_type_fn, arg_types)
+        do i = 1, size(arg_types)
+            call arg_types(i)%sync_from_arena()
+        end do
+
+        lhs_type = arg_types(1)
+        rhs_type = arg_types(2)
+        call lhs_type%sync_from_arena()
+        call rhs_type%sync_from_arena()
+
+        call extract_rank_and_base(lhs_type, lhs_rank, lhs_base)
+        call extract_rank_and_base(rhs_type, rhs_rank, rhs_base)
+
+        result_element = get_common_type(lhs_base, rhs_base)
+        call result_element%sync_from_arena()
+
+        typ = build_matmul_result(result_element, lhs_rank, rhs_rank)
+    end function handle_matmul_intrinsic
+
+    subroutine extract_rank_and_base(source_type, rank, base_type)
+        type(mono_type_t), intent(in) :: source_type
+        integer, intent(out) :: rank
+        type(mono_type_t), intent(out) :: base_type
+        type(mono_type_t) :: current
+
+        current = source_type
+        call current%sync_from_arena()
+        rank = 0
+        do while (current%kind == TARRAY .and. current%has_args())
+            rank = rank + 1
+            current = current%get_arg(1)
+            call current%sync_from_arena()
+        end do
+        base_type = current
+        call base_type%sync_from_arena()
+    end subroutine extract_rank_and_base
+
+    function build_matmul_result(result_element, lhs_rank, rhs_rank) result(typ)
+        type(mono_type_t), intent(in) :: result_element
+        integer, intent(in) :: lhs_rank
+        integer, intent(in) :: rhs_rank
+        type(mono_type_t) :: typ
+
+        if (lhs_rank == 2 .and. rhs_rank == 2) then
+            typ = build_deferred_shape_array(result_element, 2)
+        else if ((lhs_rank == 2 .and. rhs_rank == 1) .or. &
+                 (lhs_rank == 1 .and. rhs_rank == 2)) then
+            typ = build_deferred_shape_array(result_element, 1)
+        else if (lhs_rank == 1 .and. rhs_rank == 1) then
+            typ = result_element
+        else
+            typ = build_deferred_shape_array(result_element, 1)
+        end if
+    end function build_matmul_result
+
+    function handle_reshape_intrinsic(arena, call_node, get_type_fn) result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: element_type
+        integer :: ndims
+
+        element_type = create_mono_type(TREAL)
+        ndims = 0
+        if (allocated(call_node%arg_indices)) then
+            if (size(call_node%arg_indices) >= 1) then
                 element_type = get_type_fn(arena, call_node%arg_indices(1))
                 if (element_type%kind == TARRAY .and. &
                     element_type%has_args()) then
                     element_type = element_type%get_arg(1)
                 end if
             end if
-
-            ndims = 0
-            if (allocated(call_node%arg_indices) .and. &
-                size(call_node%arg_indices) >= 2) then
+            if (size(call_node%arg_indices) >= 2) then
                 ndims = infer_reshape_dimensions(arena, &
                                                  call_node%arg_indices(2))
             end if
+        end if
 
-            if (ndims > 0) then
-                typ = element_type
-                do i = 1, ndims
-                    allocate (args(1))
-                    args(1) = typ
-                    typ = create_mono_type(TARRAY, args=args)
-                    typ%size = 0
-                    typ%alloc_info%is_allocatable = .true.
-                    typ%alloc_info%needs_allocation_check = .true.
-                    typ%alloc_info%is_pointer = .false.
-                    typ%alloc_info%needs_allocatable_string = .false.
-                    deallocate (args)
-                end do
-            else
-                allocate (args(1))
-                args(1) = element_type
-                typ = create_mono_type(TARRAY, args=args)
-                typ%size = 0
-                typ%alloc_info%is_allocatable = .true.
-                typ%alloc_info%needs_allocation_check = .true.
-                typ%alloc_info%is_pointer = .false.
-                typ%alloc_info%needs_allocatable_string = .false.
-                deallocate (args)
-            end if
-            return
-        case ("size")
-            typ = create_mono_type(TINT)
-            return
-        case ("lbound", "ubound")
-            if (num_args >= 2) then
-                typ = create_mono_type(TINT)
-            else
-                allocate (args(1))
-                args(1) = create_mono_type(TINT)
-                typ = create_mono_type(TARRAY, args=args)
-                typ%size = 0
-                typ%alloc_info%is_allocatable = .true.
-                typ%alloc_info%needs_allocation_check = .true.
-                typ%alloc_info%is_pointer = .false.
-                typ%alloc_info%needs_allocatable_string = .false.
-                deallocate (args)
-            end if
-            return
-        end select
+        if (ndims <= 0) then
+            typ = build_deferred_shape_array(element_type, 1)
+        else
+            typ = build_deferred_shape_array(element_type, ndims)
+        end if
+    end function handle_reshape_intrinsic
+
+    function handle_bound_intrinsic(num_args) result(typ)
+        integer, intent(in) :: num_args
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: integer_type
+
+        integer_type = create_mono_type(TINT)
+        if (num_args >= 2) then
+            typ = integer_type
+        else
+            typ = build_deferred_shape_array(integer_type, 1)
+        end if
+    end function handle_bound_intrinsic
+
+    function handle_generic_array_intrinsic(lowered_name) result(typ)
+        character(len=*), intent(in) :: lowered_name
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: element_type
 
         select case (lowered_name)
         case ("shape", "maxloc", "minloc")
@@ -670,16 +661,8 @@ contains
             element_type = create_mono_type(TREAL)
         end select
 
-        allocate (args(1))
-        args(1) = element_type
-        typ = create_mono_type(TARRAY, args=args)
-        typ%size = 0
-        typ%alloc_info%is_allocatable = .true.
-        typ%alloc_info%needs_allocation_check = .true.
-        typ%alloc_info%is_pointer = .false.
-        typ%alloc_info%needs_allocatable_string = .false.
-        deallocate (args)
-    end function infer_array_intrinsic_type
+        typ = build_deferred_shape_array(element_type, 1)
+    end function handle_generic_array_intrinsic
 
     function infer_reshape_dimensions(arena, shape_idx) result(ndims)
         type(ast_arena_t), intent(in) :: arena
