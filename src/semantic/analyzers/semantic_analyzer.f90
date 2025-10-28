@@ -39,7 +39,8 @@ module semantic_analyzer
     use semantic_literal_identifier, only: infer_literal_type, infer_identifier_type
     use semantic_binary_ops_core, only: infer_binary_operation, rewrite_operator
     use semantic_function_array, only: infer_function_call_type, &
-                                       infer_array_slice_type, infer_array_literal_type
+                                       infer_array_slice_type
+    use semantic_array_literal, only: infer_array_literal_type
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
