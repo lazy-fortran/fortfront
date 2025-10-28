@@ -20,6 +20,7 @@ module semantic_function_array
     use semantic_array_type_builders, only: collapse_array_rank, &
                                             build_deferred_shape_array
     use semantic_type_operations, only: get_common_type
+    use semantic_array_literal, only: infer_array_literal_type
     implicit none
 
     abstract interface
@@ -35,7 +36,6 @@ module semantic_function_array
 
     public :: infer_function_call_type
     public :: infer_array_slice_type
-    public :: infer_array_literal_type
     public :: find_return_type
 
 contains
@@ -47,40 +47,83 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
-        type(poly_type_t), allocatable :: scheme
-        type(mono_type_t) :: arg_type
-        type(mono_type_t) :: scheme_mono
-        type(mono_type_t) :: base_array_type
-        character(len=:), allocatable :: intrinsic_sig
         character(len=:), allocatable :: lowered_name
-        integer :: i
-        integer :: subscript_rank
         logical :: is_intrinsic_func
         logical :: has_function_scheme
-        logical :: treat_as_array_access
         type(mono_type_t), allocatable :: arg_types(:)
-        integer :: deduced_kind
 
         typ = create_mono_type(TREAL)
         is_intrinsic_func = .false.
         has_function_scheme = .false.
-        treat_as_array_access = .false.
 
-        if (allocated(call_node%arg_indices)) then
-            allocate (arg_types(size(call_node%arg_indices)))
-            do i = 1, size(call_node%arg_indices)
-                arg_type = get_type_fn(arena, call_node%arg_indices(i))
-                arg_types(i) = arg_type
-            end do
-        else
-            allocate (arg_types(0))
-        end if
+        call gather_call_argument_types(arena, call_node, get_type_fn, &
+                                        arg_types)
 
         if (allocated(call_node%name)) then
             lowered_name = to_lower(trim(call_node%name))
         else
             lowered_name = ""
         end if
+
+        call resolve_function_call_type(arena, call_node, scopes, get_type_fn, &
+                                        typ, is_intrinsic_func, &
+                                        has_function_scheme)
+
+        if (is_intrinsic_func) then
+            call refine_character_intrinsic_result(lowered_name, &
+                                                   arg_types, typ)
+        end if
+
+        call apply_array_access_rules(call_node, has_function_scheme, &
+                                      is_intrinsic_func, typ)
+
+        call refine_type_from_arguments(arg_types, typ)
+
+        if (is_intrinsic_func) then
+            select case (lowered_name)
+            case ("count")
+                typ = create_mono_type(TINT)
+            case ("any", "all")
+                typ = create_mono_type(TLOGICAL)
+            end select
+        end if
+    end function infer_function_call_type
+
+    subroutine gather_call_argument_types(arena, call_node, get_type_fn, &
+                                          arg_types)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t), allocatable, intent(out) :: arg_types(:)
+        integer :: i
+
+        if (allocated(call_node%arg_indices)) then
+            allocate (arg_types(size(call_node%arg_indices)))
+            do i = 1, size(call_node%arg_indices)
+                arg_types(i) = get_type_fn(arena, call_node%arg_indices(i))
+            end do
+        else
+            allocate (arg_types(0))
+        end if
+    end subroutine gather_call_argument_types
+
+    subroutine resolve_function_call_type(arena, call_node, scopes, &
+                                          get_type_fn, typ, &
+                                          is_intrinsic_func, &
+                                          has_function_scheme)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(inout) :: call_node
+        type(scope_stack_t), intent(inout) :: scopes
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t), intent(inout) :: typ
+        logical, intent(out) :: is_intrinsic_func
+        logical, intent(out) :: has_function_scheme
+        type(poly_type_t), allocatable :: scheme
+        type(mono_type_t) :: scheme_mono
+        character(len=:), allocatable :: intrinsic_sig
+
+        is_intrinsic_func = .false.
+        has_function_scheme = .false.
 
         if (allocated(call_node%name)) then
             call scopes%lookup(call_node%name, scheme)
@@ -94,46 +137,57 @@ contains
                 type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)
             end if
-        else if (allocated(call_node%name)) then
-            if (find_return_type(arena, call_node%name, typ)) then
-                has_function_scheme = .true.
-            else
-                is_intrinsic_func = is_intrinsic_function(call_node%name)
+            return
+        end if
 
-                if (is_intrinsic_func) then
-                    intrinsic_sig = get_intrinsic_signature(call_node%name)
+        if (.not. allocated(call_node%name)) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
 
-                    if (len_trim(intrinsic_sig) > 0) then
-                        if (index(intrinsic_sig, "real(") == 1) then
-                            typ = create_mono_type(TREAL)
-                        else if (index(intrinsic_sig, "integer(") == 1) then
-                            typ = create_mono_type(TINT)
-                        else if (index(intrinsic_sig, "logical(") == 1) then
-                            typ = create_mono_type(TLOGICAL)
-                        else if (index(intrinsic_sig, "character(") == 1) then
-                            typ = create_mono_type(TCHAR)
-                        else if (index(intrinsic_sig, "array(") == 1) then
-                            typ = infer_array_intrinsic_type(arena, &
-                                                             call_node, &
-                                                             get_type_fn)
-                        else
-                            typ = create_mono_type(TREAL)
-                        end if
-                    else
-                        typ = create_mono_type(TREAL)
-                    end if
-                else
-                    typ = create_mono_type(TREAL)
-                end if
-            end if
+        if (find_return_type(arena, call_node%name, typ)) then
+            has_function_scheme = .true.
+            return
+        end if
+
+        is_intrinsic_func = is_intrinsic_function(call_node%name)
+
+        if (.not. is_intrinsic_func) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
+
+        intrinsic_sig = get_intrinsic_signature(call_node%name)
+
+        if (len_trim(intrinsic_sig) <= 0) then
+            typ = create_mono_type(TREAL)
+            return
+        end if
+
+        if (index(intrinsic_sig, "real(") == 1) then
+            typ = create_mono_type(TREAL)
+        else if (index(intrinsic_sig, "integer(") == 1) then
+            typ = create_mono_type(TINT)
+        else if (index(intrinsic_sig, "logical(") == 1) then
+            typ = create_mono_type(TLOGICAL)
+        else if (index(intrinsic_sig, "character(") == 1) then
+            typ = create_mono_type(TCHAR)
+        else if (index(intrinsic_sig, "array(") == 1) then
+            typ = infer_array_intrinsic_type(arena, call_node, get_type_fn)
         else
             typ = create_mono_type(TREAL)
         end if
+    end subroutine resolve_function_call_type
 
-        if (is_intrinsic_func) then
-            call refine_character_intrinsic_result(lowered_name, &
-                                                   arg_types, typ)
-        end if
+    subroutine apply_array_access_rules(call_node, has_function_scheme, &
+                                        is_intrinsic_func, typ)
+        type(call_or_subscript_node), intent(inout) :: call_node
+        logical, intent(in) :: has_function_scheme
+        logical, intent(in) :: is_intrinsic_func
+        type(mono_type_t), intent(inout) :: typ
+        integer :: subscript_rank
+        logical :: treat_as_array_access
+        type(mono_type_t) :: base_array_type
 
         subscript_rank = 0
         if (allocated(call_node%arg_indices)) subscript_rank = &
@@ -152,34 +206,29 @@ contains
             typ = base_array_type
             call_node%is_array_access = .true.
         end if
+    end subroutine apply_array_access_rules
 
-        if (allocated(arg_types)) then
-            deduced_kind = deduce_return_kind_from_args(arg_types)
-            if (deduced_kind > 0) then
-                select case (typ%kind)
-                case (TVAR)
-                    typ = create_mono_type(deduced_kind)
-                case (TREAL)
-                    if (deduced_kind /= TREAL) typ = &
-                        create_mono_type(deduced_kind)
-                case (TINT)
-                    if (deduced_kind /= TINT) typ = &
-                        create_mono_type(deduced_kind)
-                case default
-                    if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
-                end select
-            end if
-        end if
+    subroutine refine_type_from_arguments(arg_types, typ)
+        type(mono_type_t), intent(in) :: arg_types(:)
+        type(mono_type_t), intent(inout) :: typ
+        integer :: deduced_kind
 
-        if (is_intrinsic_func) then
-            select case (lowered_name)
-            case ("count")
-                typ = create_mono_type(TINT)
-            case ("any", "all")
-                typ = create_mono_type(TLOGICAL)
-            end select
-        end if
-    end function infer_function_call_type
+        if (size(arg_types) <= 0) return
+
+        deduced_kind = deduce_return_kind_from_args(arg_types)
+        if (deduced_kind <= 0) return
+
+        select case (typ%kind)
+        case (TVAR)
+            typ = create_mono_type(deduced_kind)
+        case (TREAL)
+            if (deduced_kind /= TREAL) typ = create_mono_type(deduced_kind)
+        case (TINT)
+            if (deduced_kind /= TINT) typ = create_mono_type(deduced_kind)
+        case default
+            if (typ%kind <= 0) typ = create_mono_type(deduced_kind)
+        end select
+    end subroutine refine_type_from_arguments
 
     subroutine refine_character_intrinsic_result(name, arg_types, typ)
         character(len=*), intent(in) :: name
@@ -371,279 +420,6 @@ contains
         end do
     end function infer_array_slice_type
 
-    function infer_array_literal_type(arena, array_lit, get_type_fn) &
-        result(typ)
-        type(ast_arena_t), intent(inout) :: arena
-        type(array_literal_node), intent(in) :: array_lit
-        procedure(get_type_lookup) :: get_type_fn
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: explicit_type
-        type(mono_type_t) :: first_type
-        type(mono_type_t) :: promoted_type
-        logical :: all_arrays
-        logical :: consistent_sizes
-        logical :: has_real
-        integer :: elem_count
-        integer :: first_array_size
-        integer :: max_char_len
-
-        explicit_type = parse_explicit_element_type(array_lit)
-
-        if (.not. allocated(array_lit%element_indices) .or. &
-            size(array_lit%element_indices) == 0) then
-            typ = build_empty_array_type(explicit_type)
-            return
-        end if
-
-        elem_count = size(array_lit%element_indices)
-
-        if (explicit_type%kind > 0) then
-            typ = build_explicit_array_type(explicit_type, elem_count)
-            return
-        end if
-
-        call promote_array_element_types(arena, array_lit, get_type_fn, &
-                                         first_type, promoted_type, &
-                                         all_arrays, consistent_sizes, &
-                                         has_real, &
-                                         max_char_len, first_array_size)
-
-        typ = build_array_type_from_elements(elem_count, first_type, &
-                                             promoted_type, all_arrays, &
-                                             consistent_sizes, has_real, &
-                                             max_char_len, first_array_size)
-    end function infer_array_literal_type
-
-    function parse_explicit_element_type(array_lit) result(explicit_type)
-        type(array_literal_node), intent(in) :: array_lit
-        type(mono_type_t) :: explicit_type
-        character(len=:), allocatable :: explicit_spec
-
-        explicit_type%kind = 0
-        explicit_type%size = 0
-
-        if (.not. allocated(array_lit%type_spec)) return
-
-        explicit_spec = trim(array_lit%type_spec)
-        if (len_trim(explicit_spec) == 0) return
-
-        explicit_type = mono_type_from_type_spec(explicit_spec)
-    end function parse_explicit_element_type
-
-    function build_empty_array_type(explicit_type) result(array_type)
-        type(mono_type_t), intent(in) :: explicit_type
-        type(mono_type_t) :: array_type
-        type(mono_type_t) :: element_type
-        type(mono_type_t), allocatable :: args(:)
-
-        element_type = explicit_type
-        if (element_type%kind <= 0) then
-            element_type = create_mono_type(TINT)
-        end if
-
-        allocate (args(1))
-        args(1) = element_type
-
-        array_type = create_mono_type(TARRAY, args=args)
-        array_type%size = 0
-        array_type%alloc_info%is_allocatable = .true.
-        array_type%alloc_info%needs_allocation_check = .true.
-        array_type%alloc_info%is_pointer = .false.
-        array_type%alloc_info%needs_allocatable_string = .false.
-    end function build_empty_array_type
-
-    function build_explicit_array_type(explicit_type, element_count) &
-        result(array_type)
-        type(mono_type_t), intent(in) :: explicit_type
-        integer, intent(in) :: element_count
-        type(mono_type_t) :: array_type
-        type(mono_type_t), allocatable :: args(:)
-
-        allocate (args(1))
-        args(1) = explicit_type
-        array_type = create_mono_type(TARRAY, args=args, &
-                                      array_size=element_count)
-    end function build_explicit_array_type
-
-    subroutine promote_array_element_types(arena, array_lit, get_type_fn, &
-                                           first_type, promoted_type, &
-                                           all_arrays, consistent_sizes, &
-                                           has_real, max_char_len, &
-                                           first_array_size)
-        type(ast_arena_t), intent(inout) :: arena
-        type(array_literal_node), intent(in) :: array_lit
-        procedure(get_type_lookup) :: get_type_fn
-        type(mono_type_t), intent(out) :: first_type
-        type(mono_type_t), intent(out) :: promoted_type
-        logical, intent(out) :: all_arrays
-        logical, intent(out) :: consistent_sizes
-        logical, intent(out) :: has_real
-        integer, intent(out) :: max_char_len
-        integer, intent(out) :: first_array_size
-        type(mono_type_t) :: element_type
-        integer :: i
-        integer :: elem_array_size
-
-        first_type = resolve_constructor_element_type( &
-                     arena, array_lit%element_indices(1), get_type_fn)
-        promoted_type = first_type
-        has_real = (first_type%kind == TREAL)
-        all_arrays = (first_type%kind == TARRAY)
-        consistent_sizes = .true.
-        max_char_len = 0
-        first_array_size = 0
-
-        if (all_arrays) first_array_size = first_type%size
-        if (first_type%kind == TCHAR) max_char_len = first_type%size
-
-        do i = 2, size(array_lit%element_indices)
-            element_type = resolve_constructor_element_type( &
-                           arena, array_lit%element_indices(i), get_type_fn)
-
-            if (all_arrays .and. element_type%kind /= TARRAY) then
-                all_arrays = .false.
-            else if (all_arrays .and. element_type%kind == TARRAY) then
-                elem_array_size = element_type%size
-                if (elem_array_size /= first_array_size) then
-                    consistent_sizes = .false.
-                end if
-            end if
-
-            if (element_type%kind == TCHAR) then
-                max_char_len = max(max_char_len, element_type%size)
-            end if
-
-            if (element_type%kind == TREAL) then
-                has_real = .true.
-                if (.not. all_arrays) promoted_type = create_mono_type(TREAL)
-            else if (element_type%kind == TARRAY .and. &
-                     element_type%has_args()) then
-                if (element_type%get_args_count() > 0) then
-                    promoted_type = element_type%get_arg(1)
-                    if (promoted_type%kind == TREAL) then
-                        has_real = .true.
-                    end if
-                end if
-            end if
-        end do
-    end subroutine promote_array_element_types
-
-    function build_array_type_from_elements(element_count, first_type, &
-                                            promoted_type, all_arrays, &
-                                            consistent_sizes, has_real, &
-                                            max_char_len, first_array_size) &
-        result(array_type)
-        integer, intent(in) :: element_count
-        type(mono_type_t), intent(in) :: first_type
-        type(mono_type_t), intent(in) :: promoted_type
-        logical, intent(in) :: all_arrays
-        logical, intent(in) :: consistent_sizes
-        logical, intent(in) :: has_real
-        integer, intent(in) :: max_char_len
-        integer, intent(in) :: first_array_size
-        type(mono_type_t) :: array_type
-        type(mono_type_t) :: result_promoted
-        type(mono_type_t), allocatable :: args(:)
-        type(mono_type_t), allocatable :: inner_args(:)
-
-        result_promoted = promoted_type
-
-        if (all_arrays .and. consistent_sizes) then
-            if (first_type%has_args() .and. &
-                first_type%get_args_count() > 0) then
-                if (has_real) then
-                    result_promoted = create_mono_type(TREAL)
-                else
-                    result_promoted = first_type%get_arg(1)
-                end if
-            else
-                result_promoted = create_mono_type(TINT)
-            end if
-
-            allocate (inner_args(1))
-            inner_args(1) = result_promoted
-
-            allocate (args(1))
-            args(1) = create_mono_type(TARRAY, args=inner_args, &
-                                       array_size=first_array_size)
-            array_type = create_mono_type(TARRAY, args=args, &
-                                          array_size=element_count)
-            deallocate (inner_args)
-        else
-            if (has_real .and. result_promoted%kind == TINT) then
-                result_promoted = create_mono_type(TREAL)
-            end if
-
-            if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
-                result_promoted = create_mono_type(TCHAR, &
-                                                   char_size=max_char_len)
-            end if
-
-            allocate (args(1))
-            args(1) = result_promoted
-            array_type = create_mono_type(TARRAY, args=args, &
-                                          array_size=element_count)
-        end if
-    end function build_array_type_from_elements
-
-    recursive function resolve_constructor_element_type(arena, element_index, &
-                                                        get_type_fn) &
-        result(resolved_type)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: element_index
-        procedure(get_type_lookup) :: get_type_fn
-        type(mono_type_t) :: resolved_type
-
-        resolved_type%kind = 0
-        resolved_type%size = 0
-        if (element_index <= 0) return
-        if (element_index > arena%size) return
-        if (.not. allocated(arena%entries(element_index)%node)) return
-
-        select type (element_node => arena%entries(element_index)%node)
-        type is (do_loop_node)
-            resolved_type = resolve_implied_do_type(arena, element_index, &
-                                                    get_type_fn)
-        class default
-            resolved_type = get_type_fn(arena, element_index)
-        end select
-    end function resolve_constructor_element_type
-
-    recursive function resolve_implied_do_type(arena, loop_index, &
-                                               get_type_fn) &
-        result(resolved_type)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: loop_index
-        procedure(get_type_lookup) :: get_type_fn
-        type(mono_type_t) :: resolved_type
-        type(mono_type_t) :: element_type
-        integer :: i
-
-        resolved_type%kind = 0
-        resolved_type%size = 0
-        if (loop_index <= 0) return
-        if (loop_index > arena%size) return
-        if (.not. allocated(arena%entries(loop_index)%node)) return
-
-        select type (loop_node => arena%entries(loop_index)%node)
-        type is (do_loop_node)
-            if (.not. allocated(loop_node%body_indices)) return
-            do i = 1, size(loop_node%body_indices)
-                element_type = resolve_constructor_element_type( &
-                               arena, loop_node%body_indices(i), get_type_fn)
-                if (element_type%kind == 0) cycle
-                if (resolved_type%kind == 0) then
-                    resolved_type = element_type
-                else
-                    resolved_type = get_common_type(resolved_type, &
-                                                    element_type)
-                end if
-            end do
-            if (resolved_type%kind == 0) resolved_type = create_mono_type(TINT)
-        class default
-            resolved_type = get_type_fn(arena, loop_index)
-        end select
-    end function resolve_implied_do_type
 
     pure logical function is_reduction_intrinsic(name) result(is_reduction)
         character(len=*), intent(in) :: name
@@ -904,76 +680,6 @@ contains
         typ%alloc_info%needs_allocatable_string = .false.
         deallocate (args)
     end function infer_array_intrinsic_type
-
-    function mono_type_from_type_spec(type_spec) result(explicit_type)
-        character(len=*), intent(in) :: type_spec
-        type(mono_type_t) :: explicit_type
-        character(len=:), allocatable :: trimmed
-        character(len=:), allocatable :: lowered
-        integer :: char_len
-
-        explicit_type%kind = 0
-        explicit_type%size = 0
-
-        trimmed = adjustl(trim(type_spec))
-        if (len_trim(trimmed) == 0) return
-
-        lowered = to_lower(trimmed)
-
-        if (index(lowered, 'double precision') == 1) then
-            explicit_type = create_mono_type(TDOUBLE)
-            return
-        else if (index(lowered, 'integer') == 1) then
-            explicit_type = create_mono_type(TINT)
-            return
-        else if (index(lowered, 'real') == 1) then
-            explicit_type = create_mono_type(TREAL)
-            return
-        else if (index(lowered, 'logical') == 1) then
-            explicit_type = create_mono_type(TLOGICAL)
-            return
-        else if (index(lowered, 'complex') == 1) then
-            explicit_type = create_mono_type(TCOMPLEX)
-            return
-        else if (index(lowered, 'character') == 1) then
-            char_len = extract_first_integer(trimmed)
-            if (char_len > 0) then
-                explicit_type = create_mono_type(TCHAR, char_size=char_len)
-            else
-                explicit_type = create_mono_type(TCHAR)
-            end if
-            return
-        end if
-    end function mono_type_from_type_spec
-
-    pure function extract_first_integer(text) result(value)
-        character(len=*), intent(in) :: text
-        integer :: value
-        integer :: i
-        integer :: buf_len
-        character(len=32) :: buffer
-        integer :: ios
-
-        value = -1
-        buf_len = 0
-        buffer = ' '
-
-        do i = 1, len_trim(text)
-            if (text(i:i) >= '0' .and. text(i:i) <= '9') then
-                if (buf_len < len(buffer)) then
-                    buf_len = buf_len + 1
-                    buffer(buf_len:buf_len) = text(i:i)
-                end if
-            else if (buf_len > 0) then
-                exit
-            end if
-        end do
-
-        if (buf_len > 0) then
-            read (buffer(1:buf_len), *, iostat=ios) value
-            if (ios /= 0) value = -1
-        end if
-    end function extract_first_integer
 
     function infer_reshape_dimensions(arena, shape_idx) result(ndims)
         type(ast_arena_t), intent(in) :: arena
