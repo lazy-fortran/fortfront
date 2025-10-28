@@ -16,7 +16,7 @@ module semantic_parameter_analysis
                                      infer_identifier_type_from_context, &
                                      infer_expression_type_static
     use semantic_procedure_utils, only: declaration_type_to_mono
-    use semantic_function_array, only: find_return_type
+    use semantic_function_helpers, only: find_return_type
     implicit none
     private
 
