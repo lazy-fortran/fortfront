@@ -17,7 +17,8 @@ contains
         type(ast_arena_t) :: arena
         integer :: prog_index
 
-        call read_example('examples/f90/issue_2018_function_returns_array_duplicate_var.f90', source)
+        call read_example('examples/f90/issue_2018_function_returns_array_'// &
+                          'duplicate_var.f90', source)
 
         arena = create_ast_arena()
         call lex_source(source, tokens, error_msg)
@@ -35,7 +36,8 @@ contains
         call emit_fortran(arena, prog_index, output)
 
         if (count_occurrences(output, 'integer :: i') /= 2) then
-            print *, "FAIL: Expected exactly 2 'integer :: i' declarations (one in main, one in function)"
+            print *, "FAIL: Expected exactly 2 'integer :: i' declarations " // &
+                "(one in main, one in function)"
             print *, "Output:", output
             error stop 1
         end if
@@ -51,16 +53,26 @@ contains
     integer function count_occurrences(text, pattern)
         character(*), intent(in) :: text
         character(*), intent(in) :: pattern
-        integer :: pos, count
+        integer :: count
+        integer :: search_pos
+        integer :: found_pos
+        integer :: pattern_len
+
+        pattern_len = len_trim(pattern)
+        if (pattern_len == 0) then
+            count_occurrences = 0
+            return
+        end if
 
         count = 0
-        pos = 1
+        search_pos = 1
 
         do
-            pos = index(text(pos:), pattern)
-            if (pos == 0) exit
+            if (search_pos > len(text)) exit
+            found_pos = index(text(search_pos:), pattern(1:pattern_len))
+            if (found_pos == 0) exit
             count = count + 1
-            pos = pos + len(pattern)
+            search_pos = search_pos + found_pos + pattern_len - 1
         end do
 
         count_occurrences = count

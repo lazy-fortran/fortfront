@@ -341,16 +341,6 @@ contains
             if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
-            type is (declaration_node)
-                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                    call collect_explicit_declarations_multi(stmt%var_names, param_map, &
-                                                             local_vars, n_locals, &
-                                                             capacity, result_name)
-                else if (allocated(stmt%var_name)) then
-                    call collect_explicit_declaration(stmt%var_name, param_map, &
-                                                      local_vars, n_locals, capacity, &
-                                                      result_name)
-                end if
             type is (assignment_node)
                 if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
                 if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
@@ -388,8 +378,9 @@ contains
                                             n_locals, capacity, result_name, &
                                             decl_code)
             type is (do_loop_node)
-                call collect_loop_var(stmt, param_map, local_vars, n_locals, &
-                                      capacity, result_name, decl_code)
+                call collect_loop_var(arena, func, i, stmt, param_map, &
+                                      local_vars, n_locals, capacity, &
+                                      result_name, decl_code)
             end select
         end do
     end function collect_local_variable_decls
@@ -476,8 +467,12 @@ contains
         end do
     end subroutine collect_vars_from_read
 
-    subroutine collect_loop_var(loop_node, param_map, local_vars, n_locals, &
-                                capacity, result_name, decl_code)
+    subroutine collect_loop_var(arena, func, stmt_position, loop_node, param_map, &
+                                local_vars, n_locals, capacity, result_name, &
+                                decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        integer, intent(in) :: stmt_position
         type(do_loop_node), intent(in) :: loop_node
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=64), allocatable, intent(inout) :: local_vars(:)
@@ -495,6 +490,7 @@ contains
         if (len_trim(result_name) > 0 .and. var_name == result_name) return
         if (is_parameter_name(var_name, param_map)) return
         if (index(decl_code, "integer :: "//trim(var_name)) > 0) return
+        if (has_explicit_loop_declaration(arena, func, stmt_position, var_name)) return
 
         if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
             call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
@@ -505,44 +501,43 @@ contains
         end if
     end subroutine collect_loop_var
 
-    subroutine collect_explicit_declaration(var_name_str, param_map, local_vars, &
-                                            n_locals, capacity, result_name)
-        character(len=*), intent(in) :: var_name_str
-        type(parameter_info_t), intent(in) :: param_map(:)
-        character(len=64), allocatable, intent(inout) :: local_vars(:)
-        integer, intent(inout) :: n_locals
-        integer, intent(inout) :: capacity
-        character(len=*), intent(in) :: result_name
-        character(len=64) :: var_name
+    logical function has_explicit_loop_declaration(arena, func, stmt_position, &
+                                                   var_name) &
+        result(has_decl)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        integer, intent(in) :: stmt_position
+        character(len=*), intent(in) :: var_name
+        integer :: idx
+        integer :: stmt_idx
+        integer :: name_idx
 
-        var_name = trim(var_name_str)
-        if (len_trim(var_name) == 0) return
-        if (len_trim(result_name) > 0 .and. var_name == result_name) return
-        if (is_parameter_name(var_name, param_map)) return
+        has_decl = .false.
+        if (.not. allocated(func%body_indices)) return
+        if (stmt_position <= 1) return
 
-        if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
-            call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
-            n_locals = n_locals + 1
-            local_vars(n_locals) = var_name
-        end if
-    end subroutine collect_explicit_declaration
+        do idx = 1, stmt_position - 1
+            stmt_idx = func%body_indices(idx)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
-    subroutine collect_explicit_declarations_multi(var_names_arr, param_map, &
-                                                   local_vars, n_locals, capacity, &
-                                                   result_name)
-        character(len=*), intent(in) :: var_names_arr(:)
-        type(parameter_info_t), intent(in) :: param_map(:)
-        character(len=64), allocatable, intent(inout) :: local_vars(:)
-        integer, intent(inout) :: n_locals
-        integer, intent(inout) :: capacity
-        character(len=*), intent(in) :: result_name
-        integer :: i
-
-        do i = 1, size(var_names_arr)
-            call collect_explicit_declaration(trim(var_names_arr(i)), param_map, &
-                                              local_vars, n_locals, capacity, &
-                                              result_name)
+            select type (decl => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                    do name_idx = 1, size(decl%var_names)
+                        if (trim(decl%var_names(name_idx)) == trim(var_name)) then
+                            has_decl = .true.
+                            return
+                        end if
+                    end do
+                else if (allocated(decl%var_name)) then
+                    if (trim(decl%var_name) == trim(var_name)) then
+                        has_decl = .true.
+                        return
+                    end if
+                end if
+            end select
         end do
-    end subroutine collect_explicit_declarations_multi
+    end function has_explicit_loop_declaration
 
 end module codegen_function_declarations
