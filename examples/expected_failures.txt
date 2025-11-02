@@ -5,6 +5,5 @@
 intrinsic_functions.lf  # parser error - needs investigation
 chained_comparison.lf   # parser error - needs investigation
 issue_1784_subroutine_wrapping.lf  # transformation regression tracked in #1784
-issue_2020_pure_function_mangled.f90  # internal procedure body leaked to parent scope; tracked in #2020
 issue_2025_multi_internal_proc_structure_collapse.f90  # internal procedures not emitted yet; tracked in #2025
 issue_2013_nested_implied_do_duplicate_var.f90  # duplicate implied-do indices still redeclared; see issue #2013 follow-up

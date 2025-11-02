@@ -310,26 +310,42 @@ contains
             type(parser_state_t), intent(inout) :: parser_ref
             type(ast_arena_t), intent(inout) :: arena_ref
 
-            call flush_pending_prefixes()
             select case (lowered)
-            case ("implicit")
-                stmt_index = parse_implicit_statement(parser_ref, arena_ref)
-                block
-                    integer, allocatable :: extra_indices(:)
-                    if (allocated(additional_execution_indices)) then
-                        block
-                            integer, allocatable :: temp(:)
-                            call move_alloc(additional_execution_indices, temp)
-                        end block
-                    end if
-                    extra_indices = take_implicit_additional_indices()
-                    if (size(extra_indices) > 0) then
-                        call move_alloc(extra_indices, additional_execution_indices)
-                    end if
-                end block
             case ("real", "integer", "logical", "character", "complex", "double", &
                   "class", "procedure")
-                call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
+                ! Check if function or subroutine follows this type keyword
+                if (is_function_or_subroutine_ahead(parser_ref)) then
+                    ! This is a return type prefix, not a variable declaration
+                    call append_prefix_token(pending_prefixes, lowered)
+                    block
+                        type(token_t) :: ignored_token
+                        ignored_token = parser_ref%consume()
+                    end block
+                    stmt_index = 0
+                else
+                    ! This is a variable declaration
+                    call flush_pending_prefixes()
+                    call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
+                end if
+            case default
+                ! For all other keywords, flush prefixes and process normally
+                call flush_pending_prefixes()
+                select case (lowered)
+                case ("implicit")
+                    stmt_index = parse_implicit_statement(parser_ref, arena_ref)
+                    block
+                        integer, allocatable :: extra_indices(:)
+                        if (allocated(additional_execution_indices)) then
+                            block
+                                integer, allocatable :: temp(:)
+                                call move_alloc(additional_execution_indices, temp)
+                            end block
+                        end if
+                        extra_indices = take_implicit_additional_indices()
+                        if (size(extra_indices) > 0) then
+                            call move_alloc(extra_indices, additional_execution_indices)
+                        end if
+                    end block
             case ("type")
                 call handle_type_declaration(parser_ref, arena_ref, stmt_index)
             case ("print")
@@ -456,8 +472,41 @@ contains
                     ignored_token = parser_ref%consume()
                 end block
                 stmt_index = 0
+                end select
             end select
         end function parse_general_keyword
+
+        logical function is_function_or_subroutine_ahead(parser) result(is_proc)
+            type(parser_state_t), intent(in) :: parser
+            type(token_t) :: lookahead
+            integer :: offset
+
+            is_proc = .false.
+            offset = 1
+
+            ! Skip past type specifiers like (8), (kind=8), (len=*), etc.
+            if (parser%current_token + offset <= size(parser%tokens)) then
+                lookahead = parser%tokens(parser%current_token + offset)
+                if (lookahead%text == "(") then
+                    ! Skip to matching closing paren
+                    offset = offset + 1
+                    do while (parser%current_token + offset <= size(parser%tokens))
+                        lookahead = parser%tokens(parser%current_token + offset)
+                        offset = offset + 1
+                        if (lookahead%text == ")") exit
+                    end do
+                end if
+            end if
+
+            ! Now check if function or subroutine follows
+            if (parser%current_token + offset <= size(parser%tokens)) then
+                lookahead = parser%tokens(parser%current_token + offset)
+                if (to_lower(trim(lookahead%text)) == "function" .or. &
+                    to_lower(trim(lookahead%text)) == "subroutine") then
+                    is_proc = .true.
+                end if
+            end if
+        end function is_function_or_subroutine_ahead
 
         integer function parse_unsupported_stmt(keyword, parser_ref, arena_ref) &
             result(stmt_index)
