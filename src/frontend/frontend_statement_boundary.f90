@@ -221,11 +221,13 @@ contains
                                             is_elseif = .true.
                                         end if
                                         exit
-                                    else if (tokens(prev_kw_pos)%kind /= TK_WHITESPACE &
-                                             .and. tokens(prev_kw_pos)%kind /= &
-                                             TK_COMMENT .and. &
-                                             tokens(prev_kw_pos)%kind /= TK_NEWLINE) then
-                                        exit
+                                    else
+                                        select case (tokens(prev_kw_pos)%kind)
+                                        case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                                            ! Skip trivia tokens between else and if
+                                        case default
+                                            exit
+                                        end select
                                     end if
                                     prev_kw_pos = prev_kw_pos - 1
                                 end do
