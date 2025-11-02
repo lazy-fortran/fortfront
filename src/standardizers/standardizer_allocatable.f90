@@ -919,9 +919,10 @@ contains
     end function has_explicit_character_length
 
     pure logical function has_explicit_array_bounds(decl) result(has_bounds)
-        ! Check if a declaration has explicit array bounds (e.g., arr(0:9), arr(-5:5))
-        ! rather than just a size (e.g., arr(10)) or deferred shape (e.g., arr(:))
-        ! Arrays with explicit bounds should NOT be converted to allocatable.
+        ! Check if a declaration has explicit array bounds or size
+        ! (e.g., arr(5), arr(0:9), arr(-5:5)) vs deferred shape (e.g., arr(:))
+        ! Arrays with explicit bounds/size should NOT be converted to allocatable
+        ! to preserve the original declaration (fixes #2022).
         type(declaration_node), intent(in) :: decl
         integer :: i
 
@@ -931,11 +932,12 @@ contains
         if (.not. allocated(decl%dimension_indices)) return
         if (size(decl%dimension_indices) == 0) return
 
-        ! Check if any dimension index is > 1000000
-        ! Heuristic: Parser stores range expressions (like 0:9) as large indices
-        ! while simple sizes (like 10) are stored as small indices
+        ! Check each dimension:
+        ! - dimension_indices(i) = 0 means deferred shape (:)
+        ! - dimension_indices(i) > 0 means explicit size or range expression
+        ! Only deferred shape should be converted to allocatable
         do i = 1, size(decl%dimension_indices)
-            if (decl%dimension_indices(i) > 1000000) then
+            if (decl%dimension_indices(i) > 0) then
                 has_bounds = .true.
                 return
             end if
