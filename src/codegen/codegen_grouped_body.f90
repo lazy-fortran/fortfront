@@ -55,7 +55,11 @@ contains
 
         if (in_contains .and. i > 1) code = code // new_line('A')
         stmt_code = generate_code_from_arena(arena, idx)
-        code = code // indent_str // stmt_code // new_line('A')
+        if (in_contains) then
+            code = code // stmt_code // new_line('A')
+        else
+            code = code // indent_str // stmt_code // new_line('A')
+        end if
     end subroutine process_procedure_def
 
     pure logical function is_valid_body_entry(arena, idx) result(valid)
@@ -203,7 +207,11 @@ contains
             call handle_blank_line_entry(code, i)
 
         class default
-            call handle_default_entry(arena, body_indices(i), indent, code, i)
+            if (.not. in_contains_section) then
+                call handle_default_entry(arena, body_indices(i), indent, code, i)
+            else
+                i = i + 1
+            end if
         end select
     end subroutine process_body_entry
 
