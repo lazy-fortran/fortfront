@@ -220,9 +220,11 @@ contains
             call process_derived_type(arena, body_index, implicit_statements_code)
             is_header = .true.
         type is (declaration_node)
-            call process_declaration(body_index, header_decl_count, &
-                                     header_decl_indices)
-            is_header = .true.
+            if (.not. ib%has_intent) then
+                call process_declaration(body_index, header_decl_count, &
+                                         header_decl_indices)
+                is_header = .true.
+            end if
         type is (interface_block_node)
             call process_interface_block(arena, body_index, interface_blocks_code)
             is_header = .true.

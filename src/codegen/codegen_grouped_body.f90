@@ -127,6 +127,10 @@ contains
             i = i + 1
             return
         end if
+        if (node%has_intent) then
+            i = i + 1
+            return
+        end if
         if (.not. in_contains_section .and. node%initializer_index == 0) then
             call process_grouped_declarations(arena, body_indices, i, indent_str, &
                                               code)
@@ -547,5 +551,24 @@ contains
             var_list = var_list // trim(names(idx))
         end do
     end function build_var_list
+
+    logical function is_orphaned_procedure_statement(arena, idx) result(is_orphaned)
+        use ast_nodes_core, only: assignment_node
+        use ast_nodes_conditional, only: if_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_orphaned = .false.
+
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (assignment_node)
+            is_orphaned = .true.
+        type is (if_node)
+            is_orphaned = .true.
+        end select
+    end function is_orphaned_procedure_statement
 
 end module codegen_grouped_body
