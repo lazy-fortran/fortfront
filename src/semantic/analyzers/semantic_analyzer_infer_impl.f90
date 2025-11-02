@@ -429,6 +429,9 @@ contains
             integer :: i
 
             call process_do_loop_body(expr, int_scheme, control_type)
+            if (allocated(expr%var_name)) then
+                call this%scopes%define(expr%var_name, int_scheme)
+            end if
             call this%scopes%enter_block()
             if (allocated(expr%var_name)) then
                 call this%scopes%define(expr%var_name, int_scheme)
