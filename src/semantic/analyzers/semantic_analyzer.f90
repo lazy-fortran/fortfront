@@ -23,6 +23,7 @@ module semantic_analyzer
                                           infer_logical_operation
     use semantic_inference_helpers, only: check_implicit_none, &
                                           process_if_node_branches, &
+                                          process_do_loop_body, &
                                           process_do_while_node_body, &
                                           process_where_node_clauses, &
                                           process_where_stmt_node, &
