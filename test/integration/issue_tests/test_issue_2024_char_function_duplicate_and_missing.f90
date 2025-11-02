@@ -99,10 +99,21 @@ contains
 
     subroutine test_compilation(source_text, basename)
         character(len=*), intent(in) :: source_text, basename
-        character(len=256) :: filename, cmd
+        character(len=256) :: filename, cmd, temp_dir, obj_file
         integer :: unit, ios, exit_code
+        logical :: is_windows
 
-        filename = '/tmp/' // trim(basename) // '.f90'
+        is_windows = check_if_windows()
+
+        if (is_windows) then
+            call get_environment_variable('TEMP', temp_dir, status=ios)
+            if (ios /= 0) temp_dir = '.'
+        else
+            temp_dir = '/tmp'
+        end if
+
+        filename = trim(temp_dir) // '/' // trim(basename) // '.f90'
+        obj_file = trim(temp_dir) // '/' // trim(basename) // '.o'
 
         open (newunit=unit, file=filename, status='replace', action='write', &
               iostat=ios)
@@ -111,8 +122,8 @@ contains
         write (unit, '(A)') source_text
         close (unit)
 
-        cmd = 'gfortran -c ' // trim(filename) // ' -o /tmp/' // &
-              trim(basename) // '.o 2>&1'
+        cmd = 'gfortran -c ' // trim(filename) // ' -o ' // &
+              trim(obj_file) // ' 2>&1'
         call execute_command_line(cmd, exitstat=exit_code)
 
         if (exit_code /= 0) then
@@ -120,5 +131,19 @@ contains
             error stop 'Compilation test failed'
         end if
     end subroutine test_compilation
+
+    function check_if_windows() result(is_win)
+        logical :: is_win
+        character(len=10) :: os_name
+        integer :: stat
+
+        call get_environment_variable('OS', os_name, status=stat)
+        is_win = (stat == 0 .and. os_name(1:7) == 'Windows')
+
+        if (.not. is_win) then
+            call get_environment_variable('WINDIR', os_name, status=stat)
+            is_win = (stat == 0)
+        end if
+    end function check_if_windows
 
 end program test_issue_2024_char_function_duplicate_and_missing
