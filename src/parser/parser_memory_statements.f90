@@ -128,6 +128,78 @@ module parser_memory_statements_module
                 end if
             end subroutine parse_allocate_params
 
+            subroutine skip_to_matching_paren(parser, type_spec_str, type_token, saved_pos)
+                type(parser_state_t), intent(inout) :: parser
+                character(len=:), allocatable, intent(out) :: type_spec_str
+                type(token_t), intent(in) :: type_token
+                integer, intent(in) :: saved_pos
+                type(token_t) :: token
+                integer :: paren_depth
+                integer :: spec_start_pos, spec_end_pos
+                character(len=1024) :: param_buffer
+
+                paren_depth = 1
+                spec_start_pos = parser%current_token
+                param_buffer = ""
+
+                do while (paren_depth > 0)
+                    token = parser%peek()
+                    if (token%kind == TK_EOF) then
+                        parser%current_token = saved_pos
+                        return
+                    end if
+
+                    if (token%kind == TK_OPERATOR) then
+                        if (token%text == "(") then
+                            paren_depth = paren_depth + 1
+                        else if (token%text == ")") then
+                            paren_depth = paren_depth - 1
+                            if (paren_depth == 0) then
+                                spec_end_pos = parser%current_token
+                                token = parser%consume()
+                                token = parser%peek()
+                                if (token%kind == TK_OPERATOR .and. token%text == "::") then
+                                    token = parser%consume()
+                                    call build_type_spec(parser, type_token, spec_start_pos, &
+                                                        spec_end_pos, type_spec_str)
+                                    return
+                                else
+                                    parser%current_token = saved_pos
+                                    return
+                                end if
+                            end if
+                        end if
+                    end if
+                    token = parser%consume()
+                end do
+            end subroutine skip_to_matching_paren
+
+            subroutine build_type_spec(parser, type_token, start_pos, end_pos, type_spec_str)
+                type(parser_state_t), intent(inout) :: parser
+                type(token_t), intent(in) :: type_token
+                integer, intent(in) :: start_pos, end_pos
+                character(len=:), allocatable, intent(out) :: type_spec_str
+                integer :: i, saved_current
+                type(token_t) :: token
+                character(len=1024) :: buffer
+
+                buffer = ""
+                saved_current = parser%current_token
+
+                parser%current_token = start_pos
+                do i = start_pos, end_pos - 1
+                    token = parser%peek()
+                    if (len_trim(buffer) > 0 .and. token%kind /= TK_OPERATOR) then
+                        buffer = trim(buffer) // " "
+                    end if
+                    buffer = trim(buffer) // trim(token%text)
+                    token = parser%consume()
+                end do
+
+                type_spec_str = trim(type_token%text) // "(" // trim(buffer) // ")"
+                parser%current_token = saved_current
+            end subroutine build_type_spec
+
             function parse_allocate_statement(parser, arena) result(allocate_index)
                 type(parser_state_t), intent(inout) :: parser
                 type(ast_arena_t), intent(inout) :: arena
@@ -171,33 +243,10 @@ module parser_memory_statements_module
                         type_token = parser%consume()
                         lookahead = parser%peek()
                         if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
-                            ! TypeName(param) :: pattern
+                            ! TypeName(params) :: pattern - skip parameter list
                             token = parser%consume()
-                            lookahead = parser%peek()
-                            if (lookahead%kind == TK_IDENTIFIER) then
-                                param_token = parser%consume()
-                                token = parser%peek()
-                                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                                    token = parser%consume()
-                                    lookahead = parser%peek()
-                                    if (lookahead%kind == TK_OPERATOR .and. &
-                                        lookahead%text == "::") then
-                                        ! Found type-spec pattern - consume ::
-                                        token = parser%consume()
-                                        type_spec_str = trim(type_token%text) // "(" // &
-                                                       trim(param_token%text) // ")"
-                                    else
-                                        ! Not type-spec, restore position
-                                        parser%current_token = saved_pos
-                                    end if
-                                else
-                                    ! Not type-spec, restore position
-                                    parser%current_token = saved_pos
-                                end if
-                            else
-                                ! Not type-spec, restore position
-                                parser%current_token = saved_pos
-                            end if
+                            call skip_to_matching_paren(parser, type_spec_str, &
+                                                        type_token, saved_pos)
                         else if (lookahead%kind == TK_OPERATOR .and. &
                                  lookahead%text == "::") then
                             ! TypeName :: pattern - consume ::
