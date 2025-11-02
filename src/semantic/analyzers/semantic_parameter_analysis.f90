@@ -5,7 +5,7 @@ module semantic_parameter_analysis
     use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
-                              literal_node
+                              literal_node, binary_op_node, assignment_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
@@ -179,6 +179,20 @@ contains
                             infer_identifier_type_from_context( &
                             arena, arg_node%name, param_names, param_types, &
                             scopes, arg_idx, next_var_id)
+                        if (inferred_arg_type%kind == 0 .or. &
+                            inferred_arg_type%kind == TVAR) then
+                            block
+                                integer :: enclosing_func_idx
+                                enclosing_func_idx = &
+                                    find_function_containing_call(arena, idx)
+                                if (enclosing_func_idx > 0) then
+                                    inferred_arg_type = &
+                                        infer_type_from_enclosing_function_param( &
+                                        arena, arg_node%name, enclosing_func_idx, &
+                                        next_var_id)
+                                end if
+                            end block
+                        end if
                         call merge_parameter_type(param_types(i), inferred_arg_type)
                     type is (call_or_subscript_node)
                         if (allocated(arg_node%name)) then
@@ -199,6 +213,185 @@ contains
             end select
         end do
     end subroutine infer_parameter_types_from_calls
+
+    function find_function_containing_call(arena, call_index) result(func_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_index
+        integer :: func_index
+        integer :: i
+
+        func_index = 0
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (func_node => arena%entries(i)%node)
+            type is (function_def_node)
+                if (.not. allocated(func_node%body_indices)) cycle
+                if (call_is_in_function_body(arena, call_index, func_node)) then
+                    func_index = i
+                    return
+                end if
+            end select
+        end do
+    end function find_function_containing_call
+
+    recursive logical function call_is_in_function_body(arena, call_index, func_node) &
+        result(is_in_body)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: call_index
+        type(function_def_node), intent(in) :: func_node
+        integer :: i, stmt_idx
+
+        is_in_body = .false.
+
+        if (.not. allocated(func_node%body_indices)) return
+
+        do i = 1, size(func_node%body_indices)
+            stmt_idx = func_node%body_indices(i)
+            if (stmt_idx == call_index) then
+                is_in_body = .true.
+                return
+            end if
+
+            if (stmt_idx > 0 .and. stmt_idx <= arena%size) then
+                if (allocated(arena%entries(stmt_idx)%node)) then
+                    if (node_contains_call(arena, stmt_idx, call_index)) then
+                        is_in_body = .true.
+                        return
+                    end if
+                end if
+            end if
+        end do
+    end function call_is_in_function_body
+
+    recursive logical function node_contains_call(arena, node_idx, call_index) &
+        result(contains_call)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_idx, call_index
+        integer :: i
+
+        contains_call = .false.
+
+        if (node_idx == call_index) then
+            contains_call = .true.
+            return
+        end if
+
+        if (node_idx <= 0 .or. node_idx > arena%size) return
+        if (.not. allocated(arena%entries(node_idx)%node)) return
+
+        select type (node => arena%entries(node_idx)%node)
+        type is (assignment_node)
+            if (node%value_index == call_index .or. &
+                node%target_index == call_index) then
+                contains_call = .true.
+                return
+            end if
+            if (node%value_index > 0) then
+                if (node_contains_call(arena, node%value_index, call_index)) then
+                    contains_call = .true.
+                    return
+                end if
+            end if
+        type is (binary_op_node)
+            if (node%left_index == call_index .or. node%right_index == call_index) &
+                then
+                contains_call = .true.
+                return
+            end if
+            if (node%left_index > 0 .and. &
+                node_contains_call(arena, node%left_index, call_index)) then
+                contains_call = .true.
+                return
+            end if
+            if (node%right_index > 0 .and. &
+                node_contains_call(arena, node%right_index, call_index)) then
+                contains_call = .true.
+                return
+            end if
+        type is (call_or_subscript_node)
+            if (allocated(node%arg_indices)) then
+                do i = 1, size(node%arg_indices)
+                    if (node%arg_indices(i) == call_index) then
+                        contains_call = .true.
+                        return
+                    end if
+                end do
+            end if
+        end select
+    end function node_contains_call
+
+    function infer_type_from_enclosing_function_param(arena, identifier_name, &
+                                                       enclosing_func_index, &
+                                                       next_var_id) &
+        result(inferred_type)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: identifier_name
+        integer, intent(in) :: enclosing_func_index
+        integer, intent(inout) :: next_var_id
+        type(mono_type_t) :: inferred_type
+        type(mono_type_t), allocatable :: outer_param_types(:)
+        character(len=64), allocatable :: outer_param_names(:)
+        character(len=:), allocatable :: outer_func_name
+        integer :: i
+        integer :: idx
+        integer :: arg_idx
+        type(mono_type_t) :: literal_type
+
+        inferred_type%kind = 0
+
+        if (enclosing_func_index <= 0 .or. enclosing_func_index > arena%size) &
+            return
+        if (.not. allocated(arena%entries(enclosing_func_index)%node)) return
+
+        select type (outer_func => arena%entries(enclosing_func_index)%node)
+        type is (function_def_node)
+            if (.not. allocated(outer_func%param_indices)) return
+            if (.not. allocated(outer_func%name)) return
+            outer_func_name = trim(outer_func%name)
+
+            allocate (outer_param_types(size(outer_func%param_indices)))
+            allocate (outer_param_names(size(outer_func%param_indices)))
+
+            do i = 1, size(outer_func%param_indices)
+                call fetch_parameter_metadata(arena, outer_func%param_indices(i), &
+                                              outer_param_names(i), &
+                                              outer_param_types(i))
+                if (trim(outer_param_names(i)) == trim(identifier_name)) then
+                    do idx = 1, arena%size
+                        if (.not. allocated(arena%entries(idx)%node)) cycle
+                        select type (call_node => arena%entries(idx)%node)
+                        type is (call_or_subscript_node)
+                            if (.not. allocated(call_node%name)) cycle
+                            if (trim(call_node%name) /= outer_func_name) cycle
+                            if (.not. allocated(call_node%arg_indices)) cycle
+                            if (i > size(call_node%arg_indices)) cycle
+
+                            arg_idx = call_node%arg_indices(i)
+                            if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
+                            if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+
+                            select type (arg_node => arena%entries(arg_idx)%node)
+                            type is (literal_node)
+                                literal_type = literal_numeric_type(arg_node)
+                                if (literal_type%kind > 0) then
+                                    inferred_type = literal_type
+                                    if (allocated(outer_param_types)) &
+                                        deallocate (outer_param_types)
+                                    if (allocated(outer_param_names)) &
+                                        deallocate (outer_param_names)
+                                    return
+                                end if
+                            end select
+                        end select
+                    end do
+                end if
+            end do
+
+            if (allocated(outer_param_types)) deallocate (outer_param_types)
+            if (allocated(outer_param_names)) deallocate (outer_param_names)
+        end select
+    end function infer_type_from_enclosing_function_param
 
     function resolve_call_argument_type(arena, call_node, current_name, &
                                         next_var_id) &
