@@ -2,6 +2,8 @@ program test_issue_2024_char_function_duplicate_and_missing
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
+    character(len=*), parameter :: example_path = 'examples/f90/' // &
+                                   'issue_2024_char_function_duplicate_and_missing.f90'
     character(len=:), allocatable :: source, output, error_msg
     character(len=512) :: line_buffer
     integer :: unit, ios
@@ -9,15 +11,14 @@ program test_issue_2024_char_function_duplicate_and_missing
 
     source = ''
     first_line = .true.
-    open(newunit=unit, file='examples/f90/issue_2024_char_function_duplicate_and_missing.f90', &
-         status='old', action='read', iostat=ios)
+    open (newunit=unit, file=example_path, status='old', action='read', iostat=ios)
     if (ios /= 0) then
-        print *, 'FAIL: could not open examples/f90/issue_2024_char_function_duplicate_and_missing.f90'
+        print *, 'FAIL: could not open ' // example_path
         stop 1
     end if
 
     do
-        read(unit, '(A)', iostat=ios) line_buffer
+        read (unit, '(A)', iostat=ios) line_buffer
         if (ios /= 0) exit
         if (first_line) then
             source = trim(line_buffer)
@@ -26,7 +27,7 @@ program test_issue_2024_char_function_duplicate_and_missing
             source = source // new_line('a') // trim(line_buffer)
         end if
     end do
-    close(unit)
+    close (unit)
 
     if (first_line) then
         print *, 'FAIL: example file was empty'
@@ -58,7 +59,8 @@ program test_issue_2024_char_function_duplicate_and_missing
     ! Verify output compiles with gfortran
     call test_compilation(output, 'test_issue_2024_output')
 
-    print *, 'PASS: Issue #2024 - Character function with RESULT preserves declarations'
+    print *, &
+        'PASS: Issue #2024 - Character function with RESULT preserves declarations'
 
 contains
 
@@ -80,7 +82,8 @@ contains
         end do
 
         if (count > 1) then
-            print *, 'ERROR: Variable "' // trim(var_name) // '" declared', count, 'times'
+            print *, 'ERROR: Variable ' // trim(var_name) // ' declared', &
+                count, 'times'
             error stop 'Duplicate declaration detected'
         end if
     end subroutine assert_no_duplicate_declaration
@@ -89,7 +92,7 @@ contains
         character(len=*), intent(in) :: text, substring
 
         if (index(text, substring) == 0) then
-            print *, 'ERROR: Expected substring not found: "' // trim(substring) // '"'
+            print *, 'ERROR: Expected substring not found: ' // trim(substring)
             error stop 'Assertion failed'
         end if
     end subroutine assert_contains
@@ -101,13 +104,15 @@ contains
 
         filename = '/tmp/' // trim(basename) // '.f90'
 
-        open(newunit=unit, file=filename, status='replace', action='write', iostat=ios)
+        open (newunit=unit, file=filename, status='replace', action='write', &
+              iostat=ios)
         if (ios /= 0) error stop 'Failed to create temporary file'
 
-        write(unit, '(A)') source_text
-        close(unit)
+        write (unit, '(A)') source_text
+        close (unit)
 
-        cmd = 'gfortran -c ' // trim(filename) // ' -o /tmp/' // trim(basename) // '.o 2>&1'
+        cmd = 'gfortran -c ' // trim(filename) // ' -o /tmp/' // &
+              trim(basename) // '.o 2>&1'
         call execute_command_line(cmd, exitstat=exit_code)
 
         if (exit_code /= 0) then
