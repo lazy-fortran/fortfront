@@ -332,7 +332,7 @@ contains
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
             type is (contains_node)
-                contains_seen = .true.
+                exit
             type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     do j = 1, size(decl%var_names)
@@ -416,6 +416,8 @@ contains
             if (idx <= 0 .or. idx > arena%size) cycle
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                exit
             type is (assignment_node)
                 call process_assignment_target(arena, stmt, state)
                 call process_assignment_value(arena, stmt, state)
