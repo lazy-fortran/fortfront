@@ -267,25 +267,64 @@ contains
         end if
     end function has_implied_do_loop
 
-    ! Calculate size of implied do loop
-    function get_implied_do_size(arena, do_node_index) result(size)
+    ! Calculate size of implied do loop, handling nested loops recursively
+    recursive function get_implied_do_size(arena, do_node_index) result(total_size)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: do_node_index
-        integer :: size
+        integer :: total_size
+        integer :: outer_size, inner_size, num_body
 
-        size = -1  ! Return -1 if we can't determine the size
+        total_size = -1  ! Return -1 if we can't determine the size
 
         if (do_node_index <= 0 .or. do_node_index > arena%size) return
         if (.not. allocated(arena%entries(do_node_index)%node)) return
 
         select type (do_node => arena%entries(do_node_index)%node)
         type is (do_loop_node)
-            ! Try to calculate size from start, end, and step expressions
-            ! For now, we'll handle simple integer literals
+            ! Calculate this loop's iteration count
             if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
-                size = calculate_loop_size(arena, do_node%start_expr_index, &
-                                           do_node%end_expr_index, &
-                                           do_node%step_expr_index)
+                outer_size = calculate_loop_size(arena, do_node%start_expr_index, &
+                                                 do_node%end_expr_index, &
+                                                 do_node%step_expr_index)
+                if (outer_size <= 0) then
+                    total_size = outer_size
+                    return
+                end if
+
+                ! Check if body contains nested do_loop_node
+                if (allocated(do_node%body_indices)) then
+                    num_body = size(do_node%body_indices)
+                    if (num_body == 0) then
+                        total_size = outer_size
+                        return
+                    end if
+                    if (do_node%body_indices(1) > 0 .and. &
+                        do_node%body_indices(1) <= arena%size) then
+                        if (allocated(arena%entries(do_node%body_indices(1))%node)) then
+                            select type (body_node => &
+                                         arena%entries(do_node%body_indices(1))%node)
+                            type is (do_loop_node)
+                                ! Nested loop: multiply sizes
+                                inner_size = get_implied_do_size( &
+                                             arena, do_node%body_indices(1))
+                                if (inner_size > 0) then
+                                    total_size = outer_size * inner_size
+                                else
+                                    total_size = outer_size
+                                end if
+                                return
+                            class default
+                                total_size = outer_size
+                            end select
+                        else
+                            total_size = outer_size
+                        end if
+                    else
+                        total_size = outer_size
+                    end if
+                else
+                    total_size = outer_size
+                end if
             end if
         end select
     end function get_implied_do_size
