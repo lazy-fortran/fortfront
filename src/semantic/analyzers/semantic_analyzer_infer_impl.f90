@@ -155,7 +155,7 @@ contains
             type is (array_literal_node)
                 call schedule_array_literal_node(current, expr)
             type is (do_loop_node)
-                call schedule_do_loop_node(current, expr)
+                call prepare_do_loop_node(current, expr)
             type is (declaration_node)
                 call handle_declaration(expr, node_index)
             type is (if_node)
@@ -420,14 +420,26 @@ contains
             end if
         end subroutine schedule_array_literal_node
 
-        subroutine schedule_do_loop_node(current, expr)
+        subroutine prepare_do_loop_node(current, expr)
             type(infer_frame_t), intent(in) :: current
             type(do_loop_node), intent(in) :: expr
             type(infer_frame_t) :: post_frame
+            type(poly_type_t) :: int_scheme
+            type(mono_type_t) :: control_type
             integer :: i
 
+            call process_do_loop_body(expr, int_scheme, control_type)
+            call this%scopes%enter_block()
+            if (allocated(expr%var_name)) then
+                call this%scopes%define(expr%var_name, int_scheme)
+            end if
+
             call init_post_frame(current, post_frame)
+            post_frame%leave_scope = .true.
+            post_frame%has_cached_type = .true.
+            post_frame%cached_type = control_type
             call push_frame_local(post_frame)
+
             if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
             if (expr%end_expr_index > 0) call push_child(expr%end_expr_index)
             if (expr%start_expr_index > 0) call push_child(expr%start_expr_index)
@@ -436,7 +448,7 @@ contains
                     call push_child(expr%body_indices(i))
                 end do
             end if
-        end subroutine schedule_do_loop_node
+        end subroutine prepare_do_loop_node
 
         subroutine schedule_if_node(current, expr)
             type(infer_frame_t), intent(in) :: current
