@@ -1,0 +1,10 @@
+function square(x)
+    square = x * x
+end function
+
+function sum_of_squares(a, b)
+    sum_of_squares = square(a) + square(b)
+end function
+
+result = sum_of_squares(3, 4)
+print *, '3^2 + 4^2 =', result
