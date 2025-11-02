@@ -332,8 +332,10 @@ contains
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (decl => arena%entries(idx)%node)
             type is (contains_node)
-                exit
+                contains_seen = .true.
+                cycle
             type is (declaration_node)
+                if (contains_seen) cycle
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     do j = 1, size(decl%var_names)
                         call record_declared_name(state, trim(decl%var_names(j)))
@@ -347,6 +349,7 @@ contains
                     call collect_entry_points_from_function(arena, decl, state)
                 end if
             type is (call_or_subscript_node)
+                if (contains_seen) cycle
                 if (allocated(decl%name)) then
                     if (is_intrinsic_function(trim(decl%name))) then
                         call try_add_internal_function(state, trim(decl%name))
@@ -410,6 +413,9 @@ contains
         type(program_node), intent(in) :: prog
         type(program_decl_state_t), intent(inout) :: state
         integer :: i, idx
+        logical :: contains_seen
+
+        contains_seen = .false.
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
@@ -417,11 +423,13 @@ contains
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
-                exit
+                contains_seen = .true.
             type is (assignment_node)
+                if (contains_seen) cycle
                 call process_assignment_target(arena, stmt, state)
                 call process_assignment_value(arena, stmt, state)
             type is (allocate_statement_node)
+                if (contains_seen) cycle
                 call process_allocate_variables(arena, stmt, state)
             end select
         end do
