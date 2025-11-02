@@ -1,0 +1,16 @@
+x = 10
+y = 20
+
+if (x > y) then
+    print *, 'x is greater'
+else if (x < y) then
+    print *, 'y is greater'
+else
+    print *, 'x equals y'
+end if
+
+max_val = x
+if (y > max_val) then
+    max_val = y
+end if
+print *, 'Maximum:', max_val

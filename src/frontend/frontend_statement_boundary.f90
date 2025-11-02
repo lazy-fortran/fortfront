@@ -207,18 +207,42 @@ contains
                     case ("if")
                         if (i > stmt_start) then
                             ! Check if it's if/then (nested)
+                            ! But first check if this "if" is part of "else if"
                             block
-                                integer :: j
-                                do j = i + 1, min(i + 20, size(tokens))
-                                    if (tokens(j)%kind == TK_KEYWORD .and. &
-                                        tokens(j)%text == &
-                                        "then") then
-                                        nesting_level = nesting_level + 1
+                                integer :: j, prev_kw_pos
+                                logical :: is_elseif
+                                is_elseif = .false.
+
+                                ! Look backward for "else" keyword
+                                prev_kw_pos = i - 1
+                                do while (prev_kw_pos >= stmt_start)
+                                    if (tokens(prev_kw_pos)%kind == TK_KEYWORD) then
+                                        if (tokens(prev_kw_pos)%text == "else") then
+                                            is_elseif = .true.
+                                        end if
                                         exit
-                                    else if (tokens(j)%kind == TK_NEWLINE) then
+                                    else if (tokens(prev_kw_pos)%kind /= TK_WHITESPACE &
+                                             .and. tokens(prev_kw_pos)%kind /= &
+                                             TK_COMMENT .and. &
+                                             tokens(prev_kw_pos)%kind /= TK_NEWLINE) then
                                         exit
                                     end if
+                                    prev_kw_pos = prev_kw_pos - 1
                                 end do
+
+                                ! Only increment nesting if not "else if"
+                                if (.not. is_elseif) then
+                                    do j = i + 1, min(i + 20, size(tokens))
+                                        if (tokens(j)%kind == TK_KEYWORD .and. &
+                                            tokens(j)%text == &
+                                            "then") then
+                                            nesting_level = nesting_level + 1
+                                            exit
+                                        else if (tokens(j)%kind == TK_NEWLINE) then
+                                            exit
+                                        end if
+                                    end do
+                                end if
                             end block
                         end if
                     case ("do")
