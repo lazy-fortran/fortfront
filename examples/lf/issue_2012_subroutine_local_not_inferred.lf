@@ -1,0 +1,11 @@
+subroutine swap(a, b)
+    temp = a
+    a = b
+    b = temp
+end subroutine
+
+x = 10
+y = 20
+print *, 'Before:', x, y
+call swap(x, y)
+print *, 'After:', x, y

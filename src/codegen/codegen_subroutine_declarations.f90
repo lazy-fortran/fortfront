@@ -1,6 +1,6 @@
 module codegen_subroutine_declarations
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: identifier_node
+    use ast_nodes_core, only: identifier_node, assignment_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_loops, only: do_loop_node
@@ -17,6 +17,7 @@ module codegen_subroutine_declarations
     use codegen_grouped_body_params, only: generate_grouped_body_with_params
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t
+    use type_string_utils, only: mono_type_to_string
     implicit none
     private
     public :: generate_code_subroutine_def
@@ -220,6 +221,10 @@ contains
             type is (parameter_declaration_node)
                 call add_single_declared_var(stmt%name, declared_vars, n_declared, &
                                              declared_capacity)
+            type is (assignment_node)
+                call collect_vars_from_assignment_sub(arena, stmt, param_map, &
+                                                      local_vars, n_locals, capacity, &
+                                                      declared_vars, n_declared, decl_code)
             type is (print_statement_node)
                 call collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
                                                  n_locals, capacity, declared_vars, &
@@ -348,5 +353,49 @@ contains
             decl_code = decl_code // "    integer :: " // trim(var_name) // new_line('A')
         end if
     end subroutine collect_loop_var_sub
+
+    subroutine collect_vars_from_assignment_sub(arena, stmt, param_map, &
+                                                local_vars, n_locals, capacity, &
+                                                declared_vars, n_declared, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals
+        integer, intent(inout) :: capacity
+        character(len=64), allocatable, intent(in) :: declared_vars(:)
+        integer, intent(in) :: n_declared
+        character(len=:), allocatable, intent(inout) :: decl_code
+        character(len=64) :: var_name
+        integer :: j
+
+        if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt%target_index)%node)) return
+
+        select type (target => arena%entries(stmt%target_index)%node)
+        type is (identifier_node)
+            if (.not. allocated(target%name)) return
+            if (target%inferred_type%kind == 0) return
+
+            var_name = trim(target%name)
+
+            if (is_parameter_name(var_name, param_map)) return
+
+            do j = 1, n_declared
+                if (trim(declared_vars(j)) == var_name) return
+            end do
+
+            if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+                call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+                n_locals = n_locals + 1
+                local_vars(n_locals) = var_name
+                decl_code = decl_code // "    " // &
+                            mono_type_to_string(target%inferred_type, &
+                                                include_shape=.true., &
+                                                fallback='integer') // &
+                            " :: " // trim(var_name) // new_line('A')
+            end if
+        end select
+    end subroutine collect_vars_from_assignment_sub
 
 end module codegen_subroutine_declarations
