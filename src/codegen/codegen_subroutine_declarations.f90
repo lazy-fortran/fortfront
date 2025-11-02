@@ -3,6 +3,7 @@ module codegen_subroutine_declarations
     use ast_nodes_core, only: identifier_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
+    use ast_nodes_loops, only: do_loop_node
     use ast_nodes_procedure, only: subroutine_def_node
     use codegen_declarations_inference, only: build_parameter_map
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
@@ -227,6 +228,9 @@ contains
                 call collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
                                                 n_locals, capacity, declared_vars, &
                                                 n_declared, decl_code)
+            type is (do_loop_node)
+                call collect_loop_var_sub(stmt, param_map, local_vars, n_locals, &
+                                          capacity, declared_vars, n_declared, decl_code)
             end select
         end do
     end function collect_subroutine_local_variable_decls
@@ -316,5 +320,33 @@ contains
             end select
         end do
     end subroutine collect_vars_from_read_sub
+
+    subroutine collect_loop_var_sub(loop_node, param_map, local_vars, n_locals, &
+                                    capacity, declared_vars, n_declared, decl_code)
+        type(do_loop_node), intent(in) :: loop_node
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals
+        integer, intent(inout) :: capacity
+        character(len=64), allocatable, intent(in) :: declared_vars(:)
+        integer, intent(in) :: n_declared
+        character(len=:), allocatable, intent(inout) :: decl_code
+        character(len=64) :: var_name
+
+        if (.not. allocated(loop_node%var_name)) return
+
+        var_name = trim(loop_node%var_name)
+        if (len_trim(var_name) == 0) return
+
+        if (is_parameter_name(var_name, param_map)) return
+        if (is_local_var_collected(var_name, declared_vars, n_declared)) return
+
+        if (.not. is_local_var_collected(var_name, local_vars, n_locals)) then
+            call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+            n_locals = n_locals + 1
+            local_vars(n_locals) = var_name
+            decl_code = decl_code // "    integer :: " // trim(var_name) // new_line('A')
+        end if
+    end subroutine collect_loop_var_sub
 
 end module codegen_subroutine_declarations

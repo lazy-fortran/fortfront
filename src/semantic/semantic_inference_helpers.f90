@@ -7,9 +7,9 @@ module semantic_inference_helpers
                                    TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
-                                 forall_node, select_case_node, associate_node, &
-                                 stop_node, pause_node, nullify_node
+    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, where_node, &
+                                 where_stmt_node, forall_node, select_case_node, &
+                                 associate_node, stop_node, pause_node, nullify_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     use scope_manager, only: scope_stack_t
@@ -17,6 +17,7 @@ module semantic_inference_helpers
     private
 
     public :: process_if_node_branches
+    public :: process_do_loop_body
     public :: process_do_while_node_body
     public :: process_where_node_clauses
     public :: process_where_stmt_node
@@ -39,6 +40,20 @@ contains
         ! If statements don't have a type - return control marker
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_if_node_branches
+
+    ! Process do loop body
+    subroutine process_do_loop_body(node, int_scheme, control_type)
+        type(do_loop_node), intent(in) :: node
+        type(poly_type_t), intent(out) :: int_scheme
+        type(mono_type_t), intent(out) :: control_type
+
+        ! Create integer type scheme for loop variable
+        int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                      mono=create_mono_type(TINT))
+
+        ! Do loops don't have a type
+        control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end subroutine process_do_loop_body
 
     ! Process do while body
     subroutine process_do_while_node_body(node, control_type)
