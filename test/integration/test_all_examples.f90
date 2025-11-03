@@ -57,6 +57,14 @@ program test_all_examples
     call load_expected_failures(expected_failures_path, expected_failures, &
                                 num_expected_failures)
     call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
+    if (num_skip_examples == 0) then
+        call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
+                                num_skip_examples)
+    end if
+    if (num_skip_examples == 0) then
+        call load_skip_examples('examples\\skip_all_examples.txt', skip_examples, &
+                                num_skip_examples)
+    end if
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -701,7 +709,7 @@ contains
     pure function normalize_path_string(value) result(normalized)
         character(len=*), intent(in) :: value
         character(len=256) :: normalized
-        integer :: i, code
+        integer :: i, code, pos, trimmed_len
 
         normalized = adjustl(trim(value))
         do i = 1, len(normalized)
@@ -715,6 +723,40 @@ contains
                 normalized(i:i) = achar(code + 32)
             end if
         end do
+
+        normalized = trim(normalized)
+        normalized = adjustl(normalized)
+
+        do
+            pos = index(normalized, '//')
+            if (pos == 0) exit
+            normalized = normalized(:pos) // normalized(pos + 2:)
+        end do
+
+        do
+            trimmed_len = len_trim(normalized)
+            if (trimmed_len == 0) exit
+            if (trimmed_len >= 2 .and. normalized(1:2) == './') then
+                normalized = adjustl(normalized(3:))
+            else if (normalized(1:1) == '/') then
+                normalized = adjustl(normalized(2:))
+            else
+                exit
+            end if
+            normalized = trim(normalized)
+            normalized = adjustl(normalized)
+        end do
+
+        do
+            trimmed_len = len_trim(normalized)
+            if (trimmed_len == 0) exit
+            if (normalized(trimmed_len:trimmed_len) == '/') then
+                normalized = normalized(:trimmed_len - 1)
+            else
+                exit
+            end if
+        end do
+
         normalized = trim(normalized)
         normalized = adjustl(normalized)
     end function normalize_path_string
