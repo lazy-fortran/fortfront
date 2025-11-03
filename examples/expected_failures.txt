@@ -14,3 +14,34 @@ issue_1774_user_defined_operator.f90  # user-defined operator loses context (for
 issue_1826_enum_program.f90  # enum constructs unsupported; expect diagnostic only
 issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnostic only
 module_interface_block.f90  # interface block loses kind information (former test_module_interface_block)
+variable_tracking_function_calls.f90
+debug_error_missing_end.f90
+debug_error_garbage.f90
+variable_tracking_visitor.f90
+debug_error_missing_then.f90
+ast_forall_pointer.f90
+variable_tracking_complex_expr.f90
+issue_256_assignment_in_condition.f90
+ast_coverage_literals_calls.f90
+issue_256_missing_then.f90
+issue_256_source_context.f90
+issue_256_invalid_syntax_missing_then.f90
+variable_tracking_simple.f90
+ast_coverage_io_statements.f90
+ast_coverage_module_interface.f90
+issue_256_fix_suggestion.f90
+issue_256_location_info.f90
+variable_tracking_array_access.f90
+variable_tracking_binary_ops.f90
+issue_256_invalid_syntax.f90
+issue_1583_computed_goto_minimal.f90
+issue_256_garbage_input.f90
+variable_tracking_nested.f90
+call_graph_internal_procedures.f90
+variable_tracking_queries.f90
+call_graph_module_program_scopes.f90
+ast_coverage_control_flow.f90
+issue_1534_multi_dimension_allocatable.lf
+issue_1816_multiple_returns.lf
+function_parameter_integer_inference.lf
+issue_216_comparison_chain.lf
