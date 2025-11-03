@@ -1,9 +1,10 @@
 program test_assumed_shape
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
-    real, dimension(10) :: arr
+    real(dp), dimension(10) :: arr
     integer :: i
 
-    arr = [(real(i), i = 1, 10)]
+    arr = [(real(i, dp), i = 1, 10)]
 
     call print_array(arr)
     call print_array(arr(3:7))
@@ -11,7 +12,7 @@ program test_assumed_shape
 contains
 
     subroutine print_array(a)
-        real, dimension(:), intent(in) :: a
+        real(dp), dimension(:), intent(in) :: a
         integer :: n
 
         n = size(a)

@@ -1000,7 +1000,7 @@ contains
         end do
     end subroutine normalize_signature_param_types
 
-    logical function signatures_are_identical(sig1, sig2) result(identical)
+    pure logical function signatures_are_identical(sig1, sig2) result(identical)
         type(type_signature_t), intent(in) :: sig1, sig2
         integer :: i
 
