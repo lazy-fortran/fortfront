@@ -182,7 +182,7 @@ contains
         type is (interface_block_node)
             code = generate_code_interface_block(arena, node, node_index)
         type is (module_procedure_node)
-            code = generate_code_module_procedure(node)
+            code = generate_code_module_procedure(arena, node, node_index)
         type is (function_def_node)
             code = generate_code_function_def(arena, node, node_index)
         type is (subroutine_def_node)
