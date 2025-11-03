@@ -578,6 +578,11 @@ contains
         if (len_trim(filepath) == 0) return
 
         trimmed = adjustl(trim(filepath))
+
+        do i = 1, len(trimmed)
+            if (trimmed(i:i) == '\\') trimmed(i:i) = '/'
+        end do
+
         pos = index(trimmed, 'examples/')
 
         if (pos > 0) then
@@ -606,11 +611,15 @@ contains
     pure function normalize_path_string(value) result(normalized)
         character(len=*), intent(in) :: value
         character(len=256) :: normalized
-        integer :: i
+        integer :: i, code
 
         normalized = adjustl(trim(value))
         do i = 1, len(normalized)
             if (normalized(i:i) == '\\') normalized(i:i) = '/'
+            code = iachar(normalized(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                normalized(i:i) = achar(code + 32)
+            end if
         end do
         normalized = trim(normalized)
         normalized = adjustl(normalized)
