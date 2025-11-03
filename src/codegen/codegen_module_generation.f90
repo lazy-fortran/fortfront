@@ -8,6 +8,7 @@ module codegen_module_generation
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
     use ast_traversal_utils, only: get_ancestor_of_type
+    use string_utils_mod, only: to_lower
     implicit none
     private
     public :: generate_code_module
@@ -25,10 +26,15 @@ contains
         type(module_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: declarations
 
         in_module_context = .true.
         code = build_module_header(arena, node)
-        code = code // collect_module_declarations(arena, node)
+        declarations = collect_module_declarations(arena, node)
+        if (.not. module_has_implicit_none(arena, node)) then
+            declarations = inject_module_implicit_none(declarations)
+        end if
+        code = code // declarations
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
         in_module_context = .false.
@@ -87,9 +93,6 @@ contains
         character(len=:), allocatable :: header
 
         header = "module " // node%name // new_line('A')
-        if (.not. module_has_implicit_none(arena, node)) then
-            header = header // "    implicit none" // new_line('A')
-        end if
     end function build_module_header
 
     logical function module_has_implicit_none(arena, node) result(has_implicit)
@@ -135,6 +138,111 @@ contains
 
         body_code = generate_grouped_body(arena, node%declaration_indices, 1)
     end function collect_module_declarations
+
+    function inject_module_implicit_none(body_code) result(result_code)
+        character(len=:), allocatable, intent(in) :: body_code
+        character(len=:), allocatable :: result_code
+        integer :: header_end
+        integer :: len_body
+        character(len=1) :: nl
+
+        nl = new_line('A')
+
+        if (.not. allocated(body_code)) then
+            result_code = "    implicit none" // nl
+            return
+        end if
+
+        len_body = len(body_code)
+        if (len_body == 0) then
+            result_code = "    implicit none" // nl
+            return
+        end if
+
+        header_end = find_module_header_end(body_code)
+
+        if (header_end <= 0) then
+            result_code = "    implicit none" // nl // body_code
+        else if (header_end >= len_body) then
+            if (body_code(len_body:len_body) == nl) then
+                result_code = body_code // "    implicit none" // nl
+            else
+                result_code = body_code // nl // "    implicit none" // nl
+            end if
+        else
+            result_code = body_code(1:header_end) // "    implicit none" // nl // &
+                          body_code(header_end + 1:)
+        end if
+    end function inject_module_implicit_none
+
+    integer function find_module_header_end(body_code) result(pos)
+        character(len=*), intent(in) :: body_code
+        integer :: len_body
+        integer :: line_start
+        integer :: next_break
+        integer :: line_end
+        integer :: next_start
+        character(len=:), allocatable :: line_text
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: normalized
+        character(len=1) :: nl
+        logical :: is_header_line
+
+        nl = new_line('A')
+        len_body = len(body_code)
+        pos = 0
+        line_start = 1
+
+        do
+            if (line_start > len_body) exit
+            next_break = index(body_code(line_start:), nl)
+            if (next_break == 0) then
+                line_end = len_body
+                next_start = len_body + 1
+            else
+                line_end = line_start + next_break - 2
+                next_start = line_end + 2
+            end if
+
+            if (line_end >= line_start) then
+                line_text = body_code(line_start:line_end)
+            else
+                line_text = ""
+            end if
+
+            if (len_trim(line_text) > 0) then
+                lowered = to_lower(trim(line_text))
+            else
+                lowered = ""
+            end if
+            normalized = adjustl(lowered)
+
+            is_header_line = .false.
+            if (len_trim(normalized) == 0) then
+                is_header_line = .true.
+            else if (normalized(1:1) == "!") then
+                is_header_line = .true.
+            else if (len(normalized) >= 3) then
+                if (normalized(1:3) == "use") is_header_line = .true.
+            end if
+            if (.not. is_header_line) then
+                if (len(normalized) >= 6) then
+                    if (normalized(1:6) == "import") is_header_line = .true.
+                end if
+            end if
+            if (.not. is_header_line) then
+                if (len(normalized) >= 9) then
+                    if (normalized(1:9) == "intrinsic") is_header_line = .true.
+                end if
+            end if
+
+            if (.not. is_header_line) exit
+
+            pos = next_start - 1
+            if (next_break == 0) exit
+            line_start = next_start
+        end do
+    end function find_module_header_end
 
     function build_contains_section(arena, node) result(section_code)
         type(ast_arena_t), intent(in) :: arena
