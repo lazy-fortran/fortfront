@@ -5,7 +5,9 @@ program test_all_examples
     integer :: test_count, pass_count, fail_count, skip_count
     integer :: xfail_count, xpass_count
     logical :: is_windows
-    character(len=256) :: examples_dir
+    character(len=:), allocatable :: examples_dir
+    character(len=:), allocatable :: expected_failures_path
+    character(len=:), allocatable :: skip_file_path
     character(len=256), allocatable :: expected_failures(:)
     character(len=256), allocatable :: skip_examples(:)
     integer :: num_expected_failures
@@ -40,14 +42,20 @@ program test_all_examples
         stop 1
     end if
 
-    ! fpm test runs from project root, so examples/ is directly accessible
-    examples_dir = 'examples'
+    call resolve_examples_directory(fortfront_exe, is_windows, examples_dir)
+    if (len_trim(examples_dir) == 0) then
+        print *, "ERROR: Could not locate examples directory"
+        stop 1
+    end if
 
     ! Load expected failures list
-    call load_expected_failures('examples/expected_failures.txt', &
-                                expected_failures, num_expected_failures)
-    call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
-                            num_skip_examples)
+    expected_failures_path = append_path(examples_dir, 'expected_failures.txt', &
+                                         is_windows)
+    skip_file_path = append_path(examples_dir, 'skip_all_examples.txt', &
+                                 is_windows)
+    call load_expected_failures(expected_failures_path, expected_failures, &
+                                num_expected_failures)
+    call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -434,6 +442,134 @@ contains
         close (unit_num)
     end subroutine load_skip_examples
 
+    pure function append_path(base, child, is_windows) result(combined)
+        character(len=*), intent(in) :: base, child
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: combined
+        character(len=1) :: sep
+        integer :: last
+
+        sep = '/'
+        if (is_windows) sep = '\'
+
+        if (len_trim(base) == 0) then
+            combined = trim(child)
+            return
+        end if
+
+        combined = trim(base)
+        last = len_trim(combined)
+        if (last > 0) then
+            select case (combined(last:last))
+            case ('/', '\')
+                combined(last:last) = sep
+            case default
+                combined = combined // sep
+            end select
+        end if
+
+        if (len_trim(child) == 0) return
+        combined = combined // trim(child)
+    end function append_path
+
+    pure function ensure_trailing_separator(path, is_windows) result(with_sep)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: with_sep
+        character(len=1) :: sep
+        integer :: last
+
+        with_sep = trim(path)
+        if (len_trim(with_sep) == 0) return
+
+        sep = '/'
+        if (is_windows) sep = '\'
+
+        last = len_trim(with_sep)
+        if (last <= 0) return
+
+        if (with_sep(last:last) /= '/' .and. with_sep(last:last) /= '\') then
+            with_sep = with_sep // sep
+        else
+            with_sep(last:last) = sep
+        end if
+    end function ensure_trailing_separator
+
+    logical function directory_exists(path)
+        character(len=*), intent(in) :: path
+        logical :: exists
+        character(len=:), allocatable :: probe
+        character(len=1) :: sep
+
+        directory_exists = .false.
+        if (len_trim(path) == 0) return
+
+        probe = trim(path)
+        inquire (file=probe, exist=exists)
+        if (exists) then
+            directory_exists = .true.
+            return
+        end if
+
+        sep = path_separator_for(path)
+        if (len_trim(probe) == 0) return
+
+        if (probe(len_trim(probe):len_trim(probe)) == sep) then
+            probe = probe // '.'
+        else
+            probe = probe // sep // '.'
+        end if
+
+        inquire (file=probe, exist=exists)
+        directory_exists = exists
+    end function directory_exists
+
+    logical function is_absolute_path(path, is_windows) result(is_abs)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: trimmed
+        integer :: length_value
+
+        trimmed = trim(path)
+        length_value = len_trim(trimmed)
+        is_abs = .false.
+        if (length_value == 0) return
+
+        if (trimmed(1:1) == '/' .or. trimmed(1:1) == '\') then
+            is_abs = .true.
+            return
+        end if
+
+        if (is_windows) then
+            if (length_value >= 2) then
+                if (trimmed(2:2) == ':') then
+                    is_abs = .true.
+                    return
+                end if
+            end if
+        end if
+    end function is_absolute_path
+
+    function search_examples_from_cwd(is_windows) result(root_dir)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: root_dir
+        character(len=:), allocatable :: climb
+        character(len=:), allocatable :: candidate
+        integer :: depth
+
+        root_dir = ''
+        climb = '.'
+
+        do depth = 0, 6
+            candidate = append_path(climb, 'examples', is_windows)
+            if (directory_exists(candidate)) then
+                root_dir = trim(climb)
+                return
+            end if
+            climb = append_path(climb, '..', is_windows)
+        end do
+    end function search_examples_from_cwd
+
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
         result(is_xfail)
         character(len=*), intent(in) :: basename
@@ -498,19 +634,22 @@ contains
         character(len=256), intent(in) :: skip_examples(:)
         integer, intent(in) :: num_skip_examples
 
-        character(len=500) :: list_command, list_file
+        character(len=2048) :: list_command
+        character(len=500) :: list_file
         integer :: unit_num, ios
         character(len=256) :: line
+        character(len=:), allocatable :: search_root
 
         ! Create unique temp file name for this extension
         list_file = 'examples_list' // trim(extension) // '.txt'
 
         ! List files with this extension (recursively search subdirectories)
+        search_root = ensure_trailing_separator(examples_dir, is_windows)
         if (is_windows) then
-            list_command = 'cmd /C "dir /B /S ' // trim(examples_dir) // '\*' // &
-                           trim(extension) // ' > ' // trim(list_file) // ' 2>nul"'
+            list_command = 'cmd /C "dir /B /S ""' // trim(search_root) // '*' // &
+                           trim(extension) // '"" > ' // trim(list_file) // ' 2>nul"'
         else
-            list_command = 'find ' // trim(examples_dir) // ' -name "*' // &
+            list_command = 'find "' // trim(examples_dir) // '" -name "*' // &
                            trim(extension) // '" -type f > ' // trim(list_file) // &
                                & ' 2>/dev/null || true'
         end if
@@ -995,6 +1134,57 @@ contains
             end if
         end if
     end function get_module_directory
+
+    subroutine resolve_examples_directory(fortfront_exe, is_windows, examples_dir)
+        character(len=*), intent(in) :: fortfront_exe
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable, intent(out) :: examples_dir
+        character(len=:), allocatable :: project_root
+
+        examples_dir = ''
+        call locate_project_root(fortfront_exe, is_windows, project_root)
+        if (len_trim(project_root) == 0) return
+
+        examples_dir = append_path(project_root, 'examples', is_windows)
+        if (.not. directory_exists(examples_dir)) examples_dir = ''
+    end subroutine resolve_examples_directory
+
+    subroutine locate_project_root(start_path, is_windows, project_root)
+        character(len=*), intent(in) :: start_path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable, intent(out) :: project_root
+        character(len=:), allocatable :: current_dir
+        character(len=:), allocatable :: candidate
+        character(len=:), allocatable :: effective_start
+        integer :: depth
+
+        project_root = ''
+        if (len_trim(start_path) == 0) then
+            project_root = search_examples_from_cwd(is_windows)
+            return
+        end if
+
+        if (is_absolute_path(start_path, is_windows)) then
+            effective_start = start_path
+        else
+            effective_start = append_path('.', start_path, is_windows)
+        end if
+
+        current_dir = directory_from_path(effective_start)
+
+        do depth = 1, 12
+            if (len_trim(current_dir) == 0) exit
+            candidate = append_path(current_dir, 'examples', is_windows)
+            if (directory_exists(candidate)) then
+                project_root = current_dir
+                return
+            end if
+            current_dir = directory_from_path(current_dir)
+        end do
+
+        if (len_trim(project_root) == 0) &
+            project_root = search_examples_from_cwd(is_windows)
+    end subroutine locate_project_root
 
     pure function extract_module_candidate(path, marker) result(value)
         character(len=*), intent(in) :: path, marker
