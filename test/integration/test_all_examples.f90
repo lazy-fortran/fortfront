@@ -15,7 +15,9 @@ program test_all_examples
     integer :: num_skip_examples
     character(len=:), allocatable :: fortfront_exe
     character(len=:), allocatable :: temp_dir
+    character(len=:), allocatable :: resolved_expected_failures
     real(dp) :: success_rate
+    logical :: expected_failures_exists
 
     test_count = 0
     pass_count = 0
@@ -50,6 +52,14 @@ program test_all_examples
     examples_sep = path_separator_for(examples_dir)
     expected_failures_path = join_path(examples_dir, &
                                        'expected_failures.txt', examples_sep)
+    call resolve_existing_file(expected_failures_path, is_windows, &
+                               resolved_expected_failures, expected_failures_exists)
+    if (expected_failures_exists) then
+        expected_failures_path = resolved_expected_failures
+        examples_dir = directory_from_path(expected_failures_path)
+        if (len_trim(examples_dir) == 0) examples_dir = 'examples'
+        examples_sep = path_separator_for(examples_dir)
+    end if
     skip_file_path = join_path(examples_dir, 'skip_all_examples.txt', &
                                examples_sep)
 
