@@ -11,6 +11,7 @@ program test_all_examples
     integer :: num_expected_failures
     integer :: num_skip_examples
     character(len=:), allocatable :: fortfront_exe
+    character(len=:), allocatable :: temp_dir
     real(dp) :: success_rate
 
     test_count = 0
@@ -22,6 +23,14 @@ program test_all_examples
 
     is_windows = check_if_windows()
     call verify_shell_helpers(is_windows)
+
+    ! Create temp directory for test outputs
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, "ERROR: Could not create temporary directory"
+        stop 1
+    end if
+    print *, "Using temp directory: ", trim(temp_dir)
 
     ! Find fortfront executable (avoid fpm run overhead)
     fortfront_exe = find_fortfront_executable(is_windows)
@@ -47,18 +56,21 @@ program test_all_examples
     print *, ""
 
     ! Test .lf (lazy fortran) examples
-    call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, &
+    call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, temp_dir, &
                                     test_count, pass_count, fail_count, skip_count, &
                                     xfail_count, xpass_count, is_windows, &
                                     expected_failures, num_expected_failures, &
                                     skip_examples, num_skip_examples)
 
     ! Test .f90 (standard fortran) examples
-    call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, &
+    call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, temp_dir, &
                                     test_count, pass_count, fail_count, skip_count, &
                                     xfail_count, xpass_count, is_windows, &
                                     expected_failures, num_expected_failures, &
                                     skip_examples, num_skip_examples)
+
+    ! Clean up temp directory
+    call cleanup_temp_directory(temp_dir, is_windows)
 
     print *, ""
     print *, "=== Test Summary ==="
@@ -253,7 +265,8 @@ contains
             stop 1
         end if
 
-        command = build_compile_command('output file.f90', 'modules dir', is_windows)
+        command = build_compile_command('output file.f90', 'modules dir', &
+                                        'temp dir', is_windows)
         if (len_trim(command) == 0) then
             print *, "ERROR: build_compile_command returned empty command"
             stop 1
@@ -474,12 +487,13 @@ contains
     end function is_skipped_example
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                          test_count, pass_count, fail_count, &
+                                          temp_dir, test_count, pass_count, fail_count, &
                                               & skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures, &
                                           skip_examples, num_skip_examples)
         character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
+        character(len=*), intent(in) :: temp_dir
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
@@ -524,7 +538,7 @@ contains
             if (len_trim(line) == 0) cycle
 
             ! On both Windows (dir /S) and Unix (find), we get full paths
-            call test_single_example(trim(line), fortfront_exe, &
+            call test_single_example(trim(line), fortfront_exe, temp_dir, &
                                      test_count, pass_count, fail_count, &
                                      skip_count, &
                                      xfail_count, xpass_count, is_windows, &
@@ -607,12 +621,13 @@ contains
         normalized = adjustl(normalized)
     end function normalize_path_string
 
-    subroutine test_single_example(filepath, fortfront_exe, test_count, pass_count, &
+    subroutine test_single_example(filepath, fortfront_exe, temp_dir, test_count, &
+                                   pass_count, &
                                    fail_count, skip_count, xfail_count, xpass_count, &
                                    is_windows, expected_failures, &
                                    num_expected_failures, skip_examples, &
                                    num_skip_examples)
-        character(len=*), intent(in) :: filepath, fortfront_exe
+        character(len=*), intent(in) :: filepath, fortfront_exe, temp_dir
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
@@ -621,15 +636,21 @@ contains
         character(len=256), intent(in) :: skip_examples(:)
         integer, intent(in) :: num_skip_examples
 
-        character(len=256) :: output_file, error_file
+        character(len=:), allocatable :: output_file, error_file
         character(len=256) :: basename_str
         character(len=256) :: relative_path
+        character(len=1) :: sep
         logical :: has_error, has_unparsed, has_warning, file_exists, expect_fail
+        logical :: is_f90_roundtrip
         character(len=:), allocatable :: module_dir
 
         basename_str = extract_example_basename(filepath)
-        output_file = 'test_example_' // trim(basename_str) // '_output.f90'
-        error_file = 'test_example_' // trim(basename_str) // '.err'
+        sep = path_separator_for(temp_dir)
+        output_file = trim(temp_dir) // sep // 'test_example_' // &
+                      trim(basename_str) // '_output.f90'
+        error_file = trim(temp_dir) // sep // 'test_example_' // &
+                     trim(basename_str) // '.err'
+        is_f90_roundtrip = (index(filepath, '.f90') > 0)
         write (*, '(A)', advance='no') "Testing " // trim(basename_str) // " ... "
 
         inquire (file=trim(filepath), exist=file_exists)
@@ -649,14 +670,23 @@ contains
 
         module_dir = get_module_directory(fortfront_exe)
 
-        call run_transform_and_scan(filepath, fortfront_exe, output_file, &
-                                    error_file, is_windows, has_error, has_unparsed, &
-                                    has_warning)
-
-        if (.not. has_error .and. .not. has_unparsed) then
-            if (.not. compile_generated_output(output_file, module_dir, &
-                                               is_windows)) then
+        if (is_f90_roundtrip) then
+            if (.not. compile_f90_example(filepath, module_dir, temp_dir, is_windows)) then
                 has_error = .true.
+            end if
+            has_unparsed = .false.
+            has_warning = .false.
+        else
+            call run_transform_and_scan(filepath, fortfront_exe, output_file, &
+                                        error_file, is_windows, is_f90_roundtrip, &
+                                        has_error, has_unparsed, &
+                                        has_warning)
+
+            if (.not. has_error .and. .not. has_unparsed) then
+                if (.not. compile_generated_output(output_file, module_dir, temp_dir, &
+                                                   is_windows)) then
+                    has_error = .true.
+                end if
             end if
         end if
 
@@ -667,18 +697,21 @@ contains
         call finalize_example_result(trim(basename_str), output_file, error_file, &
                                      has_error, has_unparsed, has_warning, &
                                      expect_fail, pass_count, fail_count, &
-                                     xfail_count, xpass_count)
+                                     xfail_count, xpass_count, is_f90_roundtrip)
 
-        call cleanup_file(output_file)
-        call cleanup_file(error_file)
+        if (.not. is_f90_roundtrip) then
+            call cleanup_file(output_file)
+            call cleanup_file(error_file)
+        end if
     end subroutine test_single_example
 
     subroutine run_transform_and_scan(filepath, fortfront_exe, output_file, &
-                                      error_file, is_windows, has_error, has_unparsed, &
+                                      error_file, is_windows, is_f90_roundtrip, &
+                                      has_error, has_unparsed, &
                                       has_warning)
         character(len=*), intent(in) :: filepath, fortfront_exe
         character(len=*), intent(in) :: output_file, error_file
-        logical, intent(in) :: is_windows
+        logical, intent(in) :: is_windows, is_f90_roundtrip
         logical, intent(out) :: has_error, has_unparsed, has_warning
         character(len=2048) :: command
         character(len=:), allocatable :: input_arg, exe_arg, output_arg, error_arg
@@ -782,14 +815,15 @@ contains
         close (unit_num)
     end subroutine scan_output_file
 
-    logical function compile_generated_output(output_file, module_dir, is_windows)
+    logical function compile_generated_output(output_file, module_dir, temp_dir, &
+                                              is_windows)
         character(len=*), intent(in) :: output_file
-        character(len=*), intent(in) :: module_dir
+        character(len=*), intent(in) :: module_dir, temp_dir
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: command
         integer :: exit_code
 
-        command = build_compile_command(output_file, module_dir, is_windows)
+        command = build_compile_command(output_file, module_dir, temp_dir, is_windows)
         if (len_trim(command) == 0) then
             compile_generated_output = .false.
             return
@@ -801,10 +835,12 @@ contains
 
     subroutine finalize_example_result(name, output_file, error_file, has_error, &
                                        has_unparsed, has_warning, expect_fail, &
-                                       pass_count, fail_count, xfail_count, xpass_count)
+                                       pass_count, fail_count, xfail_count, xpass_count, &
+                                       is_roundtrip)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: output_file, error_file
         logical, intent(in) :: has_error, has_unparsed, has_warning, expect_fail
+        logical, intent(in) :: is_roundtrip
         integer, intent(inout) :: pass_count, fail_count, xfail_count, xpass_count
 
         if (has_error .or. has_unparsed) then
@@ -812,9 +848,15 @@ contains
                 print *, "XFAIL (expected failure)"
                 xfail_count = xfail_count + 1
             else
-                call report_example_failure(name, output_file, error_file)
+                if (.not. is_roundtrip) then
+                    call report_example_failure(name, output_file, error_file)
+                end if
                 if (has_error) then
-                    print *, "FAIL (parser error or compilation failed)"
+                    if (is_roundtrip) then
+                        print *, "FAIL (compilation failed)"
+                    else
+                        print *, "FAIL (parser error or compilation failed)"
+                    end if
                 else
                     print *, "FAIL (unparsed content - incomplete transformation)"
                 end if
@@ -1238,13 +1280,14 @@ contains
         end if
     end function set_module_dir_if_exists
 
-    pure function build_compile_command(output_file, module_dir, is_windows) &
+    pure function build_compile_command(output_file, module_dir, temp_dir, &
+                                        is_windows) &
         result(command)
         character(len=*), intent(in) :: output_file
-        character(len=*), intent(in) :: module_dir
+        character(len=*), intent(in) :: module_dir, temp_dir
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: command
-        character(len=:), allocatable :: module_arg, output_arg
+        character(len=:), allocatable :: module_arg, output_arg, temp_arg
 
         command = ''
 
@@ -1259,6 +1302,14 @@ contains
                                          escape_for_cmd=is_windows)
             if (len_trim(module_arg) > 0) then
                 command = command // '-I ' // module_arg // ' '
+            end if
+        end if
+
+        if (len_trim(temp_dir) > 0) then
+            temp_arg = quote_for_shell(temp_dir, is_windows, &
+                                       escape_for_cmd=is_windows)
+            if (len_trim(temp_arg) > 0) then
+                command = command // '-J ' // temp_arg // ' '
             end if
         end if
 
@@ -1310,5 +1361,62 @@ contains
 
         is_safe_path = .true.
     end function is_safe_path
+
+    subroutine create_temp_directory(temp_dir, is_windows)
+        character(len=:), allocatable, intent(out) :: temp_dir
+        logical, intent(in) :: is_windows
+        character(len=256) :: base_temp
+        integer :: ios
+        character(len=:), allocatable :: mkdir_cmd
+
+        if (is_windows) then
+            call get_environment_variable('TEMP', base_temp, status=ios)
+            if (ios /= 0) base_temp = '.'
+            temp_dir = trim(base_temp) // '\fortfront_test'
+            mkdir_cmd = 'cmd /C "if not exist "' // trim(temp_dir) // '" mkdir "' // &
+                        trim(temp_dir) // '""'
+        else
+            base_temp = '/tmp'
+            temp_dir = trim(base_temp) // '/fortfront_test'
+            mkdir_cmd = 'mkdir -p "' // trim(temp_dir) // '"'
+        end if
+
+        call execute_command_line(trim(mkdir_cmd), exitstat=ios)
+        if (ios /= 0) temp_dir = ''
+    end subroutine create_temp_directory
+
+    subroutine cleanup_temp_directory(temp_dir, is_windows)
+        character(len=*), intent(in) :: temp_dir
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: rm_cmd
+        integer :: ios
+
+        if (len_trim(temp_dir) == 0) return
+
+        if (is_windows) then
+            rm_cmd = 'cmd /C "rmdir /S /Q "' // trim(temp_dir) // '""'
+        else
+            rm_cmd = 'rm -rf "' // trim(temp_dir) // '"'
+        end if
+
+        call execute_command_line(trim(rm_cmd), exitstat=ios)
+    end subroutine cleanup_temp_directory
+
+    logical function compile_f90_example(filepath, module_dir, temp_dir, is_windows)
+        character(len=*), intent(in) :: filepath
+        character(len=*), intent(in) :: module_dir, temp_dir
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: command
+        integer :: exit_code
+
+        command = build_compile_command(filepath, module_dir, temp_dir, is_windows)
+        if (len_trim(command) == 0) then
+            compile_f90_example = .false.
+            return
+        end if
+
+        call execute_command_line(trim(command), exitstat=exit_code)
+        compile_f90_example = (exit_code == 0)
+    end function compile_f90_example
 
 end program test_all_examples
