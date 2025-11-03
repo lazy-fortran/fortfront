@@ -377,6 +377,12 @@ contains
                 do i = 1, var_count
                     if (len_trim(var_names(i)) == 0) cycle
                     if (len_trim(var_types(i)) == 0) cycle
+                    ! If variable is already explicitly declared, mark it as not needing
+                    ! a generated declaration (fixes nested implied-do duplicate issue)
+                    if (var_declared(i) .and. &
+                        has_explicit_declaration(arena, prog, var_names(i))) then
+                        var_declared(i) = .false.
+                    end if
                     if (has_explicit_declaration(arena, prog, var_names(i))) then
                         block
                             character(len=:), allocatable :: lowered_type
