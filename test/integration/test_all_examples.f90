@@ -354,6 +354,7 @@ contains
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
+            call strip_control_characters(trimmed_line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 count = count + 1
             end if
@@ -372,6 +373,7 @@ contains
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
+            call strip_control_characters(trimmed_line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 i = i + 1
                 ! Extract filename before any # comment
@@ -413,6 +415,7 @@ contains
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
+            call strip_control_characters(trimmed_line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 count = count + 1
             end if
@@ -429,6 +432,7 @@ contains
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
+            call strip_control_characters(trimmed_line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 i = i + 1
                 if (index(trimmed_line, '#') > 0) then
@@ -523,6 +527,21 @@ contains
         inquire (file=probe, exist=exists)
         directory_exists = exists
     end function directory_exists
+
+    pure subroutine strip_control_characters(value)
+        character(len=*), intent(inout) :: value
+        integer :: i, code
+
+        do i = 1, len(value)
+            code = iachar(value(i:i))
+            if (code == 0) exit
+            if (code >= 0 .and. code <= 31) then
+                if (value(i:i) /= ' ') value(i:i) = ' '
+            else if (code == 127) then
+                value(i:i) = ' '
+            end if
+        end do
+    end subroutine strip_control_characters
 
     logical function is_absolute_path(path, is_windows) result(is_abs)
         character(len=*), intent(in) :: path
@@ -670,6 +689,7 @@ contains
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
 
+            call strip_control_characters(line)
             if (len_trim(line) == 0) cycle
 
             ! On both Windows (dir /S) and Unix (find), we get full paths
@@ -756,6 +776,7 @@ contains
         integer :: i
 
         normalized = adjustl(trim(value))
+        call strip_control_characters(normalized)
         do i = 1, len(normalized)
             if (normalized(i:i) == '\\') normalized(i:i) = '/'
         end do
