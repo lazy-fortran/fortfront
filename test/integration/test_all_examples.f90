@@ -418,61 +418,12 @@ contains
         character(len=256), allocatable, intent(out) :: skip_list(:)
         integer, intent(out) :: num_skip
         logical, intent(in), optional :: is_windows
-        integer :: unit_num, ios, count, i
-        character(len=256) :: line, trimmed_line
         logical :: on_windows
-        character(len=:), allocatable :: resolved_filename
-
-        num_skip = 0
 
         on_windows = .false.
         if (present(is_windows)) on_windows = is_windows
 
-        call open_file_for_read(filename, on_windows, unit_num, ios, &
-                                resolved_filename)
-        if (ios /= 0) then
-            allocate (skip_list(0))
-            return
-        end if
-
-        count = 0
-        do
-            read (unit_num, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            trimmed_line = adjustl(line)
-            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
-                count = count + 1
-            end if
-        end do
-        close (unit_num)
-
-        allocate (skip_list(count))
-        num_skip = count
-
-        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
-              action='read', iostat=ios)
-        if (ios /= 0) then
-            deallocate (skip_list)
-            allocate (skip_list(0))
-            num_skip = 0
-            return
-        end if
-        i = 0
-        do
-            read (unit_num, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            trimmed_line = adjustl(line)
-            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
-                i = i + 1
-                if (index(trimmed_line, '#') > 0) then
-                    skip_list(i) = &
-                        adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
-                else
-                    skip_list(i) = trim(trimmed_line)
-                end if
-            end if
-        end do
-        close (unit_num)
+        call load_expected_failures(filename, skip_list, num_skip, on_windows)
     end subroutine load_skip_examples
 
     subroutine resolve_existing_file(input_path, is_windows, resolved_path, &
@@ -601,55 +552,6 @@ contains
             end if
         end if
     end function resolve_examples_dir
-
-    subroutine open_file_for_read(filename, is_windows, unit_num, ios, &
-                                  resolved_filename)
-        character(len=*), intent(in) :: filename
-        logical, intent(in) :: is_windows
-        integer, intent(out) :: unit_num
-        integer, intent(out) :: ios
-        character(len=:), allocatable, intent(out) :: resolved_filename
-        character(len=:), allocatable :: candidate
-        character(len=:), allocatable :: cwd
-        character(len=1) :: sep
-        integer :: attempt
-
-        resolved_filename = ''
-        ios = -1
-
-        do attempt = 1, 5
-            select case (attempt)
-            case (1)
-                candidate = adjustl(trim(filename))
-            case (2)
-                if (.not. is_windows) cycle
-                candidate = replace_characters(filename, '/', '\')
-            case (3)
-                candidate = replace_characters(filename, '\', '/')
-            case (4)
-                if (is_absolute_path(filename, is_windows)) cycle
-                cwd = get_current_directory(is_windows)
-                if (len_trim(cwd) == 0) cycle
-                sep = path_separator_for(cwd)
-                candidate = join_path(cwd, filename, sep)
-            case (5)
-                if (.not. is_windows) cycle
-                if (is_absolute_path(filename, is_windows)) cycle
-                cwd = get_current_directory(is_windows)
-                if (len_trim(cwd) == 0) cycle
-                sep = path_separator_for(cwd)
-                candidate = join_path(cwd, replace_characters(filename, '/', '\'), &
-                                      sep)
-            end select
-            if (len_trim(candidate) == 0) cycle
-            open (newunit=unit_num, file=trim(candidate), status='old', &
-                  action='read', iostat=ios)
-            if (ios == 0) then
-                resolved_filename = trim(candidate)
-                return
-            end if
-        end do
-    end subroutine open_file_for_read
 
     function get_current_directory(is_windows) result(dir_path)
         logical, intent(in) :: is_windows
