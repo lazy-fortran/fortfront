@@ -1,5 +1,8 @@
 program array_slice_basic
     implicit none
-    integer :: x
+    integer, dimension(5) :: a
+    integer, allocatable :: x(:)
+
+    a = [1, 2, 3, 4, 5]
     x = a[2:5]
 end program array_slice_basic

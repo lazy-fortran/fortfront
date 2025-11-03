@@ -1,6 +1,9 @@
 program array_slice_empty_bounds
     implicit none
-    integer :: x
+    integer, dimension(5) :: a
+    integer, allocatable :: x(:)
+
+    a = [1, 2, 3, 4, 5]
     x = a[:5]
     x = a[3:]
     x = a[:]
