@@ -17,8 +17,11 @@ program test_real_literal_kind_inference
         stop 1
     end if
 
-    all_passed = check_output(output, 'double precision :: c', 'c = 1.0d0') .and. &
-                 check_output(output, 'double precision :: d', 'd = 3.14159_8')
+    all_passed = (index(output, 'double precision :: c, d') > 0 .or. &
+                  (index(output, 'double precision :: c') > 0 .and. &
+                   index(output, 'double precision :: d') > 0)) .and. &
+                 index(output, 'c = 1.0d0') > 0 .and. &
+                 index(output, 'd = 3.14159_8') > 0
 
     if (all_passed) then
         print *, 'PASS: real literal kind inference retains double precision'
