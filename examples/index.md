@@ -18,51 +18,55 @@ these lists to spot redundant coverage before adding new files.
 
 ### Modules & Internal Procedures
 **Examples**
-- examples/f90/generated/codegen/issues/issue_1300s/
-  issue_1350_recursive_keyword/run_recursive_if_test.f90
+- examples/f90/generated/codegen/issues/issue_1300s/issue_1350_recursive_keyword/
+  run_recursive_if_test.f90
 - examples/f90/issue_1347_interface.f90
+- examples/f90/issue_1565_use_associated_rename.f90
+- examples/f90/issue_1565_use_associated_variable.f90
 - examples/f90/issue_1570_pure_elemental_preservation.f90
+- examples/f90/issue_1604_type_bound_procedures.f90
+- examples/f90/issue_1607_final_procedures.f90
+- examples/f90/issue_1611_allocate_class_typespec.f90
 - examples/f90/issue_1615_target_attribute.f90
+- examples/f90/issue_1619_nested_types_complex.f90
+- examples/f90/issue_1705_real_literal_generic.f90
+- examples/f90/issue_1737_generic_interface.f90
+- examples/f90/issue_1744_operator_interface.f90
+- examples/f90/issue_1771_module_parameter_types.f90
+- examples/f90/issue_1774_user_defined_operator.f90
+- examples/f90/issue_1783_use_rename_no_only.f90
+- examples/f90/issue_1826_enum_module.f90
+- examples/f90/issue_1827_submodule_with_contents.f90
 - examples/f90/issue_2011_generic_interface_mangled.f90
+- examples/f90/module_interface_block.f90
+- examples/lf/issue_1258_parameter_decls.lf
+- examples/lf/issue_1408_module_visibility.lf
 - examples/lf/issue_1411_generic_module.lf
 - examples/lf/issue_1538_module_main.lf
+- examples/lf/issue_1893_module_result_intent.lf
+- examples/lf/issue_508_module_comment_main.lf
+- examples/lf/issue_508_module_comment_multi.lf
+- examples/lf/module_boundary_debug.lf
+- examples/lf/module_contains_suite.lf
 **Tests**
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
-- test/test_issue_1258_parameter_decls.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
-- test/test_issue_1893_module_result_intent.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
+- _None_
 
 ### Internal Procedures & Recursion
 **Examples**
-- examples/f90/generated/codegen/issues/issue_1300s/
-  issue_1350_recursive_keyword/run_recursive_if_test.f90
+- examples/f90/generated/codegen/issues/issue_1300s/issue_1350_recursive_keyword/
+  run_recursive_if_test.f90
 - examples/f90/issue_1347_interface.f90
 - examples/f90/issue_1350_recursive.f90
 - examples/f90/issue_1570_pure_elemental_preservation.f90
+- examples/f90/issue_1604_type_bound_procedures.f90
+- examples/f90/issue_1611_allocate_class_typespec.f90
+- examples/f90/issue_1619_nested_types_complex.f90
 - examples/f90/issue_1664_function_result.f90
+- examples/f90/issue_1705_real_literal_generic.f90
+- examples/f90/issue_1744_operator_interface.f90
+- examples/f90/issue_1771_module_parameter_types.f90
+- examples/f90/issue_1774_user_defined_operator.f90
+- examples/f90/issue_1783_use_rename_no_only.f90
 - examples/f90/issue_2011_generic_interface_mangled.f90
 - examples/f90/issue_2014_elemental_function_lost.f90
 - examples/f90/issue_2018_function_returns_array_duplicate_var.f90
@@ -70,25 +74,25 @@ these lists to spot redundant coverage before adding new files.
 - examples/f90/issue_2021_multi_function_merged.f90
 - examples/f90/issue_2024_char_function_duplicate_and_missing.f90
 - examples/f90/issue_2025_multi_internal_proc_structure_collapse.f90
+- examples/f90/module_interface_block.f90
+- examples/lf/issue_1258_parameter_decls.lf
+- examples/lf/issue_1408_module_visibility.lf
 - examples/lf/issue_1411_generic_module.lf
 - examples/lf/issue_1538_module_main.lf
+- examples/lf/issue_1893_module_result_intent.lf
+- examples/lf/module_boundary_debug.lf
+- examples/lf/module_contains_suite.lf
 **Tests**
 - test/api/test_fortfront_api_transform.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_real_literal_kind_inference.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_string_transformation.f90
 - test/integration/core_features/test_close_in_control_flow.f90
 - test/integration/core_features/test_function_param_memory_safety.f90
 - test/integration/issue_tests/test_issue_1330_missing_declarations.f90
 - test/integration/issue_tests/test_issue_1356_function_name.f90
 - test/integration/issue_tests/test_issue_1576_common_subroutine.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1781_deallocate_preserved.f90
 - test/integration/issue_tests/test_issue_1818_assumed_size_array.f90
@@ -99,25 +103,13 @@ these lists to spot redundant coverage before adding new files.
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
 - test/parser/test_issue_652_multi_var.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1619_nested_types_complex.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1883_intent_result.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1969_case_insensitive_variables.f90
 - test/test_issue_2018_duplicate_loop_var.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Arrays & Allocation
@@ -126,7 +118,11 @@ these lists to spot redundant coverage before adding new files.
 - examples/f90/issue_1337_forall.f90
 - examples/f90/issue_1338_where.f90
 - examples/f90/issue_1547_scalar_allocatable.f90
+- examples/f90/issue_1611_allocate_class_typespec.f90
+- examples/f90/issue_1611_allocate_no_typespec.f90
+- examples/f90/issue_1611_allocate_type_typespec.f90
 - examples/f90/issue_1615_target_attribute.f90
+- examples/f90/issue_1616_polymorphic_arrays.f90
 - examples/f90/issue_1664_function_result.f90
 - examples/f90/issue_2010_deferred_char_allocatable.f90
 - examples/f90/issue_2013_nested_implied_do_duplicate_var.f90
@@ -157,16 +153,11 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_issue_1405_data_statement.f90
 - test/codegen/test_issue_1406_namelist.f90
 - test/codegen/test_issue_1407_character_function.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
 - test/codegen/test_issue_1412_use_intrinsic.f90
 - test/codegen/test_issue_1413_array_function_result.f90
 - test/codegen/test_issue_1536_array_stride_assignment.f90
 - test/codegen/test_issue_1545_complex_literal.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
 - test/codegen/test_issue_1579_complex_assignment.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_1746_data_repeat_counts.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_issue_1899_data_multi_objects.f90
@@ -180,7 +171,6 @@ these lists to spot redundant coverage before adding new files.
 - test/error_reporting/test_enhanced_error_messages.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_issue_1972_do_if_hang.f90
 - test/frontend/test_issue_843_basic_assignment_prefix.f90
 - test/frontend/test_string_transformation.f90
@@ -195,8 +185,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_1578_block_data.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
 - test/integration/issue_tests/test_issue_1745_equivalence.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1778_debug.f90
 - test/integration/issue_tests/test_issue_1781_deallocate_preserved.f90
@@ -215,8 +203,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -225,21 +211,8 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/test_issue_652_multi_var.f90
 - test/semantic/test_intrinsic_reduction_scalars.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1608_class_keyword.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_1787_continue_in_if.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1859_read_statement.f90
 - test/test_issue_1860_print_undeclared.f90
@@ -247,7 +220,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
 - test/test_issue_1889_one_line_if.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1958_intent_preservation.f90
 - test/test_issue_1959_target_attribute.f90
@@ -260,10 +232,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_2022_fixed_array_preservation.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Control Flow & Loops
@@ -308,7 +276,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_2013_nested_implied_do.f90
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -320,10 +287,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1969_case_insensitive_variables.f90
 - test/test_issue_2018_duplicate_loop_var.f90
 - test/test_issue_2025_internal_procedures.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Character & String Handling
@@ -332,6 +295,7 @@ these lists to spot redundant coverage before adding new files.
 - examples/f90/issue_1344_character_length.f90
 - examples/f90/issue_1352_optional.f90
 - examples/f90/issue_1692_select_case_open_range.f90
+- examples/f90/issue_1744_operator_interface.f90
 - examples/f90/issue_2010_deferred_char_allocatable.f90
 - examples/f90/issue_2015_optional_param_wrong_monomorph.f90
 - examples/f90/issue_2024_char_function_duplicate_and_missing.f90
@@ -356,16 +320,11 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_issue_1405_data_statement.f90
 - test/codegen/test_issue_1406_namelist.f90
 - test/codegen/test_issue_1407_character_function.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
 - test/codegen/test_issue_1412_use_intrinsic.f90
 - test/codegen/test_issue_1413_array_function_result.f90
 - test/codegen/test_issue_1536_array_stride_assignment.f90
 - test/codegen/test_issue_1545_complex_literal.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
 - test/codegen/test_issue_1579_complex_assignment.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_1746_data_repeat_counts.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_issue_1899_data_multi_objects.f90
@@ -379,7 +338,6 @@ these lists to spot redundant coverage before adding new files.
 - test/error_reporting/test_enhanced_error_messages.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_issue_1972_do_if_hang.f90
 - test/frontend/test_issue_843_basic_assignment_prefix.f90
 - test/frontend/test_string_transformation.f90
@@ -394,8 +352,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_1578_block_data.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
 - test/integration/issue_tests/test_issue_1745_equivalence.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1778_debug.f90
 - test/integration/issue_tests/test_issue_1781_deallocate_preserved.f90
@@ -414,8 +370,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -424,21 +378,8 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/test_issue_652_multi_var.f90
 - test/semantic/test_intrinsic_reduction_scalars.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1608_class_keyword.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_1787_continue_in_if.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1859_read_statement.f90
 - test/test_issue_1860_print_undeclared.f90
@@ -446,7 +387,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
 - test/test_issue_1889_one_line_if.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1958_intent_preservation.f90
 - test/test_issue_1959_target_attribute.f90
@@ -459,60 +399,55 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_2022_fixed_array_preservation.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Pointers & Targets
 **Examples**
 - examples/f90/issue_1348_pointer.f90
 - examples/f90/issue_1409_use_rename.f90
+- examples/f90/issue_1565_use_associated_rename.f90
+- examples/f90/issue_1604_type_bound_procedures.f90
 - examples/f90/issue_1615_target_attribute.f90
+- examples/f90/issue_1616_polymorphic_arrays.f90
+- examples/f90/issue_1774_user_defined_operator.f90
+- examples/f90/issue_1783_use_rename_no_only.f90
+- examples/f90/issue_1783_use_rename_only.f90
 - examples/f90/issue_2017_assumed_shape_duplicate_monomorph.f90
+- examples/f90/module_interface_block.f90
 - examples/f90/tooling_lightweight_ast.f90
 - examples/lf/issue_1410_pointer_null.lf
 **Tests**
-- test/codegen/test_issue_1565_use_associated_rename.f90
 - test/codegen/test_real_literal_kind_inference.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1813_matrix_ops.f90
 - test/integration/issue_tests/test_issue_1966_double_precision_inference.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1616_polymorphic_arrays.f90
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1959_target_attribute.f90
 - test/test_issue_1960_pointer_assignment_if.f90
-- test/test_module_interface_block.f90
 
 ### Interfaces & Generics
 **Examples**
 - examples/f90/issue_1347_interface.f90
+- examples/f90/issue_1604_type_bound_procedures.f90
+- examples/f90/issue_1607_final_procedures.f90
+- examples/f90/issue_1619_nested_types_complex.f90
+- examples/f90/issue_1705_real_literal_generic.f90
+- examples/f90/issue_1737_generic_interface.f90
+- examples/f90/issue_1744_operator_interface.f90
+- examples/f90/issue_1774_user_defined_operator.f90
 - examples/f90/issue_2011_generic_interface_mangled.f90
+- examples/f90/module_interface_block.f90
+- examples/f90/module_interface_block_invalid.f90
 - examples/lf/issue_1411_generic_module.lf
 - examples/lf/issue_1622_import.lf
 **Tests**
-- test/codegen/test_issue_1411_module_main.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_2025_internal_procedures.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### I/O & Namelist
@@ -536,11 +471,21 @@ these lists to spot redundant coverage before adding new files.
 - examples/f90/issue_1544_external_array.f90
 - examples/f90/issue_1546_goto_label.f90
 - examples/f90/issue_1547_scalar_allocatable.f90
+- examples/f90/issue_1565_use_associated_rename.f90
+- examples/f90/issue_1565_use_associated_variable.f90
 - examples/f90/issue_1570_pure_elemental_preservation.f90
 - examples/f90/issue_1583_computed_goto.f90
 - examples/f90/issue_1615_target_attribute.f90
 - examples/f90/issue_1664_function_result.f90
 - examples/f90/issue_1692_select_case_open_range.f90
+- examples/f90/issue_1705_real_literal_generic.f90
+- examples/f90/issue_1771_module_parameter_types.f90
+- examples/f90/issue_1774_user_defined_operator.f90
+- examples/f90/issue_1783_use_rename_no_only.f90
+- examples/f90/issue_1783_use_rename_only.f90
+- examples/f90/issue_1826_enum_module.f90
+- examples/f90/issue_1826_enum_program.f90
+- examples/f90/issue_1827_submodule_with_contents.f90
 - examples/f90/issue_1897_typed_array_constructor.f90
 - examples/f90/issue_1970_implied_do_array_constructor.f90
 - examples/f90/issue_2010_deferred_char_allocatable.f90
@@ -609,7 +554,10 @@ these lists to spot redundant coverage before adding new files.
 - examples/lf/issue_2016_nested_call_type_mismatch.lf
 - examples/lf/issue_2019_statements_after_if_dropped.lf
 - examples/lf/issue_2023_loop_variable_declaration.lf
+- examples/lf/issue_508_module_comment_main.lf
+- examples/lf/issue_508_module_comment_multi.lf
 - examples/lf/logical_ops.lf
+- examples/lf/module_contains_suite.lf
 - examples/lf/monomorphization_simple.lf
 - examples/lf/nested_loops.lf
 - examples/lf/read_statement.lf
@@ -632,16 +580,11 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_issue_1405_data_statement.f90
 - test/codegen/test_issue_1406_namelist.f90
 - test/codegen/test_issue_1407_character_function.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
 - test/codegen/test_issue_1412_use_intrinsic.f90
 - test/codegen/test_issue_1413_array_function_result.f90
 - test/codegen/test_issue_1536_array_stride_assignment.f90
 - test/codegen/test_issue_1545_complex_literal.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
 - test/codegen/test_issue_1579_complex_assignment.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_1746_data_repeat_counts.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_issue_1899_data_multi_objects.f90
@@ -655,7 +598,6 @@ these lists to spot redundant coverage before adding new files.
 - test/error_reporting/test_enhanced_error_messages.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_issue_1972_do_if_hang.f90
 - test/frontend/test_issue_843_basic_assignment_prefix.f90
 - test/frontend/test_string_transformation.f90
@@ -670,8 +612,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_1578_block_data.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
 - test/integration/issue_tests/test_issue_1745_equivalence.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1778_debug.f90
 - test/integration/issue_tests/test_issue_1781_deallocate_preserved.f90
@@ -690,8 +630,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -700,21 +638,8 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/test_issue_652_multi_var.f90
 - test/semantic/test_intrinsic_reduction_scalars.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1608_class_keyword.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_1787_continue_in_if.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1859_read_statement.f90
 - test/test_issue_1860_print_undeclared.f90
@@ -722,7 +647,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
 - test/test_issue_1889_one_line_if.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1958_intent_preservation.f90
 - test/test_issue_1959_target_attribute.f90
@@ -735,10 +659,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_2022_fixed_array_preservation.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Error Handling & Diagnostics
@@ -754,16 +674,11 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_issue_1405_data_statement.f90
 - test/codegen/test_issue_1406_namelist.f90
 - test/codegen/test_issue_1407_character_function.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
 - test/codegen/test_issue_1412_use_intrinsic.f90
 - test/codegen/test_issue_1413_array_function_result.f90
 - test/codegen/test_issue_1536_array_stride_assignment.f90
 - test/codegen/test_issue_1545_complex_literal.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
 - test/codegen/test_issue_1579_complex_assignment.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_1746_data_repeat_counts.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_issue_1899_data_multi_objects.f90
@@ -776,7 +691,6 @@ these lists to spot redundant coverage before adding new files.
 - test/debug/test_dimension_tokens.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_issue_1972_do_if_hang.f90
 - test/frontend/test_issue_843_basic_assignment_prefix.f90
 - test/frontend/test_string_transformation.f90
@@ -791,8 +705,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_1578_block_data.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
 - test/integration/issue_tests/test_issue_1745_equivalence.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1778_debug.f90
 - test/integration/issue_tests/test_issue_1781_deallocate_preserved.f90
@@ -811,8 +723,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -821,21 +731,8 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/test_issue_652_multi_var.f90
 - test/semantic/test_intrinsic_reduction_scalars.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1608_class_keyword.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_1787_continue_in_if.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1859_read_statement.f90
 - test/test_issue_1860_print_undeclared.f90
@@ -843,7 +740,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
 - test/test_issue_1889_one_line_if.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1958_intent_preservation.f90
 - test/test_issue_1959_target_attribute.f90
@@ -856,9 +752,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_2022_fixed_array_preservation.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Derived Types & Polymorphism
@@ -866,7 +759,18 @@ these lists to spot redundant coverage before adding new files.
 - examples/f90/generated/parser/d/derived_type_component_scope/attr_type_test.f90
 - examples/f90/issue_1353_derived_type.f90
 - examples/f90/issue_1542_nested_types.f90
+- examples/f90/issue_1604_type_bound_procedures.f90
+- examples/f90/issue_1607_final_procedures.f90
+- examples/f90/issue_1608_class_program.f90
+- examples/f90/issue_1608_class_subroutine.f90
+- examples/f90/issue_1611_allocate_class_typespec.f90
+- examples/f90/issue_1611_allocate_no_typespec.f90
+- examples/f90/issue_1611_allocate_type_typespec.f90
 - examples/f90/issue_1615_target_attribute.f90
+- examples/f90/issue_1616_polymorphic_arrays.f90
+- examples/f90/issue_1619_nested_types_complex.f90
+- examples/f90/issue_1744_operator_interface.f90
+- examples/f90/issue_1774_user_defined_operator.f90
 - examples/f90/tmp_goto_ast.f90
 - examples/f90/tooling_lightweight_ast.f90
 - examples/lf/intrinsic_functions.lf
@@ -876,7 +780,6 @@ these lists to spot redundant coverage before adding new files.
 - examples/lf/undeclared_print_variable.lf
 **Tests**
 - test/api/test_fortfront_api_transform.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/debug/test_dimension_tokens.f90
 - test/error_reporting/test_issue_1814_nested_lazy_function.f90
 - test/frontend/test_string_transformation.f90
@@ -885,8 +788,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_1221_explicit_program_type_inference.f90
 - test/integration/issue_tests/test_issue_1356_function_name.f90
 - test/integration/issue_tests/test_issue_1703_lazy_matrices.f90
-- test/integration/issue_tests/test_issue_1771_module_parameter_types.f90
-- test/integration/issue_tests/test_issue_1774_user_defined_operators.f90
 - test/integration/issue_tests/test_issue_1775_intent_in_preserved.f90
 - test/integration/issue_tests/test_issue_1778_debug.f90
 - test/integration/issue_tests/test_issue_1818_assumed_size_array.f90
@@ -898,19 +799,7 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_issue_652_multi_var.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1538_module_main.f90
-- test/test_issue_1538_module_name_preservation.f90
-- test/test_issue_1604_type_bound_procedures.f90
-- test/test_issue_1607_final_procedures.f90
-- test/test_issue_1608_class_keyword.f90
-- test/test_issue_1611_allocate_type_spec.f90
-- test/test_issue_1616_polymorphic_arrays.f90
-- test/test_issue_1619_nested_types_complex.f90
-- test/test_issue_1737_generic_interface.f90
-- test/test_issue_1744_operator_interface.f90
 - test/test_issue_1787_continue_in_if.f90
-- test/test_issue_1826_enum_construct.f90
-- test/test_issue_1827_submodule_construct.f90
 - test/test_issue_1861_nested_do_print.f90
 - test/test_issue_1887_subroutine_param_type.f90
 - test/test_issue_1889_one_line_if.f90
@@ -919,10 +808,6 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_1960_pointer_assignment_if.f90
 - test/test_issue_2018_duplicate_loop_var.f90
 - test/test_issue_2022_fixed_array_preservation.f90
-- test/test_module_boundary_debug.f90
-- test/test_module_contains_functions.f90
-- test/test_module_contains_parser_issue.f90
-- test/test_module_interface_block.f90
 - test/test_nested_internal_procedures.f90
 
 ### Math & Intrinsics
@@ -950,16 +835,11 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_issue_1405_data_statement.f90
 - test/codegen/test_issue_1406_namelist.f90
 - test/codegen/test_issue_1407_character_function.f90
-- test/codegen/test_issue_1408_module_visibility.f90
-- test/codegen/test_issue_1411_module_main.f90
 - test/codegen/test_issue_1412_use_intrinsic.f90
 - test/codegen/test_issue_1413_array_function_result.f90
 - test/codegen/test_issue_1536_array_stride_assignment.f90
 - test/codegen/test_issue_1545_complex_literal.f90
-- test/codegen/test_issue_1565_use_associated_rename.f90
-- test/codegen/test_issue_1565_use_associated_variable.f90
 - test/codegen/test_issue_1579_complex_assignment.f90
-- test/codegen/test_issue_1705_real_literal_generic.f90
 - test/codegen/test_issue_1746_data_repeat_counts.f90
 - test/codegen/test_issue_177_line_continuation.f90
 - test/codegen/test_issue_1899_data_multi_objects.f90
@@ -971,7 +851,6 @@ these lists to spot redundant coverage before adding new files.
 - test/codegen/test_real_literal_kind_inference.f90
 - test/error_reporting/test_enhanced_error_messages.f90
 - test/frontend/test_issue_1573_pointer_assignment_lost.f90
-- test/frontend/test_issue_1783_use_rename_no_only.f90
 - test/frontend/test_issue_1972_do_if_hang.f90
 - test/frontend/test_issue_843_basic_assignment_prefix.f90
 - test/frontend/test_string_transformation.f90
@@ -1001,8 +880,6 @@ these lists to spot redundant coverage before adding new files.
 - test/integration/issue_tests/test_issue_935_parameter_arrays.f90
 - test/issue_2016_nested_call_types.f90
 - test/lazy_fortran/test_issue_1968_lazy_function.f90
-- test/module/test_issue_508_module_comment_main.f90
-- test/module/test_issue_508_module_comment_multi.f90
 - test/parser/debug_mixed_constructs.f90
 - test/parser/test_do_concurrent_issue_1828.f90
 - test/parser/test_do_concurrent_preservation_issue_1852.f90
@@ -1011,14 +888,12 @@ these lists to spot redundant coverage before adding new files.
 - test/parser/test_issue_652_multi_var.f90
 - test/semantic/test_intrinsic_reduction_scalars.f90
 - test/test_derived_type_parsing.f90
-- test/test_issue_1258_parameter_decls.f90
 - test/test_issue_1260.f90
 - test/test_issue_1857_chained_comparison.f90
 - test/test_issue_1859_read_statement.f90
 - test/test_issue_1860_print_undeclared.f90
 - test/test_issue_1883_intent_result.f90
 - test/test_issue_1887_subroutine_param_type.f90
-- test/test_issue_1893_module_result_intent.f90
 - test/test_issue_1894_nested_calls.f90
 - test/test_issue_1962_matmul_rank.f90
 - test/test_issue_1965_trim_concat.f90
@@ -1026,13 +901,13 @@ these lists to spot redundant coverage before adding new files.
 - test/test_issue_2012_subroutine_local_inference.f90
 - test/test_issue_2025_internal_procedures.f90
 - test/test_issue_957_parameter_attributes.f90
-- test/test_module_contains_functions.f90
 
 ### Unclassified
 **Examples**
 - examples/f90/close_if_block.f90
 - examples/f90/close_multiple.f90
 - examples/f90/close_nested_if.f90
+- examples/f90/issue_1827_submodule_simple.f90
 - examples/hello/main.f90
 - examples/lf/issue_1963_debug_output.lf
 - examples/lf/test_209_all.lf

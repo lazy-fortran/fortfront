@@ -1,0 +1,10 @@
+! Issue #1893: result variable inside module must preserve parameter intents
+module test_mod_result_intent
+    implicit none
+contains
+    function add(a, b) result(c)
+        real, intent(in) :: a, b
+        real :: c
+        c = a + b
+    end function add
+end module test_mod_result_intent

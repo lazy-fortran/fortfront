@@ -1,0 +1,9 @@
+! Issue #1258: All function parameters must retain declarations
+module math_utils
+contains
+    function add(a, b, c) result(sum)
+        integer, intent(in) :: a, b, c
+        integer :: sum
+        sum = a + b + c
+    end function add
+end module math_utils
