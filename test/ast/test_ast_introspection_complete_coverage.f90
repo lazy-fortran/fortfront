@@ -34,15 +34,7 @@ contains
 
         ! Test 1: Program with functions and subroutines
         arena = create_ast_arena()
-        source = "program test" // new_line('a') // &
-                 "  real function f(x)" // new_line('a') // &
-                 "    real :: x" // new_line('a') // &
-                 "    f = x * 2" // new_line('a') // &
-                 "  end function" // new_line('a') // &
-                 "  subroutine sub()" // new_line('a') // &
-                 "    print *, 'hello'" // new_line('a') // &
-                 "  end subroutine" // new_line('a') // &
-                 "end program"
+        call read_example('examples/f90/ast_coverage_program_with_procedures.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -71,21 +63,7 @@ contains
 
         ! Test 2: Control flow constructs
         arena = create_ast_arena()
-        source = "if (x > 0) then" // new_line('a') // &
-                 "  y = 1" // new_line('a') // &
-                 "end if" // new_line('a') // &
-                 "do i = 1, 10" // new_line('a') // &
-                 "  z = z + i" // new_line('a') // &
-                 "end do" // new_line('a') // &
-                 "do while (j < 5)" // new_line('a') // &
-                 "  j = j + 1" // new_line('a') // &
-                 "end do" // new_line('a') // &
-                 "select case (k)" // new_line('a') // &
-                 "case (1)" // new_line('a') // &
-                 "  a = 1" // new_line('a') // &
-                 "case default" // new_line('a') // &
-                 "  a = 0" // new_line('a') // &
-                 "end select"
+        call read_example('examples/f90/ast_coverage_control_flow.f90', source)
 
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
@@ -99,16 +77,7 @@ contains
 
         ! Test 3: Module and use statements
         arena = create_ast_arena()
-        source = "module mymod" // new_line('a') // &
-                 "  use othermod" // new_line('a') // &
-                 "  include 'file.inc'" // new_line('a') // &
-                 "  interface" // new_line('a') // &
-                 "    module procedure foo" // new_line('a') // &
-                 "  end interface" // new_line('a') // &
-                 "  type :: mytype" // new_line('a') // &
-                 "    integer :: n" // new_line('a') // &
-                 "  end type" // new_line('a') // &
-                 "end module"
+        call read_example('examples/f90/ast_coverage_module_interface.f90', source)
 
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
@@ -122,21 +91,7 @@ contains
 
         ! Test 4: I/O and other statements
         arena = create_ast_arena()
-        source = "read (*, *) x" // new_line('a') // &
-                 "write (*, '(A)') 'test'" // new_line('a') // &
-                 "allocate (arr(10))" // new_line('a') // &
-                 "deallocate (arr)" // new_line('a') // &
-                 "stop 'error'" // new_line('a') // &
-                 "return" // new_line('a') // &
-                 "cycle" // new_line('a') // &
-                 "exit" // new_line('a') // &
-                 "where (arr > 0)" // new_line('a') // &
-                 "  arr = 1" // new_line('a') // &
-                 "end where" // new_line('a') // &
-                 "forall (i = 1:10)" // new_line('a') // &
-                 "  arr(i) = i" // new_line('a') // &
-                 "end forall" // new_line('a') // &
-                 "ptr => target"
+        call read_example('examples/f90/ast_coverage_io_statements.f90', source)
 
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
@@ -150,9 +105,7 @@ contains
 
         ! Test 5: Complex literals and array literals
         arena = create_ast_arena()
-        source = "z = (1.0, 2.0)" // new_line('a') // &
-                 "arr = [1, 2, 3, 4]" // new_line('a') // &
-                 "call mysub(a, b, c)"
+        call read_example('examples/f90/ast_coverage_literals_calls.f90', source)
 
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
@@ -185,5 +138,33 @@ contains
 
         print *, "  has_semantic_info coverage: PASS"
     end function test_has_semantic_info_coverage
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_ast_introspection_complete_coverage

@@ -35,12 +35,7 @@ contains
         print *, "Testing simple variable tracking..."
 
         ! Test: if (x > 0) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: x" // new_line('a') // &
-                 "x = 5" // new_line('a') // &
-                 "if (x > 0) then" // new_line('a') // &
-                 "    print *, 'positive'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_simple.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -104,12 +99,7 @@ contains
         print *, "Testing binary operation tracking..."
 
         ! Test: if (x + y > z) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: x, y, z" // new_line('a') // &
-                 "x = 1; y = 2; z = 3" // new_line('a') // &
-                 "if (x + y > z) then" // new_line('a') // &
-                 "    print *, 'condition true'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_binary_ops.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -176,12 +166,7 @@ contains
         print *, "Testing complex expression tracking..."
 
         ! Test: if ((a + b) * c > (d - e) / f) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: a, b, c, d, e, f" // new_line('a') // &
-                 "a = 1; b = 2; c = 3; d = 4; e = 5; f = 6" // new_line('a') // &
-                 "if ((a + b) * c > (d - e) / f) then" // new_line('a') // &
-                 "    print *, 'complex'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_complex_expr.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -232,12 +217,7 @@ contains
         print *, "Testing function call tracking..."
 
         ! Test: if (sin(x) > cos(y)) then
-        source = "implicit none" // new_line('a') // &
-                 "real :: x, y" // new_line('a') // &
-                 "x = 1.0; y = 2.0" // new_line('a') // &
-                 "if (sin(x) > cos(y)) then" // new_line('a') // &
-                 "    print *, 'trig'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_function_calls.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -287,12 +267,7 @@ contains
         print *, "Testing array access tracking..."
 
         ! Test: if (arr(i) > arr(j)) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: arr(10), i, j" // new_line('a') // &
-                 "i = 1; j = 2" // new_line('a') // &
-                 "if (arr(i) > arr(j)) then" // new_line('a') // &
-                 "    print *, 'array'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_array_access.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -343,12 +318,7 @@ contains
         print *, "Testing nested expression tracking..."
 
         ! Test: if (x + (y * (z - w))) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: x, y, z, w" // new_line('a') // &
-                 "x = 1; y = 2; z = 3; w = 4" // new_line('a') // &
-                 "if (x + (y * (z - w)) > 0) then" // new_line('a') // &
-                 "    print *, 'nested'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_nested.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -399,12 +369,7 @@ contains
         print *, "Testing expression visitor pattern..."
 
         ! Test: if (a + b > c) then
-        source = "implicit none" // new_line('a') // &
-                 "integer :: a, b, c" // new_line('a') // &
-                 "a = 1; b = 2; c = 3" // new_line('a') // &
-                 "if (a + b > c) then" // new_line('a') // &
-                 "    print *, 'visitor'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_visitor.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -459,12 +424,7 @@ contains
         print *, "Testing specific variable queries..."
 
         ! Test: if (x + x > y) then (x used twice, y once, z not used)
-        source = "implicit none" // new_line('a') // &
-                 "integer :: x, y, z" // new_line('a') // &
-                 "x = 1; y = 2; z = 3" // new_line('a') // &
-                 "if (x + x > y) then" // new_line('a') // &
-                 "    print *, 'query'" // new_line('a') // &
-                 "end if"
+        call read_example('examples/f90/variable_tracking_queries.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= "") then
@@ -572,5 +532,33 @@ contains
             end select
         end if
     end subroutine count_nodes_visitor
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_variable_usage_tracker
