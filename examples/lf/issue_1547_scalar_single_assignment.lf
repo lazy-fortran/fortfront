@@ -1,0 +1,4 @@
+program test
+x = 42
+print *, x
+end program test

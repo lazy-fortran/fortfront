@@ -2,6 +2,7 @@ program test_issue_1546_goto_label
     use fortfront, only: transform_lazy_fortran_string, tooling_parse_options_t, &
                          tooling_load_ast_from_string, ast_arena_t, ast_to_json, &
                          token_t
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -22,6 +23,20 @@ program test_issue_1546_goto_label
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_goto_label_preservation()
         character(len=:), allocatable :: source, output, error_msg
         type(tooling_parse_options_t) :: options
@@ -33,14 +48,7 @@ contains
         test_goto_label_preservation = .true.
         print *, 'Testing goto label preservation...'
 
-        source = 'program demo' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: i' // new_line('a') // &
-                 '    i = 0' // new_line('a') // &
-                 '10  i = i + 1' // new_line('a') // &
-                 '    if (i < 3) goto 10' // new_line('a') // &
-                 '    stop' // new_line('a') // &
-                 'end program demo'
+        call read_example('examples/f90/issue_1546_goto_label.f90', source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .false.

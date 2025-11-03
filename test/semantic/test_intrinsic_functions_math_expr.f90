@@ -4,6 +4,7 @@ program test_intrinsic_functions_math_expr
     use semantic_api, only: analyze_semantics
     use codegen_api, only: emit_fortran
     use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -12,13 +13,8 @@ program test_intrinsic_functions_math_expr
     print *, "Testing intrinsic functions in mathematical expressions..."
 
     ! Test the exact code from issue #92
-    test_code = "program test" // new_line('a') // &
-                "    implicit none" // new_line('a') // &
-                "    real :: a = 1.0, b = 2.0, c = 3.0" // new_line('a') // &
-                "    real :: result" // new_line('a') // &
-                "    result = (a + b) * c / (a - b) + sqrt(a**2 + b**2)" // new_line('a') // &
-                "    print *, result" // new_line('a') // &
-                "end program"
+    call read_example('examples/f90/intrinsic_functions_math_expr_complex.f90', &
+                      test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
@@ -32,11 +28,8 @@ program test_intrinsic_functions_math_expr
     end if
 
     ! Test simpler sqrt case
-    test_code = "program test_simple" // new_line('a') // &
-                "    real :: x = 4.0" // new_line('a') // &
-                "    real :: result" // new_line('a') // &
-                "    result = sqrt(x)" // new_line('a') // &
-                "end program"
+    call read_example('examples/f90/intrinsic_functions_math_expr_simple.f90', &
+                      test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
@@ -49,11 +42,8 @@ program test_intrinsic_functions_math_expr
     end if
 
     ! Test nested sqrt expressions
-    test_code = "program test_nested" // new_line('a') // &
-                "    real :: x = 4.0, y = 9.0" // new_line('a') // &
-                "    real :: result" // new_line('a') // &
-                "    result = sqrt(sqrt(x) + sqrt(y))" // new_line('a') // &
-                "end program"
+    call read_example('examples/f90/intrinsic_functions_math_expr_nested.f90', &
+                      test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
 
@@ -66,5 +56,21 @@ program test_intrinsic_functions_math_expr
     end if
 
     print *, "All intrinsic function tests passed!"
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_intrinsic_functions_math_expr

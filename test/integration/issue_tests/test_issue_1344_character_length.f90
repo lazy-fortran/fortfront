@@ -1,5 +1,6 @@
 program test_issue_1344_character_length
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -20,6 +21,20 @@ program test_issue_1344_character_length
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_character_length_preservation()
         character(len=:), allocatable :: source, output, error_msg
         logical :: str1_ok, str2_ok, str3_ok, str4_ok
@@ -27,18 +42,7 @@ contains
         test_character_length_preservation = .true.
         print *, 'Testing character length preservation...'
 
-        source = 'program test_char_len' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    character(len=10) :: str1' // new_line('a') // &
-                 '    character(len=*), parameter :: str2 = "Hello"' // new_line('a') // &
-                 '    character*20 :: str3' // new_line('a') // &
-                 '    character(len=12) :: Σtext' // new_line('a') // &
-                 '' // new_line('a') // &
-                 '    str1 = "Test"' // new_line('a') // &
-                 '    str3 = "Old style"' // new_line('a') // &
-                 '    print *, str1, str2, str3' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'end program test_char_len'
+        call read_example('examples/f90/issue_1344_character_length.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

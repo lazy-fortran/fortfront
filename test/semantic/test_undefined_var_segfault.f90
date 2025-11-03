@@ -4,6 +4,7 @@ program test_undefined_var_segfault
     use semantic_api, only: analyze_semantics
     use codegen_api, only: emit_fortran
     use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: test_code
@@ -13,11 +14,7 @@ program test_undefined_var_segfault
     print *, "Testing segmentation fault fix for undefined variables..."
 
     ! Test the exact code from issue #87
-    test_code = "program test" // new_line('a') // &
-                "    integer :: i, unused_var" // new_line('a') // &
-                "    i = 42" // new_line('a') // &
-                "    print *, undefined_var" // new_line('a') // &
-                "end program test"
+    call read_example('examples/f90/undefined_var_segfault.f90', test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
     success = (len(error_msg) == 0)
@@ -35,12 +32,7 @@ program test_undefined_var_segfault
     end if
 
     ! Test circular type reference protection
-    test_code = "program test" // new_line('a') // &
-                "    type :: recursive_type" // new_line('a') // &
-                "        type(recursive_type), pointer :: next" // new_line('a') // &
-                "    end type" // new_line('a') // &
-                "    type(recursive_type) :: node" // new_line('a') // &
-                "end program test"
+    call read_example('examples/f90/undefined_var_recursive_type.f90', test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
     success = (len(error_msg) == 0)
@@ -50,5 +42,21 @@ program test_undefined_var_segfault
     end if
 
     print *, "All tests passed!"
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_undefined_var_segfault

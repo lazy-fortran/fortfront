@@ -11,6 +11,7 @@ program test_constant_folding
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -32,6 +33,20 @@ program test_constant_folding
 
 contains
 
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_literal_false_condition()
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -44,11 +59,7 @@ contains
         test_literal_false_condition = .true.
         print *, "Testing literal false condition detection..."
 
-        source = "program test" // new_line('a') // &
-                 "    if (.false.) then" // new_line('a') // &
-                 "        continue" // new_line('a') // &
-                 "    end if" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/constant_folding_literal_false.f90', source)
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
@@ -98,11 +109,7 @@ contains
         test_constant_expression_comparison = .true.
         print *, "Testing constant expression comparison (1 > 2)..."
 
-        source = "program test" // new_line('a') // &
-                 "    if (1 > 2) then" // new_line('a') // &
-                 "        continue" // new_line('a') // &
-                 "    end if" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/constant_folding_comparison.f90', source)
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
@@ -152,12 +159,7 @@ contains
         test_parameter_value_propagation = .true.
         print *, "Testing parameter value propagation..."
 
-        source = "program test" // new_line('a') // &
-                 "    integer, parameter :: N = 0" // new_line('a') // &
-                 "    if (N > 0) then" // new_line('a') // &
-                 "        continue" // new_line('a') // &
-                 "    end if" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/constant_folding_parameter.f90', source)
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
