@@ -19,12 +19,12 @@ program test_intrinsic_reduction_scalars
         stop 1
     end if
 
-    call ensure_contains(output_code, ", total")
-    call ensure_contains(output_code, ":: high")
-    call ensure_contains(output_code, ", low")
-    call ensure_contains(output_code, ", prod")
-    call ensure_contains(output_code, "logical :: has_true")
-    call ensure_contains(output_code, "integer :: true_count")
+    call ensure_scalar_decl(output_code, 'real', 'total')
+    call ensure_scalar_decl(output_code, 'real', 'high')
+    call ensure_scalar_decl(output_code, 'real', 'low')
+    call ensure_scalar_decl(output_code, 'real', 'prod')
+    call ensure_scalar_decl(output_code, 'logical', 'has_true')
+    call ensure_scalar_decl(output_code, 'integer', 'true_count')
 
     call ensure_absent(output_code, "allocatable :: total")
     call ensure_absent(output_code, ":: total(:")
@@ -72,5 +72,84 @@ contains
             stop 1
         end if
     end subroutine ensure_absent
+
+    subroutine ensure_scalar_decl(text, decl_type, name)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: decl_type
+        character(len=*), intent(in) :: name
+
+        if (.not. has_scalar_declaration(text, decl_type, name)) then
+            print *, 'Expected scalar declaration missing:', &
+                trim(decl_type), trim(name)
+            stop 1
+        end if
+    end subroutine ensure_scalar_decl
+
+    logical function has_scalar_declaration(text, decl_type, name)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: decl_type
+        character(len=*), intent(in) :: name
+        integer :: pos
+        integer :: start_pos
+        integer :: end_pos
+        integer :: text_len
+        character(len=:), allocatable :: line
+        character(len=:), allocatable :: tail
+        character(len=64) :: token
+        integer :: sep
+        character(1), parameter :: nl = new_line('a')
+
+        has_scalar_declaration = .false.
+        text_len = len(text)
+        pos = index(text, trim(decl_type)//' ::')
+
+        do while (pos > 0)
+            start_pos = pos
+            do while (start_pos > 1 .and. text(start_pos - 1:start_pos - 1) /= nl)
+                start_pos = start_pos - 1
+            end do
+
+            end_pos = pos
+            do while (end_pos <= text_len .and. text(end_pos:end_pos) /= nl)
+                end_pos = end_pos + 1
+            end do
+
+            if (end_pos > text_len) then
+                line = text(start_pos:)
+            else
+                line = text(start_pos:end_pos - 1)
+            end if
+
+            line = adjustl(line)
+            if (index(line, trim(decl_type)//' ::') == 1 .or. &
+                index(line, trim(decl_type)//'(') == 1) then
+                sep = index(line, '::')
+                if (sep > 0) then
+                    tail = adjustl(line(sep + 2:))
+                    do
+                        if (len_trim(tail) == 0) exit
+                        sep = index(tail, ',')
+                        if (sep == 0) then
+                            token = trim(tail)
+                            tail = ''
+                        else
+                            token = trim(tail(1:sep - 1))
+                            tail = adjustl(tail(sep + 1:))
+                        end if
+
+                        if (len_trim(token) == 0) cycle
+                        if (trim(token) == trim(name)) then
+                            has_scalar_declaration = .true.
+                            return
+                        end if
+                    end do
+                end if
+            end if
+
+            if (end_pos > text_len) exit
+            pos = index(text(end_pos:), trim(decl_type)//' ::')
+            if (pos > 0) pos = pos + end_pos - 1
+        end do
+    end function has_scalar_declaration
 
 end program test_intrinsic_reduction_scalars
