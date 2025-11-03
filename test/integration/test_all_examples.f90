@@ -259,7 +259,6 @@ contains
             stop 1
         end if
 
-
         command = build_compile_command('output file.f90', 'modules dir', &
                                         'temp dir', is_windows)
         if (len_trim(command) == 0) then
@@ -288,7 +287,7 @@ contains
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
                                       escape_for_cmd=.true.), &
-                                      '""pipe path""') == 0) then
+                      '""pipe path""') == 0) then
                 print *, "ERROR: Windows cmd escaping missing"
                 stop 1
             end if
@@ -425,7 +424,8 @@ contains
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 i = i + 1
                 if (index(trimmed_line, '#') > 0) then
-                    skip_list(i) = adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
+                    skip_list(i) = &
+                        adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
                 else
                     skip_list(i) = trim(trimmed_line)
                 end if
@@ -482,7 +482,8 @@ contains
     end function is_skipped_example
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                          temp_dir, test_count, pass_count, fail_count, &
+                                          temp_dir, test_count, pass_count, &
+                                              fail_count, &
                                               & skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures, &
@@ -578,6 +579,9 @@ contains
         if (len_trim(filepath) == 0) return
 
         trimmed = adjustl(trim(filepath))
+        do i = 1, len(trimmed)
+            if (trimmed(i:i) == '\\') trimmed(i:i) = '/'
+        end do
         pos = index(trimmed, 'examples/')
 
         if (pos > 0) then
@@ -822,7 +826,8 @@ contains
 
     subroutine finalize_example_result(name, output_file, error_file, has_error, &
                                        has_unparsed, has_warning, expect_fail, &
-                                       pass_count, fail_count, xfail_count, xpass_count, &
+                                       pass_count, fail_count, xfail_count, &
+                                       xpass_count, &
                                        is_roundtrip)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: output_file, error_file
