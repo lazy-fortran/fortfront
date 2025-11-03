@@ -5,7 +5,10 @@ program test_all_examples
     integer :: test_count, pass_count, fail_count, skip_count
     integer :: xfail_count, xpass_count
     logical :: is_windows
-    character(len=256) :: examples_dir
+    character(len=:), allocatable :: examples_dir
+    character(len=:), allocatable :: expected_failures_path
+    character(len=:), allocatable :: skip_file_path
+    character(len=1) :: examples_sep
     character(len=256), allocatable :: expected_failures(:)
     character(len=256), allocatable :: skip_examples(:)
     integer :: num_expected_failures
@@ -40,14 +43,20 @@ program test_all_examples
         stop 1
     end if
 
-    ! fpm test runs from project root, so examples/ is directly accessible
-    examples_dir = 'examples'
+    examples_dir = resolve_examples_dir(fortfront_exe, is_windows)
+    if (len_trim(examples_dir) == 0) then
+        examples_dir = 'examples'
+    end if
+    examples_sep = path_separator_for(examples_dir)
+    expected_failures_path = join_path(examples_dir, &
+                                       'expected_failures.txt', examples_sep)
+    skip_file_path = join_path(examples_dir, 'skip_all_examples.txt', &
+                               examples_sep)
 
     ! Load expected failures list
-    call load_expected_failures('examples/expected_failures.txt', &
-                                expected_failures, num_expected_failures)
-    call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
-                            num_skip_examples)
+    call load_expected_failures(expected_failures_path, expected_failures, &
+                                num_expected_failures)
+    call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -434,6 +443,61 @@ contains
         close (unit_num)
     end subroutine load_skip_examples
 
+    function resolve_examples_dir(executable_path, is_windows) result(dir_path)
+        character(len=*), intent(in) :: executable_path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: dir_path
+        character(len=:), allocatable :: current_dir
+        character(len=:), allocatable :: parent_dir
+        character(len=:), allocatable :: candidate
+        character(len=1) :: sep
+        logical :: exists
+        integer :: i
+        character(len=256) :: fallback_candidates(6)
+
+        dir_path = ''
+        if (len_trim(executable_path) > 0) then
+            current_dir = directory_from_path(executable_path)
+            do while (len_trim(current_dir) > 0)
+                sep = path_separator_for(current_dir)
+                candidate = join_path(current_dir, 'examples', sep)
+                inquire (file=trim(candidate), exist=exists)
+                if (exists) then
+                    dir_path = trim(candidate)
+                    return
+                end if
+                parent_dir = directory_from_path(current_dir)
+                if (len_trim(parent_dir) == 0) exit
+                if (trim(parent_dir) == trim(current_dir)) exit
+                current_dir = parent_dir
+            end do
+        end if
+
+        if (len_trim(dir_path) == 0) then
+            if (is_windows) then
+                fallback_candidates = [character(len=256) :: 'examples', &
+                                        '.\examples', '..\examples', &
+                                        '..\..\examples', '..\..\..\examples', &
+                                        '']
+            else
+                fallback_candidates = [character(len=256) :: 'examples', &
+                                        './examples', '../examples', &
+                                        '../../examples', '../../../examples', &
+                                        '']
+            end if
+            do i = 1, size(fallback_candidates)
+                if (len_trim(fallback_candidates(i)) == 0) cycle
+                inquire (file=trim(fallback_candidates(i)), exist=exists)
+                if (exists) then
+                    dir_path = trim(fallback_candidates(i))
+                    return
+                end if
+            end do
+        end if
+
+        if (len_trim(dir_path) == 0) dir_path = 'examples'
+    end function resolve_examples_dir
+
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
         result(is_xfail)
         character(len=*), intent(in) :: basename
@@ -500,18 +564,32 @@ contains
         character(len=500) :: list_command, list_file
         integer :: unit_num, ios
         character(len=256) :: line
+        character(len=1) :: sep
+        character(len=:), allocatable :: wildcard_path
+        character(len=:), allocatable :: wildcard_arg
+        character(len=:), allocatable :: dir_arg
 
         ! Create unique temp file name for this extension
         list_file = 'examples_list' // trim(extension) // '.txt'
 
         ! List files with this extension (recursively search subdirectories)
         if (is_windows) then
-            list_command = 'cmd /C "dir /B /S ' // trim(examples_dir) // '\*' // &
-                           trim(extension) // ' > ' // trim(list_file) // ' 2>nul"'
+            sep = path_separator_for(examples_dir)
+            if (sep /= '\' .and. sep /= '/') sep = '\'
+            wildcard_path = trim(examples_dir)
+            if (len_trim(wildcard_path) == 0) wildcard_path = 'examples'
+            wildcard_path = trim(wildcard_path) // sep // '*' // trim(extension)
+            wildcard_arg = quote_for_shell(trim(wildcard_path), .true., &
+                                           escape_for_cmd=.true.)
+            list_command = 'cmd /C "dir /B /S ' // trim(wildcard_arg) // &
+                           ' > ' // trim(list_file) // ' 2>nul"'
         else
-            list_command = 'find ' // trim(examples_dir) // ' -name "*' // &
-                           trim(extension) // '" -type f > ' // trim(list_file) // &
-                               & ' 2>/dev/null || true'
+            dir_arg = trim(examples_dir)
+            if (len_trim(dir_arg) == 0) dir_arg = 'examples'
+            dir_arg = quote_for_shell(trim(dir_arg), .false.)
+            list_command = 'find ' // trim(dir_arg) // ' -name "*' // &
+                           trim(extension) // '" -type f > ' // &
+                           trim(list_file) // ' 2>/dev/null || true'
         end if
 
         call execute_command_line(trim(list_command), exitstat=ios)
