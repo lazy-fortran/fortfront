@@ -581,6 +581,10 @@ contains
         trimmed = adjustl(trim(filepath))
         do i = 1, len(trimmed)
             if (trimmed(i:i) == '\\') trimmed(i:i) = '/'
+            select case (trimmed(i:i))
+            case ('A':'Z')
+                trimmed(i:i) = achar(iachar(trimmed(i:i)) + 32)
+            end select
         end do
         pos = index(trimmed, 'examples/')
 
