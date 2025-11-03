@@ -420,7 +420,6 @@ contains
         logical, intent(in), optional :: is_windows
         integer :: unit_num, ios, count, i
         character(len=256) :: line, trimmed_line
-        logical :: file_exists
         logical :: on_windows
         character(len=:), allocatable :: resolved_filename
 
@@ -429,15 +428,8 @@ contains
         on_windows = .false.
         if (present(is_windows)) on_windows = is_windows
 
-        call resolve_existing_file(filename, on_windows, resolved_filename, &
-                                   file_exists)
-        if (.not. file_exists) then
-            allocate (skip_list(0))
-            return
-        end if
-
-        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
-              action='read', iostat=ios)
+        call open_file_for_read(filename, on_windows, unit_num, ios, &
+                                resolved_filename)
         if (ios /= 0) then
             allocate (skip_list(0))
             return
@@ -459,6 +451,12 @@ contains
 
         open (newunit=unit_num, file=trim(resolved_filename), status='old', &
               action='read', iostat=ios)
+        if (ios /= 0) then
+            deallocate (skip_list)
+            allocate (skip_list(0))
+            num_skip = 0
+            return
+        end if
         i = 0
         do
             read (unit_num, '(A)', iostat=ios) line
@@ -561,7 +559,7 @@ contains
                 candidate = join_path(current_dir, 'examples', sep)
                 if (examples_directory_exists(candidate)) then
                     dir_path = trim(candidate)
-                    return
+                    exit
                 end if
                 parent_dir = directory_from_path(current_dir)
                 if (len_trim(parent_dir) == 0) exit
@@ -586,13 +584,154 @@ contains
                 if (len_trim(fallback_candidates(i)) == 0) cycle
                 if (examples_directory_exists(fallback_candidates(i))) then
                     dir_path = trim(fallback_candidates(i))
-                    return
+                    exit
                 end if
             end do
         end if
 
-        if (len_trim(dir_path) == 0) dir_path = 'examples'
+        if (len_trim(dir_path) == 0) then
+            dir_path = 'examples'
+        end if
+
+        if (.not. is_absolute_path(dir_path, is_windows)) then
+            current_dir = get_current_directory(is_windows)
+            if (len_trim(current_dir) > 0) then
+                sep = path_separator_for(current_dir)
+                dir_path = join_path(current_dir, dir_path, sep)
+            end if
+        end if
     end function resolve_examples_dir
+
+    subroutine open_file_for_read(filename, is_windows, unit_num, ios, &
+                                  resolved_filename)
+        character(len=*), intent(in) :: filename
+        logical, intent(in) :: is_windows
+        integer, intent(out) :: unit_num
+        integer, intent(out) :: ios
+        character(len=:), allocatable, intent(out) :: resolved_filename
+        character(len=:), allocatable :: candidate
+        character(len=:), allocatable :: cwd
+        character(len=1) :: sep
+        integer :: attempt
+
+        resolved_filename = ''
+        ios = -1
+
+        do attempt = 1, 5
+            select case (attempt)
+            case (1)
+                candidate = adjustl(trim(filename))
+            case (2)
+                if (.not. is_windows) cycle
+                candidate = replace_characters(filename, '/', '\')
+            case (3)
+                candidate = replace_characters(filename, '\', '/')
+            case (4)
+                if (is_absolute_path(filename, is_windows)) cycle
+                cwd = get_current_directory(is_windows)
+                if (len_trim(cwd) == 0) cycle
+                sep = path_separator_for(cwd)
+                candidate = join_path(cwd, filename, sep)
+            case (5)
+                if (.not. is_windows) cycle
+                if (is_absolute_path(filename, is_windows)) cycle
+                cwd = get_current_directory(is_windows)
+                if (len_trim(cwd) == 0) cycle
+                sep = path_separator_for(cwd)
+                candidate = join_path(cwd, replace_characters(filename, '/', '\'), &
+                                      sep)
+            end select
+            if (len_trim(candidate) == 0) cycle
+            open (newunit=unit_num, file=trim(candidate), status='old', &
+                  action='read', iostat=ios)
+            if (ios == 0) then
+                resolved_filename = trim(candidate)
+                return
+            end if
+        end do
+    end subroutine open_file_for_read
+
+    function get_current_directory(is_windows) result(dir_path)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: dir_path
+        character(len=:), allocatable :: command
+        integer :: exit_code
+        integer :: unit_num
+        integer :: ios
+        character(len=256) :: line
+
+        dir_path = ''
+
+        if (is_windows) then
+            command = 'cmd /C cd > fortfront_cwd.txt'
+        else
+            command = 'pwd > fortfront_cwd.txt'
+        end if
+
+        call execute_command_line(trim(command), exitstat=exit_code)
+        if (exit_code /= 0) then
+            call cleanup_file('fortfront_cwd.txt')
+            return
+        end if
+
+        open (newunit=unit_num, file='fortfront_cwd.txt', status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) then
+            call cleanup_file('fortfront_cwd.txt')
+            return
+        end if
+
+        read (unit_num, '(A)', iostat=ios) line
+        close (unit_num)
+        call cleanup_file('fortfront_cwd.txt')
+        if (ios /= 0) return
+
+        dir_path = adjustl(trim(line))
+    end function get_current_directory
+
+    pure logical function is_absolute_path(path, is_windows) result(is_abs)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: normalized
+        integer :: length_trimmed
+
+        normalized = adjustl(trim(path))
+        length_trimmed = len_trim(normalized)
+
+        if (length_trimmed == 0) then
+            is_abs = .false.
+            return
+        end if
+
+        if (is_windows) then
+            if (length_trimmed >= 2) then
+                if ((normalized(1:1) >= 'A' .and. normalized(1:1) <= 'Z') .or. &
+                    (normalized(1:1) >= 'a' .and. normalized(1:1) <= 'z')) then
+                    if (normalized(2:2) == ':') then
+                        is_abs = .true.
+                        return
+                    end if
+                end if
+            end if
+            if (length_trimmed >= 2) then
+                if (normalized(1:1) == '\' .and. normalized(2:2) == '\') then
+                    is_abs = .true.
+                    return
+                end if
+            end if
+            if (normalized(1:1) == '/') then
+                is_abs = .true.
+                return
+            end if
+        else
+            if (normalized(1:1) == '/') then
+                is_abs = .true.
+                return
+            end if
+        end if
+
+        is_abs = .false.
+    end function is_absolute_path
 
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
         result(is_xfail)
