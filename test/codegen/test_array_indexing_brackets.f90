@@ -1,4 +1,6 @@
 program test_array_indexing_brackets
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use fortfront
     implicit none
 
@@ -19,11 +21,7 @@ contains
 
     subroutine test_simple_index()
         print *, "Testing y[1] -> y(1)..."
-        source = "program t" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: x" // new_line('a') // &
-                 "  x = y[1]" // new_line('a') // &
-                 "end program t"
+        call read_example('examples/lf/array_index_brackets_simple.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -45,13 +43,7 @@ contains
 
     subroutine test_multi_index()
         print *, "Testing a[i, j+1] -> a(i, j+1)..."
-        source = "program t" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: i, j" // new_line('a') // &
-                 "  i = 1" // new_line('a') // &
-                 "  j = 2" // new_line('a') // &
-                 "  i = a[i, j+1]" // new_line('a') // &
-                 "end program t"
+        call read_example('examples/lf/array_index_brackets_multi.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -75,11 +67,7 @@ contains
 
     subroutine test_slice_basic()
         print *, "Testing a[2:5] -> a(2:5)..."
-        source = "program t" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: x" // new_line('a') // &
-                 "  x = a[2:5]" // new_line('a') // &
-                 "end program t"
+        call read_example('examples/lf/array_slice_basic.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -101,11 +89,7 @@ contains
 
     subroutine test_slice_stride()
         print *, "Testing a[1:10:2] -> a(1:10:2)..."
-        source = "program t" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: x" // new_line('a') // &
-                 "  x = a[1:10:2]" // new_line('a') // &
-                 "end program t"
+        call read_example('examples/lf/array_slice_stride.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -127,13 +111,7 @@ contains
 
     subroutine test_slice_empty_bounds()
         print *, "Testing a[:5], a[3:], a[:] -> parentheses equivalents..."
-        source = "program t" // new_line('a') // &
-                 "  implicit none" // new_line('a') // &
-                 "  integer :: x" // new_line('a') // &
-                 "  x = a[:5]" // new_line('a') // &
-                 "  x = a[3:]" // new_line('a') // &
-                 "  x = a[:]" // new_line('a') // &
-                 "end program t"
+        call read_example('examples/lf/array_slice_empty_bounds.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -154,5 +132,19 @@ contains
             stop 1
         end if
     end subroutine test_slice_empty_bounds
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_array_indexing_brackets

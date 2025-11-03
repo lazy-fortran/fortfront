@@ -1,41 +1,46 @@
 program test_issue_1883_intent_result
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
-    character(:), allocatable :: input_code
-    character(:), allocatable :: output_code
-    character(:), allocatable :: error_msg
+    character(len=:), allocatable :: input_code
+    character(len=:), allocatable :: output_code
+    character(len=:), allocatable :: error_msg
     logical :: has_intent
 
-    print *, "=== Issue #1883: intent attributes with result clause ==="
-
-    input_code = &
-        "program test_intent" // new_line('A') // &
-        "    implicit none" // new_line('A') // &
-        "contains" // new_line('A') // &
-        "    function add(a, b) result(c)" // new_line('A') // &
-        "        real, intent(in) :: a, b" // new_line('A') // &
-        "        real :: c" // new_line('A') // &
-        "        c = a + b" // new_line('A') // &
-        "    end function add" // new_line('A') // &
-        "end program test_intent"
-
+    call read_example('examples/lf/issue_1883_intent_result.lf', input_code)
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     if (len_trim(error_msg) > 0) then
-        print *, "FAIL: transformation returned error:", trim(error_msg)
+        write (error_unit, '(A)') 'FAIL: transformation returned error: ' // &
+            trim(error_msg)
         error stop 1
     end if
 
-    has_intent = index(output_code, "real, intent(in) :: a, b") > 0
+    has_intent = index(output_code, 'real, intent(in) :: a, b') > 0
     if (.not. has_intent) then
-        print *, "FAIL: intent attributes dropped from parameters"
-        print *, "Output:"
-        print *, trim(output_code)
+        write (error_unit, '(A)') 'FAIL: intent attributes dropped from parameters'
+        write (error_unit, '(A)') trim(output_code)
         error stop 1
     end if
 
-    print *, "PASS: intent attributes preserved in functions with result clause"
+    print *, 'PASS: intent attributes preserved in functions with result clause'
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1883_intent_result

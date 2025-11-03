@@ -1,0 +1,17 @@
+! Nested internal procedures used to diagnose contains handling
+program nested_demo
+contains
+    function outer(x) result(res)
+        integer, intent(in) :: x
+        integer :: res
+        res = inner(x) + 1
+    contains
+        integer function inner(y)
+            integer, intent(in) :: y
+            inner = y
+        end function inner
+        pure subroutine helper(z)
+            integer, intent(in) :: z
+        end subroutine helper
+    end function outer
+end program nested_demo

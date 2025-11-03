@@ -1,4 +1,6 @@
 program test_issue_1221_explicit_program_type_inference
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     character(len=:), allocatable :: output, error_msg
     logical :: success
@@ -15,9 +17,7 @@ contains
         character(len=:), allocatable :: input
         print *, "Testing explicit program with type inference..."
 
-        input = 'program test' // new_line('a') // &
-                '    x = 42' // new_line('a') // &
-                'end program'
+        call read_example('examples/lf/explicit_program_scalar_inference.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -50,9 +50,7 @@ contains
         character(len=:), allocatable :: input
         print *, "Testing explicit program with array type inference..."
 
-        input = 'program test_array' // new_line('a') // &
-                '    arr = [1, 2, 3]' // new_line('a') // &
-                'end program'
+        call read_example('examples/lf/explicit_program_array_inference.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -86,11 +84,7 @@ contains
         character(len=:), allocatable :: input
         print *, "Testing explicit program with mixed type inference..."
 
-        input = 'program test_mixed' // new_line('a') // &
-                '    x = 42' // new_line('a') // &
-                '    y = 3.14' // new_line('a') // &
-                '    flag = .true.' // new_line('a') // &
-                'end program test_mixed'
+        call read_example('examples/lf/explicit_program_mixed_inference.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -122,5 +116,19 @@ contains
             ! Don't error stop - this is expected until issue is fixed
         end if
     end subroutine test_explicit_program_mixed_types
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1221_explicit_program_type_inference

@@ -1,9 +1,7 @@
 program test_issue_957_parameter_attributes
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     logical :: test_passed
@@ -11,57 +9,61 @@ program test_issue_957_parameter_attributes
     test_passed = test_parameter_attributes()
 
     if (test_passed) then
-        print *, "PASS: Issue #957 parameter attributes test"
+        print *, 'PASS: Issue #957 parameter attributes test'
     else
-        print *, "FAIL: Issue #957 parameter attributes test"
+        print *, 'FAIL: Issue #957 parameter attributes test'
         stop 1
     end if
 
 contains
 
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     function test_parameter_attributes() result(passed)
         logical :: passed
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         passed = .true.
 
-        ! Test input from issue #957
-        source = &
-            "subroutine test(required, opt, output)" // new_line('a') // &
-            "    integer, intent(in) :: required" // new_line('a') // &
-            "    integer, intent(in), optional :: opt" // new_line('a') // &
-            "    integer, intent(out) :: output" // new_line('a') // &
-            "    output = required * 2" // new_line('a') // &
-            "end subroutine test"
-
+        call read_example('examples/lf/issue_957_parameter_attributes.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
-        if (error_msg /= "") then
-            print *, "ERROR: Failed to parse: ", trim(error_msg)
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') 'ERROR: Failed to parse: ' // trim(error_msg)
             passed = .false.
         else if (.not. allocated(output)) then
-            print *, "ERROR: No output generated"
+            write (error_unit, '(A)') 'ERROR: No output generated'
             passed = .false.
         else
-            print *, "===== Input code: ====="
-            print *, trim(source)
-            print *, "===== Generated code: ====="
-            print *, trim(output)
-            print *, "===== End of output ====="
-
-            ! Verify parameter attributes are preserved
-            if (index(output, "intent(in)") == 0) then
-                print *, "ERROR: Parameter 'required' should have intent(in)"
+            if (index(output, 'intent(in)') == 0) then
+                write (error_unit, '(A)') &
+                    "ERROR: Parameter 'required' should have intent(in)"
                 passed = .false.
             end if
 
-            if (index(output, "intent(out)") == 0) then
-                print *, "ERROR: Parameter 'output' should have intent(out)"
+            if (index(output, 'intent(out)') == 0) then
+                write (error_unit, '(A)') &
+                    "ERROR: Parameter 'output' should have intent(out)"
                 passed = .false.
             end if
 
-            if (index(output, "optional") == 0) then
-                print *, "ERROR: Parameter 'opt' should be optional"
+            if (index(output, 'optional') == 0) then
+                write (error_unit, '(A)') &
+                    "ERROR: Parameter 'opt' should be optional"
                 passed = .false.
             end if
         end if

@@ -1,5 +1,7 @@
 program test_issue_1894_nested_calls
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -12,15 +14,7 @@ program test_issue_1894_nested_calls
 
     print *, "=== Issue #1894: nested call parameter inference ==="
 
-    input_code = &
-        "function double(x)" // new_line('A') // &
-        "    double = x * 2" // new_line('A') // &
-        "end function" // new_line('A') // new_line('A') // &
-        "function quadruple(x)" // new_line('A') // &
-        "    quadruple = double(double(x))" // new_line('A') // &
-        "end function" // new_line('A') // new_line('A') // &
-        "result = quadruple(5)" // new_line('A') // &
-        "print *, 'Result:', result"
+    call read_example('examples/lf/issue_1894_nested_calls.lf', input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -51,5 +45,21 @@ program test_issue_1894_nested_calls
     end if
 
     print *, "PASS: nested call inference keeps double parameter integer"
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1894_nested_calls

@@ -1,0 +1,17 @@
+! Issue #1330: declarations inferred for undeclared variables while preserving comments
+use iso_fortran_env
+! comment between use statements
+use iso_c_binding
+real(kind=8) :: x, y
+
+! header comment before loop
+n = 1000000
+count = 0
+do i = 1, n
+    call random_number(x)
+    call random_number(y)
+    if (x*x + y*y <= 1.0) count = count + 1
+end do
+pi_estimate = 4.0 * real(count) / real(n)
+print *, "Number of points:", n
+print *, "Estimated value of pi:", pi_estimate

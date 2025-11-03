@@ -1,55 +1,66 @@
 program test_close_in_control_flow
-    use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
     use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed
 
-    print *, '=== CLOSE statements inside control flow constructs ==='
-
     all_passed = .true.
-    if (.not. run_close_test('simple IF block', &
-                             'examples/f90/close_if_block.f90', 1)) &
-        & all_passed = .false.
-    if (.not. run_close_test('nested IF blocks', &
-                             'examples/f90/close_nested_if.f90', 1)) &
-        & all_passed = .false.
-    if (.not. run_close_test('DO loop', &
-                             'examples/f90/close_do_loop.f90', 1)) &
-        & all_passed = .false.
+    if (.not. run_close_test('simple IF block', 'examples/f90/close_if_block.f90', &
+                             1)) all_passed = .false.
+    if (.not. run_close_test('nested IF blocks', 'examples/f90/close_nested_if.f90', &
+                             1)) all_passed = .false.
+    if (.not. run_close_test('DO loop', 'examples/f90/close_do_loop.f90', 1)) &
+        all_passed = .false.
     if (.not. run_close_test('SELECT CASE branches', &
                              'examples/f90/close_select_case.f90', 2)) &
-        & all_passed = .false.
+        all_passed = .false.
     if (.not. run_close_test('multiple CLOSE statements', &
                              'examples/f90/close_multiple.f90', 2)) &
-        & all_passed = .false.
+        all_passed = .false.
 
     if (all_passed) then
-        print *, 'All control flow CLOSE tests passed!'
+        print *, 'PASS: CLOSE statements preserved within control flow'
     else
-        print *, 'Control flow CLOSE tests failed'
-        stop 1
+        error stop 'FAIL: CLOSE control flow regression detected'
     end if
 
 contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
     logical function run_close_test(name, example_path, expected_count)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: example_path
         integer, intent(in) :: expected_count
-        character(len=:), allocatable :: source, output, error_msg, lowered
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+        character(len=:), allocatable :: lowered
         integer :: close_hits
 
         run_close_test = .true.
-        print *, 'Running:', trim(name)
 
         call read_example(example_path, source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL:', trim(name), 'reported error'
-                print *, '    ', trim(error_msg)
+                write (error_unit, '(A)') 'FAIL: ' // trim(name) // ' reported error'
+                write (error_unit, '(A)') trim(error_msg)
                 run_close_test = .false.
                 return
             end if
@@ -60,66 +71,20 @@ contains
                      count_occurrences(lowered, 'close (')
 
         if (close_hits /= expected_count) then
-            print *, '  FAIL:', trim(name), 'expected', expected_count, &
-                     'CLOSE statements'
-            print *, '    Observed:', close_hits
-            print *, '    Output fragment:'
-            print *, trim(output)
+            write (error_unit, '(A,A,I0)') 'FAIL: ', trim(name) // ' expected ', &
+                expected_count
+            write (error_unit, '(A,I0)') 'Observed CLOSE statements: ', close_hits
+            write (error_unit, '(A)') trim(output)
             run_close_test = .false.
-        else
-            print *, '  PASS:', trim(name)
         end if
     end function run_close_test
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, ios, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        ! Open file and get size
-        open(newunit=unit, file=path, status='old', action='read', &
-             form='formatted', iostat=ios)
-        if (ios /= 0) then
-            print *, 'FAIL: failed to open ', trim(path)
-            error stop 1
-        end if
-
-        ! Read entire file
-        inquire(unit=unit, size=file_size)
-        if (file_size > 0) then
-            allocate(buffer(file_size))
-            read(unit, '(A)', iostat=ios) buffer
-        end if
-
-        ! Read file line by line into content
-        rewind(unit)
-        content = ''
-        do
-            block
-                character(len=10000) :: line
-                read(unit, '(A)', iostat=ios) line
-                if (ios == iostat_end) exit
-                if (ios /= 0) then
-                    print *, 'FAIL: error reading ', trim(path)
-                    close(unit)
-                    error stop 1
-                end if
-                if (len(content) > 0) then
-                    content = content // new_line('a') // trim(line)
-                else
-                    content = trim(line)
-                end if
-            end block
-        end do
-
-        close(unit)
-    end subroutine read_example
 
     integer function count_occurrences(buffer, pattern) result(total)
         character(len=*), intent(in) :: buffer
         character(len=*), intent(in) :: pattern
-        integer :: start, found, pattern_len
+        integer :: start
+        integer :: found
+        integer :: pattern_len
 
         total = 0
         pattern_len = len(pattern)
@@ -139,7 +104,8 @@ contains
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: lowered
         character(len=len(text)) :: temp
-        integer :: i, code_point
+        integer :: i
+        integer :: code_point
 
         temp = text
         do i = 1, len(temp)

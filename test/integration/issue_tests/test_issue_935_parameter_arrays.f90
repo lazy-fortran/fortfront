@@ -1,4 +1,6 @@
 program test_issue_935
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -6,145 +8,117 @@ program test_issue_935
 
     all_passed = .true.
 
-    print *, '=== Issue #935: Parameter constants with array dimensions ==='
-
     if (.not. test_parameter_with_dimension()) all_passed = .false.
     if (.not. test_parameter_in_allocate()) all_passed = .false.
     if (.not. test_multidim_array_with_params()) all_passed = .false.
 
-    print *
     if (all_passed) then
-        print *, 'Issue #935 fixed!'
+        print *, 'PASS: Issue #935 - parameter dimensions preserved'
     else
-        print *, 'Issue #935 test failed!'
-        stop 1
+        error stop 'FAIL: Issue #935 regression detected'
     end if
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_parameter_with_dimension()
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
         logical :: found_array_dim
 
         test_parameter_with_dimension = .true.
-        print *, 'Testing parameter with dimension attribute...'
 
-        source = 'program test' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: n = 10' // new_line('a') // &
-                 '    integer, dimension(n) :: arr' // new_line('a') // &
-                 '    arr = 0' // new_line('a') // &
-                 'end program test'
-
+        call read_example('examples/lf/issue_935_param_dimension.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: Compilation error:', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: Compilation error: ' // trim(error_msg)
                 test_parameter_with_dimension = .false.
                 return
             end if
         end if
 
-        found_array_dim = .false.
-        if ((index(output, 'integer :: arr(') > 0 .or. &
-             index(output, 'integer, dimension(') > 0) .and. &
-            index(output, 'arr') > 0) then
-            found_array_dim = .true.
-        end if
+        found_array_dim = (index(output, 'integer, dimension(n) :: arr') > 0) .or. &
+                          (index(output, 'integer :: arr(') > 0)
 
-        if (found_array_dim) then
-            print *, '  PASS: Array declaration with dimensions preserved'
-        else
-            print *, '  FAIL: Array dimensions lost in output'
+        if (.not. found_array_dim) then
+            write (error_unit, '(A)') 'FAIL: Array dimensions lost in output'
+            write (error_unit, '(A)') trim(output)
             test_parameter_with_dimension = .false.
         end if
-
     end function test_parameter_with_dimension
 
     logical function test_parameter_in_allocate()
-        character(len=:), allocatable :: source, output, error_msg
-        logical :: found_allocate_with_param
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         test_parameter_in_allocate = .true.
-        print *, 'Testing parameter in allocate statement...'
 
-        source = 'program test' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: size = 100' // new_line('a') // &
-                 '    integer, allocatable :: dyn_arr(:)' // new_line('a') // &
-                 '    allocate(dyn_arr(size))' // new_line('a') // &
-                 '    dyn_arr = 1' // new_line('a') // &
-                 '    deallocate(dyn_arr)' // new_line('a') // &
-                 'end program test'
-
+        call read_example('examples/lf/issue_935_allocate_param.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: Compilation error:', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: Compilation error: ' // trim(error_msg)
                 test_parameter_in_allocate = .false.
                 return
             end if
         end if
 
-        found_allocate_with_param = .false.
-        if (contains_without_spaces(output, 'allocate(dyn_arr(size))') .or. &
-            contains_without_spaces(output, 'allocate(dyn_arr(100))')) then
-            found_allocate_with_param = .true.
-        end if
-
-        if (found_allocate_with_param) then
-            print *, '  PASS: Parameter in allocate statement preserved'
-        else
-            print *, '  FAIL: Parameter usage in allocate lost'
+        if (.not. contains_without_spaces(output, 'allocate(dyn_arr(size))')) then
+            write (error_unit, '(A)') 'FAIL: Parameter usage in allocate lost'
+            write (error_unit, '(A)') trim(output)
             test_parameter_in_allocate = .false.
         end if
-
     end function test_parameter_in_allocate
 
     logical function test_multidim_array_with_params()
-        character(len=:), allocatable :: source, output, error_msg
-        logical :: found_multidim_array
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+        logical :: has_matrix
+        logical :: has_tensor
 
         test_multidim_array_with_params = .true.
-        print *, 'Testing multi-dimensional arrays with parameter dimensions...'
 
-        source = 'program test' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: m = 5, n = 10' // new_line('a') // &
-                 '    real, dimension(m, n) :: matrix' // new_line('a') // &
-                 '    integer, dimension(m, n, 3) :: tensor' // new_line('a') // &
-                 '    matrix = 0.0' // new_line('a') // &
-                 '    tensor = 0' // new_line('a') // &
-                 'end program test'
-
+        call read_example('examples/lf/issue_935_multidim_arrays.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: Compilation error:', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: Compilation error: ' // trim(error_msg)
                 test_multidim_array_with_params = .false.
                 return
             end if
         end if
 
-        found_multidim_array = .false.
-        if ((index(output, 'matrix(') > 0 .or. index(output, 'dimension(m') > 0) .and. &
-            (index(output, 'tensor(') > 0 .or. index(output, 'dimension(m, n, 3)') > 0 .or. &
-             index(output, 'dimension(m,n,3)') > 0)) then
-            found_multidim_array = .true.
-        end if
+        has_matrix = index(output, 'real, dimension(m, n) :: matrix') > 0
+        has_tensor = index(output, 'integer, dimension(m, n, 3) :: tensor') > 0
 
-        if (found_multidim_array) then
-            print *, '  PASS: Multi-dimensional array declarations preserved'
-        else
-            print *, '  FAIL: Multi-dimensional array dimensions lost'
-            print *, '  Output:'
-            print *, trim(output)
+        if (.not. (has_matrix .and. has_tensor)) then
+            write (error_unit, '(A)') 'FAIL: Multi-dimensional array dimensions lost'
+            write (error_unit, '(A)') trim(output)
             test_multidim_array_with_params = .false.
         end if
-
     end function test_multidim_array_with_params
 
     logical function contains_without_spaces(text, pattern)

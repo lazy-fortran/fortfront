@@ -1,0 +1,5 @@
+program array_index_brackets_simple
+    implicit none
+    integer :: x
+    x = y[1]
+end program array_index_brackets_simple

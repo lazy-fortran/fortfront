@@ -1,0 +1,10 @@
+! Nested internal functions should raise a diagnostic (issue #1814)
+function outer(x)
+    function inner(y)
+        result = y * 2
+    end function inner
+    result = inner(x) + 1
+end function outer
+
+z = outer(5)
+print *, z

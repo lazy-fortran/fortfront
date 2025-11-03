@@ -1,4 +1,6 @@
 program test_issue_1781_deallocate_preserved
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -6,85 +8,76 @@ program test_issue_1781_deallocate_preserved
 
     all_passed = .true.
 
-    print *, '=== Issue #1781: DEALLOCATE statements preserved ==='
-
     if (.not. test_deallocate_in_if_block()) all_passed = .false.
     if (.not. test_allocate_and_deallocate()) all_passed = .false.
 
-    print *
     if (all_passed) then
-        print *, 'Issue #1781 fixed!'
+        print *, 'PASS: Issue #1781 - DEALLOCATE statements preserved'
     else
-        print *, 'Issue #1781 test failed!'
-        stop 1
+        error stop 'FAIL: Issue #1781 regression detected'
     end if
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_deallocate_in_if_block()
-        character(len=:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         test_deallocate_in_if_block = .true.
-        print *, 'Testing DEALLOCATE in IF block...'
 
-        source = 'program test_array_allocation_stat' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, allocatable :: arr(:)' // new_line('a') // &
-                 '    integer :: stat' // new_line('a') // &
-                 '    allocate(arr(10), stat=stat)' // new_line('a') // &
-                 '    if (stat == 0) then' // new_line('a') // &
-                 '        print *, ''Allocation successful''' // new_line('a') // &
-                 '        arr = 42' // new_line('a') // &
-                 '        print *, ''Sum:'', sum(arr)' // new_line('a') // &
-                 '        deallocate(arr)' // new_line('a') // &
-                 '    else' // new_line('a') // &
-                 '        print *, ''Allocation failed''' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 'end program test_array_allocation_stat'
-
+        call read_example('examples/lf/issue_1781_deallocate_if_block.lf', &
+                          source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: Unexpected error:', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: Unexpected error: ' // trim(error_msg)
                 test_deallocate_in_if_block = .false.
                 return
             end if
         end if
 
         if (index(output, 'deallocate') == 0) then
-            print *, '  FAIL: deallocate statement missing in output'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: deallocate statement missing in output'
+            write (error_unit, '(A)') trim(output)
             test_deallocate_in_if_block = .false.
-        else
-            print *, '  PASS: deallocate statement preserved'
         end if
     end function test_deallocate_in_if_block
 
     logical function test_allocate_and_deallocate()
-        character(len=:), allocatable :: source, output, error_msg
-        integer :: alloc_pos, dealloc_pos
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+        integer :: alloc_pos
+        integer :: dealloc_pos
 
         test_allocate_and_deallocate = .true.
-        print *, 'Testing both ALLOCATE and DEALLOCATE...'
 
-        source = 'program test_both' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, allocatable :: data(:)' // new_line('a') // &
-                 '    allocate(data(100))' // new_line('a') // &
-                 '    data = 0' // new_line('a') // &
-                 '    if (size(data) > 0) then' // new_line('a') // &
-                 '        print *, ''Data allocated''' // new_line('a') // &
-                 '        deallocate(data)' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 'end program test_both'
-
+        call read_example('examples/lf/issue_1781_allocate_deallocate.lf', &
+                          source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: Unexpected error:', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: Unexpected error: ' // trim(error_msg)
                 test_allocate_and_deallocate = .false.
                 return
             end if
@@ -94,16 +87,14 @@ contains
         dealloc_pos = index(output, 'deallocate')
 
         if (alloc_pos == 0) then
-            print *, '  FAIL: allocate statement missing'
+            write (error_unit, '(A)') 'FAIL: allocate statement missing'
             test_allocate_and_deallocate = .false.
         else if (dealloc_pos == 0) then
-            print *, '  FAIL: deallocate statement missing'
+            write (error_unit, '(A)') 'FAIL: deallocate statement missing'
             test_allocate_and_deallocate = .false.
         else if (dealloc_pos < alloc_pos) then
-            print *, '  FAIL: deallocate appears before allocate'
+            write (error_unit, '(A)') 'FAIL: deallocate appears before allocate'
             test_allocate_and_deallocate = .false.
-        else
-            print *, '  PASS: both allocate and deallocate preserved'
         end if
     end function test_allocate_and_deallocate
 

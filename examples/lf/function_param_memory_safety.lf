@@ -1,0 +1,8 @@
+! Function with many parameters to check memory safety
+program test_function_params
+contains
+function calc(x, y, z, alpha, beta, gamma) result(res)
+    real :: x, y, z, alpha, beta, gamma, res
+    res = x + y + z + alpha + beta + gamma
+end function calc
+end program test_function_params

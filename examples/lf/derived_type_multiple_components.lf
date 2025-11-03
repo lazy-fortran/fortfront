@@ -1,0 +1,5 @@
+type :: person_t
+    integer :: age
+    character(len=20) :: name
+    real :: height
+end type person_t

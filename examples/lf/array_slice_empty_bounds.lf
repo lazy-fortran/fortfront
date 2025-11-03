@@ -1,0 +1,7 @@
+program array_slice_empty_bounds
+    implicit none
+    integer :: x
+    x = a[:5]
+    x = a[3:]
+    x = a[:]
+end program array_slice_empty_bounds

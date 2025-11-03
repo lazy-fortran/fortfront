@@ -1,5 +1,7 @@
 program test_issue_1703_lazy_matrices
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use string_utils_mod, only: to_lower
     use transformation_api, only: transform_lazy_fortran_string
 
@@ -13,11 +15,7 @@ contains
         character(len=:), allocatable :: input, output, error_msg
         character(len=:), allocatable :: lowered
 
-        input = 'A = reshape([1, 2, 3, 4], [2, 2])' // new_line('A') // &
-                'B = reshape([5, 6, 7, 8], [2, 2])' // new_line('A') // &
-                'C = A + B' // new_line('A') // &
-                'print *, C(1,:)' // new_line('A') // &
-                'print *, C(2,:)'
+        call read_example('examples/lf/reshape_integer_matrices.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -60,8 +58,7 @@ contains
         character(len=:), allocatable :: input, output, error_msg
         character(len=:), allocatable :: lowered
 
-        input = 'X = reshape([1.0, 2.0, 3.0, 4.0], [2, 2])' // new_line('A') // &
-                'print *, X(1,1)'
+        call read_example('examples/lf/reshape_real_matrix.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -92,9 +89,7 @@ contains
         character(len=:), allocatable :: input, output, error_msg
         character(len=:), allocatable :: lowered
 
-        input = 'M = reshape([1, 2, 3, 4, 5, 6], [2, 3])' // new_line('A') // &
-                'N = M * 2' // new_line('A') // &
-                'print *, N(1,:)'
+        call read_example('examples/lf/reshape_mixed_operations.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -114,5 +109,19 @@ contains
 
         print *, 'PASS: test_reshape_mixed_operations'
     end subroutine test_reshape_mixed_operations
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1703_lazy_matrices

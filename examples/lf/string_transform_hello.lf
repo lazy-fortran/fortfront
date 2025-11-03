@@ -1,0 +1,2 @@
+! Hello world program for string transformation smoke test
+print *, 'Hello'

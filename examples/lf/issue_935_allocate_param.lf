@@ -1,0 +1,1 @@
+! Issue #935: parameter usage inside ALLOCATE\nprogram test_allocate_param\n    implicit none\n    integer, parameter :: size = 100\n    integer, allocatable :: dyn_arr(:)\n    allocate(dyn_arr(size))\n    dyn_arr = 1\n    deallocate(dyn_arr)\nend program test_allocate_param\n*** End Patch

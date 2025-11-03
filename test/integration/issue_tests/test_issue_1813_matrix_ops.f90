@@ -1,5 +1,7 @@
 program test_issue_1813_matrix_ops
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use string_utils_mod, only: to_lower
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
@@ -12,10 +14,7 @@ contains
         character(len=:), allocatable :: input, output, error_msg
         character(len=:), allocatable :: lowered
 
-        input = 'A = [[1, 2], [3, 4]]' // new_line('A') // &
-                'B = [[5, 6], [7, 8]]' // new_line('A') // &
-                'C = A + B' // new_line('A') // &
-                'print *, C'
+        call read_example('examples/lf/matrix_literal_addition.lf', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -52,5 +51,19 @@ contains
 
         print *, 'PASS: test_matrix_literal_addition'
     end subroutine test_matrix_literal_addition
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1813_matrix_ops
