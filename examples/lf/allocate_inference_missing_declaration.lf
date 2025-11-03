@@ -1,0 +1,5 @@
+! allocate inference should introduce an allocatable declaration
+allocate(arr(5))
+is_alloc = allocated(arr)
+print *, is_alloc
+deallocate(arr)

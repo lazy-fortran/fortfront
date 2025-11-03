@@ -1,0 +1,8 @@
+function square(x)
+    result = x * x
+    return result
+end function
+
+val = 5
+squared = square(val)
+print *, squared

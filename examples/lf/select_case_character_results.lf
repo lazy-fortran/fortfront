@@ -1,0 +1,12 @@
+grade = 85
+
+select case (grade)
+    case (90:)
+        result = "A"
+    case (80:89)
+        result = "B"
+    case (70:79)
+        result = "C"
+    case default
+        result = "F"
+end select

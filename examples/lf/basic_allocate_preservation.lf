@@ -1,0 +1,6 @@
+! allocate/deallocate statements should survive transformation
+integer, parameter :: n = 100
+integer, dimension(n) :: arr
+integer, allocatable :: dyn_arr(:)
+allocate(dyn_arr(n))
+deallocate(dyn_arr)

@@ -1,0 +1,6 @@
+! Array element assignment should be preserved by codegen
+program array_element_assignment
+    implicit none
+    integer :: arr(10)
+    arr(5) = 100
+end program array_element_assignment
