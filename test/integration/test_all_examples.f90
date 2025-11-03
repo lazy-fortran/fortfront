@@ -7,7 +7,9 @@ program test_all_examples
     logical :: is_windows
     character(len=256) :: examples_dir
     character(len=256), allocatable :: expected_failures(:)
+    character(len=256), allocatable :: skip_examples(:)
     integer :: num_expected_failures
+    integer :: num_skip_examples
     character(len=:), allocatable :: fortfront_exe
     real(dp) :: success_rate
 
@@ -35,6 +37,8 @@ program test_all_examples
     ! Load expected failures list
     call load_expected_failures('examples/expected_failures.txt', &
                                 expected_failures, num_expected_failures)
+    call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
+                            num_skip_examples)
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -46,13 +50,15 @@ program test_all_examples
     call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, &
                                     test_count, pass_count, fail_count, skip_count, &
                                     xfail_count, xpass_count, is_windows, &
-                                    expected_failures, num_expected_failures)
+                                    expected_failures, num_expected_failures, &
+                                    skip_examples, num_skip_examples)
 
     ! Test .f90 (standard fortran) examples
     call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, &
                                     test_count, pass_count, fail_count, skip_count, &
                                     xfail_count, xpass_count, is_windows, &
-                                    expected_failures, num_expected_failures)
+                                    expected_failures, num_expected_failures, &
+                                    skip_examples, num_skip_examples)
 
     print *, ""
     print *, "=== Test Summary ==="
@@ -273,7 +279,8 @@ contains
         end if
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
-                                      escape_for_cmd=.true.), '""pipe path""') == 0) then
+                                      escape_for_cmd=.true.), &
+                                      '""pipe path""') == 0) then
                 print *, "ERROR: Windows cmd escaping missing"
                 stop 1
             end if
@@ -363,6 +370,62 @@ contains
         close (unit_num)
     end subroutine load_expected_failures
 
+    subroutine load_skip_examples(filename, skip_list, num_skip)
+        character(len=*), intent(in) :: filename
+        character(len=256), allocatable, intent(out) :: skip_list(:)
+        integer, intent(out) :: num_skip
+        integer :: unit_num, ios, count, i
+        character(len=256) :: line, trimmed_line
+        logical :: file_exists
+
+        num_skip = 0
+
+        inquire (file=trim(filename), exist=file_exists)
+        if (.not. file_exists) then
+            allocate (skip_list(0))
+            return
+        end if
+
+        open (newunit=unit_num, file=trim(filename), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) then
+            allocate (skip_list(0))
+            return
+        end if
+
+        count = 0
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            trimmed_line = adjustl(line)
+            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
+                count = count + 1
+            end if
+        end do
+        close (unit_num)
+
+        allocate (skip_list(count))
+        num_skip = count
+
+        open (newunit=unit_num, file=trim(filename), status='old', &
+              action='read', iostat=ios)
+        i = 0
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            trimmed_line = adjustl(line)
+            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
+                i = i + 1
+                if (index(trimmed_line, '#') > 0) then
+                    skip_list(i) = adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
+                else
+                    skip_list(i) = trim(trimmed_line)
+                end if
+            end if
+        end do
+        close (unit_num)
+    end subroutine load_skip_examples
+
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
         result(is_xfail)
         character(len=*), intent(in) :: basename
@@ -380,17 +443,50 @@ contains
         end do
     end function is_expected_failure
 
+    logical function is_skipped_example(relative_path, basename, skip_examples, &
+                                        num_skip_examples) result(skip)
+        character(len=*), intent(in) :: relative_path, basename
+        character(len=256), intent(in) :: skip_examples(:)
+        integer, intent(in) :: num_skip_examples
+        character(len=256) :: normalized_entry
+        character(len=256) :: normalized_relative
+        character(len=256) :: normalized_basename
+        integer :: i
+
+        skip = .false.
+        if (num_skip_examples <= 0) return
+
+        normalized_relative = normalize_path_string(relative_path)
+        normalized_basename = normalize_path_string(basename)
+
+        do i = 1, num_skip_examples
+            normalized_entry = normalize_path_string(skip_examples(i))
+            if (len_trim(normalized_entry) == 0) cycle
+            if (trim(normalized_relative) == trim(normalized_entry)) then
+                skip = .true.
+                return
+            end if
+            if (trim(normalized_basename) == trim(normalized_entry)) then
+                skip = .true.
+                return
+            end if
+        end do
+    end function is_skipped_example
+
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
                                           test_count, pass_count, fail_count, &
                                               & skip_count, &
                                           xfail_count, xpass_count, is_windows, &
-                                          expected_failures, num_expected_failures)
+                                          expected_failures, num_expected_failures, &
+                                          skip_examples, num_skip_examples)
         character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
+        character(len=256), intent(in) :: skip_examples(:)
+        integer, intent(in) :: num_skip_examples
 
         character(len=500) :: list_command, list_file
         integer :: unit_num, ios
@@ -432,7 +528,9 @@ contains
                                      test_count, pass_count, fail_count, &
                                      skip_count, &
                                      xfail_count, xpass_count, is_windows, &
-                                     expected_failures, num_expected_failures)
+                                     expected_failures, &
+                                     num_expected_failures, skip_examples, &
+                                     num_skip_examples)
         end do
 
         close (unit_num)
@@ -460,18 +558,72 @@ contains
         name = adjustl(name)
     end function extract_example_basename
 
+    pure function extract_relative_example_path(filepath) result(relative)
+        character(len=*), intent(in) :: filepath
+        character(len=256) :: relative
+        character(len=:), allocatable :: trimmed
+        integer :: pos
+        integer :: i
+
+        relative = ''
+        if (len_trim(filepath) == 0) return
+
+        trimmed = adjustl(trim(filepath))
+        pos = index(trimmed, 'examples/')
+
+        if (pos > 0) then
+            if (pos + len('examples/') <= len(trimmed)) then
+                relative = trimmed(pos + len('examples/'):)
+            else
+                relative = ''
+            end if
+        else
+            relative = trimmed
+        end if
+
+        relative = adjustl(relative)
+        if (len_trim(relative) == 0) then
+            relative = extract_example_basename(filepath)
+        end if
+
+        do i = 1, len(relative)
+            if (relative(i:i) == '\\') relative(i:i) = '/'
+        end do
+
+        relative = trim(relative)
+        relative = adjustl(relative)
+    end function extract_relative_example_path
+
+    pure function normalize_path_string(value) result(normalized)
+        character(len=*), intent(in) :: value
+        character(len=256) :: normalized
+        integer :: i
+
+        normalized = adjustl(trim(value))
+        do i = 1, len(normalized)
+            if (normalized(i:i) == '\\') normalized(i:i) = '/'
+        end do
+        normalized = trim(normalized)
+        normalized = adjustl(normalized)
+    end function normalize_path_string
+
     subroutine test_single_example(filepath, fortfront_exe, test_count, pass_count, &
                                    fail_count, skip_count, xfail_count, xpass_count, &
-                                   is_windows, expected_failures, num_expected_failures)
+                                   is_windows, expected_failures, &
+                                   num_expected_failures, skip_examples, &
+                                   num_skip_examples)
         character(len=*), intent(in) :: filepath, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
+        character(len=256), intent(in) :: skip_examples(:)
+        integer, intent(in) :: num_skip_examples
 
         character(len=256) :: output_file, error_file
         character(len=256) :: basename_str
+        character(len=256) :: relative_path
         logical :: has_error, has_unparsed, has_warning, file_exists, expect_fail
         character(len=:), allocatable :: module_dir
 
@@ -483,6 +635,14 @@ contains
         inquire (file=trim(filepath), exist=file_exists)
         if (.not. file_exists) then
             print *, "SKIP (file not found)"
+            skip_count = skip_count + 1
+            return
+        end if
+
+        relative_path = extract_relative_example_path(filepath)
+        if (is_skipped_example(relative_path, trim(basename_str), skip_examples, &
+                               num_skip_examples)) then
+            print *, "SKIP (covered by targeted regression)"
             skip_count = skip_count + 1
             return
         end if
@@ -505,8 +665,9 @@ contains
         test_count = test_count + 1
 
         call finalize_example_result(trim(basename_str), output_file, error_file, &
-                                     has_error, has_unparsed, has_warning, expect_fail, &
-                                     pass_count, fail_count, xfail_count, xpass_count)
+                                     has_error, has_unparsed, has_warning, &
+                                     expect_fail, pass_count, fail_count, &
+                                     xfail_count, xpass_count)
 
         call cleanup_file(output_file)
         call cleanup_file(error_file)

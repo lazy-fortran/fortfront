@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**Note:** This file contains fortfront-specific guidance. General Fortran/Git/fpm/GitHub rules are in the user's global CLAUDE.md (`~/.claude/CLAUDE.md`) and always apply.
 
 ## What is fortfront?
 
@@ -416,7 +416,6 @@ Fortfront processes **both standard and lazy Fortran** through a multi-stage pip
 **Arena Allocation**
 - All AST nodes allocated in arena
 - No manual `deallocate` - arena cleanup handles everything
-- Use `allocatable`, avoid pointers
 
 **Visitor Pattern for AST**
 - Traverse AST with `visit_node_at(arena, index, visitor_callback)`
@@ -502,101 +501,44 @@ examples/
 - Example: `add__i32_i32` for `integer(4) add(integer(4), integer(4))`
 - Deterministic to avoid collisions
 
-**Fortran Compliance**
-- Output is always standard-conforming Fortran 2018
-- No language extensions in emitted code
-- Uses `implicit none`, explicit `intent()`, proper declarations
-
 **Performance Considerations**
 - Stack usage: arena-based allocation keeps stack pressure low
 - Test target `make test-small-stack` simulates Windows stack limits (1-2 MB)
 - Large programs may need heap-based arenas
 
-## Build & Test
+## Build & Test (fortfront-specific)
 
-### Common Commands
+### Commands
 ```bash
-# Build the project
+# Standard fpm commands (see user CLAUDE.md for general usage)
 fpm build
-make          # Convenience wrapper
-
-# Run all tests
 fpm test
-make test     # Convenience wrapper
 
-# Run tests with small stack (simulate Windows)
-make test-small-stack TEST_STACK_KB=1024
-
-# Clean build artifacts
-fpm clean --all
-make clean
+# Fortfront-specific targets
+make test-small-stack TEST_STACK_KB=1024  # Simulate Windows stack limits
+make check-duplication                     # Validate zero-duplication policy
 
 # Run CLI
 ./build/gfortran_<hash>/app/fortfront input.lf > output.f90
 echo "x = 5" | ./build/gfortran_<hash>/app/fortfront > output.f90
 
-# Run specific test
-fpm test <test_name>
-
 # Format code
-fprettify --indent 4 --line-length 88 <file.f90>
+fprettify -c .fprettify <file.f90>        # Uses project .fprettify config
 ```
 
-### Testing Strategy
-- Unit tests in `test/` files - test individual modules/functions
-- Integration tests - full pipeline transformations
-- Tests MUST reference `examples/` files, not inline duplicate code
-- Use `transform_lazy_fortran_string()` API for testing transformations
-- Behavioral tests preferred: input → transformation → verify output
-- Keep tests fast (≤120s each)
+### Critical Rules (fortfront-specific)
+- **NEVER** pass `-j` flag to `make` or `fpm` - fpm manages parallelism automatically
+- **NEVER** add custom compiler flags (e.g., `-cpp`, `-fmax-stack-var-size`) - use defaults
+- Tests MUST reference `examples/` (see Examples & Tests Organization)
+- Use `transform_lazy_fortran_string()` API for transformation tests
+- CI runs on Linux AND Windows (includes stdin piping scenarios)
+- If module resolution issues occur, run `make clean`
 
 ### Build Configuration
 - `fpm.toml` - Package manifest
 - `auto-executables = false` - Only explicit `[[executable]]` entries built
 - `auto-tests = true` - All `test/*.f90` discovered automatically
 - Depends on `stdlib` (Fortran standard library)
-- Free-form source, implicit typing disabled
-
-## Fortran Standards
-- Modern Fortran (2018+)
-- Use `allocatable`, avoid pointers unless required
-- All procedures have explicit `intent(in|out|inout)`
-- Mark `pure`/`elemental` where appropriate
-- Derived types named `<name>_t`
-- Use `use <module>, only:` statements
-
-## Git Workflow
-- SSH only, no HTTPS
-- Stage files explicitly: `git add path/to/file`, NEVER `git add .` or `git add -A`
-- No emojis in commits, PRs, or issues
-- CI must pass before merge
-- Run `fpm test` locally before creating/updating PRs
-
-## GitHub CLI Usage
-- List issues: `gh issue list --state open --limit 500`
-- List PRs: `gh pr list --state open --limit 500`
-- Edit issue body: `gh issue edit <number> --body-file <file.md>`
-- Create PR: `gh pr create --title "<title>" --body-file <file.md> --base main --head <branch>`
-- Check CI: `gh pr checks <number> --watch`
-
-## Code Quality
-- Modules <500 lines (hard limit 1000)
-- Functions <50 lines (hard limit 100)
-- No stubs, placeholders, or commented-out code
-- No hardcoded secrets/keys
-- Remove dead code immediately
-- Self-documenting code; comments for non-obvious intent only
-
-## Documentation
-- Keep in `docs/` directory
-- No random markdown files in working directory
-- Update docs when behavior changes
-- Examples in `examples/`, not inline in docs
-
-## Licensing
-- Research-first: copy ideas, not lines
-- Verify licenses: prefer MIT/BSD/Apache-2.0
-- Preserve notices when required
 
 ## Key Documentation
 

@@ -1,0 +1,22 @@
+# Examples that are exercised explicitly by focused regression tests.
+# Entries are relative to the examples/ directory. Paths use forward slashes.
+f90/issue_1897_typed_array_constructor.f90
+f90/issue_1970_implied_do_array_constructor.f90
+f90/issue_2013_nested_implied_do_duplicate_var.f90
+f90/issue_2018_function_returns_array_duplicate_var.f90
+f90/issue_2022_fixed_array_to_unallocated.f90
+f90/tests/debug/h5/he/test_dimension_tokens/dimension_tokens_case_1.f90
+lf/issue_1356_function_name.lf
+lf/issue_1961_array_reduction_intrinsics.lf
+lf/issue_1962_matmul_rank.lf
+lf/issue_1963_debug_output.lf
+lf/issue_1964_nested_function_calls.lf
+lf/issue_1965_trim_concat.lf
+lf/issue_1966_double_precision_expression.lf
+lf/issue_1968_lazy_function_result.lf
+lf/issue_1971_inquiry_intrinsics.lf
+lf/issue_1972_do_if_hang.lf
+lf/issue_1973_empty_typed_array_constructor.lf
+lf/issue_2012_subroutine_local_not_inferred.lf
+lf/issue_2016_nested_call_type_mismatch.lf
+lf/issue_2019_statements_after_if_dropped.lf
