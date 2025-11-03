@@ -270,6 +270,10 @@ contains
     pure logical function is_groupable_declaration(node) result(can_group)
         type(declaration_node), intent(in) :: node
 
+        if (node%is_inferred_declaration) then
+            can_group = .false.
+            return
+        end if
         if (node%is_multi_declaration) then
             can_group = .false.
             return
