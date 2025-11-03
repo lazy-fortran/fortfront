@@ -111,8 +111,12 @@ contains
             end if
         end if
 
-        has_matrix = index(output, 'real, dimension(m, n) :: matrix') > 0
-        has_tensor = index(output, 'integer, dimension(m, n, 3) :: tensor') > 0
+        has_matrix = index(output, 'real, dimension(m, n) :: matrix') > 0 .or. &
+                     index(output, 'real :: matrix(m,n)') > 0 .or. &
+                     index(output, 'real :: matrix(m, n)') > 0
+        has_tensor = index(output, 'integer, dimension(m, n, 3) :: tensor') > 0 .or. &
+                     index(output, 'integer :: tensor(m,n,3)') > 0 .or. &
+                     index(output, 'integer :: tensor(m, n, 3)') > 0
 
         if (.not. (has_matrix .and. has_tensor)) then
             write (error_unit, '(A)') 'FAIL: Multi-dimensional array dimensions lost'
