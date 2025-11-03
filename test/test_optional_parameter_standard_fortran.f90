@@ -3,6 +3,8 @@ program test_optional_parameter_standard_fortran
     implicit none
     character(len=:), allocatable :: input, output, error_msg
     logical :: test_passed
+    character(len=*), parameter :: example_path = &
+        'examples/f90/issue_2015_optional_param_wrong_monomorph.f90'
 
     test_passed = .true.
 
@@ -19,8 +21,7 @@ program test_optional_parameter_standard_fortran
 contains
 
     subroutine test_optional_preserved()
-        call read_example('examples/f90/issue_2015_optional_param_wrong_monomorph.f90', &
-                         input)
+        call read_example(example_path, input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
