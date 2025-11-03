@@ -1,29 +1,25 @@
 program test_issue_1746_data_repeat_counts
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     print *, "=== Codegen: DATA statements with repeat counts ==="
 
     call check_case("simple-repeat", &
-                    'integer :: arr(5)'//new_line('a')// &
-                    'DATA arr /5*0/'//new_line('a')// &
-                    'print *, arr(1)', &
+                    'examples/f90/data_repeat_simple.f90', &
                     'integer :: arr(5)', &
                     '(/0, 0, 0, 0, 0 /)', &
                     '')
 
     call check_case("mixed-repeat-and-values", &
-                    'integer :: arr(7)'//new_line('a')// &
-                    'DATA arr /3*1, 2, 3*0/'//new_line('a')// &
-                    'print *, arr(1)', &
+                    'examples/f90/data_repeat_mixed.f90', &
                     'integer :: arr(7)', &
                     '(/1, 1, 1, 2, 0, 0, 0 /)', &
                     '')
 
     call check_case("repeat-count-kind", &
-                    'integer :: arr(5)'//new_line('a')// &
-                    'DATA arr /5_1*0/'//new_line('a')// &
-                    'print *, arr(1)', &
+                    'examples/f90/data_repeat_kind.f90', &
                     'integer :: arr(5)', &
                     '(/0, 0, 0, 0, 0 /)', &
                     '5_1*0')
@@ -32,17 +28,20 @@ program test_issue_1746_data_repeat_counts
 
 contains
 
-    subroutine check_case(name, source, expect_decl, expect_assign, forbidden, alt_decl)
+    subroutine check_case(name, source_path, expect_decl, expect_assign, forbidden, &
+                          alt_decl)
         character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: source_path
         character(len=*), intent(in) :: expect_decl
         character(len=*), intent(in) :: expect_assign
         character(len=*), intent(in) :: forbidden
         character(len=*), intent(in), optional :: alt_decl
+        character(len=:), allocatable :: source
         character(len=:), allocatable :: output
         character(len=:), allocatable :: error_msg
         logical :: success
 
+        call read_example(source_path, source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         success = .true.
@@ -84,5 +83,19 @@ contains
             stop 1
         end if
     end subroutine check_case
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1746_data_repeat_counts

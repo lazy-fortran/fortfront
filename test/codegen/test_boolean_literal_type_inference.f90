@@ -1,4 +1,6 @@
 program test_boolean_literal_type_inference
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed
@@ -25,7 +27,7 @@ contains
         logical :: passed
         character(len=:), allocatable :: out
 
-        out = compile_and_generate('flag = .true.')
+        out = compile_example('examples/lf/boolean_assign_dot_true.lf')
         print *, 'OUTPUT(.true.):', trim(out)
 
         passed = .false.
@@ -50,7 +52,7 @@ contains
         logical :: passed
         character(len=:), allocatable :: out
 
-        out = compile_and_generate('flag = true')
+        out = compile_example('examples/lf/boolean_assign_bare_true.lf')
         print *, 'OUTPUT(true):', trim(out)
 
         passed = .false.
@@ -75,7 +77,7 @@ contains
         logical :: passed
         character(len=:), allocatable :: out
 
-        out = compile_and_generate('flag = .false.')
+        out = compile_example('examples/lf/boolean_assign_dot_false.lf')
         print *, 'OUTPUT(.false.):', trim(out)
 
         passed = .false.
@@ -100,7 +102,7 @@ contains
         logical :: passed
         character(len=:), allocatable :: out
 
-        out = compile_and_generate('flag = false')
+        out = compile_example('examples/lf/boolean_assign_bare_false.lf')
         print *, 'OUTPUT(false):', trim(out)
 
         passed = .false.
@@ -121,14 +123,29 @@ contains
         passed = .true.
     end function test_bare_false_emits_fortran_and_infers_logical
 
-    function compile_and_generate(source_line) result(output)
-        character(len=*), intent(in) :: source_line
+    function compile_example(path) result(output)
+        character(len=*), intent(in) :: path
         character(len=:), allocatable :: output
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: error_msg
 
-        character(len=:), allocatable :: source, error_msg
-        source = source_line
+        call read_example(path, source)
         call transform_lazy_fortran_string(source, output, error_msg)
         if (.not. allocated(output)) output = ''
-    end function compile_and_generate
+    end function compile_example
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_boolean_literal_type_inference

@@ -1,5 +1,7 @@
 program test_do_loop_array_assignment
     ! Regression test for Issue #1271: ensure do loop bodies handle array element assignments
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -7,15 +9,7 @@ program test_do_loop_array_assignment
 
     print *, "=== Testing array element assignments in do loop bodies (Issue #1271) ==="
 
-    source = "program array_update" // new_line('a') // &
-             "  implicit none" // new_line('a') // &
-             "  integer :: i" // new_line('a') // &
-             "  integer :: arr(5)" // new_line('a') // &
-             "  arr = [1, 2, 3, 4, 5]" // new_line('a') // &
-             "  do i = 1, 5" // new_line('a') // &
-             "    arr(i) = arr(i) + 1" // new_line('a') // &
-             "  end do" // new_line('a') // &
-             "end program array_update"
+    call read_example('examples/f90/do_loop_array_update.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -41,4 +35,21 @@ program test_do_loop_array_assignment
 
     print *, 'PASS: parser keeps array element assignments intact inside do loops'
     stop 0
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_do_loop_array_assignment

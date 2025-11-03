@@ -1,25 +1,14 @@
 program test_issue_1578_block_data
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
-    source = "program test_blockdata" // new_line('a') // &
-             "    implicit none" // new_line('a') // &
-             "    integer :: global_val" // new_line('a') // &
-             "    common /shared/ global_val" // new_line('a') // &
-             "" // new_line('a') // &
-             "    print *, global_val" // new_line('a') // &
-             "end program test_blockdata" // new_line('a') // &
-             "" // new_line('a') // &
-             "block data init_data" // new_line('a') // &
-             "    implicit none" // new_line('a') // &
-             "    integer :: global_val" // new_line('a') // &
-             "    common /shared/ global_val" // new_line('a') // &
-             "    data global_val /999/" // new_line('a') // &
-             "end block data init_data"
+    call read_example('examples/f90/issue_1578_block_data.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -74,4 +63,21 @@ program test_issue_1578_block_data
     end if
 
     print *, 'PASS: BLOCK DATA preserved after explicit program'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_issue_1578_block_data

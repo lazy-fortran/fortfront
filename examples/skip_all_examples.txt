@@ -22,6 +22,7 @@ lf/array_slice_stride.lf
 lf/debug_mixed_constructs.lf
 lf/error_complete_garbage.lf
 lf/error_missing_then.lf
+lf/undeclared_print_variable.lf
 lf/derived_type_simple.lf
 lf/derived_type_multiple_components.lf
 lf/derived_type_nested.lf
