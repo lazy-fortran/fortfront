@@ -574,7 +574,6 @@ these lists to spot redundant coverage before adding new files.
 - examples/lf/test_sem_intrinsic.lf
 - examples/lf/test_std_slice.lf
 - examples/lf/test_unary_precedence.lf
-- examples/lf/undeclared_print_variable.lf
 **Tests**
 - test/codegen/test_array_assignment_basic.f90
 - test/codegen/test_basic_allocate_codegen.f90
@@ -724,7 +723,6 @@ these lists to spot redundant coverage before adding new files.
 - examples/lf/derived_type_multiple_components.lf
 - examples/lf/derived_type_nested.lf
 - examples/lf/derived_type_end_field.lf
-- examples/lf/undeclared_print_variable.lf
 **Tests**
 - test/debug/test_dimension_tokens.f90
 - test/integration/array_tests/test_array_literal_type_preservation.f90
