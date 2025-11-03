@@ -7,6 +7,7 @@ module codegen_module_generation
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
+    use ast_traversal_utils, only: get_ancestor_of_type
     implicit none
     private
     public :: generate_code_module
@@ -233,14 +234,27 @@ contains
         end if
     end function generate_code_interface_block
 
-    function generate_code_module_procedure(node) result(code)
+    function generate_code_module_procedure(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
         type(module_procedure_node), intent(in) :: node
+        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         integer :: i
         character(len=:), allocatable :: name_text
         logical :: first_name
+        integer :: module_ancestor_idx
+        logical :: is_in_module
 
-        code = "module procedure"
+        module_ancestor_idx = get_ancestor_of_type(arena, node_index, &
+                                                   "module_node")
+        is_in_module = (module_ancestor_idx > 0)
+
+        if (is_in_module) then
+            code = "module procedure"
+        else
+            code = "procedure"
+        end if
+
         first_name = .true.
         if (allocated(node%procedure_names)) then
             do i = 1, size(node%procedure_names)
