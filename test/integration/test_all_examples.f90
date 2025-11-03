@@ -434,6 +434,8 @@ contains
 
         num_failures = stored_count
         if (num_failures == 0) then
+            write (error_unit, '(A)') 'WARNING: no entries parsed from file: ' // &
+                trim(resolved_filename)
             allocate (failures(0))
         else
             allocate (failures(num_failures))
