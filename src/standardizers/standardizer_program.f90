@@ -46,8 +46,9 @@ contains
             ! Find where to insert contains (before first function/subroutine)
             insert_pos = find_contains_insertion_point(arena, prog)
             if (insert_pos > 0) then
-                ! Insert contains statement at the determined position
-                call insert_contains_statement(arena, prog, prog_index, insert_pos)
+                ! Ensure contains is present exactly once in the correct position
+                call ensure_contains_before_index(arena, prog, prog_index, &
+                                                  insert_pos)
             end if
         end if
 
@@ -70,8 +71,9 @@ contains
             insert_pos = find_contains_insertion_point(arena, prog)
 
             if (insert_pos > 0) then
-                ! Create new body with contains statement
-                call insert_contains_statement(arena, prog, prog_index, insert_pos)
+                ! Ensure contains is present exactly once in the correct position
+                call ensure_contains_before_index(arena, prog, prog_index, &
+                                                  insert_pos)
             end if
         end if
 
@@ -216,5 +218,100 @@ contains
         arena%entries(prog_index)%node = prog
 
     end subroutine insert_contains_statement
+
+    subroutine ensure_contains_before_index(arena, prog, prog_index, insert_pos)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(inout) :: prog
+        integer, intent(in) :: prog_index, insert_pos
+        integer :: existing_pos
+
+        if (insert_pos <= 0) return
+        existing_pos = find_existing_contains_position(arena, prog)
+
+        if (existing_pos > 0) then
+            if (existing_pos < insert_pos) then
+                return
+            end if
+            call reposition_contains_statement(arena, prog, prog_index, &
+                                               existing_pos, insert_pos)
+        else
+            call insert_contains_statement(arena, prog, prog_index, insert_pos)
+        end if
+    end subroutine ensure_contains_before_index
+
+    integer function find_existing_contains_position(arena, prog) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: i, idx
+
+        pos = 0
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                pos = i
+                return
+            end select
+        end do
+    end function find_existing_contains_position
+
+    subroutine reposition_contains_statement(arena, prog, prog_index, &
+                                             current_pos, insert_pos)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(inout) :: prog
+        integer, intent(in) :: prog_index, current_pos, insert_pos
+        integer, allocatable :: without_contains(:)
+        integer, allocatable :: final_indices(:)
+        integer :: contains_idx
+        integer :: target_pos
+        integer :: i, j
+
+        if (.not. allocated(prog%body_indices)) return
+        if (current_pos <= 0 .or. current_pos > size(prog%body_indices)) return
+
+        contains_idx = prog%body_indices(current_pos)
+
+        if (current_pos < insert_pos) then
+            return
+        end if
+
+        allocate (without_contains(size(prog%body_indices) - 1))
+        j = 1
+        do i = 1, size(prog%body_indices)
+            if (i == current_pos) cycle
+            without_contains(j) = prog%body_indices(i)
+            j = j + 1
+        end do
+
+        target_pos = insert_pos
+        if (target_pos < 1) target_pos = 1
+        if (target_pos > size(without_contains) + 1) &
+            target_pos = size(without_contains) + 1
+
+        allocate (final_indices(size(without_contains) + 1))
+        j = 1
+        do i = 1, target_pos - 1
+            final_indices(j) = without_contains(i)
+            j = j + 1
+        end do
+        final_indices(j) = contains_idx
+        j = j + 1
+        do i = target_pos, size(without_contains)
+            final_indices(j) = without_contains(i)
+            j = j + 1
+        end do
+
+        block
+            integer, allocatable :: tmp(:)
+            call move_alloc(prog%body_indices, tmp)
+        end block
+        call move_alloc(final_indices, prog%body_indices)
+
+        arena%entries(prog_index)%node = prog
+    end subroutine reposition_contains_statement
 
 end module standardizer_program
