@@ -76,6 +76,10 @@ program test_all_examples
         call load_skip_examples('examples\\skip_all_examples.txt', skip_examples, &
                                 num_skip_examples, is_windows)
     end if
+    if (is_windows) then
+        write (error_unit, '(A,I0)') 'INFO: skip examples loaded: ', &
+            num_skip_examples
+    end if
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
