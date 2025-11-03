@@ -571,19 +571,33 @@ contains
         character(len=*), intent(in) :: filepath
         character(len=256) :: relative
         character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: search_path
         integer :: pos
-        integer :: i
+        integer :: i, code
 
         relative = ''
         if (len_trim(filepath) == 0) return
 
         trimmed = adjustl(trim(filepath))
-
         do i = 1, len(trimmed)
-            if (trimmed(i:i) == '\\') trimmed(i:i) = '/'
+            code = iachar(trimmed(i:i))
+            if (code < iachar(' ')) then
+                trimmed(i:i) = ' '
+            else if (trimmed(i:i) == '\\') then
+                trimmed(i:i) = '/'
+            end if
+        end do
+        trimmed = adjustl(trimmed)
+
+        search_path = trimmed
+        do i = 1, len(search_path)
+            code = iachar(search_path(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                search_path(i:i) = achar(code + 32)
+            end if
         end do
 
-        pos = index(trimmed, 'examples/')
+        pos = index(search_path, 'examples/')
 
         if (pos > 0) then
             if (pos + len('examples/') <= len(trimmed)) then
@@ -615,8 +629,12 @@ contains
 
         normalized = adjustl(trim(value))
         do i = 1, len(normalized)
-            if (normalized(i:i) == '\\') normalized(i:i) = '/'
             code = iachar(normalized(i:i))
+            if (code < iachar(' ')) then
+                normalized(i:i) = ' '
+                cycle
+            end if
+            if (normalized(i:i) == '\\') normalized(i:i) = '/'
             if (code >= iachar('A') .and. code <= iachar('Z')) then
                 normalized(i:i) = achar(code + 32)
             end if
