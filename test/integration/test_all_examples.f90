@@ -273,24 +273,13 @@ contains
             print *, "ERROR: build_compile_command returned empty command"
             stop 1
         end if
-        if (is_windows) then
-            if (index(command, '""modules dir""') == 0) then
-                print *, "ERROR: module directory not quoted for cmd"
-                stop 1
-            end if
-            if (index(command, '""output file.f90""') == 0) then
-                print *, "ERROR: output path not quoted for cmd"
-                stop 1
-            end if
-        else
-            if (index(command, '"modules dir"') == 0) then
-                print *, "ERROR: module directory not quoted"
-                stop 1
-            end if
-            if (index(command, '"output file.f90"') == 0) then
-                print *, "ERROR: output path not quoted"
-                stop 1
-            end if
+        if (index(command, '"modules dir"') == 0) then
+            print *, "ERROR: module directory not quoted"
+            stop 1
+        end if
+        if (index(command, '"output file.f90"') == 0) then
+            print *, "ERROR: output path not quoted"
+            stop 1
         end if
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
@@ -985,6 +974,11 @@ contains
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)
+        if (exit_code /= 0) then
+            print *, "ERROR: gfortran rejected generated output (exit", &
+                exit_code, ")"
+            print *, "       command:", trim(command)
+        end if
         compile_generated_output = (exit_code == 0)
     end function compile_generated_output
 
@@ -1498,23 +1492,20 @@ contains
 
         command = ''
 
-        output_arg = quote_for_shell(output_file, is_windows, &
-                                     escape_for_cmd=is_windows)
+        output_arg = quote_for_shell(output_file, is_windows)
         if (len_trim(output_arg) == 0) return
 
         command = 'gfortran -c -fsyntax-only '
 
         if (len_trim(module_dir) > 0) then
-            module_arg = quote_for_shell(module_dir, is_windows, &
-                                         escape_for_cmd=is_windows)
+            module_arg = quote_for_shell(module_dir, is_windows)
             if (len_trim(module_arg) > 0) then
                 command = command // '-I ' // module_arg // ' '
             end if
         end if
 
         if (len_trim(temp_dir) > 0) then
-            temp_arg = quote_for_shell(temp_dir, is_windows, &
-                                       escape_for_cmd=is_windows)
+            temp_arg = quote_for_shell(temp_dir, is_windows)
             if (len_trim(temp_arg) > 0) then
                 command = command // '-J ' // temp_arg // ' '
             end if
@@ -1522,11 +1513,6 @@ contains
 
         command = command // output_arg
 
-        if (is_windows) then
-            command = command // ' > nul 2>&1'
-        else
-            command = command // ' > /dev/null 2>&1'
-        end if
     end function build_compile_command
 
     pure function quote_for_shell(path, is_windows, escape_for_cmd) result(argument)
