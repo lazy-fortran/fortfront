@@ -4,31 +4,9 @@ program test_memory_corruption_fix
     use fortfront
     implicit none
 
-    character(len=*), parameter :: test_code = &
-                                   "program test_memory_corruption" // new_line('a') // &
-                                   "implicit none" // new_line('a') // &
-                                   "real :: a, b, c, matrix(3,3)" // new_line('a') // &
-                                   "integer :: i, j, k, n" // new_line('a') // &
-                                   "n = 3" // new_line('a') // &
-        "! Test nested loops with matrix operations (original crash scenario)" // new_line('a') // &
-                                   "do i = 1, n" // new_line('a') // &
-                                   "    do j = 1, n" // new_line('a') // &
-                                   "        matrix(i,j) = real(i) * real(j)" // new_line('a') // &
-                                   "        if (i == j) then" // new_line('a') // &
-                                   "            matrix(i,j) = matrix(i,j) + 1.0" // new_line('a') // &
-                                   "        end if" // new_line('a') // &
-                                   "    end do" // new_line('a') // &
-                                   "end do" // new_line('a') // &
-                                   "! Test complex binary expressions" // new_line('a') // &
-                                   "a = 1.0" // new_line('a') // &
-                                   "b = 2.0" // new_line('a') // &
-                                   "c = a + b * 3.0" // new_line('a') // &
-                                   "k = i + j - 5" // new_line('a') // &
-                                   "c = c + real(k) + matrix(1,1)" // new_line('a') // &
-                                   "end program test_memory_corruption"
+    character(len=:), allocatable :: test_code, output_code, error_msg
 
-    character(len=:), allocatable :: output_code, error_msg
-
+    call read_example('examples/f90/memory_corruption_test.f90', test_code)
     print *, "Testing memory corruption fix..."
 
     ! Test multiple rounds of semantic analysis to trigger potential double-free
@@ -58,5 +36,26 @@ program test_memory_corruption_fix
 
     print *, "Memory corruption fix test PASSED"
     print *, "All 5 rounds of semantic analysis completed without crashes"
+
+contains
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_memory_corruption_fix
