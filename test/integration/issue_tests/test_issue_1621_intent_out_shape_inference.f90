@@ -8,31 +8,7 @@ program test_issue_1621_intent_out_shape_inference
     character(len=:), allocatable :: error_msg
     logical :: has_n1_decl, has_n2_decl
 
-    source = 'module m_intent_out' // new_line('a') // &
-             '' // new_line('a') // &
-             '  implicit none' // new_line('a') // &
-             '  public' // new_line('a') // &
-             '' // new_line('a') // &
-             'contains' // new_line('a') // &
-             '' // new_line('a') // &
-             '  subroutine interpolation(n1,n2,a1,a2,output)' // new_line('a') // &
-             '    !' // new_line('a') // &
-             '    integer,               intent(in)    :: n1,n2' // new_line('a') // &
-             '    real,dimension(n1),    intent(in)    :: a1' // new_line('a') // &
-             '    real,dimension(n2),    intent(in)    :: a2' // new_line('a') // &
-             '    real,dimension(n1,n2), intent(out)   :: output' // new_line('a') // &
-             '' // new_line('a') // &
-             '    integer :: i,j' // new_line('a') // &
-             '' // new_line('a') // &
-             '    do j=1,n2' // new_line('a') // &
-             '      do i=1,n1' // new_line('a') // &
-             '         output(i,j)=(a1(i)+a2(j))/2' // new_line('a') // &
-             '      enddo' // new_line('a') // &
-             '    enddo' // new_line('a') // &
-             '' // new_line('a') // &
-             '  end subroutine interpolation' // new_line('a') // &
-             '' // new_line('a') // &
-             'end module m_intent_out'
+    call read_example('examples/f90/issue_1621_intent_out_array_shape.f90', source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
@@ -100,4 +76,27 @@ program test_issue_1621_intent_out_shape_inference
     end if
 
     print *, 'PASS: intent(out) array shape inference preserved'
+
+contains
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
+
 end program test_issue_1621_intent_out_shape_inference

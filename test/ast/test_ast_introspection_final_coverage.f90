@@ -30,8 +30,7 @@ contains
 
         ! Test forall and pointer assignment
         arena = create_ast_arena()
-        source = "forall (i = 1:10) arr(i) = i" // new_line('a') // &
-                 "ptr => target"
+        call read_example('examples/f90/ast_forall_pointer.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -52,24 +51,7 @@ contains
 
         ! Test interface block and use statement in proper context
         arena = create_ast_arena()
-        source = "module test_mod" // new_line('a') // &
-                 "  use iso_fortran_env" // new_line('a') // &
-                 "  interface operator(+)" // new_line('a') // &
-                 "    module procedure add_custom" // new_line('a') // &
-                 "  end interface" // new_line('a') // &
-                 "  type :: point" // new_line('a') // &
-                 "    real :: x, y" // new_line('a') // &
-                 "  end type" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "  function add_custom(a, b)" // new_line('a') // &
-                 "    type(point) :: a, b, add_custom" // new_line('a') // &
-                 "  end function" // new_line('a') // &
-                 "  subroutine test_sub(x, y)" // new_line('a') // &
-                 "    real, intent(in) :: x" // new_line('a') // &
-                 "    real, intent(out) :: y" // new_line('a') // &
-                 "    y = x * 2" // new_line('a') // &
-                 "  end subroutine" // new_line('a') // &
-                 "end module"
+        call read_example('examples/f90/ast_module_interface_type.f90', source)
 
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -102,14 +84,7 @@ contains
 
         ! Test case blocks
         arena = create_ast_arena()
-        source = "select case (n)" // new_line('a') // &
-                 "case (1:5)" // new_line('a') // &
-                 "  x = 1" // new_line('a') // &
-                 "case (6, 7, 8)" // new_line('a') // &
-                 "  x = 2" // new_line('a') // &
-                 "case default" // new_line('a') // &
-                 "  x = 0" // new_line('a') // &
-                 "end select"
+        call read_example('examples/f90/ast_select_case_ranges.f90', source)
 
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
@@ -170,5 +145,25 @@ contains
 
         print *, "  Node reference APIs: PASS"
     end function test_node_with_reference
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_ast_introspection_final_coverage
