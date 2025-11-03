@@ -268,7 +268,6 @@ contains
             stop 1
         end if
 
-
         command = build_compile_command('output file.f90', 'modules dir', &
                                         'temp dir', is_windows)
         if (len_trim(command) == 0) then
@@ -297,7 +296,7 @@ contains
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
                                       escape_for_cmd=.true.), &
-                                      '""pipe path""') == 0) then
+                      '""pipe path""') == 0) then
                 print *, "ERROR: Windows cmd escaping missing"
                 stop 1
             end if
@@ -434,7 +433,8 @@ contains
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 i = i + 1
                 if (index(trimmed_line, '#') > 0) then
-                    skip_list(i) = adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
+                    skip_list(i) = &
+                        adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
                 else
                     skip_list(i) = trim(trimmed_line)
                 end if
@@ -451,7 +451,6 @@ contains
         character(len=:), allocatable :: parent_dir
         character(len=:), allocatable :: candidate
         character(len=1) :: sep
-        logical :: exists
         integer :: i
         character(len=256) :: fallback_candidates(6)
 
@@ -461,8 +460,7 @@ contains
             do while (len_trim(current_dir) > 0)
                 sep = path_separator_for(current_dir)
                 candidate = join_path(current_dir, 'examples', sep)
-                inquire (file=trim(candidate), exist=exists)
-                if (exists) then
+                if (examples_directory_exists(candidate)) then
                     dir_path = trim(candidate)
                     return
                 end if
@@ -476,19 +474,18 @@ contains
         if (len_trim(dir_path) == 0) then
             if (is_windows) then
                 fallback_candidates = [character(len=256) :: 'examples', &
-                                        '.\examples', '..\examples', &
-                                        '..\..\examples', '..\..\..\examples', &
-                                        '']
+                                       '.\examples', '..\examples', &
+                                       '..\..\examples', '..\..\..\examples', &
+                                       '']
             else
                 fallback_candidates = [character(len=256) :: 'examples', &
-                                        './examples', '../examples', &
-                                        '../../examples', '../../../examples', &
-                                        '']
+                                       './examples', '../examples', &
+                                       '../../examples', '../../../examples', &
+                                       '']
             end if
             do i = 1, size(fallback_candidates)
                 if (len_trim(fallback_candidates(i)) == 0) cycle
-                inquire (file=trim(fallback_candidates(i)), exist=exists)
-                if (exists) then
+                if (examples_directory_exists(fallback_candidates(i))) then
                     dir_path = trim(fallback_candidates(i))
                     return
                 end if
@@ -546,7 +543,8 @@ contains
     end function is_skipped_example
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                          temp_dir, test_count, pass_count, fail_count, &
+                                          temp_dir, test_count, pass_count, &
+                                              fail_count, &
                                               & skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures, &
@@ -927,7 +925,8 @@ contains
 
     subroutine finalize_example_result(name, output_file, error_file, has_error, &
                                        has_unparsed, has_warning, expect_fail, &
-                                       pass_count, fail_count, xfail_count, xpass_count, &
+                                       pass_count, fail_count, xfail_count, &
+                                       xpass_count, &
                                        is_roundtrip)
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: output_file, error_file
@@ -1290,6 +1289,23 @@ contains
             path = trimmed_base // sep // trim(component)
         end if
     end function join_path
+
+    logical function examples_directory_exists(path) result(exists)
+        character(len=*), intent(in) :: path
+        character(len=1) :: sep
+        character(len=:), allocatable :: marker
+
+        exists = .false.
+        if (len_trim(path) == 0) return
+
+        sep = path_separator_for(path)
+        marker = join_path(path, 'expected_failures.txt', sep)
+        inquire (file=trim(marker), exist=exists)
+        if (exists) return
+
+        marker = join_path(path, 'skip_all_examples.txt', sep)
+        inquire (file=trim(marker), exist=exists)
+    end function examples_directory_exists
 
     pure function directory_from_path(path) result(directory)
         character(len=*), intent(in) :: path
