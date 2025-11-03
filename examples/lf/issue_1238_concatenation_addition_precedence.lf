@@ -1,0 +1,15 @@
+program test_precedence
+    character(len=10) :: a, b, c, r1, r2, r3
+    a = "A"
+    b = "B"
+    c = "C"
+    ! Test unparenthesized expression
+    r1 = a + b // c
+    ! Test with explicit parentheses (correct precedence)
+    r2 = a + (b // c)
+    ! Test with explicit parentheses (our expected parsing)
+    r3 = (a + b) // c
+    print *, "r1=", r1
+    print *, "r2=", r2
+    print *, "r3=", r3
+end program test_precedence
