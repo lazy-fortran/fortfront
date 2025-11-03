@@ -14,6 +14,7 @@ program test_all_examples
     integer :: num_skip_examples
     character(len=:), allocatable :: fortfront_exe
     character(len=:), allocatable :: temp_dir
+    character(len=:), allocatable :: fallback_root
     real(dp) :: success_rate
 
     test_count = 0
@@ -56,6 +57,11 @@ program test_all_examples
     call load_expected_failures(expected_failures_path, expected_failures, &
                                 num_expected_failures)
     call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
+    if (num_skip_examples == 0) then
+        fallback_root = search_examples_from_cwd(is_windows)
+        call reload_skip_examples_from(fallback_root, skip_examples, num_skip_examples, &
+                                       is_windows)
+    end if
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -517,6 +523,19 @@ contains
         directory_exists = exists
     end function directory_exists
 
+    logical function file_exists(path) result(exists)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable :: probe
+
+        probe = trim(path)
+        if (len_trim(probe) == 0) then
+            exists = .false.
+            return
+        end if
+
+        inquire (file=probe, exist=exists)
+    end function file_exists
+
     pure subroutine strip_control_characters(value)
         character(len=*), intent(inout) :: value
         integer :: i, code
@@ -772,6 +791,38 @@ contains
         normalized = trim(normalized)
         normalized = adjustl(normalized)
     end function normalize_path_string
+
+    subroutine reload_skip_examples_from(project_root, skip_list, num_skip, is_windows)
+        character(len=*), intent(in) :: project_root
+        character(len=256), allocatable, intent(inout) :: skip_list(:)
+        integer, intent(inout) :: num_skip
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: resolved_root
+        character(len=:), allocatable :: examples_path
+        character(len=:), allocatable :: fallback_path
+
+        if (num_skip > 0) return
+
+        resolved_root = trim(project_root)
+        if (len_trim(resolved_root) == 0) return
+
+        examples_path = append_path(resolved_root, 'examples', is_windows)
+        if (.not. directory_exists(examples_path)) return
+
+        fallback_path = append_path(examples_path, 'skip_all_examples.txt', is_windows)
+        if (.not. file_exists(fallback_path)) return
+
+        if (allocated(skip_list)) deallocate(skip_list)
+        call load_skip_examples(fallback_path, skip_list, num_skip)
+
+        if (num_skip == 0) then
+            write (error_unit, '(A)') &
+                'WARNING: fallback skip list is empty at ' // trim(fallback_path)
+        else
+            write (error_unit, '(A,I0,A)') 'INFO: loaded ', num_skip, &
+                ' skip entries from fallback path'
+        end if
+    end subroutine reload_skip_examples_from
 
     subroutine test_single_example(filepath, fortfront_exe, temp_dir, test_count, &
                                    pass_count, &
