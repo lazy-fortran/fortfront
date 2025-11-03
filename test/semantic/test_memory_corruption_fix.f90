@@ -6,7 +6,7 @@ program test_memory_corruption_fix
 
     character(len=:), allocatable :: test_code, output_code, error_msg
 
-    call read_example('examples/f90/memory_corruption_test.f90', test_code)
+    call read_example('examples/f90/memory_corruption.f90', test_code)
     print *, "Testing memory corruption fix..."
 
     ! Test multiple rounds of semantic analysis to trigger potential double-free
