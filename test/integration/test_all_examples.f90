@@ -351,11 +351,17 @@ contains
         character(len=256), allocatable, intent(out) :: failures(:)
         integer, intent(out) :: num_failures
         logical, intent(in), optional :: is_windows
-        integer :: unit_num, ios, count, i
-        character(len=256) :: line, trimmed_line
-        logical :: file_exists
         logical :: on_windows
+        logical :: file_exists
         character(len=:), allocatable :: resolved_filename
+        integer :: line_capacity
+        integer :: unit_num
+        integer :: ios
+        integer :: i
+        integer :: start_idx
+        integer :: stored_count
+        character(len=:), allocatable :: buffer
+        character(len=256), allocatable :: temp(:)
 
         num_failures = 0
 
@@ -369,49 +375,122 @@ contains
             return
         end if
 
-        ! First pass: count non-empty, non-comment lines
-        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
-              action='read', iostat=ios)
-        if (ios /= 0) then
+        inquire (file=trim(resolved_filename), exist=file_exists)
+        if (.not. file_exists) then
             allocate (failures(0))
             return
         end if
 
-        count = 0
-        do
-            read (unit_num, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            trimmed_line = adjustl(line)
-            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
-                count = count + 1
-            end if
-        end do
-        close (unit_num)
+        ! Determine file size to allocate stream buffer
+        inquire (file=trim(resolved_filename), size=line_capacity)
+        if (line_capacity <= 0) then
+            allocate (failures(0))
+            return
+        end if
 
-        ! Allocate array
-        allocate (failures(count))
-        num_failures = count
-
-        ! Second pass: read filenames
+        allocate (character(len=line_capacity) :: buffer)
         open (newunit=unit_num, file=trim(resolved_filename), status='old', &
-              action='read', iostat=ios)
-        i = 0
-        do
-            read (unit_num, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            trimmed_line = adjustl(line)
-            if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
-                i = i + 1
-                ! Extract filename before any # comment
-                if (index(trimmed_line, '#') > 0) then
-                    failures(i) = adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
+              access='stream', form='unformatted', action='read', iostat=ios)
+        if (ios /= 0) then
+            deallocate (buffer)
+            allocate (failures(0))
+            return
+        end if
+
+        read (unit_num, iostat=ios) buffer
+        close (unit_num)
+        if (ios /= 0) then
+            deallocate (buffer)
+            allocate (failures(0))
+            return
+        end if
+
+        line_capacity = 1
+        do i = 1, len(buffer)
+            if (buffer(i:i) == achar(10)) line_capacity = line_capacity + 1
+        end do
+
+        allocate (temp(line_capacity))
+        stored_count = 0
+        start_idx = 1
+
+        do i = 1, len(buffer)
+            if (buffer(i:i) == achar(10)) then
+                if (start_idx <= i - 1) then
+                    call append_clean_line(buffer(start_idx:i - 1), temp, &
+                                           stored_count)
                 else
-                    failures(i) = trim(trimmed_line)
+                    call append_clean_line('', temp, stored_count)
                 end if
+                start_idx = i + 1
             end if
         end do
-        close (unit_num)
+
+        if (start_idx <= len(buffer)) then
+            call append_clean_line(buffer(start_idx:), temp, stored_count)
+        else
+            call append_clean_line('', temp, stored_count)
+        end if
+
+        num_failures = stored_count
+        if (num_failures == 0) then
+            allocate (failures(0))
+        else
+            allocate (failures(num_failures))
+            failures = temp(1:num_failures)
+        end if
+
+        deallocate (buffer)
+        deallocate (temp)
     end subroutine load_expected_failures
+
+    subroutine append_clean_line(segment, storage, stored_count)
+        character(len=*), intent(in) :: segment
+        character(len=256), intent(inout) :: storage(:)
+        integer, intent(inout) :: stored_count
+        character(len=256) :: cleaned
+        integer :: idx
+        integer :: pos
+        integer :: code
+        integer :: comment_pos
+
+        cleaned = ''
+        pos = 0
+
+        do idx = 1, len(segment)
+            code = iachar(segment(idx:idx))
+            if (code == 0) exit
+            if (code == 13) cycle
+            if (code == 10) cycle
+            if (code < iachar(' ')) code = iachar(' ')
+            if (pos < len(cleaned)) then
+                pos = pos + 1
+                cleaned(pos:pos) = achar(code)
+            else
+                exit
+            end if
+        end do
+
+        if (pos == 0) return
+        cleaned = adjustl(cleaned(1:pos))
+        cleaned = trim(cleaned)
+        if (len_trim(cleaned) == 0) return
+        if (cleaned(1:1) == '#') return
+
+        comment_pos = index(cleaned, '#')
+        if (comment_pos > 0) then
+            if (comment_pos > 1) then
+                cleaned = adjustl(trim(cleaned(1:comment_pos - 1)))
+            else
+                return
+            end if
+        end if
+
+        if (len_trim(cleaned) == 0) return
+
+        stored_count = stored_count + 1
+        storage(stored_count) = trim(cleaned)
+    end subroutine append_clean_line
 
     subroutine load_skip_examples(filename, skip_list, num_skip, is_windows)
         character(len=*), intent(in) :: filename
