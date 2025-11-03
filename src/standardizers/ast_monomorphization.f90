@@ -305,6 +305,43 @@ contains
             call normalize_signature_param_types(proc_sigs(j))
         end do
 
+        ! Deduplicate signatures after normalization
+        block
+            type(type_signature_t), allocatable :: unique_sigs(:)
+            integer :: unique_count, k
+            logical :: is_duplicate
+
+            allocate (unique_sigs(size(proc_sigs)))
+            unique_count = 0
+
+            do j = 1, size(proc_sigs)
+                is_duplicate = .false.
+                do k = 1, unique_count
+                    if (signatures_are_identical(proc_sigs(j), unique_sigs(k))) then
+                        is_duplicate = .true.
+                        exit
+                    end if
+                end do
+                if (.not. is_duplicate) then
+                    unique_count = unique_count + 1
+                    unique_sigs(unique_count) = proc_sigs(j)
+                end if
+            end do
+
+            if (unique_count <= 1) then
+                handled = .false.
+                if (allocated(proc_sigs)) deallocate (proc_sigs)
+                if (allocated(unique_sigs)) deallocate (unique_sigs)
+                return
+            end if
+
+            ! Replace proc_sigs with deduplicated signatures
+            deallocate (proc_sigs)
+            allocate (proc_sigs(unique_count))
+            proc_sigs(1:unique_count) = unique_sigs(1:unique_count)
+            deallocate (unique_sigs)
+        end block
+
         handled = .true.
         allocate (variant_indices(size(proc_sigs)))
         do j = 1, size(proc_sigs)
@@ -962,6 +999,49 @@ contains
             end if
         end do
     end subroutine normalize_signature_param_types
+
+    logical function signatures_are_identical(sig1, sig2) result(identical)
+        type(type_signature_t), intent(in) :: sig1, sig2
+        integer :: i
+
+        identical = .false.
+
+        ! Check parameter count
+        if (allocated(sig1%param_kinds) .neqv. allocated(sig2%param_kinds)) return
+        if (allocated(sig1%param_kinds)) then
+            if (size(sig1%param_kinds) /= size(sig2%param_kinds)) return
+        end if
+
+        ! Check parameter kinds
+        if (allocated(sig1%param_kinds)) then
+            if (.not. all(sig1%param_kinds == sig2%param_kinds)) return
+        end if
+
+        ! Check return kind
+        if (sig1%return_kind /= sig2%return_kind) return
+
+        ! Check parameter type strings (normalized form)
+        if (allocated(sig1%param_type_strings) .neqv. &
+            allocated(sig2%param_type_strings)) return
+        if (allocated(sig1%param_type_strings)) then
+            if (size(sig1%param_type_strings) /= size(sig2%param_type_strings)) &
+                return
+            do i = 1, size(sig1%param_type_strings)
+                if (trim(sig1%param_type_strings(i)) /= &
+                    trim(sig2%param_type_strings(i))) return
+            end do
+        end if
+
+        ! Check return type string (normalized form)
+        if (allocated(sig1%return_type_string) .neqv. &
+            allocated(sig2%return_type_string)) return
+        if (allocated(sig1%return_type_string)) then
+            if (trim(sig1%return_type_string) /= trim(sig2%return_type_string)) &
+                return
+        end if
+
+        identical = .true.
+    end function signatures_are_identical
 
     integer function determine_fallback_kind(param_kinds, param_type_strings) &
         result(kind_value)
