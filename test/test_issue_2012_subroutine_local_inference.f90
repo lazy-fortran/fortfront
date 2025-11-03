@@ -1,14 +1,32 @@
 program test_issue_2012_subroutine_local_inference
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     call test_subroutine_local_variable()
-    print *, "Issue 2012 subroutine local variable inference test completed."
+    print *, 'PASS: Issue 2012 subroutine local variable inference'
 
 contains
 
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., filepath, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'Error opening file: ' // trim(filepath)
+            error stop 1
+        end if
+    end subroutine read_example
+
     subroutine test_subroutine_local_variable()
-        character(:), allocatable :: source, output, error_msg
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         call read_example('examples/lf/issue_2012_subroutine_local_not_inferred.lf', &
                           source)
@@ -16,55 +34,26 @@ contains
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "FAIL: Transformation failed:", trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: Transformation failed: ' // &
+                trim(error_msg)
             error stop 1
         end if
 
         if (index(output, 'integer :: temp') == 0) then
-            print *, "FAIL: Local variable 'temp' not declared"
-            print *, "Output:", output
+            write (error_unit, '(A)') "FAIL: Local variable 'temp' not declared"
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
         if (index(output, 'subroutine swap') == 0) then
-            print *, "FAIL: Subroutine not found in output"
+            write (error_unit, '(A)') 'FAIL: Subroutine not found in output'
             error stop 1
         end if
 
         if (index(output, 'implicit none') == 0) then
-            print *, "FAIL: implicit none not found"
+            write (error_unit, '(A)') 'FAIL: implicit none not found'
             error stop 1
         end if
-
-        print *, "[PASS] Subroutine local variable correctly inferred and declared"
     end subroutine test_subroutine_local_variable
-
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, ios, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              form='unformatted', access='stream', iostat=ios)
-        if (ios /= 0) then
-            print *, "Error opening file:", filepath
-            error stop 1
-        end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=ios) buffer
-        close (unit)
-
-        if (ios /= 0) then
-            print *, "Error reading file:", filepath
-            error stop 1
-        end if
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-        deallocate (buffer)
-    end subroutine read_example
 
 end program test_issue_2012_subroutine_local_inference

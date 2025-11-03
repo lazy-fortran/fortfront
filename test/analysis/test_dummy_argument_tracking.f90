@@ -42,11 +42,7 @@ contains
 
         ! Test case from issue #118 - modified to use assignment instead of print
         ! (parser has issues with print statements in subroutine bodies)
-        source = "subroutine test_sub(arg)" // new_line('a') // &
-                 "  integer :: arg" // new_line('a') // &
-                 "  integer :: result" // new_line('a') // &
-                 "  result = arg * 2" // new_line('a') // &
-                 "end subroutine"
+        call read_example('examples/f90/dummy_arg_simple.f90', source)
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -108,10 +104,7 @@ contains
 
         print *, "Testing multiple dummy arguments..."
 
-        source = "subroutine calc(a, b, c)" // new_line('a') // &
-                 "  real :: a, b, c" // new_line('a') // &
-                 "  c = a + b" // new_line('a') // &
-                 "end subroutine"
+        call read_example('examples/f90/dummy_arg_multiple.f90', source)
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -169,11 +162,7 @@ contains
 
         print *, "Testing dummy arguments in expressions..."
 
-        source = "function calc_sum(x, y)" // new_line('a') // &
-                 "  real :: x, y" // new_line('a') // &
-                 "  real :: calc_sum" // new_line('a') // &
-                 "  calc_sum = x * 2.0 + y / 3.0" // new_line('a') // &
-                 "end function"
+        call read_example('examples/f90/dummy_arg_expression.f90', source)
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -228,11 +217,7 @@ contains
 
         print *, "Testing dummy arguments with intent..."
 
-        source = "subroutine process(input, output)" // new_line('a') // &
-                 "  integer, intent(in) :: input" // new_line('a') // &
-                 "  integer, intent(out) :: output" // new_line('a') // &
-                 "  output = input * 2" // new_line('a') // &
-                 "end subroutine"
+        call read_example('examples/f90/dummy_arg_intent.f90', source)
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -287,13 +272,7 @@ contains
 
         print *, "Testing dummy argument in nested context..."
 
-        source = "subroutine outer(param)" // new_line('a') // &
-                 "  integer :: param" // new_line('a') // &
-                 "  integer :: temp" // new_line('a') // &
-                 "  if (param > 0) then" // new_line('a') // &
-                 "    temp = param + 1" // new_line('a') // &
-                 "  end if" // new_line('a') // &
-                 "end subroutine"
+        call read_example('examples/f90/dummy_arg_nested.f90', source)
 
         call tokenize_core(source, tokens)
         arena = create_ast_arena()
@@ -329,5 +308,25 @@ contains
         end if
 
     end subroutine test_nested_subroutine_dummy
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_dummy_argument_tracking

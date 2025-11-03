@@ -1,7 +1,10 @@
 program test_array_literal_type_preservation
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string_with_format, format_options_t
     implicit none
 
+    character(len=:), allocatable :: source
     character(len=:), allocatable :: output, error_msg
     type(format_options_t) :: options
     logical :: test_passed
@@ -10,9 +13,8 @@ program test_array_literal_type_preservation
 
     ! Test 1: Integer array literal type preservation
     print *, "Test 1: Integer array [2, 3, 4]"
-    call transform_lazy_fortran_string_with_format( &
-        "i = [2, 3, 4]" // new_line('a') // "print*,i**3", &
-        output, error_msg, options)
+    call read_example('examples/lf/array_literal_integer.lf', source)
+    call transform_lazy_fortran_string_with_format(source, output, error_msg, options)
 
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
         print *, "  Error: ", trim(error_msg)
@@ -32,9 +34,8 @@ program test_array_literal_type_preservation
     ! Test 2: Real array literal (should stay real)
     print *, ""
     print *, "Test 2: Real array [1.0, 2.5, 3.14]"
-    call transform_lazy_fortran_string_with_format( &
-        "x = [1.0, 2.5, 3.14]" // new_line('a') // "print*,x", &
-        output, error_msg, options)
+    call read_example('examples/lf/array_literal_real.lf', source)
+    call transform_lazy_fortran_string_with_format(source, output, error_msg, options)
 
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
         print *, "  Error: ", trim(error_msg)
@@ -54,9 +55,8 @@ program test_array_literal_type_preservation
     ! Test 3: Mixed array literal (should be real)
     print *, ""
     print *, "Test 3: Mixed array [1, 2.0, 3]"
-    call transform_lazy_fortran_string_with_format( &
-        "y = [1, 2.0, 3]" // new_line('a') // "print*,y", &
-        output, error_msg, options)
+    call read_example('examples/lf/array_literal_mixed.lf', source)
+    call transform_lazy_fortran_string_with_format(source, output, error_msg, options)
 
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
         print *, "  Error: ", trim(error_msg)
@@ -82,5 +82,21 @@ program test_array_literal_type_preservation
         print *, "Some tests failed!"
         stop 1
     end if
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_array_literal_type_preservation

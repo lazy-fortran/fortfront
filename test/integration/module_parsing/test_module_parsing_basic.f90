@@ -1,5 +1,6 @@
 program test_module_parsing_basic
     use transformation_api, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
 
     logical :: all_passed
     all_passed = .true.
@@ -14,17 +15,24 @@ program test_module_parsing_basic
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_single_module_not_wrapped()
-        character(len=*), parameter :: input = &
-                                       'module m' // new_line('a') // &
-                                       '  implicit none' // new_line('a') // &
-                                       'contains' // new_line('a') // &
-                                       '  function add(a,b) result(c)' // new_line('a') // &
-                                       '    integer :: a,b,c' // new_line('a') // &
-                                       '    c = a + b' // new_line('a') // &
-                                       '  end function add' // new_line('a') // &
-                                       'end module m'
-        character(len=:), allocatable :: output, error_msg
+        character(len=:), allocatable :: input, output, error_msg
+
+        call read_example('examples/f90/module_parsing_basic.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 

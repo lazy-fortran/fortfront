@@ -1,0 +1,19 @@
+module m
+contains
+subroutine foo()
+print*,"foo"
+end subroutine
+
+subroutine bar()
+print*,"bar"
+end subroutine bar
+
+function twice(x) result(y)
+y = 2*x
+end function
+
+function thrice(x) result(y)
+y = 3*x
+end function thrice
+
+end module

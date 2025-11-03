@@ -1,0 +1,6 @@
+! Ensure non-character declarations survive string handling passes
+integer :: n
+n = 5
+s = 'x'
+s = s // 'y'
+print *, n, s

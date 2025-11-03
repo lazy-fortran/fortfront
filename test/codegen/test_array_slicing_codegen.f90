@@ -29,13 +29,7 @@ contains
 
         test_basic_slices = .true.
 
-        source = &
-            'program p' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            '  integer :: arr(5)' // new_line('a') // &
-            '  arr(2:4) = [10, 20, 30]' // new_line('a') // &
-            'end program p'
-
+        call read_example('examples/f90/array_slicing_basic.f90', source)
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
@@ -78,15 +72,7 @@ contains
 
         test_empty_bounds = .true.
 
-        source = &
-            'program p' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            '  integer :: arr(5)' // new_line('a') // &
-            '  arr(:3) = arr(:3)' // new_line('a') // &
-            '  arr(2:) = arr(2:)' // new_line('a') // &
-            '  arr(:)  = arr(:)' // new_line('a') // &
-            'end program p'
-
+        call read_example('examples/f90/array_slicing_empty_bounds.f90', source)
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
@@ -135,13 +121,7 @@ contains
 
         test_multidim_slices = .true.
 
-        source = &
-            'program p' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            '  integer :: b(4,4)' // new_line('a') // &
-            '  b(1:2, :3) = 0' // new_line('a') // &
-            'end program p'
-
+        call read_example('examples/f90/array_slicing_multidim.f90', source)
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
@@ -179,15 +159,7 @@ contains
 
         test_slice_type_inference = .true.
 
-        source = &
-            'program p' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            '  integer :: arr(5)' // new_line('a') // &
-            '  arr = [10, 20, 30, 40, 50]' // new_line('a') // &
-            '  subset = arr(2:4)' // new_line('a') // &
-            '  print *, subset' // new_line('a') // &
-            'end program p'
-
+        call read_example('examples/f90/array_slicing_type_inference.f90', source)
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
@@ -219,5 +191,25 @@ contains
             test_slice_type_inference = .false.
         end if
     end function test_slice_type_inference
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_array_slicing_codegen

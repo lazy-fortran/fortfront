@@ -1,0 +1,7 @@
+! Issue #957: parameter attributes must be preserved during transformation
+subroutine test(required, opt, output)
+    integer, intent(in) :: required
+    integer, intent(in), optional :: opt
+    integer, intent(out) :: output
+    output = required * 2
+end subroutine test

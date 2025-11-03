@@ -29,11 +29,7 @@ contains
     subroutine test_implicit_none_parsing()
         print *, "  Testing implicit none parsing..."
 
-        source_code = "program test" // new_line('a') // &
-                      "implicit none" // new_line('a') // &
-                      "integer :: i" // new_line('a') // &
-                      "i = 42" // new_line('a') // &
-                      "end program test"
+        call read_example('examples/f90/lazy_standard_implicit_none.f90', source_code)
 
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
@@ -104,14 +100,7 @@ contains
     subroutine test_declarations_and_statements()
         print *, "  🔧 Testing declarations and statements..."
 
-        source_code = "program test" // new_line('a') // &
-                      "implicit none" // new_line('a') // &
-                      "integer :: i, j, k" // new_line('a') // &
-                      "real :: x" // new_line('a') // &
-                      "i = 1" // new_line('a') // &
-                      "j = i + 2" // new_line('a') // &
-                      "x = 3.14" // new_line('a') // &
-                      "end program test"
+        call read_example('examples/f90/lazy_standard_declarations.f90', source_code)
 
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
@@ -163,12 +152,7 @@ contains
     subroutine test_control_flow()
         print *, "  🔧 Testing control flow..."
 
-        source_code = "program test" // new_line('a') // &
-                      "implicit none" // new_line('a') // &
-                      "integer :: i" // new_line('a') // &
-                      "i = 42" // new_line('a') // &
-                      "print *, i" // new_line('a') // &
-                      "end program test"
+        call read_example('examples/f90/lazy_standard_control_flow.f90', source_code)
 
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
@@ -220,14 +204,7 @@ contains
     subroutine test_module_debug()
         logical :: ok
         print *, '  Testing module transformation...'
-        source_code = 'module m' // new_line('a') // &
-                      '  implicit none' // new_line('a') // &
-                      'contains' // new_line('a') // &
-                      '  function add(a,b) result(c)' // new_line('a') // &
-                      '    integer :: a,b,c' // new_line('a') // &
-                      '    c = a + b' // new_line('a') // &
-                      '  end function add' // new_line('a') // &
-                      'end module m'
+        call read_example('examples/f90/lazy_standard_module.f90', source_code)
         call transform_lazy_fortran_string(source_code, formatted_code, error_msg)
         ok = .true.
         if (len_trim(error_msg) > 0) then
@@ -276,5 +253,25 @@ contains
             print *, trim(indent) // "other_node"
         end select
     end subroutine debug_ast_structure
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_lazy_standard_fortran

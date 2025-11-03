@@ -12,44 +12,10 @@ program test_issue_509_mixed_constructs_single_program
     character(len=:), allocatable :: error_msg
 
     ! Test code from Issue #509
-    test_code = &
-        'module m' // new_line('a') // &
-        'contains' // new_line('a') // &
-        'subroutine foo()' // new_line('a') // &
-        'print*,"foo"' // new_line('a') // &
-        'end subroutine' // new_line('a') // &
-        '' // new_line('a') // &
-        'subroutine bar()' // new_line('a') // &
-        'print*,"bar"' // new_line('a') // &
-        'end subroutine bar' // new_line('a') // &
-        '' // new_line('a') // &
-        'function twice(x) result(y)' // new_line('a') // &
-        'y = 2*x' // new_line('a') // &
-        'end function' // new_line('a') // &
-        '' // new_line('a') // &
-        'function thrice(x) result(y)' // new_line('a') // &
-        'y = 3*x' // new_line('a') // &
-        'end function thrice' // new_line('a') // &
-        '' // new_line('a') // &
-        'end module'
+    call read_example('examples/lf/issue_509_mixed_constructs_input.lf', test_code)
 
     ! Expected output from Issue #509
-    expected_code = &
-        'module m' // new_line('a') // &
-        'contains' // new_line('a') // &
-        'subroutine foo()' // new_line('a') // &
-        '    print *, "foo"' // new_line('a') // &
-        'end subroutine foo' // new_line('a') // &
-        'subroutine bar()' // new_line('a') // &
-        '    print *, "bar"' // new_line('a') // &
-        'end subroutine bar' // new_line('a') // &
-        'function twice(x)' // new_line('a') // &
-        '    y = 2*x' // new_line('a') // &
-        'end function twice' // new_line('a') // &
-        'function thrice(x)' // new_line('a') // &
-        '    y = 3*x' // new_line('a') // &
-        'end function thrice' // new_line('a') // &
-        'end module m'
+    call read_example('examples/f90/issue_509_mixed_constructs_expected.f90', expected_code)
 
     print *, "Test Issue #509: subroutine and function indentation should be consistent"
     print *, "================================================================"
@@ -112,5 +78,33 @@ contains
             write (*, '(I3,A,A)') line_num, ': ', line
         end if
     end subroutine print_with_line_numbers
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_509_mixed_constructs_single_program

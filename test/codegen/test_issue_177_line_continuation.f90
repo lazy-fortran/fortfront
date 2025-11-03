@@ -1,72 +1,62 @@
 program test_issue_177_line_continuation
-    ! Test for GitHub issue #177: Line continuation characters removed
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
-    print *, "=== Issue #177: Line Continuation Characters Removed ==="
+    call read_example('examples/lf/issue_177_line_continuation.lf', source)
+    call transform_lazy_fortran_string(source, output, error_msg)
 
-    ! Test the exact case from the issue
-    call test_line_continuation_preservation()
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') 'ERROR: ' // trim(error_msg)
+            stop 1
+        end if
+    end if
 
-    print *, "Issue #177 test completed"
+    if (index(output, '&') == 0) then
+        write (error_unit, '(A)') &
+            'CONFIRMED: continuation characters stripped due to limitation'
+    else
+        write (error_unit, '(A,I0)') 'NOTICE: continuation characters present: ', &
+            count_occurrences(output, '&')
+    end if
+
+    print *, 'PASS: Issue #177 regression exercised'
 
 contains
 
-    subroutine test_line_continuation_preservation()
-        print *, "Testing line continuation preservation..."
+    include '../common/cli_io_reader.inc'
 
-        ! Exact case from the issue
-        source = "program test" // new_line('a') // &
-                 "implicit none" // new_line('a') // &
-                 "real :: result" // new_line('a') // &
-                 "result = 1.0 + &" // new_line('a') // &
-                 "         2.0 + &" // new_line('a') // &
-                 "         3.0" // new_line('a') // &
-                 "end program test"
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
 
-        call transform_lazy_fortran_string(source, output, error_msg)
-
-        if (allocated(error_msg)) then
-            if (len_trim(error_msg) > 0) then
-                print *, "  ERROR: ", trim(error_msg)
-                stop 1
-            end if
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
         end if
+    end subroutine read_example
 
-        print *, "INPUT:"
-        print *, trim(source)
-        print *, ""
-        print *, "OUTPUT:"
-        print *, trim(output)
-        print *, ""
+    integer function count_occurrences(text, pattern) result(total)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        integer :: pos
+        integer :: start_pos
 
-        ! Check if line continuation characters are preserved
-        if (index(output, "&") == 0) then
-            print *, "  CONFIRMED: Line continuation characters removed (architectural limitation)"
-            print *, "  Functionality preserved but formatting lost - requires major refactoring"
-        else
-            print *, "  UNEXPECTED: Line continuation characters found - issue may be fixed!"
-            print *, "  Found: ", count_occurrences(output, "&"), " continuation characters"
-        end if
-
-    end subroutine test_line_continuation_preservation
-
-    function count_occurrences(text, pattern) result(count)
-        character(len=*), intent(in) :: text, pattern
-        integer :: count
-        integer :: pos, start_pos
-
-        count = 0
+        total = 0
         start_pos = 1
 
         do
             pos = index(text(start_pos:), pattern)
             if (pos == 0) exit
-            count = count + 1
+            total = total + 1
             start_pos = start_pos + pos + len(pattern) - 1
         end do
     end function count_occurrences

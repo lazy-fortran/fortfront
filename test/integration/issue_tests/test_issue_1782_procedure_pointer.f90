@@ -7,29 +7,7 @@ program test_issue_1782_procedure_pointer
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
-    source = 'program test_function_pointer'//new_line('a')// &
-             '    implicit none'//new_line('a')// &
-             '    procedure(real_func), pointer :: fptr'//new_line('a')// &
-             '    real :: result'//new_line('a')// &
-             '    '//new_line('a')// &
-             '    fptr => square'//new_line('a')// &
-             '    result = fptr(5.0)'//new_line('a')// &
-             '    print *, ''Result:'', result'//new_line('a')// &
-             '    '//new_line('a')// &
-             'contains'//new_line('a')// &
-             '    function square(x) result(res)'//new_line('a')// &
-             '        real, intent(in) :: x'//new_line('a')// &
-             '        real :: res'//new_line('a')// &
-             '        res = x * x'//new_line('a')// &
-             '    end function square'//new_line('a')// &
-             '    '//new_line('a')// &
-             '    interface'//new_line('a')// &
-             '        function real_func(x) result(res)'//new_line('a')// &
-             '            real, intent(in) :: x'//new_line('a')// &
-             '            real :: res'//new_line('a')// &
-             '        end function real_func'//new_line('a')// &
-             '    end interface'//new_line('a')// &
-             'end program test_function_pointer'
+    call read_example('examples/f90/issue_1782_procedure_pointer.f90', source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
@@ -56,5 +34,27 @@ program test_issue_1782_procedure_pointer
     end if
 
     print *, 'PASS: procedure pointer declarations preserved'
+
+contains
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1782_procedure_pointer

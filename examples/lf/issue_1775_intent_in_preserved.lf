@@ -1,0 +1,10 @@
+! Issue #1775: intent(in) should remain when keyword arguments are used
+program test_keyword_args
+    implicit none
+    call process(b=2, a=1, c=3)
+contains
+    subroutine process(a, b, c)
+        integer, intent(in) :: a, b, c
+        print *, 'a=', a, 'b=', b, 'c=', c
+    end subroutine process
+end program test_keyword_args

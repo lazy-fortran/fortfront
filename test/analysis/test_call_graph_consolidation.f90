@@ -28,23 +28,7 @@ contains
 
         print *, "Testing internal procedure resolution..."
 
-        source = '' // &
-                 "program main" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "    subroutine driver()" // new_line('a') // &
-                 "        call outer()" // new_line('a') // &
-                 "    end subroutine driver" // new_line('a') // &
-                 "    subroutine outer()" // new_line('a') // &
-                 "        call helper()" // new_line('a') // &
-                 "    contains" // new_line('a') // &
-                 "        subroutine helper()" // new_line('a') // &
-                 "            call inner()" // new_line('a') // &
-                 "        end subroutine helper" // new_line('a') // &
-                 "        subroutine inner()" // new_line('a') // &
-                 "        end subroutine inner" // new_line('a') // &
-                 "    end subroutine outer" // new_line('a') // &
-                 "end program main"
-
+        call read_example('examples/f90/call_graph_internal_procedures.f90', source)
         call lex_source(source, tokens, error_msg)
         if (error_msg /= '') then
             call report_failure('Lexing failed for internal procedure test', error_msg)
@@ -84,24 +68,7 @@ contains
 
         print *, "Testing module and program scope traversal..."
 
-        source = '' // &
-                 "module math_mod" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "    subroutine compute()" // new_line('a') // &
-                 "        call helper()" // new_line('a') // &
-                 "    contains" // new_line('a') // &
-                 "        subroutine helper()" // new_line('a') // &
-                 "        end subroutine helper" // new_line('a') // &
-                 "    end subroutine compute" // new_line('a') // &
-                 "end module math_mod" // new_line('a') // &
-                 "program app" // new_line('a') // &
-                 "    use math_mod" // new_line('a') // &
-                 "contains" // new_line('a') // &
-                 "    subroutine run()" // new_line('a') // &
-                 "        call compute()" // new_line('a') // &
-                 "    end subroutine run" // new_line('a') // &
-                 "end program app"
-
+        call read_example('examples/f90/call_graph_module_program_scopes.f90', source)
         call lex_source(source, tokens, error_msg)
         if (error_msg /= '') then
             call report_failure('Lexing failed for module scope test', error_msg)
@@ -204,5 +171,25 @@ contains
             end do
         end do
     end subroutine assert_unique_procedures
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_call_graph_consolidation

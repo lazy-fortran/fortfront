@@ -29,13 +29,7 @@ contains
 
     logical function test_print_statement_identifiers()
         ! Test identifiers in print statements
-        character(len=*), parameter :: test_code = &
-                                       'program test' // new_line('a') // &
-                                       '  integer :: used_var' // new_line('a') // &
-                                       '  used_var = 42' // new_line('a') // &
-                                       '  print *, used_var' // new_line('a') // &
-                                       'end program'
-
+        character(len=:), allocatable :: test_code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: root_index
@@ -47,6 +41,8 @@ contains
         test_print_statement_identifiers = .true.
 
         print '(a)', "Testing identifiers in print statements..."
+
+        call read_example('examples/f90/issue_104_print_identifiers.f90', test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -90,12 +86,7 @@ contains
 
     logical function test_assignment_identifiers()
         ! Test identifiers in assignments
-        character(len=*), parameter :: test_code = &
-                                       'program test' // new_line('a') // &
-                                       '  integer :: x, y, z' // new_line('a') // &
-                                       '  x = y + z * 2' // new_line('a') // &
-                                       'end program'
-
+        character(len=:), allocatable :: test_code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: root_index
@@ -107,6 +98,8 @@ contains
         test_assignment_identifiers = .true.
 
         print '(a)', "Testing identifiers in assignments..."
+
+        call read_example('examples/f90/issue_104_assignment_identifiers.f90', test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -154,14 +147,7 @@ contains
 
     logical function test_if_condition_identifiers()
         ! Test identifiers in if conditions
-        character(len=*), parameter :: test_code = &
-                                       'program test' // new_line('a') // &
-                                       '  integer :: x, y' // new_line('a') // &
-                                       '  if (x > y) then' // new_line('a') // &
-                                       '    print *, "x is greater"' // new_line('a') // &
-                                       '  end if' // new_line('a') // &
-                                       'end program'
-
+        character(len=:), allocatable :: test_code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: root_index
@@ -173,6 +159,9 @@ contains
         test_if_condition_identifiers = .true.
 
         print '(a)', "Testing identifiers in if conditions..."
+
+        call read_example('examples/f90/issue_104_if_condition_identifiers.f90', &
+                          test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -220,15 +209,7 @@ contains
 
     logical function test_program_identifiers()
         ! Test getting all identifiers from a program
-        character(len=*), parameter :: test_code = &
-                                       'program test' // new_line('a') // &
-                                       '  integer :: a, b, c' // new_line('a') // &
-                                       '  a = 1' // new_line('a') // &
-                                       '  b = a + 2' // new_line('a') // &
-                                       '  c = a * b' // new_line('a') // &
-                                       '  print *, a, b, c' // new_line('a') // &
-                                       'end program'
-
+        character(len=:), allocatable :: test_code
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: root_index
@@ -239,6 +220,8 @@ contains
         test_program_identifiers = .true.
 
         print '(a)', "Testing identifiers in entire program..."
+
+        call read_example('examples/f90/issue_104_program_identifiers.f90', test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -393,5 +376,25 @@ contains
             end block
         end select
     end subroutine find_if_nodes
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_get_identifiers_issue

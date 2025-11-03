@@ -15,23 +15,8 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: idx_program, idx_contains, idx_subroutine
 
-        input_code = 'subroutine greet(name, title)' // new_line('a') // &
-                     '    character(len=*), intent(in) :: name' // new_line('a') // &
-                     '    character(len=*), intent(in), optional :: title' // &
-                     new_line('a') // &
-                     '    if (present(title)) then' // new_line('a') // &
-                     "        print *, trim(title), ' ', trim(name)" // &
-                     new_line('a') // &
-                     '    else' // new_line('a') // &
-                     '        print *, trim(name)' // new_line('a') // &
-                     '    end if' // new_line('a') // &
-                     'end subroutine greet' // new_line('a') // &
-                     new_line('a') // &
-                     'program test_optional' // new_line('a') // &
-                     '    implicit none' // new_line('a') // &
-                     "    call greet('Alice')" // new_line('a') // &
-                     "    call greet('Bob', 'Dr.')" // new_line('a') // &
-                     'end program test_optional'
+        call read_example('examples/f90/issue_1352_optional_subroutine_program.f90', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -78,20 +63,8 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: idx_if, idx_then_stmt, idx_else, idx_else_stmt, idx_end_if
 
-        input_code = 'module optional_mod' // new_line('a') // &
-                     '    implicit none' // new_line('a') // &
-                     'contains' // new_line('a') // &
-                     '    subroutine greet(name, title)' // new_line('a') // &
-                     '        character(len=*), intent(in) :: name' // new_line('a') // &
-                     '        character(len=*), intent(in), optional :: title' // &
-                     new_line('a') // &
-                     '        if (present(title)) then' // new_line('a') // &
-                     "            print *, title, ' ', name" // new_line('a') // &
-                     '        else' // new_line('a') // &
-                     '            print *, name' // new_line('a') // &
-                     '        end if' // new_line('a') // &
-                     '    end subroutine greet' // new_line('a') // &
-                     'end module optional_mod'
+        call read_example('examples/f90/issue_1352_optional_module_if_control.f90', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -135,5 +108,25 @@ contains
 
         print *, 'PASS: Optional parameter IF control preserved'
     end subroutine test_optional_parameter_if_control
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1352_optional_if

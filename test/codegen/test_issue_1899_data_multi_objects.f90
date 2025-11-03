@@ -1,17 +1,13 @@
 program test_issue_1899_data_multi_objects
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     print *, "=== Codegen: DATA statements with multiple objects ==="
 
     call check_case("multi-object scalars", &
-        'program demo'//new_line('a')// &
-        '    implicit none'//new_line('a')// &
-        '    integer :: i, j, k'//new_line('a')// &
-        '    real :: x, y'//new_line('a')// &
-        '    data i, j, k / 1, 2, 3 /'//new_line('a')// &
-        '    data x, y / 3.5, 7.2 /'//new_line('a')// &
-        'end program demo', &
+        'examples/f90/data_multi_objects.f90', &
         [ character(len=16) :: &
             'i = 1', &
             'j = 2', &
@@ -23,15 +19,17 @@ program test_issue_1899_data_multi_objects
 
 contains
 
-    subroutine check_case(name, source, expected)
+    subroutine check_case(name, source_path, expected)
         character(len=*), intent(in) :: name
-        character(len=*), intent(in) :: source
+        character(len=*), intent(in) :: source_path
         character(len=*), dimension(:), intent(in) :: expected
+        character(len=:), allocatable :: source
         character(len=:), allocatable :: output
         character(len=:), allocatable :: error_msg
         logical :: success
         integer :: i
 
+        call read_example(source_path, source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         success = .true.
@@ -67,5 +65,19 @@ contains
             stop 1
         end if
     end subroutine check_case
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1899_data_multi_objects

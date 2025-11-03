@@ -1,0 +1,5 @@
+! Issue #1969: variable names should be treated case-insensitively
+X = 5
+y = 10
+Result = x + Y
+print *, 'Result:', result

@@ -1,5 +1,6 @@
 program test_debug_error_messages
     use transformation_api, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
 
     character(len=:), allocatable :: source, output, error_msg
 
@@ -8,11 +9,7 @@ program test_debug_error_messages
 
     ! Test 1: Invalid syntax - missing 'then'
     print *, 'Test 1: Missing "then" in if statement'
-    source = 'program test' // new_line('a') // &
-             'if x > 0' // new_line('a') // &
-             '  print *, x' // new_line('a') // &
-             'end if' // new_line('a') // &
-             'end program'
+    call read_example('examples/f90/debug_error_missing_then.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -24,10 +21,7 @@ program test_debug_error_messages
 
     ! Test 2: Parameter declaration
     print *, 'Test 2: Parameter declaration'
-    source = 'program test' // new_line('a') // &
-             'integer, parameter :: n = 10' // new_line('a') // &
-             'print *, n' // new_line('a') // &
-             'end program'
+    call read_example('examples/f90/debug_error_parameter_decl.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -39,11 +33,7 @@ program test_debug_error_messages
 
     ! Test 3: Incomplete expression
     print *, 'Test 3: Incomplete expression (trailing operator)'
-    source = 'program test' // new_line('a') // &
-             'integer :: x' // new_line('a') // &
-             'x = 42 +' // new_line('a') // &
-             'print *, x' // new_line('a') // &
-             'end program'
+    call read_example('examples/f90/debug_error_incomplete_expr.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -55,7 +45,7 @@ program test_debug_error_messages
 
     ! Test 4: Complete garbage
     print *, 'Test 4: Complete garbage input'
-    source = 'this is not fortran at all 123 *** %%% invalid'
+    call read_example('examples/f90/debug_error_garbage.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -67,9 +57,7 @@ program test_debug_error_messages
 
     ! Test 5: Missing end program
     print *, 'Test 5: Missing end program'
-    source = 'program test' // new_line('a') // &
-             'integer :: x' // new_line('a') // &
-             'x = 42'
+    call read_example('examples/f90/debug_error_missing_end.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -78,5 +66,21 @@ program test_debug_error_messages
         print *, 'Output: "' // output // '"'
     end if
     print *
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_debug_error_messages

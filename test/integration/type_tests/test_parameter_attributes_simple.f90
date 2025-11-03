@@ -7,6 +7,7 @@ program test_parameter_attributes_simple
     use ast_nodes_data, only: parameter_declaration_node, INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use ast_visitor
     use ast_traversal
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed = .true.
@@ -25,6 +26,20 @@ program test_parameter_attributes_simple
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     function test_parameter_attributes_parsing() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, generated_code, error_msg
@@ -32,16 +47,7 @@ contains
         passed = .true.
 
         ! Test case from issue #20 - wrapped in a program
-        source = &
-            "program test_params" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine test(required, opt, output)" // new_line('a') // &
-            "        integer, intent(in) :: required" // new_line('a') // &
-            "        integer, intent(in), optional :: opt" // new_line('a') // &
-            "        integer, intent(out) :: output" // new_line('a') // &
-            "        output = required * 2" // new_line('a') // &
-            "    end subroutine test" // new_line('a') // &
-            "end program test_params"
+        call read_example('examples/f90/parameter_attributes_simple.f90', source)
 
         call transform_lazy_fortran_string(source, generated_code, error_msg)
 

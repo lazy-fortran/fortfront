@@ -1,5 +1,7 @@
 program test_issue_1887_subroutine_param_type
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -11,14 +13,8 @@ program test_issue_1887_subroutine_param_type
 
     print *, "=== Issue #1887: infer subroutine parameter types from call site ==="
 
-    input_code = &
-        "subroutine add_one(x)" // new_line('A') // &
-        "    x = x + 1" // new_line('A') // &
-        "end subroutine" // new_line('A') // &
-        "" // new_line('A') // &
-        "a = 5" // new_line('A') // &
-        "call add_one(a)" // new_line('A') // &
-        "print *, a"
+    call read_example('examples/lf/issue_1887_subroutine_param_type.lf', &
+                      input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -37,5 +33,21 @@ program test_issue_1887_subroutine_param_type
     end if
 
     print *, "PASS: subroutine parameter type inferred as integer from call site"
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1887_subroutine_param_type

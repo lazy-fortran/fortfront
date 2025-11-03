@@ -1,0 +1,8 @@
+! Pointer assignment without subsequent scalar assignment
+program pointer_assignment_direct_print
+    implicit none
+    integer, target :: x
+    integer, pointer :: p
+    p => x
+    print *, p
+end program pointer_assignment_direct_print

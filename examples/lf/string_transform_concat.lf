@@ -1,0 +1,4 @@
+! Multi-line string concatenation regression
+s = 'a' // 'b'
+t = s // 'c'
+print *, t

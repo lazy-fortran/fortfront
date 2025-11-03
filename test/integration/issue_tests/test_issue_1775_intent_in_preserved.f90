@@ -1,4 +1,6 @@
 program test_issue_1775_intent_in_preserved
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use standardizer, only: standardize_ast
@@ -11,12 +13,26 @@ program test_issue_1775_intent_in_preserved
 
     ok = check_intent_in_preserved()
     if (ok) then
-        print *, "PASS: Issue #1775 - intent(in) preserved with keyword args"
+        print *, 'PASS: Issue #1775 - intent(in) preserved with keyword args'
     else
-        error stop "FAIL: Issue #1775 - intent(in) incorrectly changed to inout"
+        error stop 'FAIL: Issue #1775 - intent(in) incorrectly changed to inout'
     end if
 
 contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
     function check_intent_in_preserved() result(passed)
         logical :: passed
@@ -30,28 +46,19 @@ contains
         passed = .true.
 
         call initialize_codegen()
-
-        source = &
-            "program test_keyword_args" // new_line('a') // &
-            "    implicit none" // new_line('a') // &
-            "    call process(b=2, a=1, c=3)" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine process(a, b, c)" // new_line('a') // &
-            "        integer, intent(in) :: a, b, c" // new_line('a') // &
-            "        print *, 'a=', a, 'b=', b, 'c=', c" // new_line('a') // &
-            "    end subroutine process" // new_line('a') // &
-            "end program test_keyword_args"
+        call read_example('examples/lf/issue_1775_intent_in_preserved.lf', &
+                          source)
 
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) then
-            print *, "FAIL: lexing error:", trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: lexing error: ' // trim(error_msg)
             passed = .false.
             return
         end if
 
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (len_trim(error_msg) > 0) then
-            print *, "FAIL: parsing error:", trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: parsing error: ' // trim(error_msg)
             passed = .false.
             return
         end if
@@ -60,16 +67,16 @@ contains
 
         output_code = codegen_core_generate_arena(arena, root_index)
 
-        if (index(output_code, "intent(inout)") > 0) then
-            print *, "FAIL: intent(in) was incorrectly changed to intent(inout)"
-            print *, "Output:"
-            print *, trim(output_code)
+        if (index(output_code, 'intent(inout)') > 0) then
+            write (error_unit, '(A)') &
+                'FAIL: intent(in) was changed to intent(inout)'
+            write (error_unit, '(A)') trim(output_code)
             passed = .false.
             return
         end if
 
-        if (index(output_code, "call process(b = 2, a = 1, c = 3)") <= 0) then
-            print *, "FAIL: keyword arguments not preserved"
+        if (index(output_code, 'call process(b = 2, a = 1, c = 3)') <= 0) then
+            write (error_unit, '(A)') 'FAIL: keyword arguments not preserved'
             passed = .false.
         end if
 

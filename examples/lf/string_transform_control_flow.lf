@@ -1,0 +1,5 @@
+! Control flow sample used by string transformation tests
+x = 5
+if (x > 0) then
+  print *, 'positive'
+end if

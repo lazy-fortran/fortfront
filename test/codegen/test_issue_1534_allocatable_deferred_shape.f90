@@ -31,11 +31,7 @@ contains
         test_single_dimension_allocatable = .true.
         print *, 'Testing single-dimension allocatable array...'
 
-        input = 'real(dp), allocatable :: vec(:)' // new_line('a') // &
-                'allocate(vec(3))' // new_line('a') // &
-                'vec = [1.0d0, 2.0d0, 3.0d0]' // new_line('a') // &
-                'print *, vec'
-
+        call read_example('examples/lf/issue_1534_single_dimension_allocatable.lf', input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (error_msg /= '') then
@@ -73,13 +69,7 @@ contains
         test_multi_dimension_allocatable = .true.
         print *, 'Testing multi-dimension allocatable array...'
 
-        input = 'real(dp), allocatable :: grid(:,:)' // new_line('a') // &
-                'allocate(grid(2, 3))' // new_line('a') // &
-                'grid = reshape([' // &
-                '1.0d0, 2.0d0, 3.0d0, 4.0d0, 5.0d0, 6.0d0],' // new_line('a') // &
-                '                [2, 3])' // new_line('a') // &
-                'print *, grid'
-
+        call read_example('examples/lf/issue_1534_multi_dimension_allocatable.lf', input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (error_msg /= '') then
@@ -106,5 +96,25 @@ contains
 
         print *, '  PASS: Deferred shape preserved for multi array'
     end function test_multi_dimension_allocatable
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1534_allocatable_deferred_shape

@@ -72,11 +72,8 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Invalid syntax: missing 'then' in if statement
-        source = 'program test' // new_line('a') // &
-                 'if x > 0' // new_line('a') // &
-                 '  print *, x' // new_line('a') // &
-                 'end if' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_invalid_syntax_missing_then.f90', &
+                          source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -90,10 +87,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Complex parameter declaration (known to cause issues per #254)
-        source = 'program test' // new_line('a') // &
-                 'integer, parameter :: n = 10' // new_line('a') // &
-                 'print *, n' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_unsupported_parameter.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -107,11 +101,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Syntax error on specific line
-        source = 'program test' // new_line('a') // &
-                 'integer :: x' // new_line('a') // &
-                 'x = 42 +' // new_line('a') // &  ! Error on line 3
-                 'print *, x' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_incomplete_expression.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -156,12 +146,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Common mistake: using = instead of ==
-        source = 'program test' // new_line('a') // &
-                 'integer :: x' // new_line('a') // &
-                 'if (x = 5) then' // new_line('a') // &
-                 '  print *, "five"' // new_line('a') // &
-                 'end if' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_assignment_in_condition.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -173,5 +158,25 @@ contains
                           index(error_msg, '==') > 0 .or. &
                           len_trim(error_msg) > 0
     end function
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_poor_error_messages

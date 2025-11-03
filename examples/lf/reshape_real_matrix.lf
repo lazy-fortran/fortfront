@@ -1,0 +1,3 @@
+! Real reshape assignment should infer real type
+X = reshape([1.0, 2.0, 3.0, 4.0], [2, 2])
+print *, X(1,1)

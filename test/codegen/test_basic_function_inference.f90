@@ -1,6 +1,7 @@
 program test_basic_function_inference
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     logical :: basic_pass
     logical :: reorder_pass
@@ -41,13 +42,7 @@ contains
                                         'real(8) function square', &
                                         'real, external :: square']
 
-        source = 'function square(x)' // new_line('a') // &
-                 '    result = x * x' // new_line('a') // &
-                 '    return result' // new_line('a') // &
-                 'end function' // new_line('a') // new_line('a') // &
-                 'val = 5' // new_line('a') // &
-                 'squared = square(val)' // new_line('a') // &
-                 'print *, squared'
+        call read_example('examples/lf/function_inference_basic.lf', source)
 
         passed = run_function_inference_case(source, required_fragments, &
                                              forbidden_fragments, 'basic')
@@ -68,13 +63,7 @@ contains
                                         'real function square', &
                                         'real(8) function square']
 
-        source = 'val = 5' // new_line('a') // &
-                 'squared = square(val)' // new_line('a') // &
-                 'print *, squared' // new_line('a') // new_line('a') // &
-                 'function square(x)' // new_line('a') // &
-                 '    result = x * x' // new_line('a') // &
-                 '    return result' // new_line('a') // &
-                 'end function'
+        call read_example('examples/lf/function_inference_reordered.lf', source)
 
         passed = run_function_inference_case(source, required_fragments, &
                                              forbidden_fragments, 'reordered')
@@ -147,5 +136,19 @@ contains
             end if
         end do
     end function verify_fragments
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_basic_function_inference

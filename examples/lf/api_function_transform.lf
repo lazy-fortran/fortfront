@@ -1,0 +1,3 @@
+! Function shorthand transformed by API tests
+f(x) = x * x
+y = f(5)

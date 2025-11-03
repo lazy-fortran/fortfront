@@ -1,0 +1,9 @@
+! Character function result length should be preserved
+function greet(name)
+    implicit none
+    character(len=*), intent(in) :: name
+    character(len=len(name)) :: greet
+    greet = 'Hello, ' // name
+end function greet
+
+print *, greet('Ada')

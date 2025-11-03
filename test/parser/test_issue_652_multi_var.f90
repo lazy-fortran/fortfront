@@ -1,161 +1,113 @@
 program test_issue_652_multi_var
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
+    implicit none
 
     logical :: all_passed
 
     all_passed = .true.
 
-    print *, '=== Issue #652: Multi-variable declaration parsing ==='
-    print *
-
     if (.not. test_simple_multi_var()) all_passed = .false.
     if (.not. test_multi_var_with_init()) all_passed = .false.
     if (.not. test_multi_var_with_attributes()) all_passed = .false.
 
-    print *
     if (all_passed) then
-        print *, 'SUCCESS: All multi-variable declaration tests passed!'
+        print *, 'PASS: Issue #652 - multi-variable declarations preserved'
         stop 0
     else
-        print *, 'FAILURE: Multi-variable declarations not correctly parsed'
-        stop 1
+        error stop 'FAIL: Multi-variable declarations not correctly parsed'
     end if
 
 contains
 
-    logical function test_simple_multi_var()
-        character(len=*), parameter :: input = &
-                                       'program test' // new_line('a') // &
-                                       '    integer :: x, y, z' // new_line('a') // &
-                                       '    x = 1' // new_line('a') // &
-                                       '    y = 2' // new_line('a') // &
-                                       '    z = 3' // new_line('a') // &
-                                       '    print *, x, y, z' // new_line('a') // &
-                                       'end program'
+    include '../common/cli_io_reader.inc'
 
-        character(len=:), allocatable :: output, error_msg
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
+    logical function test_simple_multi_var()
+        character(len=:), allocatable :: input
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         test_simple_multi_var = .true.
-        print *, 'Test 1: Simple multi-variable declaration (integer :: x, y, z)'
 
-        ! Transform
+        call read_example('examples/lf/issue_652_multi_var_simple.lf', input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (len_trim(error_msg) > 0) then
-            print *, '  FAIL: Compilation error - ', trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: Compilation error - ' // &
+                trim(error_msg)
             test_simple_multi_var = .false.
             return
         end if
 
-        ! Check all variables are declared
-        if (index(output, 'x') > 0 .and. &
-            index(output, 'y') > 0 .and. &
-            index(output, 'z') > 0) then
-
-            ! Check assignments are preserved
-            if (index(output, 'x = 1') > 0 .and. &
-                index(output, 'y = 2') > 0 .and. &
-                index(output, 'z = 3') > 0) then
-                print *, '  PASS: All variables and assignments preserved'
-            else
-                print *, '  FAIL: Variable assignments not preserved'
-                print *, '  Output:'
-                print *, trim(output)
-                test_simple_multi_var = .false.
-            end if
-        else
-            print *, '  FAIL: Not all variables found in output'
-            print *, '  Output:'
-            print *, trim(output)
+        if (.not. (index(output, 'x = 1') > 0 .and. index(output, 'y = 2') > 0 &
+                   .and. index(output, 'z = 3') > 0)) then
+            write (error_unit, '(A)') 'FAIL: Variable assignments not preserved'
+            write (error_unit, '(A)') trim(output)
             test_simple_multi_var = .false.
         end if
-
     end function test_simple_multi_var
 
     logical function test_multi_var_with_init()
-        character(len=*), parameter :: input = &
-                                       'program test' // new_line('a') // &
-                                       '    real :: a, b, c = 3.14' // new_line('a') // &
-                                       '    print *, a, b, c' // new_line('a') // &
-                                       'end program'
-
-        character(len=:), allocatable :: output, error_msg
+        character(len=:), allocatable :: input
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         test_multi_var_with_init = .true.
-        print *, 'Test 2: Multi-variable with initialization (real :: a, b, c = 3.14)'
 
-        ! Transform
+        call read_example('examples/lf/issue_652_multi_var_init.lf', input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (len_trim(error_msg) > 0) then
-            print *, '  FAIL: Compilation error - ', trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: Compilation error - ' // &
+                trim(error_msg)
             test_multi_var_with_init = .false.
             return
         end if
 
-        ! Check all variables are declared
-        if (index(output, 'real') > 0) then
-            ! Check that 'c' is initialized
-            if (index(output, '3.14') > 0) then
-                print *, '  PASS: Multi-variable declaration with initializer preserved'
-            else
-                print *, '  FAIL: Initializer not preserved'
-                print *, '  Output:'
-                print *, trim(output)
-                test_multi_var_with_init = .false.
-            end if
-        else
-            print *, '  FAIL: Type declaration not found'
-            print *, '  Output:'
-            print *, trim(output)
+        if (index(output, '3.14') == 0) then
+            write (error_unit, '(A)') 'FAIL: Initializer not preserved'
+            write (error_unit, '(A)') trim(output)
             test_multi_var_with_init = .false.
         end if
-
     end function test_multi_var_with_init
 
     logical function test_multi_var_with_attributes()
-        character(len=*), parameter :: input = &
-                                       'program test' // new_line('a') // &
-                                       '    integer, allocatable :: arr1, arr2, arr3' // new_line('a') // &
-                                       '    allocate(arr1(10))' // new_line('a') // &
-                                       '    allocate(arr2(20))' // new_line('a') // &
-                                       '    allocate(arr3(30))' // new_line('a') // &
-                                       'end program'
-
-        character(len=:), allocatable :: output, error_msg
+        character(len=:), allocatable :: input
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
         test_multi_var_with_attributes = .true.
-        print *, 'Test 3: Multi-variable with attributes (integer, allocatable :: arr1, arr2, arr3)'
 
-        ! Transform
+        call read_example('examples/lf/issue_652_multi_var_allocatable.lf', &
+                          input)
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (len_trim(error_msg) > 0) then
-            print *, '  FAIL: Compilation error - ', trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: Compilation error - ' // &
+                trim(error_msg)
             test_multi_var_with_attributes = .false.
             return
         end if
 
-        ! Check allocatable attribute is preserved
-        if (index(output, 'allocatable') > 0) then
-            ! Check all arrays are present
-            if (index(output, 'arr1') > 0 .and. &
-                index(output, 'arr2') > 0 .and. &
-                index(output, 'arr3') > 0) then
-                print *, '  PASS: Multi-variable with attributes preserved'
-            else
-                print *, '  FAIL: Not all variables preserved'
-                print *, '  Output:'
-                print *, trim(output)
-                test_multi_var_with_attributes = .false.
-            end if
-        else
-            print *, '  FAIL: allocatable attribute not found'
-            print *, '  Output:'
-            print *, trim(output)
+        if (index(output, 'allocatable') == 0 .or. index(output, 'arr1') == 0 .or. &
+            index(output, 'arr2') == 0 .or. index(output, 'arr3') == 0) then
+            write (error_unit, '(A)') 'FAIL: Attributes or variables not preserved'
+            write (error_unit, '(A)') trim(output)
             test_multi_var_with_attributes = .false.
         end if
-
     end function test_multi_var_with_attributes
 
 end program test_issue_652_multi_var

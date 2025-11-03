@@ -1,4 +1,6 @@
 program test_basic_allocate_codegen
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
     character(len=:), allocatable :: source, output, error_msg
@@ -6,12 +8,7 @@ program test_basic_allocate_codegen
 
     print *, '=== Codegen: allocate/deallocate preservation ==='
 
-    source = '' // &
-             'integer, parameter :: n = 100' // new_line('a') // &
-             'integer, dimension(n) :: arr' // new_line('a') // &
-             'integer, allocatable :: dyn_arr(:)' // new_line('a') // &
-             'allocate(dyn_arr(n))' // new_line('a') // &
-             'deallocate(dyn_arr)'
+    call read_example('examples/lf/basic_allocate_preservation.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -29,11 +26,8 @@ program test_basic_allocate_codegen
     print *, ''
     print *, '=== Codegen: allocate inference for missing declarations ==='
 
-    source = '' // &
-             'allocate(arr(5))' // new_line('a') // &
-             'is_alloc = allocated(arr)' // new_line('a') // &
-             'print *, is_alloc' // new_line('a') // &
-             'deallocate(arr)'
+    call read_example('examples/lf/allocate_inference_missing_declaration.lf', &
+                      source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -49,4 +43,20 @@ program test_basic_allocate_codegen
 
     print *, 'PASS: allocate inference declared allocatable array'
     stop 0
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 end program test_basic_allocate_codegen

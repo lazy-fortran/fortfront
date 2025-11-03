@@ -1,5 +1,6 @@
-! Regression tests for nested internal procedures within procedure bodies
 program test_nested_internal_procedures
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -7,15 +8,29 @@ program test_nested_internal_procedures
     implicit none
 
     call test_nested_contains_preserves_prefixes()
-    print *, ""
-    print *, "Nested internal procedure tests completed."
+    print *, ''
+    print *, 'Nested internal procedure tests completed.'
 
 contains
 
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     subroutine test_nested_contains_preserves_prefixes()
-        character(:), allocatable :: input_code
-        character(:), allocatable :: output_code
-        character(:), allocatable :: error_msg
+        character(len=:), allocatable :: input_code
+        character(len=:), allocatable :: output_code
+        character(len=:), allocatable :: error_msg
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
@@ -23,33 +38,19 @@ contains
         integer :: inner_pos
         integer :: outer_pos
 
-        input_code = "program nested_demo" // new_line('A') // &
-                     "contains" // new_line('A') // &
-                     "function outer(x) result(res)" // new_line('A') // &
-                     "integer, intent(in) :: x" // new_line('A') // &
-                     "integer :: res" // new_line('A') // &
-                     "res = inner(x) + 1" // new_line('A') // &
-                     "contains" // new_line('A') // &
-                     "integer function inner(y)" // new_line('A') // &
-                     "integer, intent(in) :: y" // new_line('A') // &
-                     "inner = y" // new_line('A') // &
-                     "end function inner" // new_line('A') // &
-                     "pure subroutine helper(z)" // new_line('A') // &
-                     "integer, intent(in) :: z" // new_line('A') // &
-                     "end subroutine helper" // new_line('A') // &
-                     "end function outer" // new_line('A') // &
-                     "end program nested_demo"
+        call read_example('examples/lf/issue_nested_internal_procedures.lf', &
+                          input_code)
 
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "Lexing error:", trim(error_msg)
+            write (error_unit, '(A)') 'Lexing error: ' // trim(error_msg)
             error stop 1
         end if
 
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "Parsing error:", trim(error_msg)
+            write (error_unit, '(A)') 'Parsing error: ' // trim(error_msg)
             error stop 1
         end if
 
@@ -61,35 +62,38 @@ contains
 
         if (contains_pos == 0 .or. inner_pos <= contains_pos .or. &
             (outer_pos > 0 .and. contains_pos < outer_pos)) then
-            print *, "FAIL: nested contains structure missing or misplaced"
-            print *, trim(output_code)
+            write (error_unit, '(A)') 'FAIL: nested contains structure missing'
+            write (error_unit, '(A)') trim(output_code)
             error stop 1
         end if
+
         if (outer_pos == 0) then
-            print *, "FAIL: outer function header missing"
-            print *, trim(output_code)
+            write (error_unit, '(A)') 'FAIL: outer function header missing'
+            write (error_unit, '(A)') trim(output_code)
             error stop 1
         end if
 
         if (inner_pos == 0) then
-            print *, "FAIL: inner function header missing"
-            print *, trim(output_code)
+            write (error_unit, '(A)') 'FAIL: inner function header missing'
+            write (error_unit, '(A)') trim(output_code)
             error stop 1
         end if
 
-        if (.not. contains_without_spaces(output_code, 'puresubroutinehelper')) then
-            print *, "FAIL: pure prefix missing from nested subroutine"
-            print *, trim(output_code)
+        if (.not. contains_without_spaces(output_code, 'puresubroutinehelper')) &
+            then
+            write (error_unit, '(A)') &
+                'FAIL: pure prefix missing from nested subroutine'
+            write (error_unit, '(A)') trim(output_code)
             error stop 1
         end if
 
-        print *, "[PASS] Nested contains preserves structure and prefixes"
+        print *, '[PASS] Nested contains preserves structure and prefixes'
     end subroutine test_nested_contains_preserves_prefixes
 
     logical function contains_without_spaces(text, pattern)
         character(*), intent(in) :: text
         character(*), intent(in) :: pattern
-        character(:), allocatable :: compressed
+        character(len=:), allocatable :: compressed
 
         compressed = remove_spaces(adjustl(text))
         contains_without_spaces = index(compressed, pattern) > 0
@@ -97,7 +101,7 @@ contains
 
     pure function remove_spaces(value) result(clean)
         character(*), intent(in) :: value
-        character(:), allocatable :: clean
+        character(len=:), allocatable :: clean
         integer :: i
 
         clean = ''

@@ -1,0 +1,7 @@
+! Issue #935: parameter-driven array dimensions should be preserved
+program test_param_array
+    implicit none
+    integer, parameter :: n = 10
+    integer, dimension(n) :: arr
+    arr = 0
+end program test_param_array

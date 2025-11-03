@@ -1,0 +1,7 @@
+program array_index_brackets_multi
+    implicit none
+    integer :: i, j
+    i = 1
+    j = 2
+    i = a[i, j+1]
+end program array_index_brackets_multi

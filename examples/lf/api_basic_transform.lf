@@ -1,0 +1,2 @@
+! Basic transformation input used by API smoke test
+x = 42
