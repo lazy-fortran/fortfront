@@ -55,15 +55,16 @@ program test_all_examples
 
     ! Load expected failures list
     call load_expected_failures(expected_failures_path, expected_failures, &
-                                num_expected_failures)
-    call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
+                                num_expected_failures, is_windows)
+    call load_skip_examples(skip_file_path, skip_examples, num_skip_examples, &
+                            is_windows)
     if (num_skip_examples == 0) then
         call load_skip_examples('examples/skip_all_examples.txt', skip_examples, &
-                                num_skip_examples)
+                                num_skip_examples, is_windows)
     end if
     if (num_skip_examples == 0) then
         call load_skip_examples('examples\\skip_all_examples.txt', skip_examples, &
-                                num_skip_examples)
+                                num_skip_examples, is_windows)
     end if
 
     print *, "=== Fortfront Examples Integration Test ==="
@@ -334,24 +335,32 @@ contains
         end if
     end subroutine cleanup_file
 
-    subroutine load_expected_failures(filename, failures, num_failures)
+    subroutine load_expected_failures(filename, failures, num_failures, &
+                                      is_windows)
         character(len=*), intent(in) :: filename
         character(len=256), allocatable, intent(out) :: failures(:)
         integer, intent(out) :: num_failures
+        logical, intent(in), optional :: is_windows
         integer :: unit_num, ios, count, i
         character(len=256) :: line, trimmed_line
         logical :: file_exists
+        logical :: on_windows
+        character(len=:), allocatable :: resolved_filename
 
         num_failures = 0
 
-        inquire (file=trim(filename), exist=file_exists)
+        on_windows = .false.
+        if (present(is_windows)) on_windows = is_windows
+
+        call resolve_existing_file(filename, on_windows, resolved_filename, &
+                                   file_exists)
         if (.not. file_exists) then
             allocate (failures(0))
             return
         end if
 
         ! First pass: count non-empty, non-comment lines
-        open (newunit=unit_num, file=trim(filename), status='old', &
+        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
               action='read', iostat=ios)
         if (ios /= 0) then
             allocate (failures(0))
@@ -374,7 +383,7 @@ contains
         num_failures = count
 
         ! Second pass: read filenames
-        open (newunit=unit_num, file=trim(filename), status='old', &
+        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
               action='read', iostat=ios)
         i = 0
         do
@@ -394,23 +403,30 @@ contains
         close (unit_num)
     end subroutine load_expected_failures
 
-    subroutine load_skip_examples(filename, skip_list, num_skip)
+    subroutine load_skip_examples(filename, skip_list, num_skip, is_windows)
         character(len=*), intent(in) :: filename
         character(len=256), allocatable, intent(out) :: skip_list(:)
         integer, intent(out) :: num_skip
+        logical, intent(in), optional :: is_windows
         integer :: unit_num, ios, count, i
         character(len=256) :: line, trimmed_line
         logical :: file_exists
+        logical :: on_windows
+        character(len=:), allocatable :: resolved_filename
 
         num_skip = 0
 
-        inquire (file=trim(filename), exist=file_exists)
+        on_windows = .false.
+        if (present(is_windows)) on_windows = is_windows
+
+        call resolve_existing_file(filename, on_windows, resolved_filename, &
+                                   file_exists)
         if (.not. file_exists) then
             allocate (skip_list(0))
             return
         end if
 
-        open (newunit=unit_num, file=trim(filename), status='old', &
+        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
               action='read', iostat=ios)
         if (ios /= 0) then
             allocate (skip_list(0))
@@ -431,7 +447,7 @@ contains
         allocate (skip_list(count))
         num_skip = count
 
-        open (newunit=unit_num, file=trim(filename), status='old', &
+        open (newunit=unit_num, file=trim(resolved_filename), status='old', &
               action='read', iostat=ios)
         i = 0
         do
@@ -450,6 +466,71 @@ contains
         end do
         close (unit_num)
     end subroutine load_skip_examples
+
+    subroutine resolve_existing_file(input_path, is_windows, resolved_path, &
+                                     exists)
+        character(len=*), intent(in) :: input_path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable, intent(out) :: resolved_path
+        logical, intent(out) :: exists
+        character(len=:), allocatable :: candidate
+
+        resolved_path = adjustl(trim(input_path))
+        candidate = resolved_path
+
+        if (len_trim(candidate) == 0) then
+            exists = .false.
+            return
+        end if
+
+        inquire (file=trim(candidate), exist=exists)
+        if (exists) then
+            resolved_path = candidate
+            return
+        end if
+
+        if (is_windows) then
+            candidate = adjustl(trim(input_path))
+            if (index(candidate, '/') > 0) then
+                candidate = replace_characters(candidate, '/', '\')
+                inquire (file=trim(candidate), exist=exists)
+                if (exists) then
+                    resolved_path = candidate
+                    return
+                end if
+            end if
+
+            candidate = adjustl(trim(input_path))
+            if (index(candidate, '\') > 0) then
+                candidate = replace_characters(candidate, '\', '/')
+                inquire (file=trim(candidate), exist=exists)
+                if (exists) then
+                    resolved_path = candidate
+                    return
+                end if
+            end if
+        end if
+
+        resolved_path = adjustl(trim(input_path))
+        exists = .false.
+    end subroutine resolve_existing_file
+
+    pure function replace_characters(value, from_char, to_char) result(output)
+        character(len=*), intent(in) :: value
+        character(len=1), intent(in) :: from_char
+        character(len=1), intent(in) :: to_char
+        character(len=:), allocatable :: output
+        integer :: i
+
+        output = adjustl(trim(value))
+        if (len_trim(output) == 0) return
+
+        do i = 1, len(output)
+            if (output(i:i) == from_char) output(i:i) = to_char
+        end do
+
+        output = adjustl(trim(output))
+    end function replace_characters
 
     function resolve_examples_dir(executable_path, is_windows) result(dir_path)
         character(len=*), intent(in) :: executable_path
