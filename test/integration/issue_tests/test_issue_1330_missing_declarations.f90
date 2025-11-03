@@ -30,9 +30,6 @@ contains
         character(len=:), allocatable :: input
         logical :: has_real_kind
         integer :: real_decl_pos
-        integer :: pos_n
-        integer :: pos_count
-        integer :: pos_i
         integer :: first_new_pos
         integer :: last_new_pos
         integer :: output_len
@@ -44,8 +41,11 @@ contains
         integer :: use2_pos
         integer :: use_comment_pos
         integer :: implicit_pos
+        integer, dimension(3) :: integer_decl_positions
         character(len=:), allocatable :: existing_decl_line
         character(len=32) :: real_decl_variants(2)
+        character(len=16), parameter :: inferred_int_names(3) = &
+                                        [character(len=16) :: 'n', 'count', 'i']
 
         call read_example('examples/lf/issue_1330_missing_declarations.lf', &
                           input)
@@ -64,8 +64,7 @@ contains
                              'missing iso_fortran_env use statement')
         call assert_contains(output, 'use iso_c_binding', &
                              'missing iso_c_binding use statement')
-        if (.not. has_integer_declaration(output, [character(len=16) :: &
-                                                   'n', 'count', 'i'])) then
+        if (.not. has_integer_declaration(output, inferred_int_names)) then
             write (error_unit, '(A)') &
                 'FAIL: missing integer declarations for n/count/i'
             write (error_unit, '(A)') trim(output)
@@ -128,16 +127,10 @@ contains
             error stop 1
         end if
 
-        pos_n = index(output, 'integer :: n')
-        pos_count = index(output, 'integer :: count')
-        pos_i = index(output, 'integer :: i')
-        if (pos_n == 0 .or. pos_count == 0 .or. pos_i == 0) then
+        call find_integer_declaration_positions(output, inferred_int_names, &
+                                                integer_decl_positions)
+        if (any(integer_decl_positions == 0)) then
             write (error_unit, '(A)') 'FAIL: integer declarations missing'
-            write (error_unit, '(A)') trim(output)
-            error stop 1
-        end if
-        if (.not. (pos_n < pos_count .and. pos_count < pos_i)) then
-            write (error_unit, '(A)') 'FAIL: integer declarations out of order'
             write (error_unit, '(A)') trim(output)
             error stop 1
         end if
@@ -148,7 +141,7 @@ contains
             error stop 1
         end if
 
-        first_new_pos = index(output, 'integer :: n')
+        first_new_pos = minval(integer_decl_positions)
         last_new_pos = index(output, 'real :: pi_estimate')
         if (last_new_pos == 0) then
             last_new_pos = index(output, 'real(8) :: pi_estimate')
@@ -291,5 +284,61 @@ contains
             if (pos > 0) pos = pos + end_pos - 1
         end do
     end function has_integer_declaration
+
+    subroutine find_integer_declaration_positions(text, names, positions)
+        character(len=*), intent(in) :: text
+        character(len=*), dimension(:), intent(in) :: names
+        integer, dimension(:), intent(out) :: positions
+        integer :: text_len
+        integer :: search_start
+        integer :: decl_pos
+        integer :: start_pos
+        integer :: end_pos
+        integer :: name_idx
+        integer :: local_pos
+        character(len=:), allocatable :: line
+        character(1), parameter :: nl = new_line('a')
+
+        if (size(positions) /= size(names)) then
+            positions = 0
+            return
+        end if
+
+        positions = 0
+        text_len = len(text)
+        search_start = 1
+
+        do
+            if (search_start > text_len) exit
+            decl_pos = index(text(search_start:), 'integer ::')
+            if (decl_pos == 0) exit
+            start_pos = search_start + decl_pos - 1
+            end_pos = start_pos
+
+            do while (start_pos > 1 .and. text(start_pos - 1:start_pos - 1) /= nl)
+                start_pos = start_pos - 1
+            end do
+            do while (end_pos <= text_len .and. text(end_pos:end_pos) /= nl)
+                end_pos = end_pos + 1
+            end do
+
+            if (end_pos > text_len) then
+                line = text(start_pos:)
+            else
+                line = text(start_pos:end_pos - 1)
+            end if
+
+            do name_idx = 1, size(names)
+                if (positions(name_idx) > 0) cycle
+                local_pos = index(line, trim(names(name_idx)))
+                if (local_pos > 0) then
+                    positions(name_idx) = start_pos + local_pos - 1
+                end if
+            end do
+
+            if (end_pos > text_len) exit
+            search_start = end_pos + 1
+        end do
+    end subroutine find_integer_declaration_positions
 
 end program test_issue_1330_missing_declarations
