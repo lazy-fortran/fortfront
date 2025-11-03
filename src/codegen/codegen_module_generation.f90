@@ -7,12 +7,16 @@ module codegen_module_generation
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
+    use ast_traversal_utils, only: get_ancestor_of_type
     implicit none
     private
     public :: generate_code_module
     public :: generate_code_block_data
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
+
+    logical, save :: in_operator_or_assignment_interface = .false.
+    logical, save :: in_module_context = .false.
 
 contains
 
@@ -22,10 +26,12 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
+        in_module_context = .true.
         code = build_module_header(arena, node)
         code = code // collect_module_declarations(arena, node)
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
+        in_module_context = .false.
     end function generate_code_module
 
     function generate_code_block_data(arena, node, node_index) result(code)
@@ -191,15 +197,18 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: body_code
+        logical :: is_op_or_assign
 
         if (node%is_abstract) then
             code = "abstract interface"
         else
             code = "interface"
         end if
+        is_op_or_assign = .false.
         if (allocated(node%kind)) then
             if (trim(node%kind) == "operator" .or. trim(node%kind) == &
                 "assignment") then
+                is_op_or_assign = .true.
                 code = code // " " // trim(node%kind)
                 if (allocated(node%operator)) then
                     code = code // "(" // trim(node%operator) // ")"
@@ -213,7 +222,9 @@ contains
         code = code // new_line('A')
 
         if (allocated(node%procedure_indices)) then
+            in_operator_or_assignment_interface = is_op_or_assign
             body_code = generate_grouped_body(arena, node%procedure_indices, 1)
+            in_operator_or_assignment_interface = .false.
             if (len(body_code) > 0) code = code // body_code
         end if
 
@@ -233,14 +244,21 @@ contains
         end if
     end function generate_code_interface_block
 
-    function generate_code_module_procedure(node) result(code)
+    function generate_code_module_procedure(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
         type(module_procedure_node), intent(in) :: node
+        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         integer :: i
         character(len=:), allocatable :: name_text
         logical :: first_name
 
-        code = "module procedure"
+        if (in_module_context .or. in_operator_or_assignment_interface) then
+            code = "module procedure"
+        else
+            code = "procedure"
+        end if
+
         first_name = .true.
         if (allocated(node%procedure_names)) then
             do i = 1, size(node%procedure_names)
