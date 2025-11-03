@@ -23,26 +23,7 @@ contains
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
 
-        source = 'module my_module' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    interface my_func' // new_line('a') // &
-                 '        module procedure func_impl' // new_line('a') // &
-                 '    end interface my_func' // new_line('a') // &
-                 'contains' // new_line('a') // &
-                 '    function func_impl(x) result(y)' // new_line('a') // &
-                 '        integer, intent(in) :: x' // new_line('a') // &
-                 '        integer :: y' // new_line('a') // &
-                 '        y = x * 2' // new_line('a') // &
-                 '    end function func_impl' // new_line('a') // &
-                 'end module my_module' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'program main' // new_line('a') // &
-                 '    use my_module' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: result' // new_line('a') // &
-                 '    result = my_func(5)' // new_line('a') // &
-                 '    print *, result' // new_line('a') // &
-                 'end program main'
+        call read_example('examples/f90/issue_1895_use_interface_external.f90', source)
 
         call transform_lazy_fortran_string(source, generated, errors)
 
@@ -67,5 +48,25 @@ contains
             passed = .false.
         end if
     end function run_use_interface_external_case
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1895_use_interface_external
