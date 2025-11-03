@@ -19,19 +19,7 @@ contains
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
 
-        source = 'function square(x)' // new_line('a') // &
-                 '    result = x * x' // new_line('a') // &
-                 '    return result' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 'function noise()' // new_line('a') // &
-                 '    val = 2.5' // new_line('a') // &
-                 '    noise = val' // new_line('a') // &
-                 '    return' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 'val = 5' // new_line('a') // &
-                 'squared = square(val)' // new_line('a') // &
-                 'print *, squared' // new_line('a')
-
+        call read_example('examples/lf/function_parameter_integer_inference.lf', source)
         call transform_lazy_fortran_string(source, generated, errors)
         if (.not. allocated(generated)) generated = ''
 
@@ -58,5 +46,25 @@ contains
             passed = .false.
         end if
     end function test_square_integer_inference
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_function_parameter_integer_inference

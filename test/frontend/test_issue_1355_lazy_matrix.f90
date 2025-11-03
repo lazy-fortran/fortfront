@@ -9,15 +9,7 @@ program test_issue_1355_lazy_matrix
 
     print *, '=== Issue #1355: multidimensional array inference ==='
 
-    input_code = 'rows = 3' // new_line('a') // &
-                 'cols = 3' // new_line('a') // new_line('a') // &
-                 'do i = 1, rows' // new_line('a') // &
-                 '    do j = 1, cols' // new_line('a') // &
-                 '        matrix(i, j) = i * 10 + j' // new_line('a') // &
-                 '    end do' // new_line('a') // &
-                 'end do' // new_line('a') // new_line('a') // &
-                 'print *, matrix'
-
+    call read_example('examples/lf/issue_1355_lazy_matrix.lf', input_code)
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
     call require(.not. allocated(error_msg) .or. len_trim(error_msg) == 0, &
@@ -50,5 +42,25 @@ contains
             stop 1
         end if
     end subroutine require
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1355_lazy_matrix
