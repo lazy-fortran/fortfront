@@ -1,6 +1,9 @@
 ! Minimal reproducer for issue #1355: Multi-dimensional arrays not inferred, loop body scope wrong
-do i = 1, 3
-    do j = 1, 3
+rows = 3
+cols = 3
+
+do i = 1, rows
+    do j = 1, cols
         matrix(i, j) = i * 10 + j
     end do
 end do

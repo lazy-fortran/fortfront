@@ -1,4 +1,6 @@
 program test_issue_1960_pointer_assignment_if
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_STANDARD
     implicit none
@@ -17,13 +19,8 @@ program test_issue_1960_pointer_assignment_if
 
     print *, "=== Issue #1960: preserve pointer assignment inside IF blocks ==="
 
-    input_code = &
-        "integer, pointer :: p" // new_line('A') // &
-        "integer, target :: values(2)" // new_line('A') // &
-        "if (.not. associated(p)) then" // new_line('A') // &
-        "    p => values(1)" // new_line('A') // &
-        "    print *, 'p is now null'" // new_line('A') // &
-        "end if"
+    call read_example('examples/f90/issue_1960_pointer_assignment_if.f90', &
+                      input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.
@@ -70,4 +67,21 @@ program test_issue_1960_pointer_assignment_if
     end if
 
     print *, "PASS: pointer assignment preserved inside IF block"
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_issue_1960_pointer_assignment_if

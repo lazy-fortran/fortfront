@@ -1,0 +1,6 @@
+! Mixed module and global statements used for parser debugging
+module test_mod
+  x = 10
+end module
+
+y = x + 5

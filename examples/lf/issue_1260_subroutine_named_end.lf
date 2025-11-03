@@ -1,0 +1,5 @@
+! Issue #1260: subroutine with explicit name in END statement
+subroutine another_sub(x)
+    real :: x
+    x = x + 1.0
+end subroutine another_sub

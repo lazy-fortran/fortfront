@@ -1,0 +1,2 @@
+! Nested array literal used when investigating debug output regression
+data = [[1, 2], [3, 4]]

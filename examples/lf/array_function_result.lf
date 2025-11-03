@@ -1,0 +1,8 @@
+! Array-valued function should retain its rank
+function create_vector()
+    implicit none
+    real, dimension(3) :: create_vector
+    create_vector = (/1.0, 2.0, 3.0/)
+end function create_vector
+
+print *, create_vector()

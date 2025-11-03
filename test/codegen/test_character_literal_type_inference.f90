@@ -1,4 +1,6 @@
 program test_character_literal_type_inference
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -22,8 +24,10 @@ contains
         logical :: passed
         character(len=:), allocatable :: output
         character(len=:), allocatable :: errors
+        character(len=:), allocatable :: source
 
-        call transform_lazy_fortran_string('value = "Hello"', output, errors)
+        call read_example('examples/lf/character_literal_assignment.lf', source)
+        call transform_lazy_fortran_string(source, output, errors)
 
         passed = .false.
         if (allocated(errors)) then
@@ -57,18 +61,7 @@ contains
         character(len=:), allocatable :: output
         character(len=:), allocatable :: errors
 
-        source = 'grade = 85' // new_line('a') // new_line('a') // &
-                 'select case (grade)' // new_line('a') // &
-                 '    case (90:)' // new_line('a') // &
-                 '        result = "A"' // new_line('a') // &
-                 '    case (80:89)' // new_line('a') // &
-                 '        result = "B"' // new_line('a') // &
-                 '    case (70:79)' // new_line('a') // &
-                 '        result = "C"' // new_line('a') // &
-                 '    case default' // new_line('a') // &
-                 '        result = "F"' // new_line('a') // &
-                 'end select'
-
+        call read_example('examples/lf/select_case_character_results.lf', source)
         call transform_lazy_fortran_string(source, output, errors)
 
         passed = .false.
@@ -91,5 +84,19 @@ contains
 
         passed = .true.
     end function test_select_case_character_assignments
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_character_literal_type_inference

@@ -1,0 +1,15 @@
+! Issue #1781: deallocate inside IF should remain
+program test_array_allocation_stat
+    implicit none
+    integer, allocatable :: arr(:)
+    integer :: stat
+    allocate(arr(10), stat=stat)
+    if (stat == 0) then
+        print *, 'Allocation successful'
+        arr = 42
+        print *, 'Sum:', sum(arr)
+        deallocate(arr)
+    else
+        print *, 'Allocation failed'
+    end if
+end program test_array_allocation_stat

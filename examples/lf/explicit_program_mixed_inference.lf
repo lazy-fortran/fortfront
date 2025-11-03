@@ -1,0 +1,5 @@
+program test_mixed
+    x = 42
+    y = 3.14
+    flag = .true.
+end program test_mixed

@@ -1,7 +1,6 @@
-! Test SELECT CASE with open-ended ranges (issue #1692)
 program test_select_case
     implicit none
-    integer :: grade, i
+    integer :: i
     character(len=10) :: category
 
     do i = 1, 5
@@ -21,4 +20,5 @@ program test_select_case
         end select
         print *, 'Score:', i*20, ' Grade:', category
     end do
+
 end program test_select_case

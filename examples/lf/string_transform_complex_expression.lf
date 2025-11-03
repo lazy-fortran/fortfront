@@ -1,0 +1,4 @@
+! Complex expression mixing integers and reals
+x = 5
+y = 2.5
+result = (x * 2 + y) / 3.0

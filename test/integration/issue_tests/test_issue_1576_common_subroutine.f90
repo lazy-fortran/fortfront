@@ -1,5 +1,7 @@
 program test_issue_1576_common_subroutine
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
@@ -7,50 +9,56 @@ program test_issue_1576_common_subroutine
     character(len=:), allocatable :: error_msg
     integer :: common_count
 
-    source = "program test" // new_line('a') // &
-             "    common /mydata/ x, y" // new_line('a') // &
-             "    x = 1.0" // new_line('a') // &
-             "    y = 2.0" // new_line('a') // &
-             "    call print_data()" // new_line('a') // &
-             "end program test" // new_line('a') // &
-             "" // new_line('a') // &
-             "subroutine print_data()" // new_line('a') // &
-             "    common /mydata/ x, y" // new_line('a') // &
-             "    print *, x, y" // new_line('a') // &
-             "end subroutine"
+    call read_example('examples/lf/issue_1576_common_subroutine.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
-            print *, 'ERROR: ', trim(error_msg)
-            stop 1
+            write (error_unit, '(A)') 'ERROR: ' // trim(error_msg)
+            error stop 1
         end if
     end if
 
     common_count = count_occurrences(output, 'common')
     if (common_count < 2) then
-        print *, 'FAIL: Expected 2 COMMON statements, found', common_count
-        print *, 'Output:'
-        print *, trim(output)
-        stop 1
+        write (error_unit, '(A,I0)') &
+            'FAIL: Expected 2 COMMON statements, found ', common_count
+        write (error_unit, '(A)') trim(output)
+        error stop 1
     end if
 
     if (index(output, 'common/mydata/x,y') == 0 .and. &
         index(output, 'common /mydata/ x, y') == 0) then
-        print *, 'FAIL: COMMON block /mydata/ not preserved correctly'
-        print *, 'Output:'
-        print *, trim(output)
-        stop 1
+        write (error_unit, '(A)') &
+            'FAIL: COMMON block /mydata/ not preserved correctly'
+        write (error_unit, '(A)') trim(output)
+        error stop 1
     end if
 
     print *, 'PASS: COMMON blocks preserved in program and subroutine'
 
 contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     integer function count_occurrences(text, substring) result(count)
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: substring
-        integer :: pos, found_pos
+        integer :: pos
+        integer :: found_pos
 
         count = 0
         pos = 1

@@ -1,6 +1,6 @@
 program test_issue_1574_intrinsic_external
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     logical :: passed
 
@@ -17,27 +17,27 @@ program test_issue_1574_intrinsic_external
 
 contains
 
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     function run_intrinsic_external_case() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
 
-        source = 'program test_intrinsics' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: arr(5)' // new_line('a') // &
-                 '    integer :: s, m, n' // new_line('a') // &
-                 '' // new_line('a') // &
-                 '    arr = [1, 5, 3, 9, 2]' // new_line('a') // &
-                 '' // new_line('a') // &
-                 '    s = sum(arr)' // new_line('a') // &
-                 '    m = maxval(arr)' // new_line('a') // &
-                 '    n = size(arr)' // new_line('a') // &
-                 '' // new_line('a') // &
-                 '    print *, ''Sum:'', s' // new_line('a') // &
-                 '    print *, ''Max:'', m' // new_line('a') // &
-                 '    print *, ''Size:'', n' // new_line('a') // &
-                 'end program test_intrinsics'
+        call read_example('examples/f90/issue_1574_intrinsic_external.f90', source)
 
         call transform_lazy_fortran_string(source, generated, errors)
 

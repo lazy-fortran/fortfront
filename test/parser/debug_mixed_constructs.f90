@@ -1,4 +1,6 @@
 program debug_mixed_constructs
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
@@ -13,10 +15,7 @@ program debug_mixed_constructs
 
     print *, "=== DEBUG: Finding the difference between CLI and direct parser ==="
 
-    source = "module test_mod" // new_line('a') // &
-             "  x = 10" // new_line('a') // &
-             "end module" // new_line('a') // &
-             "y = x + 5"
+    call read_example('examples/lf/debug_mixed_constructs.lf', source)
 
     print *, "Input:"
     print *, trim(source)
@@ -72,5 +71,21 @@ program debug_mixed_constructs
             print *, trim(direct_output)
         end block
     end if
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program debug_mixed_constructs

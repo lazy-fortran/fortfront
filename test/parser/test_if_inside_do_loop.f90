@@ -8,24 +8,7 @@ program test_if_inside_do_loop
 
     print *, "=== Testing IF statements inside DO loops (Issue #1324) ==="
 
-    source = "program inline_if_fixture" // new_line('a') // &
-             "  implicit none" // new_line('a') // &
-             "  real :: x" // new_line('a') // &
-             "  integer :: i, j, n" // new_line('a') // &
-             "  n = 3" // new_line('a') // &
-             "  call random_number(x)" // new_line('a') // &
-             "  do i = 1, n" // new_line('a') // &
-             "    call random_number(x)" // new_line('a') // &
-             '    print*, "x =", x' // new_line('a') // &
-             '    if (x > 0.3) print*, "x larger than 0.3"' // new_line('a') // &
-             "    if (x > 0.2) then" // new_line('a') // &
-             '      print*, "x larger than 0.2"' // new_line('a') // &
-             "    end if" // new_line('a') // &
-             "    do j = 1, 2" // new_line('a') // &
-             '      if (j == 1) print*, "nested iteration", j' // new_line('a') // &
-             "    end do" // new_line('a') // &
-             "  end do" // new_line('a') // &
-             "end program inline_if_fixture"
+    call read_example('examples/f90/issue_1324_if_inside_do_loop.f90', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -76,4 +59,25 @@ program test_if_inside_do_loop
 
     print *, 'PASS: parser retains control flow inside DO loops without placeholders'
     stop 0
+contains
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
+
 end program test_if_inside_do_loop

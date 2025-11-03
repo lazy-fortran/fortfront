@@ -1,18 +1,11 @@
 program test_issue_1711_implicit_range
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     character(len=:), allocatable :: source, result_code, error_msg
 
     ! Test input with implicit integer and real ranges
-    source = "program test_implicit" // new_line('a') // &
-             "    implicit integer (a-h)" // new_line('a') // &
-             "    implicit real (o-z)" // new_line('a') // &
-             "    " // new_line('a') // &
-             "    apple = 5" // new_line('a') // &
-             "    zebra = 3.14" // new_line('a') // &
-             "    " // new_line('a') // &
-             "    print *, apple, zebra" // new_line('a') // &
-             "end program test_implicit"
+    call read_example('examples/f90/issue_1711_implicit_range.f90', source)
 
     call transform_lazy_fortran_string(source, result_code, error_msg)
 
@@ -44,4 +37,21 @@ program test_issue_1711_implicit_range
     end if
 
     print *, "PASS: test_issue_1711_implicit_range"
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_issue_1711_implicit_range

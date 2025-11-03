@@ -1,6 +1,7 @@
 program test_issue_1547_scalar_allocatable
     ! Test for issue #1547: Scalars incorrectly marked as allocatable
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -26,6 +27,20 @@ program test_issue_1547_scalar_allocatable
 
 contains
 
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_scalar_multiple_assignments()
         test_scalar_multiple_assignments = .true.
         print *, 'Testing scalar with multiple assignments...'
@@ -34,12 +49,8 @@ contains
             character(len=:), allocatable :: input, output, error_msg
 
             ! Scalar with multiple assignments - should NOT be allocatable
-            input = 'program test' // new_line('a') // &
-                    'x = 1' // new_line('a') // &
-                    'x = 2' // new_line('a') // &
-                    'x = 3' // new_line('a') // &
-                    'print *, x' // new_line('a') // &
-                    'end program test'
+            call read_example('examples/lf/issue_1547_scalar_multiple_assignments.lf', &
+                              input)
 
             call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -83,10 +94,8 @@ contains
             character(len=:), allocatable :: input, output, error_msg
 
             ! Scalar with single assignment - should NOT be allocatable
-            input = 'program test' // new_line('a') // &
-                    'x = 42' // new_line('a') // &
-                    'print *, x' // new_line('a') // &
-                    'end program test'
+            call read_example('examples/lf/issue_1547_scalar_single_assignment.lf', &
+                              input)
 
             call transform_lazy_fortran_string(input, output, error_msg)
 

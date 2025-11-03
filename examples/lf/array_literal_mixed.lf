@@ -1,0 +1,3 @@
+! Mixed numeric array literal should be promoted to real
+y = [1, 2.0, 3]
+print*, y

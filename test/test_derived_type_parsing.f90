@@ -1,4 +1,6 @@
 program test_derived_type_parsing
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
@@ -24,9 +26,7 @@ contains
         integer :: prog_index
 
         ! Test simple derived type with one component
-        input_code = "type :: person_t" // new_line('A') // &
-                     "  integer :: age" // new_line('A') // &
-                     "end type person_t"
+        call read_example('examples/lf/derived_type_simple.lf', input_code)
 
         print *, ""
         print *, "=== Test 1: Simple derived type ==="
@@ -74,11 +74,8 @@ contains
         integer :: prog_index
 
         ! Test derived type with multiple components
-        input_code = "type :: person_t" // new_line('A') // &
-                     "  integer :: age" // new_line('A') // &
-                     "  character(len=20) :: name" // new_line('A') // &
-                     "  real :: height" // new_line('A') // &
-                     "end type person_t"
+        call read_example('examples/lf/derived_type_multiple_components.lf', &
+                          input_code)
 
         print *, ""
         print *, "=== Test 2: Multiple components ==="
@@ -128,15 +125,7 @@ contains
         integer :: prog_index
 
         ! Test with nested derived types
-        input_code = "type :: address_t" // new_line('A') // &
-                     "  integer :: street_num" // new_line('A') // &
-                     "  character(len=30) :: city" // new_line('A') // &
-                     "end type address_t" // new_line('A') // &
-                     new_line('A') // &
-                     "type :: person_t" // new_line('A') // &
-                     "  character(len=20) :: name" // new_line('A') // &
-                     "  type(address_t) :: address" // new_line('A') // &
-                     "end type person_t"
+        call read_example('examples/lf/derived_type_nested.lf', input_code)
 
         print *, ""
         print *, "=== Test 3: Nested derived types ==="
@@ -184,10 +173,7 @@ contains
         integer :: prog_index
 
         ! Test derived type with field named 'end' (issue #1542)
-        input_code = "type :: pair_t" // new_line('A') // &
-                     "  real :: start" // new_line('A') // &
-                     "  real :: end" // new_line('A') // &
-                     "end type pair_t"
+        call read_example('examples/lf/derived_type_end_field.lf', input_code)
 
         print *, ""
         print *, "=== Test 4: Derived type with 'end' field (issue #1542) ==="
@@ -226,6 +212,20 @@ contains
             print *, "✗ FAIL: Parsing failed"
             error stop 1
         end if
-    end subroutine
+end subroutine
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_derived_type_parsing

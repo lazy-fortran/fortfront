@@ -1,0 +1,4 @@
+! Issue #1260: subroutine without name in END statement
+subroutine my_sub()
+    print *, 'Hello from subroutine'
+end subroutine

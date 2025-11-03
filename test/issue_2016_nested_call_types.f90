@@ -1,43 +1,47 @@
 program test_issue_2016_nested_call_types
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_tooling_api
     use ast_arena_modern, only: ast_arena_t
     implicit none
 
     type(ast_arena_t) :: arena
     integer :: root_index
-    character(len=:), allocatable :: error_msg, output
+    character(len=:), allocatable :: error_msg
+    character(len=:), allocatable :: output
     character(len=:), allocatable :: source
     type(tooling_parse_options_t) :: opts
 
-    call read_example('examples/lf/issue_2016_nested_call_type_mismatch.lf', source)
+    call read_example('examples/lf/issue_2016_nested_call_type_mismatch.lf', &
+                      source)
 
     opts%run_semantics = .true.
-    call tooling_load_ast_from_string(source, arena, root_index, error_msg, opts)
+    call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
+                                      opts)
 
     if (len_trim(error_msg) > 0) then
-        print *, 'ERROR:', error_msg
+        write (error_unit, '(A)') 'ERROR: ' // trim(error_msg)
         stop 1
     end if
 
     call generate_fortran_output(arena, root_index, output)
 
-    ! Check that square function has integer parameter, not real
     if (index(output, 'integer function square') == 0) then
-        print *, 'FAIL: square function should return integer'
-        print *, 'Output:', output
+        write (error_unit, '(A)') 'FAIL: square function should return integer'
+        write (error_unit, '(A)') trim(output)
         stop 1
     end if
 
     if (index(output, 'integer, intent(in) :: x') == 0 .and. &
         index(output, 'integer :: x') == 0) then
-        print *, 'FAIL: square parameter x should be integer'
-        print *, 'Output:', output
+        write (error_unit, '(A)') 'FAIL: square parameter x should be integer'
+        write (error_unit, '(A)') trim(output)
         stop 1
     end if
 
-    if (index(output, 'real') > 0) then
-        print *, 'FAIL: should not have any real types'
-        print *, 'Output:', output
+    if (index(output, ' real ') > 0) then
+        write (error_unit, '(A)') 'FAIL: output should not contain real types'
+        write (error_unit, '(A)') trim(output)
         stop 1
     end if
 
@@ -45,31 +49,18 @@ program test_issue_2016_nested_call_types
 
 contains
 
+    include 'common/cli_io_reader.inc'
+
     subroutine read_example(filepath, content)
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
-        integer :: unit, iostat, file_size
-        character(len=1), allocatable :: buffer(:)
+        integer :: status
 
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              form='unformatted', access='stream', iostat=iostat)
-        if (iostat /= 0) then
-            print *, 'Cannot open file:', filepath
+        call read_all_stdin_or_file(.true., filepath, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'Cannot read file: ' // trim(filepath)
             stop 1
         end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (character(len=file_size) :: content)
-        allocate (buffer(file_size))
-        read (unit, iostat=iostat) buffer
-        close (unit)
-
-        if (iostat /= 0) then
-            print *, 'Cannot read file:', filepath
-            stop 1
-        end if
-
-        content = transfer(buffer, content)
     end subroutine read_example
 
     subroutine generate_fortran_output(arena, prog_index, fortran_code)

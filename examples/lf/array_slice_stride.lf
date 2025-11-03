@@ -1,0 +1,5 @@
+program array_slice_stride
+    implicit none
+    integer :: x
+    x = a[1:10:2]
+end program array_slice_stride

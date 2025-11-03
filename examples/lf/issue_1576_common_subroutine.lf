@@ -1,0 +1,12 @@
+! Issue #1576: COMMON blocks preserved across program and subroutine
+program test_common
+    common /mydata/ x, y
+    x = 1.0
+    y = 2.0
+    call print_data()
+end program test_common
+
+subroutine print_data()
+    common /mydata/ x, y
+    print *, x, y
+end subroutine print_data

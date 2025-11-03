@@ -1,0 +1,9 @@
+type :: address_t
+    integer :: street_num
+    character(len=30) :: city
+end type address_t
+
+type :: person_t
+    character(len=20) :: name
+    type(address_t) :: address
+end type person_t

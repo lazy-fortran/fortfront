@@ -1,9 +1,7 @@
 program test_implicit_none_dedup
-    use lexer_api, only: lex_source, lex_file
-    use parser_api, only: parse_tokens, parse_tokens_safe
-    use semantic_api, only: analyze_semantics
-    use codegen_api, only: emit_fortran
-    use transformation_api, only: transform_lazy_fortran_string, compile_source
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: input_code
@@ -13,11 +11,7 @@ program test_implicit_none_dedup
 
     print *, 'Testing no duplicate implicit none in program header...'
 
-    input_code = 'program main' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: x' // new_line('a') // &
-                 '    x = 5' // new_line('a') // &
-                 'end program main'
+    call read_example('examples/f90/implicit_none_single.f90', input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
     if (len(error_msg) > 0) then
@@ -41,5 +35,21 @@ program test_implicit_none_dedup
     end if
 
     print *, '✓ No duplicate implicit none statements'
-end program test_implicit_none_dedup
 
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
+end program test_implicit_none_dedup

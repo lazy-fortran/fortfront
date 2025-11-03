@@ -1,324 +1,178 @@
 program test_string_transformation
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
+    implicit none
 
-    integer :: test_count, pass_count
+    logical :: all_passed
 
-    test_count = 0
-    pass_count = 0
+    all_passed = .true.
 
-    print *, "=== String Transformation Unit Tests ==="
-    print *, ""
+    if (.not. run_example_test( &
+        'hello world', &
+        'examples/lf/string_transform_hello.lf', &
+        [character(len=32) :: 'program main', 'implicit none', &
+         'print *, ''Hello'''])) then
+        all_passed = .false.
+    end if
 
-    ! Test 1: Simple hello world
-    call test_hello_world()
+    if (.not. run_example_test( &
+        'control flow', &
+        'examples/lf/string_transform_control_flow.lf', &
+        [character(len=32) :: 'if (x > 0) then', 'end if'])) then
+        all_passed = .false.
+    end if
 
-    ! Test 2: Type inference
-    call test_type_inference()
+    if (.not. run_example_test( &
+        'multiple statements', &
+        'examples/lf/string_transform_multiple_statements.lf', &
+        [character(len=48) :: 'integer :: a, b, c', 'print *, c'])) then
+        all_passed = .false.
+    end if
 
-    ! Test 3: Control flow
-    call test_control_flow()
+    if (.not. run_example_test( &
+        'string concatenation', &
+        'examples/lf/string_transform_concat.lf', &
+        [character(len=32) :: '//', 'print *, t'])) then
+        all_passed = .false.
+    end if
 
-    ! Test 4: Multiple statements
-    call test_multiple_statements()
+    if (.not. run_example_test( &
+        'complex expression', &
+        'examples/lf/string_transform_complex_expression.lf', &
+        [character(len=48) :: 'result = (x * 2 + y) / 3.0', 'integer :: x', &
+         'real :: result, y'])) then
+        all_passed = .false.
+    end if
 
-    ! Test 4b: Multi-line string concatenation
-    call test_multi_line_string_concat()
+    if (.not. run_example_test( &
+        'non-character declarations', &
+        'examples/lf/string_transform_non_character.lf', &
+        [character(len=40) :: 'integer :: n', 's = s // ''y'''])) then
+        all_passed = .false.
+    end if
 
-    ! Test 5: Syntax error handling
-    call test_syntax_error()
+    if (.not. test_error_handling()) all_passed = .false.
+    if (.not. test_empty_input()) all_passed = .false.
 
-    ! Test 6: Empty input
-    call test_empty_input()
-
-    ! Test 7: Complex expression
-    call test_complex_expression()
-
-    ! Test 8: Non-character declarations unaffected by string logic
-    call test_non_character_declaration_safety()
-
-    print *, ""
-    print *, "=== Test Summary ==="
-    write (*, '(A,I0,A,I0,A)') "Passed: ", pass_count, "/", test_count, " tests"
-
-    if (pass_count == test_count) then
-        print *, "All tests passed!"
+    if (all_passed) then
+        print *, 'PASS: string transformation regression suite'
         stop 0
     else
-        print *, "Some tests failed!"
-        stop 1
+        error stop 'FAIL: string transformation regression suite'
     end if
 
 contains
 
-    logical function contains_without_spaces(text, pattern)
-        character(len=*), intent(in) :: text
-        character(len=*), intent(in) :: pattern
-        character(len=:), allocatable :: compressed
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
+    logical function run_example_test(name, example_path, patterns) result(ok)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: example_path
+        character(len=*), dimension(:), intent(in) :: patterns
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
         integer :: i
 
-        compressed = ''
-        do i = 1, len_trim(text)
-            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
-        end do
-        contains_without_spaces = index(compressed, pattern) > 0
-    end function contains_without_spaces
+        ok = .true.
+        call read_example(example_path, source)
+        call transform_lazy_fortran_string(source, output, error_msg)
 
-    subroutine test_hello_world()
-        character(len=:), allocatable :: output, error_msg
-        logical :: success
-
-        call test_start("Simple hello world")
-
-        call transform_lazy_fortran_string("print *, 'Hello'", output, error_msg)
-
-        success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "program main") > 0) .and. &
-                  (index(output, "implicit none") > 0) .and. &
-                  (index(output, "print *, 'Hello'") > 0)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Output length: ", len(output)
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A,A)') 'FAIL: ', trim(name) // ' produced error'
+            write (error_unit, '(A)') trim(error_msg)
+            ok = .false.
+            return
         end if
-    end subroutine test_hello_world
 
-    subroutine test_type_inference()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
-
-        call test_start("Type inference")
-
-        input = "x = 42" // new_line('A') // "y = 3.14"
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "integer :: x") > 0) .and. &
-                  (index(output, "real") > 0)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Looking for 'integer :: x' and 'real'"
+        if (.not. allocated(output)) then
+            write (error_unit, '(A,A)') 'FAIL: ', trim(name) // ' produced no output'
+            ok = .false.
+            return
         end if
-    end subroutine test_type_inference
 
-    subroutine test_control_flow()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
-
-        call test_start("Control flow (if statement)")
-
-        input = "x = 5" // new_line('A') // &
-                "if (x > 0) then" // new_line('A') // &
-                "  print *, 'positive'" // new_line('A') // &
-                "end if"
-
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "if (x > 0) then") > 0) .and. &
-                  (index(output, "end if") > 0)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-        end if
-    end subroutine test_control_flow
-
-    subroutine test_multiple_statements()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
-
-        call test_start("Multiple statements")
-
-        input = "a = 1" // new_line('A') // &
-                "b = 2" // new_line('A') // &
-                "c = a + b" // new_line('A') // &
-                "print *, c"
-
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        success = (len_trim(error_msg) == 0) .and. &
-                  has_integer_declaration(output, [character(len=8) :: &
-                                                   "a", "b", "c"])
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-        end if
-    end subroutine test_multiple_statements
-
-    subroutine test_multi_line_string_concat()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
-
-        call test_start("Multi-line string concatenation")
-
-        input = "s = 'a' // 'b'" // new_line('A') // &
-                "t = s // 'c'" // new_line('A') // &
-                "print *, t"
-
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        ! Expect no errors and both assignments preserved in output
-        success = (len_trim(error_msg) == 0) .and. &
-                  contains_without_spaces(output, "s='a'//'b'") .and. &
-                  contains_without_spaces(output, "t=s//'c'")
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Output: ", trim(output)
-        end if
-    end subroutine test_multi_line_string_concat
-
-    subroutine test_non_character_declaration_safety()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
-
-        call test_start("Non-character declaration safety")
-
-        input = "integer :: n" // new_line('A') // &
-                "n = 5" // new_line('A') // &
-                "s = 'x'" // new_line('A') // &
-                "s = s // 'y'" // new_line('A') // &
-                "print *, n, s"
-
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        ! Ensure integer declaration remains and character handling applies only to strings
-        success = (len_trim(error_msg) == 0) .and. &
-                  contains_without_spaces(output, "integer::n")
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Output: ", trim(output)
-        end if
-    end subroutine test_non_character_declaration_safety
-
-    logical function has_integer_declaration(text, names)
-        character(len=*), intent(in) :: text
-        character(len=*), dimension(:), intent(in) :: names
-        integer :: pos, start_pos, end_pos, i, text_len
-        character(len=:), allocatable :: line
-        character(1), parameter :: nl = new_line("a")
-
-        has_integer_declaration = .false.
-        text_len = len(text)
-        pos = index(text, "integer ::")
-
-        do while (pos > 0)
-            start_pos = pos
-            do while (start_pos > 1 .and. text(start_pos - 1:start_pos - 1) /= nl)
-                start_pos = start_pos - 1
-            end do
-
-            end_pos = pos
-            do while (end_pos <= text_len .and. text(end_pos:end_pos) /= nl)
-                end_pos = end_pos + 1
-            end do
-
-            if (end_pos > text_len) then
-                line = text(start_pos:)
-            else
-                line = text(start_pos:end_pos - 1)
+        do i = 1, size(patterns)
+            if (len_trim(patterns(i)) == 0) cycle
+            if (.not. contains_pattern(output, trim(patterns(i)))) then
+                write (error_unit, '(A,A)') 'FAIL: pattern missing for ', trim(name)
+                write (error_unit, '(A)') 'Pattern: ' // trim(patterns(i))
+                write (error_unit, '(A)') trim(output)
+                ok = .false.
             end if
-
-            line = adjustl(line)
-            if (index(line, "integer ::") == 1) then
-                has_integer_declaration = .true.
-                do i = 1, size(names)
-                    if (index(line, trim(names(i))) == 0) then
-                        has_integer_declaration = .false.
-                        exit
-                    end if
-                end do
-                if (has_integer_declaration) return
-            end if
-
-            if (end_pos > text_len) exit
-            pos = index(text(end_pos:), "integer ::")
-            if (pos > 0) pos = pos + end_pos - 1
         end do
-    end function has_integer_declaration
+    end function run_example_test
 
-    subroutine test_syntax_error()
-        character(len=:), allocatable :: output, error_msg
-        logical :: success
+    logical function test_error_handling()
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
-        call test_start("Syntax error handling")
-
-        call transform_lazy_fortran_string("invalid fortran !!!", output, error_msg)
-
-        ! For syntax errors, we expect the transformation to still work
-        ! but might produce minimal output
-        success = .true.  ! Any non-crash result is success for now
-
-        call test_result(success)
-    end subroutine test_syntax_error
-
-    subroutine test_empty_input()
-        character(len=:), allocatable :: output, error_msg
-        logical :: success
-
-        call test_start("Empty input")
-
-        call transform_lazy_fortran_string("", output, error_msg)
-
-        ! Empty input should produce minimal program
-        success = (index(output, "program main") > 0)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Output: ", trim(output)
+        test_error_handling = .true.
+        call transform_lazy_fortran_string('invalid fortran !!!', output, &
+                                           error_msg)
+        if (.not. allocated(output) .and. len_trim(error_msg) == 0) then
+            write (error_unit, '(A)') 'FAIL: error handling produced no feedback'
+            test_error_handling = .false.
         end if
-    end subroutine test_empty_input
+    end function test_error_handling
 
-    subroutine test_complex_expression()
-        character(len=:), allocatable :: input, output, error_msg
-        logical :: success
+    logical function test_empty_input()
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
 
-        call test_start("Complex expression")
+        test_empty_input = .true.
+        call transform_lazy_fortran_string('', output, error_msg)
 
-        input = "x = 5" // new_line('A') // &
-                "y = 2.5" // new_line('A') // &
-                "result = (x * 2 + y) / 3.0"
-        call transform_lazy_fortran_string(input, output, error_msg)
-
-        ! Accept both real and real(8), and both 3.0 and 3.0d0
-        success = (len_trim(error_msg) == 0) .and. &
-                  (contains_without_spaces(output, "result=(x*2+y)/3.0d0") .or. &
-                   contains_without_spaces(output, "result=(x*2+y)/3.0")) .and. &
-                  contains_without_spaces(output, "integer::x") .and. &
-                  (contains_without_spaces(output, "real(8)::result") .or. &
-                   contains_without_spaces(output, "real::result"))
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Error: ", trim(error_msg)
-            print *, "  Looking for variable declarations and expression"
-            print *, "  Actual output:"
-            print *, output
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') 'FAIL: empty input produced error: ' // &
+                trim(error_msg)
+            test_empty_input = .false.
+            return
         end if
-    end subroutine test_complex_expression
 
-    subroutine test_start(test_name)
-        character(len=*), intent(in) :: test_name
-        test_count = test_count + 1
-        write (*, '(A,A)', advance='no') "Testing: ", test_name
-    end subroutine test_start
-
-    subroutine test_result(success)
-        logical, intent(in) :: success
-        if (success) then
-            print *, " ... PASSED"
-            pass_count = pass_count + 1
-        else
-            print *, " ... FAILED"
+        if (.not. allocated(output) .or. index(output, 'program main') == 0) then
+            write (error_unit, '(A)') 'FAIL: empty input did not produce program'
+            test_empty_input = .false.
         end if
-    end subroutine test_result
+    end function test_empty_input
+
+    logical function contains_pattern(buffer, pattern)
+        character(len=*), intent(in) :: buffer
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compact_buffer
+        character(len=:), allocatable :: compact_pattern
+
+        contains_pattern = index(buffer, pattern) > 0
+        if (contains_pattern) return
+
+        compact_buffer = remove_spaces(buffer)
+        compact_pattern = remove_spaces(pattern)
+        contains_pattern = index(compact_buffer, compact_pattern) > 0
+    end function contains_pattern
+
+    pure function remove_spaces(value) result(compacted)
+        character(len=*), intent(in) :: value
+        character(len=:), allocatable :: compacted
+        integer :: i
+
+        compacted = ''
+        do i = 1, len_trim(value)
+            if (value(i:i) /= ' ' .and. value(i:i) /= new_line('a')) then
+                compacted = compacted // value(i:i)
+            end if
+        end do
+    end function remove_spaces
 
 end program test_string_transformation

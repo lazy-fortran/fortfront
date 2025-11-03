@@ -1,4 +1,6 @@
 program test_issue_1958_intent_preservation
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_with_context, transform_context_t
     use frontend_transformation, only: INPUT_MODE_STANDARD
     implicit none
@@ -14,26 +16,8 @@ program test_issue_1958_intent_preservation
 
     print *, "=== Issue #1958: preserve intents for standard inputs ==="
 
-    input_code = &
-        "function add_int(a, b) result(c)" // new_line('A') // &
-        "    integer, intent(in) :: a, b" // new_line('A') // &
-        "    integer :: c" // new_line('A') // &
-        "    c = a + b" // new_line('A') // &
-        "end function add_int" // new_line('A') // &
-        new_line('A') // &
-        "subroutine apply_flag(flag, value)" // new_line('A') // &
-        "    logical, intent(in), optional :: flag" // new_line('A') // &
-        "    integer, intent(out) :: value" // new_line('A') // &
-        "    if (present(flag)) then" // new_line('A') // &
-        "        if (flag) then" // new_line('A') // &
-        "            value = 1" // new_line('A') // &
-        "        else" // new_line('A') // &
-        "            value = 0" // new_line('A') // &
-        "        end if" // new_line('A') // &
-        "    else" // new_line('A') // &
-        "        value = -1" // new_line('A') // &
-        "    end if" // new_line('A') // &
-        "end subroutine apply_flag"
+    call read_example('examples/f90/issue_1958_intent_preservation.f90', &
+                      input_code)
 
     context%input_mode = INPUT_MODE_STANDARD
     context%has_filename = .true.
@@ -69,5 +53,21 @@ program test_issue_1958_intent_preservation
     end if
 
     print *, "PASS: intent attributes preserved for standard Fortran inputs"
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1958_intent_preservation

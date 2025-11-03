@@ -1,4 +1,6 @@
 program test_issue_1861_nested_do_print
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -18,21 +20,9 @@ contains
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
-        character(len=1), parameter :: nl = new_line('A')
 
-        input_code = "program nested_loops" // nl // &
-                     "    implicit none" // nl // &
-                     "    integer :: i, j" // nl // &
-                     "    integer :: matrix(2,3)" // nl // &
-                     "" // nl // &
-                     "    do i = 1, 2" // nl // &
-                     "        do j = 1, 3" // nl // &
-                     "            matrix(i, j) = i * 10 + j" // nl // &
-                     "        end do" // nl // &
-                     "    end do" // nl // &
-                     "" // nl // &
-                     "    print *, matrix" // nl // &
-                     "end program nested_loops"
+        call read_example('examples/f90/issue_1861_nested_do_print.f90', &
+                          input_code)
 
         print *, ""
         print *, "Test: print survives nested DO loops with whitespace"
@@ -63,5 +53,19 @@ contains
 
         print *, "[PASS] Print statement preserved after nested DO loops"
     end subroutine verify_print_preserved
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1861_nested_do_print

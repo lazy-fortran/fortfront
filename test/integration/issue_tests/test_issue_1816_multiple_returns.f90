@@ -32,15 +32,7 @@ contains
         test_result_variable_detection = .true.
         print *, 'Testing result variable detection...'
 
-        source = 'function divmod(a, b)' // new_line('a') // &
-                 '    q = a / b' // new_line('a') // &
-                 '    r = mod(a, b)' // new_line('a') // &
-                 '    result = [q, r]' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'res = divmod(17, 5)' // new_line('a') // &
-                 'print *, res'
-
+        call read_example('examples/lf/issue_1816_multiple_returns.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
@@ -85,15 +77,7 @@ contains
         test_local_variable_declarations = .true.
         print *, 'Testing local variable declarations...'
 
-        source = 'function divmod(a, b)' // new_line('a') // &
-                 '    q = a / b' // new_line('a') // &
-                 '    r = mod(a, b)' // new_line('a') // &
-                 '    result = [q, r]' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'res = divmod(17, 5)' // new_line('a') // &
-                 'print *, res'
-
+        call read_example('examples/lf/issue_1816_multiple_returns.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
@@ -137,15 +121,7 @@ contains
         test_array_result_type_inference = .true.
         print *, 'Testing array result type inference...'
 
-        source = 'function divmod(a, b)' // new_line('a') // &
-                 '    q = a / b' // new_line('a') // &
-                 '    r = mod(a, b)' // new_line('a') // &
-                 '    result = [q, r]' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'res = divmod(17, 5)' // new_line('a') // &
-                 'print *, res'
-
+        call read_example('examples/lf/issue_1816_multiple_returns.lf', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg)) then
@@ -174,5 +150,25 @@ contains
             print *, '  PASS: Array result type inferred'
         end if
     end function test_array_result_type_inference
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1816_multiple_returns

@@ -1,5 +1,9 @@
 program test_issue_1330_missing_declarations
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
+    implicit none
+
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
@@ -7,6 +11,20 @@ program test_issue_1330_missing_declarations
     print *, 'Issue #1330 regression test passed.'
 
 contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
     subroutine test_missing_variable_declarations()
         character(len=:), allocatable :: input
@@ -29,27 +47,15 @@ contains
         character(len=:), allocatable :: existing_decl_line
         character(len=32) :: real_decl_variants(2)
 
-        input = 'use iso_fortran_env' // new_line('a') // &
-                '! comment between use statements' // new_line('a') // &
-                'use iso_c_binding' // new_line('a') // &
-                'real(kind=8) :: x, y' // new_line('a') // new_line('a') // &
-                '! header comment before loop' // new_line('a') // &
-                'n = 1000000' // new_line('a') // &
-                'count = 0' // new_line('a') // &
-                'do i = 1, n' // new_line('a') // &
-                '    call random_number(x)' // new_line('a') // &
-                '    call random_number(y)' // new_line('a') // &
-                '    if (x*x + y*y <= 1.0) count = count + 1' // new_line('a') // &
-                'end do' // new_line('a') // &
-                'pi_estimate = 4.0 * real(count) / real(n)' // new_line('a') // &
-                'print *, "Number of points:", n' // new_line('a') // &
-                'print *, "Estimated value of pi:", pi_estimate'
+        call read_example('examples/lf/issue_1330_missing_declarations.lf', &
+                          input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, 'FAIL: transform error:', trim(error_msg)
+                write (error_unit, '(A)') 'FAIL: transform error: ' // &
+                    trim(error_msg)
                 error stop 1
             end if
         end if
@@ -60,9 +66,9 @@ contains
                              'missing iso_c_binding use statement')
         if (.not. has_integer_declaration(output, [character(len=16) :: &
                                                    'n', 'count', 'i'])) then
-            print *, 'FAIL: missing integer declarations for n/count/i'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: missing integer declarations for n/count/i'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
@@ -70,35 +76,32 @@ contains
         use2_pos = index(output, 'use iso_c_binding')
         use_comment_pos = index(output, 'comment between use statements')
         if (use1_pos == 0 .or. use2_pos == 0) then
-            print *, 'FAIL: use statements missing after transformation'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: use statements missing after transformation'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         if (use1_pos >= use2_pos) then
-            print *, 'FAIL: use statements reordered'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: use statements reordered'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         if (use_comment_pos == 0) then
-            print *, 'FAIL: use block comment missing'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: use block comment missing'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         implicit_pos = index(output, 'implicit none')
         if (implicit_pos == 0) then
-            print *, 'FAIL: implicit none missing from output'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: implicit none missing from output'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         if (.not. (use_comment_pos > use1_pos .and. use_comment_pos < &
                    implicit_pos)) then
-            print *, 'FAIL: use block comment moved out of declaration header'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: use block comment moved out of declaration header'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
@@ -120,64 +123,72 @@ contains
             has_real_kind = index(output, 'real(8) :: pi_estimate') > 0
         end if
         if (.not. has_real_kind) then
-            print *, 'FAIL: missing real declaration for pi_estimate'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: missing real declaration for pi_estimate'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
-        output_len = len(output)
-        first_new_pos = output_len + 1
-        last_new_pos = 0
         pos_n = index(output, 'integer :: n')
-        if (pos_n > 0) then
-            if (pos_n < first_new_pos) first_new_pos = pos_n
-            if (pos_n > last_new_pos) last_new_pos = pos_n
-        end if
         pos_count = index(output, 'integer :: count')
-        if (pos_count > 0) then
-            if (pos_count < first_new_pos) first_new_pos = pos_count
-            if (pos_count > last_new_pos) last_new_pos = pos_count
-        end if
         pos_i = index(output, 'integer :: i')
-        if (pos_i > 0) then
-            if (pos_i < first_new_pos) first_new_pos = pos_i
-            if (pos_i > last_new_pos) last_new_pos = pos_i
+        if (pos_n == 0 .or. pos_count == 0 .or. pos_i == 0) then
+            write (error_unit, '(A)') 'FAIL: integer declarations missing'
+            write (error_unit, '(A)') trim(output)
+            error stop 1
+        end if
+        if (.not. (pos_n < pos_count .and. pos_count < pos_i)) then
+            write (error_unit, '(A)') 'FAIL: integer declarations out of order'
+            write (error_unit, '(A)') trim(output)
+            error stop 1
         end if
 
-        if (real_decl_pos > 0 .and. first_new_pos <= real_decl_pos) then
-            print *, &
-                'FAIL: inferred declarations inserted before existing declarations'
-            print *, 'Output:'
-            print *, trim(output)
+        if (.not. has_integer_declaration(output, [character(len=16) :: 'n'])) then
+            write (error_unit, '(A)') 'FAIL: inferred declaration for n missing'
+            write (error_unit, '(A)') trim(output)
+            error stop 1
+        end if
+
+        first_new_pos = index(output, 'integer :: n')
+        last_new_pos = index(output, 'real :: pi_estimate')
+        if (last_new_pos == 0) then
+            last_new_pos = index(output, 'real(8) :: pi_estimate')
+        end if
+        if (first_new_pos == 0 .or. last_new_pos == 0) then
+            write (error_unit, '(A)') 'FAIL: inferred declarations missing'
+            write (error_unit, '(A)') trim(output)
+            error stop 1
+        end if
+        output_len = len_trim(output)
+        if (last_new_pos + 1 > output_len) then
+            write (error_unit, '(A)') 'FAIL: malformed declaration block'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
         if (implicit_pos <= use2_pos) then
-            print *, 'FAIL: implicit none inserted before use block'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: implicit none inserted before use block'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
         header_comment_pos = index(output, 'header comment before loop')
         if (header_comment_pos == 0) then
-            print *, 'FAIL: header comment missing after transformation'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: header comment missing'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         if (header_comment_pos <= last_new_pos) then
-            print *, 'FAIL: header comment moved ahead of inferred declarations'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: header comment moved ahead of inferred declarations'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
         body_pos = index(output, 'n = 1000000')
         if (body_pos > 0 .and. header_comment_pos >= body_pos) then
-            print *, 'FAIL: header comment moved into executable section'
-            print *, 'Output:'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: header comment moved into executable section'
+            write (error_unit, '(A)') trim(output)
             error stop 1
         end if
 
@@ -189,9 +200,8 @@ contains
                 next_real_pos = 0
             end if
             if (next_real_pos > 0) then
-                print *, 'FAIL: explicit declarations duplicated'
-                print *, 'Output:'
-                print *, trim(output)
+                write (error_unit, '(A)') 'FAIL: explicit declarations duplicated'
+                write (error_unit, '(A)') trim(output)
                 error stop 1
             end if
         end if
@@ -203,10 +213,10 @@ contains
         character(len=*), intent(in) :: message
 
         if (index(text, pattern) == 0) then
-            print *, 'FAIL:', trim(message)
-            print *, 'Pattern:', trim(pattern)
-            print *, 'Output:'
-            print *, trim(text)
+            write (error_unit, '(A)') 'FAIL: ' // trim(message)
+            write (error_unit, '(A)') 'Pattern: ' // trim(pattern)
+            write (error_unit, '(A)') 'Output:'
+            write (error_unit, '(A)') trim(text)
             error stop 1
         end if
     end subroutine assert_contains
@@ -222,20 +232,24 @@ contains
             if (index(text, trim(patterns(i))) > 0) return
         end do
 
-        print *, 'FAIL:', trim(message)
-        print *, 'Patterns:'
+        write (error_unit, '(A)') 'FAIL: ' // trim(message)
+        write (error_unit, '(A)') 'Patterns:'
         do i = 1, size(patterns)
-            print *, trim(patterns(i))
+            write (error_unit, '(A)') trim(patterns(i))
         end do
-        print *, 'Output:'
-        print *, trim(text)
+        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') trim(text)
         error stop 1
     end subroutine assert_contains_any
 
     logical function has_integer_declaration(text, names)
         character(len=*), intent(in) :: text
         character(len=*), dimension(:), intent(in) :: names
-        integer :: pos, start_pos, end_pos, i, text_len
+        integer :: pos
+        integer :: start_pos
+        integer :: end_pos
+        integer :: i
+        integer :: text_len
         character(len=:), allocatable :: line
         character(1), parameter :: nl = new_line('a')
 

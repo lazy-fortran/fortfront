@@ -1,4 +1,6 @@
 program test_issue_1787_continue_in_if
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -18,17 +20,9 @@ contains
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
-        character(len=1), parameter :: nl = new_line('A')
-        input_code = "program demo" // nl // &
-                     "    implicit none" // nl // &
-                     "    integer :: i" // nl // &
-                     "" // nl // &
-                     "    do i = 1, 5" // nl // &
-                     "        if (i == 3) then" // nl // &
-                     "            continue" // nl // &
-                     "        end if" // nl // &
-                     "    end do" // nl // &
-                     "end program demo"
+
+        call read_example('examples/f90/issue_1787_continue_in_if.f90', &
+                          input_code)
         print *, ""
         print *, "Test: CONTINUE preserved inside IF block"
         print *, "Input:"
@@ -58,5 +52,19 @@ contains
 
         print *, "[PASS] Continue statement preserved inside IF block"
     end subroutine test_continue_inside_if
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1787_continue_in_if

@@ -1,0 +1,9 @@
+! Issue #652: multiple variables declared in single statement
+program test_multi_var_simple
+    implicit none
+    integer :: x, y, z
+    x = 1
+    y = 2
+    z = 3
+    print *, x, y, z
+end program test_multi_var_simple

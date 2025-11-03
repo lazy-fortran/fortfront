@@ -1,0 +1,63 @@
+! Module contains regression scenarios originally covered by test_module_contains_functions
+module test_module_with_function
+    implicit none
+contains
+    function add(a, b) result(c)
+        integer, intent(in) :: a, b
+        integer :: c
+        c = a + b
+    end function add
+end module test_module_with_function
+
+module test_module_with_subroutine
+    implicit none
+contains
+    subroutine swap(x, y)
+        real, intent(inout) :: x, y
+        real :: temp
+        temp = x
+        x = y
+        y = temp
+    end subroutine swap
+end module test_module_with_subroutine
+
+module test_module_multiple_procedures
+    implicit none
+contains
+    function square(x) result(res)
+        real, intent(in) :: x
+        real :: res
+        res = x * x
+    end function square
+
+    subroutine print_value(val)
+        real, intent(in) :: val
+        print *, val
+    end subroutine print_value
+end module test_module_multiple_procedures
+
+module module_math_utils
+    implicit none
+contains
+    function add3(a, b, c) result(sum)
+        integer, intent(in) :: a, b, c
+        integer :: sum
+        sum = a + b + c
+    end function add3
+end module module_math_utils
+
+module test_module_with_prefix
+    implicit none
+contains
+    pure function square(x) result(y)
+        integer, intent(in) :: x
+        integer :: y
+        y = x * x
+    end function square
+
+    elemental subroutine scale(arr, factor)
+        real, intent(inout) :: arr
+        real, intent(in) :: factor
+        arr = arr * factor
+    end subroutine scale
+end module test_module_with_prefix

@@ -1,0 +1,6 @@
+! Issue #652: multi-variable declaration with initializer
+program test_multi_var_init
+    implicit none
+    real :: a, b, c = 3.14
+    print *, a, b, c
+end program test_multi_var_init

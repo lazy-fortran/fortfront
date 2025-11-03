@@ -1,45 +1,17 @@
 program test_tooling_passthrough
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
     character(len=:), allocatable :: input_text
     character(len=:), allocatable :: output_text
     character(len=:), allocatable :: error_msg
     character(len=:), allocatable :: expected
-    character(len=512) :: line_buffer
-    integer :: unit_num
-    integer :: ios
-    logical :: first_line
 
-    input_text = ''
-    first_line = .true.
-    open (newunit=unit_num, file='examples/f90/external_tool_example.f90', &
-          status='old', action='read', iostat=ios)
-    if (ios /= 0) then
-        print *, 'FAIL: could not open examples/f90/external_tool_example.f90'
-        stop 1
-    end if
+    call read_example('examples/f90/external_tool_example.f90', input_text)
+    expected = input_text // new_line('a')
 
-    do
-        read (unit_num, '(A)', iostat=ios) line_buffer
-        if (ios /= 0) exit
-        if (first_line) then
-            input_text = trim(line_buffer)
-            first_line = .false.
-        else
-            input_text = input_text // new_line('a') // trim(line_buffer)
-        end if
-    end do
-    close (unit_num)
-
-    if (first_line) then
-        print *, 'FAIL: external_tool_example.f90 was empty'
-        stop 1
-    end if
-
-    input_text = input_text // new_line('a')
-    expected = input_text
-
-    call transform_lazy_fortran_string(input_text, output_text, error_msg)
+    call transform_lazy_fortran_string(expected, output_text, error_msg)
 
     if (.not. allocated(output_text)) then
         print *, 'FAIL: passthrough produced no output'
@@ -64,4 +36,21 @@ program test_tooling_passthrough
     end if
 
     print *, 'PASS: tooling passthrough preserved external tooling example'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_tooling_passthrough

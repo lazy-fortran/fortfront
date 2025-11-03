@@ -6,17 +6,12 @@ program test_issue_1964_nested_function_calls
 
     logical :: all_passed
 
-    all_passed = .true.
-    print *, '=== Issue #1964: Nested function call parameter inference ==='
+    all_passed = check_nested_call_parameters()
 
-    if (.not. check_nested_call_parameters()) all_passed = .false.
-
-    print *
     if (all_passed) then
-        print *, 'Issue #1964 fixed!'
+        print *, 'PASS: Issue #1964 - nested call inference stable'
     else
-        print *, 'Issue #1964 regression detected!'
-        stop 1
+        error stop 'FAIL: Issue #1964 regression detected'
     end if
 
 contains
@@ -30,13 +25,12 @@ contains
 
         call read_all_stdin_or_file(.true., path, content, status)
         if (status /= 0) then
-            print *, 'FAIL: failed to read ', trim(path)
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
             error stop 1
         end if
     end subroutine read_example
 
     logical function check_nested_call_parameters()
-        implicit none
         character(len=:), allocatable :: source
         character(len=:), allocatable :: output
         character(len=:), allocatable :: error_msg
@@ -45,7 +39,6 @@ contains
         logical :: has_real_decl
 
         check_nested_call_parameters = .true.
-        print *, 'Checking nested call argument inference...'
 
         call read_example('examples/lf/issue_1964_nested_function_calls.lf', &
                           source)
@@ -53,22 +46,24 @@ contains
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
-                print *, '  FAIL: unexpected error -', trim(error_msg)
+                write (error_unit, '(A)') &
+                    'FAIL: unexpected error - ' // trim(error_msg)
                 check_nested_call_parameters = .false.
                 return
             end if
         end if
 
         if (.not. allocated(output)) then
-            print *, '  FAIL: transformation produced no output'
+            write (error_unit, '(A)') 'FAIL: transformation produced no output'
             check_nested_call_parameters = .false.
             return
         end if
 
         pos_header = index(output, 'integer function multiply')
         if (pos_header <= 0) then
-            print *, '  FAIL: multiply function not inferred as integer'
-            print *, trim(output)
+            write (error_unit, '(A)') &
+                'FAIL: multiply function not inferred as integer'
+            write (error_unit, '(A)') trim(output)
             check_nested_call_parameters = .false.
             return
         end if
@@ -78,20 +73,16 @@ contains
             has_integer_decl = index(output, 'integer, intent(in) :: x') > 0
         end if
         if (.not. has_integer_decl) then
-            print *, '  FAIL: parameter x not declared as integer'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: parameter x not declared as integer'
+            write (error_unit, '(A)') trim(output)
             check_nested_call_parameters = .false.
         end if
 
         has_real_decl = index(output, 'real :: x') > 0
         if (has_real_decl) then
-            print *, '  FAIL: parameter x still declared as real'
-            print *, trim(output)
+            write (error_unit, '(A)') 'FAIL: parameter x still declared as real'
+            write (error_unit, '(A)') trim(output)
             check_nested_call_parameters = .false.
-        end if
-
-        if (check_nested_call_parameters) then
-            print *, '  PASS: nested call arguments retain integer type'
         end if
     end function check_nested_call_parameters
 

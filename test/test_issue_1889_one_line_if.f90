@@ -1,4 +1,6 @@
 program test_issue_1889_one_line_if
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
@@ -18,17 +20,9 @@ contains
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
-        character(len=1), parameter :: nl = new_line('A')
 
-        input_code = "program single_line_if" // nl // &
-                     "    implicit none" // nl // &
-                     "    integer :: i, j" // nl // &
-                     "" // nl // &
-                     "    do i = 1, 5" // nl // &
-                     "        if (j == 3) cycle" // nl // &
-                     "        if (i == 4) exit" // nl // &
-                     "    end do" // nl // &
-                     "end program single_line_if"
+        call read_example('examples/f90/issue_1889_single_line_if.f90', &
+                          input_code)
 
         print *, ""
         print *, "Test: single-line IF statements stay compact"
@@ -75,5 +69,19 @@ contains
 
         print *, "[PASS] Single-line IF statements remain compact"
     end subroutine verify_single_line_if_preserved
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1889_one_line_if

@@ -1,0 +1,7 @@
+subroutine add_one(x)
+    x = x + 1
+end subroutine
+
+a = 5
+call add_one(a)
+print *, a

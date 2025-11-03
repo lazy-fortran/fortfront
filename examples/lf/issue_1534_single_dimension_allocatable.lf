@@ -1,0 +1,4 @@
+real(dp), allocatable :: vec(:)
+allocate(vec(3))
+vec = [1.0d0, 2.0d0, 3.0d0]
+print *, vec

@@ -1,0 +1,8 @@
+! Issue #177: line continuation characters should survive transformation
+program test_line_continuation
+    implicit none
+    real :: result
+    result = 1.0 + &
+             2.0 + &
+             3.0
+end program test_line_continuation

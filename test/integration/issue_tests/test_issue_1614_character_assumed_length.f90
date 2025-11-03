@@ -32,13 +32,8 @@ contains
         test_case_1_parameter_length = .true.
         print *, 'Test Case 1: character(n) with parameter'
 
-        source = 'program test_case_1' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: max_len = 32' // new_line('a') // &
-                 '    character(max_len) :: name' // new_line('a') // &
-                 '    name = "Test"' // new_line('a') // &
-                 'end program test_case_1'
-
+        call read_example( &
+            'examples/f90/issue_1614_character_parameter_length.f90', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -70,13 +65,8 @@ contains
         test_case_2_deferred_length = .true.
         print *, 'Test Case 2: character(len=:), allocatable'
 
-        source = 'program test_case_2' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    character(len=:), allocatable :: ' // &
-                 'dynamic_str' // new_line('a') // &
-                 '    dynamic_str = "Test"' // new_line('a') // &
-                 'end program test_case_2'
-
+        call read_example( &
+            'examples/f90/issue_1614_character_deferred_length.f90', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -112,18 +102,8 @@ contains
         test_case_3_function_result = .true.
         print *, 'Test Case 3: Dynamic character function result'
 
-        source = 'program test_case_3' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    character(len=5) :: result_str' // new_line('a') // &
-                 '    result_str = get_name(5)' // new_line('a') // &
-                 'contains' // new_line('a') // &
-                 '    function get_name(n) result(str)' // new_line('a') // &
-                 '        integer, intent(in) :: n' // new_line('a') // &
-                 '        character(len=n) :: str' // new_line('a') // &
-                 '        str = repeat("A", n)' // new_line('a') // &
-                 '    end function get_name' // new_line('a') // &
-                 'end program test_case_3'
-
+        call read_example( &
+            'examples/f90/issue_1614_character_function_result.f90', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -154,12 +134,8 @@ contains
         test_case_4_module_variable = .true.
         print *, 'Test Case 4: Module-level character variable'
 
-        source = 'module string_module' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: buf_size = 256' // new_line('a') // &
-                 '    character(buf_size) :: buffer' // new_line('a') // &
-                 'end module string_module'
-
+        call read_example( &
+            'examples/f90/issue_1614_character_module_variable.f90', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -189,16 +165,8 @@ contains
         character(len=:), allocatable :: source, output, error_msg
         test_case_5_mixed_attributes = .true.
         print *, 'Test Case 5: Mixed character attributes'
-        source = 'program test_case_5' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer, parameter :: n = 10' // new_line('a') // &
-                 '    character(len=:), allocatable :: str1' // new_line('a') // &
-                 '    character(len=n), dimension(5) :: str_array' // new_line('a') // &
-                 '    character(len=*), parameter :: greeting = ' // &
-                 '"Hello"' // new_line('a') // &
-                 '    str1 = "Test"' // new_line('a') // &
-                 '    str_array(1) = "Item"' // new_line('a') // &
-                 'end program test_case_5'
+        call read_example( &
+            'examples/f90/issue_1614_character_mixed_attributes.f90', source)
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -234,5 +202,25 @@ contains
 
         print *, '  PASS: Mixed character attributes work'
     end function test_case_5_mixed_attributes
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1614_character_assumed_length

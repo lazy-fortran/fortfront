@@ -1,0 +1,9 @@
+program test_parens
+    character(len=10) :: x, y, z, result
+    x = "1"; y = "2"; z = "3"
+    ! Explicit parentheses must be preserved
+    result = (x + y) // z
+    print *, result
+    result = x + (y // z)
+    print *, result
+end program test_parens

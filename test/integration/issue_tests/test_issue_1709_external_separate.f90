@@ -1,6 +1,6 @@
 program test_issue_1709_external_separate
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, input_unit, iostat_end, iostat_eor
     implicit none
     logical :: passed
 
@@ -15,26 +15,27 @@ program test_issue_1709_external_separate
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     function run_external_function_case() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
         character(len=:), allocatable :: generated
         character(len=:), allocatable :: errors
 
-        source = 'program test_external' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    real, external :: my_func' // new_line('a') // &
-                 '    real :: result' // new_line('a') // &
-                 '' // new_line('a') // &
-                 '    result = my_func(5.0)' // new_line('a') // &
-                 '    print *, result' // new_line('a') // &
-                 'end program test_external' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'function my_func(x) result(y)' // new_line('a') // &
-                 '    real, intent(in) :: x' // new_line('a') // &
-                 '    real :: y' // new_line('a') // &
-                 '    y = x * 2.0' // new_line('a') // &
-                 'end function my_func'
+        call read_example('examples/f90/issue_1709_external_separate.f90', source)
 
         call transform_lazy_fortran_string(source, generated, errors)
 

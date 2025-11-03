@@ -1,0 +1,9 @@
+! Pointer assignment followed by print then regular assignment
+program pointer_assignment_print_then_assign
+    implicit none
+    integer, target :: x
+    integer, pointer :: p
+    p => x
+    print *, p
+    p = 100
+end program pointer_assignment_print_then_assign

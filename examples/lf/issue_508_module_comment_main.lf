@@ -1,0 +1,7 @@
+! Top-level comment about the module
+module m
+contains
+  subroutine main()
+    print *, 'ok'
+  end subroutine main
+end module m

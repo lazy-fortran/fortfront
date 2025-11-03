@@ -31,25 +31,7 @@ contains
 
         call initialize_codegen()
 
-        source = &
-            "program test_optional_present" // new_line('a') // &
-            "    implicit none" // new_line('a') // &
-            "    call greet('Alice')" // new_line('a') // &
-            "    call greet('Bob', 'Hello')" // new_line('a') // &
-            "    call greet('Charlie', greeting='Hi')" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine greet(name, greeting)" // new_line('a') // &
-            "        character(len=*), intent(in) :: name" // new_line('a') // &
-            "        character(len=*), optional, " // &
-            "intent(in) :: greeting" // new_line('a') // &
-            "        if (present(greeting)) then" // new_line('a') // &
-            "            print *, greeting, name" // new_line('a') // &
-            "        else" // new_line('a') // &
-            "            print *, 'Good day', name" // new_line('a') // &
-            "        end if" // new_line('a') // &
-            "    end subroutine greet" // new_line('a') // &
-            "end program test_optional_present"
-
+        call read_example('examples/f90/issue_1740_optional_keyword_arguments.f90', source)
         call lex_source(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) then
             print *, "FAIL: lexing error:", trim(error_msg)
@@ -75,5 +57,25 @@ contains
             print *, "PASS: keyword arg preserved"
         end if
     end function check_keyword_argument_preserved
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1740_keyword_arguments

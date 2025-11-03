@@ -1,5 +1,7 @@
 program test_issue_1413_array_function_result
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
@@ -9,14 +11,7 @@ program test_issue_1413_array_function_result
 
     print *, "=== Codegen: preserve array function result ==="
 
-    source = '! array-valued function should retain rank' // new_line('a') // &
-             'function create_vector()' // new_line('a') // &
-             '    implicit none' // new_line('a') // &
-             '    real, dimension(3) :: create_vector' // new_line('a') // &
-             '    create_vector = (/1.0, 2.0, 3.0/)' // new_line('a') // &
-             'end function create_vector' // new_line('a') // &
-             new_line('a') // &
-             'print *, create_vector()' // new_line('a')
+    call read_example('examples/lf/array_function_result.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -50,5 +45,21 @@ program test_issue_1413_array_function_result
         end if
         stop 1
     end if
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1413_array_function_result

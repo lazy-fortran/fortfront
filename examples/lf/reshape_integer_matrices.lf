@@ -1,0 +1,6 @@
+! Integer reshape operations should retain declarations
+A = reshape([1, 2, 3, 4], [2, 2])
+B = reshape([5, 6, 7, 8], [2, 2])
+C = A + B
+print *, C(1,:)
+print *, C(2,:)

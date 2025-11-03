@@ -13,24 +13,7 @@ program test_double_free_complex_code
     print *, "Testing double free issue with complex nested code..."
 
     ! Test the exact code from issue #88
-    test_code = "program test" // new_line('a') // &
-                "    implicit none" // new_line('a') // &
-                "    integer :: i, j, n" // new_line('a') // &
-                "    real :: matrix(100, 100)" // new_line('a') // &
-                "    n = 100" // new_line('a') // &
-                "    do i = 1, n" // new_line('a') // &
-                "        do j = 1, n" // new_line('a') // &
-                "            matrix(j, i) = real(i * j)" // new_line('a') // &
-                "        end do" // new_line('a') // &
-                "    end do" // new_line('a') // &
-                "    call some_proc(matrix, n)" // new_line('a') // &
-                "contains" // new_line('a') // &
-                "    subroutine some_proc(mat, size)" // new_line('a') // &
-                "        real, intent(in) :: mat(:,:)" // new_line('a') // &
-                "        integer, intent(in) :: size" // new_line('a') // &
-                "        print *, sum(mat)" // new_line('a') // &
-                "    end subroutine" // new_line('a') // &
-                "end program test"
+    call read_example('examples/f90/issue_88_double_free_complex.f90', test_code)
 
     call transform_lazy_fortran_string(test_code, output_code, error_msg)
     success = (len(error_msg) == 0)
@@ -46,5 +29,26 @@ program test_double_free_complex_code
     end if
 
     print *, "All tests passed!"
+
+contains
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_double_free_complex_code

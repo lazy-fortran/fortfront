@@ -1,0 +1,9 @@
+! Issue #935: multi-dimensional arrays with parameter dimensions
+program test_multidim_params
+    implicit none
+    integer, parameter :: m = 5, n = 10
+    real, dimension(m, n) :: matrix
+    integer, dimension(m, n, 3) :: tensor
+    matrix = 0.0
+    tensor = 0
+end program test_multidim_params

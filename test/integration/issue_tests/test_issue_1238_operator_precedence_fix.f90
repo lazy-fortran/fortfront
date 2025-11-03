@@ -30,21 +30,7 @@ contains
         test_concatenation_vs_addition_precedence = .true.
         print *, 'Test 1: String concatenation precedence vs addition...'
 
-        source = "program test_precedence" // new_line('a') // &
-                 "    character(len=10) :: a, b, c, r1, r2, r3" // new_line('a') // &
-                 '    a = "A"' // new_line('a') // &
-                 '    b = "B"' // new_line('a') // &
-                 '    c = "C"' // new_line('a') // &
-                 "    ! Test unparenthesized expression" // new_line('a') // &
-                 "    r1 = a + b // c" // new_line('a') // &
-                 "    ! Test with explicit parentheses (correct precedence)" // new_line('a') // &
-                 "    r2 = a + (b // c)" // new_line('a') // &
-                 "    ! Test with explicit parentheses (our expected parsing)" // new_line('a') // &
-                 "    r3 = (a + b) // c" // new_line('a') // &
-                 '    print *, "r1=", r1' // new_line('a') // &
-                 '    print *, "r2=", r2' // new_line('a') // &
-                 '    print *, "r3=", r3' // new_line('a') // &
-                 "end program test_precedence"
+        call read_example('examples/lf/issue_1238_concatenation_addition_precedence.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -71,16 +57,7 @@ contains
         test_nested_expressions = .true.
         print *, 'Test 2: Nested expression precedence...'
 
-        source = "program test_nested" // new_line('a') // &
-                 "    integer :: a, b, c, d" // new_line('a') // &
-                 "    character(len=20) :: s1, s2, s3, result" // new_line('a') // &
-                 "    ! Test arithmetic mixed with concatenation" // new_line('a') // &
-                 '    a = 1; b = 2; c = 3; d = 4' // new_line('a') // &
-                 '    s1 = "X"; s2 = "Y"; s3 = "Z"' // new_line('a') // &
-                 "    ! Complex expression mixing operators" // new_line('a') // &
-                 "    result = s1 // s2 + s3" // new_line('a') // &
-                 "    print *, result" // new_line('a') // &
-                 "end program test_nested"
+        call read_example('examples/lf/issue_1238_nested_expressions.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -104,15 +81,7 @@ contains
         test_parentheses_preservation = .true.
         print *, 'Test 3: Parentheses preservation in parsing...'
 
-        source = "program test_parens" // new_line('a') // &
-                 "    character(len=10) :: x, y, z, result" // new_line('a') // &
-                 '    x = "1"; y = "2"; z = "3"' // new_line('a') // &
-                 "    ! Explicit parentheses must be preserved" // new_line('a') // &
-                 "    result = (x + y) // z" // new_line('a') // &
-                 "    print *, result" // new_line('a') // &
-                 "    result = x + (y // z)" // new_line('a') // &
-                 "    print *, result" // new_line('a') // &
-                 "end program test_parens"
+        call read_example('examples/lf/issue_1238_parentheses_preservation.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -145,4 +114,33 @@ contains
         end do
     end function count_chars
 
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
+
 end program test_issue_1238_operator_precedence_fix
+

@@ -1,37 +1,51 @@
 program test_enhanced_error_messages
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
-    character(len=:), allocatable :: source, output, error_msg
+    character(len=:), allocatable :: source
+    character(len=:), allocatable :: output
+    character(len=:), allocatable :: error_msg
 
     print *, '=== Testing Enhanced Error Message Behavior ==='
     print *
 
-    ! Test 1: Invalid syntax - missing 'then'
     print *, 'Test 1: Missing "then" in if statement'
-    source = 'program test' // new_line('a') // &
-             'if x > 0' // new_line('a') // &
-             '  print *, x' // new_line('a') // &
-             'end if' // new_line('a') // &
-             'end program'
+    call read_example('examples/lf/error_missing_then.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message length:', len_trim(error_msg)
-    print *, 'Error message: "' // error_msg // '"'
+    print *, 'Error message: "' // trim(error_msg) // '"'
     print *, 'Output contains error comment:', index(output, '! COMPILATION') > 0
     print *, 'First few lines of output:'
     print *, output(1:min(200, len(output)))
     print *
 
-    ! Test 2: Complete garbage
     print *, 'Test 2: Complete garbage input'
-    source = 'this is not fortran at all 123 *** %%% invalid'
+    call read_example('examples/lf/error_complete_garbage.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message length:', len_trim(error_msg)
-    print *, 'Error message: "' // error_msg // '"'
+    print *, 'Error message: "' // trim(error_msg) // '"'
     print *, 'Output contains error comment:', index(output, '! COMPILATION') > 0
     print *, 'First few lines of output:'
     print *, output(1:min(200, len(output)))
     print *
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_enhanced_error_messages

@@ -2,6 +2,7 @@ program test_issue_1583_computed_goto
     use fortfront, only: transform_lazy_fortran_string, tooling_parse_options_t, &
                          tooling_load_ast_from_string, ast_arena_t, ast_to_json, &
                          token_t
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     logical :: all_passed
@@ -23,6 +24,20 @@ program test_issue_1583_computed_goto
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     logical function test_computed_goto_basic()
         character(len=:), allocatable :: source, output, error_msg
         type(tooling_parse_options_t) :: options
@@ -30,18 +45,7 @@ contains
         test_computed_goto_basic = .true.
         print *, 'Testing basic computed goto preservation...'
 
-        source = 'program test_cgoto' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: choice' // new_line('a') // &
-                 '    choice = 2' // new_line('a') // &
-                 '    goto (100, 200, 300), choice' // new_line('a') // &
-                 '100 print *, "One"' // new_line('a') // &
-                 '    goto 999' // new_line('a') // &
-                 '200 print *, "Two"' // new_line('a') // &
-                 '    goto 999' // new_line('a') // &
-                 '300 print *, "Three"' // new_line('a') // &
-                 '999 continue' // new_line('a') // &
-                 'end program test_cgoto'
+        call read_example('examples/f90/issue_1583_computed_goto_basic.f90', source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .false.
@@ -93,11 +97,7 @@ contains
         test_computed_goto_full = .true.
         print *, 'Testing computed goto AST generation...'
 
-        source = 'program test' // new_line('a') // &
-                 '    goto (10, 20), i' // new_line('a') // &
-                 '10  continue' // new_line('a') // &
-                 '20  continue' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_1583_computed_goto_minimal.f90', source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .false.

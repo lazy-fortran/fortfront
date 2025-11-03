@@ -1,23 +1,13 @@
 program test_issue_1735_result_type
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
-    source = 'module issue_1735_module'//new_line('a')// &
-             '    implicit none'//new_line('a')// &
-             'contains'//new_line('a')// &
-             '    integer function square(x) result(result)'//new_line('a')// &
-             '        integer :: x'//new_line('a')// &
-             '        result = x * x'//new_line('a')// &
-             '    end function square'//new_line('a')// &
-             '    double precision function cube(x) result(res)'//new_line('a')// &
-             '        double precision :: x'//new_line('a')// &
-             '        res = x * x * x'//new_line('a')// &
-             '    end function cube'//new_line('a')// &
-             'end module issue_1735_module'
+    call read_example('examples/f90/issue_1735_result_type.f90', source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
@@ -42,5 +32,21 @@ program test_issue_1735_result_type
     end if
 
     print *, 'PASS: explicit result types preserved'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1735_result_type

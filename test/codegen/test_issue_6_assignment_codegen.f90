@@ -26,11 +26,7 @@ contains
     subroutine test_simple_assignment()
         print *, "Testing simple assignment preservation..."
 
-        source = "program test" // new_line('a') // &
-                 "    implicit none" // new_line('a') // &
-                 "    real :: x" // new_line('a') // &
-                 "    x = 42.0" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/issue_6_simple_assignment.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -54,13 +50,7 @@ contains
     subroutine test_expression_assignment()
         print *, "Testing expression assignment preservation..."
 
-        source = "program test" // new_line('a') // &
-                 "    implicit none" // new_line('a') // &
-                 "    real :: a = 1.0" // new_line('a') // &
-                 "    real :: b = 2.0" // new_line('a') // &
-                 "    real :: result" // new_line('a') // &
-                 "    result = a * b" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/issue_6_expression_assignment.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -84,13 +74,7 @@ contains
     subroutine test_multiple_assignments()
         print *, "Testing multiple assignments preservation..."
 
-        source = "program test" // new_line('a') // &
-                 "    implicit none" // new_line('a') // &
-                 "    integer :: i, j, k" // new_line('a') // &
-                 "    i = 1" // new_line('a') // &
-                 "    j = 2" // new_line('a') // &
-                 "    k = i + j" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/f90/issue_6_multiple_assignments.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -123,5 +107,25 @@ contains
             stop 1
         end if
     end subroutine test_multiple_assignments
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_6_assignment_codegen

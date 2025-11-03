@@ -1,0 +1,4 @@
+real(dp), allocatable :: grid(:,:)
+allocate(grid(2, 3))
+grid = reshape([1.0d0, 2.0d0, 3.0d0, 4.0d0, 5.0d0, 6.0d0],                 [2, 3])
+print *, grid

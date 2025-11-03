@@ -1,6 +1,6 @@
 program test_issue_1356_function_name
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                              iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none
@@ -16,42 +16,44 @@ program test_issue_1356_function_name
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
-            print *, 'FAIL: transformation reported error:'
-            print *, trim(error_msg)
+            write (error_unit, '(A)') 'FAIL: transformation reported error:'
+            write (error_unit, '(A)') trim(error_msg)
             error stop 1
         end if
     end if
 
     if (.not. allocated(output_text)) then
-        print *, 'FAIL: no output produced for issue_1356 example'
+        write (error_unit, '(A)') 'FAIL: no output produced for issue_1356 example'
         error stop 1
     end if
 
     lower_output_text = to_lower(output_text)
 
     if (index(lower_output_text, 'integer function double') == 0) then
-        print *, 'FAIL: function double is not emitted with integer return type'
-        print *, trim(output_text)
+        write (error_unit, '(A)') &
+            'FAIL: function double is not emitted with integer return type'
+        write (error_unit, '(A)') trim(output_text)
         error stop 1
     end if
 
     if (index(lower_output_text, 'integer :: x') == 0) then
-        print *, 'FAIL: parameter x is not inferred as integer'
-        print *, trim(output_text)
+        write (error_unit, '(A)') 'FAIL: parameter x is not inferred as integer'
+        write (error_unit, '(A)') trim(output_text)
         error stop 1
     end if
 
     if (.not. has_integer_declaration(lower_output_text, [character(len=16) :: &
                                                           'a', 'b'])) then
-        print *, 'FAIL: caller variables a/b lack inferred integer declarations'
-        print *, trim(output_text)
+        write (error_unit, '(A)') &
+            'FAIL: caller variables a/b lack inferred integer declarations'
+        write (error_unit, '(A)') trim(output_text)
         error stop 1
     end if
 
     if (index(lower_output_text, 'real function double') > 0 .or. &
         index(lower_output_text, 'real :: double') > 0) then
-        print *, 'FAIL: real declarations for double remain in output'
-        print *, trim(output_text)
+        write (error_unit, '(A)') 'FAIL: real declarations for double remain'
+        write (error_unit, '(A)') trim(output_text)
         error stop 1
     end if
 
@@ -68,7 +70,7 @@ contains
 
         call read_all_stdin_or_file(.true., path, content, status)
         if (status /= 0) then
-            print *, 'FAIL: failed to read ', trim(path)
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
             error stop 1
         end if
     end subroutine read_example
@@ -76,7 +78,11 @@ contains
     logical function has_integer_declaration(text, names)
         character(len=*), intent(in) :: text
         character(len=*), dimension(:), intent(in) :: names
-        integer :: pos, start_pos, end_pos, i, text_len
+        integer :: pos
+        integer :: start_pos
+        integer :: end_pos
+        integer :: i
+        integer :: text_len
         character(len=:), allocatable :: line
         character(1), parameter :: nl = new_line('a')
 

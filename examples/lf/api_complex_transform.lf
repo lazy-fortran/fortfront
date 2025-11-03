@@ -1,0 +1,10 @@
+! Complex program mixing functions and assignments for API regression
+real function area(r)
+    real :: r
+    pi = 3.14159
+    area = pi * r * r
+end function
+
+radius = 5.0
+a = area(radius)
+print *, "Area:", a

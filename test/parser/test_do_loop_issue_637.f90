@@ -30,12 +30,7 @@ contains
         test_simple_literals = .true.
         print *, "Test 1: Simple literals (do i = 1, 10)..."
 
-        source = "program test" // new_line('a') // &
-                 "  integer :: i" // new_line('a') // &
-                 "  do i = 1, 10" // new_line('a') // &
-                 "    print *, i" // new_line('a') // &
-                 "  end do" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/lf/issue_637_do_loop_simple_literals.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -56,13 +51,7 @@ contains
         test_with_variables = .true.
         print *, "Test 2: With variables (do i = 1, n)..."
 
-        source = "program test" // new_line('a') // &
-                 "  integer :: i, n" // new_line('a') // &
-                 "  n = 10" // new_line('a') // &
-                 "  do i = 1, n" // new_line('a') // &
-                 "    print *, i" // new_line('a') // &
-                 "  end do" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/lf/issue_637_do_loop_with_variables.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -83,13 +72,7 @@ contains
         test_with_expressions = .true.
         print *, "Test 3: With expressions (do i = n-5, n+5) - CRITICAL TEST..."
 
-        source = "program test" // new_line('a') // &
-                 "  integer :: i, n" // new_line('a') // &
-                 "  n = 10" // new_line('a') // &
-                 "  do i = n-5, n+5" // new_line('a') // &
-                 "    print *, i" // new_line('a') // &
-                 "  end do" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/lf/issue_637_do_loop_with_expressions.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -110,13 +93,7 @@ contains
         test_with_function_calls = .true.
         print *, "Test 4: With function calls (do i = 1, size(array))..."
 
-        source = "program test" // new_line('a') // &
-                 "  integer :: i" // new_line('a') // &
-                 "  integer :: array(10)" // new_line('a') // &
-                 "  do i = 1, size(array)" // new_line('a') // &
-                 "    print *, i" // new_line('a') // &
-                 "  end do" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/lf/issue_637_do_loop_with_function_calls.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -137,14 +114,7 @@ contains
         test_complex_expressions = .true.
         print *, "Test 5: Complex expressions (do i = n/2-5, n/2+5, step*2)..."
 
-        source = "program test" // new_line('a') // &
-                 "  integer :: i, n, step" // new_line('a') // &
-                 "  n = 20" // new_line('a') // &
-                 "  step = 1" // new_line('a') // &
-                 "  do i = n/2-5, n/2+5, step*2" // new_line('a') // &
-                 "    print *, i" // new_line('a') // &
-                 "  end do" // new_line('a') // &
-                 "end program test"
+        call read_example('examples/lf/issue_637_do_loop_complex_expressions.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -158,5 +128,26 @@ contains
 
         print *, '  PASS: Complex expressions work'
     end function
+
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_do_loop_issue_637

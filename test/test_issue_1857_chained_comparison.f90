@@ -1,57 +1,60 @@
 program test_issue_1857_chained_comparison
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
-    logical :: test_passed
-
-    test_passed = test_chained_comparison_output()
-
-    if (test_passed) then
-        print *, "PASS: Issue #1857 chained comparison detection"
+    if (test_chained_comparison_output()) then
+        print *, 'PASS: Issue #1857 chained comparison detection'
     else
-        print *, "FAIL: Issue #1857 - chained comparison not properly detected"
-        stop 1
+        error stop 'FAIL: Issue #1857 chained comparison not detected'
     end if
 
 contains
 
-    function test_chained_comparison_output() result(passed)
-        use transformation_api, only: transform_lazy_fortran_string
-        logical :: passed
-        character(len=:), allocatable :: source, output, error_msg
+    include 'common/cli_io_reader.inc'
 
-        passed = .true.
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
 
-        source = &
-            "x = 5" // new_line('a') // &
-            "result = 1 < x < 10" // new_line('a') // &
-            "print *, 'Result:', result"
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
-        print *, "===== Testing Issue 1857: Chained comparison detection ====="
-        print *, "Input code:"
-        print *, trim(source)
+    logical function test_chained_comparison_output()
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+
+        test_chained_comparison_output = .true.
+
+        call read_example('examples/lf/issue_1857_chained_comparison.lf', &
+                          source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         if (.not. allocated(output)) then
-            print *, "ERROR: No output generated"
-            passed = .false.
+            write (error_unit, '(A)') 'ERROR: No output generated'
+            test_chained_comparison_output = .false.
             return
         end if
 
-        print *, "Generated output:"
-        print *, trim(output)
-
-        if (index(output, "< 10") /= 0) then
-            print *, "ERROR: Output contains '< 10', chained comparison was not truncated"
-            passed = .false.
-        else if (index(output, "result = 1 < x") == 0) then
-            print *, "ERROR: Output does not contain expected partial expression"
-            passed = .false.
-        else
-            print *, "Good: Chained comparison was detected and truncated"
-            print *, "Note: Error message appears on stderr during execution"
+        if (index(output, '< 10') /= 0) then
+            write (error_unit, '(A)') &
+                "ERROR: Output contains '< 10', chained comparison not truncated"
+            write (error_unit, '(A)') trim(output)
+            test_chained_comparison_output = .false.
+        else if (index(output, 'result = 1 < x') == 0) then
+            write (error_unit, '(A)') &
+                'ERROR: Output missing expected partial expression'
+            write (error_unit, '(A)') trim(output)
+            test_chained_comparison_output = .false.
         end if
-
     end function test_chained_comparison_output
 
 end program test_issue_1857_chained_comparison

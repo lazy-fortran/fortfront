@@ -1,17 +1,15 @@
 program test_array_assignment_basic
     ! Regression for issue #869: array assignment should be preserved in codegen
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
 
-    source = "program demo" // new_line('a') // &
-             "  implicit none" // new_line('a') // &
-             "  integer :: arr(10)" // new_line('a') // &
-             "  arr(5) = 100" // new_line('a') // &
-             "end program demo"
+    call read_example('examples/lf/array_element_assignment.lf', source)
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -30,4 +28,21 @@ program test_array_assignment_basic
         print *, trim(output)
         stop 1
     end if
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_array_assignment_basic

@@ -1,6 +1,8 @@
 program test_issue_1573_pointer_assignment_lost
     ! Test for issue #1573: Pointer assignment (=>) lost during transformation
     ! Bug: Pointer assignment is silently dropped when followed by print then regular assignment
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
 
     call test_pointer_assignment_preserved_case1()
@@ -15,13 +17,8 @@ contains
         ! This case works: pointer assignment -> regular assignment -> print
         character(len=:), allocatable :: input_code, output_code, error_msg
 
-        input_code = "program test" // new_line('A') // &
-                     "integer, target :: x" // new_line('A') // &
-                     "integer, pointer :: p" // new_line('A') // &
-                     "p => x" // new_line('A') // &
-                     "p = 100" // new_line('A') // &
-                     "print *, p" // new_line('A') // &
-                     "end program test"
+        call read_example('examples/lf/pointer_assignment_before_print.lf', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -44,12 +41,8 @@ contains
         ! This case works: pointer assignment with no subsequent regular assignment
         character(len=:), allocatable :: input_code, output_code, error_msg
 
-        input_code = "program test" // new_line('A') // &
-                     "integer, target :: x" // new_line('A') // &
-                     "integer, pointer :: p" // new_line('A') // &
-                     "p => x" // new_line('A') // &
-                     "print *, p" // new_line('A') // &
-                     "end program test"
+        call read_example('examples/lf/pointer_assignment_direct_print.lf', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -72,13 +65,8 @@ contains
         ! BUG: This case fails - pointer assignment -> print -> regular assignment
         character(len=:), allocatable :: input_code, output_code, error_msg
 
-        input_code = "program test" // new_line('A') // &
-                     "integer, target :: x" // new_line('A') // &
-                     "integer, pointer :: p" // new_line('A') // &
-                     "p => x" // new_line('A') // &
-                     "print *, p" // new_line('A') // &
-                     "p = 100" // new_line('A') // &
-                     "end program test"
+        call read_example('examples/lf/pointer_assignment_print_then_assign.lf', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -97,5 +85,19 @@ contains
 
         print *, "PASS case3 (bug fixed): pointer assignment preserved (print before assignment)"
     end subroutine test_pointer_assignment_lost_bug
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1573_pointer_assignment_lost

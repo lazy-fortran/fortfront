@@ -20,19 +20,7 @@ contains
     subroutine run_recursive_if_test()
         logical :: ok
 
-        source = "module recursion_mod" // new_line('a') // &
-                 "    implicit none" // new_line('a') // &
-                 "contains" // new_line('a') // new_line('a') // &
-                 "    recursive function factorial(n) result(f)" // new_line('a') // &
-                 "        integer, intent(in) :: n" // new_line('a') // &
-                 "        integer :: f" // new_line('a') // new_line('a') // &
-                 "        if (n <= 1) then" // new_line('a') // &
-                 "            f = 1" // new_line('a') // &
-                 "        else" // new_line('a') // &
-                 "            f = n * factorial(n - 1)" // new_line('a') // &
-                 "        end if" // new_line('a') // &
-                 "    end function factorial" // new_line('a') // new_line('a') // &
-                 "end module recursion_mod"
+        call read_example('examples/f90/issue_1350_recursive_if_else.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -75,6 +63,26 @@ contains
 
         print *, "  PASS: recursive keyword and IF/ELSE preserved"
     end subroutine run_recursive_if_test
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1350_recursive_keyword
 

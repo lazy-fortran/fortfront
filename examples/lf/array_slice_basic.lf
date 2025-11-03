@@ -1,0 +1,5 @@
+program array_slice_basic
+    implicit none
+    integer :: x
+    x = a[2:5]
+end program array_slice_basic

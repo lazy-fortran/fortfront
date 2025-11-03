@@ -1,21 +1,15 @@
 ! Test implied DO in array constructor
 program test_issue_1575_implied_do_array_constructor
     use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
-    source = 'program issue_1575' // new_line('a') // &
-             '    implicit none' // new_line('a') // &
-             '    integer :: arr(10)' // new_line('a') // &
-             '    integer :: i' // new_line('a') // &
-             '' // new_line('a') // &
-             '    arr = [(i*2, i=1,10)]' // new_line('a') // &
-             '' // new_line('a') // &
-             '    print *, arr' // new_line('a') // &
-             'end program issue_1575'
+    call read_example('examples/f90/issue_1575_implied_do_array_constructor.f90', &
+                      source)
 
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
@@ -48,4 +42,21 @@ program test_issue_1575_implied_do_array_constructor
     end if
 
     print *, 'PASS: implied-do array constructor preserved'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
 end program test_issue_1575_implied_do_array_constructor

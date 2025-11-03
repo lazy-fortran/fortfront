@@ -3,72 +3,29 @@ program test_control_flow_keywords
     use transformation_api, only: transform_lazy_fortran_string
 
     logical :: all_passed = .true.
+    character(len=:), allocatable :: source
 
     print *, '=== Testing control flow keyword recognition ==='
 
     ! Test select case structure
-    call test_control_flow("select case basic", &
-                           'program test' // new_line('a') // &
-                           '    integer :: x = 2' // new_line('a') // &
-                           '    select case (x)' // new_line('a') // &
-                           '        case (1)' // new_line('a') // &
-                           '            print *, "one"' // new_line('a') // &
-                           '        case (2)' // new_line('a') // &
-                           '            print *, "two"' // new_line('a') // &
-                           '        case default' // new_line('a') // &
-                           '            print *, "other"' // new_line('a') // &
-                           '    end select' // new_line('a') // &
-                           'end program test', &
-                           'select')
+    call read_example('examples/f90/control_flow_select_case_basic.f90', source)
+    call test_control_flow("select case basic", source, 'select')
 
     ! Test where construct
-    call test_control_flow("where construct", &
-                           'program test' // new_line('a') // &
-                           '    real :: a(10), b(10)' // new_line('a') // &
-                           '    where (a > 0.0)' // new_line('a') // &
-                           '        b = sqrt(a)' // new_line('a') // &
-                           '    elsewhere' // new_line('a') // &
-                           '        b = 0.0' // new_line('a') // &
-                           '    end where' // new_line('a') // &
-                           'end program test', &
-                           'where')
+    call read_example('examples/f90/control_flow_where_construct.f90', source)
+    call test_control_flow("where construct", source, 'where')
 
     ! Test associate construct
-    call test_control_flow("associate construct", &
-                           'program test' // new_line('a') // &
-                           '    real :: x(10), y(10)' // new_line('a') // &
-                           '    associate (z => x + y)' // new_line('a') // &
-                           '        print *, z' // new_line('a') // &
-                           '    end associate' // new_line('a') // &
-                           'end program test', &
-                           'associate')
+    call read_example('examples/f90/control_flow_associate_construct.f90', source)
+    call test_control_flow("associate construct", source, 'associate')
 
     ! Test forall construct
-    call test_control_flow("forall construct", &
-                           'program test' // new_line('a') // &
-                           '    real :: a(10,10)' // new_line('a') // &
-                           '    integer :: i, j' // new_line('a') // &
-                           '    forall (i=1:10, j=1:10, i==j)' // new_line('a') // &
-                           '        a(i,j) = 1.0' // new_line('a') // &
-                           '    end forall' // new_line('a') // &
-                           'end program test', &
-                           'forall')
+    call read_example('examples/f90/control_flow_forall_construct.f90', source)
+    call test_control_flow("forall construct", source, 'forall')
 
     ! Test nested select case
-    call test_control_flow("nested select case", &
-                           'program test' // new_line('a') // &
-                           '    integer :: x = 2, y = 3' // new_line('a') // &
-                           '    select case (x)' // new_line('a') // &
-                           '        case (1)' // new_line('a') // &
-                           '            print *, "x is one"' // new_line('a') // &
-                           '        case (2)' // new_line('a') // &
-                           '            select case (y)' // new_line('a') // &
-                           '                case (3)' // new_line('a') // &
-                           '                    print *, "x is two, y is three"' // new_line('a') // &
-                           '            end select' // new_line('a') // &
-                           '    end select' // new_line('a') // &
-                           'end program test', &
-                           'select')
+    call read_example('examples/f90/control_flow_nested_select_case.f90', source)
+    call test_control_flow("nested select case", source, 'select')
 
     if (all_passed) then
         print *, 'All control flow keyword tests PASSED!'
@@ -142,5 +99,33 @@ contains
         end if
 
     end subroutine test_control_flow
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_control_flow_keywords

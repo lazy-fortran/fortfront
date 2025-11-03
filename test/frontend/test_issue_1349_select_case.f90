@@ -8,24 +8,7 @@ program test_issue_1349_select_case
 
     print *, '=== Issue #1349: SELECT CASE bodies preserved ==='
 
-    input_code = 'program test_select_case' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: i' // new_line('a') // new_line('a') // &
-                 '    do i = 1, 5' // new_line('a') // &
-                 '        select case (i)' // new_line('a') // &
-                 '        case (1)' // new_line('a') // &
-                 "            print *, 'One'" // new_line('a') // &
-                 '        case (2:3)' // new_line('a') // &
-                 "            print *, 'Two or Three'" // new_line('a') // &
-                 '        case (4)' // new_line('a') // &
-                 "            print *, 'Four'" // new_line('a') // &
-                 '        case (5, 6, 7)' // new_line('a') // &
-                 "            print *, 'FiveSixSeven'" // new_line('a') // &
-                 '        case default' // new_line('a') // &
-                 "            print *, 'Other'" // new_line('a') // &
-                 '        end select' // new_line('a') // &
-                 '    end do' // new_line('a') // new_line('a') // &
-                 'end program test_select_case'
+    call read_example('examples/f90/issue_1349_select_case_bodies.f90', input_code)
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -60,5 +43,25 @@ contains
             stop 1
         end if
     end subroutine require
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1349_select_case

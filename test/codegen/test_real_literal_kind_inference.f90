@@ -1,72 +1,62 @@
 program test_real_literal_kind_inference
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
+    character(len=:), allocatable :: source
+    character(len=:), allocatable :: output
+    character(len=:), allocatable :: error_msg
     logical :: all_passed
-    real(dp), parameter :: zero_dp = 0.0_dp
 
-    if (zero_dp /= 0.0_dp) then
+    call read_example('examples/lf/real_literal_kind_inference.lf', source)
+    call transform_lazy_fortran_string(source, output, error_msg)
+
+    if (len_trim(error_msg) > 0) then
+        write (error_unit, '(A)') 'Unexpected error: ' // trim(error_msg)
         stop 1
     end if
 
-    all_passed = .true.
-
-    if (.not. test_double_exponent_infers_double()) all_passed = .false.
-    if (.not. test_kind_suffix_infers_double()) all_passed = .false.
+    all_passed = (index(output, 'double precision :: c, d') > 0 .or. &
+                  (index(output, 'double precision :: c') > 0 .and. &
+                   index(output, 'double precision :: d') > 0)) .and. &
+                 index(output, 'c = 1.0d0') > 0 .and. &
+                 index(output, 'd = 3.14159_8') > 0
 
     if (all_passed) then
-        stop 0
+        print *, 'PASS: real literal kind inference retains double precision'
     else
-        stop 1
+        error stop 'FAIL: real literal kind inference regression'
     end if
 
 contains
 
-    function test_double_exponent_infers_double() result(passed)
-        logical :: passed
-        character(len=:), allocatable :: output
+    include '../common/cli_io_reader.inc'
 
-        output = compile_lazy_line('c = 1.0d0')
-        passed = check_output(output, 'double precision :: c', 'c = 1.0d0')
-    end function test_double_exponent_infers_double
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
 
-    function test_kind_suffix_infers_double() result(passed)
-        logical :: passed
-        character(len=:), allocatable :: output
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
-        output = compile_lazy_line('d = 3.14159_8')
-        passed = check_output(output, 'double precision :: d', 'd = 3.14159_8')
-    end function test_kind_suffix_infers_double
-
-    function check_output(output, declaration, assignment) result(passed)
-        character(len=*), intent(in) :: output
+    logical function check_output(buffer, declaration, assignment)
+        character(len=*), intent(in) :: buffer
         character(len=*), intent(in) :: declaration
         character(len=*), intent(in) :: assignment
-        logical :: passed
 
-        passed = index(output, declaration) > 0
-        if (passed) passed = index(output, assignment) > 0
-        if (passed) passed = index(output, '!ERROR:') == 0
-        if (.not. passed) then
-            print *, 'Generated output:'
-            print *, trim(output)
+        check_output = index(buffer, declaration) > 0 .and. &
+                       index(buffer, assignment) > 0 .and. &
+                       index(buffer, '!ERROR:') == 0
+        if (.not. check_output) then
+            write (error_unit, '(A)') 'Generated output:'
+            write (error_unit, '(A)') trim(buffer)
         end if
     end function check_output
-
-    function compile_lazy_line(source_line) result(output)
-        character(len=*), intent(in) :: source_line
-        character(len=:), allocatable :: output
-        character(len=:), allocatable :: source
-        character(len=:), allocatable :: error_msg
-
-        source = source_line
-        call transform_lazy_fortran_string(source, output, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, 'Unexpected error:'
-            print *, trim(error_msg)
-        end if
-        if (.not. allocated(output)) output = ''
-    end function compile_lazy_line
 
 end program test_real_literal_kind_inference

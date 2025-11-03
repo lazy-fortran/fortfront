@@ -1,0 +1,9 @@
+! First top comment line
+! Second top comment line
+
+module mm
+contains
+  subroutine main()
+    print *, 'ok'
+  end subroutine main
+end module mm

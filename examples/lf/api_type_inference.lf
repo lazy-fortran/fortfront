@@ -1,0 +1,4 @@
+! Type inference scenario for API smoke tests
+x = 42
+y = 3.14
+z = "hello"

@@ -1,0 +1,10 @@
+function double(x)
+    double = x * 2
+end function
+
+function quadruple(x)
+    quadruple = double(double(x))
+end function
+
+result = quadruple(5)
+print *, 'Result:', result

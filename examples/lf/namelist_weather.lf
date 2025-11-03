@@ -1,0 +1,5 @@
+! NAMELIST declaration should be preserved in generated code
+real :: temperature
+namelist /weather/ temperature
+temperature = 285.5
+print *, temperature

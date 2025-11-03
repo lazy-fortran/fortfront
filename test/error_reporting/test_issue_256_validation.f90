@@ -1,5 +1,6 @@
 program test_issue_256_validation
     use transformation_api, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
 
     logical :: all_passed
     integer :: test_count, passed_count
@@ -55,6 +56,20 @@ program test_issue_256_validation
 
 contains
 
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
     subroutine run_test(test_name, result)
         character(len=*), intent(in) :: test_name
         logical, intent(in) :: result
@@ -73,11 +88,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test invalid if statement
-        source = 'program test' // new_line('a') // &
-                 'if x > 0' // new_line('a') // &
-                 '  print *, x' // new_line('a') // &
-                 'end if' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_missing_then.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -92,12 +103,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error with specific location
-        source = 'program test' // new_line('a') // &
-                 'integer :: x' // new_line('a') // &
-                 'if x > 0' // new_line('a') // &  ! Error on line 3
-                 '  print *, x' // new_line('a') // &
-                 'end if' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_location_info.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -111,9 +117,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error that can provide suggestion
-        source = 'if x > 0' // new_line('a') // &
-                 '  print *, x' // new_line('a') // &
-                 'end if'
+        call read_example('examples/f90/issue_256_fix_suggestion.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -128,7 +132,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test completely invalid input
-        source = 'this is not valid fortran syntax at all *** 123'
+        call read_example('examples/f90/issue_256_invalid_syntax.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -141,7 +145,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test invalid syntax
-        source = 'garbage input 123 *** invalid'
+        call read_example('examples/f90/issue_256_garbage_input.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -155,10 +159,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error with source context
-        source = 'program test' // new_line('a') // &
-                 'if x > 0' // new_line('a') // &
-                 '  print *, x' // new_line('a') // &
-                 'end program'
+        call read_example('examples/f90/issue_256_source_context.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 

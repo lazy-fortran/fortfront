@@ -29,16 +29,7 @@ contains
         test_simple_goto_preservation = .true.
         print *, 'Testing simple goto preservation...'
 
-        source = 'program test_goto' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: i' // new_line('a') // &
-                 '    ' // new_line('a') // &
-                 '    i = 0' // new_line('a') // &
-                 '    goto 100' // new_line('a') // &
-                 '    i = 999' // new_line('a') // &
-                 '100 continue' // new_line('a') // &
-                 '    print *, i' // new_line('a') // &
-                 'end program test_goto'
+        call read_example('examples/f90/issue_1582_simple_goto.f90', source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .false.
@@ -86,15 +77,7 @@ contains
         test_goto_no_replacement = .true.
         print *, 'Testing that goto is not replaced with wrong code...'
 
-        source = 'program test_goto' // new_line('a') // &
-                 '    implicit none' // new_line('a') // &
-                 '    integer :: i' // new_line('a') // &
-                 '    i = 0' // new_line('a') // &
-                 '    goto 100' // new_line('a') // &
-                 '    i = 999' // new_line('a') // &
-                 '100 continue' // new_line('a') // &
-                 '    print *, i' // new_line('a') // &
-                 'end program test_goto'
+        call read_example('examples/f90/issue_1582_simple_goto.f90', source)
 
         options = tooling_parse_options_t()
         options%run_semantics = .false.
@@ -133,5 +116,25 @@ contains
             print *, '  PASS: unreachable code preserved'
         end if
     end function test_goto_no_replacement
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, file_size, stat
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+
+        inquire (unit=unit, size=file_size)
+        allocate (buffer(file_size))
+        read (unit, iostat=stat) buffer
+        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
+        close (unit)
+
+        allocate (character(len=file_size) :: content)
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_1582_simple_goto

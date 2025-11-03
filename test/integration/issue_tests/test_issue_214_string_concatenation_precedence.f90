@@ -33,11 +33,7 @@ contains
         test_string_concatenation_precedence_with_parentheses = .true.
         print *, 'Testing string concatenation precedence using explicit parentheses...'
 
-        source1 = 'program test_wrong_precedence' // new_line('a') // &
-                  '    character(len=10) :: result' // new_line('a') // &
-                  '    result = "a" + ("b" // "c")' // new_line('a') // &
-                  '    print *, result' // new_line('a') // &
-                  'end program test_wrong_precedence'
+        call read_example('examples/lf/issue_214_wrong_precedence.lf', source1)
 
         call transform_lazy_fortran_string(source1, output1, error_msg1)
 
@@ -49,11 +45,7 @@ contains
             end if
         end if
 
-        source2 = 'program test_correct_precedence' // new_line('a') // &
-                  '    character(len=10) :: result' // new_line('a') // &
-                  '    result = ("a" + "b") // "c"' // new_line('a') // &
-                  '    print *, result' // new_line('a') // &
-                  'end program test_correct_precedence'
+        call read_example('examples/lf/issue_214_correct_precedence.lf', source2)
 
         call transform_lazy_fortran_string(source2, output2, error_msg2)
 
@@ -73,11 +65,7 @@ contains
             print *, '  Correct precedence version (// lower than +) compiled'
         end if
 
-        source3 = 'program test_ambiguous' // new_line('a') // &
-                  '    character(len=10) :: result' // new_line('a') // &
-                  '    result = "a" + "b" // "c"' // new_line('a') // &
-                  '    print *, result' // new_line('a') // &
-                  'end program test_ambiguous'
+        call read_example('examples/lf/issue_214_ambiguous.lf', source3)
 
         call transform_lazy_fortran_string(source3, output3, error_msg3)
 
@@ -101,11 +89,7 @@ contains
         test_unary_operator_precedence = .true.
         print *, 'Testing unary operator precedence (Issue #215)...'
 
-        source = 'program test_unary' // new_line('a') // &
-                 '    integer :: result' // new_line('a') // &
-                 '    result = -2 ** 2' // new_line('a') // &
-                 '    print *, result' // new_line('a') // &
-                 'end program test_unary'
+        call read_example('examples/lf/issue_215_unary_precedence.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -132,15 +116,7 @@ contains
         test_comparison_non_associativity = .true.
         print *, 'Testing comparison non-associativity (Issue #216)...'
 
-        source = 'program test_comparison' // new_line('a') // &
-                 '    integer :: a, b, c' // new_line('a') // &
-                 '    logical :: result' // new_line('a') // &
-                 '    a = 1' // new_line('a') // &
-                 '    b = 2' // new_line('a') // &
-                 '    c = 3' // new_line('a') // &
-                 '    result = a < b < c' // new_line('a') // &
-                 '    print *, result' // new_line('a') // &
-                 'end program test_comparison'
+        call read_example('examples/lf/issue_216_comparison_chain.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -167,15 +143,7 @@ contains
         test_comprehensive_precedence_hierarchy = .true.
         print *, 'Testing comprehensive operator precedence hierarchy...'
 
-        source = 'program test_comprehensive' // new_line('a') // &
-                 '    character(len=10) :: a, b, c, result_str' // new_line('a') // &
-                 '    a = "1"' // new_line('a') // &
-                 '    b = "2"' // new_line('a') // &
-                 '    c = "3"' // new_line('a') // &
-                 '    ! Test string concatenation precedence' // new_line('a') // &
-                 '    result_str = a + b // c' // new_line('a') // &
-                 '    print *, result_str' // new_line('a') // &
-                 'end program test_comprehensive'
+        call read_example('examples/lf/issue_214_comprehensive_precedence.lf', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -195,5 +163,33 @@ contains
         end if
 
     end function test_comprehensive_precedence_hierarchy
+
+    subroutine read_example(filepath, content)
+        character(len=*), intent(in) :: filepath
+        character(len=:), allocatable, intent(out) :: content
+        integer :: unit, stat, file_size
+        character(len=1), allocatable :: buffer(:)
+
+        open (newunit=unit, file=filepath, status='old', access='stream', &
+              form='unformatted', iostat=stat)
+        if (stat /= 0) then
+            print *, "ERROR: Cannot open file:", trim(filepath)
+            error stop 1
+        end if
+
+        inquire (unit=unit, size=file_size)
+        allocate (character(len=file_size) :: content)
+        allocate (buffer(file_size))
+
+        read (unit, iostat=stat) buffer
+        close (unit)
+
+        if (stat /= 0) then
+            print *, "ERROR: Cannot read file:", trim(filepath)
+            error stop 1
+        end if
+
+        content = transfer(buffer, content)
+    end subroutine read_example
 
 end program test_issue_214_string_concatenation_precedence

@@ -1,0 +1,10 @@
+program test_nested
+    integer :: a, b, c, d
+    character(len=20) :: s1, s2, s3, result
+    ! Test arithmetic mixed with concatenation
+    a = 1; b = 2; c = 3; d = 4
+    s1 = "X"; s2 = "Y"; s3 = "Z"
+    ! Complex expression mixing operators
+    result = s1 // s2 + s3
+    print *, result
+end program test_nested
