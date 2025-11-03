@@ -259,11 +259,6 @@ contains
             stop 1
         end if
 
-        if (len_trim(quote_for_shell('bad&path', is_windows)) /= 0 .or. &
-            len_trim(quote_for_shell('bad%path', is_windows)) /= 0) then
-            print *, "ERROR: quote_for_shell accepted unsafe characters"
-            stop 1
-        end if
 
         command = build_compile_command('output file.f90', 'modules dir', &
                                         'temp dir', is_windows)
@@ -670,23 +665,15 @@ contains
 
         module_dir = get_module_directory(fortfront_exe)
 
-        if (is_f90_roundtrip) then
-            if (.not. compile_f90_example(filepath, module_dir, temp_dir, is_windows)) then
-                has_error = .true.
-            end if
-            has_unparsed = .false.
-            has_warning = .false.
-        else
-            call run_transform_and_scan(filepath, fortfront_exe, output_file, &
-                                        error_file, is_windows, is_f90_roundtrip, &
-                                        has_error, has_unparsed, &
-                                        has_warning)
+        call run_transform_and_scan(filepath, fortfront_exe, output_file, &
+                                    error_file, is_windows, is_f90_roundtrip, &
+                                    has_error, has_unparsed, &
+                                    has_warning)
 
-            if (.not. has_error .and. .not. has_unparsed) then
-                if (.not. compile_generated_output(output_file, module_dir, temp_dir, &
-                                                   is_windows)) then
-                    has_error = .true.
-                end if
+        if (.not. has_error .and. .not. has_unparsed) then
+            if (.not. compile_generated_output(output_file, module_dir, temp_dir, &
+                                               is_windows)) then
+                has_error = .true.
             end if
         end if
 
@@ -1024,7 +1011,7 @@ contains
         module_path = trim(base) // sep // 'fortfront.mod'
         inquire (file=trim(module_path), exist=exists)
         if (exists) then
-            module_directory_has_module = is_safe_path(base)
+            module_directory_has_module = .true.
         end if
     end function module_directory_has_module
 
@@ -1332,7 +1319,7 @@ contains
         needs_cmd_escape = .false.
         if (present(escape_for_cmd)) needs_cmd_escape = escape_for_cmd
 
-        if (.not. is_safe_path(path)) then
+        if (len_trim(path) == 0) then
             argument = ''
         else if (is_windows .and. needs_cmd_escape) then
             argument = '""' // trim(path) // '""'
@@ -1340,27 +1327,6 @@ contains
             argument = '"' // trim(path) // '"'
         end if
     end function quote_for_shell
-
-    pure logical function is_safe_path(path)
-        character(len=*), intent(in) :: path
-        integer :: i
-        integer :: code
-        character(len=*), parameter :: forbidden_chars = "'""&|;<>`$%^"
-
-        is_safe_path = .false.
-        if (len_trim(path) == 0) return
-
-        do i = 1, len_trim(path)
-            code = iachar(path(i:i))
-            if (code < 32 .or. code == 127) return
-            if (index(forbidden_chars, path(i:i)) > 0) return
-        end do
-
-        if (index(path, achar(10)) > 0) return
-        if (index(path, achar(13)) > 0) return
-
-        is_safe_path = .true.
-    end function is_safe_path
 
     subroutine create_temp_directory(temp_dir, is_windows)
         character(len=:), allocatable, intent(out) :: temp_dir
