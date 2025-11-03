@@ -15,6 +15,9 @@ module codegen_module_generation
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
 
+    logical, save :: in_operator_or_assignment_interface = .false.
+    logical, save :: in_module_context = .false.
+
 contains
 
     function generate_code_module(arena, node, node_index) result(code)
@@ -23,10 +26,12 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
+        in_module_context = .true.
         code = build_module_header(arena, node)
         code = code // collect_module_declarations(arena, node)
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
+        in_module_context = .false.
     end function generate_code_module
 
     function generate_code_block_data(arena, node, node_index) result(code)
@@ -192,15 +197,18 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: body_code
+        logical :: is_op_or_assign
 
         if (node%is_abstract) then
             code = "abstract interface"
         else
             code = "interface"
         end if
+        is_op_or_assign = .false.
         if (allocated(node%kind)) then
             if (trim(node%kind) == "operator" .or. trim(node%kind) == &
                 "assignment") then
+                is_op_or_assign = .true.
                 code = code // " " // trim(node%kind)
                 if (allocated(node%operator)) then
                     code = code // "(" // trim(node%operator) // ")"
@@ -214,7 +222,9 @@ contains
         code = code // new_line('A')
 
         if (allocated(node%procedure_indices)) then
+            in_operator_or_assignment_interface = is_op_or_assign
             body_code = generate_grouped_body(arena, node%procedure_indices, 1)
+            in_operator_or_assignment_interface = .false.
             if (len(body_code) > 0) code = code // body_code
         end if
 
@@ -242,14 +252,8 @@ contains
         integer :: i
         character(len=:), allocatable :: name_text
         logical :: first_name
-        integer :: module_ancestor_idx
-        logical :: is_in_module
 
-        module_ancestor_idx = get_ancestor_of_type(arena, node_index, &
-                                                   "module_node")
-        is_in_module = (module_ancestor_idx > 0)
-
-        if (is_in_module) then
+        if (in_module_context .or. in_operator_or_assignment_interface) then
             code = "module procedure"
         else
             code = "procedure"
