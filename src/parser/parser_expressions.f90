@@ -34,26 +34,32 @@ module parser_expressions_module
                                                operand_stack_is_empty, &
                                                token_stack_clear, token_stack_push, &
                                                token_stack_pop
+    use parser_expression_tokens_module, only: token_matches, &
+                                               token_is_boolean_literal, &
+                                               is_prefix_operator_token, &
+                                               token_is_terminator, &
+                                               is_legacy_array_literal_start
+    use parser_expression_operator_utils_module, only: PREC_RANGE, PREC_LOGICAL_EQV, &
+                                                       PREC_LOGICAL_OR, &
+                                                       PREC_LOGICAL_AND, &
+                                                       PREC_COMPARISON, &
+                                                       PREC_CONCAT, PREC_TERM, &
+                                                       PREC_FACTOR, PREC_POWER, &
+                                                       PREC_UNARY, PREC_POSTFIX, &
+                                                       PREFIX_MARKER_KIND, &
+                                                       get_infix_operator_entry, &
+                                                       comparison_active, &
+                                                       prepare_chained_comparison, &
+                                                       apply_prefix_stack, &
+                                                       reduce_operators_for_incoming, &
+                                                       reduce_all_operators, &
+                                                       reduce_until_group, &
+                                                       push_group_marker
     use parser_token_views_module, only: token_view_t, build_token_view, &
                                          view_peek_token, view_lower_token, &
                                          view_consume_token, view_lookahead_token
     implicit none
     private
-
-    ! Pratt parser precedence levels (lower number = lower precedence)
-    integer, parameter :: PREC_RANGE = 10
-    integer, parameter :: PREC_LOGICAL_EQV = 20
-    integer, parameter :: PREC_LOGICAL_OR = 30
-    integer, parameter :: PREC_LOGICAL_AND = 40
-    integer, parameter :: PREC_COMPARISON = 50
-    integer, parameter :: PREC_CONCAT = 60
-    integer, parameter :: PREC_TERM = 70
-    integer, parameter :: PREC_FACTOR = 80
-    integer, parameter :: PREC_POWER = 90
-    integer, parameter :: PREC_UNARY = 95
-    integer, parameter :: PREC_POSTFIX = 110
-
-    integer, parameter :: PREFIX_MARKER_KIND = -999
 
     ! Public expression parsing interface
     public :: parse_expression
@@ -65,310 +71,6 @@ module parser_expressions_module
     public :: parse_expression_until, parse_postfix_chain
 
 contains
-
-    logical function token_matches(token, text)
-        type(token_t), intent(in) :: token
-        character(len=*), intent(in) :: text
-        token_matches = trim(token%text) == trim(text)
-    end function token_matches
-
-    logical function token_is_boolean_literal(token)
-        type(token_t), intent(in) :: token
-        character(len=:), allocatable :: lowered
-
-        lowered = to_lower(token%text)
-        token_is_boolean_literal = (lowered == ".true." .or. lowered == &
-                                    ".false." .or. &
-                                    lowered == "true" .or. lowered == "false")
-    end function token_is_boolean_literal
-
-    logical function is_prefix_operator_token(token)
-        type(token_t), intent(in) :: token
-        character(len=:), allocatable :: lowered
-
-        if (token%kind /= TK_OPERATOR) then
-            is_prefix_operator_token = .false.
-            return
-        end if
-
-        lowered = to_lower(token%text)
-        is_prefix_operator_token = (lowered == "+" .or. lowered == "-" .or. lowered &
-                                    == ".not.")
-    end function is_prefix_operator_token
-
-    function get_infix_operator_entry(token) result(entry)
-        type(token_t), intent(in) :: token
-        type(operator_entry_t) :: entry
-        character(len=:), allocatable :: lowered
-        integer :: last_char
-        integer :: idx
-        logical :: is_defined_op
-
-        entry = operator_entry_t()
-        if (token%kind /= TK_OPERATOR) return
-
-        lowered = to_lower(token%text)
-        is_defined_op = .false.
-        last_char = len_trim(lowered)
-
-        select case (lowered)
-        case (".eqv.", ".neqv.")
-            entry%symbol = token%text
-            entry%precedence = PREC_LOGICAL_EQV
-        case (".or.")
-            entry%symbol = token%text
-            entry%precedence = PREC_LOGICAL_OR
-        case (".and.")
-            entry%symbol = token%text
-            entry%precedence = PREC_LOGICAL_AND
-        case ("=", "==", "/=", "<=", ">=", "<", ">")
-            entry%symbol = token%text
-            entry%precedence = PREC_COMPARISON
-        case ("//")
-            entry%symbol = token%text
-            entry%precedence = PREC_CONCAT
-        case ("+", "-")
-            entry%symbol = token%text
-            entry%precedence = PREC_TERM
-        case ("*", "/")
-            entry%symbol = token%text
-            entry%precedence = PREC_FACTOR
-        case ("**")
-            entry%symbol = token%text
-            entry%precedence = PREC_POWER
-            entry%right_associative = .true.
-        case default
-            ! Defined binary operators use logical AND precedence per F2018 table 10.1
-            if (last_char >= 4) then
-                if (lowered(1:1) == '.' .and. &
-                    lowered(last_char:last_char) == '.') then
-                    is_defined_op = .true.
-                    do idx = 2, last_char - 1
-                        select case (lowered(idx:idx))
-                        case ('a':'z', '0':'9', '_')
-                        case default
-                            is_defined_op = .false.
-                            exit
-                        end select
-                    end do
-                end if
-            end if
-            if (.not. is_defined_op) return
-            entry%symbol = token%text
-            entry%precedence = PREC_LOGICAL_AND
-        end select
-
-        entry%token = token
-    end function get_infix_operator_entry
-
-    logical function comparison_active(stack)
-        type(operator_stack_t), intent(in) :: stack
-        integer :: idx
-
-        comparison_active = .false.
-        if (.not. allocated(stack%values)) return
-
-        do idx = stack%size, 1, -1
-            if (stack%values(idx)%is_group) then
-                return
-            end if
-            if (stack%values(idx)%precedence == PREC_COMPARISON) then
-                comparison_active = .true.
-                return
-            end if
-        end do
-    end function comparison_active
-
-    subroutine prepare_chained_comparison(operators, operands, arena, token, prepared)
-        type(operator_stack_t), intent(inout) :: operators
-        type(operand_stack_t), intent(inout) :: operands
-        type(ast_arena_t), intent(inout) :: arena
-        type(token_t), intent(in) :: token
-        logical, intent(out) :: prepared
-        type(operator_entry_t) :: top_entry
-        integer :: shared_operand
-        type(token_t) :: logical_token
-        type(operator_entry_t) :: logical_entry
-
-        prepared = .false.
-
-        if (.not. comparison_active(operators)) return
-        if (operators%size <= 0) return
-        top_entry = operator_stack_peek(operators)
-        if (top_entry%precedence /= PREC_COMPARISON) return
-        if (operands%size < 2) return
-
-        shared_operand = operand_stack_peek(operands)
-        if (shared_operand <= 0) return
-
-        call reduce_single_operator(operators, operands, arena)
-
-        logical_token = token
-        logical_token%text = ".and."
-        logical_token%kind = TK_OPERATOR
-        logical_entry = get_infix_operator_entry(logical_token)
-        logical_entry%token = logical_token
-
-        call reduce_operators_for_incoming(operators, operands, arena, logical_entry)
-        call operator_stack_push(operators, logical_entry)
-        call operand_stack_push(operands, shared_operand)
-
-        prepared = .true.
-    end subroutine prepare_chained_comparison
-
-    function create_zero_literal(arena, reference_token) result(zero_index)
-        type(ast_arena_t), intent(inout) :: arena
-        type(token_t), intent(in) :: reference_token
-        integer :: zero_index
-
-        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
-                                  reference_token%line, reference_token%column)
-    end function create_zero_literal
-
-    function apply_prefix_stack(arena, prefix_stack, expr_index) result(result_index)
-        type(ast_arena_t), intent(inout) :: arena
-        type(token_stack_t), intent(inout) :: prefix_stack
-        integer, intent(in) :: expr_index
-        integer :: result_index
-        type(token_t) :: token
-        character(len=:), allocatable :: lowered
-        integer :: zero_index
-
-        result_index = expr_index
-        do while (prefix_stack%size > 0)
-            token = prefix_stack%values(prefix_stack%size)
-            if (token%kind == PREFIX_MARKER_KIND) exit
-
-            token = token_stack_pop(prefix_stack)
-            lowered = to_lower(token%text)
-            select case (lowered)
-            case ("-")
-                zero_index = create_zero_literal(arena, token)
-                result_index = push_binary_op(arena, zero_index, result_index, &
-                                              token%text, token%line, token%column)
-            case ("+")
-                cycle
-            case (".not.")
-                result_index = push_binary_op(arena, 0, result_index, token%text, &
-                                              token%line, token%column)
-            case default
-                cycle
-            end select
-        end do
-    end function apply_prefix_stack
-
-    subroutine reduce_single_operator(operators, operands, arena)
-        type(operator_stack_t), intent(inout) :: operators
-        type(operand_stack_t), intent(inout) :: operands
-        type(ast_arena_t), intent(inout) :: arena
-        type(operator_entry_t) :: op_entry
-        integer :: right_index, left_index
-
-        op_entry = operator_stack_pop(operators)
-        if (op_entry%is_group) return
-
-        right_index = operand_stack_pop(operands)
-        left_index = operand_stack_pop(operands)
-
-        if (right_index <= 0 .or. left_index < 0) then
-            call operand_stack_push(operands, 0)
-            return
-        end if
-
-        call operand_stack_push(operands, push_binary_op(arena, left_index, &
-                                                         right_index, &
-                                                         op_entry%symbol, &
-                                                         op_entry%token%line, &
-                                                         op_entry%token%column))
-    end subroutine reduce_single_operator
-
-    subroutine reduce_operators_for_incoming(operators, operands, arena, incoming)
-        type(operator_stack_t), intent(inout) :: operators
-        type(operand_stack_t), intent(inout) :: operands
-        type(ast_arena_t), intent(inout) :: arena
-        type(operator_entry_t), intent(in) :: incoming
-        type(operator_entry_t) :: top_entry
-
-        do while (.not. operator_stack_is_empty(operators))
-            top_entry = operator_stack_peek(operators)
-            if (top_entry%is_group) exit
-            if (top_entry%precedence < incoming%precedence) exit
-            if (top_entry%precedence == incoming%precedence) then
-                if (incoming%right_associative) exit
-                if (incoming%precedence == PREC_COMPARISON) exit
-            end if
-            call reduce_single_operator(operators, operands, arena)
-        end do
-    end subroutine reduce_operators_for_incoming
-
-    subroutine reduce_all_operators(operators, operands, arena)
-        type(operator_stack_t), intent(inout) :: operators
-        type(operand_stack_t), intent(inout) :: operands
-        type(ast_arena_t), intent(inout) :: arena
-
-        do while (.not. operator_stack_is_empty(operators))
-            call reduce_single_operator(operators, operands, arena)
-        end do
-    end subroutine reduce_all_operators
-
-    subroutine reduce_until_group(operators, operands, arena)
-        type(operator_stack_t), intent(inout) :: operators
-        type(operand_stack_t), intent(inout) :: operands
-        type(ast_arena_t), intent(inout) :: arena
-        type(operator_entry_t) :: top_entry
-
-        do while (.not. operator_stack_is_empty(operators))
-            top_entry = operator_stack_peek(operators)
-            if (top_entry%is_group) exit
-            call reduce_single_operator(operators, operands, arena)
-        end do
-    end subroutine reduce_until_group
-
-    subroutine push_group_marker(operators, token)
-        type(operator_stack_t), intent(inout) :: operators
-        type(token_t), intent(in) :: token
-        type(operator_entry_t) :: entry
-
-        entry = operator_entry_t(symbol="(", precedence=0, is_group=.true., &
-                                 token=token)
-        call operator_stack_push(operators, entry)
-    end subroutine push_group_marker
-
-    logical function token_is_terminator(token, terminators)
-        type(token_t), intent(in) :: token
-        character(len=*), intent(in), optional :: terminators(:)
-        integer :: idx
-
-        if (.not. present(terminators)) then
-            token_is_terminator = .false.
-            return
-        end if
-
-        token_is_terminator = .false.
-        do idx = 1, size(terminators)
-            if (trim(token%text) == trim(terminators(idx))) then
-                token_is_terminator = .true.
-                return
-            end if
-        end do
-    end function token_is_terminator
-
-    logical function is_legacy_array_literal_start(parser, view)
-        type(parser_state_t), intent(in) :: parser
-        type(token_view_t), intent(in) :: view
-        type(token_t) :: current
-        type(token_t) :: next_token
-
-        is_legacy_array_literal_start = .false.
-        current = view_peek_token(view, parser)
-        if (current%kind /= TK_OPERATOR) return
-        if (trim(current%text) /= "(") return
-
-        next_token = view_lookahead_token(view, parser, 1)
-        if (next_token%kind == TK_OPERATOR .and. trim(next_token%text) == "/") then
-            is_legacy_array_literal_start = .true.
-        end if
-    end function is_legacy_array_literal_start
 
     function try_parse_complex_literal(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
