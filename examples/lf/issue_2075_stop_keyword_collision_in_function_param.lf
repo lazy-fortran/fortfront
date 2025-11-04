@@ -1,0 +1,9 @@
+! Test function returning array with shape inference
+function make_range(start, stop, step)
+    n = (stop - start) / step + 1
+    result_arr = [(start + (i - 1) * step, i = 1, n)]
+    make_range = result_arr
+end function
+
+arr = make_range(0, 10, 2)
+print *, "Range:", arr

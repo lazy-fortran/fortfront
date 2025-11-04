@@ -1,0 +1,11 @@
+! Test nested function calls
+function add(a, b)
+    add = a + b
+end function
+
+function mul(a, b)
+    mul = a * b
+end function
+
+result = add(mul(2, 3), mul(4, 5))
+print *, "Result:", result

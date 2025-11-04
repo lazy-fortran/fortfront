@@ -1,0 +1,8 @@
+! Test complex number literals and operations
+z = cmplx(3.0, 4.0)
+r = real(z)
+im = aimag(z)
+mag = abs(z)
+print *, "Real part:", r
+print *, "Imag part:", im
+print *, "Magnitude:", mag

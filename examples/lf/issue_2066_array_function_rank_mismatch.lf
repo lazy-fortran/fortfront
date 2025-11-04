@@ -1,0 +1,8 @@
+! Test elemental function inference
+function square(x)
+    square = x * x
+end function
+
+arr = [1.0, 2.0, 3.0, 4.0, 5.0]
+result = square(arr)
+print *, "Squared array:", result

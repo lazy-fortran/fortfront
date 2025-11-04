@@ -1,0 +1,14 @@
+! Lazy Fortran: matrix operations with type inference
+function matrix_sum(mat)
+    total = 0.0
+    do i = 1, size(mat, 1)
+        do j = 1, size(mat, 2)
+            total = total + mat(i, j)
+        end do
+    end do
+    matrix_sum = total
+end function
+
+mat = reshape([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3])
+result = matrix_sum(mat)
+print *, "Matrix sum:", result

@@ -1,0 +1,12 @@
+! Lazy Fortran: logical operations
+function is_in_range(val, min_val, max_val)
+    is_in_range = (val >= min_val) .and. (val <= max_val)
+end function
+
+x = 5
+result = is_in_range(x, 1, 10)
+print *, "In range:", result
+
+y = 15
+result2 = is_in_range(y, 1, 10)
+print *, "Out of range:", result2

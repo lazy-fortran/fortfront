@@ -1,0 +1,7 @@
+! Test GOTO statement
+x = 5
+if (x > 3) goto 100
+print *, "Small"
+goto 200
+100 print *, "Large"
+200 continue
