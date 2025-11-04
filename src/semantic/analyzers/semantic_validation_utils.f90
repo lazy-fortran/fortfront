@@ -5,7 +5,7 @@ module semantic_validation_utils
                                    create_mono_type, create_type_var, &
                                    TARRAY, TCHAR, TVAR
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: identifier_node
+    use ast_nodes_core, only: identifier_node, call_or_subscript_node
     use ast_nodes_bounds, only: array_slice_node
     use string_utils_mod, only: int_to_string
     implicit none
@@ -43,7 +43,6 @@ contains
 
     ! Helper: Update identifier type throughout arena
     subroutine update_identifier_type_in_arena(arena, name, new_type)
-        use ast_nodes_core, only: call_or_subscript_node
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
@@ -56,17 +55,15 @@ contains
                 type is (identifier_node)
                     if (node%name == name) then
                         merged_type = new_type
-                        if (node%inferred_type%alloc_info%is_allocatable) then
-                            merged_type%alloc_info%is_allocatable = .true.
-                        end if
+                        call merge_allocatable_flags(node%inferred_type, &
+                                                     merged_type)
                         arena%entries(i)%node%inferred_type = merged_type
                     end if
                 type is (call_or_subscript_node)
                     if (node%name == name) then
                         merged_type = new_type
-                        if (node%inferred_type%alloc_info%is_allocatable) then
-                            merged_type%alloc_info%is_allocatable = .true.
-                        end if
+                        call merge_allocatable_flags(node%inferred_type, &
+                                                     merged_type)
                         arena%entries(i)%node%inferred_type = merged_type
                     end if
                 end select
@@ -109,6 +106,18 @@ contains
             end do
         end if
     end subroutine rename_identifier_in_arena
+
+    pure subroutine merge_allocatable_flags(source_type, target_type)
+        type(mono_type_t), intent(in) :: source_type
+        type(mono_type_t), intent(inout) :: target_type
+
+        if (source_type%alloc_info%is_allocatable) then
+            target_type%alloc_info%is_allocatable = .true.
+        end if
+        if (source_type%alloc_info%needs_allocatable_string) then
+            target_type%alloc_info%needs_allocatable_string = .true.
+        end if
+    end subroutine merge_allocatable_flags
 
     subroutine rename_at_index(arena, idx, old_name, new_name)
         type(ast_arena_t), intent(inout) :: arena
