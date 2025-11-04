@@ -74,6 +74,11 @@ program test_all_examples
         call reload_skip_examples_from(fallback_root, skip_examples, num_skip_examples, &
                                        is_windows)
     end if
+    if (num_skip_examples == 0) then
+        write (error_unit, '(A)') &
+            'WARNING: skip entries missing; targeted examples will run (path=' // &
+            trim(skip_file_path) // ')'
+    end if
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -402,18 +407,33 @@ contains
         character(len=:), allocatable :: buffer
         integer :: entry_count, entry_index
         logical :: exists
+        character(len=:), allocatable :: alternative
+        character(len=:), allocatable :: source_path
 
         num_skip = 0
-        inquire (file=trim(filename), exist=exists)
+        source_path = trim(filename)
+        inquire (file=source_path, exist=exists)
         if (.not. exists) then
+            alternative = to_forward_slash_path(source_path)
+            if (allocated(alternative)) then
+                if (trim(alternative) /= source_path) then
+                    source_path = trim(alternative)
+                    inquire (file=source_path, exist=exists)
+                end if
+            end if
+        end if
+        if (.not. exists) then
+            write (error_unit, '(A)') 'WARNING: skip file missing at ' // trim(filename)
             allocate (skip_list(0))
             return
         end if
 
-        open (newunit=unit_num, file=trim(filename), status='old', &
+        open (newunit=unit_num, file=source_path, status='old', &
               access='stream', form='unformatted', action='read', &
               iostat=ios)
         if (ios /= 0) then
+            write (error_unit, '(A,I0)') &
+                'WARNING: could not open skip list (ios=', ios, ') at ' // trim(source_path)
             allocate (skip_list(0))
             return
         end if
@@ -421,6 +441,8 @@ contains
         inquire (unit=unit_num, size=file_size)
         if (file_size <= 0) then
             close (unit_num)
+            write (error_unit, '(A)') 'WARNING: skip list empty (size=0) at ' // &
+                trim(source_path)
             allocate (skip_list(0))
             return
         end if
@@ -430,6 +452,8 @@ contains
         close (unit_num)
         if (ios /= 0) then
             deallocate (buffer)
+            write (error_unit, '(A,I0)') &
+                'WARNING: failed reading skip list (ios=', ios, ') at ' // trim(source_path)
             allocate (skip_list(0))
             return
         end if
@@ -439,6 +463,8 @@ contains
 
         if (entry_count <= 0) then
             deallocate (buffer)
+            write (error_unit, '(A)') 'WARNING: no entries found in skip list at ' // &
+                trim(source_path)
             allocate (skip_list(0))
             num_skip = 0
             return
