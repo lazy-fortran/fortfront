@@ -19,7 +19,8 @@ module parser_statement_utilities_module
                                                 parse_cycle_statement, &
                                                 parse_exit_statement, &
                                                 parse_nullify_statement, &
-                                                parse_continue_statement
+                                                parse_continue_statement, &
+                                                parse_pause_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_assignment_module, only: parse_assignment_statement
@@ -104,6 +105,8 @@ contains
                 stmt_index = parse_if_from_definition(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
+            case ("pause")
+                stmt_index = parse_pause_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
             case ("entry")
