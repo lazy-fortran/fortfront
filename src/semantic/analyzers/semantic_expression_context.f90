@@ -132,6 +132,20 @@ contains
         type(mono_type_t) :: left_typ
         type(mono_type_t) :: right_typ
 
+        if (node%operator == "==" .or. node%operator == "/=" .or. &
+            node%operator == "<" .or. node%operator == "<=" .or. &
+            node%operator == ">" .or. node%operator == ">=") then
+            typ = create_mono_type(TLOGICAL)
+            return
+        end if
+
+        if (node%operator == ".and." .or. node%operator == ".or." .or. &
+            node%operator == ".not." .or. node%operator == ".eqv." .or. &
+            node%operator == ".neqv.") then
+            typ = create_mono_type(TLOGICAL)
+            return
+        end if
+
         left_typ = infer_expression_type_static(arena, node%left_index, param_names, &
                                                 param_types)
         right_typ = infer_expression_type_static(arena, node%right_index, &
