@@ -140,6 +140,36 @@ contains
             stop 1
         end if
 
+        signature = get_intrinsic_signature("shape")
+        if (signature /= "array(array)") then
+            print *, "shape signature incorrect:", trim(signature)
+            stop 1
+        end if
+
+        signature = get_intrinsic_signature("minloc")
+        if (signature /= "array(array)") then
+            print *, "minloc signature incorrect:", trim(signature)
+            stop 1
+        end if
+
+        signature = get_intrinsic_signature("maxloc")
+        if (signature /= "array(array)") then
+            print *, "maxloc signature incorrect:", trim(signature)
+            stop 1
+        end if
+
+        signature = get_intrinsic_signature("lbound")
+        if (signature /= "array(array)") then
+            print *, "lbound signature incorrect:", trim(signature)
+            stop 1
+        end if
+
+        signature = get_intrinsic_signature("ubound")
+        if (signature /= "array(array)") then
+            print *, "ubound signature incorrect:", trim(signature)
+            stop 1
+        end if
+
         ! Test string function signatures
         signature = get_intrinsic_signature("len")
         if (signature /= "integer(character)") then
