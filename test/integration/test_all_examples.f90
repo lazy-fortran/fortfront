@@ -70,7 +70,7 @@ program test_all_examples
                                     skip_examples, num_skip_examples)
 
     ! Clean up temp directory
-    call cleanup_temp_directory(temp_dir, is_windows)
+    !call cleanup_temp_directory(temp_dir, is_windows)
 
     print *, ""
     print *, "=== Test Summary ==="
@@ -817,6 +817,9 @@ contains
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)
+        if (exit_code /= 0) then
+            print *, 'DEBUG compile failed:', trim(command)
+        end if
         compile_generated_output = (exit_code == 0)
     end function compile_generated_output
 

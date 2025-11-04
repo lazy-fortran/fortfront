@@ -11,7 +11,8 @@ module parser_dispatcher_module
                                    parse_derived_type_def, parser_is_at_type_definition
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
-                                               parse_include_statement, parse_module
+                                               parse_include_statement
+    use parser_module_structures_module, only: parse_module
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
