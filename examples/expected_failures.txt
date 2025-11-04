@@ -13,7 +13,6 @@ issue_1826_enum_program.f90  # enum constructs unsupported; expect diagnostic on
 issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnostic only
 issue_1583_computed_goto_minimal.f90
 issue_1534_multi_dimension_allocatable.lf
-issue_1705_real_literal_generic.f90  # real literal generic kind inference failure
 issue_1816_multiple_returns.lf
 issue_2062_nested_do_missing_var_type_mismatch.lf  # nested DO missing var declaration + type mismatch #2062
 issue_2063_deferred_char_function_syntax.lf  # deferred-length character function invalid syntax #2063
