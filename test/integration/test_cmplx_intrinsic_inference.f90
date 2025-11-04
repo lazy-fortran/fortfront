@@ -1,84 +1,104 @@
 program test_cmplx_intrinsic_inference
-    use fortfront
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
+        iostat_end, iostat_eor, output_unit
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
-    character(len=:), allocatable :: output, error_msg
-    logical :: success
     integer :: status
 
     status = 0
 
-    ! Test 1: Basic cmplx() function
-    call transform_lazy_fortran_string("z = cmplx(3.0, 4.0)", output, &
-                                       error_msg)
-    success = len_trim(error_msg) == 0
-    if (.not. success) then
-        print *, "Test 1 FAILED - Basic cmplx() function"
-        print *, "Error: ", error_msg
-        status = 1
-    else if (index(output, "complex") == 0) then
-        print *, "Test 1 FAILED - z not declared as complex"
-        print *, "Output: ", trim(output)
-        status = 1
-    else
-        print *, "Test 1 PASSED - Basic cmplx() function"
-    end if
-
-    ! Test 2: cmplx() with aimag() usage
-    call transform_lazy_fortran_string( &
-        "z = cmplx(3.0, 4.0)" // new_line('a') // &
-        "im = aimag(z)", output, error_msg)
-    success = len_trim(error_msg) == 0
-    if (.not. success) then
-        print *, "Test 2 FAILED - cmplx() with aimag()"
-        print *, "Error: ", error_msg
-        status = 1
-    else if (index(output, "complex") == 0) then
-        print *, "Test 2 FAILED - z not declared as complex"
-        print *, "Output: ", trim(output)
-        status = 1
-    else
-        print *, "Test 2 PASSED - cmplx() with aimag()"
-    end if
-
-    ! Test 3: cmplx() with real() usage
-    call transform_lazy_fortran_string( &
-        "z = cmplx(3.0, 4.0)" // new_line('a') // &
-        "r = real(z)", output, error_msg)
-    success = len_trim(error_msg) == 0
-    if (.not. success) then
-        print *, "Test 3 FAILED - cmplx() with real()"
-        print *, "Error: ", error_msg
-        status = 1
-    else if (index(output, "complex") == 0) then
-        print *, "Test 3 FAILED - z not declared as complex"
-        print *, "Output: ", trim(output)
-        status = 1
-    else
-        print *, "Test 3 PASSED - cmplx() with real()"
-    end if
-
-    ! Test 4: cmplx() with abs() usage
-    call transform_lazy_fortran_string( &
-        "z = cmplx(3.0, 4.0)" // new_line('a') // &
-        "mag = abs(z)", output, error_msg)
-    success = len_trim(error_msg) == 0
-    if (.not. success) then
-        print *, "Test 4 FAILED - cmplx() with abs()"
-        print *, "Error: ", error_msg
-        status = 1
-    else if (index(output, "complex") == 0) then
-        print *, "Test 4 FAILED - z not declared as complex"
-        print *, "Output: ", trim(output)
-        status = 1
-    else
-        print *, "Test 4 PASSED - cmplx() with abs()"
-    end if
+    call run_case('examples/lf/issue_2073_basic_cmplx.lf', &
+                  'basic cmplx assignment', status)
+    call run_case('examples/lf/issue_2073_cmplx_aimag.lf', &
+                  'cmplx with aimag usage', status)
+    call run_case('examples/lf/issue_2073_cmplx_real.lf', &
+                  'cmplx with real usage', status)
+    call run_case('examples/lf/issue_2073_cmplx_abs.lf', &
+                  'cmplx with abs usage', status)
 
     if (status /= 0) then
-        error stop "cmplx() intrinsic inference tests FAILED"
-    else
-        print *, "All cmplx() intrinsic inference tests PASSED"
+        error stop 'cmplx intrinsic inference tests FAILED'
     end if
+
+    write (output_unit, '(A)') 'PASS: cmplx intrinsic inference tests'
+
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine run_case(example_path, description, status)
+        character(len=*), intent(in) :: example_path
+        character(len=*), intent(in) :: description
+        integer, intent(inout) :: status
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output_code
+        character(len=:), allocatable :: error_msg
+        logical :: success
+
+        call read_example(example_path, source)
+        call transform_lazy_fortran_string(source, output_code, error_msg)
+
+        success = .false.
+        if (len_trim(error_msg) == 0) then
+            success = has_complex_declaration(output_code)
+        end if
+
+        if (.not. success) then
+            status = 1
+            call report_failure(description, output_code, error_msg)
+        else
+            write (output_unit, '(A)') 'PASS: ' // trim(description)
+        end if
+    end subroutine run_case
+
+    subroutine report_failure(description, output_code, error_msg)
+        character(len=*), intent(in) :: description
+        character(len=:), allocatable, intent(in) :: output_code
+        character(len=:), allocatable, intent(in) :: error_msg
+
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') 'FAIL: ' // trim(description)
+            write (error_unit, '(A)') 'Transform error: ' // trim(error_msg)
+        else
+            write (error_unit, '(A)') 'FAIL: ' // trim(description)
+            write (error_unit, '(A)') 'Complex declaration missing for z'
+            write (error_unit, '(A)') trim(output_code)
+        end if
+    end subroutine report_failure
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: io_status
+
+        call read_all_stdin_or_file(.true., path, content, io_status)
+        if (io_status /= 0) then
+            write (error_unit, '(A)') 'FAIL: unable to read example at '
+            write (error_unit, '(A)') trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
+    logical function has_complex_declaration(output_code)
+        character(len=:), allocatable, intent(in) :: output_code
+        integer :: search_start, decl_pos, z_pos
+
+        has_complex_declaration = .false.
+        if (.not. allocated(output_code)) return
+        search_start = 1
+
+        do
+            decl_pos = index(output_code(search_start:), 'complex ::')
+            if (decl_pos == 0) exit
+            decl_pos = decl_pos + search_start - 1
+            z_pos = index(output_code(decl_pos:), ' z')
+            if (z_pos /= 0) then
+                has_complex_declaration = .true.
+                return
+            end if
+            search_start = decl_pos + 1
+        end do
+    end function has_complex_declaration
 
 end program test_cmplx_intrinsic_inference
