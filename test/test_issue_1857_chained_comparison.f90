@@ -33,7 +33,7 @@ contains
 
         test_chained_comparison_output = .true.
 
-        call read_example('examples/lf/issue_1857_chained_comparison.lf', &
+        call read_example('examples/lf/chained_comparison.lf', &
                           source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
@@ -44,14 +44,17 @@ contains
             return
         end if
 
-        if (index(output, '< 10') /= 0) then
+        if (index(output, '.and.') == 0) then
             write (error_unit, '(A)') &
-                "ERROR: Output contains '< 10', chained comparison not truncated"
+                'ERROR: Output missing .and. expansion for chained comparison'
             write (error_unit, '(A)') trim(output)
             test_chained_comparison_output = .false.
-        else if (index(output, 'result = 1 < x') == 0) then
+            return
+        end if
+
+        if (index(output, '1 < x') == 0 .or. index(output, 'x < 10') == 0) then
             write (error_unit, '(A)') &
-                'ERROR: Output missing expected partial expression'
+                'ERROR: Output missing one of the chained comparison bounds'
             write (error_unit, '(A)') trim(output)
             test_chained_comparison_output = .false.
         end if

@@ -2,7 +2,6 @@
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
 
-chained_comparison.lf   # parser error - needs investigation
 issue_1784_subroutine_wrapping.lf  # transformation regression tracked in #1784
 issue_2013_nested_implied_do_duplicate_var.f90  # duplicate implied-do indices still redeclared; see issue #2013 follow-up
 issue_2017_assumed_shape_duplicate_monomorph.f90  # array type incorrectly changed from real to integer (separate bug from duplicate monomorph fix)
@@ -15,4 +14,3 @@ issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnos
 issue_1583_computed_goto_minimal.f90
 issue_1534_multi_dimension_allocatable.lf
 issue_1816_multiple_returns.lf
-issue_216_comparison_chain.lf
