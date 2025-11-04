@@ -24,7 +24,8 @@ module parser_dispatcher_module
     use parser_control_statements_module, only: &
         parse_stop_statement, parse_return_statement, parse_entry_statement, &
         parse_goto_statement, parse_error_stop_statement, parse_cycle_statement, &
-        parse_exit_statement, parse_end_statement, parse_nullify_statement
+        parse_exit_statement, parse_end_statement, parse_nullify_statement, &
+        parse_pause_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
@@ -188,6 +189,8 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
+            case ("pause")
+                stmt_index = parse_pause_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
             case ("entry")
