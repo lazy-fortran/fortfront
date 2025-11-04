@@ -30,6 +30,7 @@ module parser_expressions_module
                                                operand_stack_clear, &
                                                operand_stack_push, &
                                                operand_stack_pop, &
+                                               operand_stack_peek, &
                                                operand_stack_is_empty, &
                                                token_stack_clear, token_stack_push, &
                                                token_stack_pop
@@ -177,6 +178,43 @@ contains
             end if
         end do
     end function comparison_active
+
+    subroutine prepare_chained_comparison(operators, operands, arena, token, prepared)
+        type(operator_stack_t), intent(inout) :: operators
+        type(operand_stack_t), intent(inout) :: operands
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        logical, intent(out) :: prepared
+        type(operator_entry_t) :: top_entry
+        integer :: shared_operand
+        type(token_t) :: logical_token
+        type(operator_entry_t) :: logical_entry
+
+        prepared = .false.
+
+        if (.not. comparison_active(operators)) return
+        if (operators%size <= 0) return
+        top_entry = operator_stack_peek(operators)
+        if (top_entry%precedence /= PREC_COMPARISON) return
+        if (operands%size < 2) return
+
+        shared_operand = operand_stack_peek(operands)
+        if (shared_operand <= 0) return
+
+        call reduce_single_operator(operators, operands, arena)
+
+        logical_token = token
+        logical_token%text = ".and."
+        logical_token%kind = TK_OPERATOR
+        logical_entry = get_infix_operator_entry(logical_token)
+        logical_entry%token = logical_token
+
+        call reduce_operators_for_incoming(operators, operands, arena, logical_entry)
+        call operator_stack_push(operators, logical_entry)
+        call operand_stack_push(operands, shared_operand)
+
+        prepared = .true.
+    end subroutine prepare_chained_comparison
 
     function create_zero_literal(arena, reference_token) result(zero_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -550,6 +588,7 @@ contains
         logical, intent(inout) :: expect_operand
         logical, intent(out) :: should_exit
         type(operator_entry_t) :: op_entry
+        logical :: chain_prepared
 
         should_exit = .false.
         op_entry = get_infix_operator_entry(token)
@@ -573,8 +612,14 @@ contains
             return
         end if
 
+        chain_prepared = .false.
+        if (op_entry%precedence == PREC_COMPARISON) then
+            call prepare_chained_comparison(operators, operands, arena, token, &
+                                            chain_prepared)
+        end if
+
         if (op_entry%precedence == PREC_COMPARISON .and. &
-            comparison_active(operators)) then
+            .not. chain_prepared .and. comparison_active(operators)) then
             block
                 use, intrinsic :: iso_fortran_env, only: error_unit
                 write (error_unit, '(A)') &

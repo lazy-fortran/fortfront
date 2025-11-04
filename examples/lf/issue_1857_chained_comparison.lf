@@ -1,4 +1,0 @@
-! Issue #1857: chained comparison should be detected and truncated
-x = 5
-result = 1 < x < 10
-print *, 'Result:', result

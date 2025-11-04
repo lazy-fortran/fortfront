@@ -9,7 +9,8 @@ program test_issue_214_string_concatenation_precedence
     print *, '=== Comprehensive Operator Precedence and Associativity Tests ==='
     print *, '=== Issues #214, #215, #216 ==='
 
-    if (.not. test_string_concatenation_precedence_with_parentheses()) all_passed = .false.
+    if (.not. test_string_concatenation_precedence_with_parentheses()) &
+        all_passed = .false.
     if (.not. test_unary_operator_precedence()) all_passed = .false.
     if (.not. test_comparison_non_associativity()) all_passed = .false.
     if (.not. test_comprehensive_precedence_hierarchy()) all_passed = .false.
@@ -31,7 +32,8 @@ contains
         character(len=:), allocatable :: source3, output3, error_msg3
 
         test_string_concatenation_precedence_with_parentheses = .true.
-        print *, 'Testing string concatenation precedence using explicit parentheses...'
+        print *, &
+            'Testing string concatenation precedence using explicit parentheses...'
 
         call read_example('examples/lf/issue_214_wrong_precedence.lf', source1)
 
@@ -39,7 +41,8 @@ contains
 
         if (allocated(error_msg1)) then
             if (len_trim(error_msg1) > 0) then
-                print *, '  FAIL: Compilation error (correct version):', trim(error_msg1)
+                print *, '  FAIL: Compilation error (correct version):', &
+                    trim(error_msg1)
                 test_string_concatenation_precedence_with_parentheses = .false.
                 return
             end if
@@ -71,7 +74,8 @@ contains
 
         if (allocated(error_msg3)) then
             if (len_trim(error_msg3) > 0) then
-                print *, '  FAIL: Compilation error (ambiguous version):', trim(error_msg3)
+                print *, '  FAIL: Compilation error (ambiguous version):', &
+                    trim(error_msg3)
                 test_string_concatenation_precedence_with_parentheses = .false.
                 return
             end if
@@ -104,7 +108,8 @@ contains
         if (index(output, 'result = ') > 0) then
             print *, '  OK: Unary operator precedence test generated code successfully'
         else
-            print *, '  FAIL: Could not verify unary operator precedence in generated code'
+            print *, &
+                '  FAIL: Could not verify unary operator precedence in generated code'
             test_unary_operator_precedence = .false.
         end if
 
@@ -128,11 +133,17 @@ contains
             end if
         end if
 
-        if (index(output, 'result = ') > 0) then
-            print *, '  WARNING: Comparison chaining test needs manual verification'
-        else
-            print *, '  FAIL: Could not verify comparison associativity in generated code'
+        if (index(output, '.and.') == 0) then
+            print *, '  FAIL: Chained comparison did not emit logical AND expansion'
             test_comparison_non_associativity = .false.
+            return
+        end if
+
+        if (index(output, 'a < b') == 0 .or. index(output, 'b < c') == 0) then
+            print *, '  FAIL: Missing one side of chained comparison in generated code'
+            test_comparison_non_associativity = .false.
+        else
+            print *, '  OK: Comparison chaining lowered to logical AND sequence'
         end if
 
     end function test_comparison_non_associativity
@@ -158,7 +169,8 @@ contains
         if (index(output, 'result_str = ') > 0) then
             print *, '  OK: Comprehensive precedence test generated code successfully'
         else
-            print *, '  FAIL: Could not verify comprehensive precedence in generated code'
+            print *, &
+                '  FAIL: Could not verify comprehensive precedence in generated code'
             test_comprehensive_precedence_hierarchy = .false.
         end if
 
