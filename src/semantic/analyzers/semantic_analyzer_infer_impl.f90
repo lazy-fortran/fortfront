@@ -4,6 +4,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                    create_fun_type, create_poly_type, &
                                    create_type_var, TREAL, TVAR, TCOMPLEX, &
                                    TFUN, TARRAY, TLOGICAL, TINT, TCHAR
+    use semantic_type_operations, only: get_common_type
     implicit none
 
     type :: infer_frame_t
@@ -743,13 +744,34 @@ contains
             type(mono_type_t) :: left_t
             type(mono_type_t) :: right_t
             type(mono_type_t) :: node_type
+            type(mono_type_t) :: common_t
 
             left_t = get_node_type(expr%left_index)
             right_t = get_node_type(expr%right_index)
             node_type = infer_binary_operation(arena, node_index, expr, &
                                                left_t, right_t)
-            call this%unify(left_t, create_mono_type(TCHAR))
-            call this%unify(right_t, create_mono_type(TCHAR))
+
+            ! Unify operand types based on operator kind
+            if (expr%operator == "//") then
+                ! String concatenation: both operands must be CHARACTER
+                call this%unify(left_t, create_mono_type(TCHAR))
+                call this%unify(right_t, create_mono_type(TCHAR))
+            else if (expr%operator == "==" .or. expr%operator == "/=" .or. &
+                     expr%operator == "<" .or. expr%operator == "<=" .or. &
+                     expr%operator == ">" .or. expr%operator == ">=") then
+                ! Comparison operators: operands must have compatible types
+                ! For string comparisons, if either operand is TCHAR, both must be
+                if (left_t%kind == TCHAR .or. right_t%kind == TCHAR) then
+                    call this%unify(left_t, create_mono_type(TCHAR))
+                    call this%unify(right_t, create_mono_type(TCHAR))
+                else
+                    ! For numeric comparisons, use common type promotion
+                    common_t = get_common_type(left_t, right_t)
+                    call this%unify(left_t, common_t)
+                    call this%unify(right_t, common_t)
+                end if
+            end if
+
             call finalize_node(node_index, node_type)
         end subroutine finalize_binary_operation
 

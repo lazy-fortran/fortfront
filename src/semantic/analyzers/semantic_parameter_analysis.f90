@@ -1,7 +1,8 @@
 module semantic_parameter_analysis
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_type_var, &
-                                   create_poly_type, TVAR, TREAL, TDOUBLE, TINT
+                                   create_poly_type, TVAR, TREAL, TDOUBLE, &
+                                   TINT, TCHAR
     use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
@@ -17,6 +18,7 @@ module semantic_parameter_analysis
                                      infer_expression_type_static
     use semantic_procedure_utils, only: declaration_type_to_mono
     use semantic_function_helpers, only: find_return_type
+    use ast_base, only: LITERAL_STRING
     implicit none
     private
 
@@ -170,7 +172,11 @@ contains
                     if (.not. allocated(arena%entries(arg_idx)%node)) cycle
                     select type (arg_node => arena%entries(arg_idx)%node)
                     type is (literal_node)
-                        literal_type = literal_numeric_type(arg_node)
+                        if (arg_node%literal_kind == LITERAL_STRING) then
+                            literal_type = create_mono_type(TCHAR)
+                        else
+                            literal_type = literal_numeric_type(arg_node)
+                        end if
                         call merge_parameter_type(param_types(i), literal_type)
                     type is (identifier_node)
                         call merge_parameter_type(param_types(i), &
@@ -373,7 +379,11 @@ contains
 
                             select type (arg_node => arena%entries(arg_idx)%node)
                             type is (literal_node)
-                                literal_type = literal_numeric_type(arg_node)
+                                if (arg_node%literal_kind == LITERAL_STRING) then
+                                    literal_type = create_mono_type(TCHAR)
+                                else
+                                    literal_type = literal_numeric_type(arg_node)
+                                end if
                                 if (literal_type%kind > 0) then
                                     inferred_type = literal_type
                                     if (allocated(outer_param_types)) &
