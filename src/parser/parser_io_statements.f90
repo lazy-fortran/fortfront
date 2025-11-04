@@ -108,7 +108,8 @@ contains
                     if (last_char == '(') needs_space = .false.
                 case default
                     if (last_char == '(') needs_space = .false.
-                    if (last_char == '=') needs_space = .true.
+                    ! Do not add space after '=' to prevent breaking string literals
+                    if (last_char == '=') needs_space = .false.
                 end select
             end if
 
@@ -587,7 +588,12 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-                if (len(spec_text) > 0 .and. token%text /= "=") spec_text = spec_text // " "
+                ! Only add space if not immediately after '=' to prevent breaking string literals
+                if (len(spec_text) > 0 .and. token%text /= "=") then
+                    if (spec_text(len(spec_text):len(spec_text)) /= '=') then
+                        spec_text = spec_text // " "
+                    end if
+                end if
                 spec_text = spec_text // token%text
                 token = parser%consume()
             end if
@@ -630,7 +636,12 @@ contains
                 exit
             end if
 
-            if (len(spec_text) > 0 .and. token%text /= ",") spec_text = spec_text // " "
+            ! Only add space if not immediately after '=' to prevent breaking string literals
+            if (len(spec_text) > 0 .and. token%text /= ",") then
+                if (spec_text(len(spec_text):len(spec_text)) /= '=') then
+                    spec_text = spec_text // " "
+                end if
+            end if
             spec_text = spec_text // token%text
             token = parser%consume()
         end do
@@ -672,8 +683,11 @@ contains
                 exit
             end if
 
+            ! Only add space if not immediately after '=' to prevent breaking string literals
             if (len(spec_text) > 0 .and. token%text /= ",") then
-                spec_text = spec_text // " "
+                if (spec_text(len(spec_text):len(spec_text)) /= '=') then
+                    spec_text = spec_text // " "
+                end if
             end if
             spec_text = spec_text // token%text
             token = parser%consume()
