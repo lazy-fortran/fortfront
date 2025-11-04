@@ -4,7 +4,7 @@ module parser_statements_module
     use parser_control_statements_module
     use parser_memory_statements_module
     use parser_execution_statements_module
-    use parser_import_statements_module
+    use parser_import_resolution_module
     use parser_definition_statements_module, only: parse_statement_in_if_block
     use parser_declarations, only: parse_declaration
 
@@ -19,15 +19,17 @@ module parser_statements_module
         parse_allocate_statement, parse_deallocate_statement
     use parser_execution_statements_module, only: &
         parse_call_statement, parse_program_statement
-    use parser_import_statements_module, only: &
-        parse_use_statement, parse_implicit_statement, parse_include_statement, &
-        parse_module
+    use parser_import_resolution_module, only: &
+        parse_use_statement, parse_include_statement
+    use parser_type_specifications_module, only: parse_implicit_statement
+    use parser_module_structures_module, only: parse_module
 
     ! Additional dependencies for remaining utility functions
     use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
+    use parser_expressions_module, only: parse_comparison, parse_expression, &
+                                         parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t

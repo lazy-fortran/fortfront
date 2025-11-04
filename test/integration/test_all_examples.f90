@@ -43,6 +43,8 @@ program test_all_examples
     ! fpm test runs from project root, so examples/ is directly accessible
     examples_dir = 'examples'
 
+    call assert_skip_path_handling()
+
     ! Load expected failures list
     call load_expected_failures('examples/expected_failures.txt', &
                                 expected_failures, num_expected_failures)
@@ -70,7 +72,7 @@ program test_all_examples
                                     skip_examples, num_skip_examples)
 
     ! Clean up temp directory
-    call cleanup_temp_directory(temp_dir, is_windows)
+    !call cleanup_temp_directory(temp_dir, is_windows)
 
     print *, ""
     print *, "=== Test Summary ==="
@@ -451,6 +453,40 @@ contains
         end do
     end function is_expected_failure
 
+    subroutine assert_skip_path_handling()
+        character(len=256) :: windows_path
+        character(len=256) :: posix_path
+        character(len=256) :: relative
+        character(len=256) :: sample_skip(1)
+        logical :: is_skip
+
+        windows_path = 'C:\work\fortfront\examples\lf\api_complex_transform.lf'
+        posix_path = '/work/fortfront/examples/lf/api_complex_transform.lf'
+        sample_skip = 'lf/api_complex_transform.lf'
+
+        relative = extract_relative_example_path(windows_path)
+        if (trim(relative) /= 'lf/api_complex_transform.lf') then
+            write (error_unit, '(A)') &
+                'ERROR: Windows path normalization failed in test_all_examples'
+            stop 1
+        end if
+
+        relative = extract_relative_example_path(posix_path)
+        if (trim(relative) /= 'lf/api_complex_transform.lf') then
+            write (error_unit, '(A)') &
+                'ERROR: POSIX path normalization failed in test_all_examples'
+            stop 1
+        end if
+
+        is_skip = is_skipped_example('lf/api_complex_transform.lf', &
+                                     'api_complex_transform.lf', sample_skip, 1)
+        if (.not. is_skip) then
+            write (error_unit, '(A)') &
+                'ERROR: Skip list matching failed for normalized path'
+            stop 1
+        end if
+    end subroutine assert_skip_path_handling
+
     logical function is_skipped_example(relative_path, basename, skip_examples, &
                                         num_skip_examples) result(skip)
         character(len=*), intent(in) :: relative_path, basename
@@ -570,34 +606,31 @@ contains
     pure function extract_relative_example_path(filepath) result(relative)
         character(len=*), intent(in) :: filepath
         character(len=256) :: relative
+        character(len=256) :: normalized
         character(len=:), allocatable :: trimmed
         integer :: pos
-        integer :: i
 
         relative = ''
         if (len_trim(filepath) == 0) return
 
         trimmed = adjustl(trim(filepath))
-        pos = index(trimmed, 'examples/')
+        normalized = normalize_path_string(trimmed)
+        pos = index(normalized, 'examples/')
 
         if (pos > 0) then
-            if (pos + len('examples/') <= len(trimmed)) then
-                relative = trimmed(pos + len('examples/'):)
+            if (pos + len('examples/') <= len_trim(normalized)) then
+                relative = normalized(pos + len('examples/'):)
             else
                 relative = ''
             end if
         else
-            relative = trimmed
+            relative = normalized
         end if
 
         relative = adjustl(relative)
         if (len_trim(relative) == 0) then
             relative = extract_example_basename(filepath)
         end if
-
-        do i = 1, len(relative)
-            if (relative(i:i) == '\\') relative(i:i) = '/'
-        end do
 
         relative = trim(relative)
         relative = adjustl(relative)
@@ -610,7 +643,7 @@ contains
 
         normalized = adjustl(trim(value))
         do i = 1, len(normalized)
-            if (normalized(i:i) == '\\') normalized(i:i) = '/'
+            if (normalized(i:i) == '\') normalized(i:i) = '/'
         end do
         normalized = trim(normalized)
         normalized = adjustl(normalized)
@@ -817,6 +850,9 @@ contains
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)
+        if (exit_code /= 0) then
+            print *, 'DEBUG compile failed:', trim(command)
+        end if
         compile_generated_output = (exit_code == 0)
     end function compile_generated_output
 

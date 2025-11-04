@@ -3,7 +3,9 @@ module codegen_module_generation
     use ast_nodes_core, only: literal_node
     use ast_nodes_data, only: module_node, block_data_node
     use ast_nodes_misc, only: implicit_statement_node, interface_block_node, &
-                              module_procedure_node
+                              module_procedure_node, use_statement_node, &
+                              import_statement_node, include_statement_node, &
+                              comment_node, blank_line_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
@@ -25,10 +27,26 @@ contains
         type(module_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: header
+        character(len=:), allocatable :: use_block
+        character(len=:), allocatable :: remainder_block
+        integer :: prefix_count
+        logical :: needs_implicit
 
         in_module_context = .true.
-        code = build_module_header(arena, node)
-        code = code // collect_module_declarations(arena, node)
+        header = build_module_header(arena, node)
+        prefix_count = count_leading_use_entries(arena, node)
+        use_block = collect_module_declarations(arena, node, 1, prefix_count)
+        remainder_block = collect_module_declarations(arena, node, &
+                                                      prefix_count + 1)
+        needs_implicit = .not. module_has_implicit_none(arena, node)
+
+        code = header
+        if (len(use_block) > 0) code = code // use_block
+        if (needs_implicit) then
+            code = code // "    implicit none" // new_line('A')
+        end if
+        if (len(remainder_block) > 0) code = code // remainder_block
         code = code // build_contains_section(arena, node)
         code = code // "end module " // node%name
         in_module_context = .false.
@@ -87,9 +105,6 @@ contains
         character(len=:), allocatable :: header
 
         header = "module " // node%name // new_line('A')
-        if (.not. module_has_implicit_none(arena, node)) then
-            header = header // "    implicit none" // new_line('A')
-        end if
     end function build_module_header
 
     logical function module_has_implicit_none(arena, node) result(has_implicit)
@@ -123,18 +138,79 @@ contains
         end do
     end function module_has_implicit_none
 
-    function collect_module_declarations(arena, node) result(body_code)
+    function collect_module_declarations(arena, node, start_idx, end_idx) &
+        result(body_code)
         type(ast_arena_t), intent(in) :: arena
         type(module_node), intent(in) :: node
+        integer, intent(in), optional :: start_idx
+        integer, intent(in), optional :: end_idx
         character(len=:), allocatable :: body_code
+        integer :: first, last
 
         if (.not. allocated(node%declaration_indices)) then
             body_code = ""
             return
         end if
+        if (size(node%declaration_indices) == 0) then
+            body_code = ""
+            return
+        end if
 
-        body_code = generate_grouped_body(arena, node%declaration_indices, 1)
+        first = 1
+        if (present(start_idx)) first = max(1, start_idx)
+        last = size(node%declaration_indices)
+        if (present(end_idx)) last = min(last, end_idx)
+        if (first > last) then
+            body_code = ""
+            return
+        end if
+
+        body_code = generate_grouped_body(arena, &
+                                          node%declaration_indices(first:last), &
+                                          1)
     end function collect_module_declarations
+
+    integer function count_leading_use_entries(arena, node) result(count)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        integer :: i
+
+        count = 0
+        if (.not. allocated(node%declaration_indices)) return
+
+        do i = 1, size(node%declaration_indices)
+            if (is_use_prefix_entry(arena, node%declaration_indices(i))) then
+                count = count + 1
+            else
+                exit
+            end if
+        end do
+    end function count_leading_use_entries
+
+    logical function is_use_prefix_entry(arena, decl_index) result(is_prefix)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+
+        is_prefix = .false.
+        if (decl_index <= 0) return
+        if (decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+
+        select type (decl => arena%entries(decl_index)%node)
+        type is (use_statement_node)
+            is_prefix = .true.
+        type is (import_statement_node)
+            is_prefix = .true.
+        type is (include_statement_node)
+            is_prefix = .true.
+        type is (comment_node)
+            is_prefix = .true.
+        type is (blank_line_node)
+            is_prefix = .true.
+        class default
+            is_prefix = .false.
+        end select
+    end function is_use_prefix_entry
 
     function build_contains_section(arena, node) result(section_code)
         type(ast_arena_t), intent(in) :: arena
