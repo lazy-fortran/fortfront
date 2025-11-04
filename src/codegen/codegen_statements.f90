@@ -858,7 +858,11 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
+        ! DEBUG: Print unit_spec content
         if (allocated(node%unit_spec)) then
+            if (index(node%unit_spec, '/tmp') > 0) then
+                print *, "CODEGEN DEBUG: node%unit_spec = '", trim(node%unit_spec), "'"
+            end if
             code = "open(" // node%unit_spec // ")"
         else
             code = "open()"

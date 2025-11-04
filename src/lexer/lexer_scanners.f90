@@ -187,6 +187,10 @@ contains
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
+            ! DEBUG: Print string tokens containing /tmp
+            if (index(tokens(token_count)%text, '/tmp') > 0) then
+                print *, "LEXER DEBUG: Created string token: '", trim(tokens(token_count)%text), "'"
+            end if
         end if
     end subroutine scan_string
 
