@@ -71,7 +71,8 @@ program test_all_examples
     end if
     if (num_skip_examples == 0) then
         fallback_root = search_examples_from_cwd(is_windows)
-        call reload_skip_examples_from(fallback_root, skip_examples, num_skip_examples, &
+        call reload_skip_examples_from(fallback_root, skip_examples, &
+                                       num_skip_examples, &
                                        is_windows)
     end if
     if (num_skip_examples == 0) then
@@ -403,9 +404,9 @@ contains
         character(len=*), intent(in) :: filename
         character(len=256), allocatable, intent(out) :: skip_list(:)
         integer, intent(out) :: num_skip
-        integer :: unit_num, ios, file_size
-        character(len=:), allocatable :: buffer
+        integer :: unit_num, ios
         integer :: entry_count, entry_index
+        character(len=512) :: line
         logical :: exists
         character(len=:), allocatable :: alternative
         character(len=:), allocatable :: source_path
@@ -423,46 +424,31 @@ contains
             end if
         end if
         if (.not. exists) then
-            write (error_unit, '(A)') 'WARNING: skip file missing at ' // trim(filename)
+            write (error_unit, '(A)') 'WARNING: skip file missing at ' // &
+                trim(filename)
             allocate (skip_list(0))
             return
         end if
 
-        open (newunit=unit_num, file=source_path, status='old', &
-              access='stream', form='unformatted', action='read', &
+        open (newunit=unit_num, file=source_path, status='old', action='read', &
               iostat=ios)
         if (ios /= 0) then
             write (error_unit, '(A,I0)') &
-                'WARNING: could not open skip list (ios=', ios, ') at ' // trim(source_path)
-            allocate (skip_list(0))
-            return
-        end if
-
-        inquire (unit=unit_num, size=file_size)
-        if (file_size <= 0) then
-            close (unit_num)
-            write (error_unit, '(A)') 'WARNING: skip list empty (size=0) at ' // &
+                'WARNING: could not open skip list (ios=', ios, ') at ' // &
                 trim(source_path)
             allocate (skip_list(0))
             return
         end if
 
-        allocate (character(len=file_size) :: buffer)
-        read (unit_num, iostat=ios) buffer
-        close (unit_num)
-        if (ios /= 0) then
-            deallocate (buffer)
-            write (error_unit, '(A,I0)') &
-                'WARNING: failed reading skip list (ios=', ios, ') at ' // trim(source_path)
-            allocate (skip_list(0))
-            return
-        end if
-
         entry_count = 0
-        call parse_skip_buffer(buffer, .true., entry_count)
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            call process_skip_line(line, .true., entry_count)
+        end do
+        close (unit_num)
 
         if (entry_count <= 0) then
-            deallocate (buffer)
             write (error_unit, '(A)') 'WARNING: no entries found in skip list at ' // &
                 trim(source_path)
             allocate (skip_list(0))
@@ -471,44 +457,28 @@ contains
         end if
 
         allocate (skip_list(entry_count))
+
+        open (newunit=unit_num, file=source_path, status='old', action='read', &
+              iostat=ios)
+        if (ios /= 0) then
+            write (error_unit, '(A,I0)') &
+                'WARNING: could not reopen skip list (ios=', ios, ') at ' // &
+                trim(source_path)
+            deallocate (skip_list)
+            allocate (skip_list(0))
+            num_skip = 0
+            return
+        end if
+
         entry_index = 0
-        call parse_skip_buffer(buffer, .false., entry_index, skip_list)
-        num_skip = entry_index
-        deallocate (buffer)
-    end subroutine load_skip_examples
-
-    subroutine parse_skip_buffer(content, count_only, counter, storage)
-        character(len=*), intent(in) :: content
-        logical, intent(in) :: count_only
-        integer, intent(inout) :: counter
-        character(len=256), intent(inout), optional :: storage(:)
-        character(len=:), allocatable :: line
-        integer :: idx, n
-        character(len=1) :: ch
-
-        line = ''
-        n = len(content)
-        do idx = 1, n + 1
-            if (idx <= n) then
-                ch = content(idx:idx)
-            else
-                ch = achar(10)
-            end if
-            select case (iachar(ch))
-            case (10)
-                if (present(storage)) then
-                    call process_skip_line(line, count_only, counter, storage)
-                else
-                    call process_skip_line(line, count_only, counter)
-                end if
-                line = ''
-            case (13)
-                cycle
-            case default
-                line = line // ch
-            end select
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            call process_skip_line(line, .false., entry_index, skip_list)
         end do
-    end subroutine parse_skip_buffer
+        close (unit_num)
+        num_skip = entry_index
+    end subroutine load_skip_examples
 
     subroutine process_skip_line(raw_line, count_only, counter, storage)
         character(len=*), intent(in) :: raw_line
@@ -935,7 +905,7 @@ contains
         fallback_path = append_path(examples_path, 'skip_all_examples.txt', is_windows)
         if (.not. file_exists(fallback_path)) return
 
-        if (allocated(skip_list)) deallocate(skip_list)
+        if (allocated(skip_list)) deallocate (skip_list)
         call load_skip_examples(fallback_path, skip_list, num_skip)
 
         if (num_skip == 0) then
