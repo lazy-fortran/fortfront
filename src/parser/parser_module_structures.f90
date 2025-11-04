@@ -16,6 +16,7 @@ module parser_module_structures_module
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
+    use parser_import_resolution_module, only: parse_use_statement
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
@@ -94,6 +95,12 @@ contains
                     select case (token%text)
                     case ("public", "private")
                         stmt_index = parse_visibility_statement(parser, arena)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
+                    case ("use")
+                        stmt_index = parse_use_statement(parser, arena)
                         if (stmt_index > 0) then
                             declaration_indices = [declaration_indices, stmt_index]
                         end if

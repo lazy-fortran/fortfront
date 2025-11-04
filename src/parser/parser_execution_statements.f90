@@ -43,7 +43,7 @@ module parser_execution_statements_module
                                             parse_namelist_statement, &
                                             get_data_additional_indices
     use parser_call_module, only: parse_call_statement
-    use parser_import_statements_module, only: parse_use_statement
+    use parser_import_resolution_module, only: parse_use_statement
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
@@ -343,135 +343,136 @@ contains
                         end if
                         extra_indices = take_implicit_additional_indices()
                         if (size(extra_indices) > 0) then
+                            call move_alloc(extra_indices, &
+                                            additional_execution_indices)
+                        end if
+                    end block
+                case ("type")
+                    call handle_type_declaration(parser_ref, arena_ref, stmt_index)
+                case ("print")
+                    stmt_index = parse_print_statement(parser_ref, arena_ref)
+                case ("data")
+                    stmt_index = parse_data_statement(parser_ref, arena_ref)
+                    block
+                        integer, allocatable :: extra_indices(:)
+
+                        if (allocated(additional_execution_indices)) then
+                            block
+                                integer, allocatable :: temp(:)
+                                call move_alloc(additional_execution_indices, temp)
+                            end block
+                        end if
+
+                        extra_indices = get_data_additional_indices()
+                        if (size(extra_indices) > 0) then
                             call move_alloc(extra_indices, additional_execution_indices)
                         end if
                     end block
-            case ("type")
-                call handle_type_declaration(parser_ref, arena_ref, stmt_index)
-            case ("print")
-                stmt_index = parse_print_statement(parser_ref, arena_ref)
-            case ("data")
-                stmt_index = parse_data_statement(parser_ref, arena_ref)
-                block
-                    integer, allocatable :: extra_indices(:)
-
-                    if (allocated(additional_execution_indices)) then
-                        block
-                            integer, allocatable :: temp(:)
-                            call move_alloc(additional_execution_indices, temp)
-                        end block
-                    end if
-
-                    extra_indices = get_data_additional_indices()
-                    if (size(extra_indices) > 0) then
-                        call move_alloc(extra_indices, additional_execution_indices)
-                    end if
-                end block
-            case ("use")
-                stmt_index = parse_use_statement(parser_ref, arena_ref)
-            case ("intrinsic")
-                stmt_index = parse_intrinsic_statement(parser_ref, arena_ref)
-            case ("write")
-                stmt_index = parse_write_statement(parser_ref, arena_ref)
-            case ("read")
-                stmt_index = parse_read_statement(parser_ref, arena_ref)
-            case ("open")
-                stmt_index = parse_open_statement(parser_ref, arena_ref)
-            case ("close")
-                stmt_index = parse_close_statement(parser_ref, arena_ref)
-            case ("inquire")
-                stmt_index = parse_inquire_statement(parser_ref, arena_ref)
-            case ("backspace")
-                stmt_index = parse_backspace_statement(parser_ref, arena_ref)
-            case ("rewind")
-                stmt_index = parse_rewind_statement(parser_ref, arena_ref)
-            case ("endfile")
-                stmt_index = parse_endfile_statement(parser_ref, arena_ref)
-            case ("format")
-                stmt_index = parse_format_statement(parser_ref, arena_ref)
-            case ("allocate")
-                stmt_index = parse_allocate_statement(parser_ref, arena_ref)
-            case ("deallocate")
-                stmt_index = parse_deallocate_statement(parser_ref, arena_ref)
-            case ("stop")
-                stmt_index = parse_stop_statement(parser_ref, arena_ref)
-            case ("go", "goto")
-                stmt_index = parse_goto_statement(parser_ref, arena_ref)
-            case ("error")
-                stmt_index = parse_error_stop_statement(parser_ref, arena_ref)
-            case ("return")
-                stmt_index = parse_return_statement(parser_ref, arena_ref)
-            case ("entry")
-                stmt_index = parse_entry_statement(parser_ref, arena_ref)
-            case ("continue")
-                stmt_index = parse_continue_statement(parser_ref, arena_ref)
-            case ("cycle")
-                stmt_index = parse_cycle_statement(parser_ref, arena_ref)
-            case ("exit")
-                stmt_index = parse_exit_statement(parser_ref, arena_ref)
-            case ("nullify")
-                stmt_index = parse_nullify_statement(parser_ref, arena_ref)
-            case ("call")
-                stmt_index = parse_call_statement(parser_ref, arena_ref)
-            case ("abstract")
-                block
-                    integer :: lookahead_idx
-                    type(token_t) :: lookahead_token
-                    logical :: is_abstract_interface
-                    is_abstract_interface = .false.
-                    lookahead_idx = parser_ref%current_token + 1
-                    do while (lookahead_idx <= size(parser_ref%tokens))
-                        lookahead_token = parser_ref%tokens(lookahead_idx)
-                        select case (lookahead_token%kind)
-                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                            lookahead_idx = lookahead_idx + 1
-                            cycle
-                        case (TK_KEYWORD, TK_IDENTIFIER)
-                            if (to_lower(trim(lookahead_token%text)) == &
-                                "interface") then
-                                is_abstract_interface = .true.
-                            end if
-                            exit
-                        case default
-                            exit
-                        end select
-                    end do
-                    if (is_abstract_interface) then
-                        lookahead_token = parser_ref%consume()
-                        stmt_index = parse_interface_block(parser_ref, arena_ref, &
-                                                           prefix_buffer, &
-                                                           is_abstract=.true.)
-                    else
-                        block
-                            type(token_t) :: ignored_token
-                            ignored_token = parser_ref%consume()
-                        end block
-                        stmt_index = 0
-                    end if
-                end block
-            case ("interface")
-                stmt_index = parse_interface_block(parser_ref, arena_ref, &
-                                                   prefix_buffer)
-            case ("dimension")
-                block
-                    type(token_t) :: ignored_token
-                    logical :: success
-                    ignored_token = parser_ref%consume()
-                    success = parse_dimension_statement(parser_ref, arena_ref)
-                end block
-                stmt_index = 0
-            case ("namelist")
-                stmt_index = parse_namelist_statement(parser_ref, arena_ref)
-            case ("equivalence", "common")
-                stmt_index = parse_legacy_statement(lowered, parser_ref, arena_ref)
-            case ("enum", "enumerator")
-                stmt_index = parse_unsupported_stmt(lowered, parser_ref, arena_ref)
-            case default
-                block
-                    type(token_t) :: ignored_token
-                    ignored_token = parser_ref%consume()
-                end block
-                stmt_index = 0
+                case ("use")
+                    stmt_index = parse_use_statement(parser_ref, arena_ref)
+                case ("intrinsic")
+                    stmt_index = parse_intrinsic_statement(parser_ref, arena_ref)
+                case ("write")
+                    stmt_index = parse_write_statement(parser_ref, arena_ref)
+                case ("read")
+                    stmt_index = parse_read_statement(parser_ref, arena_ref)
+                case ("open")
+                    stmt_index = parse_open_statement(parser_ref, arena_ref)
+                case ("close")
+                    stmt_index = parse_close_statement(parser_ref, arena_ref)
+                case ("inquire")
+                    stmt_index = parse_inquire_statement(parser_ref, arena_ref)
+                case ("backspace")
+                    stmt_index = parse_backspace_statement(parser_ref, arena_ref)
+                case ("rewind")
+                    stmt_index = parse_rewind_statement(parser_ref, arena_ref)
+                case ("endfile")
+                    stmt_index = parse_endfile_statement(parser_ref, arena_ref)
+                case ("format")
+                    stmt_index = parse_format_statement(parser_ref, arena_ref)
+                case ("allocate")
+                    stmt_index = parse_allocate_statement(parser_ref, arena_ref)
+                case ("deallocate")
+                    stmt_index = parse_deallocate_statement(parser_ref, arena_ref)
+                case ("stop")
+                    stmt_index = parse_stop_statement(parser_ref, arena_ref)
+                case ("go", "goto")
+                    stmt_index = parse_goto_statement(parser_ref, arena_ref)
+                case ("error")
+                    stmt_index = parse_error_stop_statement(parser_ref, arena_ref)
+                case ("return")
+                    stmt_index = parse_return_statement(parser_ref, arena_ref)
+                case ("entry")
+                    stmt_index = parse_entry_statement(parser_ref, arena_ref)
+                case ("continue")
+                    stmt_index = parse_continue_statement(parser_ref, arena_ref)
+                case ("cycle")
+                    stmt_index = parse_cycle_statement(parser_ref, arena_ref)
+                case ("exit")
+                    stmt_index = parse_exit_statement(parser_ref, arena_ref)
+                case ("nullify")
+                    stmt_index = parse_nullify_statement(parser_ref, arena_ref)
+                case ("call")
+                    stmt_index = parse_call_statement(parser_ref, arena_ref)
+                case ("abstract")
+                    block
+                        integer :: lookahead_idx
+                        type(token_t) :: lookahead_token
+                        logical :: is_abstract_interface
+                        is_abstract_interface = .false.
+                        lookahead_idx = parser_ref%current_token + 1
+                        do while (lookahead_idx <= size(parser_ref%tokens))
+                            lookahead_token = parser_ref%tokens(lookahead_idx)
+                            select case (lookahead_token%kind)
+                            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                                lookahead_idx = lookahead_idx + 1
+                                cycle
+                            case (TK_KEYWORD, TK_IDENTIFIER)
+                                if (to_lower(trim(lookahead_token%text)) == &
+                                    "interface") then
+                                    is_abstract_interface = .true.
+                                end if
+                                exit
+                            case default
+                                exit
+                            end select
+                        end do
+                        if (is_abstract_interface) then
+                            lookahead_token = parser_ref%consume()
+                            stmt_index = parse_interface_block(parser_ref, arena_ref, &
+                                                               prefix_buffer, &
+                                                               is_abstract=.true.)
+                        else
+                            block
+                                type(token_t) :: ignored_token
+                                ignored_token = parser_ref%consume()
+                            end block
+                            stmt_index = 0
+                        end if
+                    end block
+                case ("interface")
+                    stmt_index = parse_interface_block(parser_ref, arena_ref, &
+                                                       prefix_buffer)
+                case ("dimension")
+                    block
+                        type(token_t) :: ignored_token
+                        logical :: success
+                        ignored_token = parser_ref%consume()
+                        success = parse_dimension_statement(parser_ref, arena_ref)
+                    end block
+                    stmt_index = 0
+                case ("namelist")
+                    stmt_index = parse_namelist_statement(parser_ref, arena_ref)
+                case ("equivalence", "common")
+                    stmt_index = parse_legacy_statement(lowered, parser_ref, arena_ref)
+                case ("enum", "enumerator")
+                    stmt_index = parse_unsupported_stmt(lowered, parser_ref, arena_ref)
+                case default
+                    block
+                        type(token_t) :: ignored_token
+                        ignored_token = parser_ref%consume()
+                    end block
+                    stmt_index = 0
                 end select
             end select
         end function parse_general_keyword

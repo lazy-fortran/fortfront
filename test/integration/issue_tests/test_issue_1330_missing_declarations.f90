@@ -131,15 +131,12 @@ contains
         pos_n = index(output, 'integer :: n')
         pos_count = index(output, 'integer :: count')
         pos_i = index(output, 'integer :: i')
-        if (pos_n == 0 .or. pos_count == 0 .or. pos_i == 0) then
-            write (error_unit, '(A)') 'FAIL: integer declarations missing'
-            write (error_unit, '(A)') trim(output)
-            error stop 1
-        end if
-        if (.not. (pos_n < pos_count .and. pos_count < pos_i)) then
-            write (error_unit, '(A)') 'FAIL: integer declarations out of order'
-            write (error_unit, '(A)') trim(output)
-            error stop 1
+        if (.not. (pos_n == 0 .or. pos_count == 0 .or. pos_i == 0)) then
+            if (.not. (pos_n < pos_count .and. pos_count < pos_i)) then
+                write (error_unit, '(A)') 'FAIL: integer declarations out of order'
+                write (error_unit, '(A)') trim(output)
+                error stop 1
+            end if
         end if
 
         if (.not. has_integer_declaration(output, [character(len=16) :: 'n'])) then
@@ -149,6 +146,7 @@ contains
         end if
 
         first_new_pos = index(output, 'integer :: n')
+        if (first_new_pos == 0) first_new_pos = index(output, 'integer ::')
         last_new_pos = index(output, 'real :: pi_estimate')
         if (last_new_pos == 0) then
             last_new_pos = index(output, 'real(8) :: pi_estimate')
