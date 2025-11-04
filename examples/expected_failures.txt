@@ -23,7 +23,6 @@ issue_2069_allocate_not_inferred_allocatable.lf  # ALLOCATE not inferred as allo
 issue_2070_entry_loses_argument_declarations.f90  # ENTRY loses argument declarations #2070
 issue_2071_function_param_string_inferred_as_real.lf  # string parameter inferred as real #2071
 issue_2072_pointer_not_declared.lf  # pointer variable not declared #2072
-issue_2073_cmplx_result_not_inferred_complex.lf  # cmplx() result not inferred as complex #2073
 issue_2074_arithmetic_if_not_supported.f90  # arithmetic IF not supported (F77 legacy) #2074
 issue_2075_stop_keyword_collision_in_function_param.lf  # 'stop' keyword collision in function param #2075
 issue_2077_goto_drops_labeled_statements.lf  # GOTO drops labeled statements #2077
