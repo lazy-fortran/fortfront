@@ -91,7 +91,9 @@ contains
                         var_type%alloc_info%is_allocatable = .true.
                     end if
 
-                    var_type%alloc_info%needs_allocatable_string = .true.
+                    if (var_type%kind == TCHAR .or. element_type%kind == TCHAR) then
+                        var_type%alloc_info%needs_allocatable_string = .true.
+                    end if
 
                     call update_identifier_type_in_arena(arena, var_name, var_type)
 
