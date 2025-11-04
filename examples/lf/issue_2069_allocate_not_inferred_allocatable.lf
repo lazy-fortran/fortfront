@@ -1,0 +1,5 @@
+! Test allocatable array in lazy Fortran
+allocate(arr(10))
+arr = [(i, i = 1, 10)]
+print *, "Array:", arr
+deallocate(arr)

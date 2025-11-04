@@ -1,0 +1,7 @@
+! Lazy Fortran: string concatenation with type inference
+function greet(name)
+    greet = "Hello, " // name // "!"
+end function
+
+message = greet("World")
+print *, message

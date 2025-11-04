@@ -1,0 +1,8 @@
+! Test dimension inference with attributes
+function make_array(n)
+    result_arr = [(i, i = 1, n)]
+    make_array = result_arr
+end function
+
+arr = make_array(5)
+print *, "Array:", arr

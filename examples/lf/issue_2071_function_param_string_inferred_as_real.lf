@@ -1,0 +1,10 @@
+! Test parameter with default value (should error)
+function greet(name, prefix)
+    if (prefix == "") then
+        prefix = "Hello"
+    end if
+    greet = prefix // ", " // name
+end function
+
+msg = greet("World", "Hi")
+print *, msg

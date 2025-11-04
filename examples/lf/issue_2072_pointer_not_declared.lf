@@ -1,0 +1,7 @@
+! Test null pointer comparison
+ptr => null()
+if (associated(ptr)) then
+    print *, "Pointer is associated"
+else
+    print *, "Pointer is null"
+end if
