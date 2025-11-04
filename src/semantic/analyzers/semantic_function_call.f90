@@ -1,7 +1,7 @@
 module semantic_function_call
     use type_system_unified, only: mono_type_t, poly_type_t, create_mono_type, &
                                    TREAL, TINT, TCHAR, TLOGICAL, TFUN, TARRAY, &
-                                   type_args_allocated, type_args_size, &
+                                   TCOMPLEX, type_args_allocated, type_args_size, &
                                    type_args_element
     use scope_manager, only: scope_stack_t
     use ast_arena_modern, only: ast_arena_t
@@ -137,6 +137,8 @@ contains
             typ = create_mono_type(TLOGICAL)
         else if (index(intrinsic_sig, "character(") == 1) then
             typ = create_mono_type(TCHAR)
+        else if (index(intrinsic_sig, "complex(") == 1) then
+            typ = create_mono_type(TCOMPLEX)
         else if (index(intrinsic_sig, "array(") == 1) then
             typ = infer_array_intrinsic_type(arena, call_node, get_type_fn)
         else
