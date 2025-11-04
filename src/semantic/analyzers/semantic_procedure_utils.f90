@@ -4,6 +4,7 @@ module semantic_procedure_utils
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -50,6 +51,8 @@ contains
         character(len=:), allocatable :: res_name
         integer :: i, stmt_index, target_index
         character(len=:), allocatable :: first_assigned
+        character(len=:), allocatable :: target_name
+        character(len=:), allocatable :: target_lower
 
         res_name = ''
         first_assigned = ''
@@ -62,21 +65,21 @@ contains
             select type (stmt => arena%entries(stmt_index)%node)
             type is (assignment_node)
                 target_index = stmt%target_index
-                if (target_index > 0 .and. target_index <= arena%size) then
-                    if (allocated(arena%entries(target_index)%node)) then
-                        select type (target => arena%entries(target_index)%node)
-                        type is (identifier_node)
-                            if (allocated(target%name)) then
-                                if (trim(target%name) == 'result') then
-                                    res_name = 'result'
-                                    return
-                                else if (len_trim(first_assigned) == 0) then
-                                    first_assigned = trim(target%name)
-                                end if
-                            end if
-                        end select
+                if (target_index <= 0 .or. target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(target_index)%node)) cycle
+                select type (target => arena%entries(target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    target_name = trim(target%name)
+                    if (len_trim(target_name) == 0) cycle
+                    target_lower = to_lower(target_name)
+                    if (target_lower == 'result') then
+                        res_name = target_name
+                        return
                     end if
-                end if
+                    if (len_trim(first_assigned) == 0) &
+                        first_assigned = target_name
+                end select
             end select
         end do
 

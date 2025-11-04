@@ -2,10 +2,12 @@ module semantic_scope_creation
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_poly_type, TCHAR
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
     use semantic_procedure_utils, only: detect_result_name
-    use semantic_validation_utils, only: update_identifier_type_in_arena
+    use semantic_validation_utils, only: update_identifier_type_in_arena, &
+                                         rename_identifier_in_arena
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
@@ -133,28 +135,88 @@ contains
         character(len=*), intent(in) :: type_string
         logical, intent(in) :: type_success
         character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: resolved_result_name
+
+        if (func_index <= 0 .or. func_index > arena%size) return
+        if (.not. allocated(arena%entries(func_index)%node)) return
+
+        if (len_trim(result_name) > 0) then
+            resolved_result_name = trim(result_name)
+        else
+            resolved_result_name = ''
+        end if
 
         select type (node => arena%entries(func_index)%node)
         type is (function_def_node)
-            call update_identifier_type_in_arena(arena, result_name, return_type)
+            if (len_trim(resolved_result_name) > 0) then
+                call update_identifier_type_in_arena(arena, resolved_result_name, &
+                                                     return_type)
+            end if
             if (allocated(node%name)) then
                 function_name = trim(node%name)
             else
                 function_name = ''
             end if
-            if (len_trim(function_name) > 0 .and. result_name /= function_name) then
-                call update_identifier_type_in_arena(arena, function_name, &
-                                                     return_type)
+            if (len_trim(function_name) > 0) then
+                if (len_trim(resolved_result_name) > 0) then
+                    if (trim(function_name) /= trim(resolved_result_name)) then
+                        if (has_assignment_to_function(arena, node, &
+                                                       function_name)) then
+                            resolved_result_name = function_name
+                        else if (allocated(node%body_indices)) then
+                            call rename_identifier_in_arena( &
+                                arena, trim(function_name), &
+                                trim(resolved_result_name), node%body_indices, &
+                                func_index)
+                        end if
+                    end if
+                end if
+            end if
+            if (len_trim(function_name) > 0) then
+                if (trim(resolved_result_name) /= trim(function_name)) then
+                    call update_identifier_type_in_arena(arena, function_name, &
+                                                         return_type)
+                end if
             end if
             if (type_success .and. len_trim(type_string) > 0) then
                 node%return_type = type_string
             end if
-            if (.not. allocated(node%result_variable) .or. &
-                len_trim(node%result_variable) == 0) then
-                node%result_variable = result_name
-            end if
+            node%result_variable = resolved_result_name
             arena%entries(func_index)%node = node
         end select
     end subroutine apply_result_metadata
+
+    logical function has_assignment_to_function(arena, func_node, function_name)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_node
+        character(len=*), intent(in) :: function_name
+        integer :: i
+        integer :: stmt_index
+        integer :: target_index
+
+        has_assignment_to_function = .false.
+        if (len_trim(function_name) == 0) return
+        if (.not. allocated(func_node%body_indices)) return
+
+        do i = 1, size(func_node%body_indices)
+            stmt_index = func_node%body_indices(i)
+            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            select type (stmt => arena%entries(stmt_index)%node)
+            type is (assignment_node)
+                target_index = stmt%target_index
+                if (target_index <= 0 .or. target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(target_index)%node)) cycle
+                select type (target => arena%entries(target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (trim(target%name) == trim(function_name)) then
+                        has_assignment_to_function = .true.
+                        return
+                    end if
+                end select
+            end select
+        end do
+    end function has_assignment_to_function
 
 end module semantic_scope_creation
