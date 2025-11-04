@@ -101,11 +101,7 @@ contains
         type is (read_statement_node)
             code = generate_code_read_statement(arena, node, node_index)
         type is (open_statement_node)
-            print *, "CODEGEN_CORE: Dispatching to generate_code_open_statement"
             code = generate_code_open_statement(arena, node, node_index)
-            if (index(code, '/tmp') > 0) then
-                print *, "CODEGEN_CORE: Result code = '", trim(code), "'"
-            end if
         type is (close_statement_node)
             code = generate_code_close_statement(arena, node, node_index)
         type is (inquire_statement_node)

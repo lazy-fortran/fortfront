@@ -118,10 +118,6 @@ contains
             if (needs_space) spec_text = spec_text // " "
 
             token = parser%consume()
-            ! DEBUG: Print token details in collect_position_spec
-            if (index(token%text, '/tmp') > 0 .or. token%kind == TK_STRING) then
-                print *, "collect_position_spec: token kind=", token%kind, " text='", trim(token%text), "'"
-            end if
             spec_text = spec_text // token%text
             if (token%kind == TK_OPERATOR) then
                 if (token%text == ",") spec_text = spec_text // " "
@@ -129,10 +125,6 @@ contains
         end do
 
         spec_text = trim(spec_text)
-        ! DEBUG: Print final result from collect_position_spec
-        if (index(spec_text, '/tmp') > 0) then
-            print *, "collect_position_spec RESULT: '", trim(spec_text), "'"
-        end if
     end function collect_position_spec
 
     ! Parse argument list (common logic for print/write/read)
@@ -598,8 +590,6 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-                ! DEBUG: Print all tokens
-                print *, "DEBUG token: kind=", token%kind, " text='", trim(token%text), "'"
                 ! Only add space if not immediately after '=' AND if token is not a string literal
                 if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= TK_STRING) then
                     if (spec_text(len(spec_text):len(spec_text)) /= '=') then
@@ -610,11 +600,6 @@ contains
                 token = parser%consume()
             end if
         end do
-
-        ! DEBUG: Print final spec_text
-        if (index(spec_text, '/tmp') > 0) then
-            print *, "PARSER DEBUG: Final spec_text = '", trim(spec_text), "'"
-        end if
 
         open_index = push_open_statement(arena, spec_text, line, column)
     end function parse_open_statement
