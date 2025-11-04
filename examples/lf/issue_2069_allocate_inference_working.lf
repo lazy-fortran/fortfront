@@ -1,0 +1,6 @@
+! Working case: allocate with element-wise assignment
+allocate(arr(10))
+arr(1) = 5
+arr(2) = 10
+print *, "Array elements:", arr(1), arr(2)
+deallocate(arr)

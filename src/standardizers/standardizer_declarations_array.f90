@@ -303,6 +303,35 @@ contains
                     candidate_name = to_lower(trim(node%name))
                     if (trim(candidate_name) == trim(target_name)) then
                         if (node%inferred_type%kind == TARRAY) then
+                            if (node%inferred_type%alloc_info%is_allocatable) then
+                                decl_node%is_array = .true.
+                                decl_node%is_allocatable = .true.
+                                ndims = count_array_dimensions(node%inferred_type)
+
+                                if (allocated(decl_node%dimension_indices)) &
+                                    deallocate (decl_node%dimension_indices)
+                                allocate (decl_node%dimension_indices(ndims))
+
+                                do i = 1, ndims
+                                    decl_node%dimension_indices(i) = 0
+                                end do
+                                exit
+                            end if
+                        end if
+                    end if
+                end select
+            end if
+        end do
+
+        if (decl_node%is_allocatable) return
+
+        do j = 1, arena%size
+            if (allocated(arena%entries(j)%node)) then
+                select type (node => arena%entries(j)%node)
+                type is (identifier_node)
+                    candidate_name = to_lower(trim(node%name))
+                    if (trim(candidate_name) == trim(target_name)) then
+                        if (node%inferred_type%kind == TARRAY) then
                             decl_node%is_array = .true.
 
                             ndims = count_array_dimensions(node%inferred_type)
@@ -316,20 +345,15 @@ contains
 
                             do i = 1, ndims
                                 if (dim_sizes(i) > 0) then
-                                    if (.not. node%inferred_type%alloc_info% &
-                                        is_allocatable) then
-                                        write (size_str, '(i0)') dim_sizes(i)
-                                        size_literal%uid = generate_uid()
-                                        size_literal%value = trim(size_str)
-                                        size_literal%literal_kind = LITERAL_INTEGER
-                                        size_literal%line = 1
-                                        size_literal%column = 1
-                                        call arena%push(size_literal, "literal", &
-                                                        prog_index)
-                                        decl_node%dimension_indices(i) = arena%size
-                                    else
-                                        decl_node%dimension_indices(i) = 0
-                                    end if
+                                    write (size_str, '(i0)') dim_sizes(i)
+                                    size_literal%uid = generate_uid()
+                                    size_literal%value = trim(size_str)
+                                    size_literal%literal_kind = LITERAL_INTEGER
+                                    size_literal%line = 1
+                                    size_literal%column = 1
+                                    call arena%push(size_literal, "literal", &
+                                                    prog_index)
+                                    decl_node%dimension_indices(i) = arena%size
                                 else
                                     decl_node%dimension_indices(i) = 0
                                 end if
