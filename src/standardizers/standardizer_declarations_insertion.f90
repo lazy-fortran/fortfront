@@ -463,7 +463,7 @@ contains
         decl_node%column = 1
         decl_node%is_array = .false.
         decl_node%is_allocatable = .false.
-        decl_node%disable_grouping = .true.
+        decl_node%disable_grouping = .false.
 
         call apply_type_string_to_decl(arena, prog_index, var_name, var_type, &
                                        decl_node)
