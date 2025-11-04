@@ -9,17 +9,17 @@ program test_module_use_statements
     implicit none
 
     character(len=*), parameter :: source = &
-        "module module_use_demo" // new_line('a') // &
-        "    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit" // &
-        new_line('a') // &
-        "    implicit none" // new_line('a') // &
-        "contains" // new_line('a') // &
-        "    subroutine touch()" // new_line('a') // &
-        "        real(dp) :: value" // new_line('a') // &
-        "        value = 1.0_dp" // new_line('a') // &
-        "        print *, value" // new_line('a') // &
-        "    end subroutine touch" // new_line('a') // &
-        "end module module_use_demo"
+                                   "module module_use_demo" // new_line('a') // &
+            "    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit" // &
+                                   new_line('a') // &
+                                   "    implicit none" // new_line('a') // &
+                                   "contains" // new_line('a') // &
+                                   "    subroutine touch()" // new_line('a') // &
+                                   "        real(dp) :: value" // new_line('a') // &
+                                   "        value = 1.0_dp" // new_line('a') // &
+                                   "        print *, value" // new_line('a') // &
+                                   "    end subroutine touch" // new_line('a') // &
+                                   "end module module_use_demo"
 
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
