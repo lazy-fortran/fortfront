@@ -14,6 +14,7 @@ program test_function_parameters_parsing
     print *, '=== fortfront API Function Parameter Parsing Tests ==='
 
     if (.not. test_typed_parameters()) all_passed = .false.
+    if (.not. test_keyword_parameters()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -128,5 +129,115 @@ contains
             print *, '  PASS: Typed parameter parsing in function definition'
         end block
     end function test_typed_parameters
+
+    logical function test_keyword_parameters()
+        test_keyword_parameters = .true.
+        print *, 'Testing keyword parameter names in function definition...'
+
+        block
+            type(token_t), allocatable :: tokens(:)
+            type(ast_arena_t) :: arena
+            character(len=:), allocatable :: source
+            integer :: idx
+            type(parser_state_t) :: parser
+            class(ast_node), allocatable :: node
+            type(parser_prefix_buffer_t) :: prefix_buffer
+
+            source = 'integer function make_range(start, stop, step)' // new_line('A') // &
+                     '  integer :: start' // new_line('A') // &
+                     '  integer :: stop' // new_line('A') // &
+                     '  integer :: step' // new_line('A') // &
+                     '  make_range = stop - start + step' // new_line('A') // &
+                     'end function make_range'
+
+            call tokenize_core(source, tokens)
+            arena = create_ast_arena()
+            parser = create_parser_state(tokens)
+            idx = parse_function_definition(parser, arena, prefix_buffer)
+
+            if (idx <= 0 .or. idx > arena%size) then
+                print *, '  FAIL: Invalid node index returned'
+                test_keyword_parameters = .false.
+                return
+            end if
+
+            if (.not. allocated(arena%entries(idx)%node)) then
+                print *, '  FAIL: Node not allocated'
+                test_keyword_parameters = .false.
+                return
+            end if
+
+            select type (node => arena%entries(idx)%node)
+            type is (function_def_node)
+                if (.not. allocated(node%param_indices)) then
+                    print *, '  FAIL: Expected allocated param_indices'
+                    test_keyword_parameters = .false.
+                    return
+                end if
+                if (size(node%param_indices) /= 3) then
+                    print *, '  FAIL: Expected 3 parameters, got ', size(node%param_indices)
+                    test_keyword_parameters = .false.
+                    return
+                end if
+
+                if (.not. verify_parameter_name(arena, node%param_indices(1), 'start')) then
+                    test_keyword_parameters = .false.
+                    return
+                end if
+                if (.not. verify_parameter_name(arena, node%param_indices(2), 'stop')) then
+                    test_keyword_parameters = .false.
+                    return
+                end if
+                if (.not. verify_parameter_name(arena, node%param_indices(3), 'step')) then
+                    test_keyword_parameters = .false.
+                    return
+                end if
+            class default
+                print *, '  FAIL: Expected function_def_node at root'
+                test_keyword_parameters = .false.
+                return
+            end select
+
+            print *, '  PASS: Keyword parameter names parsed correctly'
+        end block
+    end function test_keyword_parameters
+
+    logical function verify_parameter_name(arena, param_index, expected_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        character(len=*), intent(in) :: expected_name
+
+        if (param_index <= 0 .or. param_index > arena%size) then
+            print *, '  FAIL: Invalid parameter index'
+            verify_parameter_name = .false.
+            return
+        end if
+        if (.not. allocated(arena%entries(param_index)%node)) then
+            print *, '  FAIL: Parameter node not allocated'
+            verify_parameter_name = .false.
+            return
+        end if
+
+        select type (param_node => arena%entries(param_index)%node)
+        type is (parameter_declaration_node)
+            if (.not. allocated(param_node%name)) then
+                print *, '  FAIL: Parameter name not allocated'
+                verify_parameter_name = .false.
+                return
+            end if
+            if (trim(param_node%name) /= expected_name) then
+                print *, '  FAIL: Expected parameter ', expected_name, ' got ', &
+                         trim(param_node%name)
+                verify_parameter_name = .false.
+                return
+            end if
+        class default
+            print *, '  FAIL: Node is not a parameter_declaration_node'
+            verify_parameter_name = .false.
+            return
+        end select
+
+        verify_parameter_name = .true.
+    end function verify_parameter_name
 
 end program test_function_parameters_parsing

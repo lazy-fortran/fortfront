@@ -147,6 +147,11 @@ contains
                 cycle
             end if
 
+            if (token%kind == TK_KEYWORD .and. can_keyword_be_identifier(token)) then
+                call append_untyped_parameter(parser, arena, param_indices)
+                cycle
+            end if
+
             call consume_token(parser)
         end do
     end subroutine parse_typed_parameters
@@ -158,6 +163,16 @@ contains
                           token%text == "type" .or. token%text == "complex" .or. &
                           token%text == "class" .or. token%text == "procedure"
     end function is_type_keyword_token
+
+    logical function can_keyword_be_identifier(token) result(can_be_id)
+        type(token_t), intent(in) :: token
+        character(len=len(token%text)) :: lower_text
+
+        lower_text = to_lower(token%text)
+        can_be_id = lower_text == "stop" .or. lower_text == "pause" .or. &
+                    lower_text == "cycle" .or. lower_text == "exit" .or. &
+                    lower_text == "return" .or. lower_text == "continue"
+    end function can_keyword_be_identifier
 
     subroutine parse_parameter_group(parser, arena, param_indices)
         type(parser_state_t), intent(inout) :: parser
