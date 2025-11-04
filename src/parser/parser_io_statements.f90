@@ -98,6 +98,8 @@ contains
             if (needs_space) then
                 last_char = spec_text(len(spec_text):len(spec_text))
                 if (last_char == ' ') needs_space = .false.
+                ! Never add space before string literals
+                if (token%kind == TK_STRING) needs_space = .false.
                 select case (token%text)
                 case (")", ",")
                     needs_space = .false.
@@ -588,8 +590,8 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-                ! Only add space if not immediately after '=' to prevent breaking string literals
-                if (len(spec_text) > 0 .and. token%text /= "=") then
+                ! Only add space if not immediately after '=' AND if token is not a string literal
+                if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= TK_STRING) then
                     if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                         spec_text = spec_text // " "
                     end if
@@ -636,8 +638,8 @@ contains
                 exit
             end if
 
-            ! Only add space if not immediately after '=' to prevent breaking string literals
-            if (len(spec_text) > 0 .and. token%text /= ",") then
+            ! Only add space if not immediately after '=' AND if token is not a string literal
+            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= TK_STRING) then
                 if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                     spec_text = spec_text // " "
                 end if
@@ -683,8 +685,8 @@ contains
                 exit
             end if
 
-            ! Only add space if not immediately after '=' to prevent breaking string literals
-            if (len(spec_text) > 0 .and. token%text /= ",") then
+            ! Only add space if not immediately after '=' AND if token is not a string literal
+            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= TK_STRING) then
                 if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                     spec_text = spec_text // " "
                 end if
