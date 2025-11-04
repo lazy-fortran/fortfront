@@ -45,6 +45,15 @@ contains
             write (error_unit, '(A)') 'unexpected real parameter declaration'
             passed = .false.
         end if
+        if (index(generated, 'real function noise()') == 0) then
+            write (error_unit, '(A)') 'missing noise function signature'
+            passed = .false.
+        end if
+        if (index(generated, 'real :: noise') > 0) then
+            write (error_unit, '(A)') &
+                'noise function name declared as variable'
+            passed = .false.
+        end if
     end function test_square_integer_inference
 
     subroutine read_example(filepath, content)

@@ -5,7 +5,8 @@ module semantic_scope_creation
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
     use semantic_procedure_utils, only: detect_result_name
-    use semantic_validation_utils, only: update_identifier_type_in_arena
+    use semantic_validation_utils, only: update_identifier_type_in_arena, &
+                                         rename_identifier_in_arena
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
@@ -141,6 +142,19 @@ contains
                 function_name = trim(node%name)
             else
                 function_name = ''
+            end if
+            if (len_trim(function_name) > 0) then
+                if (len_trim(result_name) > 0) then
+                    if (trim(function_name) /= trim(result_name)) then
+                        if (allocated(node%body_indices)) then
+                            call rename_identifier_in_arena(arena, &
+                                                            trim(function_name), &
+                                                            trim(result_name), &
+                                                            node%body_indices, &
+                                                            func_index)
+                        end if
+                    end if
+                end if
             end if
             if (len_trim(function_name) > 0 .and. result_name /= function_name) then
                 call update_identifier_type_in_arena(arena, function_name, &

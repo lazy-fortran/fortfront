@@ -42,5 +42,4 @@ call_graph_module_program_scopes.f90
 ast_coverage_control_flow.f90
 issue_1534_multi_dimension_allocatable.lf
 issue_1816_multiple_returns.lf
-function_parameter_integer_inference.lf
 issue_216_comparison_chain.lf
