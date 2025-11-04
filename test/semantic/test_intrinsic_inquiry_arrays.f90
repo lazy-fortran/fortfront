@@ -1,7 +1,8 @@
 program test_intrinsic_inquiry_arrays
     use transformation_api, only: compile_source, compilation_options_t
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-                                              iostat_end, iostat_eor
+                                                                           iostat_end, &
+                                                                              iostat_eor
     implicit none
 
     character(len=*), parameter :: example_path = 'examples/lf/intrinsic_functions.lf'
