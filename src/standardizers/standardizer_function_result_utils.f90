@@ -94,13 +94,13 @@ contains
         if (len_trim(function_name) > 0) then
             if (allocated(func_def%result_variable)) then
                 if (len_trim(func_def%result_variable) > 0) then
-                    if (trim(func_def%result_variable) /= trim(function_name)) then
+                    if (trim(func_def%result_variable) /= &
+                        trim(function_name)) then
                         if (allocated(func_def%body_indices)) then
-                            call rename_identifier_in_arena(arena, &
-                                                            trim(function_name), &
-                                                            trim(func_def%result_variable), &
-                                                            func_def%body_indices, &
-                                                            func_index)
+                            call rename_identifier_in_arena( &
+                                arena, trim(function_name), &
+                                trim(func_def%result_variable), &
+                                func_def%body_indices, func_index)
                         end if
                     end if
                 end if
