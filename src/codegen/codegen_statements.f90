@@ -56,10 +56,15 @@ contains
 
         if (.not. allocated(code)) code = ""
         if (allocated(label)) then
-            if (len(code) > 0) then
+            ! Check if code is effectively empty (only whitespace/newlines)
+            if (len_trim(code) > 0) then
                 code = label // " " // code
             else
-                code = label
+                ! BUG FIX (issue #2077): If statement content is empty but we have
+                ! a label, generate a continue statement to preserve the label.
+                ! This handles cases where labeled statements lose their content
+                ! during transformation while preserving the GOTO target.
+                code = label // " continue"
             end if
         end if
     end subroutine prepend_stmt_label
@@ -728,6 +733,8 @@ contains
         do i = 1, node%count
             code = code // new_line('A')
         end do
+
+        call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_blank_line
 
     ! generate_code_from_arena is provided as an interface at the module level

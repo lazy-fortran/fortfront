@@ -3,7 +3,7 @@ module frontend_statement_processing
     ! Handles parsing of all statements into a program structure
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, to_lower
+                          TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, &
                                         clear_additional_indices
@@ -194,8 +194,47 @@ contains
 
         ! Note: stmt_tokens already allocated and filled in the block above
 
-        ! Parse the statement
-        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+        ! Handle statement labels (fixes #2077)
+        block
+            character(len=:), allocatable :: stmt_label
+            integer :: label_end_idx, i
+            type(token_t), allocatable :: tokens_without_label(:)
+
+            ! Check if first significant token is a numeric label
+            label_end_idx = 0
+            do i = 1, size(stmt_tokens)
+                if (stmt_tokens(i)%kind == TK_WHITESPACE) cycle
+                if (stmt_tokens(i)%kind == TK_NUMBER) then
+                    ! Found a numeric label
+                    stmt_label = trim(stmt_tokens(i)%text)
+                    label_end_idx = i
+                end if
+                exit  ! Stop after first non-whitespace token
+            end do
+
+            ! If we found a label, remove it from the token stream
+            if (label_end_idx > 0) then
+                ! Create new token array without the label
+                allocate (tokens_without_label(size(stmt_tokens) - label_end_idx))
+                tokens_without_label = stmt_tokens(label_end_idx + 1:size(stmt_tokens))
+                ! Replace stmt_tokens with the version without label
+                deallocate (stmt_tokens)
+                call move_alloc(tokens_without_label, stmt_tokens)
+            end if
+
+            ! Parse the statement
+            stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+
+            ! Attach the label to the created statement if we have one
+            if (stmt_index > 0 .and. allocated(stmt_label)) then
+                if (stmt_index <= arena%size) then
+                    if (allocated(arena%entries(stmt_index)%node)) then
+                        arena%entries(stmt_index)%node%stmt_label = stmt_label
+                    end if
+                end if
+            end if
+        end block
+
         if (stmt_index > 0) then
             body_indices = [body_indices, stmt_index]
 
