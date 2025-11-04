@@ -227,7 +227,7 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="shape", return_type="integer_array", &
+                                 name="shape", return_type="array", &
                                  arg_types="array", &
                                  description="Array shape")
 
@@ -281,13 +281,13 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="minloc", return_type="integer_array", &
+                                 name="minloc", return_type="array", &
                                  arg_types="array", &
                                  description="Location of minimum value")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="maxloc", return_type="integer_array", &
+                                 name="maxloc", return_type="array", &
                                  arg_types="array", &
                                  description="Location of maximum value")
 
@@ -414,13 +414,13 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="lbound", return_type="integer_array", &
+                                 name="lbound", return_type="array", &
                                  arg_types="array", &
                                  description="Lower bounds of array")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-                                 name="ubound", return_type="integer_array", &
+                                 name="ubound", return_type="array", &
                                  arg_types="array", &
                                  description="Upper bounds of array")
     end subroutine register_inquiry_intrinsics
