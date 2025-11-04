@@ -36,8 +36,9 @@ module codegen_expressions
 
 contains
 
-    ! Remove spaces inside and immediately before string literals
-    ! Fixes issue #2065 where '/tmp/test.dat' becomes ' /tmp/ test.dat'
+    ! Remove spaces immediately before string literals only
+    ! Fixes issue #2065 where space is inserted before string literals
+    ! IMPORTANT: Preserves all content inside string literals including spaces
     function remove_spaces_from_string_literals(input) result(output)
         character(len=*), intent(in) :: input
         character(len=:), allocatable :: output
@@ -84,18 +85,17 @@ contains
                     temp(j:j) = input(i:i)
                 end if
             else
-                ! In string - skip spaces
+                ! Inside string - preserve ALL characters including spaces
                 if (input(i:i) == quote_char) then
                     ! End of string
                     j = j + 1
                     temp(j:j) = input(i:i)
                     in_string = .false.
-                else if (input(i:i) /= ' ') then
-                    ! Non-space character - keep it
+                else
+                    ! Copy all characters inside string including spaces
                     j = j + 1
                     temp(j:j) = input(i:i)
                 end if
-                ! Skip spaces inside strings
             end if
         end do
 
