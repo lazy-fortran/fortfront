@@ -1,0 +1,14 @@
+# Examples that are intentionally invalid and should emit diagnostics
+# Run via integration test but considered passing when errors are reported
+# Issue #2050 tracks moving them out of expected failures
+f90/debug_error_missing_end.f90
+f90/debug_error_garbage.f90
+f90/debug_error_missing_then.f90
+f90/issue_256_assignment_in_condition.f90
+f90/issue_256_missing_then.f90
+f90/issue_256_source_context.f90
+f90/issue_256_invalid_syntax_missing_then.f90
+f90/issue_256_fix_suggestion.f90
+f90/issue_256_location_info.f90
+f90/issue_256_invalid_syntax.f90
+f90/issue_256_garbage_input.f90
