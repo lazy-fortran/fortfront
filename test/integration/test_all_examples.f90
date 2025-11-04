@@ -634,6 +634,8 @@ contains
         character(len=256) :: normalized_entry
         character(len=256) :: normalized_relative
         character(len=256) :: normalized_basename
+        integer :: entry_len
+        integer :: rel_len
         integer :: i
 
         skip = .false.
@@ -644,10 +646,19 @@ contains
 
         do i = 1, num_skip_examples
             normalized_entry = normalize_path_string(skip_examples(i))
-            if (len_trim(normalized_entry) == 0) cycle
+            entry_len = len_trim(normalized_entry)
+            if (entry_len == 0) cycle
             if (trim(normalized_relative) == trim(normalized_entry)) then
                 skip = .true.
                 return
+            end if
+            rel_len = len_trim(normalized_relative)
+            if (rel_len >= entry_len) then
+                if (normalized_relative(rel_len - entry_len + 1:rel_len) == &
+                    normalized_entry(1:entry_len)) then
+                    skip = .true.
+                    return
+                end if
             end if
             if (trim(normalized_basename) == trim(normalized_entry)) then
                 skip = .true.
@@ -799,6 +810,10 @@ contains
         call strip_control_characters(normalized)
         do i = 1, len(normalized)
             if (normalized(i:i) == '\\') normalized(i:i) = '/'
+            select case (normalized(i:i))
+            case ('A':'Z')
+                normalized(i:i) = achar(iachar(normalized(i:i)) + 32)
+            end select
         end do
         normalized = trim(normalized)
         normalized = adjustl(normalized)
