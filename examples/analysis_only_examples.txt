@@ -1,0 +1,18 @@
+# Examples that should parse successfully but are analysis-only snippets
+# They intentionally omit full program structure or use nonstandard constructs
+# Track compliance via issue #2050
+f90/variable_tracking_simple.f90
+f90/variable_tracking_function_calls.f90
+f90/variable_tracking_visitor.f90
+f90/variable_tracking_complex_expr.f90
+f90/variable_tracking_array_access.f90
+f90/variable_tracking_binary_ops.f90
+f90/variable_tracking_nested.f90
+f90/variable_tracking_queries.f90
+f90/ast_coverage_literals_calls.f90
+f90/ast_coverage_io_statements.f90
+f90/ast_coverage_module_interface.f90
+f90/ast_coverage_control_flow.f90
+f90/ast_forall_pointer.f90
+f90/call_graph_internal_procedures.f90
+f90/call_graph_module_program_scopes.f90
