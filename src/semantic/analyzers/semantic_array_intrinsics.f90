@@ -47,6 +47,10 @@ contains
                                           num_args)
         case ("reshape")
             typ = handle_reshape_intrinsic(arena, call_node, get_type_fn)
+        case ("transpose")
+            typ = handle_transpose_intrinsic(arena, call_node, get_type_fn)
+        case ("pack")
+            typ = handle_pack_intrinsic(arena, call_node, get_type_fn)
         case ("size")
             typ = create_mono_type(TINT)
         case ("lbound", "ubound")
@@ -163,6 +167,54 @@ contains
             typ = build_deferred_shape_array(element_type, ndims)
         end if
     end function handle_reshape_intrinsic
+
+    function handle_transpose_intrinsic(arena, call_node, get_type_fn) result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: arg_type
+        type(mono_type_t) :: element_type
+        integer :: arg_rank
+        integer :: result_rank
+
+        element_type = create_mono_type(TREAL)
+        arg_rank = 0
+
+        if (allocated(call_node%arg_indices)) then
+            if (size(call_node%arg_indices) >= 1) then
+                arg_type = get_type_fn(arena, call_node%arg_indices(1))
+                call arg_type%sync_from_arena()
+                call extract_rank_and_base(arg_type, arg_rank, element_type)
+            end if
+        end if
+
+        result_rank = max(2, max(1, arg_rank))
+        typ = build_deferred_shape_array(element_type, result_rank)
+    end function handle_transpose_intrinsic
+
+    function handle_pack_intrinsic(arena, call_node, get_type_fn) result(typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        procedure(get_type_lookup) :: get_type_fn
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: arg_type
+        type(mono_type_t) :: element_type
+        integer :: arg_rank
+
+        element_type = create_mono_type(TREAL)
+        arg_rank = 0
+
+        if (allocated(call_node%arg_indices)) then
+            if (size(call_node%arg_indices) >= 1) then
+                arg_type = get_type_fn(arena, call_node%arg_indices(1))
+                call arg_type%sync_from_arena()
+                call extract_rank_and_base(arg_type, arg_rank, element_type)
+            end if
+        end if
+
+        typ = build_deferred_shape_array(element_type, 1)
+    end function handle_pack_intrinsic
 
     function handle_bound_intrinsic(num_args) result(typ)
         integer, intent(in) :: num_args
