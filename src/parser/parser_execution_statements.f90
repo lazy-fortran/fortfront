@@ -35,7 +35,8 @@ module parser_execution_statements_module
                                                 parse_continue_statement, &
                                                 parse_cycle_statement, &
                                                 parse_exit_statement, &
-                                                parse_nullify_statement
+                                                parse_nullify_statement, &
+                                                parse_pause_statement
     use parser_control_flow_router_module, only: route_control_flow, &
                                                  is_control_flow_keyword
     use parser_do_constructs_module, only: parse_do_loop
@@ -396,6 +397,8 @@ contains
                     stmt_index = parse_deallocate_statement(parser_ref, arena_ref)
                 case ("stop")
                     stmt_index = parse_stop_statement(parser_ref, arena_ref)
+                case ("pause")
+                    stmt_index = parse_pause_statement(parser_ref, arena_ref)
                 case ("go", "goto")
                     stmt_index = parse_goto_statement(parser_ref, arena_ref)
                 case ("error")
