@@ -43,17 +43,31 @@ contains
 
     ! Helper: Update identifier type throughout arena
     subroutine update_identifier_type_in_arena(arena, name, new_type)
+        use ast_nodes_core, only: call_or_subscript_node
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
         integer :: i
+        type(mono_type_t) :: merged_type
 
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
                 type is (identifier_node)
                     if (node%name == name) then
-                        arena%entries(i)%node%inferred_type = new_type
+                        merged_type = new_type
+                        if (node%inferred_type%alloc_info%is_allocatable) then
+                            merged_type%alloc_info%is_allocatable = .true.
+                        end if
+                        arena%entries(i)%node%inferred_type = merged_type
+                    end if
+                type is (call_or_subscript_node)
+                    if (node%name == name) then
+                        merged_type = new_type
+                        if (node%inferred_type%alloc_info%is_allocatable) then
+                            merged_type%alloc_info%is_allocatable = .true.
+                        end if
+                        arena%entries(i)%node%inferred_type = merged_type
                     end if
                 end select
             end if
