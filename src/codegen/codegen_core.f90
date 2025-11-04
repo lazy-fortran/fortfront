@@ -26,6 +26,7 @@ module codegen_core
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
                               intrinsic_statement_node, import_statement_node, &
+                              include_statement_node, &
                               visibility_statement_node, namelist_statement_node, &
                               contains_node, end_statement_node, &
                               interface_block_node, &
@@ -143,6 +144,8 @@ contains
             code = generate_code_intrinsic_statement(node)
         type is (import_statement_node)
             code = generate_code_import_statement(node)
+        type is (include_statement_node)
+            code = generate_code_include_statement(node)
         type is (implicit_statement_node)
             code = generate_code_implicit_statement(node)
         type is (comment_node)

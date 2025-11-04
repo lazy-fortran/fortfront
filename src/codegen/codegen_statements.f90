@@ -32,6 +32,7 @@ module codegen_statements
     public :: generate_code_use_statement
     public :: generate_code_intrinsic_statement
     public :: generate_code_import_statement
+    public :: generate_code_include_statement
     public :: generate_code_visibility_statement
     public :: generate_code_namelist_statement
     public :: generate_code_implicit_statement
@@ -568,6 +569,15 @@ contains
             end if
         end if
     end function generate_code_import_statement
+
+    function generate_code_include_statement(node) result(code)
+        type(include_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+
+        code = "include " // node%filename
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_include_statement
 
     function generate_code_visibility_statement(node) result(code)
         type(visibility_statement_node), intent(in) :: node
