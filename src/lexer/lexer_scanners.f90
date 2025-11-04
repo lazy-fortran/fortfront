@@ -477,7 +477,7 @@ contains
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'use', 'module', 'contains', 'public', 'private', &
               'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'import', 'generic', 'operator', &
+              'procedure', 'interface', 'import', 'include', 'generic', 'operator', &
               'assignment', 'print', 'read', 'write', 'open', 'close', 'inquire', &
               'backspace', 'rewind', &
               'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
