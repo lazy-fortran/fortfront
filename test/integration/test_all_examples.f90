@@ -8,6 +8,7 @@ program test_all_examples
     character(len=:), allocatable :: examples_dir
     character(len=:), allocatable :: expected_failures_path
     character(len=:), allocatable :: skip_file_path
+    character(len=:), allocatable :: skip_file_path_alt
     character(len=256), allocatable :: expected_failures(:)
     character(len=256), allocatable :: skip_examples(:)
     integer :: num_expected_failures
@@ -57,6 +58,17 @@ program test_all_examples
     call load_expected_failures(expected_failures_path, expected_failures, &
                                 num_expected_failures)
     call load_skip_examples(skip_file_path, skip_examples, num_skip_examples)
+
+    if (is_windows .and. num_skip_examples == 0) then
+        skip_file_path_alt = to_forward_slash_path(skip_file_path)
+        if (skip_file_path_alt /= skip_file_path) then
+            call load_skip_examples(skip_file_path_alt, skip_examples, &
+                                    num_skip_examples)
+            if (num_skip_examples > 0) then
+                skip_file_path = skip_file_path_alt
+            end if
+        end if
+    end if
     if (num_skip_examples == 0) then
         fallback_root = search_examples_from_cwd(is_windows)
         call reload_skip_examples_from(fallback_root, skip_examples, num_skip_examples, &
@@ -791,6 +803,19 @@ contains
         normalized = trim(normalized)
         normalized = adjustl(normalized)
     end function normalize_path_string
+
+    pure function to_forward_slash_path(path) result(converted)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable :: converted
+        integer :: i
+
+        converted = trim(path)
+        if (len_trim(converted) == 0) return
+
+        do i = 1, len(converted)
+            if (converted(i:i) == '\\') converted(i:i) = '/'
+        end do
+    end function to_forward_slash_path
 
     subroutine reload_skip_examples_from(project_root, skip_list, num_skip, is_windows)
         character(len=*), intent(in) :: project_root
