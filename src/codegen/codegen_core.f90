@@ -302,11 +302,17 @@ contains
         clean = replace_all(clean, ' * ', '*')
         clean = replace_all(clean, ' ** ', '**')
         clean = replace_all(clean, '* ', '*')
-        if (index(clean, 'namelist') == 0) then
+        ! Apply namelist spacing for:
+        ! 1. NAMELIST I/O: nml=/group/
+        ! 2. NAMELIST declarations: namelist/group/vars
+        ! But NOT for slashes inside string literals (e.g., file='/tmp/test.dat')
+        if (index(clean, 'nml=') > 0 .or. index(clean, 'nml =') > 0 .or. &
+            index(adjustl(clean), 'namelist') == 1) then
+            clean = adjust_namelist_spacing(clean)
+        else if (index(clean, 'namelist') == 0) then
+            ! Only remove spaces around slashes if there's NO namelist in the text
             clean = replace_all(clean, ' / ', '/')
             clean = replace_all(clean, '/ ', '/')
-        else
-            clean = adjust_namelist_spacing(clean)
         end if
         clean = replace_all(clean, ' ,', ',')
         clean = replace_all(clean, ' )', ')')
@@ -316,10 +322,32 @@ contains
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: out
         character(len=:), allocatable :: trimmed, prefix, rest, group, remainder
-        integer :: slash1, slash2
+        integer :: slash1, slash2, i
+        logical :: in_string
+        character :: quote_char
 
         trimmed = adjustl(text)
-        slash1 = index(trimmed, '/')
+
+        ! Find first slash that's NOT inside a string literal
+        in_string = .false.
+        quote_char = ' '
+        slash1 = 0
+        do i = 1, len(trimmed)
+            if (.not. in_string) then
+                if (trimmed(i:i) == "'" .or. trimmed(i:i) == '"') then
+                    in_string = .true.
+                    quote_char = trimmed(i:i)
+                else if (trimmed(i:i) == '/') then
+                    slash1 = i
+                    exit
+                end if
+            else
+                if (trimmed(i:i) == quote_char) then
+                    in_string = .false.
+                end if
+            end if
+        end do
+
         if (slash1 <= 0) then
             out = trimmed
             return
@@ -327,16 +355,40 @@ contains
 
         prefix = trim(trimmed(1:slash1 - 1))
         rest = trimmed(slash1 + 1:)
-        slash2 = index(rest, '/')
+
+        ! Find second slash that's NOT inside a string literal
+        in_string = .false.
+        quote_char = ' '
+        slash2 = 0
+        do i = 1, len(rest)
+            if (.not. in_string) then
+                if (rest(i:i) == "'" .or. rest(i:i) == '"') then
+                    in_string = .true.
+                    quote_char = rest(i:i)
+                else if (rest(i:i) == '/') then
+                    slash2 = i
+                    exit
+                end if
+            else
+                if (rest(i:i) == quote_char) then
+                    in_string = .false.
+                end if
+            end if
+        end do
+
         if (slash2 <= 0) then
             out = trimmed
             return
         end if
 
         group = trim(adjustl(rest(1:slash2 - 1)))
-        remainder = trim(adjustl(rest(slash2 + 1:)))
+        remainder = rest(slash2 + 1:)  ! Keep original spacing, don't adjustl!
+        ! Add space before first slash, and optionally before remainder if present
         out = trim(prefix) // ' /' // group // '/'
-        if (len_trim(remainder) > 0) out = out // ' ' // trim(remainder)
+        if (len_trim(remainder) > 0) then
+            ! Preserve original spacing of remainder (may have leading space)
+            out = out // ' ' // trim(adjustl(remainder))
+        end if
     end function adjust_namelist_spacing
 
     function replace_all(text, pattern, replacement) result(out)
