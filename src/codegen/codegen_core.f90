@@ -309,7 +309,8 @@ contains
         if (index(clean, 'nml=') > 0 .or. index(clean, 'nml =') > 0 .or. &
             index(adjustl(clean), 'namelist') == 1) then
             clean = adjust_namelist_spacing(clean)
-        else
+        else if (index(clean, 'namelist') == 0) then
+            ! Only remove spaces around slashes if there's NO namelist in the text
             clean = replace_all(clean, ' / ', '/')
             clean = replace_all(clean, '/ ', '/')
         end if
