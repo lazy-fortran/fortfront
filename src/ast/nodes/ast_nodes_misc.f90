@@ -898,6 +898,8 @@ contains
     subroutine data_statement_assign(lhs, rhs)
         class(data_statement_node), intent(inout) :: lhs
         class(data_statement_node), intent(in) :: rhs
+        integer, allocatable :: tmp_object_indices(:)
+        integer, allocatable :: tmp_value_indices(:)
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -911,10 +913,18 @@ contains
 
         if (allocated(rhs%object_indices)) then
             lhs%object_indices = rhs%object_indices
+        else
+            if (allocated(lhs%object_indices)) then
+                call move_alloc(lhs%object_indices, tmp_object_indices)
+            end if
         end if
 
         if (allocated(rhs%value_indices)) then
             lhs%value_indices = rhs%value_indices
+        else
+            if (allocated(lhs%value_indices)) then
+                call move_alloc(lhs%value_indices, tmp_value_indices)
+            end if
         end if
     end subroutine data_statement_assign
 
@@ -1307,6 +1317,9 @@ contains
     subroutine implicit_statement_assign(lhs, rhs)
         class(implicit_statement_node), intent(inout) :: lhs
         class(implicit_statement_node), intent(in) :: rhs
+        character(len=:), allocatable :: tmp_none_spec
+        character(len=:), allocatable :: tmp_type_name
+        type(implicit_letter_spec_t), allocatable :: tmp_letter_specs(:)
 
         ! Copy base class components
         lhs%line = rhs%line
@@ -1325,11 +1338,19 @@ contains
         ! Copy none specification
         if (allocated(rhs%none_spec)) then
             lhs%none_spec = rhs%none_spec
+        else
+            if (allocated(lhs%none_spec)) then
+                call move_alloc(lhs%none_spec, tmp_none_spec)
+            end if
         end if
 
         ! Copy type specification
         if (allocated(rhs%type_spec%type_name)) then
             lhs%type_spec%type_name = rhs%type_spec%type_name
+        else
+            if (allocated(lhs%type_spec%type_name)) then
+                call move_alloc(lhs%type_spec%type_name, tmp_type_name)
+            end if
         end if
         lhs%type_spec%has_kind = rhs%type_spec%has_kind
         lhs%type_spec%kind_value = rhs%type_spec%kind_value
@@ -1339,6 +1360,10 @@ contains
         ! Copy letter specifications
         if (allocated(rhs%letter_specs)) then
             lhs%letter_specs = rhs%letter_specs
+        else
+            if (allocated(lhs%letter_specs)) then
+                call move_alloc(lhs%letter_specs, tmp_letter_specs)
+            end if
         end if
     end subroutine implicit_statement_assign
 
