@@ -24,6 +24,7 @@ module semantic_parameter_analysis
 
     public :: merge_parameter_type
     public :: analyze_function_parameters
+    public :: refine_parameters_from_body_usage
 
 contains
 
@@ -32,6 +33,8 @@ contains
         type(mono_type_t), intent(inout) :: current_type
         type(mono_type_t), intent(in) :: candidate_type
         type(mono_type_t) :: merged_type
+        type(mono_type_t) :: base_current, base_candidate
+        integer :: rank_current, rank_candidate
 
         if (candidate_type%kind <= 0) return
 
@@ -53,6 +56,23 @@ contains
             return
         end if
 
+        ! Merge arrays of different ranks (take maximum rank)
+        if (current_type%kind == TARRAY .and. candidate_type%kind == TARRAY) then
+            call extract_rank_and_base_type(current_type, rank_current, base_current)
+            call extract_rank_and_base_type(candidate_type, rank_candidate, base_candidate)
+            if (rank_current == rank_candidate) then
+                if (base_current%kind == base_candidate%kind) then
+                    if (base_current%kind /= TCHAR .or. &
+                        base_current%size == base_candidate%size) then
+                        return
+                    end if
+                end if
+            end if
+            merged_type = merge_array_types(current_type, candidate_type)
+            if (merged_type%kind > 0) current_type = merged_type
+            return
+        end if
+
         if (current_type%kind == candidate_type%kind) return
 
         if (candidate_type%kind == TDOUBLE .and. current_type%kind == TREAL) then
@@ -63,6 +83,46 @@ contains
         merged_type = get_common_type(current_type, candidate_type)
         if (merged_type%kind > 0) current_type = merged_type
     end subroutine merge_parameter_type
+
+    function merge_array_types(type1, type2) result(merged)
+        use type_system_unified, only: TARRAY
+        use semantic_array_type_builders, only: build_deferred_shape_array
+        type(mono_type_t), intent(in) :: type1, type2
+        type(mono_type_t) :: merged
+        type(mono_type_t) :: base1, base2, common_base
+        integer :: rank1, rank2, max_rank
+
+        call extract_rank_and_base_type(type1, rank1, base1)
+        call extract_rank_and_base_type(type2, rank2, base2)
+
+        max_rank = max(rank1, rank2)
+
+        common_base = get_common_type(base1, base2)
+        if (common_base%kind <= 0) common_base = base1
+
+        merged = build_deferred_shape_array(common_base, max_rank)
+    end function merge_array_types
+
+    subroutine extract_rank_and_base_type(array_type, rank, base_type)
+        use type_system_unified, only: TARRAY, type_args_allocated, &
+                                        type_args_size, type_args_element
+        type(mono_type_t), intent(in) :: array_type
+        integer, intent(out) :: rank
+        type(mono_type_t), intent(out) :: base_type
+        type(mono_type_t) :: current
+
+        rank = 0
+        base_type = array_type
+        current = array_type
+
+        do while (current%kind == TARRAY)
+            rank = rank + 1
+            if (.not. type_args_allocated(current)) exit
+            if (type_args_size(current) < 1) exit
+            base_type = type_args_element(current, 1)
+            current = base_type
+        end do
+    end subroutine extract_rank_and_base_type
 
     subroutine fetch_parameter_metadata(arena, param_index, param_name, param_type)
         type(ast_arena_t), intent(inout) :: arena
@@ -504,8 +564,160 @@ contains
                                         next_var_id)
         call infer_parameter_types_from_calls(arena, func_node, param_types, &
                                               param_names, scopes, next_var_id)
+        call refine_parameters_from_body_usage(arena, func_node, param_types, &
+                                               param_names)
         call update_parameter_nodes(arena, func_node, param_types)
         call register_parameters_in_scope(arena, param_names, param_types, scopes)
     end subroutine analyze_function_parameters
+
+    subroutine refine_parameters_from_body_usage(arena, func_node, param_types, &
+                                                 param_names)
+        use type_system_unified, only: TARRAY
+        use semantic_array_type_builders, only: build_deferred_shape_array
+        use intrinsic_registry, only: is_intrinsic_function
+        use string_utils_mod, only: to_lower
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        integer :: i, j, arg_idx
+        character(len=:), allocatable :: intrinsic_name, arg_name
+        type(mono_type_t) :: array_type, element_type
+
+        if (.not. allocated(func_node%body_indices)) return
+        if (.not. allocated(param_names)) return
+        if (.not. allocated(param_types)) return
+
+        do i = 1, size(func_node%body_indices)
+            call refine_from_statement(arena, func_node%body_indices(i), &
+                                       param_types, param_names)
+        end do
+
+    contains
+
+        recursive subroutine refine_from_statement(arena, stmt_idx, param_types, &
+                                                    param_names)
+            use ast_nodes_loops, only: do_loop_node
+            type(ast_arena_t), intent(inout) :: arena
+            integer, intent(in) :: stmt_idx
+            type(mono_type_t), allocatable, intent(inout) :: param_types(:)
+            character(len=64), allocatable, intent(in) :: param_names(:)
+            integer :: k
+
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) return
+            if (.not. allocated(arena%entries(stmt_idx)%node)) return
+
+            select type (node => arena%entries(stmt_idx)%node)
+            type is (call_or_subscript_node)
+                call refine_from_intrinsic_call(node)
+            type is (assignment_node)
+                if (node%value_index > 0) then
+                    call refine_from_statement(arena, node%value_index, &
+                                               param_types, param_names)
+                end if
+            type is (binary_op_node)
+                if (node%left_index > 0) then
+                    call refine_from_statement(arena, node%left_index, &
+                                               param_types, param_names)
+                end if
+                if (node%right_index > 0) then
+                    call refine_from_statement(arena, node%right_index, &
+                                               param_types, param_names)
+                end if
+            type is (do_loop_node)
+                if (allocated(node%body_indices)) then
+                    do k = 1, size(node%body_indices)
+                        call refine_from_statement(arena, node%body_indices(k), &
+                                                   param_types, param_names)
+                    end do
+                end if
+            end select
+        end subroutine refine_from_statement
+
+        subroutine refine_from_intrinsic_call(call_node)
+            type(call_or_subscript_node), intent(in) :: call_node
+            character(len=:), allocatable :: lowered_name
+            integer :: arg_idx, param_idx
+            character(len=:), allocatable :: arg_name
+            type(mono_type_t) :: inferred_array_type, base_type
+            integer :: rank
+
+            if (.not. allocated(call_node%name)) return
+            if (.not. is_intrinsic_function(call_node%name)) return
+
+            lowered_name = to_lower(trim(call_node%name))
+
+            select case (lowered_name)
+            case ("size", "lbound", "ubound", "shape")
+                if (.not. allocated(call_node%arg_indices)) return
+                if (size(call_node%arg_indices) < 1) return
+
+                arg_idx = call_node%arg_indices(1)
+                if (arg_idx <= 0 .or. arg_idx > arena%size) return
+                if (.not. allocated(arena%entries(arg_idx)%node)) return
+
+                select type (arg_node => arena%entries(arg_idx)%node)
+                type is (identifier_node)
+                    if (.not. allocated(arg_node%name)) return
+                    arg_name = trim(arg_node%name)
+
+                    param_idx = 0
+                    do j = 1, size(param_names)
+                        if (trim(param_names(j)) == arg_name) then
+                            param_idx = j
+                            exit
+                        end if
+                    end do
+
+                    if (param_idx == 0) return
+
+                    if (param_types(param_idx)%kind /= TARRAY) then
+                        rank = 1
+                        if (lowered_name == "size" .and. &
+                            size(call_node%arg_indices) >= 2) then
+                            rank = get_dimension_from_size_call(arena, call_node)
+                        end if
+
+                        base_type = param_types(param_idx)
+                        if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
+                            base_type = create_mono_type(TREAL)
+                        end if
+
+                        inferred_array_type = build_deferred_shape_array(base_type, &
+                                                                         rank)
+                        call merge_parameter_type(param_types(param_idx), &
+                                                  inferred_array_type)
+                    end if
+                end select
+            end select
+        end subroutine refine_from_intrinsic_call
+
+        function get_dimension_from_size_call(arena, call_node) result(dim)
+            use ast_nodes_core, only: literal_node
+            type(ast_arena_t), intent(in) :: arena
+            type(call_or_subscript_node), intent(in) :: call_node
+            integer :: dim
+            integer :: dim_arg_idx
+            integer :: iostat_val
+
+            dim = 1
+
+            if (.not. allocated(call_node%arg_indices)) return
+            if (size(call_node%arg_indices) < 2) return
+
+            dim_arg_idx = call_node%arg_indices(2)
+            if (dim_arg_idx <= 0 .or. dim_arg_idx > arena%size) return
+            if (.not. allocated(arena%entries(dim_arg_idx)%node)) return
+
+            select type (dim_node => arena%entries(dim_arg_idx)%node)
+            type is (literal_node)
+                if (allocated(dim_node%value)) then
+                    read (dim_node%value, *, iostat=iostat_val) dim
+                    if (iostat_val /= 0) dim = 1
+                end if
+            end select
+        end function get_dimension_from_size_call
+
+    end subroutine refine_parameters_from_body_usage
 
 end module semantic_parameter_analysis

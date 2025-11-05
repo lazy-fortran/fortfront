@@ -10,6 +10,7 @@ module standardizer_declarations_collection
     use ast_nodes_io, only: io_implied_do_node, print_statement_node, &
                             read_statement_node
     use ast_nodes_misc, only: allocate_statement_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_STRING
     use standardizer_declarations_state, only: get_standardizer_type_standardization
     use standardizer_declarations_inference, only: &
@@ -125,6 +126,12 @@ contains
             type is (allocate_statement_node)
                 call collect_allocate_vars(arena, current_index, var_names, &
                                            var_types, var_declared, var_count)
+            type is (function_def_node)
+                ! Do not traverse into contained function bodies
+                ! Each function/subroutine has its own scope
+            type is (subroutine_def_node)
+                ! Do not traverse into contained subroutine bodies
+                ! Each function/subroutine has its own scope
             type is (identifier_node)
                 call collect_identifier_var(stmt, var_names, var_types, &
                                             var_declared, var_count, &
