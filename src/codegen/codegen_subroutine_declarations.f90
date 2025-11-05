@@ -8,6 +8,7 @@ module codegen_subroutine_declarations
     use codegen_declarations_inference, only: build_parameter_map
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
                                         copy_indices, apply_default_intents, &
+                                        apply_default_intents_no_prefix, &
                                         maybe_add_procedure_implicit_none, &
                                         filter_implicit_statements, &
                                         append_parameter_declaration, &
@@ -94,6 +95,8 @@ contains
         call build_parameter_map(arena, param_indices, body_indices, param_map, node)
         if (allocated(node%prefix_keywords)) then
             call apply_default_intents(node%prefix_keywords, param_map)
+        else
+            call apply_default_intents_no_prefix(param_map)
         end if
 
         body = maybe_add_procedure_implicit_none(arena, body_indices)

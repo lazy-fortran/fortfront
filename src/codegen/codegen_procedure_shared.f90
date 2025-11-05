@@ -16,6 +16,7 @@ module codegen_procedure_shared
     public :: filter_implicit_statements
     public :: maybe_add_procedure_implicit_none
     public :: apply_default_intents
+    public :: apply_default_intents_no_prefix
     public :: gather_prefix
     public :: copy_indices
     public :: append_parameter_declaration
@@ -155,7 +156,26 @@ contains
                 end do
             end select
         end do
+
+        do i = 1, size(param_map)
+            if (.not. allocated(param_map(i)%name)) cycle
+            if (len_trim(param_map(i)%intent_str) == 0) then
+                param_map(i)%intent_str = "in"
+            end if
+        end do
     end subroutine apply_default_intents
+
+    subroutine apply_default_intents_no_prefix(param_map)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: i
+
+        do i = 1, size(param_map)
+            if (.not. allocated(param_map(i)%name)) cycle
+            if (len_trim(param_map(i)%intent_str) == 0) then
+                param_map(i)%intent_str = "in"
+            end if
+        end do
+    end subroutine apply_default_intents_no_prefix
 
     function gather_prefix(prefix_keywords, recursive_in_prefix) result(prefix)
         character(len=*), allocatable, intent(in) :: prefix_keywords(:)
