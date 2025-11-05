@@ -51,64 +51,7 @@ contains
 
         call get_program_node(arena, root_index, root_prog)
         if (.not. associated(root_prog)) then
-            if (root_index > 0 .and. root_index <= arena%size) then
-                if (allocated(arena%entries(root_index)%node)) then
-                    select type (container => arena%entries(root_index)%node)
-                    type is (mixed_construct_container_node)
-                        if (debug_logging_enabled()) then
-                            write (error_unit, '(A)') 'DEBUG root is mixed container'
-                            if (allocated(container%explicit_program_indices)) then
-                                write (error_unit, '(A,*(1X,I0))') &
-                                    'DEBUG explicit programs=', &
-                                    container%explicit_program_indices
-                                do i = 1, size(container%explicit_program_indices)
-                                    if (container%explicit_program_indices(i) > 0 .and. &
-                                        container%explicit_program_indices(i) <= arena%size) then
-                                        if (allocated(arena%entries(container%explicit_program_indices(i))%node_type)) then
-                                            write (error_unit, '(A,1X,I0,1X,A)') &
-                                                'DEBUG explicit node', &
-                                                container%explicit_program_indices(i), &
-                                                trim(arena%entries(container%explicit_program_indices(i))%node_type)
-                                        end if
-                                    end if
-                                end do
-                            else
-                                write (error_unit, '(A)') 'DEBUG explicit programs=<none>'
-                            end if
-                            if (allocated(container%implicit_declaration_indices)) then
-                                write (error_unit, '(A,*(1X,I0))') &
-                                    'DEBUG implicit indices=', &
-                                    container%implicit_declaration_indices
-                                do i = 1, size(container%implicit_declaration_indices)
-                                    if (container%implicit_declaration_indices(i) > 0 .and. &
-                                        container%implicit_declaration_indices(i) <= arena%size) then
-                                        if (allocated(arena%entries(container%implicit_declaration_indices(i))%node_type)) then
-                                            write (error_unit, '(A,1X,I0,1X,A)') &
-                                                'DEBUG implicit node', &
-                                                container%implicit_declaration_indices(i), &
-                                                trim(arena%entries(container%implicit_declaration_indices(i))%node_type)
-                                        end if
-                                    end if
-                                end do
-                            else
-                                write (error_unit, '(A)') 'DEBUG implicit indices=<none>'
-                            end if
-                        end if
-                        call process_mixed_container(arena, root_index, container, &
-                                                     signatures)
-                    class default
-                        if (debug_logging_enabled()) then
-                            write (error_unit, '(A)') &
-                                'DEBUG root_prog not associated and not container'
-                        end if
-                    end select
-                end if
-            else
-                if (debug_logging_enabled()) then
-                    write (error_unit, '(A)') &
-                        'DEBUG root_prog not associated (invalid index)'
-                end if
-            end if
+            call handle_non_program_root(arena, root_index, signatures)
             return
         end if
         if (debug_logging_enabled()) then
@@ -157,6 +100,80 @@ contains
                                          program_count)
 
     end subroutine transform_monomorphization
+
+    ! Handle root node that is not a program node
+    subroutine handle_non_program_root(arena, root_index, signatures)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        type(signatures_map_t), intent(in) :: signatures
+        integer :: i
+
+        if (root_index <= 0 .or. root_index > arena%size) then
+            if (debug_logging_enabled()) then
+                write (error_unit, '(A)') &
+                    'DEBUG root_prog not associated (invalid index)'
+            end if
+            return
+        end if
+
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        select type (container => arena%entries(root_index)%node)
+        type is (mixed_construct_container_node)
+            call debug_log_mixed_container(arena, container)
+            call process_mixed_container(arena, root_index, container, signatures)
+        class default
+            if (debug_logging_enabled()) then
+                write (error_unit, '(A)') &
+                    'DEBUG root_prog not associated and not container'
+            end if
+        end select
+    end subroutine handle_non_program_root
+
+    ! Debug log mixed container contents
+    subroutine debug_log_mixed_container(arena, container)
+        type(ast_arena_t), intent(in) :: arena
+        type(mixed_construct_container_node), intent(in) :: container
+
+        if (.not. debug_logging_enabled()) return
+
+        write (error_unit, '(A)') 'DEBUG root is mixed container'
+
+        if (allocated(container%explicit_program_indices)) then
+            call debug_log_index_array(arena, container%explicit_program_indices, &
+                                       'explicit programs')
+        else
+            write (error_unit, '(A)') 'DEBUG explicit programs=<none>'
+        end if
+
+        if (allocated(container%implicit_declaration_indices)) then
+            call debug_log_index_array(arena, &
+                                       container%implicit_declaration_indices, &
+                                       'implicit indices')
+        else
+            write (error_unit, '(A)') 'DEBUG implicit indices=<none>'
+        end if
+    end subroutine debug_log_mixed_container
+
+    ! Debug log array of node indices with node types
+    subroutine debug_log_index_array(arena, indices, label)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: indices(:)
+        character(len=*), intent(in) :: label
+        integer :: i
+
+        write (error_unit, '(A,*(1X,I0))') 'DEBUG ' // trim(label) // '=', indices
+
+        do i = 1, size(indices)
+            if (indices(i) > 0 .and. indices(i) <= arena%size) then
+                if (allocated(arena%entries(indices(i))%node_type)) then
+                    write (error_unit, '(A,1X,I0,1X,A)') &
+                        'DEBUG ' // trim(label) // ' node', indices(i), &
+                        trim(arena%entries(indices(i))%node_type)
+                end if
+            end if
+        end do
+    end subroutine debug_log_index_array
 
     subroutine process_program_body_children(arena, root_prog, signatures, &
                                              preserved_indices, preserved_count, &
@@ -249,126 +266,188 @@ contains
         character(len=*), allocatable, intent(inout) :: module_names(:)
         type(type_signature_t), allocatable :: proc_sigs(:)
         integer, allocatable :: variant_indices(:)
-        integer :: mod_proc_idx, interface_idx, mod_idx
-        integer :: j
+        integer :: mod_idx
 
-        ! Skip monomorphization for procedures with explicit parameter types
-        ! (standard Fortran)
         if (procedure_has_explicit_types(arena, proc_idx, is_function)) then
             handled = .false.
             return
         end if
 
-        if (debug_logging_enabled()) then
-            write (error_unit, '(A,1X,I0)') 'DEBUG signatures map count', signatures%proc_count
-            if (signatures%proc_count > 0) then
-                do j = 1, signatures%proc_count
-                    if (.not. allocated(signatures%proc_sigs(j)%procedure_name)) cycle
-                    write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG entry', &
-                        trim(signatures%proc_sigs(j)%procedure_name), &
-                        signatures%proc_sigs(j)%sig_count
-                end do
-            end if
-        end if
-
+        call debug_log_signatures(signatures, proc_name)
         proc_sigs = get_procedure_signatures(signatures, proc_name)
-        if (debug_logging_enabled()) then
-            write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
-                trim(proc_name), size(proc_sigs)
-        end if
-        if (size(proc_sigs) > 0) then
-            do j = 1, size(proc_sigs)
-                if (allocated(proc_sigs(j)%param_kinds)) then
-                    if (debug_logging_enabled()) then
-                        write (error_unit, '(A,1X,A,1X,*(I0,1X))') 'DEBUG signature kinds', &
-                            trim(proc_name), proc_sigs(j)%param_kinds
-                    end if
-                end if
-                if (allocated(proc_sigs(j)%param_type_strings)) then
-                    block
-                        integer :: t
-                        character(len=:), allocatable :: label
-                        label = ''
-                        do t = 1, size(proc_sigs(j)%param_type_strings)
-                            if (t > 1) label = label // ' '
-                            if (len_trim(proc_sigs(j)%param_type_strings(t)) == 0) then
-                                label = label // '<empty>'
-                            else
-                                label = label // trim(proc_sigs(j)%param_type_strings(t))
-                            end if
-                        end do
-                        if (debug_logging_enabled()) then
-                            write (error_unit, '(A,1X,A,1X,A)') 'DEBUG signature types', &
-                                trim(proc_name), trim(label)
-                        end if
-                    end block
-                end if
-            end do
-        end if
+        call debug_log_procedure_signatures(proc_name, proc_sigs)
+
         if (size(proc_sigs) <= 1) then
             handled = .false.
             if (allocated(proc_sigs)) deallocate (proc_sigs)
             return
         end if
 
+        call normalize_and_deduplicate_signatures(proc_sigs, handled)
+        if (.not. handled) then
+            if (allocated(proc_sigs)) deallocate (proc_sigs)
+            return
+        end if
+
+        call create_procedure_variants(arena, proc_idx, is_function, proc_sigs, &
+                                       variant_indices)
+        mod_idx = create_module_with_interface(arena, proc_name, &
+                                               variant_indices)
+        call register_generated_module(mod_idx, proc_name, module_indices, &
+                                       module_count, module_names)
+
+        if (allocated(proc_sigs)) deallocate (proc_sigs)
+        if (allocated(variant_indices)) deallocate (variant_indices)
+    end subroutine process_specializable_procedure
+
+    subroutine debug_log_signatures(signatures, proc_name)
+        type(signatures_map_t), intent(in) :: signatures
+        character(len=*), intent(in) :: proc_name
+        integer :: j
+
+        if (.not. debug_logging_enabled()) return
+
+        write (error_unit, '(A,1X,I0)') 'DEBUG signatures map count', &
+            signatures%proc_count
+        if (signatures%proc_count > 0) then
+            do j = 1, signatures%proc_count
+                if (.not. allocated(signatures%proc_sigs(j)%procedure_name)) cycle
+                write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG entry', &
+                    trim(signatures%proc_sigs(j)%procedure_name), &
+                    signatures%proc_sigs(j)%sig_count
+            end do
+        end if
+    end subroutine debug_log_signatures
+
+    subroutine debug_log_procedure_signatures(proc_name, proc_sigs)
+        character(len=*), intent(in) :: proc_name
+        type(type_signature_t), intent(in) :: proc_sigs(:)
+        integer :: j, t
+        character(len=:), allocatable :: label
+
+        if (.not. debug_logging_enabled()) return
+
+        write (error_unit, '(A,1X,A,1X,I0)') 'DEBUG monomorph: signatures for', &
+            trim(proc_name), size(proc_sigs)
+
+        if (size(proc_sigs) == 0) return
+
+        do j = 1, size(proc_sigs)
+            if (allocated(proc_sigs(j)%param_kinds)) then
+                write (error_unit, '(A,1X,A,1X,*(I0,1X))') &
+                    'DEBUG signature kinds', &
+                    trim(proc_name), proc_sigs(j)%param_kinds
+            end if
+
+            if (allocated(proc_sigs(j)%param_type_strings)) then
+                label = ''
+                do t = 1, size(proc_sigs(j)%param_type_strings)
+                    if (t > 1) label = label // ' '
+                    if (len_trim(proc_sigs(j)%param_type_strings(t)) == 0) then
+                        label = label // '<empty>'
+                    else
+                        label = label // &
+                                trim(proc_sigs(j)%param_type_strings(t))
+                    end if
+                end do
+                write (error_unit, '(A,1X,A,1X,A)') &
+                    'DEBUG signature types', trim(proc_name), trim(label)
+            end if
+        end do
+    end subroutine debug_log_procedure_signatures
+
+    subroutine normalize_and_deduplicate_signatures(proc_sigs, handled)
+        type(type_signature_t), allocatable, intent(inout) :: proc_sigs(:)
+        logical, intent(out) :: handled
+        type(type_signature_t), allocatable :: unique_sigs(:)
+        integer :: unique_count, j, k
+        logical :: is_duplicate
+
         do j = 1, size(proc_sigs)
             call normalize_signature_param_types(proc_sigs(j))
         end do
 
-        ! Deduplicate signatures after normalization
-        block
-            type(type_signature_t), allocatable :: unique_sigs(:)
-            integer :: unique_count, k
-            logical :: is_duplicate
+        allocate (unique_sigs(size(proc_sigs)))
+        unique_count = 0
 
-            allocate (unique_sigs(size(proc_sigs)))
-            unique_count = 0
-
-            do j = 1, size(proc_sigs)
-                is_duplicate = .false.
-                do k = 1, unique_count
-                    if (signatures_are_identical(proc_sigs(j), unique_sigs(k))) then
-                        is_duplicate = .true.
-                        exit
-                    end if
-                end do
-                if (.not. is_duplicate) then
-                    unique_count = unique_count + 1
-                    unique_sigs(unique_count) = proc_sigs(j)
+        do j = 1, size(proc_sigs)
+            is_duplicate = .false.
+            do k = 1, unique_count
+                if (signatures_are_identical(proc_sigs(j), unique_sigs(k))) then
+                    is_duplicate = .true.
+                    exit
                 end if
             end do
-
-            if (unique_count <= 1) then
-                handled = .false.
-                if (allocated(proc_sigs)) deallocate (proc_sigs)
-                if (allocated(unique_sigs)) deallocate (unique_sigs)
-                return
+            if (.not. is_duplicate) then
+                unique_count = unique_count + 1
+                unique_sigs(unique_count) = proc_sigs(j)
             end if
+        end do
 
-            ! Replace proc_sigs with deduplicated signatures
-            deallocate (proc_sigs)
-            allocate (proc_sigs(unique_count))
-            proc_sigs(1:unique_count) = unique_sigs(1:unique_count)
-            deallocate (unique_sigs)
-        end block
+        if (unique_count <= 1) then
+            handled = .false.
+            if (allocated(unique_sigs)) deallocate (unique_sigs)
+            return
+        end if
 
+        deallocate (proc_sigs)
+        allocate (proc_sigs(unique_count))
+        proc_sigs(1:unique_count) = unique_sigs(1:unique_count)
+        deallocate (unique_sigs)
         handled = .true.
+    end subroutine normalize_and_deduplicate_signatures
+
+    subroutine create_procedure_variants(arena, proc_idx, is_function, &
+                                        proc_sigs, variant_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: proc_idx
+        logical, intent(in) :: is_function
+        type(type_signature_t), intent(in) :: proc_sigs(:)
+        integer, allocatable, intent(out) :: variant_indices(:)
+        integer :: j
+
         allocate (variant_indices(size(proc_sigs)))
         do j = 1, size(proc_sigs)
             if (is_function) then
-                variant_indices(j) = clone_function_with_signature(arena, proc_idx, &
+                variant_indices(j) = clone_function_with_signature(arena, &
+                                                                   proc_idx, &
                                                                    proc_sigs(j))
             else
-                variant_indices(j) = clone_subroutine_with_signature(arena, proc_idx, &
+                variant_indices(j) = clone_subroutine_with_signature(arena, &
+                                                                     proc_idx, &
                                                                      proc_sigs(j))
             end if
         end do
+    end subroutine create_procedure_variants
+
+    function create_module_with_interface(arena, proc_name, variant_indices) &
+        result(mod_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: proc_name
+        integer, intent(in) :: variant_indices(:)
+        integer :: mod_idx
+        integer :: mod_proc_idx, interface_idx, j
 
         mod_proc_idx = create_module_procedure_node(arena, proc_name, &
                                                     variant_indices)
         interface_idx = create_interface_node(arena, proc_name, mod_proc_idx)
         mod_idx = create_module_for_function(arena, proc_name, interface_idx, &
                                              variant_indices)
+
+        call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
+        call set_parent_if_valid(arena, interface_idx, mod_idx)
+        do j = 1, size(variant_indices)
+            call set_parent_if_valid(arena, variant_indices(j), mod_idx)
+        end do
+    end function create_module_with_interface
+
+    subroutine register_generated_module(mod_idx, proc_name, module_indices, &
+                                        module_count, module_names)
+        integer, intent(in) :: mod_idx
+        character(len=*), intent(in) :: proc_name
+        integer, allocatable, intent(inout) :: module_indices(:)
+        integer, intent(inout) :: module_count
+        character(len=*), allocatable, intent(inout) :: module_names(:)
 
         module_count = module_count + 1
         if (module_count > size(module_indices)) then
@@ -379,55 +458,19 @@ contains
         end if
         module_indices(module_count) = mod_idx
         module_names(module_count) = adjustl("auto_"//trim(proc_name))
+    end subroutine register_generated_module
 
-        call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
-        call set_parent_if_valid(arena, interface_idx, mod_idx)
-        do j = 1, size(variant_indices)
-            call set_parent_if_valid(arena, variant_indices(j), mod_idx)
-        end do
-
-        if (allocated(proc_sigs)) deallocate (proc_sigs)
-        if (allocated(variant_indices)) deallocate (variant_indices)
-    end subroutine process_specializable_procedure
-
-    subroutine process_mixed_container(arena, root_index, container, signatures)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: root_index
-        type(mixed_construct_container_node), intent(inout) :: container
-        type(signatures_map_t), intent(in) :: signatures
-        integer :: explicit_count
-        integer :: implicit_count
-        integer, allocatable :: preserved_indices(:)
-        integer, allocatable :: implicit_preserved(:)
-        integer :: preserved_count
-        integer :: implicit_preserved_count
-        integer, allocatable :: module_indices(:)
-        integer :: module_count
-        character(len=128), allocatable :: module_names(:)
-        integer, allocatable :: program_indices(:)
-        integer :: program_count
-        integer, allocatable :: program_body(:)
-        integer, allocatable :: use_indices(:)
-        integer :: i, child_idx
-        integer :: total_body
-        integer :: idx
-        integer :: prog_idx
-        type(program_node) :: new_prog
-        logical :: handled
-        integer, allocatable :: new_explicit(:)
-        integer, allocatable :: new_implicit(:)
-
-        explicit_count = 0
-        if (allocated(container%explicit_program_indices)) then
-            explicit_count = size(container%explicit_program_indices)
-        end if
-
-        implicit_count = 0
-        if (allocated(container%implicit_declaration_indices)) then
-            implicit_count = size(container%implicit_declaration_indices)
-        end if
-
-        if (explicit_count == 0 .and. implicit_count == 0) return
+    subroutine initialize_mixed_container_arrays(explicit_count, implicit_count, &
+                                                 preserved_indices, &
+                                                 implicit_preserved, &
+                                                 module_indices, module_names, &
+                                                 program_indices)
+        integer, intent(in) :: explicit_count, implicit_count
+        integer, allocatable, intent(out) :: preserved_indices(:)
+        integer, allocatable, intent(out) :: implicit_preserved(:)
+        integer, allocatable, intent(out) :: module_indices(:)
+        character(len=128), allocatable, intent(out) :: module_names(:)
+        integer, allocatable, intent(out) :: program_indices(:)
 
         allocate (preserved_indices(max(1, explicit_count)))
         if (implicit_count > 0) then
@@ -435,174 +478,295 @@ contains
         end if
         allocate (module_indices(max(1, max(explicit_count, implicit_count))))
         allocate (character(len=128) :: module_names(max(1, max(explicit_count, &
-                                                     implicit_count))))
+                                                                implicit_count))))
         allocate (program_indices(max(1, explicit_count)))
+    end subroutine initialize_mixed_container_arrays
 
-        preserved_count = 0
-        implicit_preserved_count = 0
-        module_count = 0
-        program_count = 0
+    subroutine process_implicit_declarations(arena, signatures, container, &
+                                             implicit_preserved, &
+                                             implicit_preserved_count, &
+                                             module_indices, module_count, &
+                                             module_names)
+        type(ast_arena_t), intent(inout) :: arena
+        type(signatures_map_t), intent(in) :: signatures
+        type(mixed_construct_container_node), intent(inout) :: container
+        integer, allocatable, intent(inout) :: implicit_preserved(:)
+        integer, intent(inout) :: implicit_preserved_count
+        integer, allocatable, intent(inout) :: module_indices(:)
+        integer, intent(inout) :: module_count
+        character(len=*), allocatable, intent(inout) :: module_names(:)
+        integer :: i, child_idx, implicit_count
+        logical :: handled
+        integer, allocatable :: new_implicit(:)
 
-        if (implicit_count > 0) then
-            do i = 1, implicit_count
-                child_idx = container%implicit_declaration_indices(i)
-                if (child_idx < 1 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+        implicit_count = size(container%implicit_declaration_indices)
 
-                select type (node => arena%entries(child_idx)%node)
-                type is (function_def_node)
-                    call process_specializable_procedure(arena, signatures, child_idx, &
-                        node%name, .true., handled, module_indices, module_count, &
-                        module_names)
-                    if (.not. handled) then
-                        implicit_preserved_count = implicit_preserved_count + 1
-                        if (implicit_preserved_count > size(implicit_preserved)) then
-                            call resize_integer_array(implicit_preserved, &
-                                                      implicit_preserved_count * 2)
-                        end if
-                        implicit_preserved(implicit_preserved_count) = child_idx
-                    end if
-                type is (subroutine_def_node)
-                    call process_specializable_procedure(arena, signatures, child_idx, &
-                        node%name, .false., handled, module_indices, module_count, &
-                        module_names)
-                    if (.not. handled) then
-                        implicit_preserved_count = implicit_preserved_count + 1
-                        if (implicit_preserved_count > size(implicit_preserved)) then
-                            call resize_integer_array(implicit_preserved, &
-                                                      implicit_preserved_count * 2)
-                        end if
-                        implicit_preserved(implicit_preserved_count) = child_idx
-                    end if
-                class default
-                    implicit_preserved_count = implicit_preserved_count + 1
-                    if (implicit_preserved_count > size(implicit_preserved)) then
-                        call resize_integer_array(implicit_preserved, &
-                                                  implicit_preserved_count * 2)
-                    end if
-                    implicit_preserved(implicit_preserved_count) = child_idx
-                end select
-            end do
+        do i = 1, implicit_count
+            child_idx = container%implicit_declaration_indices(i)
+            if (child_idx < 1 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
 
-            if (implicit_preserved_count > 0) then
-                allocate (new_implicit(implicit_preserved_count))
-                new_implicit = implicit_preserved(1:implicit_preserved_count)
-                container%implicit_declaration_indices = new_implicit
-            else
-                if (allocated(container%implicit_declaration_indices)) then
-                    deallocate (container%implicit_declaration_indices)
+            select type (node => arena%entries(child_idx)%node)
+            type is (function_def_node)
+                call process_specializable_procedure(arena, signatures, child_idx, &
+                             node%name, .true., handled, module_indices, module_count, &
+                                                     module_names)
+                if (.not. handled) then
+                    call add_to_implicit_preserved(implicit_preserved, &
+                                                   implicit_preserved_count, child_idx)
                 end if
-            end if
+            type is (subroutine_def_node)
+                call process_specializable_procedure(arena, signatures, child_idx, &
+                            node%name, .false., handled, module_indices, module_count, &
+                                                     module_names)
+                if (.not. handled) then
+                    call add_to_implicit_preserved(implicit_preserved, &
+                                                   implicit_preserved_count, child_idx)
+                end if
+            class default
+                call add_to_implicit_preserved(implicit_preserved, &
+                                               implicit_preserved_count, child_idx)
+            end select
+        end do
+
+        if (implicit_preserved_count > 0) then
+            allocate (new_implicit(implicit_preserved_count))
+            new_implicit = implicit_preserved(1:implicit_preserved_count)
+            container%implicit_declaration_indices = new_implicit
         else
             if (allocated(container%implicit_declaration_indices)) then
-                if (size(container%implicit_declaration_indices) == 0) then
-                    deallocate (container%implicit_declaration_indices)
-                end if
+                deallocate (container%implicit_declaration_indices)
             end if
         end if
+    end subroutine process_implicit_declarations
+
+    subroutine add_to_implicit_preserved(implicit_preserved, &
+                                         implicit_preserved_count, child_idx)
+        integer, allocatable, intent(inout) :: implicit_preserved(:)
+        integer, intent(inout) :: implicit_preserved_count
+        integer, intent(in) :: child_idx
+
+        implicit_preserved_count = implicit_preserved_count + 1
+        if (implicit_preserved_count > size(implicit_preserved)) then
+            call resize_integer_array(implicit_preserved, &
+                                      implicit_preserved_count * 2)
+        end if
+        implicit_preserved(implicit_preserved_count) = child_idx
+    end subroutine add_to_implicit_preserved
+
+    subroutine process_explicit_programs(arena, signatures, container, &
+                                         explicit_count, module_indices, &
+                                         module_count, module_names, &
+                                         preserved_indices, preserved_count, &
+                                         program_indices, program_count)
+        type(ast_arena_t), intent(inout) :: arena
+        type(signatures_map_t), intent(in) :: signatures
+        type(mixed_construct_container_node), intent(inout) :: container
+        integer, intent(in) :: explicit_count
+        integer, allocatable, intent(inout) :: module_indices(:)
+        integer, intent(inout) :: module_count
+        character(len=*), allocatable, intent(inout) :: module_names(:)
+        integer, allocatable, intent(inout) :: preserved_indices(:)
+        integer, intent(inout) :: preserved_count
+        integer, allocatable, intent(inout) :: program_indices(:)
+        integer, intent(inout) :: program_count
+        integer :: i, child_idx
 
         do i = 1, explicit_count
             child_idx = container%explicit_program_indices(i)
             call process_container_entry(arena, signatures, child_idx, &
-                        module_indices, module_count, module_names, preserved_indices, &
-                                      preserved_count, program_indices, program_count, &
+                                         module_indices, module_count, module_names, &
+                                         preserved_indices, &
+                                         preserved_count, program_indices, &
+                                         program_count, &
                                          container%explicit_program_indices(i))
         end do
+    end subroutine process_explicit_programs
 
-        if (module_count == 0) then
-            if (preserved_count /= explicit_count) then
-                allocate (new_explicit(preserved_count))
-                if (preserved_count > 0) new_explicit = &
-                    preserved_indices(1:preserved_count)
-                container%explicit_program_indices = new_explicit
-            end if
-            return
+    subroutine finalize_no_modules(container, preserved_indices, preserved_count, &
+                                   explicit_count)
+        type(mixed_construct_container_node), intent(inout) :: container
+        integer, allocatable, intent(in) :: preserved_indices(:)
+        integer, intent(in) :: preserved_count, explicit_count
+        integer, allocatable :: new_explicit(:)
+
+        if (preserved_count /= explicit_count) then
+            allocate (new_explicit(preserved_count))
+            if (preserved_count > 0) new_explicit = &
+                preserved_indices(1:preserved_count)
+            container%explicit_program_indices = new_explicit
         end if
+    end subroutine finalize_no_modules
 
-        if (program_count == 0) then
-            if (preserved_count > 0) then
-                do i = 1, preserved_count
-                    if (preserved_indices(i) < 1 .or. &
-                        preserved_indices(i) > arena%size) cycle
-                    if (.not. &
-                        allocated(arena%entries(preserved_indices(i))%node)) cycle
-                    select type (prog_check => &
-                                 arena%entries(preserved_indices(i))%node)
-                    type is (program_node)
-                        program_count = program_count + 1
-                        if (program_count > size(program_indices)) then
-                            call resize_integer_array(program_indices, &
-                                                      program_count * 2)
-                        end if
-                        program_indices(program_count) = preserved_indices(i)
-                    end select
-                end do
-            end if
-        end if
+    subroutine find_program_nodes(arena, preserved_indices, preserved_count, &
+                                  program_indices, program_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: preserved_indices(:)
+        integer, intent(in) :: preserved_count
+        integer, allocatable, intent(inout) :: program_indices(:)
+        integer, intent(inout) :: program_count
+        integer :: i
 
-        if (program_count == 0) then
-            total_body = 0
-            if (module_count > 0) total_body = total_body + module_count
-            if (implicit_preserved_count > 0) total_body = total_body + &
-                                                         implicit_preserved_count
-            if (preserved_count > 0) total_body = total_body + preserved_count
+        if (program_count > 0) return
 
-            if (total_body > 0) then
-                allocate (program_body(total_body))
-                idx = 0
-                if (module_count > 0) then
-                    allocate (use_indices(module_count))
-                    do i = 1, module_count
-                        use_indices(i) = create_use_statement_node( &
-                                         arena, trim(module_names(i)))
-                        idx = idx + 1
-                        program_body(idx) = use_indices(i)
-                    end do
-                else
-                    if (.not. allocated(use_indices)) allocate (use_indices(0))
-                end if
-                if (implicit_preserved_count > 0) then
-                    do i = 1, implicit_preserved_count
-                        idx = idx + 1
-                        program_body(idx) = implicit_preserved(i)
-                    end do
-                end if
-                if (preserved_count > 0) then
-                    do i = 1, preserved_count
-                        idx = idx + 1
-                        program_body(idx) = preserved_indices(i)
-                    end do
-                end if
-
-                new_prog = create_program("main", program_body, line=0, column=0)
-                call arena%push(new_prog)
-                prog_idx = arena%size
-                call set_parent_if_valid(arena, prog_idx, root_index)
-                do i = 1, total_body
-                    call set_parent_if_valid(arena, program_body(i), prog_idx)
-                end do
-
-                if (program_count >= size(program_indices)) then
-                    call resize_integer_array(program_indices, max(1, &
-                                                 size(program_indices) * 2))
-                end if
-                program_count = 1
-                program_indices(1) = prog_idx
-
-                preserved_count = 1
-                preserved_indices(1) = prog_idx
-                implicit_preserved_count = 0
-                if (allocated(container%implicit_declaration_indices)) then
-                    deallocate (container%implicit_declaration_indices)
-                end if
-            end if
-        end if
-
-        if (program_count > 0) then
-            do i = 1, program_count
-                call promote_double_literal_assignments(arena, program_indices(i))
+        if (preserved_count > 0) then
+            do i = 1, preserved_count
+                if (preserved_indices(i) < 1 .or. &
+                    preserved_indices(i) > arena%size) cycle
+                if (.not. &
+                    allocated(arena%entries(preserved_indices(i))%node)) cycle
+                select type (prog_check => &
+                             arena%entries(preserved_indices(i))%node)
+                type is (program_node)
+                    program_count = program_count + 1
+                    if (program_count > size(program_indices)) then
+                        call resize_integer_array(program_indices, &
+                                                  program_count * 2)
+                    end if
+                    program_indices(program_count) = preserved_indices(i)
+                end select
             end do
         end if
+    end subroutine find_program_nodes
+
+    subroutine create_main_program_from_preserved(arena, root_index, &
+                                                  module_indices, module_count, &
+                                                  module_names, &
+                                                  implicit_preserved, &
+                                                  implicit_preserved_count, &
+                                                  preserved_indices, &
+                                                  preserved_count, &
+                                                  program_indices, program_count, &
+                                                  container)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        integer, allocatable, intent(in) :: module_indices(:)
+        integer, intent(in) :: module_count
+        character(len=*), allocatable, intent(in) :: module_names(:)
+        integer, allocatable, intent(in) :: implicit_preserved(:)
+        integer, intent(in) :: implicit_preserved_count
+        integer, allocatable, intent(inout) :: preserved_indices(:)
+        integer, intent(inout) :: preserved_count
+        integer, allocatable, intent(inout) :: program_indices(:)
+        integer, intent(inout) :: program_count
+        type(mixed_construct_container_node), intent(inout) :: container
+        integer, allocatable :: program_body(:)
+        integer :: total_body, idx, prog_idx
+
+        total_body = module_count + implicit_preserved_count + preserved_count
+        if (total_body == 0) return
+
+        call build_main_program_body(arena, module_indices, module_count, &
+                                     module_names, implicit_preserved, &
+                                     implicit_preserved_count, preserved_indices, &
+                                     preserved_count, program_body)
+
+        call create_and_register_main_program(arena, root_index, program_body, &
+                                              prog_idx)
+
+        if (program_count >= size(program_indices)) then
+            call resize_integer_array(program_indices, max(1, &
+                                                           size(program_indices) * 2))
+        end if
+        program_count = 1
+        program_indices(1) = prog_idx
+
+        preserved_count = 1
+        preserved_indices(1) = prog_idx
+        if (allocated(container%implicit_declaration_indices)) then
+            deallocate (container%implicit_declaration_indices)
+        end if
+    end subroutine create_main_program_from_preserved
+
+    subroutine build_main_program_body(arena, module_indices, module_count, &
+                                       module_names, implicit_preserved, &
+                                       implicit_preserved_count, preserved_indices, &
+                                       preserved_count, program_body)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(in) :: module_indices(:)
+        integer, intent(in) :: module_count
+        character(len=*), allocatable, intent(in) :: module_names(:)
+        integer, allocatable, intent(in) :: implicit_preserved(:)
+        integer, intent(in) :: implicit_preserved_count
+        integer, allocatable, intent(in) :: preserved_indices(:)
+        integer, intent(in) :: preserved_count
+        integer, allocatable, intent(out) :: program_body(:)
+        integer :: total_body, idx, i
+
+        total_body = module_count + implicit_preserved_count + preserved_count
+        allocate (program_body(total_body))
+        idx = 0
+
+        if (module_count > 0) then
+            do i = 1, module_count
+                idx = idx + 1
+                program_body(idx) = create_use_statement_node( &
+                                    arena, trim(module_names(i)))
+            end do
+        end if
+
+        if (implicit_preserved_count > 0) then
+            do i = 1, implicit_preserved_count
+                idx = idx + 1
+                program_body(idx) = implicit_preserved(i)
+            end do
+        end if
+
+        if (preserved_count > 0) then
+            do i = 1, preserved_count
+                idx = idx + 1
+                program_body(idx) = preserved_indices(i)
+            end do
+        end if
+    end subroutine build_main_program_body
+
+    subroutine create_and_register_main_program(arena, root_index, program_body, &
+                                                prog_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        integer, allocatable, intent(in) :: program_body(:)
+        integer, intent(out) :: prog_idx
+        type(program_node) :: new_prog
+        integer :: i
+
+        new_prog = create_program("main", program_body, line=0, column=0)
+        call arena%push(new_prog)
+        prog_idx = arena%size
+        call set_parent_if_valid(arena, prog_idx, root_index)
+        do i = 1, size(program_body)
+            call set_parent_if_valid(arena, program_body(i), prog_idx)
+        end do
+    end subroutine create_and_register_main_program
+
+    subroutine promote_double_literals_for_programs(arena, program_indices, &
+                                                    program_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(in) :: program_indices(:)
+        integer, intent(in) :: program_count
+        integer :: i
+
+        do i = 1, program_count
+            call promote_double_literal_assignments(arena, program_indices(i))
+        end do
+    end subroutine promote_double_literals_for_programs
+
+    subroutine finalize_container_indices(arena, root_index, container, &
+                                          module_indices, module_count, &
+                                          preserved_indices, preserved_count, &
+                                          module_names, program_indices, &
+                                          program_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        type(mixed_construct_container_node), intent(inout) :: container
+        integer, allocatable, intent(in) :: module_indices(:)
+        integer, intent(in) :: module_count
+        integer, allocatable, intent(in) :: preserved_indices(:)
+        integer, intent(in) :: preserved_count
+        character(len=*), allocatable, intent(in) :: module_names(:)
+        integer, allocatable, intent(in) :: program_indices(:)
+        integer, intent(in) :: program_count
+        integer, allocatable :: new_explicit(:)
+        integer :: i
 
         if (module_count + preserved_count > 0) then
             allocate (new_explicit(module_count + preserved_count))
@@ -628,10 +792,92 @@ contains
             call ensure_program_has_uses(arena, program_indices(i), module_names, &
                                          module_count)
         end do
+    end subroutine finalize_container_indices
+
+    subroutine process_mixed_container(arena, root_index, container, signatures)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: root_index
+        type(mixed_construct_container_node), intent(inout) :: container
+        type(signatures_map_t), intent(in) :: signatures
+        integer :: explicit_count, implicit_count
+        integer, allocatable :: preserved_indices(:), implicit_preserved(:)
+        integer :: preserved_count, implicit_preserved_count
+        integer, allocatable :: module_indices(:), program_indices(:)
+        integer :: module_count, program_count
+        character(len=128), allocatable :: module_names(:)
+
+        explicit_count = 0
+        if (allocated(container%explicit_program_indices)) then
+            explicit_count = size(container%explicit_program_indices)
+        end if
+
+        implicit_count = 0
+        if (allocated(container%implicit_declaration_indices)) then
+            implicit_count = size(container%implicit_declaration_indices)
+        end if
+
+        if (explicit_count == 0 .and. implicit_count == 0) return
+
+        call initialize_mixed_container_arrays(explicit_count, implicit_count, &
+                                               preserved_indices, implicit_preserved, &
+                                               module_indices, module_names, &
+                                               program_indices)
+
+        preserved_count = 0
+        implicit_preserved_count = 0
+        module_count = 0
+        program_count = 0
+
+        if (implicit_count > 0) then
+            call process_implicit_declarations(arena, signatures, container, &
+                                               implicit_preserved, &
+                                               implicit_preserved_count, &
+                                               module_indices, module_count, &
+                                               module_names)
+        end if
+
+        call process_explicit_programs(arena, signatures, container, &
+                                       explicit_count, module_indices, &
+                                       module_count, module_names, &
+                                       preserved_indices, preserved_count, &
+                                       program_indices, program_count)
+
+        if (module_count == 0) then
+            call finalize_no_modules(container, preserved_indices, preserved_count, &
+                                     explicit_count)
+            return
+        end if
+
+        call find_program_nodes(arena, preserved_indices, preserved_count, &
+                                program_indices, program_count)
+
+        if (program_count == 0) then
+            call create_main_program_from_preserved(arena, root_index, &
+                                                    module_indices, module_count, &
+                                                    module_names, &
+                                                    implicit_preserved, &
+                                                    implicit_preserved_count, &
+                                                    preserved_indices, &
+                                                    preserved_count, &
+                                                    program_indices, program_count, &
+                                                    container)
+        end if
+
+        if (program_count > 0) then
+            call promote_double_literals_for_programs(arena, program_indices, &
+                                                      program_count)
+        end if
+
+        call finalize_container_indices(arena, root_index, container, &
+                                        module_indices, module_count, &
+                                        preserved_indices, preserved_count, &
+                                        module_names, program_indices, &
+                                        program_count)
     end subroutine process_mixed_container
 
     subroutine process_container_entry(arena, signatures, child_idx, module_indices, &
-                       module_count, module_names, preserved_indices, preserved_count, &
+                                       module_count, module_names, preserved_indices, &
+                                       preserved_count, &
                                        program_indices, program_count, updated_idx)
         type(ast_arena_t), intent(inout) :: arena
         type(signatures_map_t), intent(in) :: signatures
@@ -654,7 +900,8 @@ contains
         select type (node => arena%entries(child_idx)%node)
         type is (function_def_node)
             call process_specializable_procedure(arena, signatures, child_idx, &
-                                           node%name, .true., handled, module_indices, &
+                                                 node%name, .true., handled, &
+                                                 module_indices, &
                                                  module_count, &
                                                  module_names)
             if (.not. handled) then
@@ -666,7 +913,8 @@ contains
             end if
         type is (subroutine_def_node)
             call process_specializable_procedure(arena, signatures, child_idx, &
-                                          node%name, .false., handled, module_indices, &
+                                                 node%name, .false., handled, &
+                                                 module_indices, &
                                                  module_count, &
                                                  module_names)
             if (.not. handled) then
@@ -759,7 +1007,7 @@ contains
                     if (already_present) cycle
                     if (promote_count >= promote_capacity) then
                         call resize_character_array(promote_names, &
-                                                     max(2 * promote_capacity, 1))
+                                                    max(2 * promote_capacity, 1))
                         promote_capacity = size(promote_names)
                     end if
                     promote_count = promote_count + 1
@@ -973,13 +1221,13 @@ contains
 
     subroutine set_parent_if_valid(arena, child_idx, parent_idx)
         type(ast_arena_t), intent(inout) :: arena
-       integer, intent(in) :: child_idx
-       integer, intent(in) :: parent_idx
+        integer, intent(in) :: child_idx
+        integer, intent(in) :: parent_idx
 
-       if (child_idx < 1 .or. child_idx > arena%size) return
-       if (.not. allocated(arena%entries(child_idx)%node)) return
-       arena%entries(child_idx)%parent_index = parent_idx
-   end subroutine set_parent_if_valid
+        if (child_idx < 1 .or. child_idx > arena%size) return
+        if (.not. allocated(arena%entries(child_idx)%node)) return
+        arena%entries(child_idx)%parent_index = parent_idx
+    end subroutine set_parent_if_valid
 
     subroutine normalize_signature_param_types(signature)
         type(type_signature_t), intent(inout) :: signature
@@ -995,15 +1243,18 @@ contains
         if (fallback_kind <= 0 .or. fallback_kind == TVAR) return
 
         do i = 1, size(signature%param_kinds)
-            if (signature%param_kinds(i) == TVAR .or. signature%param_kinds(i) <= 0) then
+            if (signature%param_kinds(i) == TVAR .or. &
+                signature%param_kinds(i) <= 0) then
                 signature%param_kinds(i) = fallback_kind
             end if
             if (allocated(signature%param_type_strings)) then
                 if (i <= size(signature%param_type_strings)) then
-                    mapped_kind = map_type_string_to_kind(signature%param_type_strings(i))
-                    if (mapped_kind == TVAR .or. mapped_kind /= signature%param_kinds(i)) then
+                    mapped_kind = &
+                        map_type_string_to_kind(signature%param_type_strings(i))
+                    if (mapped_kind == TVAR .or. mapped_kind /= &
+                        signature%param_kinds(i)) then
                         signature%param_type_strings(i) = kind_to_string_local( &
-                                                       signature%param_kinds(i))
+                                                          signature%param_kinds(i))
                     end if
                 end if
             end if
