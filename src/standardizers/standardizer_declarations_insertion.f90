@@ -5,7 +5,7 @@ module standardizer_declarations_insertion
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_misc, only: blank_line_node, comment_node, &
                               implicit_statement_node, intrinsic_statement_node, &
-                              use_statement_node
+                              use_statement_node, allocate_statement_node
     use ast_nodes_procedure, only: function_def_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
     use lexer_core, only: to_lower
@@ -358,15 +358,47 @@ contains
             end do
         end if
 
+        ! First pass: process explicit declarations and allocate statements
+        ! before processing assignments (fixes #2069)
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
                 if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
                     arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        call collect_statement_vars(arena, prog%body_indices(i), &
-                                                    var_names, var_types, &
-                                                    var_declared, var_count, &
-                                                    function_names, func_count)
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            call collect_statement_vars(arena, prog%body_indices(i), &
+                                                        var_names, var_types, &
+                                                        var_declared, var_count, &
+                                                        function_names, func_count)
+                        type is (allocate_statement_node)
+                            call collect_statement_vars(arena, prog%body_indices(i), &
+                                                        var_names, var_types, &
+                                                        var_declared, var_count, &
+                                                        function_names, func_count)
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Second pass: process all other statements after declarations and allocates
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
+                    arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Skip: already processed in first pass
+                        type is (allocate_statement_node)
+                            ! Skip: already processed in first pass
+                        class default
+                            call collect_statement_vars(arena, prog%body_indices(i), &
+                                                        var_names, var_types, &
+                                                        var_declared, var_count, &
+                                                        function_names, func_count)
+                        end select
                     end if
                 end if
             end do

@@ -417,6 +417,24 @@ contains
 
         contains_seen = .false.
 
+        ! First pass: process allocate statements to ensure allocatable
+        ! variables are registered before processing assignments
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                contains_seen = .true.
+            type is (allocate_statement_node)
+                if (contains_seen) cycle
+                call process_allocate_variables(arena, stmt, state)
+            end select
+        end do
+
+        contains_seen = .false.
+
+        ! Second pass: process assignments after allocate statements
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
             if (idx <= 0 .or. idx > arena%size) cycle
@@ -428,9 +446,6 @@ contains
                 if (contains_seen) cycle
                 call process_assignment_target(arena, stmt, state)
                 call process_assignment_value(arena, stmt, state)
-            type is (allocate_statement_node)
-                if (contains_seen) cycle
-                call process_allocate_variables(arena, stmt, state)
             end select
         end do
     end subroutine collect_assignment_symbols
