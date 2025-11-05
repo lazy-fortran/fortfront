@@ -9,6 +9,7 @@ module standardizer_subroutine
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: reset_declaration_node
     use standardizer_parameter, only: synchronize_parameter_declarations
+    use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
     implicit none
     private
     public :: standardize_subroutine_def
@@ -62,6 +63,8 @@ contains
 
         call populate_subroutine_param_metadata(arena, sub_def, metadata)
         if (allocated(sub_def%body_indices)) then
+            call infer_subroutine_parameter_intents(arena, sub_def%body_indices, &
+                                                    metadata)
             call synchronize_parameter_declarations( &
                 arena, sub_def%body_indices, metadata, "", type_std_enabled)
         end if

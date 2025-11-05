@@ -1,0 +1,6 @@
+subroutine increment(x)
+    x = x + 1
+end subroutine increment
+
+n = 5
+call increment(n)
