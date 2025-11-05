@@ -43,7 +43,7 @@ end program
 ## Building
 ```sh
 fpm build
-make
+make clean  # Remove build artifacts, logs, .mod/.o/.a files
 ```
 
 ## Usage
