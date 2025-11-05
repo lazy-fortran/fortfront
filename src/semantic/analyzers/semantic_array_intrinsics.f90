@@ -262,10 +262,6 @@ contains
         integer, intent(out) :: ndims
         integer, allocatable, intent(out) :: dimension_sizes(:)
         logical, intent(out) :: has_literals
-        integer :: i
-        integer :: elem_idx
-        integer :: temp_value
-        logical :: success
 
         ndims = 0
         has_literals = .false.
@@ -274,42 +270,62 @@ contains
 
         select type (shape_node => arena%entries(shape_idx)%node)
         type is (array_literal_node)
-            if (allocated(shape_node%element_indices)) then
-                ndims = size(shape_node%element_indices)
-                allocate (dimension_sizes(ndims))
-                has_literals = .true.
-                do i = 1, ndims
-                    dimension_sizes(i) = 0
-                    elem_idx = shape_node%element_indices(i)
-                    if (elem_idx > 0 .and. elem_idx <= arena%size) then
-                        if (allocated(arena%entries(elem_idx)%node)) then
-                            select type (elem_node => &
-                                        arena%entries(elem_idx)%node)
-                            type is (literal_node)
-                                call parse_literal_integer(elem_node%value, &
-                                                           temp_value, success)
-                                if (success .and. temp_value > 0) then
-                                    dimension_sizes(i) = temp_value
-                                else
-                                    has_literals = .false.
-                                    exit
-                                end if
-                            class default
-                                has_literals = .false.
-                                exit
-                            end select
-                        else
-                            has_literals = .false.
-                            exit
-                        end if
-                    else
-                        has_literals = .false.
-                        exit
-                    end if
-                end do
-            end if
+            call populate_literal_dimensions(arena, shape_node, ndims, &
+                                             dimension_sizes, has_literals)
         end select
     end subroutine extract_reshape_dimensions
+
+    subroutine populate_literal_dimensions(arena, shape_node, ndims, &
+                                           dimension_sizes, has_literals)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: shape_node
+        integer, intent(out) :: ndims
+        integer, allocatable, intent(out) :: dimension_sizes(:)
+        logical, intent(out) :: has_literals
+        integer :: i
+        integer :: dim_value
+
+        has_literals = .false.
+        ndims = 0
+        if (.not. allocated(shape_node%element_indices)) return
+
+        ndims = size(shape_node%element_indices)
+        if (ndims <= 0) return
+
+        allocate (dimension_sizes(ndims))
+        has_literals = .true.
+        do i = 1, ndims
+            if (.not. literal_dimension_value(arena, &
+                                              shape_node%element_indices(i), &
+                                              dim_value)) then
+                has_literals = .false.
+                exit
+            end if
+            dimension_sizes(i) = dim_value
+        end do
+
+        if (.not. has_literals) then
+            deallocate (dimension_sizes)
+        end if
+    end subroutine populate_literal_dimensions
+
+    logical function literal_dimension_value(arena, elem_idx, value)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: elem_idx
+        integer, intent(out) :: value
+        logical :: success
+
+        literal_dimension_value = .false.
+        value = 0
+        if (elem_idx <= 0 .or. elem_idx > arena%size) return
+        if (.not. allocated(arena%entries(elem_idx)%node)) return
+
+        select type (elem_node => arena%entries(elem_idx)%node)
+        type is (literal_node)
+            call parse_literal_integer(elem_node%value, value, success)
+            if (success) literal_dimension_value = .true.
+        end select
+    end function literal_dimension_value
 
     subroutine parse_literal_integer(literal_str, value, success)
         character(len=*), intent(in) :: literal_str
