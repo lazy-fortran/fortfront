@@ -1,7 +1,7 @@
 module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+                          TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER, to_lower
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
@@ -15,7 +15,9 @@ module parser_if_constructs_module
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control, only: if_node
-    use ast_factory, only: push_if
+    use ast_nodes_transfer, only: create_goto
+    use ast_base, only: LITERAL_INTEGER
+    use ast_factory, only: push_if, push_goto, push_binary_op, push_literal
     implicit none
     private
 
@@ -72,6 +74,192 @@ contains
         end if
     end function parse_do_loop_callback
 
+    ! Helper function to detect arithmetic IF: IF (expr) label1, label2, label3
+    function is_arithmetic_if(parser) result(is_arith_if)
+        type(parser_state_t), intent(in) :: parser
+        logical :: is_arith_if
+        type(token_t) :: tok
+        integer :: idx, label_count, comma_count, total_tokens
+        logical :: expect_label
+        integer :: start_line
+
+        is_arith_if = .false.
+        if (.not. associated(parser%tokens)) return
+
+        total_tokens = size(parser%tokens)
+        idx = parser%current_token
+        if (idx < 1 .or. idx > total_tokens) return
+
+        ! Skip whitespace/comments before evaluating pattern
+        do while (idx <= total_tokens)
+            tok = parser%tokens(idx)
+            if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
+                idx = idx + 1
+                cycle
+            end if
+            exit
+        end do
+        if (idx > total_tokens) return
+        if (parser%tokens(idx)%kind == TK_NEWLINE) return
+
+        start_line = parser%tokens(idx)%line
+        expect_label = .true.
+        label_count = 0
+        comma_count = 0
+
+        do while (idx <= total_tokens)
+            tok = parser%tokens(idx)
+            if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
+                idx = idx + 1
+                cycle
+            end if
+            if (tok%kind == TK_NEWLINE) exit
+            if (tok%line /= start_line) exit
+
+            if (expect_label) then
+                if (tok%kind == TK_NUMBER .or. tok%kind == TK_IDENTIFIER) then
+                    label_count = label_count + 1
+                    expect_label = .false.
+                    if (label_count > 3) return
+                else
+                    return
+                end if
+            else
+                if (tok%kind == TK_OPERATOR .and. tok%text == ",") then
+                    comma_count = comma_count + 1
+                    expect_label = .true.
+                else
+                    return
+                end if
+            end if
+
+            idx = idx + 1
+            if (.not. expect_label .and. label_count == 3) exit
+        end do
+
+        if (label_count == 3 .and. comma_count == 2 .and. .not. expect_label) then
+            ! Ensure no additional tokens on the same line (besides whitespace/comment)
+            do while (idx <= total_tokens)
+                tok = parser%tokens(idx)
+                if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
+                    idx = idx + 1
+                    cycle
+                end if
+                if (tok%kind == TK_NEWLINE) exit
+                if (tok%line /= start_line) exit
+                return
+            end do
+            is_arith_if = .true.
+        end if
+    end function is_arithmetic_if
+
+    ! Parse arithmetic IF: IF (expr) label1, label2, label3
+    ! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
+    function parse_arithmetic_if(parser, arena, condition_index, if_token, parent_index) &
+        result(if_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: condition_index
+        type(token_t), intent(in) :: if_token
+        integer, intent(in), optional :: parent_index
+        integer :: if_index
+
+        character(len=:), allocatable :: label1, label2, label3
+        integer :: zero_index, cond_lt_zero_index, cond_eq_zero_index
+        integer :: goto1_index, goto2_index, goto3_index
+        integer, allocatable :: then_body_indices(:), else_body_indices(:)
+        integer, allocatable :: elseif_indices(:)
+
+        if_index = 0
+
+        ! Parse arithmetic IF label triplet
+        if (.not. consume_label_text(label1)) return
+        if (.not. consume_comma_token()) return
+        if (.not. consume_label_text(label2)) return
+        if (.not. consume_comma_token()) return
+        if (.not. consume_label_text(label3)) return
+
+        ! Build: IF (expr < 0) GOTO label1
+        zero_index = push_literal(arena, "0", LITERAL_INTEGER, if_token%line, if_token%column)
+        cond_lt_zero_index = push_binary_op(arena, condition_index, zero_index, "<", &
+            if_token%line, if_token%column)
+        goto1_index = push_goto(arena, label=label1, line=if_token%line, column=if_token%column)
+        allocate (then_body_indices(1))
+        then_body_indices(1) = goto1_index
+
+        ! Build: ELSEIF (expr == 0) GOTO label2
+        cond_eq_zero_index = push_binary_op(arena, condition_index, zero_index, "==", &
+            if_token%line, if_token%column)
+        goto2_index = push_goto(arena, label=label2, line=if_token%line, column=if_token%column)
+        allocate (elseif_indices(2))
+        elseif_indices(1) = cond_eq_zero_index
+        elseif_indices(2) = goto2_index
+
+        ! Build: ELSE GOTO label3
+        goto3_index = push_goto(arena, label=label3, line=if_token%line, column=if_token%column)
+        allocate (else_body_indices(1))
+        else_body_indices(1) = goto3_index
+
+        ! Create IF node
+        if_index = push_if(arena, cond_lt_zero_index, then_body_indices, &
+            elseif_indices=elseif_indices, else_body_indices=else_body_indices, &
+            line=if_token%line, column=if_token%column, parent_index=parent_index)
+    contains
+
+        logical function fetch_next_token(token)
+            type(token_t), intent(out) :: token
+
+            fetch_next_token = .false.
+            do
+                if (parser%is_at_end()) return
+                token = parser%peek()
+                if (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT) then
+                    token = parser%consume()
+                    cycle
+                end if
+                if (token%kind == TK_NEWLINE) return
+                fetch_next_token = .true.
+                return
+            end do
+        end function fetch_next_token
+
+        logical function consume_label_text(label_text)
+            character(len=:), allocatable, intent(out) :: label_text
+            type(token_t) :: next_token
+
+            if (.not. fetch_next_token(next_token)) then
+                label_text = ""
+                consume_label_text = .false.
+                return
+            end if
+
+            if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+                label_text = trim(next_token%text)
+                next_token = parser%consume()
+                consume_label_text = .true.
+            else
+                label_text = ""
+                consume_label_text = .false.
+            end if
+        end function consume_label_text
+
+        logical function consume_comma_token()
+            type(token_t) :: next_token
+
+            if (.not. fetch_next_token(next_token)) then
+                consume_comma_token = .false.
+                return
+            end if
+
+            if (next_token%kind == TK_OPERATOR .and. next_token%text == ",") then
+                next_token = parser%consume()
+                consume_comma_token = .true.
+            else
+                consume_comma_token = .false.
+            end if
+        end function consume_comma_token
+    end function parse_arithmetic_if
+
     ! Parse if statement
     function parse_if(parser, arena, parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
@@ -90,6 +278,12 @@ contains
 
         ! Parse condition (should be in parentheses for standard if/then/endif)
         condition_index = parse_if_condition(parser, arena)
+
+        ! Check for arithmetic IF: IF (expr) label1, label2, label3
+        if (is_arithmetic_if(parser)) then
+            if_index = parse_arithmetic_if(parser, arena, condition_index, if_token, parent_index)
+            return
+        end if
 
         ! Look for 'then' keyword
         then_token = parser%peek()

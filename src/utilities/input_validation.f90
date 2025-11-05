@@ -209,10 +209,12 @@ contains
                         ! Check if this looks like a complete if condition without 'then'
                         block
                             logical :: has_condition_tokens, has_statement_after_condition
+                            logical :: is_arithmetic_if
                             integer :: k, paren_count
 
                             has_condition_tokens = .false.
                             has_statement_after_condition = .false.
+                            is_arithmetic_if = .false.
                             paren_count = 0
 
                             ! Look for condition tokens after 'if' on the same line
@@ -231,16 +233,19 @@ contains
                                         if (paren_count == 0 .and. k < size(tokens)) then
                                             ! Check the token after closing paren
                                             if (k + 1 <= size(tokens) .and. tokens(k + 1)%line == current_line) then
+                                                ! Check for arithmetic IF: IF (expr) label1, label2, label3
+                                                if (tokens(k + 1)%kind == TK_NUMBER .or. &
+                                                    tokens(k + 1)%kind == TK_IDENTIFIER) then
+                                                    ! Could be arithmetic IF with labels
+                                                    is_arithmetic_if = .true.
+                                                    has_statement_after_condition = .true.
                                                 ! Check if it's a valid statement keyword for single-line if
-                                                if (tokens(k + 1)%kind == TK_KEYWORD) then
+                                                else if (tokens(k + 1)%kind == TK_KEYWORD) then
                                                     select case (tokens(k + 1)%text)
                                                     case ("print", "write", "read", "call", "stop", &
                                                           "cycle", "exit", "return", "go", "error", "goto")
                                                         has_statement_after_condition = .true.
                                                     end select
-                                                else if (tokens(k + 1)%kind == TK_IDENTIFIER) then
-                                                    ! Could be an assignment or call statement
-                                                    has_statement_after_condition = .true.
                                                 end if
                                             end if
                                         end if
