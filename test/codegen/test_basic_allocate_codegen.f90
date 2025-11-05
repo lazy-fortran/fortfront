@@ -31,7 +31,7 @@ program test_basic_allocate_codegen
 
     call transform_lazy_fortran_string(source, output, error_msg)
 
-    ok = index(output, 'integer, dimension(:), allocatable :: arr') > 0 .and. &
+    ok = index(output, 'integer, allocatable :: arr(:)') > 0 .and. &
          index(output, 'allocate(arr(5))') > 0
 
     if (.not. ok) then
