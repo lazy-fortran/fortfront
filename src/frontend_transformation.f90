@@ -981,14 +981,195 @@ contains
         end if
     end function should_skip_standardization
 
+    subroutine collect_procedures_and_target(arena, root_prog, all_procedures, &
+                                             target_prog_idx)
+        type(ast_arena_t), intent(in) :: arena
+        class(program_node), intent(in) :: root_prog
+        integer, allocatable, intent(out) :: all_procedures(:)
+        integer, intent(out) :: target_prog_idx
+        integer :: i
+
+        allocate (all_procedures(0))
+        target_prog_idx = 0
+
+        if (.not. allocated(root_prog%body_indices)) return
+
+        do i = 1, size(root_prog%body_indices)
+            if (root_prog%body_indices(i) <= 0 .or. &
+                root_prog%body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
+
+            select type (child => arena%entries(root_prog%body_indices(i))%node)
+            type is (program_node)
+                if (trim(child%name) /= "__MULTI_UNIT__") then
+                    if (trim(child%name) /= "" .and. child%name /= "main" .and. &
+                        child%name /= "MAIN") then
+                        target_prog_idx = root_prog%body_indices(i)
+                    end if
+                end if
+            type is (function_def_node)
+                all_procedures = [all_procedures, root_prog%body_indices(i)]
+            type is (subroutine_def_node)
+                all_procedures = [all_procedures, root_prog%body_indices(i)]
+            end select
+        end do
+    end subroutine collect_procedures_and_target
+
+    subroutine filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
+                                           procedures)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: all_procedures(:)
+        integer, intent(in) :: target_prog_idx
+        integer, allocatable, intent(out) :: procedures(:)
+        integer :: i
+
+        allocate (procedures(0))
+        do i = 1, size(all_procedures)
+            if (should_hoist_procedure(arena, all_procedures(i), target_prog_idx)) then
+                procedures = [procedures, all_procedures(i)]
+            end if
+        end do
+    end subroutine filter_hoistable_procedures
+
+    subroutine remove_procedures_from_body(root_prog, procedures)
+        class(program_node), intent(inout) :: root_prog
+        integer, intent(in) :: procedures(:)
+        integer, allocatable :: new_body(:)
+        integer :: i
+
+        allocate (new_body(0))
+        if (allocated(root_prog%body_indices)) then
+            do i = 1, size(root_prog%body_indices)
+                if (any(root_prog%body_indices(i) == procedures)) cycle
+                new_body = [new_body, root_prog%body_indices(i)]
+            end do
+        end if
+        root_prog%body_indices = new_body
+    end subroutine remove_procedures_from_body
+
+    function find_contains_position(arena, target) result(contains_pos)
+        type(ast_arena_t), intent(in) :: arena
+        class(program_node), intent(in) :: target
+        integer :: contains_pos
+        integer :: i
+
+        contains_pos = 0
+        if (.not. allocated(target%body_indices)) return
+
+        do i = 1, size(target%body_indices)
+            if (target%body_indices(i) <= 0 .or. &
+                target%body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
+
+            select type (stmt => arena%entries(target%body_indices(i))%node)
+            type is (contains_node)
+                contains_pos = i
+                exit
+            end select
+        end do
+    end function find_contains_position
+
+    subroutine ensure_contains_exists(arena, target, target_prog_idx, contains_pos)
+        type(ast_arena_t), intent(inout) :: arena
+        class(program_node), intent(inout) :: target
+        integer, intent(in) :: target_prog_idx
+        integer, intent(inout) :: contains_pos
+        type(contains_node) :: contains_stmt
+        integer :: contains_idx
+
+        if (contains_pos > 0) return
+
+        contains_stmt%line = 1
+        contains_stmt%column = 1
+        call arena%push(contains_stmt, "contains", target_prog_idx)
+        contains_idx = arena%size
+
+        if (.not. allocated(target%body_indices)) then
+            allocate (target%body_indices(1))
+            target%body_indices(1) = contains_idx
+        else
+            target%body_indices = [target%body_indices, contains_idx]
+        end if
+        contains_pos = size(target%body_indices)
+    end subroutine ensure_contains_exists
+
+    subroutine insert_procedures_after_contains(target, procedures, contains_pos)
+        class(program_node), intent(inout) :: target
+        integer, intent(in) :: procedures(:)
+        integer, intent(in) :: contains_pos
+        integer, allocatable :: original(:)
+        integer :: orig_size, insert_size
+
+        if (allocated(target%body_indices)) then
+            original = target%body_indices
+            deallocate (target%body_indices)
+        else
+            allocate (original(0))
+        end if
+
+        orig_size = size(original)
+        insert_size = size(procedures)
+        allocate (target%body_indices(orig_size + insert_size))
+
+        if (contains_pos >= 1) then
+            target%body_indices(1:contains_pos) = original(1:contains_pos)
+        end if
+        target%body_indices(contains_pos + 1:contains_pos + insert_size) = procedures
+        if (contains_pos < orig_size) then
+            target%body_indices(contains_pos + insert_size + 1:) = &
+                original(contains_pos + 1:orig_size)
+        end if
+    end subroutine insert_procedures_after_contains
+
+    subroutine clean_external_declarations(arena, target, procedures)
+        type(ast_arena_t), intent(in) :: arena
+        class(program_node), intent(inout) :: target
+        integer, intent(in) :: procedures(:)
+        integer :: i, j
+        integer, allocatable :: compressed(:)
+        logical :: declares_function
+
+        if (.not. allocated(target%body_indices)) return
+
+        do i = 1, size(target%body_indices)
+            if (target%body_indices(i) <= 0 .or. &
+                target%body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
+
+            select type (stmt => arena%entries(target%body_indices(i))%node)
+            type is (declaration_node)
+                declares_function = stmt%is_external
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    do j = 1, size(stmt%var_names)
+                        if (is_procedure_name(trim(stmt%var_names(j)), arena, &
+                                              procedures)) then
+                            declares_function = .true.
+                            exit
+                        end if
+                    end do
+                else
+                    if (is_procedure_name(trim(stmt%var_name), arena, procedures)) then
+                        declares_function = .true.
+                    end if
+                end if
+                if (declares_function) target%body_indices(i) = 0
+            end select
+        end do
+
+        allocate (compressed(0))
+        do i = 1, size(target%body_indices)
+            if (target%body_indices(i) /= 0) then
+                compressed = [compressed, target%body_indices(i)]
+            end if
+        end do
+        target%body_indices = compressed
+    end subroutine clean_external_declarations
+
     subroutine normalize_multi_unit_container(arena, root_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
-
-        integer :: i, j, target_prog_idx, contains_pos
-        integer, allocatable :: procedures(:)
-        integer, allocatable :: all_procedures(:)
-        integer, allocatable :: new_body(:)
+        integer :: i, target_prog_idx, contains_pos
+        integer, allocatable :: procedures(:), all_procedures(:)
         class(program_node), pointer :: root_prog => null()
 
         if (root_index <= 0 .or. root_index > arena%size) return
@@ -1003,170 +1184,33 @@ contains
         end select
         if (.not. associated(root_prog)) return
 
-        if (allocated(all_procedures)) deallocate (all_procedures)
-        allocate (all_procedures(0))
-        target_prog_idx = 0
-
-        if (allocated(root_prog%body_indices)) then
-            do i = 1, size(root_prog%body_indices)
-                if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > &
-                    & arena%size) cycle
-                if (.not. &
-                    allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
-                select type (child => arena%entries(root_prog%body_indices(i))%node)
-                type is (program_node)
-                    if (trim(child%name) /= "__MULTI_UNIT__") then
-                        if (trim(child%name) /= "" .and. child%name /= "main" .and. &
-                            & child%name /= "MAIN") then
-                            target_prog_idx = root_prog%body_indices(i)
-                        end if
-                    end if
-                type is (function_def_node)
-                    all_procedures = [all_procedures, root_prog%body_indices(i)]
-                type is (subroutine_def_node)
-                    all_procedures = [all_procedures, root_prog%body_indices(i)]
-                end select
-            end do
-        end if
+        call collect_procedures_and_target(arena, root_prog, all_procedures, &
+                                          target_prog_idx)
 
         if (target_prog_idx == 0) return
         if (size(all_procedures) == 0) return
 
-        if (allocated(procedures)) deallocate (procedures)
-        allocate (procedures(0))
-        do i = 1, size(all_procedures)
-            if (should_hoist_procedure(arena, all_procedures(i), target_prog_idx)) then
-                procedures = [procedures, all_procedures(i)]
-            end if
-        end do
+        call filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
+                                        procedures)
 
         if (size(procedures) == 0) return
 
-        ! Remove function indices from multi-unit body
-        allocate (new_body(0))
-        if (allocated(root_prog%body_indices)) then
-            do i = 1, size(root_prog%body_indices)
-                if (any(root_prog%body_indices(i) == procedures)) cycle
-                new_body = [new_body, root_prog%body_indices(i)]
-            end do
-        end if
-        root_prog%body_indices = new_body
+        call remove_procedures_from_body(root_prog, procedures)
 
-        ! Access target program
         if (.not. allocated(arena%entries(target_prog_idx)%node)) return
         select type (target => arena%entries(target_prog_idx)%node)
         type is (program_node)
-            ! Ensure contains node exists
-            contains_pos = 0
-            if (allocated(target%body_indices)) then
-                do i = 1, size(target%body_indices)
-                    if (target%body_indices(i) > 0 .and. target%body_indices(i) <= &
-                        & arena%size) then
-                        if (allocated(arena%entries(target%body_indices(i))%node)) then
-                            select type (stmt => &
-                                & arena%entries(target%body_indices(i))%node)
-                            type is (contains_node)
-                                contains_pos = i
-                                exit
-                            end select
-                        end if
-                    end if
-                end do
-            end if
+            contains_pos = find_contains_position(arena, target)
+            call ensure_contains_exists(arena, target, target_prog_idx, contains_pos)
+            call insert_procedures_after_contains(target, procedures, contains_pos)
 
-            if (contains_pos == 0) then
-                block
-                    type(contains_node) :: contains_stmt
-                    integer :: contains_idx
-                    contains_stmt%line = 1
-                    contains_stmt%column = 1
-                    call arena%push(contains_stmt, "contains", target_prog_idx)
-                    contains_idx = arena%size
-                    if (.not. allocated(target%body_indices)) then
-                        allocate (target%body_indices(1))
-                        target%body_indices(1) = contains_idx
-                    else
-                        target%body_indices = [target%body_indices, contains_idx]
-                    end if
-                    contains_pos = size(target%body_indices)
-                end block
-            end if
-
-            ! Insert function indices after contains
-            block
-                integer, allocatable :: original(:)
-                integer :: orig_size, insert_size
-                if (allocated(target%body_indices)) then
-                    original = target%body_indices
-                    deallocate (target%body_indices)
-                else
-                    allocate (original(0))
-                end if
-                orig_size = size(original)
-                insert_size = size(procedures)
-                allocate (target%body_indices(orig_size + insert_size))
-                if (contains_pos >= 1) then
-                    target%body_indices(1:contains_pos) = original(1:contains_pos)
-                end if
-                target%body_indices(contains_pos + 1:contains_pos + insert_size) &
-                    & = procedures
-                if (contains_pos < orig_size) then
-                    target%body_indices(contains_pos + insert_size + 1:) = &
-                        original(contains_pos + 1:orig_size)
-                end if
-            end block
-
-            ! Update parent indices and remove external declarations
             do i = 1, size(procedures)
                 if (procedures(i) > 0 .and. procedures(i) <= arena%size) then
                     arena%entries(procedures(i))%parent_index = target_prog_idx
                 end if
             end do
 
-            if (allocated(target%body_indices)) then
-                do i = 1, size(target%body_indices)
-                    if (target%body_indices(i) <= 0 .or. target%body_indices(i) > &
-                        & arena%size) cycle
-                    if (.not. &
-                        allocated(arena%entries(target%body_indices(i))%node)) cycle
-                    select type (stmt => arena%entries(target%body_indices(i))%node)
-                    type is (declaration_node)
-                        block
-                            logical :: declares_function
-                            declares_function = stmt%is_external
-                            if (stmt%is_multi_declaration .and. &
-                                & allocated(stmt%var_names)) then
-                                do j = 1, size(stmt%var_names)
-                                    if &
-                                        (is_procedure_name(trim(stmt%var_names(j)), &
-                                        arena, &
-                                        & procedures)) then
-                                        declares_function = .true.
-                                        exit
-                                    end if
-                                end do
-                            else
-                                if (is_procedure_name(trim(stmt%var_name), arena, &
-                                    & procedures)) then
-                                    declares_function = .true.
-                                end if
-                            end if
-                            if (declares_function) target%body_indices(i) = 0
-                        end block
-                    end select
-                end do
-                ! Compress body indices to remove zeros
-                block
-                    integer, allocatable :: compressed(:)
-                    allocate (compressed(0))
-                    do i = 1, size(target%body_indices)
-                        if (target%body_indices(i) /= 0) then
-                            compressed = [compressed, target%body_indices(i)]
-                        end if
-                    end do
-                    target%body_indices = compressed
-                end block
-            end if
+            call clean_external_declarations(arena, target, procedures)
         end select
     end subroutine normalize_multi_unit_container
 
