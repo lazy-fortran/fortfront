@@ -336,10 +336,35 @@ contains
     logical function is_function_result_identifier(func, var_name) result(is_result)
         type(function_def_node), intent(in) :: func
         character(len=*), intent(in) :: var_name
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: result_name
 
         is_result = .false.
-        if (.not. allocated(func%name)) return
-        is_result = (trim(var_name) == trim(func%name))
+
+        if (allocated(func%name)) then
+            function_name = trim(func%name)
+        else
+            function_name = ''
+        end if
+
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else
+            result_name = ''
+        end if
+
+        if (len_trim(function_name) > 0) then
+            if (trim(var_name) == function_name) then
+                is_result = .true.
+                return
+            end if
+        end if
+
+        if (len_trim(result_name) > 0) then
+            if (trim(var_name) == result_name) then
+                is_result = .true.
+            end if
+        end if
     end function is_function_result_identifier
 
     function get_result_type_string(func, var_name, inferred_type) &
@@ -392,16 +417,106 @@ contains
         end if
     end function convert_array_to_deferred_shape
 
-    logical function needs_result_declaration(func, result_type) result(needed)
+    logical function needs_result_declaration(arena, func, result_type) &
+        result(needed)
+        type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
         type(mono_type_t), intent(in) :: result_type
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: result_name
+        logical :: header_has_type
+        logical :: requires_deferred_attrs
 
         needed = .false.
-        if (result_type%kind /= TARRAY) return
-        if (.not. allocated(func%result_variable)) return
-        if (.not. allocated(func%name)) return
-        needed = (trim(func%result_variable) /= trim(func%name))
+        header_has_type = .false.
+        requires_deferred_attrs = .false.
+
+        if (allocated(func%name)) then
+            function_name = trim(func%name)
+        else
+            function_name = ''
+        end if
+
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else
+            result_name = ''
+        end if
+
+        if (len_trim(result_name) == 0) then
+            result_name = function_name
+        end if
+
+        if (allocated(func%return_type)) then
+            if (len_trim(func%return_type) > 0) header_has_type = .true.
+        end if
+
+        if (result_type%kind == TARRAY) then
+            if (result_type%size == 0 .or. result_type%alloc_info%is_allocatable) then
+                requires_deferred_attrs = .true.
+            end if
+        end if
+
+        if (len_trim(result_name) == 0) return
+
+        if (has_result_variable_declaration(arena, func, result_name)) return
+
+        if (trim(result_name) /= trim(function_name)) then
+            if (.not. header_has_type) then
+                needed = .true.
+                return
+            end if
+            if (requires_deferred_attrs) then
+                needed = .true.
+                return
+            end if
+            return
+        end if
+
+        if (.not. header_has_type) then
+            needed = .true.
+            return
+        end if
+
+        if (requires_deferred_attrs) needed = .true.
     end function needs_result_declaration
+
+    logical function has_result_variable_declaration(arena, func, result_name) &
+        result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: result_name
+        integer :: i
+        integer :: stmt_idx
+        integer :: name_idx
+
+        found = .false.
+        if (.not. allocated(func%body_indices)) return
+        if (len_trim(result_name) == 0) return
+
+        do i = 1, size(func%body_indices)
+            stmt_idx = func%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    do name_idx = 1, size(stmt%var_names)
+                        if (trim(stmt%var_names(name_idx)) == trim(result_name)) then
+                            found = .true.
+                            return
+                        end if
+                    end do
+                else if (allocated(stmt%var_name)) then
+                    if (trim(stmt%var_name) == trim(result_name)) then
+                        found = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function has_result_variable_declaration
 
     function collect_local_variable_decls(arena, func, param_map) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
@@ -447,7 +562,8 @@ contains
                     var_name = trim(target%name)
 
                     if (is_function_result_identifier(func, var_name)) then
-                        if (.not. needs_result_declaration(func, target%inferred_type)) &
+                        if (.not. needs_result_declaration(arena, func, &
+                                                           target%inferred_type)) &
                             cycle
                         var_name = trim(result_name)
                     end if
