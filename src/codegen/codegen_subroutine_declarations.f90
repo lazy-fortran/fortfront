@@ -234,7 +234,7 @@ contains
                                                 n_locals, capacity, declared_vars, &
                                                 n_declared, decl_code)
             type is (do_loop_node)
-                call collect_loop_var_sub(stmt, param_map, local_vars, n_locals, &
+                call collect_loop_var_sub(arena, stmt, param_map, local_vars, n_locals, &
                                           capacity, declared_vars, n_declared, decl_code)
             end select
         end do
@@ -326,8 +326,10 @@ contains
         end do
     end subroutine collect_vars_from_read_sub
 
-    subroutine collect_loop_var_sub(loop_node, param_map, local_vars, n_locals, &
-                                    capacity, declared_vars, n_declared, decl_code)
+    recursive subroutine collect_loop_var_sub(arena, loop_node, param_map, &
+                                              local_vars, n_locals, capacity, &
+                                              declared_vars, n_declared, decl_code)
+        type(ast_arena_t), intent(in) :: arena
         type(do_loop_node), intent(in) :: loop_node
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=64), allocatable, intent(inout) :: local_vars(:)
@@ -337,6 +339,7 @@ contains
         integer, intent(in) :: n_declared
         character(len=:), allocatable, intent(inout) :: decl_code
         character(len=64) :: var_name
+        integer :: body_idx, nested_idx
 
         if (.not. allocated(loop_node%var_name)) return
 
@@ -351,6 +354,21 @@ contains
             n_locals = n_locals + 1
             local_vars(n_locals) = var_name
             decl_code = decl_code // "    integer :: " // trim(var_name) // new_line('A')
+        end if
+
+        if (allocated(loop_node%body_indices)) then
+            do body_idx = 1, size(loop_node%body_indices)
+                nested_idx = loop_node%body_indices(body_idx)
+                if (nested_idx <= 0 .or. nested_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(nested_idx)%node)) cycle
+
+                select type (nested_stmt => arena%entries(nested_idx)%node)
+                type is (do_loop_node)
+                    call collect_loop_var_sub(arena, nested_stmt, param_map, local_vars, &
+                                              n_locals, capacity, declared_vars, n_declared, &
+                                              decl_code)
+                end select
+            end do
         end if
     end subroutine collect_loop_var_sub
 
