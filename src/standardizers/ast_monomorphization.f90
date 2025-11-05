@@ -23,6 +23,9 @@ module ast_monomorphization
                                    TVAR
     use uid_generator, only: generate_uid
     use string_utils_mod, only: to_lower
+    use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
+    use standardizer_parameter, only: param_metadata_t, init_param_metadata
+    use standardizer_parameter, only: metadata_find_param
     implicit none
     private
 
@@ -1305,7 +1308,59 @@ contains
 
         call arena%push(new_subr)
         new_idx = arena%size
+
+        call infer_intent_for_cloned_subroutine(arena, new_idx, new_subr)
     end function clone_subroutine_with_signature
+
+    subroutine infer_intent_for_cloned_subroutine(arena, sub_idx, sub_def)
+        use ast_nodes_data, only: parameter_declaration_node, INTENT_IN
+        use ast_nodes_data, only: INTENT_INOUT, INTENT_OUT
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: sub_idx
+        type(subroutine_def_node), intent(in) :: sub_def
+        type(param_metadata_t) :: metadata
+        type(parameter_declaration_node), pointer :: param_ptr
+        integer :: n_params, i
+
+        if (.not. allocated(sub_def%param_indices)) return
+        n_params = size(sub_def%param_indices)
+        if (n_params == 0) return
+
+        call init_param_metadata(metadata, n_params)
+
+        do i = 1, n_params
+            call get_parameter_node(arena, sub_def%param_indices(i), param_ptr)
+            if (associated(param_ptr)) then
+                if (allocated(param_ptr%name)) then
+                    metadata%names(i) = param_ptr%name
+                else
+                    write (metadata%names(i), '(a,i0)') "param", i
+                end if
+            else
+                write (metadata%names(i), '(a,i0)') "param", i
+            end if
+        end do
+
+        if (allocated(sub_def%body_indices)) then
+            call infer_subroutine_parameter_intents(arena, sub_def%body_indices, &
+                                                    metadata)
+
+            do i = 1, n_params
+                call get_parameter_node(arena, sub_def%param_indices(i), param_ptr)
+                if (associated(param_ptr)) then
+                    select case (trim(metadata%intent(i)))
+                    case ("in")
+                        param_ptr%intent_type = INTENT_IN
+                    case ("out")
+                        param_ptr%intent_type = INTENT_OUT
+                    case ("inout")
+                        param_ptr%intent_type = INTENT_INOUT
+                    end select
+                    arena%entries(sub_def%param_indices(i))%node = param_ptr
+                end if
+            end do
+        end if
+    end subroutine infer_intent_for_cloned_subroutine
 
     function determine_result_name(orig_func, mangled_name) result(result_name)
         type(function_def_node), pointer, intent(in) :: orig_func
