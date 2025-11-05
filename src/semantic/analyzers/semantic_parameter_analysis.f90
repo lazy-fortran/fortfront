@@ -729,9 +729,6 @@ contains
             type is (program_node)
                 scope_index = current
                 return
-            type is (module_node)
-                scope_index = current
-                return
             end select
             current = arena%entries(current)%parent_index
         end do
