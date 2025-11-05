@@ -9,6 +9,7 @@ module codegen_procedure_shared
     use codegen_parameter_info, only: parameter_info_t
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: mono_type_t, TARRAY
     implicit none
     private
     public :: build_parameter_clause
@@ -272,8 +273,12 @@ contains
 
         select type (param_node => arena%entries(param_idx)%node)
         type is (parameter_declaration_node)
-            if (param_node%is_array) then
+            if (param_node%is_array .or. param_node%inferred_type%kind == TARRAY) then
                 dim_clause = build_parameter_dimensions(arena, param_node)
+                if (len(dim_clause) == 0) then
+                    dim_clause = build_assumed_shape_dimensions( &
+                        param_node%inferred_type)
+                end if
                 decl_line = trim(decl_line) // trim(dim_clause)
             end if
         end select
@@ -325,7 +330,7 @@ contains
             param_type = param_node%type_name
         else
             param_type = mono_type_to_string(param_node%inferred_type, &
-                                             include_shape=.true., fallback='real')
+                                             include_shape=.false., fallback='real')
             if (len_trim(param_type) == 0) param_type = 'real'
         end if
     end function get_param_type_from_param_decl
@@ -426,5 +431,32 @@ contains
             declared_vars(n_declared) = trim(var_name)
         end if
     end subroutine add_single_declared_var
+
+    function build_assumed_shape_dimensions(inferred_type) result(dim_clause)
+        type(mono_type_t), intent(in) :: inferred_type
+        character(len=:), allocatable :: dim_clause
+        type(mono_type_t) :: current_type
+        integer :: rank, j
+
+        dim_clause = ""
+        rank = 0
+        current_type = inferred_type
+
+        do while (current_type%kind == TARRAY)
+            rank = rank + 1
+            if (.not. current_type%has_args() .or. &
+                current_type%get_args_count() < 1) exit
+            current_type = current_type%get_arg(1)
+        end do
+
+        if (rank > 0) then
+            dim_clause = "("
+            do j = 1, rank
+                if (j > 1) dim_clause = dim_clause // ","
+                dim_clause = dim_clause // ":"
+            end do
+            dim_clause = dim_clause // ")"
+        end if
+    end function build_assumed_shape_dimensions
 
 end module codegen_procedure_shared
