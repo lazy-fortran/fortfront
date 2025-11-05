@@ -1,0 +1,10 @@
+module intent_mixed_subroutine_mod
+contains
+
+subroutine process(a, b, c)
+    a = a + 1
+    b = 5
+    print *, c
+end subroutine process
+
+end module intent_mixed_subroutine_mod

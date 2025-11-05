@@ -1,0 +1,8 @@
+module intent_in_only_subroutine_mod
+contains
+
+subroutine print_val(x)
+    print *, x
+end subroutine print_val
+
+end module intent_in_only_subroutine_mod
