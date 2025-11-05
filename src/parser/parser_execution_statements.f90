@@ -13,6 +13,7 @@ module parser_execution_statements_module
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
+    use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_assignment_module, only: parse_assignment_statement
     use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement, &
@@ -311,6 +312,8 @@ contains
             character(len=*), intent(in) :: lowered
             type(parser_state_t), intent(inout) :: parser_ref
             type(ast_arena_t), intent(inout) :: arena_ref
+            character(len=:), allocatable :: type_with_kind, lookahead_lower
+            type(token_t) :: lookahead
 
             select case (lowered)
             case ("real", "integer", "logical", "character", "complex", "double", &
@@ -318,11 +321,36 @@ contains
                 ! Check if function or subroutine follows this type keyword
                 if (is_function_or_subroutine_ahead(parser_ref)) then
                     ! This is a return type prefix, not a variable declaration
-                    call append_prefix_token(pending_prefixes, lowered)
-                    block
-                        type(token_t) :: ignored_token
-                        ignored_token = parser_ref%consume()
-                    end block
+                    if (trim(lowered) == "double") then
+                        lookahead = parser_ref%get_token_at_index( &
+                                    parser_ref%current_token + 1)
+                        lookahead_lower = to_lower(trim(lookahead%text))
+                        if (trim(lookahead_lower) == "precision" .or. &
+                            trim(lookahead_lower) == "complex") then
+                            type_with_kind = trim(lowered)//" "// &
+                                             trim(lookahead%text)
+                            block
+                                type(token_t) :: consumed_token
+                                consumed_token = parser_ref%consume()
+                                consumed_token = parser_ref%consume()
+                            end block
+                        else
+                            type_with_kind = trim(lowered)
+                            block
+                                type(token_t) :: consumed_token
+                                consumed_token = parser_ref%consume()
+                            end block
+                        end if
+                    else
+                        type_with_kind = trim(lowered)
+                        block
+                            type(token_t) :: consumed_token
+                            consumed_token = parser_ref%consume()
+                        end block
+                    end if
+                    call consume_optional_kind_spec(parser_ref, type_with_kind)
+                    type_with_kind = to_lower(trim(type_with_kind))
+                    call append_prefix_token(pending_prefixes, type_with_kind)
                     stmt_index = 0
                 else
                     ! This is a variable declaration
