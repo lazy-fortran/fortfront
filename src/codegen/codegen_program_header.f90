@@ -30,6 +30,7 @@ contains
         character(len=:), allocatable :: intrinsic_statements_code
         character(len=:), allocatable :: interface_blocks_code
         character(len=:), allocatable :: declaration_statements_code
+        character(len=:), allocatable :: legacy_storage_code
         character(len=:), allocatable :: extra_decls
 
         call gather_program_header_entries(arena, node, has_implicit, &
@@ -37,6 +38,7 @@ contains
                                            intrinsic_statements_code, &
                                            implicit_statements_code, &
                                            declaration_statements_code, &
+                                           legacy_storage_code, &
                                            interface_blocks_code, non_use_indices, &
                                            non_use_count)
 
@@ -62,6 +64,8 @@ contains
             code = code // extra_decls
         end if
 
+        if (len(legacy_storage_code) > 0) code = code // legacy_storage_code
+
         if (len(interface_blocks_code) > 0) code = code // interface_blocks_code
     end subroutine assemble_program_header
 
@@ -70,6 +74,7 @@ contains
                                              intrinsic_statements_code, &
                                              implicit_statements_code, &
                                              declaration_statements_code, &
+                                             legacy_storage_code, &
                                              interface_blocks_code, non_use_indices, &
                                              non_use_count)
         type(ast_arena_t), intent(in) :: arena
@@ -79,6 +84,7 @@ contains
         character(len=:), allocatable, intent(out) :: intrinsic_statements_code
         character(len=:), allocatable, intent(out) :: implicit_statements_code
         character(len=:), allocatable, intent(out) :: declaration_statements_code
+        character(len=:), allocatable, intent(out) :: legacy_storage_code
         character(len=:), allocatable, intent(out) :: interface_blocks_code
         integer, allocatable, intent(out) :: non_use_indices(:)
         integer, intent(out) :: non_use_count
@@ -91,6 +97,7 @@ contains
         intrinsic_statements_code = ""
         implicit_statements_code = ""
         declaration_statements_code = ""
+        legacy_storage_code = ""
         interface_blocks_code = ""
         non_use_count = 0
 
@@ -108,6 +115,7 @@ contains
                                          has_implicit, use_statements_code, &
                                          intrinsic_statements_code, &
                                          implicit_statements_code, &
+                                         legacy_storage_code, &
                                          interface_blocks_code, non_use_indices, &
                                          non_use_count, header_decl_indices, &
                                          header_decl_count)
@@ -129,6 +137,7 @@ contains
                                        use_statements_code, &
                                        intrinsic_statements_code, &
                                        implicit_statements_code, &
+                                       legacy_storage_code, &
                                        interface_blocks_code, &
                                        non_use_indices, non_use_count, &
                                        header_decl_indices, &
@@ -140,6 +149,7 @@ contains
         character(len=:), allocatable, intent(inout) :: use_statements_code
         character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         integer, intent(inout) :: non_use_indices(:)
         integer, intent(inout) :: non_use_count
@@ -155,6 +165,7 @@ contains
                                                           use_statements_code, &
                                                           intrinsic_statements_code, &
                                                           implicit_statements_code, &
+                                                          legacy_storage_code, &
                                                           interface_blocks_code, &
                                                           non_use_count, &
                                                           header_decl_count, &
@@ -173,6 +184,7 @@ contains
                                                       use_statements_code, &
                                                       intrinsic_statements_code, &
                                                       implicit_statements_code, &
+                                                      legacy_storage_code, &
                                                       interface_blocks_code, &
                                                       non_use_count, &
                                                       header_decl_count, &
@@ -184,6 +196,7 @@ contains
         character(len=:), allocatable, intent(inout) :: use_statements_code
         character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         integer, intent(in) :: non_use_count
         integer, intent(inout) :: header_decl_count
@@ -205,6 +218,7 @@ contains
                                              header_decl_count, use_statements_code, &
                                              intrinsic_statements_code, &
                                              implicit_statements_code, &
+                                             legacy_storage_code, &
                                              interface_blocks_code)
         type is (blank_line_node)
             is_header = process_blank_line(arena, body_index, non_use_count, &
@@ -261,6 +275,7 @@ contains
                                           header_decl_count, use_statements_code, &
                                           intrinsic_statements_code, &
                                           implicit_statements_code, &
+                                          legacy_storage_code, &
                                           interface_blocks_code) result(is_header)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_index
@@ -270,17 +285,18 @@ contains
         character(len=:), allocatable, intent(inout) :: use_statements_code
         character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
         character(len=:), allocatable :: stmt_code
 
         is_header = .false.
-        if (is_legacy_statement_comment(ib) .or. &
+        if (is_legacy_storage_statement(ib) .or. &
             ((non_use_count == 0) .and. header_decl_count == 0)) then
             is_header = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
-            if (is_legacy_statement_comment(ib)) then
-                implicit_statements_code = implicit_statements_code // "    " // &
-                                           stmt_code // new_line('A')
+            if (is_legacy_storage_statement(ib)) then
+                legacy_storage_code = legacy_storage_code // "    " // &
+                                      stmt_code // new_line('A')
             else
                 call append_header_trivia(stmt_code, use_statements_code, &
                                           intrinsic_statements_code, &
@@ -442,32 +458,26 @@ contains
         end if
     end subroutine append_header_trivia
 
-    logical function is_legacy_statement_comment(node)
+    logical function is_legacy_storage_statement(node)
         type(comment_node), intent(in) :: node
         character(len=:), allocatable :: lowered_text
 
-        is_legacy_statement_comment = .false.
+        is_legacy_storage_statement = .false.
         if (.not. allocated(node%text)) return
 
         lowered_text = to_lower(adjustl(trim(node%text)))
         if (len_trim(lowered_text) >= 11) then
             if (index(lowered_text, "equivalence") == 1) then
-                is_legacy_statement_comment = .true.
+                is_legacy_storage_statement = .true.
                 return
             end if
         end if
         if (len_trim(lowered_text) >= 6) then
             if (index(lowered_text, "common") == 1) then
-                is_legacy_statement_comment = .true.
+                is_legacy_storage_statement = .true.
                 return
             end if
         end if
-        if (len_trim(lowered_text) >= 5) then
-            if (index(lowered_text, "block") == 1) then
-                is_legacy_statement_comment = .true.
-                return
-            end if
-        end if
-    end function is_legacy_statement_comment
+    end function is_legacy_storage_statement
 
 end module codegen_program_header
