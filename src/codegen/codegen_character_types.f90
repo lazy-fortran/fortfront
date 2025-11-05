@@ -9,6 +9,7 @@ module codegen_character_types
     public :: derive_character_return_type
     public :: character_len_references_params
     public :: is_deferred_character_return
+    public :: is_allocatable_array_return
     public :: has_character_len_result_decl
     public :: is_character_len_declaration
 
@@ -118,6 +119,16 @@ contains
             end if
         end if
     end function is_deferred_character_return
+
+    pure logical function is_allocatable_array_return(text) result(is_alloc_array)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(trim(text))
+        is_alloc_array = (index(lowered, 'dimension') > 0 .or. &
+                         index(lowered, '(') > 0) .and. &
+                         (index(lowered, 'allocatable') > 0)
+    end function is_allocatable_array_return
 
     logical function has_character_len_result_decl(arena, node) result(has_decl)
         type(ast_arena_t), intent(in) :: arena

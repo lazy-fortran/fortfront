@@ -1,6 +1,6 @@
 module semantic_scope_creation
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
-                                   create_poly_type, TCHAR
+                                   create_poly_type, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_procedure, only: function_def_node
@@ -122,6 +122,10 @@ contains
                 if (.not. return_type%alloc_info%needs_allocatable_string) then
                     text = 'character(len=:), allocatable'
                 end if
+            else if (return_type%kind == TARRAY .and. &
+                     return_type%alloc_info%is_allocatable) then
+                text = mono_type_to_string(return_type, include_shape=.true., &
+                                          success=success)
             end if
         end if
     end function build_function_return_string
