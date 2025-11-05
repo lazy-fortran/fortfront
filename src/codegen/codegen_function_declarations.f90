@@ -26,6 +26,7 @@ module codegen_function_declarations
     use codegen_arena_interface, only: generate_code_from_arena
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: mono_type_t, TARRAY
     implicit none
     private
     public :: generate_code_function_def
@@ -168,7 +169,7 @@ contains
         if (len_trim(result_name) == 0) return
 
         if (allocated(node%name)) then
-            if (result_name == trim(node%name)) return
+            if (result_name == trim(node%name) .and. .not. is_deferred_char) return
         end if
 
         result_clause = " result(" // result_name // ")"
@@ -332,6 +333,76 @@ contains
         end do
     end function parameter_has_declaration
 
+    logical function is_function_result_identifier(func, var_name) result(is_result)
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+
+        is_result = .false.
+        if (.not. allocated(func%name)) return
+        is_result = (trim(var_name) == trim(func%name))
+    end function is_function_result_identifier
+
+    function get_result_type_string(func, var_name, inferred_type) &
+        result(type_str)
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), intent(in) :: inferred_type
+        character(len=:), allocatable :: type_str
+        type(mono_type_t) :: deferred_type
+        logical :: is_result_var
+
+        is_result_var = .false.
+        if (allocated(func%result_variable)) then
+            is_result_var = (trim(var_name) == trim(func%result_variable))
+        end if
+
+        if (is_result_var .and. inferred_type%kind == TARRAY .and. &
+            (inferred_type%size == 0 .or. inferred_type%alloc_info%is_allocatable)) &
+            then
+            deferred_type = convert_array_to_deferred_shape(inferred_type)
+            type_str = mono_type_to_string(deferred_type, include_shape=.true., &
+                                           fallback='integer')
+        else
+            type_str = mono_type_to_string(inferred_type, include_shape=.true., &
+                                           fallback='integer')
+        end if
+    end function get_result_type_string
+
+    recursive function convert_array_to_deferred_shape(typ) result(deferred)
+        use type_system_unified, only: create_mono_type
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: deferred
+        type(mono_type_t) :: inner
+        type(mono_type_t), allocatable :: args(:)
+
+        deferred = typ
+        if (typ%kind /= TARRAY) return
+
+        if (typ%get_args_count() > 0) then
+            inner = typ%get_arg(1)
+            inner = convert_array_to_deferred_shape(inner)
+            allocate (args(1))
+            args(1) = inner
+            deferred = create_mono_type(TARRAY, args=args)
+            deferred%size = 0
+            deferred%alloc_info%is_allocatable = .true.
+        else
+            deferred%size = 0
+            deferred%alloc_info%is_allocatable = .true.
+        end if
+    end function convert_array_to_deferred_shape
+
+    logical function needs_result_declaration(func, result_type) result(needed)
+        type(function_def_node), intent(in) :: func
+        type(mono_type_t), intent(in) :: result_type
+
+        needed = .false.
+        if (result_type%kind /= TARRAY) return
+        if (.not. allocated(func%result_variable)) return
+        if (.not. allocated(func%name)) return
+        needed = (trim(func%result_variable) /= trim(func%name))
+    end function needs_result_declaration
+
     function collect_local_variable_decls(arena, func, param_map) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
@@ -375,7 +446,11 @@ contains
 
                     var_name = trim(target%name)
 
-                    if (len_trim(result_name) > 0 .and. var_name == result_name) cycle
+                    if (is_function_result_identifier(func, var_name)) then
+                        if (.not. needs_result_declaration(func, target%inferred_type)) &
+                            cycle
+                        var_name = trim(result_name)
+                    end if
 
                     if (is_parameter_name(var_name, param_map)) cycle
 
@@ -386,9 +461,8 @@ contains
                         n_locals = n_locals + 1
                         local_vars(n_locals) = var_name
                         decl_code = decl_code // "    " // &
-                                    mono_type_to_string(target%inferred_type, &
-                                                        include_shape=.true., &
-                                                        fallback='integer') // &
+                                    get_result_type_string(func, var_name, &
+                                                           target%inferred_type) // &
                                     " :: " // trim(var_name) // new_line('A')
                     end if
                 end select

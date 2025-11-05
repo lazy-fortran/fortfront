@@ -185,10 +185,36 @@ contains
             if (type_success .and. len_trim(type_string) > 0) then
                 node%return_type = type_string
             end if
+            if (requires_explicit_result_name(return_type, resolved_result_name, &
+                                              function_name)) then
+                resolved_result_name = trim(function_name) // "_result"
+                call rename_identifier_in_arena(arena, trim(function_name), &
+                                                trim(resolved_result_name), &
+                                                node%body_indices, func_index)
+                call update_identifier_type_in_arena(arena, resolved_result_name, &
+                                                     return_type)
+            end if
             node%result_variable = resolved_result_name
             arena%entries(func_index)%node = node
         end select
     end subroutine apply_result_metadata
+
+    logical function requires_explicit_result_name(return_type, result_name, &
+                                                    function_name) result(required)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: return_type
+        character(len=*), intent(in) :: result_name
+        character(len=*), intent(in) :: function_name
+
+        required = .false.
+        if (return_type%kind /= TARRAY) return
+        if (len_trim(result_name) == 0) then
+            required = .true.
+            return
+        end if
+        if (len_trim(function_name) == 0) return
+        required = (trim(result_name) == trim(function_name))
+    end function requires_explicit_result_name
 
     logical function has_assignment_to_function(arena, func_node, function_name)
         type(ast_arena_t), intent(in) :: arena
