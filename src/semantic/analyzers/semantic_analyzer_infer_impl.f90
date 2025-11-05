@@ -1014,6 +1014,10 @@ contains
         ! Get type of target (what the pointer will point to)
         target_type = get_inferred_type_from_arena(ctx, arena, ptr_assign%target_index)
 
+        if (is_null_pointer_target(arena, ptr_assign%target_index)) then
+            target_type = create_mono_type(TINT)
+        end if
+
         ! If pointer is an identifier, ensure it's declared
         if (pointer_index > 0 .and. pointer_index <= arena%size) then
             if (allocated(arena%entries(pointer_index)%node)) then
@@ -1044,6 +1048,32 @@ contains
         typ = target_type
         call set_node_inferred_type(arena, ptr_assign_index, typ)
     end function infer_pointer_assignment
+
+    logical function is_null_pointer_target(arena, expr_index) result(is_null_target)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+
+        is_null_target = .false.
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (target_node => arena%entries(expr_index)%node)
+        type is (call_or_subscript_node)
+            if (allocated(target_node%name)) then
+                if (to_lower(trim(target_node%name)) == 'null') then
+                    is_null_target = .true.
+                    return
+                end if
+            end if
+        type is (identifier_node)
+            if (allocated(target_node%name)) then
+                if (to_lower(trim(target_node%name)) == 'null') then
+                    is_null_target = .true.
+                    return
+                end if
+            end if
+        end select
+    end function is_null_pointer_target
 
     module subroutine infer_read_statement(ctx, arena, read_stmt, stmt_index, typ)
         type(semantic_context_t), intent(inout) :: ctx
