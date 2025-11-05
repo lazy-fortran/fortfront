@@ -36,7 +36,7 @@ program test_issue_1356_function_name
         error stop 1
     end if
 
-    if (index(lower_output_text, 'integer :: x') == 0) then
+    if (index(lower_output_text, 'integer, intent(in) :: x') == 0) then
         write (error_unit, '(A)') 'FAIL: parameter x is not inferred as integer'
         write (error_unit, '(A)') trim(output_text)
         error stop 1

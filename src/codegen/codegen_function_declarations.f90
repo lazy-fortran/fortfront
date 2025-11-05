@@ -14,6 +14,7 @@ module codegen_function_declarations
                                               is_allocatable_array_return
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
                                         copy_indices, apply_default_intents, &
+                                        apply_function_default_intents, &
                                         maybe_add_procedure_implicit_none, &
                                         filter_implicit_statements, &
                                         append_parameter_declaration, &
@@ -227,6 +228,7 @@ contains
         if (allocated(node%prefix_keywords)) then
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
+        call apply_function_default_intents(param_map)
 
         body = maybe_add_procedure_implicit_none(arena, body_indices)
         body = body // collect_function_parameter_decls(arena, node, param_map)

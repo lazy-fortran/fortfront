@@ -30,7 +30,7 @@ program test_issue_1894_nested_calls
         error stop 1
     end if
 
-    pos_integer_after = index(output_code(pos_double:), "integer :: x")
+    pos_integer_after = index(output_code(pos_double:), "integer, intent(in) :: x")
     if (pos_integer_after <= 0) then
         print *, "FAIL: nested inference did not mark double parameter integer"
         print *, trim(output_code)

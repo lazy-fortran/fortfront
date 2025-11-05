@@ -16,6 +16,7 @@ module codegen_procedure_shared
     public :: filter_implicit_statements
     public :: maybe_add_procedure_implicit_none
     public :: apply_default_intents
+    public :: apply_function_default_intents
     public :: gather_prefix
     public :: copy_indices
     public :: append_parameter_declaration
@@ -155,7 +156,21 @@ contains
                 end do
             end select
         end do
+
     end subroutine apply_default_intents
+
+    subroutine apply_function_default_intents(param_map)
+        type(parameter_info_t), intent(inout) :: param_map(:)
+        integer :: i
+
+        do i = 1, size(param_map)
+            if (.not. allocated(param_map(i)%name)) cycle
+            if (param_map(i)%is_mutated) cycle
+            if (len_trim(param_map(i)%intent_str) == 0) then
+                param_map(i)%intent_str = "in"
+            end if
+        end do
+    end subroutine apply_function_default_intents
 
     function gather_prefix(prefix_keywords, recursive_in_prefix) result(prefix)
         character(len=*), allocatable, intent(in) :: prefix_keywords(:)
@@ -270,6 +285,17 @@ contains
             if (pos_char > 0) then
                 decl_line = decl_line(1:pos_char + 13) // '*)' // &
                             decl_line(pos_char + 17:)
+            end if
+        end block
+        block
+            integer :: intent_pos
+            logical :: has_comma
+
+            intent_pos = index(decl_line, ' intent(')
+            has_comma = index(decl_line, ', intent(') > 0
+            if (intent_pos > 0 .and. .not. has_comma) then
+                decl_line = decl_line(:intent_pos - 1) // ', intent(' // &
+                            decl_line(intent_pos + 8:)
             end if
         end block
         decl_code = decl_code // decl_line // new_line('A')

@@ -30,10 +30,10 @@ contains
     function run_basic_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
-        character(len=32), parameter :: required_fragments(3) = [ &
+        character(len=40), parameter :: required_fragments(3) = [ &
                                         character(len=32) :: &
                                         'integer function square', &
-                                        'integer :: x', &
+                                        'integer, intent(in) :: x', &
                                         'integer :: val, squared']
         character(len=32), parameter :: forbidden_fragments(4) = [ &
                                         character(len=32) :: &
@@ -51,11 +51,12 @@ contains
     function run_reordered_function_test() result(passed)
         logical :: passed
         character(len=:), allocatable :: source
-        character(len=40), parameter :: required_fragments(3) = [ &
-                                        character(len=40) :: &
+        character(len=48), parameter :: required_fragments(4) = [ &
+                                        character(len=48) :: &
                                         'integer :: val, squared', &
                                         'integer, external :: square', &
-                                        'integer function square']
+                                        'integer function square', &
+                                        'integer, intent(in) :: x']
         character(len=40), parameter :: forbidden_fragments(4) = [ &
                                         character(len=40) :: &
                                         'real :: squared', &
