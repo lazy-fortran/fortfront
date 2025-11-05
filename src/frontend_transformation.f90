@@ -75,19 +75,26 @@ module frontend_transformation
 
 contains
     ! String-based transformation function for CLI usage
-    subroutine transform_lazy_fortran_string(input, output, error_msg)
+    subroutine transform_lazy_fortran_string(input, output, error_msg, enable_ast_wrapping)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
+        logical, intent(in), optional :: enable_ast_wrapping
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable, target :: tokens(:)
         ! Use shared module-level arena for performance
         integer :: prog_index
         character(len=:), allocatable :: source
+        logical :: apply_ast_wrapping
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
+
+        apply_ast_wrapping = .true.
+        if (present(enable_ast_wrapping)) then
+            apply_ast_wrapping = enable_ast_wrapping
+        end if
 
         call trace_init()
 
@@ -167,7 +174,8 @@ contains
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
-        call run_final_phases(shared_arena, prog_index, output, error_msg)
+        call run_final_phases(shared_arena, prog_index, output, error_msg, &
+                              apply_ast_wrapping)
         call trace_leave('phase:final')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
@@ -236,7 +244,8 @@ contains
 
         ! For standard Fortran mode, use simple transformation
         if (context%input_mode == INPUT_MODE_STANDARD) then
-            call transform_lazy_fortran_string(input, output, error_msg)
+            call transform_lazy_fortran_string(input, output, error_msg, &
+                                               enable_ast_wrapping=.false.)
             return
         end if
 
@@ -658,12 +667,14 @@ contains
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen)
-    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg)
+    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, &
+                                enable_ast_wrapping)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
         type(signatures_map_t) :: signatures
+        logical, intent(in) :: enable_ast_wrapping
         logical :: has_functions, has_subroutines, has_main_code
         type(transform_context_t) :: context
 
@@ -687,24 +698,27 @@ contains
         ! Phase 4: Monomorphization (AST transformation)
         call run_monomorphization_phase(compiler_arena, prog_index, signatures)
 
-        ! Phase 4.5: AST-based wrapping (convert mixed constructs to proper structure)
-        call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
-                                 has_subroutines, has_main_code)
+        if (enable_ast_wrapping) then
+            ! Phase 4.5: AST-based wrapping (convert mixed constructs to proper structure)
+            call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
+                                     has_subroutines, has_main_code)
 
-        ! Initialize default context for wrapping
-        context%source_name = "main"
-        context%module_name = "main_module"
-        context%program_name = "main"
-        context%has_filename = .false.
-        context%input_mode = INPUT_MODE_LAZY
+            ! Initialize default context for wrapping
+            context%source_name = "main"
+            context%module_name = "main_module"
+            context%program_name = "main"
+            context%has_filename = .false.
+            context%input_mode = INPUT_MODE_LAZY
 
-        ! Check if there's already a module in the AST - if so, no wrapping needed
-        if (has_existing_module_in_ast(compiler_arena%ast)) then
-            ! Don't wrap - preserve existing module structure
-        else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-            call promote_functions_to_internal_program(compiler_arena%ast, prog_index)
-        else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
-            call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
+            ! Check if there's already a module in the AST - if so, no wrapping needed
+            if (has_existing_module_in_ast(compiler_arena%ast)) then
+                ! Don't wrap - preserve existing module structure
+            else if ((has_functions .or. has_subroutines) .and. has_main_code) then
+                call promote_functions_to_internal_program(compiler_arena%ast, prog_index)
+            else if ((has_functions .or. has_subroutines) .and. &
+                     .not. has_main_code) then
+                call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
+            end if
         end if
 
         ! Phase 5: Code Generation
@@ -1407,31 +1421,63 @@ contains
     ! AST-BASED WRAPPING FUNCTIONS (Clean, proper compiler architecture)
     ! ========================================================================
 
-    ! Analyze AST content directly (no string manipulation)
-    function is_inside_procedure(arena, node_index) result(inside)
+    recursive subroutine mark_procedure_subtree(arena, node_index, membership)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        logical :: inside
-        integer :: current_index
+        logical, intent(inout) :: membership(:)
+        integer :: child_idx, child_count
 
-        inside = .false.
-        current_index = node_index
+        if (node_index <= 0) return
+        if (node_index > size(membership)) return
+        if (membership(node_index)) return
 
-        do while (current_index > 0 .and. current_index <= arena%size)
-            if (.not. allocated(arena%entries(current_index)%node)) exit
+        membership(node_index) = .true.
 
-            select type (node => arena%entries(current_index)%node)
-            type is (function_def_node)
-                inside = .true.
-                return
-            type is (subroutine_def_node)
-                inside = .true.
-                return
-            end select
-
-            current_index = arena%entries(current_index)%parent_index
+        if (.not. allocated(arena%entries(node_index)%child_indices)) return
+        child_count = size(arena%entries(node_index)%child_indices)
+        if (child_count == 0) return
+        do child_idx = 1, child_count
+            call mark_procedure_subtree(arena, &
+                                        arena%entries(node_index)%child_indices(child_idx), &
+                                        membership)
         end do
-    end function is_inside_procedure
+    end subroutine mark_procedure_subtree
+
+    subroutine build_procedure_membership(arena, membership)
+        type(ast_arena_t), intent(in) :: arena
+        logical, allocatable, intent(out) :: membership(:)
+        integer :: i, j
+
+        if (arena%size <= 0) then
+            allocate (membership(0))
+            return
+        end if
+
+        allocate (membership(arena%size))
+        membership = .false.
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (proc => arena%entries(i)%node)
+            type is (function_def_node)
+                if (allocated(proc%body_indices)) then
+                    do j = 1, size(proc%body_indices)
+                        call mark_procedure_subtree(arena, proc%body_indices(j), &
+                                                    membership)
+                    end do
+                end if
+            type is (subroutine_def_node)
+                if (allocated(proc%body_indices)) then
+                    do j = 1, size(proc%body_indices)
+                        call mark_procedure_subtree(arena, proc%body_indices(j), &
+                                                    membership)
+                    end do
+                end if
+            end select
+        end do
+    end subroutine build_procedure_membership
+
+    ! Analyze AST content directly (no string manipulation)
 
     subroutine analyze_ast_content(arena, root_index, has_functions, &
                                    has_subroutines, has_main_code)
@@ -1442,6 +1488,7 @@ contains
         integer, intent(in) :: root_index
         logical, intent(out) :: has_functions, has_subroutines, has_main_code
         integer :: i, j
+        logical, allocatable :: in_procedure(:)
 
         has_functions = .false.
         has_subroutines = .false.
@@ -1471,6 +1518,8 @@ contains
         end if
 
         ! For non-multi-unit roots, scan all nodes in arena
+        call build_procedure_membership(arena, in_procedure)
+
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
 
@@ -1481,27 +1530,27 @@ contains
                 has_subroutines = .true.
             type is (assignment_node)
                 ! Assignment outside of procedures = main code
-                if (.not. is_inside_procedure(arena, i)) then
+                if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
             type is (print_statement_node)
                 ! Print statement outside of procedures = main code
-                if (.not. is_inside_procedure(arena, i)) then
+                if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
             type is (if_node)
                 ! Control flow outside of procedures = main code
-                if (.not. is_inside_procedure(arena, i)) then
+                if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
             type is (do_loop_node)
                 ! Loop outside of procedures = main code
-                if (.not. is_inside_procedure(arena, i)) then
+                if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
             type is (subroutine_call_node)
                 ! Subroutine call outside of procedures = main code
-                if (.not. is_inside_procedure(arena, i)) then
+                if (.not. in_procedure(i)) then
                     has_main_code = .true.
                 end if
             end select
