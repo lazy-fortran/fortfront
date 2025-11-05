@@ -170,6 +170,12 @@ contains
             decl_node%is_allocatable = .false.
         end if
 
+        if (index(lowered_type, 'pointer') > 0) then
+            decl_node%is_pointer = .true.
+        else
+            decl_node%is_pointer = .false.
+        end if
+
         if (.not. has_dimension_attr) then
             call set_array_properties_from_type(arena, var_name, prog_index, &
                                                 decl_node)
