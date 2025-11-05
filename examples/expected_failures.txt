@@ -10,11 +10,8 @@ issue_1744_operator_interface.f90  # operator/assignment interfaces degraded (fo
 issue_1774_user_defined_operator.f90  # user-defined operator loses context (former test_issue_1774)
 issue_1826_enum_program.f90  # enum constructs unsupported; expect diagnostic only
 issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnostic only
-issue_1583_computed_goto_minimal.f90
+issue_1583_computed_goto_minimal.f90  # adds implicit none but variable i is undeclared
 issue_1816_multiple_returns.lf
-issue_2063_deferred_char_function_syntax.lf  # deferred-length character function invalid syntax #2063
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch #2066
 issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return rank mismatch #2067
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch #2068
-issue_2071_function_param_string_inferred_as_real.lf  # string parameter inferred as real #2071
-issue_2075_stop_keyword_collision_in_function_param.lf  # 'stop' keyword collision in function param #2075
