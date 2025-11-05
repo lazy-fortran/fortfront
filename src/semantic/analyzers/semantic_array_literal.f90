@@ -11,6 +11,7 @@ module semantic_array_literal
     use ast_nodes_loops, only: do_loop_node
     use string_utils_mod, only: to_lower
     use semantic_type_operations, only: get_common_type
+    use standardizer_types, only: calculate_loop_size
     implicit none
 
     abstract interface
@@ -29,7 +30,6 @@ module semantic_array_literal
 contains
 
     function check_for_dynamic_implied_do(arena, array_lit) result(is_dynamic)
-        use standardizer_types, only: calculate_loop_size
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: array_lit
         logical :: is_dynamic
