@@ -50,6 +50,7 @@ contains
         character(len=:), allocatable :: params_clause
         character(len=:), allocatable :: result_clause
         logical :: recursive_in_prefix
+        logical :: is_deferred_char
 
         prefix = gather_function_prefix(node, recursive_in_prefix)
         if (node%is_recursive .and. .not. recursive_in_prefix) then
@@ -60,7 +61,8 @@ contains
             end if
         end if
 
-        return_type_code = derive_function_return_type(arena, node)
+        call derive_function_return_type_and_flags(arena, node, return_type_code, &
+                                                    is_deferred_char)
 
         if (allocated(node%param_indices)) then
             params_clause = build_parameter_clause(arena, node%param_indices)
@@ -68,7 +70,7 @@ contains
             params_clause = "()"
         end if
 
-        result_clause = build_function_result_clause(node)
+        result_clause = build_function_result_clause(arena, node, is_deferred_char)
 
         if (len_trim(prefix) > 0) then
             signature = trim(prefix) // " "
@@ -99,15 +101,19 @@ contains
         prefix = gather_prefix(node%prefix_keywords, recursive_in_prefix)
     end function gather_function_prefix
 
-    function derive_function_return_type(arena, node) result(return_type_code)
+    subroutine derive_function_return_type_and_flags(arena, node, &
+                                                      return_type_code, &
+                                                      is_deferred_char)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
-        character(len=:), allocatable :: return_type_code
+        character(len=:), allocatable, intent(out) :: return_type_code
+        logical, intent(out) :: is_deferred_char
         character(len=:), allocatable :: override
         character(len=:), allocatable :: lowered
         logical :: standardize_types_enabled
 
         return_type_code = ""
+        is_deferred_char = .false.
 
         if (allocated(node%return_type)) then
             return_type_code = trim(node%return_type)
@@ -133,15 +139,21 @@ contains
         return_type_code = fix_character_len_placeholder(return_type_code)
 
         if (.not. is_deferred_character_return(return_type_code)) return
-        if (has_character_len_result_decl(arena, node)) return_type_code = ""
-    end function derive_function_return_type
 
-    function build_function_result_clause(node) result(result_clause)
+        is_deferred_char = .true.
+        return_type_code = ""
+    end subroutine derive_function_return_type_and_flags
+
+    function build_function_result_clause(arena, node, is_deferred_char) &
+        result(result_clause)
+        type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
+        logical, intent(in) :: is_deferred_char
         character(len=:), allocatable :: result_clause
         character(len=:), allocatable :: result_name
 
         result_clause = ""
+
         if (.not. allocated(node%result_variable)) return
         result_name = trim(node%result_variable)
         if (len_trim(result_name) == 0) return
@@ -172,6 +184,7 @@ contains
 
         body = maybe_add_procedure_implicit_none(arena, body_indices)
         body = body // collect_function_parameter_decls(arena, node, param_map)
+        body = body // collect_deferred_char_result_decl(arena, node)
         body = body // collect_local_variable_decls(arena, node, param_map)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
@@ -555,5 +568,96 @@ contains
             end select
         end do
     end function has_explicit_loop_declaration
+
+    function collect_deferred_char_result_decl(arena, node) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: decl_code
+        character(len=:), allocatable :: full_type
+        character(len=:), allocatable :: base_type
+        character(len=:), allocatable :: result_name
+
+        decl_code = ""
+
+        call get_deferred_char_type_info(arena, node, full_type, base_type, &
+                                         result_name)
+
+        if (len_trim(base_type) == 0) return
+
+        decl_code = "    " // trim(base_type) // ", allocatable :: " // &
+                    trim(result_name) // new_line('A')
+    end function collect_deferred_char_result_decl
+
+    subroutine get_deferred_char_type_info(arena, node, full_type, base_type, &
+                                           result_name)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable, intent(out) :: full_type
+        character(len=:), allocatable, intent(out) :: base_type
+        character(len=:), allocatable, intent(out) :: result_name
+        character(len=:), allocatable :: override
+        character(len=:), allocatable :: lowered
+        logical :: standardize_types_enabled
+
+        full_type = ""
+        base_type = ""
+        result_name = ""
+
+        if (allocated(node%return_type)) then
+            full_type = trim(node%return_type)
+            call get_type_standardization(standardize_types_enabled)
+            if (standardize_types_enabled) then
+                lowered = to_lower(trim(full_type))
+                if (lowered == 'real') then
+                    full_type = "real(8)"
+                end if
+            end if
+        end if
+
+        call derive_character_return_type(arena, node, override)
+        if (len_trim(override) > 0) full_type = override
+
+        if (len_trim(full_type) == 0) return
+
+        full_type = fix_character_len_placeholder(full_type)
+
+        if (.not. is_deferred_character_return(full_type)) then
+            full_type = ""
+            return
+        end if
+
+        if (has_character_len_result_decl(arena, node)) then
+            full_type = ""
+            return
+        end if
+
+        base_type = strip_allocatable(full_type)
+
+        if (allocated(node%result_variable)) then
+            result_name = trim(node%result_variable)
+        else if (allocated(node%name)) then
+            result_name = trim(node%name)
+        end if
+    end subroutine get_deferred_char_type_info
+
+    pure function strip_allocatable(type_string) result(stripped)
+        character(len=*), intent(in) :: type_string
+        character(len=:), allocatable :: stripped
+        character(len=:), allocatable :: lowered
+        integer :: alloc_pos, comma_pos
+
+        stripped = trim(type_string)
+        lowered = to_lower(stripped)
+
+        alloc_pos = index(lowered, 'allocatable')
+        if (alloc_pos == 0) return
+
+        comma_pos = index(lowered(1:alloc_pos-1), ',', back=.true.)
+        if (comma_pos > 0) then
+            stripped = stripped(1:comma_pos-1) // stripped(alloc_pos+11:)
+        else
+            stripped = trim(adjustl(stripped(alloc_pos+11:)))
+        end if
+    end function strip_allocatable
 
 end module codegen_function_declarations
