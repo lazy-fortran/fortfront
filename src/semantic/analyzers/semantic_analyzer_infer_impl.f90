@@ -5,6 +5,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                    create_type_var, TREAL, TVAR, TCOMPLEX, &
                                    TFUN, TARRAY, TLOGICAL, TINT, TCHAR
     use semantic_type_operations, only: get_common_type
+    use ast_nodes_misc, only: data_statement_node
     implicit none
 
     type :: infer_frame_t
@@ -185,6 +186,8 @@ contains
                 call schedule_allocate_statement_node(current, expr)
             type is (print_statement_node)
                 call schedule_print_statement_node(current, expr)
+            type is (data_statement_node)
+                call schedule_data_statement_node(current, expr)
             type is (cycle_node)
                 call finalize_node(node_index, control_flow_type())
             type is (exit_node)
@@ -228,6 +231,8 @@ contains
             type is (pointer_assignment_node)
                 node_type = infer_pointer_assignment(this, arena, expr, node_index)
                 call finalize_node(node_index, node_type)
+            type is (data_statement_node)
+                call finalize_data_statement_node(node_index, expr)
             type is (array_literal_node)
                 node_type = infer_array_literal_type(arena, expr, &
                                                      get_node_type_with_arena)
@@ -752,6 +757,28 @@ contains
             end if
         end subroutine schedule_print_statement_node
 
+        subroutine schedule_data_statement_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(data_statement_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+
+            if (allocated(expr%value_indices)) then
+                do i = size(expr%value_indices), 1, -1
+                    call push_child(expr%value_indices(i))
+                end do
+            end if
+
+            if (allocated(expr%object_indices)) then
+                do i = size(expr%object_indices), 1, -1
+                    call push_child(expr%object_indices(i))
+                end do
+            end if
+        end subroutine schedule_data_statement_node
+
         subroutine schedule_single_child_frame(current, child_index)
             type(infer_frame_t), intent(in) :: current
             integer, intent(in) :: child_index
@@ -769,6 +796,125 @@ contains
             call init_post_frame(current, post_frame)
             call push_frame_local(post_frame)
         end subroutine schedule_default_post
+
+        subroutine finalize_data_statement_node(node_index, expr)
+            integer, intent(in) :: node_index
+            type(data_statement_node), intent(in) :: expr
+
+            call infer_data_statement_types(expr)
+            call finalize_node(node_index, control_flow_type())
+        end subroutine finalize_data_statement_node
+
+        subroutine infer_data_statement_types(expr)
+            type(data_statement_node), intent(in) :: expr
+
+            if (.not. allocated(expr%object_indices)) return
+            if (.not. allocated(expr%value_indices)) return
+            if (size(expr%object_indices) == 0) return
+            if (size(expr%value_indices) == 0) return
+
+            if (size(expr%object_indices) == 1) then
+                call infer_single_data_object(expr%object_indices(1), &
+                                              expr%value_indices)
+            else
+                call infer_multi_data_objects(expr%object_indices, &
+                                              expr%value_indices)
+            end if
+        end subroutine infer_data_statement_types
+
+        subroutine infer_single_data_object(object_index, value_indices)
+            integer, intent(in) :: object_index
+            integer, intent(in) :: value_indices(:)
+            type(assignment_node) :: synthetic_assignment
+            type(mono_type_t) :: expr_typ
+            type(mono_type_t) :: updated_expr_typ
+
+            if (object_index <= 0) return
+            if (size(value_indices) == 0) return
+
+            synthetic_assignment%target_index = object_index
+            synthetic_assignment%operator = "="
+
+            if (size(value_indices) == 1) then
+                synthetic_assignment%value_index = value_indices(1)
+                expr_typ = get_node_type(value_indices(1))
+            else
+                synthetic_assignment%value_index = 0
+                expr_typ = build_array_type_from_values(value_indices)
+            end if
+
+            updated_expr_typ = expr_typ
+            call process_assignment_inference( &
+                arena, synthetic_assignment, 0, object_index, expr_typ, &
+                updated_expr_typ, this%scopes, this%errors, this%strict_mode, &
+                this%next_var_id, this%parser_type_hints)
+        end subroutine infer_single_data_object
+
+        subroutine infer_multi_data_objects(object_indices, value_indices)
+            integer, intent(in) :: object_indices(:)
+            integer, intent(in) :: value_indices(:)
+            type(assignment_node) :: synthetic_assignment
+            type(mono_type_t) :: expr_typ
+            type(mono_type_t) :: updated_expr_typ
+            integer :: cursor
+            integer :: i
+            integer :: value_count
+
+            value_count = size(value_indices)
+            if (value_count == 0) return
+
+            cursor = 1
+            synthetic_assignment%operator = "="
+
+            do i = 1, size(object_indices)
+                if (object_indices(i) <= 0) cycle
+                if (cursor > value_count) exit
+
+                synthetic_assignment%target_index = object_indices(i)
+                synthetic_assignment%value_index = value_indices(cursor)
+                expr_typ = get_node_type(value_indices(cursor))
+                updated_expr_typ = expr_typ
+                cursor = cursor + 1
+
+                call process_assignment_inference( &
+                    arena, synthetic_assignment, 0, &
+                    synthetic_assignment%target_index, expr_typ, &
+                    updated_expr_typ, this%scopes, this%errors, &
+                    this%strict_mode, this%next_var_id, &
+                    this%parser_type_hints)
+            end do
+        end subroutine infer_multi_data_objects
+
+        function build_array_type_from_values(value_indices) result(array_type)
+            integer, intent(in) :: value_indices(:)
+            type(mono_type_t) :: array_type
+            type(mono_type_t) :: combined_type
+            type(mono_type_t) :: value_type
+            type(mono_type_t), allocatable :: args(:)
+            integer :: i
+
+            if (size(value_indices) == 0) then
+                array_type = create_mono_type(TINT)
+                return
+            end if
+
+            combined_type = get_node_type(value_indices(1))
+            if (combined_type%kind == 0) combined_type = create_mono_type(TINT)
+
+            do i = 2, size(value_indices)
+                value_type = get_node_type(value_indices(i))
+                if (value_type%kind == 0) value_type = create_mono_type(TINT)
+                combined_type = get_common_type(combined_type, value_type)
+            end do
+
+            if (combined_type%kind == 0) combined_type = create_mono_type(TINT)
+
+            allocate (args(1))
+            args(1) = combined_type
+            array_type = create_mono_type(TARRAY, args=args, &
+                                          array_size=size(value_indices))
+            deallocate (args)
+        end function build_array_type_from_values
 
         subroutine finalize_binary_operation(node_index, expr)
             integer, intent(in) :: node_index

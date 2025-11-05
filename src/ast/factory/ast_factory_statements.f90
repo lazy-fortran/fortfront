@@ -4,10 +4,10 @@ module ast_factory_statements
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, &
                               intrinsic_statement_node, visibility_statement_node, &
-                              namelist_statement_node, include_statement_node, &
-                              import_statement_node, end_statement_node, &
-                              allocate_statement_node, deallocate_statement_node, &
-                              create_implicit_statement
+                              namelist_statement_node, data_statement_node, &
+                              include_statement_node, import_statement_node, &
+                              end_statement_node, allocate_statement_node, &
+                              deallocate_statement_node, create_implicit_statement
     use ast_nodes_control, only: stop_node, return_node, entry_node, goto_node, &
                                  error_stop_node, cycle_node, exit_node, &
                                  continue_node, pause_node, nullify_node
@@ -18,7 +18,8 @@ module ast_factory_statements
     ! Public statement node creation functions
     public :: push_use_statement, push_intrinsic_statement, &
               push_visibility_statement, push_namelist_statement, &
-              push_implicit_statement, push_include_statement, push_import_statement
+              push_data_statement, push_implicit_statement, &
+              push_include_statement, push_import_statement
     public :: push_end_statement
     public :: push_stop, push_return, push_entry, push_continue, push_goto, &
               push_error_stop
@@ -161,6 +162,31 @@ contains
         call arena%push(node, "namelist_statement", parent_index)
         namelist_index = arena%size
     end function push_namelist_statement
+
+    function push_data_statement(arena, object_indices, value_indices, line, column, &
+                                 parent_index) result(data_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: object_indices(:)
+        integer, intent(in) :: value_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: data_index
+        type(data_statement_node) :: node
+
+        node%uid = generate_uid()
+
+        if (size(object_indices) > 0) then
+            node%object_indices = object_indices
+        end if
+
+        if (size(value_indices) > 0) then
+            node%value_indices = value_indices
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+        call arena%push(node, "data_statement", parent_index)
+        data_index = arena%size
+    end function push_data_statement
 
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &

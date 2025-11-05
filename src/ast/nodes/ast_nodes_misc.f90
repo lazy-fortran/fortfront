@@ -121,6 +121,17 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type namelist_statement_node
 
+    ! DATA statement node
+    type, extends(ast_node), public :: data_statement_node
+        integer, allocatable :: object_indices(:)
+        integer, allocatable :: value_indices(:)
+    contains
+        procedure :: accept => data_statement_accept
+        procedure :: to_json => data_statement_to_json
+        procedure :: assign => data_statement_assign
+        generic :: assignment(=) => assign
+    end type data_statement_node
+
     ! Include statement node
     type, extends(ast_node), public :: include_statement_node
         character(len=:), allocatable :: filename
@@ -892,6 +903,52 @@ contains
             end do
         end if
     end subroutine namelist_statement_assign
+
+    ! DATA statement implementations
+    subroutine data_statement_accept(this, visitor)
+        class(data_statement_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine data_statement_accept
+
+    subroutine data_statement_to_json(this, json, parent)
+        class(data_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'data_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(parent, obj)
+    end subroutine data_statement_to_json
+
+    subroutine data_statement_assign(lhs, rhs)
+        class(data_statement_node), intent(inout) :: lhs
+        class(data_statement_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+
+        if (allocated(rhs%object_indices)) then
+            lhs%object_indices = rhs%object_indices
+        else if (allocated(lhs%object_indices)) then
+            deallocate (lhs%object_indices)
+        end if
+
+        if (allocated(rhs%value_indices)) then
+            lhs%value_indices = rhs%value_indices
+        else if (allocated(lhs%value_indices)) then
+            deallocate (lhs%value_indices)
+        end if
+    end subroutine data_statement_assign
 
     ! Include statement implementations
     subroutine include_statement_accept(this, visitor)

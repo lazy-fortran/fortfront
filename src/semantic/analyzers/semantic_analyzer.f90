@@ -60,7 +60,8 @@ module semantic_analyzer
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 array_bounds_node, range_expression_node, &
                                 get_array_slice_node
-    use ast_nodes_misc, only: complex_literal_node, allocate_statement_node
+    use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
+                              data_statement_node
     use ast_nodes_io, only: read_statement_node, print_statement_node
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &

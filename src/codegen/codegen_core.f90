@@ -28,9 +28,8 @@ module codegen_core
                               intrinsic_statement_node, import_statement_node, &
                               include_statement_node, &
                               visibility_statement_node, namelist_statement_node, &
-                              contains_node, end_statement_node, &
-                              interface_block_node, &
-                              module_procedure_node
+                              data_statement_node, contains_node, end_statement_node, &
+                              interface_block_node, module_procedure_node
     use ast_error_nodes, only: error_node_t
     use ast_nodes_control
     use ast_nodes_loops
@@ -138,6 +137,8 @@ contains
             code = generate_code_visibility_statement(node)
         type is (namelist_statement_node)
             code = generate_code_namelist_statement(node)
+        type is (data_statement_node)
+            code = generate_code_data_statement(arena, node)
         type is (use_statement_node)
             code = generate_code_use_statement(node)
         type is (intrinsic_statement_node)
