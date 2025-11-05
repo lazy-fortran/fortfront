@@ -276,7 +276,8 @@ contains
             if (param_node%is_array .or. param_node%inferred_type%kind == TARRAY) then
                 dim_clause = build_parameter_dimensions(arena, param_node)
                 if (len(dim_clause) == 0) then
-                    dim_clause = build_assumed_shape_dimensions(param_node%inferred_type)
+                    dim_clause = build_assumed_shape_dimensions( &
+                        param_node%inferred_type)
                 end if
                 decl_line = trim(decl_line) // trim(dim_clause)
             end if
@@ -443,7 +444,8 @@ contains
 
         do while (current_type%kind == TARRAY)
             rank = rank + 1
-            if (.not. current_type%has_args() .or. current_type%get_args_count() < 1) exit
+            if (.not. current_type%has_args() .or. &
+                current_type%get_args_count() < 1) exit
             current_type = current_type%get_arg(1)
         end do
 
