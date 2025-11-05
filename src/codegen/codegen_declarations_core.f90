@@ -400,7 +400,11 @@ contains
         do j = 1, size(node%dimension_indices)
             if (j > 1) dim_clause = dim_clause // ", "
             dim_index = node%dimension_indices(j)
-            dim_clause = dim_clause // generate_code_from_arena(arena, dim_index)
+            if (dim_index == 0) then
+                dim_clause = dim_clause // ":"
+            else
+                dim_clause = dim_clause // generate_code_from_arena(arena, dim_index)
+            end if
         end do
         dim_clause = dim_clause // ")"
     end function build_parameter_dimensions

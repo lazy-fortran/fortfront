@@ -264,12 +264,10 @@ contains
         code = code // " :: " // param_map(param_idx)%name
         if (allocated(node%dimension_indices)) then
             if (size(node%dimension_indices) > 0) then
-                code = code // "("
+                code = code // ", dimension("
                 do j = 1, size(node%dimension_indices)
-                    if (j > 1) code = code // ", "
-                    stmt_code = generate_code_from_arena(arena, &
-                                                         node%dimension_indices(j))
-                    code = code // stmt_code
+                    if (j > 1) code = code // ","
+                    code = code // ":"
                 end do
                 code = code // ")"
             end if
