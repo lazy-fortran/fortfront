@@ -1,0 +1,8 @@
+! Test monomorphized subroutines
+subroutine print_value(x)
+    print *, x
+end subroutine
+
+call print_value(5)
+call print_value(3.14d0)
+call print_value("hello")
