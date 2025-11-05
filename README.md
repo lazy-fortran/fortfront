@@ -46,6 +46,15 @@ fpm build
 make
 ```
 
+### Cleaning Build Artifacts
+To clean build artifacts including logs:
+```sh
+make clean      # Removes build/ directory and root .mod/.o/.a files
+fpm clean --all # Alternative: fpm's built-in cleanup
+```
+
+Build logs (*.log) are automatically ignored by git.
+
 ## Usage
 
 ```sh
