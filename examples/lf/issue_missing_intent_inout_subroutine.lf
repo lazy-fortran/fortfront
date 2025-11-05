@@ -1,6 +1,8 @@
+module issue_missing_intent_inout_subroutine_mod
+contains
+
 subroutine increment(x)
     x = x + 1
 end subroutine increment
 
-n = 5
-call increment(n)
+end module issue_missing_intent_inout_subroutine_mod
