@@ -16,6 +16,7 @@ module parser_module_structures_module
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
+    use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_import_resolution_module, only: parse_use_statement
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
@@ -289,7 +290,7 @@ contains
             if (in_contains_section) then
                 if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
                     block
-                        character(len=:), allocatable :: lowered
+                        character(len=:), allocatable :: lowered, type_with_kind
                         character(len=16), allocatable :: stored(:)
                         lowered = to_lower(token%text)
                         select case (trim(lowered))
@@ -311,20 +312,23 @@ contains
                                 lookahead_lower = to_lower(trim(lookahead%text))
                                 select case (trim(lookahead_lower))
                                 case ("precision", "complex")
-                                    call append_prefix_token(stored, &
-                                                             trim(token%text)//" "// &
-                                                             trim(lookahead%text))
+                                    type_with_kind = trim(token%text)//" "// &
+                                                     trim(lookahead%text)
+                                    token = parser%consume()
+                                    token = parser%consume()
+                                    call consume_optional_kind_spec(parser, type_with_kind)
+                                    call append_prefix_token(stored, type_with_kind)
                                     call prefix_buffer%set(stored)
                                     if (allocated(stored)) deallocate (stored)
-                                    token = parser%consume()
-                                    token = parser%consume()
                                     cycle
                                 end select
                             end if
-                            call append_prefix_token(stored, trim(token%text))
+                            type_with_kind = trim(token%text)
+                            token = parser%consume()
+                            call consume_optional_kind_spec(parser, type_with_kind)
+                            call append_prefix_token(stored, type_with_kind)
                             call prefix_buffer%set(stored)
                             if (allocated(stored)) deallocate (stored)
-                            token = parser%consume()
                             cycle
                         end select
                     end block
