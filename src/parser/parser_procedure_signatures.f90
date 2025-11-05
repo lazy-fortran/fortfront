@@ -7,6 +7,7 @@ module parser_procedure_signatures_module
                                                 merge_parameter_attributes
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_return_type, &
+                                              consume_optional_kind_spec, &
                                               keyword_can_be_function_name
     use ast_arena_modern, only: ast_arena_t
     implicit none
@@ -171,6 +172,7 @@ contains
         if (present(return_type_from_prefix)) then
             if (len_trim(return_type_from_prefix) > 0) then
                 return_type_str = trim(return_type_from_prefix)
+                call consume_optional_kind_spec(parser, return_type_str)
             end if
         end if
 

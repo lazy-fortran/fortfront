@@ -6,6 +6,7 @@ module parser_procedure_shared_module
     private
 
     public :: consume_optional_return_type
+    public :: consume_optional_kind_spec
     public :: keyword_can_be_function_name
 
 contains
@@ -26,6 +27,7 @@ contains
             case ("real", "integer", "logical", "character", "complex")
                 return_type_str = token%text
                 token = parser%consume()
+                call consume_optional_kind_spec(parser, return_type_str)
             case ("double precision", "double complex")
                 return_type_str = token%text
                 token = parser%consume()
@@ -41,6 +43,44 @@ contains
             end select
         end if
     end subroutine consume_optional_return_type
+
+    subroutine consume_optional_kind_spec(parser, type_str)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(inout) :: type_str
+        type(token_t) :: token
+        character(len=:), allocatable :: kind_spec
+        integer :: depth
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%text /= "(") return
+
+        kind_spec = ""
+        depth = 0
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%text)
+            case (")")
+                depth = depth - 1
+                kind_spec = kind_spec // trim(token%text)
+                token = parser%consume()
+                if (depth == 0) exit
+            case ("(")
+                depth = depth + 1
+                kind_spec = kind_spec // trim(token%text)
+                token = parser%consume()
+            case default
+                kind_spec = kind_spec // trim(token%text)
+                token = parser%consume()
+            end select
+        end do
+
+        if (len_trim(kind_spec) > 0) then
+            type_str = trim(type_str) // trim(kind_spec)
+        end if
+    end subroutine consume_optional_kind_spec
 
     logical function keyword_can_be_function_name(parser, token) result(can_use)
         type(parser_state_t), intent(in) :: parser
