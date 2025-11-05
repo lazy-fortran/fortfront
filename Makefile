@@ -7,6 +7,24 @@ all: build
 build:
 	fpm build
 
+libfortfront.a:
+	@echo "Building fortfront static library..."
+	fpm build
+	@latest_dir=$$(ls -td build/gfortran_* 2>/dev/null | head -n 1); \
+	if [ -z "$$latest_dir" ]; then \
+	    echo "ERROR: no fpm build artifacts found under build/gfortran_*"; \
+	    exit 1; \
+	fi; \
+	rm -rf fortfront_modules; \
+	mkdir -p fortfront_modules; \
+	find "$$latest_dir" -maxdepth 1 -name '*.mod' -exec cp {} fortfront_modules/ \; ; \
+	objs=$$(find "$$latest_dir/fortfront" \( -name 'src_*.o' -o -name 'build_dependencies_*.o' \) ); \
+	if [ -z "$$objs" ]; then \
+	    echo "ERROR: no object files found in $$latest_dir/fortfront"; \
+	    exit 1; \
+	fi; \
+	rm -f libfortfront.a; \
+	ar rcs libfortfront.a $$objs
 
 
 # Run tests (convenience wrapper)

@@ -1,0 +1,8 @@
+function square(n)
+    result = n*n
+    return result
+end function
+
+x = 5
+squared = square(x)
+print *, "Square of", x, "is", squared

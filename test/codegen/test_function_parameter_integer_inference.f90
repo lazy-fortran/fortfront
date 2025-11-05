@@ -33,7 +33,7 @@ contains
             write (error_unit, '(A)') 'missing integer function signature'
             passed = .false.
         end if
-        if (index(generated, 'integer :: x') == 0) then
+        if (index(generated, 'integer, intent(in) :: x') == 0) then
             write (error_unit, '(A)') 'missing integer parameter declaration'
             passed = .false.
         end if

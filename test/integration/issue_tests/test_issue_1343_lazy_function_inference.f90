@@ -55,8 +55,8 @@ contains
         end if
 
         has_signature = index(output, 'integer function add(') > 0
-        has_param_types = index(output, 'integer :: a') > 0 .and. &
-                          index(output, 'integer :: b') > 0
+        has_param_types = index(output, 'integer, intent(in) :: a') > 0 .and. &
+                          index(output, 'integer, intent(in) :: b') > 0
         has_result_decl = index(output, 'result(result)') > 0
 
         if (.not. has_signature) then
