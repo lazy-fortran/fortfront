@@ -1,0 +1,19 @@
+! Array function parameters should use assumed-shape or explicit-shape,
+! not hardcoded dimensions from the first call site.
+function sum_array(arr, n)
+    sum_array = 0.0
+    do i = 1, n
+        sum_array = sum_array + arr(i)
+    end do
+end function
+
+! First call with 5-element array
+arr1 = [1.0, 2.0, 3.0, 4.0, 5.0]
+result1 = sum_array(arr1, 5)
+
+! Second call with 3-element array - should work!
+arr2 = [10.0, 20.0, 30.0]
+result2 = sum_array(arr2, 3)
+
+print *, "Sum1:", result1
+print *, "Sum2:", result2
