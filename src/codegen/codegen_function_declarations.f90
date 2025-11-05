@@ -10,7 +10,8 @@ module codegen_function_declarations
     use codegen_declarations_inference, only: build_parameter_map, &
                                               derive_character_return_type, &
                                               has_character_len_result_decl, &
-                                              is_deferred_character_return
+                                              is_deferred_character_return, &
+                                              is_allocatable_array_return
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
                                         copy_indices, apply_default_intents, &
                                         maybe_add_procedure_implicit_none, &
@@ -139,6 +140,12 @@ contains
         end if
 
         return_type_code = fix_character_len_placeholder(return_type_code)
+
+        if (is_allocatable_array_return(return_type_code)) then
+            is_deferred_char = .true.
+            return_type_code = ""
+            return
+        end if
 
         if (.not. is_deferred_character_return(return_type_code)) return
 
