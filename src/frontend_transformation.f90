@@ -91,7 +91,7 @@ contains
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
-        apply_ast_wrapping = .true.
+        apply_ast_wrapping = .false.
         if (present(enable_ast_wrapping)) then
             apply_ast_wrapping = enable_ast_wrapping
         end if
