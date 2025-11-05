@@ -133,8 +133,52 @@ contains
         call scan_node(arena, child_index, metadata)
     end subroutine scan_optional_child
 
+    logical function is_array_intrinsic(name) result(is_array_fn)
+        use lexer_core, only: to_lower
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(trim(name))
+        select case (lowered)
+        case ("size", "lbound", "ubound", "shape", "allocated", &
+              "maxloc", "minloc", "sum", "product", "maxval", "minval", &
+              "any", "all", "count", "matmul", "transpose", "pack", &
+              "unpack", "reshape", "spread", "merge", "cshift", "eoshift")
+            is_array_fn = .true.
+        case default
+            is_array_fn = .false.
+        end select
+    end function is_array_intrinsic
+
+    subroutine mark_intrinsic_array_args(arena, node, metadata)
+        use ast_nodes_core, only: call_or_subscript_node, identifier_node
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        type(param_metadata_t), intent(inout) :: metadata
+        integer :: first_arg_idx, param_idx
+        character(len=:), allocatable :: arg_name
+
+        if (.not. allocated(node%arg_indices)) return
+        if (size(node%arg_indices) < 1) return
+
+        first_arg_idx = node%arg_indices(1)
+        if (.not. node_exists(arena, first_arg_idx)) return
+
+        select type (arg => arena%entries(first_arg_idx)%node)
+        type is (identifier_node)
+            if (.not. allocated(arg%name)) return
+            arg_name = trim(arg%name)
+            param_idx = metadata_find_param(metadata, arg_name)
+            if (param_idx > 0) then
+                metadata%is_array(param_idx) = .true.
+                if (metadata%rank(param_idx) < 1) metadata%rank(param_idx) = 1
+            end if
+        end select
+    end subroutine mark_intrinsic_array_args
+
     subroutine handle_call_or_subscript(arena, node, metadata)
         use ast_nodes_core, only: call_or_subscript_node
+        use lexer_core, only: to_lower
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
         type(param_metadata_t), intent(inout) :: metadata
@@ -150,6 +194,13 @@ contains
             end if
         end if
         if (len_trim(target_name) == 0) return
+
+        ! Check if this is an array intrinsic call (fixes #2062)
+        if (is_array_intrinsic(target_name)) then
+            call mark_intrinsic_array_args(arena, node, metadata)
+            return
+        end if
+
         idx = metadata_find_param(metadata, target_name)
         if (idx <= 0) return
 
