@@ -8,6 +8,7 @@ module semantic_expression_context
                               array_literal_node, call_or_subscript_node
     use semantic_type_operations, only: get_common_type
     use semantic_array_type_builders, only: collapse_array_rank
+    use semantic_function_helpers, only: find_return_type
     implicit none
     private
 
@@ -238,6 +239,7 @@ contains
         type(mono_type_t) :: typ
         integer :: i
         integer :: rank
+        logical :: found_type
 
         typ%kind = 0
         if (node%inferred_type%kind > 0) then
@@ -257,6 +259,11 @@ contains
             if (typ%kind == 0) typ = create_mono_type(TREAL)
             return
         end do
+
+        found_type = find_return_type(arena, node%name, typ)
+        if (.not. found_type) then
+            typ = create_mono_type(TVAR, var=create_type_var(0, "unknown_call"))
+        end if
     end function infer_call_expression_type
 
 end module semantic_expression_context
