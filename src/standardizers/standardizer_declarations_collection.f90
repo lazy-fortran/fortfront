@@ -9,6 +9,7 @@ module standardizer_declarations_collection
                                  case_default_node
     use ast_nodes_io, only: io_implied_do_node, print_statement_node, &
                             read_statement_node
+    use ast_nodes_misc, only: allocate_statement_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_STRING
     use standardizer_declarations_state, only: get_standardizer_type_standardization
     use standardizer_declarations_inference, only: &
@@ -121,6 +122,9 @@ contains
                 if (allocated(stmt%var_indices)) then
                     call push_many(stmt%var_indices)
                 end if
+            type is (allocate_statement_node)
+                call collect_allocate_vars(arena, current_index, var_names, &
+                                           var_types, var_declared, var_count)
             type is (identifier_node)
                 call collect_identifier_var(stmt, var_names, var_types, &
                                             var_declared, var_count, &
@@ -283,6 +287,87 @@ contains
 
     end subroutine collect_statement_vars
 
+    subroutine collect_allocate_vars(arena, alloc_index, var_names, &
+                                     var_types, var_declared, var_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: alloc_index
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        integer :: i, var_index, rank
+        character(len=:), allocatable :: var_name
+        character(len=:), allocatable :: base_type
+        character(len=:), allocatable :: dimension_spec
+        character(len=64) :: var_type
+
+        if (alloc_index <= 0 .or. alloc_index > arena%size) return
+        if (.not. allocated(arena%entries(alloc_index)%node)) return
+
+        select type (alloc_stmt => arena%entries(alloc_index)%node)
+        type is (allocate_statement_node)
+            if (.not. allocated(alloc_stmt%var_indices)) return
+
+            do i = 1, size(alloc_stmt%var_indices)
+                var_index = alloc_stmt%var_indices(i)
+                if (var_index <= 0 .or. var_index > arena%size) cycle
+                if (.not. allocated(arena%entries(var_index)%node)) cycle
+
+                select type (node => arena%entries(var_index)%node)
+                type is (identifier_node)
+                    var_name = trim(node%name)
+                    rank = 0
+                    if (allocated(alloc_stmt%shape_indices)) then
+                        rank = size(alloc_stmt%shape_indices)
+                    end if
+                type is (call_or_subscript_node)
+                    var_name = trim(node%name)
+                    rank = 0
+                    if (allocated(node%arg_indices)) then
+                        rank = size(node%arg_indices)
+                    else if (allocated(alloc_stmt%shape_indices)) then
+                        rank = size(alloc_stmt%shape_indices)
+                    end if
+                end select
+
+                if (len_trim(var_name) > 0) then
+                    ! Determine base type
+                    if (allocated(alloc_stmt%type_spec)) then
+                        base_type = trim(alloc_stmt%type_spec)
+                    else
+                        base_type = "integer"
+                    end if
+
+                    ! Build type string with allocatable attribute
+                    if (rank > 0) then
+                        dimension_spec = ":"
+                        block
+                            integer :: j
+                            do j = 2, rank
+                                dimension_spec = trim(dimension_spec) // ",:"
+                            end do
+                        end block
+                        var_type = trim(base_type) // ", dimension(" // &
+                                   trim(dimension_spec) // "), allocatable"
+                    else
+                        var_type = trim(base_type) // ", allocatable"
+                    end if
+
+                    ! Use a dummy function_names array since we're not tracking functions here
+                    block
+                        character(len=64) :: dummy_func_names(1)
+                        integer :: dummy_func_count
+                        dummy_func_names = ""
+                        dummy_func_count = 0
+                        call add_variable(var_name, var_type, var_names, var_types, &
+                                         var_declared, var_count, &
+                                         dummy_func_names, dummy_func_count)
+                    end block
+                end if
+            end do
+        end select
+    end subroutine collect_allocate_vars
+
     subroutine collect_assignment_vars(arena, assign_index, var_names, &
                                        var_types, var_declared, var_count, &
                                        function_names, func_count)
@@ -386,7 +471,10 @@ contains
 
                         if (existing_idx > 0) then
                             if (len_trim(var_type) > 0) then
-                                if (is_character_type_string(var_types(existing_idx)) &
+                                ! Do not overwrite allocatable declarations (fixes #2069)
+                                if (index(to_lower(var_types(existing_idx)), 'allocatable') > 0) then
+                                    ! Keep existing allocatable type
+                                else if (is_character_type_string(var_types(existing_idx)) &
                                     .and. is_character_type_string(var_type)) then
                                     var_types(existing_idx) = &
                                         merge_character_type_lengths( &
