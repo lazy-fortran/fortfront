@@ -2,8 +2,9 @@
 ! Both should be preserved exactly as written
 
 module test_types
-    use, intrinsic :: iso_fortran_env, only: real64
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
+    integer, parameter :: real64 = dp
 contains
     ! Test 1: real(real64) function signature
     real(real64) function compute_real64(val)

@@ -107,7 +107,13 @@ contains
                 has_recursive_keyword = .true.
                 call append_prefix_token(prefix_keywords, pending_prefixes(i))
             case default
-                call append_prefix_token(prefix_keywords, pending_prefixes(i))
+                if (has_type_with_parentheses(lowered)) then
+                    call set_return_type_from_token(pending_prefixes(i))
+                    i = i + 1
+                    cycle
+                else
+                    call append_prefix_token(prefix_keywords, pending_prefixes(i))
+                end if
             end select
             i = i + 1
         end do
@@ -119,6 +125,35 @@ contains
             return_type_from_prefix = trim(token_value)
             return_type_set = .true.
         end subroutine set_return_type_from_token
+
+        logical function has_type_with_parentheses(text) result(has_type)
+            character(len=*), intent(in) :: text
+
+            has_type = starts_with(text, "integer(") .or. &
+                       starts_with(text, "integer (") .or. &
+                       starts_with(text, "real(") .or. &
+                       starts_with(text, "real (") .or. &
+                       starts_with(text, "logical(") .or. &
+                       starts_with(text, "logical (") .or. &
+                       starts_with(text, "character(") .or. &
+                       starts_with(text, "character (") .or. &
+                       starts_with(text, "complex(") .or. &
+                       starts_with(text, "complex (") .or. &
+                       starts_with(text, "procedure(") .or. &
+                       starts_with(text, "procedure (")
+        end function has_type_with_parentheses
+
+        logical function starts_with(text, prefix) result(matches)
+            character(len=*), intent(in) :: text, prefix
+            integer :: prefix_len
+
+            prefix_len = len(prefix)
+            if (len_trim(text) < prefix_len) then
+                matches = .false.
+            else
+                matches = text(1:prefix_len) == prefix
+            end if
+        end function starts_with
         end subroutine append_pending_prefixes
 
     subroutine consume_function_prefix_tokens(parser, prefix_keywords, &
