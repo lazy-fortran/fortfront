@@ -6,9 +6,11 @@ module semantic_parameter_analysis
     use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
-                              literal_node, binary_op_node, assignment_node
-    use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use ast_nodes_procedure, only: function_def_node
+                              literal_node, binary_op_node, assignment_node, &
+                              program_node
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                              module_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use scope_manager, only: scope_stack_t
     use semantic_literal_type_helpers, only: literal_numeric_type
     use semantic_validation_utils, only: update_identifier_type_in_arena, &
@@ -581,7 +583,8 @@ contains
         type(mono_type_t) :: base_type
         character(len=:), allocatable :: func_name
         character(len=:), allocatable :: arg_name
-        integer :: idx, i, arg_idx, assign_idx
+        integer :: idx, arg_idx, assign_idx
+        integer :: call_scope_index
         type(mono_type_t) :: arg_type
         type(mono_type_t), allocatable :: empty_types(:)
         character(len=64), allocatable :: empty_names(:)
@@ -606,6 +609,8 @@ contains
                 arg_idx = call_node%arg_indices(param_position)
                 if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
                 if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+                call_scope_index = find_enclosing_scope_index(arena, idx)
+                if (call_scope_index <= 0) cycle
 
                 select type (arg_node => arena%entries(arg_idx)%node)
                 type is (identifier_node)
@@ -620,7 +625,8 @@ contains
                     else if (arg_type%kind > 0 .and. arg_type%kind /= TVAR) then
                         if (.not. allocated(arg_node%name)) cycle
                         arg_name = trim(arg_node%name)
-                        assign_idx = find_assignment_to_variable(arena, arg_name)
+                        assign_idx = find_assignment_to_variable(arena, arg_name, &
+                                                                 call_scope_index)
                         if (assign_idx > 0) then
                             arg_type = infer_expression_type_static(arena, &
                                                                     assign_idx, &
@@ -644,7 +650,8 @@ contains
                     else
                         if (.not. allocated(arg_node%name)) cycle
                         arg_name = trim(arg_node%name)
-                        assign_idx = find_assignment_to_variable(arena, arg_name)
+                        assign_idx = find_assignment_to_variable(arena, arg_name, &
+                                                                 call_scope_index)
                         if (assign_idx > 0) then
                             arg_type = infer_expression_type_static(arena, &
                                                                     assign_idx, &
@@ -670,18 +677,22 @@ contains
         deallocate (empty_names)
     end function infer_base_type_from_call_site
 
-    function find_assignment_to_variable(arena, var_name) result(value_index)
+    function find_assignment_to_variable(arena, var_name, scope_index) &
+        result(value_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: var_name
+        integer, intent(in) :: scope_index
         integer :: value_index
         integer :: idx
 
         value_index = 0
+        if (scope_index <= 0) return
 
         do idx = 1, arena%size
             if (.not. allocated(arena%entries(idx)%node)) cycle
             select type (assign_node => arena%entries(idx)%node)
             type is (assignment_node)
+                if (.not. node_within_scope(arena, idx, scope_index)) cycle
                 if (assign_node%target_index <= 0) cycle
                 if (assign_node%target_index > arena%size) cycle
                 if (.not. allocated(arena%entries(assign_node%target_index)%node)) &
@@ -698,6 +709,51 @@ contains
             end select
         end do
     end function find_assignment_to_variable
+
+    integer function find_enclosing_scope_index(arena, node_index) result(scope_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: current
+
+        scope_index = 0
+        current = node_index
+        do while (current > 0 .and. current <= arena%size)
+            if (.not. allocated(arena%entries(current)%node)) exit
+            select type (scope_node => arena%entries(current)%node)
+            type is (function_def_node)
+                scope_index = current
+                return
+            type is (subroutine_def_node)
+                scope_index = current
+                return
+            type is (program_node)
+                scope_index = current
+                return
+            type is (module_node)
+                scope_index = current
+                return
+            end select
+            current = arena%entries(current)%parent_index
+        end do
+    end function find_enclosing_scope_index
+
+    logical function node_within_scope(arena, node_index, scope_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(in) :: scope_index
+        integer :: current
+
+        node_within_scope = .false.
+        if (scope_index <= 0) return
+        current = node_index
+        do while (current > 0 .and. current <= arena%size)
+            if (current == scope_index) then
+                node_within_scope = .true.
+                return
+            end if
+            current = arena%entries(current)%parent_index
+        end do
+    end function node_within_scope
 
     function extract_array_base_type(array_type) result(base_type)
         use type_system_unified, only: TARRAY, type_args_allocated, &
