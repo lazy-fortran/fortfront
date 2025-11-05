@@ -45,7 +45,8 @@ module semantic_analyzer
     use lexer_core, only: to_lower
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
-                              assignment_node, call_or_subscript_node, &
+                              assignment_node, pointer_assignment_node, &
+                              call_or_subscript_node, &
                               array_literal_node, program_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, &
                                    subroutine_def_node
@@ -222,6 +223,15 @@ module semantic_analyzer
             integer, intent(in) :: assignment_index
             type(mono_type_t) :: typ
         end function infer_assignment
+
+        module function infer_pointer_assignment(ctx, arena, ptr_assign, &
+                                                 ptr_assign_index) result(typ)
+            type(semantic_context_t), intent(inout) :: ctx
+            type(ast_arena_t), intent(inout) :: arena
+            type(pointer_assignment_node), intent(in) :: ptr_assign
+            integer, intent(in) :: ptr_assign_index
+            type(mono_type_t) :: typ
+        end function infer_pointer_assignment
 
         module subroutine infer_read_statement(ctx, arena, read_stmt, stmt_index, typ)
             type(semantic_context_t), intent(inout) :: ctx
