@@ -4,7 +4,8 @@ module parser_statement_data_module
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression_until
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node
+    use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node, &
+                              identifier_node
     use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
                            push_namelist_statement, push_data_statement
     use type_system_unified, only: create_mono_type, TARRAY
@@ -275,6 +276,7 @@ contains
 
             if (data_index <= 0) return
             call append_index(assignments, data_index)
+            call append_hidden_assignments(objects, values, assignments)
             success = .true.
         end subroutine create_data_node
 
@@ -395,6 +397,116 @@ contains
                 call move_alloc(tmp, indices)
             end if
         end subroutine append_index
+
+        subroutine append_hidden_assignments(objects, values, assignments)
+            integer, allocatable, intent(in) :: objects(:)
+            integer, allocatable, intent(in) :: values(:)
+            integer, allocatable, intent(inout) :: assignments(:)
+            logical :: can_aggregate
+            integer :: assign_index
+
+            if (.not. allocated(objects)) return
+            if (.not. allocated(values)) return
+            if (size(objects) == 0 .or. size(values) == 0) return
+
+            can_aggregate = size(objects) == 1 .and. size(values) > 1 .and. &
+                            is_plain_identifier(objects(1))
+            if (can_aggregate) then
+                assign_index = create_array_assignment(objects(1), values)
+                if (assign_index > 0) call append_index(assignments, assign_index)
+            else
+                call append_scalar_assignments(objects, values, assignments)
+            end if
+        end subroutine append_hidden_assignments
+
+        logical function is_plain_identifier(node_index) result(is_ident)
+            integer, intent(in) :: node_index
+
+            is_ident = .false.
+            if (node_index <= 0 .or. node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+
+            select type (obj_node => arena%entries(node_index)%node)
+            type is (identifier_node)
+                is_ident = .true.
+            class default
+                is_ident = .false.
+            end select
+        end function is_plain_identifier
+
+        integer function create_array_assignment(target_index, values) &
+            result(assign_index)
+            integer, intent(in) :: target_index
+            integer, allocatable, intent(in) :: values(:)
+            integer :: array_index
+
+            assign_index = 0
+            if (.not. allocated(values)) return
+            if (size(values) == 0) return
+
+            if (present(parent_index)) then
+                array_index = push_array_literal(arena, values, data_token%line, &
+                                                 data_token%column, parent_index)
+            else
+                array_index = push_array_literal(arena, values, data_token%line, &
+                                                 data_token%column)
+            end if
+            if (array_index <= 0) return
+
+            if (present(parent_index)) then
+                assign_index = push_assignment(arena, target_index, array_index, &
+                                               data_token%line, data_token%column, &
+                                               parent_index, suppress_codegen=.true.)
+            else
+                assign_index = push_assignment(arena, target_index, array_index, &
+                                               data_token%line, data_token%column, &
+                                               suppress_codegen=.true.)
+            end if
+        end function create_array_assignment
+
+        subroutine append_scalar_assignments(objects, values, assignments)
+            integer, allocatable, intent(in) :: objects(:)
+            integer, allocatable, intent(in) :: values(:)
+            integer, allocatable, intent(inout) :: assignments(:)
+            integer :: value_pos
+            integer :: obj_idx
+            integer :: assign_index
+
+            if (.not. allocated(objects)) return
+            if (.not. allocated(values)) return
+            if (size(objects) == 0 .or. size(values) == 0) return
+
+            value_pos = 1
+            do while (value_pos <= size(values))
+                do obj_idx = 1, size(objects)
+                    if (value_pos > size(values)) exit
+                    assign_index = create_scalar_assignment(objects(obj_idx), &
+                                                            values(value_pos))
+                    if (assign_index > 0) call append_index(assignments, assign_index)
+                    value_pos = value_pos + 1
+                end do
+            end do
+        end subroutine append_scalar_assignments
+
+        integer function create_scalar_assignment(target_index, value_index) &
+            result(assign_index)
+            integer, intent(in) :: target_index
+            integer, intent(in) :: value_index
+
+            assign_index = 0
+            if (target_index <= 0) return
+            if (value_index <= 0) return
+
+            if (present(parent_index)) then
+                assign_index = push_assignment(arena, target_index, value_index, &
+                                               data_token%line, data_token%column, &
+                                               parent_index, suppress_codegen=.true.)
+            else
+                assign_index = push_assignment(arena, target_index, value_index, &
+                                               data_token%line, data_token%column, &
+                                               suppress_codegen=.true.)
+            end if
+        end function create_scalar_assignment
 
     end function parse_data_statement
 

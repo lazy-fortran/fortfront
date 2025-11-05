@@ -78,6 +78,11 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
 
+        if (node%suppress_codegen) then
+            code = ""
+            return
+        end if
+
         ! Generate left-hand side
         if (node%target_index > 0 .and. node%target_index <= arena%size) then
             left_code = generate_code_from_arena(arena, node%target_index)

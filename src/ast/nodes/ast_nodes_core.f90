@@ -36,6 +36,7 @@ module ast_nodes_core
         ! Type inference support (dialect-agnostic)
         logical :: type_was_inferred = .false.  ! true if type was inferred
         character(len=:), allocatable :: inferred_type_name
+        logical :: suppress_codegen = .false.
     contains
         procedure :: accept => assignment_accept
         procedure :: to_json => assignment_to_json
