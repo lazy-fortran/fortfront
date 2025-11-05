@@ -6,7 +6,7 @@ module parser_statement_data_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node
     use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
-                           push_namelist_statement
+                           push_namelist_statement, push_data_statement
     use type_system_unified, only: create_mono_type, TARRAY
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
@@ -71,7 +71,7 @@ contains
             end if
             token = parser%consume()
 
-            call emit_assignments(object_indices, element_indices, &
+            call create_data_node(object_indices, element_indices, &
                                   assignment_indices, emit_ok)
             if (.not. emit_ok) return
             if (size(assignment_indices) > initial_size) have_assignments = .true.
@@ -242,16 +242,12 @@ contains
             success = .true.
         end subroutine parse_value_list
 
-        subroutine emit_assignments(objects, values, assignments, success)
+        subroutine create_data_node(objects, values, assignments, success)
             integer, allocatable, intent(in) :: objects(:)
             integer, allocatable, intent(in) :: values(:)
             integer, allocatable, intent(inout) :: assignments(:)
             logical, intent(out) :: success
-            integer :: target_index
-            integer :: assign_index
-            integer :: array_index
-            integer :: element_count
-            integer :: i
+            integer :: data_index
             integer :: node_line
             integer :: node_column
             success = .false.
@@ -261,96 +257,26 @@ contains
                 return
             end if
 
-            if (size(objects) == 1) then
-                target_index = objects(1)
-                call get_node_position(target_index, node_line, node_column)
-
-                if (size(values) == 0) then
-                    call parser%error("DATA statement requires at least one value")
-                    return
-                else if (size(values) == 1) then
-                    if (present(parent_index)) then
-                        assign_index = push_assignment(arena, target_index, &
-                                                       values(1), node_line, &
-                                                       node_column, parent_index)
-                    else
-                        assign_index = push_assignment(arena, target_index, &
-                                                       values(1), node_line, &
-                                                       node_column)
-                    end if
-                    if (assign_index <= 0) return
-                    call append_index(assignments, assign_index)
-                else
-                    element_count = size(values)
-                    if (present(parent_index)) then
-                        array_index = push_array_literal(arena, values, node_line, &
-                                                         node_column, parent_index, &
-                                                         syntax_style="legacy")
-                    else
-                        array_index = push_array_literal(arena, values, node_line, &
-                                                         node_column, &
-                                                         syntax_style="legacy")
-                    end if
-                    if (array_index <= 0) return
-                    call annotate_array_literal(arena, array_index, element_count)
-
-                    if (present(parent_index)) then
-                        assign_index = push_assignment(arena, target_index, &
-                                                       array_index, node_line, &
-                                                       node_column, parent_index)
-                    else
-                        assign_index = push_assignment(arena, target_index, &
-                                                       array_index, node_line, &
-                                                       node_column)
-                    end if
-                    if (assign_index <= 0) return
-                    call append_index(assignments, assign_index)
-                end if
-            else
-                if (size(values) /= size(objects)) then
-                    call parser%error("DATA statement requires matching number "// &
-                                      "of objects and values")
-                    return
-                end if
-
-                do i = 1, size(objects)
-                    target_index = objects(i)
-                    call get_node_position(target_index, node_line, node_column)
-                    if (present(parent_index)) then
-                        assign_index = push_assignment(arena, target_index, &
-                                                       values(i), node_line, &
-                                                       node_column, parent_index)
-                    else
-                        assign_index = push_assignment(arena, target_index, &
-                                                       values(i), node_line, &
-                                                       node_column)
-                    end if
-                    if (assign_index <= 0) return
-                    call append_index(assignments, assign_index)
-                end do
+            if (size(values) == 0) then
+                call parser%error("DATA statement requires at least one value")
+                return
             end if
 
+            node_line = data_token%line
+            node_column = data_token%column
+
+            if (present(parent_index)) then
+                data_index = push_data_statement(arena, objects, values, &
+                                                 node_line, node_column, parent_index)
+            else
+                data_index = push_data_statement(arena, objects, values, &
+                                                 node_line, node_column)
+            end if
+
+            if (data_index <= 0) return
+            call append_index(assignments, data_index)
             success = .true.
-        end subroutine emit_assignments
-
-        subroutine get_node_position(node_index, line, column)
-            integer, intent(in) :: node_index
-            integer, intent(out) :: line
-            integer, intent(out) :: column
-
-            line = data_token%line
-            column = data_token%column
-
-            if (node_index <= 0) return
-            if (node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
-
-            select type (node => arena%entries(node_index)%node)
-            class default
-                if (node%line > 0) line = node%line
-                if (node%column > 0) column = node%column
-            end select
-        end subroutine get_node_position
+        end subroutine create_data_node
 
         subroutine expand_repeat_count(arena, value_index, indices)
             type(ast_arena_t), intent(inout) :: arena
@@ -470,20 +396,6 @@ contains
             end if
         end subroutine append_index
 
-        subroutine annotate_array_literal(arena, array_index, element_count)
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(in) :: array_index
-            integer, intent(in) :: element_count
-
-            if (array_index <= 0 .or. array_index > arena%size) return
-            if (.not. allocated(arena%entries(array_index)%node)) return
-
-            select type (array_node => arena%entries(array_index)%node)
-            type is (array_literal_node)
-                array_node%inferred_type = create_mono_type(TARRAY, &
-                                                            array_size=element_count)
-            end select
-        end subroutine annotate_array_literal
     end function parse_data_statement
 
     integer function parse_namelist_statement(parser, arena, parent_index) &

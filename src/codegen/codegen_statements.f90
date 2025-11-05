@@ -35,6 +35,7 @@ module codegen_statements
     public :: generate_code_include_statement
     public :: generate_code_visibility_statement
     public :: generate_code_namelist_statement
+    public :: generate_code_data_statement
     public :: generate_code_implicit_statement
     public :: generate_code_comment
     public :: generate_code_blank_line
@@ -638,6 +639,38 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_namelist_statement
+
+    function generate_code_data_statement(arena, node) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(data_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: objects_str, values_str
+        integer :: i
+
+        code = "data "
+        objects_str = ""
+        values_str = ""
+
+        if (allocated(node%object_indices)) then
+            do i = 1, size(node%object_indices)
+                if (i > 1) objects_str = objects_str // ", "
+                objects_str = objects_str // &
+                    trim(generate_code_from_arena(arena, node%object_indices(i)))
+            end do
+        end if
+
+        if (allocated(node%value_indices)) then
+            do i = 1, size(node%value_indices)
+                if (i > 1) values_str = values_str // ", "
+                values_str = values_str // &
+                    trim(generate_code_from_arena(arena, node%value_indices(i)))
+            end do
+        end if
+
+        code = code // trim(objects_str) // " /" // trim(values_str) // "/"
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_data_statement
 
     ! Generate code for implicit statements
     function generate_code_implicit_statement(node) result(code)
