@@ -4,8 +4,10 @@ program test_all_examples
     use test_example_lists, only: load_skip_examples, is_analysis_only_example
     use test_example_lists, only: is_expected_diagnostic, is_expected_failure
     use test_example_lists, only: is_skipped_example
-    use test_filesystem_helpers, only: check_if_windows, cleanup_file
-    use test_filesystem_helpers, only: create_temp_directory, extract_example_basename
+    use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
+                                       cleanup_temp_directory
+    use test_filesystem_helpers, only: create_temp_directory, &
+                                       extract_example_basename
     use test_filesystem_helpers, only: extract_relative_example_path
     use test_filesystem_helpers, only: find_fortfront_executable
     use test_filesystem_helpers, only: path_separator_for
@@ -97,8 +99,7 @@ program test_all_examples
                                     num_analysis_only_examples, &
                                     diagnostic_examples, num_diagnostic_examples)
 
-    ! Clean up temp directory
-    !call cleanup_temp_directory(temp_dir, is_windows)
+    call cleanup_temp_directory(temp_dir, is_windows)
 
     print *, ""
     print *, "=== Test Summary ==="

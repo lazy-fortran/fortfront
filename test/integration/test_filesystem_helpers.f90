@@ -216,24 +216,64 @@ contains
         character(len=:), allocatable, intent(out) :: temp_dir
         logical, intent(in) :: is_windows
         character(len=256) :: base_temp
-        integer :: ios
+        character(len=64) :: suffix
+        character(len=1) :: sep
+        integer :: ios, last_index
         character(len=:), allocatable :: mkdir_cmd
 
         if (is_windows) then
+            sep = '\'
             call get_environment_variable('TEMP', base_temp, status=ios)
             if (ios /= 0) base_temp = '.'
-            temp_dir = trim(base_temp) // '\fortfront_test'
+        else
+            sep = '/'
+            base_temp = '/tmp'
+        end if
+
+        call generate_temp_suffix(suffix)
+        if (len_trim(suffix) == 0) suffix = 'default'
+
+        temp_dir = trim(base_temp)
+        last_index = len_trim(temp_dir)
+        if (last_index > 0) then
+            if (temp_dir(last_index:last_index) == sep) then
+                temp_dir = temp_dir(1:last_index - 1)
+            end if
+        end if
+
+        temp_dir = trim(temp_dir) // sep // 'fortfront_test_' // trim(suffix)
+
+        if (is_windows) then
             mkdir_cmd = 'cmd /C "if not exist "' // trim(temp_dir) // &
                         '" mkdir "' // trim(temp_dir) // '""'
         else
-            base_temp = '/tmp'
-            temp_dir = trim(base_temp) // '/fortfront_test'
             mkdir_cmd = 'mkdir -p "' // trim(temp_dir) // '"'
         end if
 
         call execute_command_line(trim(mkdir_cmd), exitstat=ios)
         if (ios /= 0) temp_dir = ''
     end subroutine create_temp_directory
+
+    subroutine generate_temp_suffix(suffix)
+        character(len=*), intent(out) :: suffix
+        integer :: date_vals(8)
+        integer :: clock_count, clock_rate, clock_max
+
+        suffix = ''
+        call date_and_time(values=date_vals)
+        call system_clock(count=clock_count, count_rate=clock_rate, &
+                          count_max=clock_max)
+
+        write (suffix, '(I4.4,I2.2,I2.2,"_",I2.2,I2.2,I2.2,"_",I0)') &
+            date_vals(1), date_vals(2), date_vals(3), date_vals(5), &
+            date_vals(6), date_vals(7), abs(clock_count)
+
+        suffix = trim(adjustl(suffix))
+        if (len_trim(suffix) == 0) then
+            write (suffix, '(I0)') abs(clock_count)
+            suffix = trim(adjustl(suffix))
+        end if
+    end subroutine generate_temp_suffix
 
     subroutine cleanup_temp_directory(temp_dir, is_windows)
         character(len=*), intent(in) :: temp_dir
