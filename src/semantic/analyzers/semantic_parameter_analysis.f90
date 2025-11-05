@@ -810,6 +810,7 @@ contains
             select type (node => arena%entries(stmt_idx)%node)
             type is (call_or_subscript_node)
                 call refine_from_intrinsic_call(node)
+                call refine_from_array_indexing(node)
             type is (assignment_node)
                 if (node%value_index > 0) then
                     call refine_from_statement(arena, node%value_index, &
@@ -896,6 +897,46 @@ contains
                 end select
             end select
         end subroutine refine_from_intrinsic_call
+
+        subroutine refine_from_array_indexing(call_node)
+            type(call_or_subscript_node), intent(in) :: call_node
+            character(len=:), allocatable :: param_name
+            integer :: param_idx, rank
+            type(mono_type_t) :: inferred_array_type, base_type
+
+            if (.not. allocated(call_node%name)) return
+            if (is_intrinsic_function(call_node%name)) return
+            if (.not. allocated(call_node%arg_indices)) return
+            if (size(call_node%arg_indices) == 0) return
+
+            param_name = trim(call_node%name)
+            param_idx = 0
+            do j = 1, size(param_names)
+                if (trim(param_names(j)) == param_name) then
+                    param_idx = j
+                    exit
+                end if
+            end do
+
+            if (param_idx == 0) return
+
+            if (param_types(param_idx)%kind /= TARRAY) then
+                rank = size(call_node%arg_indices)
+
+                base_type = infer_base_type_from_call_site(arena, func_node, &
+                                                           param_idx)
+                if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
+                    base_type = param_types(param_idx)
+                    if (base_type%kind <= 0 .or. base_type%kind == TVAR) then
+                        base_type = create_mono_type(TREAL)
+                    end if
+                end if
+
+                inferred_array_type = build_deferred_shape_array(base_type, rank)
+                call merge_parameter_type(param_types(param_idx), &
+                                          inferred_array_type)
+            end if
+        end subroutine refine_from_array_indexing
 
         function get_dimension_from_size_call(arena, call_node) result(dim)
             use ast_nodes_core, only: literal_node
