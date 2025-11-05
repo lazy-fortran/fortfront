@@ -11,6 +11,7 @@ module semantic_array_literal
     use ast_nodes_loops, only: do_loop_node
     use string_utils_mod, only: to_lower
     use semantic_type_operations, only: get_common_type
+    use standardizer_types, only: calculate_loop_size
     implicit none
 
     abstract interface
@@ -28,6 +29,36 @@ module semantic_array_literal
 
 contains
 
+    function check_for_dynamic_implied_do(arena, array_lit) result(is_dynamic)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: array_lit
+        logical :: is_dynamic
+        integer :: i
+        integer :: loop_size
+
+        is_dynamic = .false.
+
+        if (.not. allocated(array_lit%element_indices)) return
+
+        do i = 1, size(array_lit%element_indices)
+            if (array_lit%element_indices(i) <= 0) cycle
+            if (array_lit%element_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(array_lit%element_indices(i))%node)) &
+                cycle
+
+            select type (elem => arena%entries(array_lit%element_indices(i))%node)
+            type is (do_loop_node)
+                loop_size = calculate_loop_size(arena, elem%start_expr_index, &
+                                                elem%end_expr_index, &
+                                                elem%step_expr_index)
+                if (loop_size < 0) then
+                    is_dynamic = .true.
+                    return
+                end if
+            end select
+        end do
+    end function check_for_dynamic_implied_do
+
     function infer_array_literal_type(arena, array_lit, get_type_fn) &
         result(typ)
         type(ast_arena_t), intent(inout) :: arena
@@ -40,6 +71,7 @@ contains
         logical :: all_arrays
         logical :: consistent_sizes
         logical :: has_real
+        logical :: has_dynamic_implied_do
         integer :: elem_count
         integer :: first_array_size
         integer :: max_char_len
@@ -59,6 +91,8 @@ contains
             return
         end if
 
+        has_dynamic_implied_do = check_for_dynamic_implied_do(arena, array_lit)
+
         call promote_array_element_types(arena, array_lit, get_type_fn, &
                                          first_type, promoted_type, &
                                          all_arrays, consistent_sizes, &
@@ -68,7 +102,8 @@ contains
         typ = build_array_type_from_elements(elem_count, first_type, &
                                              promoted_type, all_arrays, &
                                              consistent_sizes, has_real, &
-                                             max_char_len, first_array_size)
+                                             max_char_len, first_array_size, &
+                                             has_dynamic_implied_do)
     end function infer_array_literal_type
 
     function parse_explicit_element_type(array_lit) result(explicit_type)
@@ -188,7 +223,8 @@ contains
     function build_array_type_from_elements(element_count, first_type, &
                                             promoted_type, all_arrays, &
                                             consistent_sizes, has_real, &
-                                            max_char_len, first_array_size) &
+                                            max_char_len, first_array_size, &
+                                            has_dynamic_implied_do) &
         result(array_type)
         integer, intent(in) :: element_count
         type(mono_type_t), intent(in) :: first_type
@@ -198,6 +234,7 @@ contains
         logical, intent(in) :: has_real
         integer, intent(in) :: max_char_len
         integer, intent(in) :: first_array_size
+        logical, intent(in) :: has_dynamic_implied_do
         type(mono_type_t) :: array_type
         type(mono_type_t) :: result_promoted
         type(mono_type_t), allocatable :: args(:)
@@ -205,7 +242,24 @@ contains
 
         result_promoted = promoted_type
 
-        if (all_arrays .and. consistent_sizes) then
+        if (has_dynamic_implied_do) then
+            if (has_real .and. result_promoted%kind == TINT) then
+                result_promoted = create_mono_type(TREAL)
+            end if
+
+            if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
+                result_promoted = create_mono_type(TCHAR, &
+                                                   char_size=max_char_len)
+            end if
+
+            allocate (args(1))
+            args(1) = result_promoted
+            array_type = create_mono_type(TARRAY, args=args)
+            array_type%alloc_info%is_allocatable = .true.
+            array_type%alloc_info%needs_allocation_check = .true.
+            array_type%alloc_info%is_pointer = .false.
+            array_type%alloc_info%needs_allocatable_string = .false.
+        else if (all_arrays .and. consistent_sizes) then
             if (first_type%has_args() .and. &
                 first_type%get_args_count() > 0) then
                 if (has_real) then
