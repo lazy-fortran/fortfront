@@ -160,12 +160,16 @@ contains
         character(len=:), allocatable :: result_clause
         character(len=:), allocatable :: result_name
         logical :: rename_result
+        logical :: needs_result_for_recursion
 
         result_clause = ""
 
         rename_result = should_rename_deferred_char_result(node)
+        needs_result_for_recursion = node%is_recursive .and. &
+                                      (.not. allocated(node%result_variable) .or. &
+                                       len_trim(node%result_variable) == 0)
 
-        if (rename_result) then
+        if (rename_result .or. needs_result_for_recursion) then
             result_name = trim(node%name) // "_result"
         else
             if (.not. allocated(node%result_variable)) return
@@ -175,7 +179,7 @@ contains
         if (len_trim(result_name) == 0) return
 
         if (allocated(node%name)) then
-            if (.not. rename_result) then
+            if (.not. rename_result .and. .not. needs_result_for_recursion) then
                 if (result_name == trim(node%name)) return
             end if
         end if
@@ -203,6 +207,7 @@ contains
         body = maybe_add_procedure_implicit_none(arena, body_indices)
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
+        body = body // collect_recursive_result_decl(arena, node)
         body = body // collect_entry_parameter_decls(arena, node)
         body = body // collect_local_variable_decls(arena, node, param_map)
 
@@ -805,6 +810,41 @@ contains
                     trim(result_name) // new_line('A')
     end function collect_deferred_char_result_decl
 
+    function collect_recursive_result_decl(arena, node) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: decl_code
+        character(len=:), allocatable :: type_str
+        character(len=:), allocatable :: result_name
+        character(len=:), allocatable :: lowered
+        logical :: standardize_types_enabled
+
+        decl_code = ""
+
+        if (.not. node%is_recursive) return
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) return
+        end if
+        if (should_rename_deferred_char_result(node)) return
+
+        if (.not. allocated(node%return_type)) return
+        if (len_trim(node%return_type) == 0) return
+
+        type_str = trim(node%return_type)
+        call get_type_standardization(standardize_types_enabled)
+        if (standardize_types_enabled) then
+            lowered = to_lower(trim(type_str))
+            if (lowered == 'real') then
+                type_str = "real(8)"
+            end if
+        end if
+
+        result_name = trim(node%name) // "_result"
+
+        decl_code = "    " // trim(type_str) // " :: " // &
+                    trim(result_name) // new_line('A')
+    end function collect_recursive_result_decl
+
     subroutine get_deferred_char_type_info(arena, node, full_type, base_type, &
                                            result_name)
         type(ast_arena_t), intent(in) :: arena
@@ -1032,12 +1072,25 @@ contains
         character(len=:), allocatable :: old_name, new_name
         character(len=:), allocatable :: search_pattern, replace_pattern
         integer :: pos, start_pos
+        logical :: needs_rename
 
-        if (.not. should_rename_deferred_char_result(node)) return
-        if (.not. allocated(node%result_variable)) return
+        needs_rename = should_rename_deferred_char_result(node) .or. &
+                       (node%is_recursive .and. &
+                        (.not. allocated(node%result_variable) .or. &
+                         len_trim(node%result_variable) == 0))
+
+        if (.not. needs_rename) return
         if (.not. allocated(node%name)) return
 
-        old_name = trim(node%result_variable)
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) then
+                old_name = trim(node%result_variable)
+            else
+                old_name = trim(node%name)
+            end if
+        else
+            old_name = trim(node%name)
+        end if
         new_name = trim(node%name) // "_result"
 
         start_pos = 1

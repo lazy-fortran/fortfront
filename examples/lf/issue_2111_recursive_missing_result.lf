@@ -1,0 +1,15 @@
+! Test case for issue #2111: Recursive functions missing RESULT variable
+! Expected: Detect recursion, add recursive keyword, RESULT clause, and type
+
+function factorial(n)
+    if (n <= 1) then
+        factorial = 1
+    else
+        factorial = n * factorial(n - 1)
+    end if
+end function
+
+! Main code to test the function
+val = 5
+result = factorial(val)
+print *, "Factorial of", val, "is", result
