@@ -4,6 +4,7 @@ module standardizer_types
 
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
+    use ast_nodes_bounds, only: array_slice_node
     use ast_nodes_loops
     use ast_nodes_misc, only: complex_literal_node
     use type_system_unified
@@ -177,6 +178,10 @@ contains
                         expr_type = create_mono_type(TARRAY, args=element_type_args)
                     end block
                 end if
+            end if
+        type is (array_slice_node)
+            if (node%inferred_type%kind > 0) then
+                expr_type => node%inferred_type
             end if
         type is (binary_op_node)
             if (node%inferred_type%kind > 0) then
