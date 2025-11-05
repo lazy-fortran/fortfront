@@ -467,9 +467,9 @@ contains
         end do
     end subroutine collect_vars_from_read
 
-    subroutine collect_loop_var(arena, func, stmt_position, loop_node, param_map, &
-                                local_vars, n_locals, capacity, result_name, &
-                                decl_code)
+    recursive subroutine collect_loop_var(arena, func, stmt_position, loop_node, &
+                                          param_map, local_vars, n_locals, capacity, &
+                                          result_name, decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
         integer, intent(in) :: stmt_position
@@ -481,6 +481,7 @@ contains
         character(len=*), intent(in) :: result_name
         character(len=:), allocatable, intent(inout) :: decl_code
         character(len=64) :: var_name
+        integer :: body_idx, nested_idx
 
         if (.not. allocated(loop_node%var_name)) return
 
@@ -498,6 +499,21 @@ contains
             local_vars(n_locals) = var_name
             decl_code = decl_code // "    integer :: " // trim(var_name) // &
                         new_line('A')
+        end if
+
+        if (allocated(loop_node%body_indices)) then
+            do body_idx = 1, size(loop_node%body_indices)
+                nested_idx = loop_node%body_indices(body_idx)
+                if (nested_idx <= 0 .or. nested_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(nested_idx)%node)) cycle
+
+                select type (nested_stmt => arena%entries(nested_idx)%node)
+                type is (do_loop_node)
+                    call collect_loop_var(arena, func, stmt_position, nested_stmt, &
+                                          param_map, local_vars, n_locals, capacity, &
+                                          result_name, decl_code)
+                end select
+            end do
         end if
     end subroutine collect_loop_var
 
