@@ -20,7 +20,6 @@ issue_2066_array_function_rank_mismatch.lf  # elemental-style array function ran
 issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return rank mismatch #2067
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch #2068
 issue_2069_allocate_not_inferred_allocatable.lf  # ALLOCATE not inferred as allocatable #2069
-issue_2070_entry_loses_argument_declarations.f90  # ENTRY loses argument declarations #2070
 issue_2071_function_param_string_inferred_as_real.lf  # string parameter inferred as real #2071
 issue_2074_arithmetic_if_not_supported.f90  # arithmetic IF not supported (F77 legacy) #2074
 issue_2075_stop_keyword_collision_in_function_param.lf  # 'stop' keyword collision in function param #2075
