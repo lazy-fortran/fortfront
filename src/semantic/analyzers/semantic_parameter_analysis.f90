@@ -28,6 +28,7 @@ module semantic_parameter_analysis
 contains
 
     subroutine merge_parameter_type(current_type, candidate_type)
+        use type_system_unified, only: TARRAY
         type(mono_type_t), intent(inout) :: current_type
         type(mono_type_t), intent(in) :: candidate_type
         type(mono_type_t) :: merged_type
@@ -45,6 +46,12 @@ contains
         end if
 
         if (candidate_type%kind == TVAR) return
+
+        ! Prefer array types over scalar types (fixes #2062)
+        if (candidate_type%kind == TARRAY .and. current_type%kind /= TARRAY) then
+            current_type = candidate_type
+            return
+        end if
 
         if (current_type%kind == candidate_type%kind) return
 
