@@ -33,6 +33,8 @@ contains
         type(mono_type_t), intent(inout) :: current_type
         type(mono_type_t), intent(in) :: candidate_type
         type(mono_type_t) :: merged_type
+        type(mono_type_t) :: base_current, base_candidate
+        integer :: rank_current, rank_candidate
 
         if (candidate_type%kind <= 0) return
 
@@ -56,6 +58,16 @@ contains
 
         ! Merge arrays of different ranks (take maximum rank)
         if (current_type%kind == TARRAY .and. candidate_type%kind == TARRAY) then
+            call extract_rank_and_base_type(current_type, rank_current, base_current)
+            call extract_rank_and_base_type(candidate_type, rank_candidate, base_candidate)
+            if (rank_current == rank_candidate) then
+                if (base_current%kind == base_candidate%kind) then
+                    if (base_current%kind /= TCHAR .or. &
+                        base_current%size == base_candidate%size) then
+                        return
+                    end if
+                end if
+            end if
             merged_type = merge_array_types(current_type, candidate_type)
             if (merged_type%kind > 0) current_type = merged_type
             return
