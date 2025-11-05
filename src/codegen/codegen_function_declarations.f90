@@ -26,6 +26,7 @@ module codegen_function_declarations
     use codegen_arena_interface, only: generate_code_from_arena
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: mono_type_t, TARRAY
     implicit none
     private
     public :: generate_code_function_def
@@ -168,7 +169,7 @@ contains
         if (len_trim(result_name) == 0) return
 
         if (allocated(node%name)) then
-            if (result_name == trim(node%name)) return
+            if (result_name == trim(node%name) .and. .not. is_deferred_char) return
         end if
 
         result_clause = " result(" // result_name // ")"
@@ -332,6 +333,191 @@ contains
         end do
     end function parameter_has_declaration
 
+    logical function is_function_result_identifier(func, var_name) result(is_result)
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: result_name
+
+        is_result = .false.
+
+        if (allocated(func%name)) then
+            function_name = trim(func%name)
+        else
+            function_name = ''
+        end if
+
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else
+            result_name = ''
+        end if
+
+        if (len_trim(function_name) > 0) then
+            if (trim(var_name) == function_name) then
+                is_result = .true.
+                return
+            end if
+        end if
+
+        if (len_trim(result_name) > 0) then
+            if (trim(var_name) == result_name) then
+                is_result = .true.
+            end if
+        end if
+    end function is_function_result_identifier
+
+    function get_result_type_string(func, var_name, inferred_type) &
+        result(type_str)
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), intent(in) :: inferred_type
+        character(len=:), allocatable :: type_str
+        type(mono_type_t) :: deferred_type
+        logical :: is_result_var
+
+        is_result_var = .false.
+        if (allocated(func%result_variable)) then
+            is_result_var = (trim(var_name) == trim(func%result_variable))
+        end if
+
+        if (is_result_var .and. inferred_type%kind == TARRAY .and. &
+            (inferred_type%size == 0 .or. inferred_type%alloc_info%is_allocatable)) &
+            then
+            deferred_type = convert_array_to_deferred_shape(inferred_type)
+            type_str = mono_type_to_string(deferred_type, include_shape=.true., &
+                                           fallback='integer')
+        else
+            type_str = mono_type_to_string(inferred_type, include_shape=.true., &
+                                           fallback='integer')
+        end if
+    end function get_result_type_string
+
+    recursive function convert_array_to_deferred_shape(typ) result(deferred)
+        use type_system_unified, only: create_mono_type
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: deferred
+        type(mono_type_t) :: inner
+        type(mono_type_t), allocatable :: args(:)
+
+        deferred = typ
+        if (typ%kind /= TARRAY) return
+
+        if (typ%get_args_count() > 0) then
+            inner = typ%get_arg(1)
+            inner = convert_array_to_deferred_shape(inner)
+            allocate (args(1))
+            args(1) = inner
+            deferred = create_mono_type(TARRAY, args=args)
+            deferred%size = 0
+            deferred%alloc_info%is_allocatable = .true.
+        else
+            deferred%size = 0
+            deferred%alloc_info%is_allocatable = .true.
+        end if
+    end function convert_array_to_deferred_shape
+
+    logical function needs_result_declaration(arena, func, result_type) &
+        result(needed)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(mono_type_t), intent(in) :: result_type
+        character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: result_name
+        logical :: header_has_type
+        logical :: requires_deferred_attrs
+
+        needed = .false.
+        header_has_type = .false.
+        requires_deferred_attrs = .false.
+
+        if (allocated(func%name)) then
+            function_name = trim(func%name)
+        else
+            function_name = ''
+        end if
+
+        if (allocated(func%result_variable)) then
+            result_name = trim(func%result_variable)
+        else
+            result_name = ''
+        end if
+
+        if (len_trim(result_name) == 0) then
+            result_name = function_name
+        end if
+
+        if (allocated(func%return_type)) then
+            if (len_trim(func%return_type) > 0) header_has_type = .true.
+        end if
+
+        if (result_type%kind == TARRAY) then
+            if (result_type%size == 0 .or. result_type%alloc_info%is_allocatable) then
+                requires_deferred_attrs = .true.
+            end if
+        end if
+
+        if (len_trim(result_name) == 0) return
+
+        if (has_result_variable_declaration(arena, func, result_name)) return
+
+        if (trim(result_name) /= trim(function_name)) then
+            if (.not. header_has_type) then
+                needed = .true.
+                return
+            end if
+            if (requires_deferred_attrs) then
+                needed = .true.
+                return
+            end if
+            return
+        end if
+
+        if (.not. header_has_type) then
+            needed = .true.
+            return
+        end if
+
+        if (requires_deferred_attrs) needed = .true.
+    end function needs_result_declaration
+
+    logical function has_result_variable_declaration(arena, func, result_name) &
+        result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: result_name
+        integer :: i
+        integer :: stmt_idx
+        integer :: name_idx
+
+        found = .false.
+        if (.not. allocated(func%body_indices)) return
+        if (len_trim(result_name) == 0) return
+
+        do i = 1, size(func%body_indices)
+            stmt_idx = func%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    do name_idx = 1, size(stmt%var_names)
+                        if (trim(stmt%var_names(name_idx)) == trim(result_name)) then
+                            found = .true.
+                            return
+                        end if
+                    end do
+                else if (allocated(stmt%var_name)) then
+                    if (trim(stmt%var_name) == trim(result_name)) then
+                        found = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function has_result_variable_declaration
+
     function collect_local_variable_decls(arena, func, param_map) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
@@ -375,7 +561,12 @@ contains
 
                     var_name = trim(target%name)
 
-                    if (len_trim(result_name) > 0 .and. var_name == result_name) cycle
+                    if (is_function_result_identifier(func, var_name)) then
+                        if (.not. needs_result_declaration(arena, func, &
+                                                           target%inferred_type)) &
+                            cycle
+                        var_name = trim(result_name)
+                    end if
 
                     if (is_parameter_name(var_name, param_map)) cycle
 
@@ -386,9 +577,8 @@ contains
                         n_locals = n_locals + 1
                         local_vars(n_locals) = var_name
                         decl_code = decl_code // "    " // &
-                                    mono_type_to_string(target%inferred_type, &
-                                                        include_shape=.true., &
-                                                        fallback='integer') // &
+                                    get_result_type_string(func, var_name, &
+                                                           target%inferred_type) // &
                                     " :: " // trim(var_name) // new_line('A')
                     end if
                 end select

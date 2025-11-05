@@ -199,12 +199,24 @@ contains
             if (trim(target%name) /= trim(result_name)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
+            if (needs_deferred_shape(candidate)) then
+                candidate = convert_to_deferred_shape_array(candidate)
+            end if
         type is (call_or_subscript_node)
             candidate = infer_array_assignment_type(arena, target, stmt%value_index, &
                                                     result_name, param_names, &
                                                     param_types)
         end select
     end function infer_assignment_result_type
+
+    logical function needs_deferred_shape(typ) result(needs)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: typ
+
+        needs = .false.
+        if (typ%kind /= TARRAY) return
+        if (typ%size <= 0 .or. typ%size > 1000) needs = .true.
+    end function needs_deferred_shape
 
     function infer_array_assignment_type(arena, target, value_index, result_name, &
                                          param_names, param_types) result(candidate)
@@ -253,5 +265,31 @@ contains
             candidate = create_mono_type(TREAL)
         end if
     end function fallback_result_type
+
+    recursive function convert_to_deferred_shape_array(typ) result(deferred)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: deferred
+        type(mono_type_t) :: inner
+        type(mono_type_t), allocatable :: args(:)
+
+        deferred = typ
+        if (typ%kind /= TARRAY) return
+
+        deferred%size = 0
+        deferred%alloc_info%is_allocatable = .true.
+        deferred%alloc_info%needs_allocation_check = .true.
+
+        if (typ%get_args_count() > 0) then
+            inner = typ%get_arg(1)
+            inner = convert_to_deferred_shape_array(inner)
+            allocate (args(1))
+            args(1) = inner
+            deferred = create_mono_type(TARRAY, args=args)
+            deferred%size = 0
+            deferred%alloc_info%is_allocatable = .true.
+            deferred%alloc_info%needs_allocation_check = .true.
+        end if
+    end function convert_to_deferred_shape_array
 
 end module semantic_function_inference
