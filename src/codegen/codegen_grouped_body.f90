@@ -5,7 +5,10 @@ module codegen_grouped_body
                                  continue_node, stop_node, &
                                  error_stop_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
-                              end_statement_node
+                              end_statement_node, data_statement_node, &
+                              use_statement_node, implicit_statement_node, &
+                              intrinsic_statement_node, namelist_statement_node, &
+                              import_statement_node, include_statement_node
     use ast_nodes_transfer, only: entry_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, &
@@ -40,6 +43,8 @@ contains
         character(len=:), allocatable :: stmt_code
 
         stmt_code = generate_code_from_arena(arena, idx)
+        if (.not. allocated(stmt_code)) return
+        if (len(stmt_code) == 0) return
         code = code // indent_lines(stmt_code, indent) // new_line('A')
     end subroutine process_single_statement
 
@@ -204,6 +209,10 @@ contains
             call process_grouped_parameters(arena, body_indices, i, &
                                             indent_str, code)
 
+        type is (data_statement_node)
+            call process_single_statement(arena, body_indices(i), indent, code)
+            i = i + 1
+
         type is (comment_node)
             call handle_comment_entry(arena, body_indices(i), code, i)
 
@@ -227,18 +236,21 @@ contains
         character(len=:), allocatable :: indent_str
         integer :: i
         logical :: in_contains_section
+        integer, allocatable :: ordered_indices(:)
 
         indent_str = repeat("    ", indent)
         code = ""
         in_contains_section = .false.
         i = 1
+        ordered_indices = body_indices
+        call reorder_data_statements(arena, ordered_indices)
 
-        do while (i <= size(body_indices))
-            if (.not. is_valid_body_entry(arena, body_indices(i))) then
+        do while (i <= size(ordered_indices))
+            if (.not. is_valid_body_entry(arena, ordered_indices(i))) then
                 i = i + 1
                 cycle
             end if
-            call process_body_entry(arena, body_indices, i, indent, indent_str, &
+            call process_body_entry(arena, ordered_indices, i, indent, indent_str, &
                                     in_contains_section, code)
         end do
     end function generate_grouped_body
@@ -255,6 +267,134 @@ contains
         unused_flag = has_exec_before_contains
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_context
+
+    subroutine reorder_data_statements(arena, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer :: first_exec_pos
+        integer :: i
+
+        if (.not. allocated(body_indices)) return
+        if (size(body_indices) == 0) return
+
+        first_exec_pos = find_first_exec_position(arena, body_indices)
+        if (first_exec_pos <= 0) return
+
+        i = first_exec_pos
+        do while (i <= size(body_indices))
+            if (is_contains_entry(arena, body_indices(i))) exit
+            if (is_data_statement(arena, body_indices(i))) then
+                call move_index(body_indices, i, first_exec_pos)
+                first_exec_pos = first_exec_pos + 1
+                i = i + 1
+            else
+                i = i + 1
+            end if
+        end do
+    end subroutine reorder_data_statements
+
+    integer function find_first_exec_position(arena, body_indices) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer :: i
+
+        pos = 0
+        do i = 1, size(body_indices)
+            if (.not. is_valid_body_entry(arena, body_indices(i))) cycle
+            if (is_contains_entry(arena, body_indices(i))) exit
+            if (is_spec_statement(arena, body_indices(i))) cycle
+            pos = i
+            exit
+        end do
+    end function find_first_exec_position
+
+    logical function is_spec_statement(arena, idx) result(is_spec)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_spec = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (declaration_node)
+            is_spec = .true.
+        type is (parameter_declaration_node)
+            is_spec = .true.
+        type is (use_statement_node)
+            is_spec = .true.
+        type is (implicit_statement_node)
+            is_spec = .true.
+        type is (intrinsic_statement_node)
+            is_spec = .true.
+        type is (namelist_statement_node)
+            is_spec = .true.
+        type is (import_statement_node)
+            is_spec = .true.
+        type is (include_statement_node)
+            is_spec = .true.
+        type is (data_statement_node)
+            is_spec = .true.
+        type is (format_statement_node)
+            is_spec = .true.
+        type is (comment_node)
+            is_spec = .true.
+        type is (blank_line_node)
+            is_spec = .true.
+        class default
+            is_spec = .false.
+        end select
+    end function is_spec_statement
+
+    logical function is_data_statement(arena, idx) result(is_data)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_data = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (data_statement_node)
+            is_data = .true.
+        class default
+            is_data = .false.
+        end select
+    end function is_data_statement
+
+    logical function is_contains_entry(arena, idx) result(is_contains)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_contains = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (contains_node)
+            is_contains = .true.
+        class default
+            is_contains = .false.
+        end select
+    end function is_contains_entry
+
+    subroutine move_index(indices, from_pos, to_pos)
+        integer, allocatable, intent(inout) :: indices(:)
+        integer, intent(in) :: from_pos
+        integer, intent(in) :: to_pos
+        integer :: value
+        integer :: j
+
+        if (from_pos <= to_pos) return
+        if (from_pos > size(indices)) return
+        if (to_pos < 1) return
+
+        value = indices(from_pos)
+        do j = from_pos, to_pos + 1, -1
+            indices(j) = indices(j - 1)
+        end do
+        indices(to_pos) = value
+    end subroutine move_index
 
     subroutine emit_declaration_statement(arena, idx, indent_str, code)
         type(ast_arena_t), intent(in) :: arena
