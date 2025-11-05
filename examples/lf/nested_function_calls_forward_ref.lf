@@ -1,0 +1,13 @@
+! Test nested function calls with forward references
+! This demonstrates correct type inference when called functions
+! are defined BEFORE the calling function
+function mul(a, b)
+    mul = a * b
+end function
+
+function add(a, b)
+    add = a + b
+end function
+
+result = add(mul(2, 3), mul(4, 5))
+print *, "Result:", result
