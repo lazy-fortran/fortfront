@@ -71,6 +71,7 @@ test_old_api.o
 
 # Log files and outputs
 *.log
+build/**/*.log
 *.err
 *.out
 cli_trace.txt
