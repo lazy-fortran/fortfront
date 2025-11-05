@@ -2,9 +2,11 @@ module semantic_array_intrinsics
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
                                    TLOGICAL, TARRAY
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: call_or_subscript_node, array_literal_node
+    use ast_nodes_core, only: call_or_subscript_node, array_literal_node, &
+                               literal_node
     use string_utils_mod, only: to_lower
-    use semantic_array_type_builders, only: build_deferred_shape_array
+    use semantic_array_type_builders, only: build_deferred_shape_array, &
+                                            build_fixed_shape_array
     use semantic_type_operations, only: get_common_type
     use semantic_function_helpers, only: get_type_lookup, &
                                          gather_call_argument_types
@@ -144,6 +146,8 @@ contains
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type
         integer :: ndims
+        integer, allocatable :: dimension_sizes(:)
+        logical :: has_literal_dimensions
 
         element_type = create_mono_type(TREAL)
         ndims = 0
@@ -156,13 +160,18 @@ contains
                 end if
             end if
             if (size(call_node%arg_indices) >= 2) then
-                ndims = infer_reshape_dimensions(arena, &
-                                                 call_node%arg_indices(2))
+                call extract_reshape_dimensions(arena, &
+                                                call_node%arg_indices(2), &
+                                                ndims, dimension_sizes, &
+                                                has_literal_dimensions)
             end if
         end if
 
         if (ndims <= 0) then
             typ = build_deferred_shape_array(element_type, 1)
+        else if (has_literal_dimensions) then
+            typ = build_fixed_shape_array(element_type, dimension_sizes)
+            call typ%sync_from_arena()
         else
             typ = build_deferred_shape_array(element_type, ndims)
         end if
@@ -246,12 +255,20 @@ contains
         typ = build_deferred_shape_array(element_type, 1)
     end function handle_generic_array_intrinsic
 
-    function infer_reshape_dimensions(arena, shape_idx) result(ndims)
+    subroutine extract_reshape_dimensions(arena, shape_idx, ndims, &
+                                          dimension_sizes, has_literals)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: shape_idx
-        integer :: ndims
+        integer, intent(out) :: ndims
+        integer, allocatable, intent(out) :: dimension_sizes(:)
+        logical, intent(out) :: has_literals
+        integer :: i
+        integer :: elem_idx
+        integer :: temp_value
+        logical :: success
 
         ndims = 0
+        has_literals = .false.
         if (shape_idx <= 0 .or. shape_idx > arena%size) return
         if (.not. allocated(arena%entries(shape_idx)%node)) return
 
@@ -259,9 +276,52 @@ contains
         type is (array_literal_node)
             if (allocated(shape_node%element_indices)) then
                 ndims = size(shape_node%element_indices)
+                allocate (dimension_sizes(ndims))
+                has_literals = .true.
+                do i = 1, ndims
+                    dimension_sizes(i) = 0
+                    elem_idx = shape_node%element_indices(i)
+                    if (elem_idx > 0 .and. elem_idx <= arena%size) then
+                        if (allocated(arena%entries(elem_idx)%node)) then
+                            select type (elem_node => &
+                                        arena%entries(elem_idx)%node)
+                            type is (literal_node)
+                                call parse_literal_integer(elem_node%value, &
+                                                           temp_value, success)
+                                if (success .and. temp_value > 0) then
+                                    dimension_sizes(i) = temp_value
+                                else
+                                    has_literals = .false.
+                                    exit
+                                end if
+                            class default
+                                has_literals = .false.
+                                exit
+                            end select
+                        else
+                            has_literals = .false.
+                            exit
+                        end if
+                    else
+                        has_literals = .false.
+                        exit
+                    end if
+                end do
             end if
         end select
-    end function infer_reshape_dimensions
+    end subroutine extract_reshape_dimensions
+
+    subroutine parse_literal_integer(literal_str, value, success)
+        character(len=*), intent(in) :: literal_str
+        integer, intent(out) :: value
+        logical, intent(out) :: success
+        integer :: ios
+
+        value = 0
+        success = .false.
+        read (literal_str, *, iostat=ios) value
+        if (ios == 0 .and. value > 0) success = .true.
+    end subroutine parse_literal_integer
 
     pure logical function is_reduction_intrinsic(name) result(is_reduction)
         character(len=*), intent(in) :: name
