@@ -67,6 +67,26 @@ contains
             error stop 1
         end if
 
+        if (index(output_code, "if (i == 2) j = j + i") == 0) then
+            print *, "FAIL: assignment single-line IF not preserved"
+            error stop 1
+        end if
+
+        if (index(output_code, "if (i == 2) then") /= 0) then
+            print *, "FAIL: assignment IF converted to block form"
+            error stop 1
+        end if
+
+        if (index(output_code, "if (j > 0) j = j - 1") == 0) then
+            print *, "FAIL: trailing single-line IF assignment missing"
+            error stop 1
+        end if
+
+        if (index(output_code, "if (j > 0) then") /= 0) then
+            print *, "FAIL: trailing assignment IF converted to block form"
+            error stop 1
+        end if
+
         print *, "[PASS] Single-line IF statements remain compact"
     end subroutine verify_single_line_if_preserved
 
