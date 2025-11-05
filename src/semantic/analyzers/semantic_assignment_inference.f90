@@ -75,27 +75,58 @@ contains
         logical, intent(in) :: strict_mode
         integer, intent(inout) :: next_var_id
         type(type_annotation_t), intent(in), optional :: type_hints(:)
-        type(poly_type_t) :: scheme
-        type(poly_type_t), allocatable :: existing_scheme
-        type(result_t) :: error_result
-        character(len=:), allocatable :: call_name_lower
-        logical :: dim_present
-        logical :: override_expr_type
 
         updated_expr_typ = expr_typ
-        override_expr_type = .false.
 
         ! Override type for complex literals (Issue #1851)
+        call override_type_for_complex_literal(arena, assignment, updated_expr_typ)
+
+        ! Normalize inquiry intrinsic return types
+        call normalize_intrinsic_return_types(arena, assignment, updated_expr_typ)
+
+        ! Process LHS based on node type
+        if (lhs_index > 0 .and. lhs_index <= arena%size) then
+            if (allocated(arena%entries(lhs_index)%node)) then
+                select type (lhs_node => arena%entries(lhs_index)%node)
+                type is (identifier_node)
+                    call process_identifier_assignment(arena, assignment, &
+                                                       assignment_index, lhs_node, &
+                                                       updated_expr_typ, scopes, &
+                                                       type_hints)
+                type is (call_or_subscript_node)
+                    call handle_array_assignment(arena, assignment_index, lhs_node, &
+                                                 expr_typ, updated_expr_typ, scopes)
+                end select
+            end if
+        end if
+    end subroutine process_assignment_inference
+
+    ! Override type for complex literal values
+    subroutine override_type_for_complex_literal(arena, assignment, expr_typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(assignment_node), intent(in) :: assignment
+        type(mono_type_t), intent(inout) :: expr_typ
+
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
                 type is (complex_literal_node)
-                    updated_expr_typ = create_mono_type(TCOMPLEX)
+                    expr_typ = create_mono_type(TCOMPLEX)
                 end select
             end if
         end if
+    end subroutine override_type_for_complex_literal
 
-        ! Normalize inquiry intrinsic return types
+    ! Normalize inquiry intrinsic return types (size, lbound, ubound)
+    subroutine normalize_intrinsic_return_types(arena, assignment, expr_typ)
+        type(ast_arena_t), intent(inout) :: arena
+        type(assignment_node), intent(in) :: assignment
+        type(mono_type_t), intent(inout) :: expr_typ
+        character(len=:), allocatable :: call_name_lower
+        logical :: dim_present, override_expr_type
+
+        override_expr_type = .false.
+
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
@@ -104,111 +135,106 @@ contains
                         call_name_lower = to_lower(trim(value_node%name))
                         select case (call_name_lower)
                         case ("size")
-                            updated_expr_typ = create_mono_type(TINT)
+                            expr_typ = create_mono_type(TINT)
                             override_expr_type = .true.
                         case ("lbound", "ubound")
                             dim_present = call_has_dim_argument(value_node)
                             if (dim_present) then
-                                updated_expr_typ = create_mono_type(TINT)
+                                expr_typ = create_mono_type(TINT)
                                 override_expr_type = .true.
                             else
                                 block
                                     type(mono_type_t) :: int_type
                                     int_type = create_mono_type(TINT)
-                                    updated_expr_typ = rebuild_array_with_base( &
-                                                       value_node%inferred_type, &
-                                                       int_type)
+                                    expr_typ = rebuild_array_with_base( &
+                                               value_node%inferred_type, int_type)
                                 end block
                                 override_expr_type = .true.
                             end if
                         end select
                         if (override_expr_type) then
-                            value_node%inferred_type = updated_expr_typ
+                            value_node%inferred_type = expr_typ
                         end if
                     end if
                 end select
             end if
         end if
+    end subroutine normalize_intrinsic_return_types
 
-        if (lhs_index > 0 .and. lhs_index <= arena%size) then
-            if (allocated(arena%entries(lhs_index)%node)) then
-                select type (lhs_node => arena%entries(lhs_index)%node)
-                type is (identifier_node)
-                    ! Check if already defined in current or parent scope
-                    call scopes%lookup(lhs_node%name, existing_scheme)
+    ! Process identifier assignment with scope management
+    subroutine process_identifier_assignment(arena, assignment, assignment_index, &
+                                             identifier, expr_typ, scopes, &
+                                             type_hints)
+        type(ast_arena_t), intent(inout) :: arena
+        type(assignment_node), intent(in) :: assignment
+        integer, intent(in) :: assignment_index
+        type(identifier_node), intent(in) :: identifier
+        type(mono_type_t), intent(inout) :: expr_typ
+        type(scope_stack_t), intent(inout) :: scopes
+        type(type_annotation_t), intent(in), optional :: type_hints(:)
+        type(poly_type_t) :: scheme
+        type(poly_type_t), allocatable :: existing_scheme
+        type(mono_type_t) :: final_type
 
-                    if (.not. allocated(existing_scheme)) then
-                        ! Fallback: if the arena has a declaration, define it in scope
-                        ! before flagging it undefined. Handles multi-var inits and
-                        ! re-ordered nodes.
-                        if (present(type_hints)) then
-                            call ensure_declared_from_arena_local(scopes, arena, &
-                                                                  lhs_node%name, &
-                                                                  type_hints)
-                        else
-                            call ensure_declared_from_arena_local(scopes, arena, &
-                                                                  lhs_node%name)
-                        end if
-                        call scopes%lookup(lhs_node%name, existing_scheme)
-                    end if
+        ! Check if already defined in current or parent scope
+        call scopes%lookup(identifier%name, existing_scheme)
 
-                    if (.not. allocated(existing_scheme)) then
-                        ! Do not raise an error here. A centralized undefined-variable
-                        ! check runs after inference and handles strict-mode diagnostics
-                        ! with proper arena-backed discovery. Keeping this path silent
-                        ! avoids duplicate or premature errors for multi-declarations.
-                    end if
-
-                    ! Handle allocatable character detection
-                    if (updated_expr_typ%kind == TCHAR) then
-                        call handle_character_allocation(arena, assignment, &
-                                                         updated_expr_typ, &
-                                                         lhs_node%name)
-                    end if
-
-                    ! Update all identifier nodes in the arena with the inferred type
-                    call update_identifier_type_in_arena(arena, lhs_node%name, &
-                                                         updated_expr_typ)
-
-                    ! Generalize the expression type and define/update in scope
-                    ! DEBUG: Force complex type for variables assigned from complex literals
-                    block
-                        type(mono_type_t) :: final_type
-                        integer :: value_idx
-                        logical :: needs_complex_override
-
-                        final_type = updated_expr_typ
-                        value_idx = assignment%value_index
-                        needs_complex_override = value_idx > 0 .and. &
-                                                 value_idx <= arena%size
-
-                        if (needs_complex_override) then
-                            associate (entry => arena%entries(value_idx))
-                                if (allocated(entry%node)) then
-                                    select type (v => entry%node)
-                                    type is (complex_literal_node)
-                                        final_type = create_mono_type(TCOMPLEX)
-                                    end select
-                                end if
-                            end associate
-                        end if
-
-                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
-                                                  mono=final_type)
-                    end block
-                    call scopes%define(lhs_node%name, scheme)
-
-                    ! Set assignment node fields for standardizer (Issue #1851)
-                    call set_assignment_type_fields(arena, assignment_index, &
-                                                    assignment%value_index, &
-                                                    updated_expr_typ)
-                type is (call_or_subscript_node)
-                    call handle_array_assignment(arena, assignment_index, lhs_node, &
-                                                 expr_typ, updated_expr_typ, scopes)
-                end select
+        if (.not. allocated(existing_scheme)) then
+            if (present(type_hints)) then
+                call ensure_declared_from_arena_local(scopes, arena, &
+                                                      identifier%name, type_hints)
+            else
+                call ensure_declared_from_arena_local(scopes, arena, &
+                                                      identifier%name)
             end if
+            call scopes%lookup(identifier%name, existing_scheme)
         end if
-    end subroutine process_assignment_inference
+
+        ! Handle allocatable character detection
+        if (expr_typ%kind == TCHAR) then
+            call handle_character_allocation(arena, assignment, expr_typ, &
+                                             identifier%name)
+        end if
+
+        ! Update all identifier nodes in the arena with the inferred type
+        call update_identifier_type_in_arena(arena, identifier%name, expr_typ)
+
+        ! Force complex type for variables assigned from complex literals
+        final_type = get_final_assignment_type(arena, assignment, expr_typ)
+
+        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=final_type)
+        call scopes%define(identifier%name, scheme)
+
+        ! Set assignment node fields for standardizer (Issue #1851)
+        call set_assignment_type_fields(arena, assignment_index, &
+                                        assignment%value_index, expr_typ)
+    end subroutine process_identifier_assignment
+
+    ! Get final type for assignment, handling complex literal override
+    function get_final_assignment_type(arena, assignment, expr_typ) &
+        result(final_type)
+        type(ast_arena_t), intent(inout) :: arena
+        type(assignment_node), intent(in) :: assignment
+        type(mono_type_t), intent(in) :: expr_typ
+        type(mono_type_t) :: final_type
+        integer :: value_idx
+        logical :: needs_complex_override
+
+        final_type = expr_typ
+        value_idx = assignment%value_index
+        needs_complex_override = value_idx > 0 .and. value_idx <= arena%size
+
+        if (needs_complex_override) then
+            associate (entry => arena%entries(value_idx))
+                if (allocated(entry%node)) then
+                    select type (v => entry%node)
+                    type is (complex_literal_node)
+                        final_type = create_mono_type(TCOMPLEX)
+                    end select
+                end if
+            end associate
+        end if
+    end function get_final_assignment_type
 
     ! Local helper: best-effort define symbol from any declaration present in the arena
     subroutine ensure_declared_from_arena_local(scopes, arena, name, type_hints)

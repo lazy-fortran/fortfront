@@ -76,33 +76,7 @@ contains
 
         select type (node => arena%entries(expr_index)%node)
         type is (literal_node)
-            ! Handle literal nodes by checking their inferred type or literal kind
-            if (node%inferred_type%kind > 0) then
-                expr_type => node%inferred_type
-            else
-                ! Fallback to determining type from literal_kind
-                allocate (expr_type)
-                select case (node%literal_kind)
-                case (LITERAL_INTEGER)
-                    expr_type = create_mono_type(TINT)
-                case (LITERAL_REAL)
-                    expr_type = create_mono_type(TREAL)
-                case (LITERAL_STRING)
-                    expr_type = create_mono_type(TCHAR)
-                    ! Set the size based on the string literal length (excluding quotes)
-                    if (allocated(node%value)) then
-                        if (len(node%value) >= 2) then
-                            expr_type%size = len(node%value) - 2  ! Remove surrounding quotes
-                        else
-                            expr_type%size = 0  ! Empty string
-                        end if
-                    end if
-                case (LITERAL_LOGICAL)
-                    expr_type = create_mono_type(TLOGICAL)
-                case default
-                    expr_type = create_mono_type(TREAL)  ! Default fallback
-                end select
-            end if
+            expr_type => get_literal_type(node)
         type is (identifier_node)
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
@@ -112,73 +86,7 @@ contains
                 expr_type => node%inferred_type
             end if
         type is (call_or_subscript_node)
-            ! Check if this is an array subscript
-            if (node%inferred_type%kind > 0) then
-                expr_type => node%inferred_type
-            else
-                ! Check if it's an intrinsic function
-                block
-                    use intrinsic_registry, only: get_intrinsic_signature, &
-                                                  is_intrinsic_function
-                    character(len=:), allocatable :: intrinsic_sig
-                    logical :: is_intrinsic_func
-
-                    is_intrinsic_func = is_intrinsic_function(node%name)
-                    if (is_intrinsic_func) then
-                        intrinsic_sig = get_intrinsic_signature(node%name)
-                        if (len_trim(intrinsic_sig) > 0) then
-                            allocate (expr_type)
-                            ! Parse the return type from the signature
-                            if (index(intrinsic_sig, "real(") == 1) then
-                                expr_type = create_mono_type(TREAL)
-                            else if (index(intrinsic_sig, "integer(") == 1) then
-                                expr_type = create_mono_type(TINT)
-                            else if (index(intrinsic_sig, "logical(") == 1) then
-                                expr_type = create_mono_type(TLOGICAL)
-                            else if (index(intrinsic_sig, "character(") == 1) then
-                                expr_type = create_mono_type(TCHAR)
-                            else
-                                ! Default to real for unknown intrinsic types
-                                expr_type = create_mono_type(TREAL)
-                            end if
-                            return  ! Early return with the intrinsic type
-                        end if
-                    end if
-                end block
-
-                ! If it's a subscript of an array, the result should be the
-                ! element type or a subarray
-                ! For now, we'll check if it has a colon operator (array slice)
-                if (has_array_slice_args(arena, node)) then
-                    ! This is an array slice, so result is an array
-                    ! We need to get the base array type with proper element type
-                    allocate (expr_type)
-                    ! Set element type based on common Fortran patterns
-                    ! For slice operations, default to real unless identified otherwise
-                    block
-                        type(mono_type_t) :: element_type_args(1)
-                        if (allocated(node%name)) then
-                            ! Pattern matching for common array names and their element types
-                            if (index(node%name, "int") > 0 .or. index(node%name, &
-                                                                       "idx") > 0 .or. &
-                                index(node%name, "_i") > 0) then
-                                element_type_args(1) = create_mono_type(TINT)
-                            else if (index(node%name, "real") > 0 .or. index(node%name, &
-                                                                       "float") > 0 .or. &
-                                     index(node%name, "_r") > 0) then
-                                element_type_args(1) = create_mono_type(TREAL)
-                            else
-                                ! Default to real for generic arrays
-                                element_type_args(1) = create_mono_type(TREAL)
-                            end if
-                        else
-                            ! No name available, default to real
-                            element_type_args(1) = create_mono_type(TREAL)
-                        end if
-                        expr_type = create_mono_type(TARRAY, args=element_type_args)
-                    end block
-                end if
-            end if
+            expr_type => get_call_or_subscript_type(arena, node)
         type is (array_slice_node)
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
@@ -188,15 +96,146 @@ contains
                 expr_type => node%inferred_type
             end if
         type is (complex_literal_node)
-            ! Complex literals should always be complex type (Issue #1851)
-            if (node%inferred_type%kind > 0) then
-                expr_type => node%inferred_type
-            else
-                allocate (expr_type)
-                expr_type = create_mono_type(TCOMPLEX)
-            end if
+            expr_type => get_complex_literal_type(node)
         end select
     end function get_expression_type
+
+    ! Get type for literal node
+    function get_literal_type(node) result(expr_type)
+        type(literal_node), intent(in), target :: node
+        type(mono_type_t), pointer :: expr_type
+
+        expr_type => null()
+
+        if (node%inferred_type%kind > 0) then
+            expr_type => node%inferred_type
+        else
+            allocate (expr_type)
+            select case (node%literal_kind)
+            case (LITERAL_INTEGER)
+                expr_type = create_mono_type(TINT)
+            case (LITERAL_REAL)
+                expr_type = create_mono_type(TREAL)
+            case (LITERAL_STRING)
+                expr_type = create_mono_type(TCHAR)
+                if (allocated(node%value)) then
+                    if (len(node%value) >= 2) then
+                        expr_type%size = len(node%value) - 2
+                    else
+                        expr_type%size = 0
+                    end if
+                end if
+            case (LITERAL_LOGICAL)
+                expr_type = create_mono_type(TLOGICAL)
+            case default
+                expr_type = create_mono_type(TREAL)
+            end select
+        end if
+    end function get_literal_type
+
+    ! Get type for complex literal node
+    function get_complex_literal_type(node) result(expr_type)
+        type(complex_literal_node), intent(in), target :: node
+        type(mono_type_t), pointer :: expr_type
+
+        if (node%inferred_type%kind > 0) then
+            expr_type => node%inferred_type
+        else
+            allocate (expr_type)
+            expr_type = create_mono_type(TCOMPLEX)
+        end if
+    end function get_complex_literal_type
+
+    ! Get type for call or subscript node
+    function get_call_or_subscript_type(arena, node) result(expr_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in), target :: node
+        type(mono_type_t), pointer :: expr_type
+
+        expr_type => null()
+
+        if (node%inferred_type%kind > 0) then
+            expr_type => node%inferred_type
+        else
+            expr_type => try_get_intrinsic_type(node)
+            if (associated(expr_type)) return
+
+            if (has_array_slice_args(arena, node)) then
+                expr_type => build_array_slice_type(node)
+            end if
+        end if
+    end function get_call_or_subscript_type
+
+    ! Try to get intrinsic function return type
+    function try_get_intrinsic_type(node) result(expr_type)
+        use intrinsic_registry, only: get_intrinsic_signature, &
+                                      is_intrinsic_function
+        type(call_or_subscript_node), intent(in) :: node
+        type(mono_type_t), pointer :: expr_type
+        character(len=:), allocatable :: intrinsic_sig
+        logical :: is_intrinsic_func
+
+        expr_type => null()
+
+        is_intrinsic_func = is_intrinsic_function(node%name)
+        if (is_intrinsic_func) then
+            intrinsic_sig = get_intrinsic_signature(node%name)
+            if (len_trim(intrinsic_sig) > 0) then
+                allocate (expr_type)
+                expr_type = parse_intrinsic_return_type(intrinsic_sig)
+            end if
+        end if
+    end function try_get_intrinsic_type
+
+    ! Parse return type from intrinsic signature
+    function parse_intrinsic_return_type(intrinsic_sig) result(typ)
+        character(len=*), intent(in) :: intrinsic_sig
+        type(mono_type_t) :: typ
+
+        if (index(intrinsic_sig, "real(") == 1) then
+            typ = create_mono_type(TREAL)
+        else if (index(intrinsic_sig, "integer(") == 1) then
+            typ = create_mono_type(TINT)
+        else if (index(intrinsic_sig, "logical(") == 1) then
+            typ = create_mono_type(TLOGICAL)
+        else if (index(intrinsic_sig, "character(") == 1) then
+            typ = create_mono_type(TCHAR)
+        else
+            typ = create_mono_type(TREAL)
+        end if
+    end function parse_intrinsic_return_type
+
+    ! Build array slice type based on name patterns
+    function build_array_slice_type(node) result(expr_type)
+        type(call_or_subscript_node), intent(in) :: node
+        type(mono_type_t), pointer :: expr_type
+        type(mono_type_t) :: element_type_args(1)
+
+        allocate (expr_type)
+
+        if (allocated(node%name)) then
+            element_type_args(1) = infer_element_type_from_name(node%name)
+        else
+            element_type_args(1) = create_mono_type(TREAL)
+        end if
+        expr_type = create_mono_type(TARRAY, args=element_type_args)
+    end function build_array_slice_type
+
+    ! Infer element type from array name patterns
+    function infer_element_type_from_name(name) result(element_type)
+        character(len=*), intent(in) :: name
+        type(mono_type_t) :: element_type
+
+        if (index(name, "int") > 0 .or. index(name, "idx") > 0 .or. &
+            index(name, "_i") > 0) then
+            element_type = create_mono_type(TINT)
+        else if (index(name, "real") > 0 .or. index(name, "float") > 0 .or. &
+                 index(name, "_r") > 0) then
+            element_type = create_mono_type(TREAL)
+        else
+            element_type = create_mono_type(TREAL)
+        end if
+    end function infer_element_type_from_name
 
     ! Check if a call_or_subscript node has array slice arguments
     function has_array_slice_args(arena, node) result(has_slice)
@@ -429,58 +468,9 @@ contains
 
             if (.not. current%processed) then
                 call push(idx, .true.)
-                select type (node => arena%entries(idx)%node)
-                type is (binary_op_node)
-                    if (allocated(node%operator)) then
-                        call push(node%right_index, .false.)
-                        call push(node%left_index, .false.)
-                    end if
-                class default
-                    ! literals handled in processed branch
-                end select
+                call queue_subexpressions(arena, idx)
             else
-                select type (node => arena%entries(idx)%node)
-                type is (literal_node)
-                    if (node%literal_kind == LITERAL_INTEGER .and. &
-                        allocated(node%value)) then
-                        read (node%value, *, iostat=iostat) value
-                        if (iostat /= 0) value = INVALID_INTEGER
-                    else
-                        value = INVALID_INTEGER
-                    end if
-                type is (binary_op_node)
-                    value = INVALID_INTEGER
-                    if (allocated(node%operator)) then
-                        left_val = INVALID_INTEGER
-                        right_val = INVALID_INTEGER
-                        if (node%left_index > 0 .and. node%left_index <= arena%size) &
-                            left_val = results(node%left_index)
-                        if (node%right_index > 0 .and. node%right_index <= arena%size) &
-                            right_val = results(node%right_index)
-                        if (left_val /= INVALID_INTEGER .and. right_val /= &
-                            INVALID_INTEGER) then
-                            select case (node%operator)
-                            case ("-")
-                                value = left_val - right_val
-                            case ("+")
-                                value = left_val + right_val
-                            case ("*")
-                                value = left_val * right_val
-                            case ("/")
-                                if (right_val /= 0) value = left_val / right_val
-                            end select
-                        end if
-                    end if
-                type is (identifier_node)
-                    if (node%is_constant .and. node%constant_type == &
-                        LITERAL_INTEGER) then
-                        value = node%constant_integer
-                    else
-                        value = INVALID_INTEGER
-                    end if
-                class default
-                    value = INVALID_INTEGER
-                end select
+                value = evaluate_node(arena, idx, results)
                 results(idx) = value
             end if
         end do
@@ -488,6 +478,100 @@ contains
         value = results(expr_idx)
 
     contains
+
+        subroutine queue_subexpressions(arena_l, node_idx)
+            type(ast_arena_t), intent(in) :: arena_l
+            integer, intent(in) :: node_idx
+
+            select type (node => arena_l%entries(node_idx)%node)
+            type is (binary_op_node)
+                if (allocated(node%operator)) then
+                    call push(node%right_index, .false.)
+                    call push(node%left_index, .false.)
+                end if
+            class default
+                ! literals handled in evaluate_node
+            end select
+        end subroutine queue_subexpressions
+
+        function evaluate_node(arena_l, node_idx, res) result(val)
+            type(ast_arena_t), intent(in) :: arena_l
+            integer, intent(in) :: node_idx
+            integer, intent(in) :: res(:)
+            integer :: val
+            integer :: iostat_loc
+
+            val = INVALID_INTEGER
+
+            select type (node => arena_l%entries(node_idx)%node)
+            type is (literal_node)
+                val = evaluate_literal_node(node, iostat_loc)
+            type is (binary_op_node)
+                val = evaluate_binary_op_node(node, res, arena_l%size)
+            type is (identifier_node)
+                val = evaluate_identifier_node(node)
+            class default
+                val = INVALID_INTEGER
+            end select
+        end function evaluate_node
+
+        function evaluate_literal_node(node, iostat_loc) result(val)
+            type(literal_node), intent(in) :: node
+            integer, intent(out) :: iostat_loc
+            integer :: val
+
+            if (node%literal_kind == LITERAL_INTEGER .and. &
+                allocated(node%value)) then
+                read (node%value, *, iostat=iostat_loc) val
+                if (iostat_loc /= 0) val = INVALID_INTEGER
+            else
+                val = INVALID_INTEGER
+            end if
+        end function evaluate_literal_node
+
+        function evaluate_binary_op_node(node, res, arena_sz) result(val)
+            type(binary_op_node), intent(in) :: node
+            integer, intent(in) :: res(:)
+            integer, intent(in) :: arena_sz
+            integer :: val
+            integer :: left_val, right_val
+
+            val = INVALID_INTEGER
+            if (.not. allocated(node%operator)) return
+
+            left_val = INVALID_INTEGER
+            right_val = INVALID_INTEGER
+            if (node%left_index > 0 .and. node%left_index <= arena_sz) &
+                left_val = res(node%left_index)
+            if (node%right_index > 0 .and. node%right_index <= arena_sz) &
+                right_val = res(node%right_index)
+
+            if (left_val /= INVALID_INTEGER .and. &
+                right_val /= INVALID_INTEGER) then
+                select case (node%operator)
+                case ("-")
+                    val = left_val - right_val
+                case ("+")
+                    val = left_val + right_val
+                case ("*")
+                    val = left_val * right_val
+                case ("/")
+                    if (right_val /= 0) val = left_val / right_val
+                end select
+            end if
+        end function evaluate_binary_op_node
+
+        function evaluate_identifier_node(node) result(val)
+            type(identifier_node), intent(in) :: node
+            integer :: val
+
+            if (node%is_constant .and. node%constant_type == &
+                LITERAL_INTEGER) then
+                val = node%constant_integer
+            else
+                val = INVALID_INTEGER
+            end if
+        end function evaluate_identifier_node
 
         subroutine push(i, processed)
             integer, intent(in) :: i
@@ -563,227 +647,273 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
-        type(mono_type_t), pointer :: expr_type
-        character(len=:), allocatable :: elem_type_str
 
-        var_type = ""  ! Empty default indicates type not determined
+        var_type = ""
 
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
-            ! For array literals, we know the exact size
             if (allocated(node%element_indices)) then
-                ! Try to get the inferred type of the array literal
-                if (node%inferred_type%kind > 0) then
-                    ! The inferred type is TARRAY with element type in args(1)
-                    ! get_fortran_type_string handles TARRAY by extracting element type
-                    block
-                        type(string_result_t) :: type_result
-                        type_result = get_fortran_type_string(node%inferred_type)
-                        if (type_result%is_success()) then
-                            elem_type_str = type_result%get_value()
-                        else
-                            elem_type_str = ""
-                        end if
-                    end block
-                else
-                    ! No inferred type, try to determine from elements
-                    if (size(node%element_indices) > 0) then
-                        ! Check the first element type
-                        expr_type => get_expression_type(arena, node%element_indices(1))
-                        if (associated(expr_type)) then
-                            block
-                                type(string_result_t) :: type_result
-                                type_result = get_fortran_type_string(expr_type)
-                                if (type_result%is_success()) then
-                                    elem_type_str = type_result%get_value()
-                                else
-                                    elem_type_str = ""
-                                end if
-                            end block
-                        else
-                            ! Try to infer from literal if possible
-                            elem_type_str = &
-                                infer_element_type_from_literal(arena, &
-                                                                node%element_indices(1))
-                        end if
-                    else
-                        elem_type_str = ""  ! No fallback for empty arrays
-                    end if
-                end if
-
-                if ((.not. allocated(elem_type_str) .or. &
-                     len_trim(elem_type_str) == 0) .and. &
-                    allocated(node%type_spec)) then
-                    if (len_trim(node%type_spec) > 0) then
-                        elem_type_str = trim(node%type_spec)
-                    end if
-                end if
-
-                ! CRITICAL FIX: Provide fallback element type if inference failed
-                if (.not. allocated(elem_type_str) .or. &
-                    len_trim(elem_type_str) == 0) then
-                    elem_type_str = "integer"  ! Default fallback for array literals
-                end if
-
-                ! Check if this is an implied do loop
-                if (has_implied_do_loop(arena, node)) then
-                    ! Calculate the size from the implied do loop bounds
-                    block
-                        integer :: implied_size
-                        implied_size = get_implied_do_size(arena, &
-                                                           node%element_indices(1))
-                        if (implied_size > 0) then
-                            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                                ", dimension(", implied_size, ")"
-                        else
-                            ! Can't determine size, use allocatable
-                            var_type = trim(elem_type_str) // &
-                                       ", dimension(:), allocatable"
-                        end if
-                    end block
-                else
-                    ! Heuristic implied-do detection for modern syntax: [expr, i, start, end[, step]]
-                    if (allocated(node%syntax_style) .and. node%syntax_style == &
-                        "modern") then
-                        if (allocated(node%element_indices)) then
-                            if (size(node%element_indices) >= 4) then
-                                block
-                                    integer :: start_val, end_val, step_val, sz
-                                    logical :: ok
-                                    ok = .false.
-                                    ! Second element should be an identifier (loop variable)
-                                    if (node%element_indices(2) > 0 .and. &
-                                        node%element_indices(2) <= &
-                                        arena%size) then
-                          if (allocated(arena%entries(node%element_indices(2))%node)) then
-                                            select type (idnode => &
-                                              arena%entries(node%element_indices(2))%node)
-                                            type is (identifier_node)
-                                                ok = .true.
-                                            class default
-                                                ok = .false.
-                                            end select
-                                        end if
-                                    end if
-                                    if (ok) then
-                                        start_val = get_integer_literal_value(arena, &
-                                                                  node%element_indices(3))
-                                        end_val = get_integer_literal_value(arena, &
-                                                                  node%element_indices(4))
-                                        if (size(node%element_indices) >= 5) then
-                                            step_val = get_integer_literal_value(arena, &
-                                                                  node%element_indices(5))
-                                        else
-                                            step_val = INVALID_INTEGER
-                                        end if
-                                        if (start_val /= INVALID_INTEGER .and. &
-                                            end_val /= &
-                                            INVALID_INTEGER) then
-                                            if (step_val == INVALID_INTEGER) then
-                                                sz = calculate_loop_size(arena, &
-                                                                node%element_indices(3), &
-                                                               node%element_indices(4), 0)
-                                            else
-                                                sz = calculate_loop_size(arena, &
-                                                                node%element_indices(3), &
-                                                                node%element_indices(4), &
-                                                                  node%element_indices(5))
-                                            end if
-                                            if (sz > 0) then
-                                                write (var_type, '(a,a,i0,a)') &
-                                                    trim(elem_type_str), &
-                                                    ", dimension(", sz, ")"
-                                            else
-                                                var_type = trim(elem_type_str) // &
-                                                           ", dimension(:), allocatable"
-                                            end if
-                                        else
-                                            ! Non-literal bounds -> deferred shape allocatable
-                                            var_type = trim(elem_type_str) // &
-                                                       ", dimension(:), allocatable"
-                                        end if
-                                        return
-                                    end if
-                                end block
-                            end if
-                        end if
-                    end if
-                    ! Regular array literal with explicit elements
-                    ! Check if this is a nested array (all elements are arrays)
-                    block
-                        logical :: has_array_element, all_literal_arrays
-                        integer :: inner_size, elem_idx, i
-                        has_array_element = .false.
-                        all_literal_arrays = .true.
-                        inner_size = -1
-
-                        if (allocated(node%element_indices)) then
-                            do i = 1, size(node%element_indices)
-                                elem_idx = node%element_indices(i)
-                                if (elem_idx <= 0 .or. elem_idx > arena%size) cycle
-                                if (.not. allocated(arena%entries(elem_idx)%node)) cycle
-                                select type (arr_node => arena%entries(elem_idx)%node)
-                                type is (array_literal_node)
-                                    has_array_element = .true.
-                                    if (allocated(arr_node%element_indices)) then
-                                        if (size(arr_node%element_indices) > 0) then
-                                            if (inner_size < 0) then
-                                                inner_size = &
-                                                    size(arr_node%element_indices)
-                                            else if (inner_size /= &
-                                                     size(arr_node%element_indices)) then
-                                                all_literal_arrays = .false.
-                                            end if
-                                        else
-                                            all_literal_arrays = .false.
-                                        end if
-                                    else
-                                        all_literal_arrays = .false.
-                                    end if
-                                type is (identifier_node)
-                                    if (arr_node%inferred_type%kind == TARRAY) then
-                                        has_array_element = .true.
-                                        all_literal_arrays = .false.
-                                    end if
-                                class default
-                                    ! Not an array element
-                                end select
-                            end do
-                        end if
-
-                        if (has_array_element) then
-                            if (all_literal_arrays .and. inner_size > 0) then
-                                write (var_type, '(a,a,i0,a,i0,a)') &
-                                    trim(elem_type_str), &
-                                    ", dimension(", size(node%element_indices), ",", &
-                                    inner_size, ")"
-                            else
-                                var_type = trim(elem_type_str) // &
-                                           ", dimension(:), allocatable"
-                            end if
-                        else
-                            if (size(node%element_indices) == 0) then
-                                var_type = trim(elem_type_str) // &
-                                           ", dimension(:), allocatable"
-                            else
-                                write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                                    ", dimension(", size(node%element_indices), ")"
-                            end if
-                        end if
-                    end block
-                end if
+                var_type = process_array_literal_type(arena, node)
             end if
         type is (call_or_subscript_node)
-            ! For array slices, type cannot be determined without more context
             if (has_array_slice_args(arena, node)) then
-                ! Type cannot be determined for array slices without element type
                 var_type = ""
             end if
         end select
     end function get_array_var_type
+
+    function process_array_literal_type(arena, node) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=64) :: var_type
+        character(len=:), allocatable :: elem_type_str
+
+        elem_type_str = infer_array_element_type(arena, node)
+
+        if (has_implied_do_loop(arena, node)) then
+            var_type = build_implied_do_type(arena, node, elem_type_str)
+        else if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+            var_type = try_build_modern_implied_do_type(arena, node, elem_type_str)
+            if (len_trim(var_type) == 0) then
+                var_type = build_regular_array_type(arena, node, elem_type_str)
+            end if
+        else
+            var_type = build_regular_array_type(arena, node, elem_type_str)
+        end if
+    end function process_array_literal_type
+
+    function infer_array_element_type(arena, node) result(elem_type_str)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=:), allocatable :: elem_type_str
+        type(mono_type_t), pointer :: expr_type
+
+        if (node%inferred_type%kind > 0) then
+            elem_type_str = extract_inferred_element_type(node%inferred_type)
+        else if (size(node%element_indices) > 0) then
+            expr_type => get_expression_type(arena, node%element_indices(1))
+            if (associated(expr_type)) then
+                elem_type_str = extract_expression_element_type(expr_type)
+            else
+                elem_type_str = infer_element_type_from_literal(arena, &
+                                                                node%element_indices(1))
+            end if
+        else
+            elem_type_str = ""
+        end if
+
+        if ((.not. allocated(elem_type_str) .or. len_trim(elem_type_str) == 0) .and. &
+            allocated(node%type_spec) .and. len_trim(node%type_spec) > 0) then
+            elem_type_str = trim(node%type_spec)
+        end if
+
+        if (.not. allocated(elem_type_str) .or. len_trim(elem_type_str) == 0) then
+            elem_type_str = "integer"
+        end if
+    end function infer_array_element_type
+
+    function extract_inferred_element_type(inferred_type) result(elem_type_str)
+        type(mono_type_t), intent(in) :: inferred_type
+        character(len=:), allocatable :: elem_type_str
+        type(string_result_t) :: type_result
+
+        type_result = get_fortran_type_string(inferred_type)
+        if (type_result%is_success()) then
+            elem_type_str = type_result%get_value()
+        else
+            elem_type_str = ""
+        end if
+    end function extract_inferred_element_type
+
+    function extract_expression_element_type(expr_type) result(elem_type_str)
+        type(mono_type_t), pointer, intent(in) :: expr_type
+        character(len=:), allocatable :: elem_type_str
+        type(string_result_t) :: type_result
+
+        type_result = get_fortran_type_string(expr_type)
+        if (type_result%is_success()) then
+            elem_type_str = type_result%get_value()
+        else
+            elem_type_str = ""
+        end if
+    end function extract_expression_element_type
+
+    function build_implied_do_type(arena, node, elem_type_str) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=*), intent(in) :: elem_type_str
+        character(len=64) :: var_type
+        integer :: implied_size
+
+        implied_size = get_implied_do_size(arena, node%element_indices(1))
+        if (implied_size > 0) then
+            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                ", dimension(", implied_size, ")"
+        else
+            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+        end if
+    end function build_implied_do_type
+
+    function try_build_modern_implied_do_type(arena, node, elem_type_str) &
+        result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=*), intent(in) :: elem_type_str
+        character(len=64) :: var_type
+        integer :: start_val, end_val, step_val, sz
+        logical :: ok
+
+        var_type = ""
+
+        if (.not. allocated(node%element_indices)) return
+        if (size(node%element_indices) < 4) return
+
+        ok = check_modern_implied_do_pattern(arena, node)
+        if (.not. ok) return
+
+        start_val = get_integer_literal_value(arena, node%element_indices(3))
+        end_val = get_integer_literal_value(arena, node%element_indices(4))
+        if (size(node%element_indices) >= 5) then
+            step_val = get_integer_literal_value(arena, node%element_indices(5))
+        else
+            step_val = INVALID_INTEGER
+        end if
+
+        if (start_val == INVALID_INTEGER .or. end_val == INVALID_INTEGER) then
+            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+            return
+        end if
+
+        if (step_val == INVALID_INTEGER) then
+            sz = calculate_loop_size(arena, node%element_indices(3), &
+                                     node%element_indices(4), 0)
+        else
+            sz = calculate_loop_size(arena, node%element_indices(3), &
+                                     node%element_indices(4), &
+                                     node%element_indices(5))
+        end if
+
+        if (sz > 0) then
+            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                ", dimension(", sz, ")"
+        else
+            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+        end if
+    end function try_build_modern_implied_do_type
+
+    function check_modern_implied_do_pattern(arena, node) result(is_valid)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        logical :: is_valid
+        integer :: idx
+
+        is_valid = .false.
+
+        if (node%element_indices(2) <= 0 .or. &
+            node%element_indices(2) > arena%size) return
+        if (.not. allocated(arena%entries(node%element_indices(2))%node)) return
+
+        select type (idnode => arena%entries(node%element_indices(2))%node)
+        type is (identifier_node)
+            is_valid = .true.
+        end select
+    end function check_modern_implied_do_pattern
+
+    function build_regular_array_type(arena, node, elem_type_str) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=*), intent(in) :: elem_type_str
+        character(len=64) :: var_type
+        logical :: has_array_element, all_literal_arrays
+        integer :: inner_size
+
+        if (size(node%element_indices) == 0) then
+            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+            return
+        end if
+
+        call analyze_nested_arrays(arena, node, has_array_element, &
+                                   all_literal_arrays, inner_size)
+
+        if (has_array_element) then
+            var_type = build_nested_array_type(node, elem_type_str, &
+                                               all_literal_arrays, inner_size)
+        else
+            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                ", dimension(", size(node%element_indices), ")"
+        end if
+    end function build_regular_array_type
+
+    subroutine analyze_nested_arrays(arena, node, has_array_element, &
+                                      all_literal_arrays, inner_size)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        logical, intent(out) :: has_array_element, all_literal_arrays
+        integer, intent(out) :: inner_size
+        integer :: elem_idx, i
+
+        has_array_element = .false.
+        all_literal_arrays = .true.
+        inner_size = -1
+
+        do i = 1, size(node%element_indices)
+            elem_idx = node%element_indices(i)
+            if (elem_idx <= 0 .or. elem_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(elem_idx)%node)) cycle
+
+            select type (arr_node => arena%entries(elem_idx)%node)
+            type is (array_literal_node)
+                call process_nested_array_literal(arr_node, has_array_element, &
+                                                   all_literal_arrays, inner_size)
+            type is (identifier_node)
+                if (arr_node%inferred_type%kind == TARRAY) then
+                    has_array_element = .true.
+                    all_literal_arrays = .false.
+                end if
+            end select
+        end do
+    end subroutine analyze_nested_arrays
+
+    subroutine process_nested_array_literal(arr_node, has_array_element, &
+                                             all_literal_arrays, inner_size)
+        type(array_literal_node), intent(in) :: arr_node
+        logical, intent(inout) :: has_array_element, all_literal_arrays
+        integer, intent(inout) :: inner_size
+
+        has_array_element = .true.
+        if (allocated(arr_node%element_indices)) then
+            if (size(arr_node%element_indices) > 0) then
+                if (inner_size < 0) then
+                    inner_size = size(arr_node%element_indices)
+                else if (inner_size /= size(arr_node%element_indices)) then
+                    all_literal_arrays = .false.
+                end if
+            else
+                all_literal_arrays = .false.
+            end if
+        else
+            all_literal_arrays = .false.
+        end if
+    end subroutine process_nested_array_literal
+
+    function build_nested_array_type(node, elem_type_str, all_literal_arrays, &
+                                      inner_size) result(var_type)
+        type(array_literal_node), intent(in) :: node
+        character(len=*), intent(in) :: elem_type_str
+        logical, intent(in) :: all_literal_arrays
+        integer, intent(in) :: inner_size
+        character(len=64) :: var_type
+
+        if (all_literal_arrays .and. inner_size > 0) then
+            write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
+                ", dimension(", size(node%element_indices), ",", inner_size, ")"
+        else
+            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+        end if
+    end function build_nested_array_type
 
     ! Helper function to infer type from a literal node
     function infer_element_type_from_literal(arena, elem_index) result(type_str)
