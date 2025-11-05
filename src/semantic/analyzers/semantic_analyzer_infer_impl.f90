@@ -153,6 +153,8 @@ contains
                 call prepare_subroutine_definition(current, expr, node_index)
             type is (assignment_node)
                 call schedule_assignment_node(current, expr)
+            type is (pointer_assignment_node)
+                call schedule_pointer_assignment_node(current, expr)
             type is (array_literal_node)
                 call schedule_array_literal_node(current, expr)
             type is (do_loop_node)
@@ -224,6 +226,9 @@ contains
                 call finalize_function_definition(current, expr, node_index)
             type is (assignment_node)
                 node_type = infer_assignment(this, arena, expr, node_index)
+                call finalize_node(node_index, node_type)
+            type is (pointer_assignment_node)
+                node_type = infer_pointer_assignment(this, arena, expr, node_index)
                 call finalize_node(node_index, node_type)
             type is (array_literal_node)
                 node_type = infer_array_literal_type(arena, expr, &
@@ -405,6 +410,17 @@ contains
             call push_child(expr%target_index)
             call push_child(expr%value_index)
         end subroutine schedule_assignment_node
+
+        subroutine schedule_pointer_assignment_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(pointer_assignment_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            call push_child(expr%pointer_index)
+            call push_child(expr%target_index)
+        end subroutine schedule_pointer_assignment_node
 
         subroutine schedule_array_literal_node(current, expr)
             type(infer_frame_t), intent(in) :: current
@@ -980,6 +996,54 @@ contains
         ! Store the actual assignment type
         call set_node_inferred_type(arena, assignment_index, typ)
     end function infer_assignment
+
+    module function infer_pointer_assignment(ctx, arena, ptr_assign, &
+                                             ptr_assign_index) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(pointer_assignment_node), intent(in) :: ptr_assign
+        integer, intent(in) :: ptr_assign_index
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: target_type
+        type(poly_type_t) :: scheme
+        type(poly_type_t), allocatable :: existing_scheme
+        integer :: pointer_index
+
+        pointer_index = ptr_assign%pointer_index
+
+        ! Get type of target (what the pointer will point to)
+        target_type = get_inferred_type_from_arena(ctx, arena, ptr_assign%target_index)
+
+        ! If pointer is an identifier, ensure it's declared
+        if (pointer_index > 0 .and. pointer_index <= arena%size) then
+            if (allocated(arena%entries(pointer_index)%node)) then
+                select type (ptr_node => arena%entries(pointer_index)%node)
+                type is (identifier_node)
+                    ! Check if already defined in current or parent scope
+                    call ctx%scopes%lookup(ptr_node%name, existing_scheme)
+
+                    if (.not. allocated(existing_scheme)) then
+                        ! Variable not declared yet - declare it with target type
+                        ! Default to INTEGER if target type is unclear (e.g., null())
+                        if (target_type%kind == TVAR .or. target_type%kind == 0) then
+                            target_type = create_mono_type(TINT)
+                        end if
+
+                        scheme = create_poly_type(forall_vars=[type_var_t ::], &
+                                                  mono=target_type)
+                        call ctx%scopes%define(ptr_node%name, scheme)
+
+                        ! Update all identifier nodes with this name
+                        call update_identifier_type_in_arena(arena, ptr_node%name, &
+                                                             target_type)
+                    end if
+                end select
+            end if
+        end if
+
+        typ = target_type
+        call set_node_inferred_type(arena, ptr_assign_index, typ)
+    end function infer_pointer_assignment
 
     module subroutine infer_read_statement(ctx, arena, read_stmt, stmt_index, typ)
         type(semantic_context_t), intent(inout) :: ctx

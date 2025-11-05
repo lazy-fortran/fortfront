@@ -1,6 +1,7 @@
 module standardizer_declarations_collection
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: assignment_node, binary_op_node, &
+    use ast_nodes_core, only: assignment_node, pointer_assignment_node, &
+                              binary_op_node, &
                               call_or_subscript_node, identifier_node, literal_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
@@ -84,6 +85,10 @@ contains
                 call collect_assignment_vars(arena, current_index, var_names, &
                                              var_types, var_declared, var_count, &
                                              function_names, func_count)
+            type is (pointer_assignment_node)
+                call collect_pointer_assignment_vars(arena, current_index, var_names, &
+                                                     var_types, var_declared, var_count, &
+                                                     function_names, func_count)
             type is (do_loop_node)
                 call add_variable(stmt%var_name, "integer", var_names, var_types, &
                                   var_declared, var_count, function_names, func_count)
@@ -445,5 +450,88 @@ contains
             end if
         end select
     end subroutine collect_assignment_vars
+
+    subroutine collect_pointer_assignment_vars(arena, ptr_assign_index, var_names, &
+                                               var_types, var_declared, var_count, &
+                                               function_names, func_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: ptr_assign_index
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        character(len=64), intent(in) :: function_names(:)
+        integer, intent(in) :: func_count
+        type(mono_type_t), pointer :: target_type
+        character(len=64) :: var_type
+        integer :: existing_idx
+        integer :: i
+
+        if (ptr_assign_index <= 0 .or. ptr_assign_index > arena%size) return
+        if (.not. allocated(arena%entries(ptr_assign_index)%node)) return
+
+        select type (ptr_assign => arena%entries(ptr_assign_index)%node)
+        type is (pointer_assignment_node)
+            if (ptr_assign%pointer_index > 0 .and. &
+                ptr_assign%pointer_index <= arena%size) then
+                if (allocated(arena%entries(ptr_assign%pointer_index)%node)) then
+                    select type (ptr_node => arena%entries(ptr_assign%pointer_index)%node)
+                    type is (identifier_node)
+                        var_type = ""
+                        existing_idx = 0
+                        block
+                            character(len=64) :: normalized_target
+                            character(len=64) :: normalized_existing
+                            normalized_target = to_lower(trim(ptr_node%name))
+                            do i = 1, var_count
+                                normalized_existing = to_lower(trim(var_names(i)))
+                                if (trim(normalized_existing) == &
+                                    trim(normalized_target)) then
+                                    existing_idx = i
+                                    exit
+                                end if
+                            end do
+                        end block
+
+                        ! Get type from target if available
+                        if (ptr_assign%target_index > 0 .and. &
+                            ptr_assign%target_index <= arena%size) then
+                            if (allocated(arena%entries(ptr_assign%target_index)%node)) then
+                                target_type => get_expression_type(arena, &
+                                                                   ptr_assign%target_index)
+                                if (associated(target_type)) then
+                                    block
+                                        type(string_result_t) :: type_result
+                                        type_result = get_fortran_type_string(target_type)
+                                        if (type_result%is_success()) then
+                                            var_type = type_result%get_value()
+                                        end if
+                                    end block
+                                end if
+                            end if
+                        end if
+
+                        ! Default to integer if no type could be inferred
+                        if (len_trim(var_type) == 0) then
+                            var_type = "integer"
+                        end if
+
+                        ! Add POINTER attribute to the type
+                        var_type = trim(var_type) // ", pointer"
+
+                        if (existing_idx > 0) then
+                            ! Update existing variable type
+                            var_types(existing_idx) = var_type
+                        else
+                            ! Add new variable
+                            call add_variable(trim(ptr_node%name), var_type, var_names, &
+                                            var_types, var_declared, var_count, &
+                                            function_names, func_count)
+                        end if
+                    end select
+                end if
+            end if
+        end select
+    end subroutine collect_pointer_assignment_vars
 
 end module standardizer_declarations_collection
