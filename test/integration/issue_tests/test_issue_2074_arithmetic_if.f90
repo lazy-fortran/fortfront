@@ -1,5 +1,6 @@
 program test_issue_2074_arithmetic_if
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
+        iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none
