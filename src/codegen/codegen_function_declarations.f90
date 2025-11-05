@@ -74,7 +74,7 @@ contains
             params_clause = "()"
         end if
 
-        result_clause = build_function_result_clause(arena, node, is_deferred_char)
+        result_clause = build_function_result_clause(arena, node)
 
         if (len_trim(prefix) > 0) then
             signature = trim(prefix) // " "
@@ -154,24 +154,29 @@ contains
         return_type_code = ""
     end subroutine derive_function_return_type_and_flags
 
-    function build_function_result_clause(arena, node, is_deferred_char) &
-        result(result_clause)
+    function build_function_result_clause(arena, node) result(result_clause)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
-        logical, intent(in) :: is_deferred_char
         character(len=:), allocatable :: result_clause
         character(len=:), allocatable :: result_name
+        logical :: rename_result
 
         result_clause = ""
 
-        if (.not. allocated(node%result_variable)) return
-        result_name = trim(node%result_variable)
+        rename_result = should_rename_deferred_char_result(node)
+
+        if (rename_result) then
+            result_name = trim(node%name) // "_result"
+        else
+            if (.not. allocated(node%result_variable)) return
+            result_name = trim(node%result_variable)
+        end if
+
         if (len_trim(result_name) == 0) return
 
         if (allocated(node%name)) then
-            if (result_name == trim(node%name)) then
-                if (.not. is_deferred_char) return
-                result_name = trim(node%name) // "_result"
+            if (.not. rename_result) then
+                if (result_name == trim(node%name)) return
             end if
         end if
 
@@ -1026,25 +1031,13 @@ contains
         character(len=:), allocatable, intent(inout) :: body
         character(len=:), allocatable :: old_name, new_name
         character(len=:), allocatable :: search_pattern, replace_pattern
-        character(len=:), allocatable :: return_type
-        character(len=:), allocatable :: lowered
         integer :: pos, start_pos
 
+        if (.not. should_rename_deferred_char_result(node)) return
         if (.not. allocated(node%result_variable)) return
         if (.not. allocated(node%name)) return
 
         old_name = trim(node%result_variable)
-        if (old_name /= trim(node%name)) return
-
-        if (allocated(node%return_type)) then
-            return_type = trim(node%return_type)
-            lowered = to_lower(return_type)
-            if (.not. (index(lowered, 'character') == 1 .and. &
-                       index(lowered, 'len=:') > 0)) return
-        else
-            return
-        end if
-
         new_name = trim(node%name) // "_result"
 
         start_pos = 1
@@ -1073,6 +1066,22 @@ contains
             start_pos = pos + len(new_name)
         end do
     end subroutine rename_result_variable_in_body
+
+    logical function should_rename_deferred_char_result(node) result(should_rename)
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: lowered
+
+        should_rename = .false.
+
+        if (.not. allocated(node%name)) return
+        if (.not. allocated(node%result_variable)) return
+        if (trim(node%result_variable) /= trim(node%name)) return
+        if (.not. allocated(node%return_type)) return
+
+        lowered = to_lower(trim(node%return_type))
+        should_rename = (index(lowered, 'character') == 1) .and. &
+                        (index(lowered, 'len=:') > 0)
+    end function should_rename_deferred_char_result
 
     logical function is_identifier_char(c) result(is_id)
         character(len=1), intent(in) :: c

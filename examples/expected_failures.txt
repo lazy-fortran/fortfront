@@ -15,3 +15,4 @@ issue_1816_multiple_returns.lf
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch #2066
 issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return rank mismatch #2067
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch #2068
+issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword #2075
