@@ -353,20 +353,58 @@ contains
                         var_type = trim(base_type) // ", allocatable"
                     end if
 
-                    ! Use a dummy function_names array since we're not tracking functions here
-                    block
-                        character(len=64) :: dummy_func_names(1)
-                        integer :: dummy_func_count
-                        dummy_func_names = ""
-                        dummy_func_count = 0
-                        call add_variable(var_name, var_type, var_names, var_types, &
-                                         var_declared, var_count, &
-                                         dummy_func_names, dummy_func_count)
-                    end block
+                    call add_or_update_alloc_var(var_name, var_type, var_names, &
+                                                 var_types, var_declared, &
+                                                 var_count)
                 end if
             end do
         end select
     end subroutine collect_allocate_vars
+
+    subroutine add_or_update_alloc_var(name, var_type, var_names, var_types, &
+                                       var_declared, var_count)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: var_type
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        character(len=64) :: normalized_name
+        character(len=64) :: normalized_existing
+        integer :: idx, j
+
+        if (len_trim(name) == 0) return
+
+        normalized_name = to_lower(trim(name))
+        idx = 0
+
+        do j = 1, var_count
+            normalized_existing = to_lower(trim(var_names(j)))
+            if (trim(normalized_existing) == trim(normalized_name)) then
+                idx = j
+                exit
+            end if
+        end do
+
+        if (idx == 0) then
+            block
+                character(len=64) :: dummy_func_names(1)
+                integer :: dummy_func_count
+                dummy_func_names = ""
+                dummy_func_count = 0
+                call add_variable(name, var_type, var_names, var_types, &
+                                  var_declared, var_count, &
+                                  dummy_func_names, dummy_func_count)
+            end block
+            idx = var_count
+        else
+            var_declared(idx) = .true.
+        end if
+
+        if (idx > 0) then
+            var_types(idx) = var_type
+        end if
+    end subroutine add_or_update_alloc_var
 
     subroutine collect_assignment_vars(arena, assign_index, var_names, &
                                        var_types, var_declared, var_count, &
