@@ -142,9 +142,7 @@ contains
             type is (program_node)
                 call schedule_program_body(current, expr)
             type is (array_slice_node)
-                node_type = infer_array_slice_type(arena, expr, &
-                                                   get_node_type_with_arena)
-                call finalize_node(node_index, node_type)
+                call schedule_array_slice_node(current, expr)
             type is (subroutine_call_node)
                 call schedule_subroutine_call(current, expr)
             type is (function_def_node)
@@ -233,6 +231,10 @@ contains
             type is (array_literal_node)
                 node_type = infer_array_literal_type(arena, expr, &
                                                      get_node_type_with_arena)
+                call finalize_node(node_index, node_type)
+            type is (array_slice_node)
+                node_type = infer_array_slice_type(arena, expr, &
+                                                   get_node_type_with_arena)
                 call finalize_node(node_index, node_type)
             type is (if_node)
                 call process_if_node_branches(expr, node_type)
@@ -410,6 +412,20 @@ contains
             call push_child(expr%target_index)
             call push_child(expr%value_index)
         end subroutine schedule_assignment_node
+
+        subroutine schedule_array_slice_node(current, expr)
+            type(infer_frame_t), intent(in) :: current
+            type(array_slice_node), intent(in) :: expr
+            type(infer_frame_t) :: post_frame
+            integer :: i
+
+            call init_post_frame(current, post_frame)
+            call push_frame_local(post_frame)
+            do i = min(expr%num_dimensions, size(expr%bounds_indices)), 1, -1
+                call push_child(expr%bounds_indices(i))
+            end do
+            call push_child(expr%array_index)
+        end subroutine schedule_array_slice_node
 
         subroutine schedule_pointer_assignment_node(current, expr)
             type(infer_frame_t), intent(in) :: current
