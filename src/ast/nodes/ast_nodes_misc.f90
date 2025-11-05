@@ -606,17 +606,12 @@ contains
         call copy_ast_node_base_fields(lhs, rhs)
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
-            if (allocated(lhs%var_indices)) deallocate (lhs%var_indices)
-            allocate (lhs%var_indices(size(rhs%var_indices)))
             lhs%var_indices = rhs%var_indices
         end if
         if (allocated(rhs%shape_indices)) then
-            if (allocated(lhs%shape_indices)) deallocate (lhs%shape_indices)
-            allocate (lhs%shape_indices(size(rhs%shape_indices)))
             lhs%shape_indices = rhs%shape_indices
         end if
         if (allocated(rhs%type_spec)) then
-            if (allocated(lhs%type_spec)) deallocate (lhs%type_spec)
             lhs%type_spec = rhs%type_spec
         end if
         lhs%stat_var_index = rhs%stat_var_index
@@ -655,8 +650,6 @@ contains
         call copy_ast_node_base_fields(lhs, rhs)
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
-            if (allocated(lhs%var_indices)) deallocate (lhs%var_indices)
-            allocate (lhs%var_indices(size(rhs%var_indices)))
             lhs%var_indices = rhs%var_indices
         end if
         lhs%stat_var_index = rhs%stat_var_index
@@ -707,13 +700,9 @@ contains
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
         if (allocated(rhs%url_spec)) lhs%url_spec = rhs%url_spec
         if (allocated(rhs%only_list)) then
-            if (allocated(lhs%only_list)) deallocate (lhs%only_list)
-            allocate (lhs%only_list(size(rhs%only_list)))
             lhs%only_list = rhs%only_list
         end if
         if (allocated(rhs%rename_list)) then
-            if (allocated(lhs%rename_list)) deallocate (lhs%rename_list)
-            allocate (lhs%rename_list(size(rhs%rename_list)))
             lhs%rename_list = rhs%rename_list
         end if
         lhs%has_only = rhs%has_only
@@ -754,7 +743,6 @@ contains
     subroutine intrinsic_statement_assign(lhs, rhs)
         class(intrinsic_statement_node), intent(inout) :: lhs
         class(intrinsic_statement_node), intent(in) :: rhs
-        integer :: i
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -768,14 +756,8 @@ contains
 
         lhs%has_double_colon = rhs%has_double_colon
 
-        if (allocated(lhs%procedure_names)) then
-            deallocate (lhs%procedure_names)
-        end if
         if (allocated(rhs%procedure_names)) then
-            allocate (lhs%procedure_names(size(rhs%procedure_names)))
-            do i = 1, size(rhs%procedure_names)
-                lhs%procedure_names(i) = rhs%procedure_names(i)
-            end do
+            lhs%procedure_names = rhs%procedure_names
         end if
     end subroutine intrinsic_statement_assign
 
@@ -819,7 +801,6 @@ contains
     subroutine visibility_statement_assign(lhs, rhs)
         class(visibility_statement_node), intent(inout) :: lhs
         class(visibility_statement_node), intent(in) :: rhs
-        integer :: i
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -834,12 +815,8 @@ contains
         lhs%has_list = rhs%has_list
         lhs%has_double_colon = rhs%has_double_colon
 
-        if (allocated(lhs%names)) deallocate (lhs%names)
         if (allocated(rhs%names)) then
-            allocate (lhs%names(size(rhs%names)))
-            do i = 1, size(rhs%names)
-                lhs%names(i) = rhs%names(i)
-            end do
+            lhs%names = rhs%names
         end if
     end subroutine visibility_statement_assign
 
@@ -881,7 +858,6 @@ contains
     subroutine namelist_statement_assign(lhs, rhs)
         class(namelist_statement_node), intent(inout) :: lhs
         class(namelist_statement_node), intent(in) :: rhs
-        integer :: i
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -895,12 +871,8 @@ contains
 
         if (allocated(rhs%group_name)) lhs%group_name = rhs%group_name
 
-        if (allocated(lhs%variable_names)) deallocate (lhs%variable_names)
         if (allocated(rhs%variable_names)) then
-            allocate (lhs%variable_names(size(rhs%variable_names)))
-            do i = 1, size(rhs%variable_names)
-                lhs%variable_names(i) = rhs%variable_names(i)
-            end do
+            lhs%variable_names = rhs%variable_names
         end if
     end subroutine namelist_statement_assign
 
@@ -939,14 +911,10 @@ contains
 
         if (allocated(rhs%object_indices)) then
             lhs%object_indices = rhs%object_indices
-        else if (allocated(lhs%object_indices)) then
-            deallocate (lhs%object_indices)
         end if
 
         if (allocated(rhs%value_indices)) then
             lhs%value_indices = rhs%value_indices
-        else if (allocated(lhs%value_indices)) then
-            deallocate (lhs%value_indices)
         end if
     end subroutine data_statement_assign
 
@@ -1022,7 +990,6 @@ contains
     subroutine import_statement_assign(lhs, rhs)
         class(import_statement_node), intent(inout) :: lhs
         class(import_statement_node), intent(in) :: rhs
-        integer :: i
 
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -1038,12 +1005,8 @@ contains
         lhs%is_all = rhs%is_all
         lhs%is_none = rhs%is_none
 
-        if (allocated(lhs%import_list)) deallocate (lhs%import_list)
         if (allocated(rhs%import_list)) then
-            allocate (lhs%import_list(size(rhs%import_list)))
-            do i = 1, size(rhs%import_list)
-                lhs%import_list(i) = rhs%import_list(i)
-            end do
+            lhs%import_list = rhs%import_list
         end if
     end subroutine import_statement_assign
 
@@ -1157,8 +1120,6 @@ contains
         if (allocated(rhs%operator)) lhs%operator = rhs%operator
         lhs%is_abstract = rhs%is_abstract
         if (allocated(rhs%procedure_indices)) then
-            if (allocated(lhs%procedure_indices)) deallocate (lhs%procedure_indices)
-            allocate (lhs%procedure_indices(size(rhs%procedure_indices)))
             lhs%procedure_indices = rhs%procedure_indices
         end if
     end subroutine interface_block_assign
@@ -1346,7 +1307,6 @@ contains
     subroutine implicit_statement_assign(lhs, rhs)
         class(implicit_statement_node), intent(inout) :: lhs
         class(implicit_statement_node), intent(in) :: rhs
-        integer :: i
 
         ! Copy base class components
         lhs%line = rhs%line
@@ -1365,16 +1325,11 @@ contains
         ! Copy none specification
         if (allocated(rhs%none_spec)) then
             lhs%none_spec = rhs%none_spec
-        else
-            if (allocated(lhs%none_spec)) deallocate (lhs%none_spec)
         end if
 
         ! Copy type specification
         if (allocated(rhs%type_spec%type_name)) then
             lhs%type_spec%type_name = rhs%type_spec%type_name
-        else
-            if (allocated(lhs%type_spec%type_name)) deallocate &
-                (lhs%type_spec%type_name)
         end if
         lhs%type_spec%has_kind = rhs%type_spec%has_kind
         lhs%type_spec%kind_value = rhs%type_spec%kind_value
@@ -1383,13 +1338,7 @@ contains
 
         ! Copy letter specifications
         if (allocated(rhs%letter_specs)) then
-            if (allocated(lhs%letter_specs)) deallocate (lhs%letter_specs)
-            allocate (lhs%letter_specs(size(rhs%letter_specs)))
-            do i = 1, size(rhs%letter_specs)
-                lhs%letter_specs(i) = rhs%letter_specs(i)
-            end do
-        else
-            if (allocated(lhs%letter_specs)) deallocate (lhs%letter_specs)
+            lhs%letter_specs = rhs%letter_specs
         end if
     end subroutine implicit_statement_assign
 
