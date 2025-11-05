@@ -668,14 +668,25 @@ contains
         character(len=*), intent(in) :: name
         character(len=*), intent(in) :: type_name
         character(len=64) :: normalized_name
+        character(len=:), allocatable :: adjusted_type
+        character(len=:), allocatable :: lowered
 
         normalized_name = trim(to_lower(name))
         if (len_trim(normalized_name) == 0) return
         if (state%var_count >= program_decl_max_vars) return
         if (exists_in_list(state%var_names, state%var_count, normalized_name)) return
+
+        adjusted_type = trim(type_name)
+        lowered = to_lower(adjusted_type)
+        if (index(lowered, 'character') == 1 .and. index(lowered, 'len=:') > 0) then
+            if (index(lowered, 'allocatable') == 0) then
+                adjusted_type = trim(adjusted_type) // ', allocatable'
+            end if
+        end if
+
         state%var_count = state%var_count + 1
         state%var_names(state%var_count) = normalized_name
-        state%var_types(state%var_count) = type_name
+        state%var_types(state%var_count) = adjusted_type
     end subroutine try_add_variable
 
     subroutine try_add_function_reference(state, name, type_name)
