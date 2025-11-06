@@ -41,6 +41,7 @@ module codegen_program_variables
         character(len=64) :: defined_func_types(program_decl_max_vars)
         character(len=64) :: use_associated_names(program_decl_max_vars)
         character(len=64) :: use_module_names(program_decl_max_vars)
+        character(len=64) :: namelist_group_names(program_decl_max_vars)
         integer :: declared_count
         integer :: var_count
         integer :: func_count
@@ -48,6 +49,7 @@ module codegen_program_variables
         integer :: defined_func_count
         integer :: use_associated_count
         integer :: use_module_count
+        integer :: namelist_group_count
     end type program_decl_state_t
 
 contains
@@ -67,6 +69,7 @@ contains
         call collect_local_module_exports(arena, prog, state)
         call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
+        call collect_namelist_groups(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
         call collect_executable_identifier_symbols(arena, prog, state)
 
@@ -88,6 +91,7 @@ contains
         state%defined_func_types = ""
         state%use_associated_names = ""
         state%use_module_names = ""
+        state%namelist_group_names = ""
         state%declared_count = 0
         state%var_count = 0
         state%func_count = 0
@@ -95,6 +99,7 @@ contains
         state%defined_func_count = 0
         state%use_associated_count = 0
         state%use_module_count = 0
+        state%namelist_group_count = 0
     end subroutine initialize_program_decl_state
 
     subroutine populate_defined_function_table(arena, state)
@@ -364,9 +369,34 @@ contains
                         call try_add_internal_function(state, trim(decl%name))
                     end if
                 end if
+            type is (namelist_statement_node)
+                if (contains_seen) cycle
+                if (allocated(decl%group_name)) then
+                    call record_namelist_group(state, decl%group_name)
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
+
+    subroutine collect_namelist_groups(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i
+
+        if (.not. allocated(arena%entries)) return
+        write (*,*) 'DEBUG scanning arena, size=', arena%size
+
+        do i = 1, min(arena%size, size(arena%entries))
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            write (*,*) 'DEBUG node type', trim(arena%entries(i)%node_type)
+            select type (stmt => arena%entries(i)%node)
+            type is (namelist_statement_node)
+                if (.not. allocated(stmt%group_name)) cycle
+                call record_namelist_group(state, stmt%group_name)
+            end select
+        end do
+    end subroutine collect_namelist_groups
 
     subroutine record_declared_name(state, name)
         type(program_decl_state_t), intent(inout) :: state
@@ -381,6 +411,22 @@ contains
         state%declared_count = state%declared_count + 1
         state%declared_names(state%declared_count) = normalized_name
     end subroutine record_declared_name
+
+    subroutine record_namelist_group(state, group_name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: group_name
+        character(len=64) :: normalized_name
+
+        normalized_name = trim(to_lower(group_name))
+        if (len_trim(normalized_name) == 0) return
+        if (state%namelist_group_count >= program_decl_max_vars) return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
+        state%namelist_group_count = state%namelist_group_count + 1
+        state%namelist_group_names(state%namelist_group_count) = &
+            normalized_name
+        write (*,*) 'DEBUG recorded namelist group', normalized_name
+    end subroutine record_namelist_group
 
     subroutine try_add_internal_function(state, name)
         type(program_decl_state_t), intent(inout) :: state
@@ -725,9 +771,15 @@ contains
         type(mono_type_t), intent(in) :: inferred_type
         logical, intent(in) :: standardize_types_enabled
         character(len=:), allocatable :: type_buf
+        character(len=:), allocatable :: normalized_name
 
         if (len_trim(name) == 0) return
-        if (exists_in_list(state%declared_names, state%declared_count, name)) return
+        normalized_name = trim(to_lower(name))
+        if (normalized_name == 'namelist') return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           name)) return
         if (exists_in_list(state%var_names, state%var_count, name)) return
         if (exists_in_list(state%use_associated_names, &
                            state%use_associated_count, name)) return
