@@ -150,7 +150,8 @@ contains
         allocate (decl_node%dimension_indices(ndims))
 
         do i = 1, ndims
-            if (dimensions(i) > 0) then
+            if (dimensions(i) > 0 .or. &
+                (dimensions(i) == 0 .and. .not. decl_node%is_allocatable)) then
                 write (size_str, '(i0)') dimensions(i)
                 size_literal%uid = generate_uid()
                 size_literal%value = trim(size_str)
@@ -336,7 +337,9 @@ contains
                                                          ndims, dim_sizes)
 
                             do i = 1, ndims
-                                if (dim_sizes(i) > 0) then
+                                if (dim_sizes(i) > 0 .or. &
+                                    (dim_sizes(i) == 0 .and. &
+                                     .not. decl_node%is_allocatable)) then
                                     write (size_str, '(i0)') dim_sizes(i)
                                     size_literal%uid = generate_uid()
                                     size_literal%value = trim(size_str)
