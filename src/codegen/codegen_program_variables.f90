@@ -448,7 +448,7 @@ contains
             else
                 line = header_code(start_pos:start_pos + newline_pos - 2)
                 call analyze_namelist_line(state, line)
-                start_pos = start_pos + newline_pos - 1
+                start_pos = start_pos + newline_pos
                 if (start_pos > code_len) exit
             end if
         end do
