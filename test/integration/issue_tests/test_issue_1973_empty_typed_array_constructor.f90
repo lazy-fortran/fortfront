@@ -20,8 +20,14 @@ program test_issue_1973_empty_typed_array_constructor
         end if
     end if
 
-    if (index(transformed, 'integer, allocatable :: a(:)') == 0) then
-        write (error_unit, '(a)') 'FAIL: allocatable declaration missing'
+    if (index(transformed, 'integer :: a(0)') == 0) then
+        write (error_unit, '(a)') 'FAIL: zero-length declaration missing'
+        write (error_unit, '(a)') transformed
+        stop 1
+    end if
+
+    if (index(transformed, 'allocatable :: a(:)') /= 0) then
+        write (error_unit, '(a)') 'FAIL: allocatable declaration still present'
         write (error_unit, '(a)') transformed
         stop 1
     end if
@@ -39,7 +45,7 @@ program test_issue_1973_empty_typed_array_constructor
     end if
 
     write (error_unit, '(a)') &
-        'PASS: empty typed array constructor preserved with declaration'
+        'PASS: empty typed array constructor uses explicit zero-length array'
 
 contains
 
