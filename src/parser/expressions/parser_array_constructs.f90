@@ -16,6 +16,7 @@ module parser_array_constructs_module
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_where, push_associate, push_block_construct
+    use loop_safety_constants, only: MAX_PARSE_ITERATIONS
     implicit none
     private
 
@@ -178,17 +179,20 @@ contains
         integer :: num_clauses
         integer :: clause_mask_index
         integer, allocatable :: clause_body_indices(:)
+        integer :: clause_counter
 
         num_clauses = 0
         allocate (elsewhere_clauses(0))
+        clause_counter = 0
 
-        do while (.true.)
+        do while (clause_counter < MAX_PARSE_ITERATIONS)
             token = parser%peek()
             if (parser%is_at_end()) exit
             if (token%kind /= TK_KEYWORD) exit
             if (token%text /= "elsewhere") exit
 
             token = parser%consume()
+            clause_counter = clause_counter + 1
 
             clause_mask_index = 0
             token = parser%peek()
