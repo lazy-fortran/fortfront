@@ -80,24 +80,30 @@ contains
         module_count = 0
         program_count = 0
 
+        write (*, '(A)') 'DEBUG mono: start processing body'
         call process_program_body_children(arena, root_prog, signatures, &
                                            preserved_indices, preserved_count, &
                                            module_indices, &
                                            module_count, module_names, &
                                            program_indices, &
                                            program_count)
+        write (*, '(A,I0)') 'DEBUG mono: preserved_count', preserved_count
+        write (*, '(A,I0)') 'DEBUG mono: module_count', module_count
 
         if (module_count == 0) then
+            write (*, '(A)') 'DEBUG mono: no modules, exit'
             root_prog%body_indices = preserved_indices(1:preserved_count)
             return
         end if
 
+        write (*, '(A)') 'DEBUG mono: finalizing root'
         call finalize_monomorphized_root(arena, root_index, root_prog, &
                                          is_multi_unit, preserved_indices, &
                                          preserved_count, &
                                          module_indices, module_count, module_names, &
                                          program_indices, &
                                          program_count)
+        write (*, '(A)') 'DEBUG mono: finalize done'
 
     end subroutine transform_monomorphization
 

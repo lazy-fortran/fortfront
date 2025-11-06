@@ -333,25 +333,32 @@ contains
 
         ! Run monomorphization (AST transformation)
         call run_monomorphization_phase(shared_arena, prog_index, signatures)
+        write (*, '(A)') 'DEBUG after monomorphization'
 
         call run_standardization_phase(shared_arena, prog_index)
+        write (*, '(A)') 'DEBUG after standardization'
 
         ! AST-BASED WRAPPING: Analyze and modify AST directly
         call analyze_ast_content(shared_arena%ast, prog_index, has_functions, &
                                  has_subroutines, has_main_code)
+        write (*, '(A,3L2)') 'DEBUG analyze result', has_functions, &
+            has_subroutines, has_main_code
 
         ! Check if there's already a module in the AST - if so, no wrapping needed
         if (has_existing_module_in_ast(shared_arena%ast)) then
             ! Don't wrap - preserve existing module structure
         else if ((has_functions .or. has_subroutines) .and. has_main_code) then
             call promote_functions_to_internal_program(shared_arena%ast, prog_index)
+            write (*, '(A)') 'DEBUG promote functions'
         else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
             call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
+            write (*, '(A)') 'DEBUG wrap module only'
         end if
         ! If only main code or nothing to wrap, leave AST as-is
 
         ! Generate code from (possibly wrapped) AST
         call run_code_generation_phase(shared_arena, prog_index, output)
+        write (*, '(A,I0)') 'DEBUG output length', len(output)
 
         ! Preserve leading comments
         if (has_leading_comment(source)) then
