@@ -9,6 +9,8 @@ module standardizer_subroutine
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: reset_declaration_node
     use standardizer_parameter, only: synchronize_parameter_declarations
+    use standardizer_function_param_scanner, only: &
+        analyze_subroutine_parameter_usage
     use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
     implicit none
     private
@@ -62,11 +64,17 @@ contains
         call init_param_metadata(metadata, n_params)
 
         call populate_subroutine_param_metadata(arena, sub_def, metadata)
+
         if (allocated(sub_def%body_indices)) then
+            call synchronize_parameter_declarations( &
+                arena, sub_def%body_indices, metadata, "", type_std_enabled)
+            call analyze_subroutine_parameter_usage(arena, sub_def, metadata)
             call infer_subroutine_parameter_intents(arena, sub_def%body_indices, &
                                                     metadata)
             call synchronize_parameter_declarations( &
                 arena, sub_def%body_indices, metadata, "", type_std_enabled)
+        else
+            call analyze_subroutine_parameter_usage(arena, sub_def, metadata)
         end if
 
         call add_missing_subroutine_parameter_declarations_ext( &
@@ -160,6 +168,7 @@ contains
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
                                             inferred_local)
+            call try_copy_dimension_from_peer(arena, metadata, i, decl)
             decl%intent = choose_subroutine_intent(metadata%intent(i))
             decl%has_intent = .true.
             decl%is_optional = metadata%optional(i)
@@ -171,6 +180,57 @@ contains
 
         call combine_existing_and_new_body_subroutine(sub_def, existing, &
                                                       new_indices, new_count)
+
+    contains
+
+        subroutine try_copy_dimension_from_peer(arena_l, metadata_l, target_idx, &
+                                                target_decl)
+            use ast_nodes_data, only: declaration_node
+            type(ast_arena_t), intent(in) :: arena_l
+            type(param_metadata_t), intent(in) :: metadata_l
+            integer, intent(in) :: target_idx
+            type(declaration_node), intent(inout) :: target_decl
+            integer :: peer_idx
+            integer :: decl_index
+
+            if (.not. target_decl%is_array) return
+            if (.not. allocated(target_decl%dimension_indices)) return
+            if (.not. all(target_decl%dimension_indices == 0)) return
+
+            do peer_idx = 1, size(metadata_l%names)
+                if (peer_idx == target_idx) cycle
+                if (metadata_l%found(peer_idx) <= 0) cycle
+                if (.not. metadata_l%is_array(peer_idx)) cycle
+                if (metadata_l%rank(peer_idx) /= metadata_l%rank(target_idx)) cycle
+
+                decl_index = metadata_l%found(peer_idx)
+                if (decl_index <= 0 .or. decl_index > arena_l%size) cycle
+                if (.not. allocated(arena_l%entries(decl_index)%node)) cycle
+
+                select type (peer_decl => arena_l%entries(decl_index)%node)
+                type is (declaration_node)
+                    if (.not. peer_decl%is_array) cycle
+                    if (.not. allocated(peer_decl%dimension_indices)) cycle
+                    if (all(peer_decl%dimension_indices == 0)) cycle
+                    call copy_dimension_indices(target_decl, &
+                                                peer_decl%dimension_indices)
+                    return
+                class default
+                end select
+            end do
+        end subroutine try_copy_dimension_from_peer
+
+        subroutine copy_dimension_indices(target_decl, source_dims)
+            use ast_nodes_data, only: declaration_node
+            type(declaration_node), intent(inout) :: target_decl
+            integer, intent(in) :: source_dims(:)
+
+            if (allocated(target_decl%dimension_indices)) then
+                deallocate (target_decl%dimension_indices)
+            end if
+            allocate (target_decl%dimension_indices(size(source_dims)))
+            target_decl%dimension_indices = source_dims
+        end subroutine copy_dimension_indices
     end subroutine add_missing_subroutine_parameter_declarations_ext
 
     subroutine set_subroutine_param_intents(sub_def, metadata)

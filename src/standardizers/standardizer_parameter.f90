@@ -1,5 +1,6 @@
 module standardizer_parameter
     use ast_arena_modern, only: ast_arena_t
+    use string_utils_mod, only: to_lower
     implicit none
     private
     ! Type standardization configuration (local copy)
@@ -295,11 +296,16 @@ contains
         type(param_metadata_t), intent(in) :: metadata
         character(len=*), intent(in) :: name
         integer :: k
+        character(len=64) :: normalized_target, normalized_candidate
 
         index = 0
         if (.not. allocated(metadata%names)) return
+
+        normalized_target = to_lower(trim(name))
+
         do k = 1, size(metadata%names)
-            if (trim(metadata%names(k)) == trim(name)) then
+            normalized_candidate = to_lower(trim(metadata%names(k)))
+            if (trim(normalized_candidate) == trim(normalized_target)) then
                 index = k
                 return
             end if
