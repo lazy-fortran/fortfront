@@ -1,6 +1,5 @@
 module identifier_table
     use iso_fortran_env, only: int32, int64
-    use loop_safety_constants, only: MAX_CAPACITY_DOUBLINGS, MAX_HASH_PROBE
     implicit none
     private
 
@@ -143,7 +142,6 @@ contains
         integer(int32), intent(in) :: required
         type(identifier_entry_t), allocatable :: new_entries(:)
         integer :: new_capacity
-        integer(int32) :: doubling_count
 
         if (required <= table%entry_capacity) return
 
@@ -153,11 +151,8 @@ contains
             new_capacity = table%entry_capacity
         end if
 
-        doubling_count = 0_int32
-        do while (required > new_capacity .and. &
-                  doubling_count < MAX_CAPACITY_DOUBLINGS)
+        do while (required > new_capacity)
             new_capacity = new_capacity * 2
-            doubling_count = doubling_count + 1_int32
         end do
 
         allocate (new_entries(new_capacity))
@@ -172,16 +167,12 @@ contains
         type(identifier_table_t), intent(inout) :: table
         integer(int32), intent(in) :: required_count
         integer :: desired
-        integer(int32) :: doubling_count
 
         desired = table%bucket_count
         if (desired <= 0) desired = 64
 
-        doubling_count = 0_int32
-        do while (required_count > desired * 3 / 4 .and. &
-                  doubling_count < MAX_CAPACITY_DOUBLINGS)
+        do while (required_count > desired * 3 / 4)
             desired = desired * 2
-            doubling_count = doubling_count + 1_int32
         end do
 
         if (desired /= table%bucket_count) then
@@ -237,16 +228,14 @@ contains
         integer(int32) :: id
         integer :: bucket
         integer(int32) :: current
-        integer(int32) :: probe_count
 
         id = 0_int32
         if (table%bucket_count <= 0_int32) return
 
         bucket = bucket_index(hash, table%bucket_count)
         current = table%buckets(bucket)
-        probe_count = 0_int32
 
-        do while (current > 0_int32 .and. probe_count < MAX_HASH_PROBE)
+        do while (current > 0_int32)
             if (table%entries(current)%hash == hash) then
                 if (table%entries(current)%value == key) then
                     id = current
@@ -254,7 +243,6 @@ contains
                 end if
             end if
             current = table%entries(current)%next
-            probe_count = probe_count + 1_int32
         end do
     end function lookup_entry
 

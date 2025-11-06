@@ -9,7 +9,6 @@ module codegen_core
                                   get_type_standardization
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
-    use loop_safety_constants, only: MAX_STRING_REPLACE_ITERATIONS
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
                               parameter_declaration_node, module_node, &
                               derived_type_node, block_data_node
@@ -400,7 +399,6 @@ contains
         character(len=:), allocatable :: out
         character(len=:), allocatable :: buffer
         integer :: start, pos, pat_len
-        integer :: iteration_count
 
         if (len(pattern) == 0) then
             out = text
@@ -410,16 +408,14 @@ contains
         buffer = ''
         start = 1
         pat_len = len(pattern)
-        iteration_count = 0
 
-        do while (iteration_count < MAX_STRING_REPLACE_ITERATIONS)
+        do
             pos = index(text(start:), pattern)
             if (pos == 0) exit
             pos = pos + start - 1
             if (pos > start) buffer = buffer // text(start:pos - 1)
             buffer = buffer // replacement
             start = pos + pat_len
-            iteration_count = iteration_count + 1
         end do
 
         if (start <= len(text)) buffer = buffer // text(start:)
