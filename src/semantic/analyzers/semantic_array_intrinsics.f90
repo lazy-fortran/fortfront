@@ -1,6 +1,7 @@
 module semantic_array_intrinsics
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
                                    TLOGICAL, TARRAY
+    use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node, &
                                literal_node
@@ -94,8 +95,8 @@ contains
         call lhs_type%sync_from_arena()
         call rhs_type%sync_from_arena()
 
-        call extract_rank_and_base(lhs_type, lhs_rank, lhs_base)
-        call extract_rank_and_base(rhs_type, rhs_rank, rhs_base)
+        call safe_extract_array_rank(lhs_type, lhs_rank, lhs_base)
+        call safe_extract_array_rank(rhs_type, rhs_rank, rhs_base)
 
         result_element = get_common_type(lhs_base, rhs_base)
         call result_element%sync_from_arena()
@@ -103,23 +104,6 @@ contains
         typ = build_matmul_result(result_element, lhs_rank, rhs_rank)
     end function handle_matmul_intrinsic
 
-    subroutine extract_rank_and_base(source_type, rank, base_type)
-        type(mono_type_t), intent(in) :: source_type
-        integer, intent(out) :: rank
-        type(mono_type_t), intent(out) :: base_type
-        type(mono_type_t) :: current
-
-        current = source_type
-        call current%sync_from_arena()
-        rank = 0
-        do while (current%kind == TARRAY .and. current%has_args())
-            rank = rank + 1
-            current = current%get_arg(1)
-            call current%sync_from_arena()
-        end do
-        base_type = current
-        call base_type%sync_from_arena()
-    end subroutine extract_rank_and_base
 
     function build_matmul_result(result_element, lhs_rank, rhs_rank) result(typ)
         type(mono_type_t), intent(in) :: result_element
@@ -194,7 +178,7 @@ contains
             if (size(call_node%arg_indices) >= 1) then
                 arg_type = get_type_fn(arena, call_node%arg_indices(1))
                 call arg_type%sync_from_arena()
-                call extract_rank_and_base(arg_type, arg_rank, element_type)
+                call safe_extract_array_rank(arg_type, arg_rank, element_type)
             end if
         end if
 
@@ -218,7 +202,7 @@ contains
             if (size(call_node%arg_indices) >= 1) then
                 arg_type = get_type_fn(arena, call_node%arg_indices(1))
                 call arg_type%sync_from_arena()
-                call extract_rank_and_base(arg_type, arg_rank, element_type)
+                call safe_extract_array_rank(arg_type, arg_rank, element_type)
             end if
         end if
 
@@ -374,13 +358,7 @@ contains
         if (num_args >= 1) then
             arg_type = get_type_fn(arena, call_node%arg_indices(1))
             call arg_type%sync_from_arena()
-            element_type = arg_type
-
-            do while (element_type%kind == TARRAY .and. &
-                      element_type%has_args())
-                element_type = element_type%get_arg(1)
-                call element_type%sync_from_arena()
-            end do
+            element_type = safe_peel_array_to_base(arg_type)
 
             if (element_type%kind > 0) element_kind = element_type%kind
         end if
