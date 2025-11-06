@@ -1,6 +1,7 @@
 module semantic_array_intrinsics
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
                                    TLOGICAL, TARRAY
+    use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node, array_literal_node, &
                                literal_node
@@ -94,8 +95,8 @@ contains
         call lhs_type%sync_from_arena()
         call rhs_type%sync_from_arena()
 
-        call extract_rank_and_base(lhs_type, lhs_rank, lhs_base)
-        call extract_rank_and_base(rhs_type, rhs_rank, rhs_base)
+        call safe_extract_array_rank(lhs_type, lhs_rank, lhs_base)
+        call safe_extract_array_rank(rhs_type, rhs_rank, rhs_base)
 
         result_element = get_common_type(lhs_base, rhs_base)
         call result_element%sync_from_arena()
@@ -220,7 +221,7 @@ contains
             if (size(call_node%arg_indices) >= 1) then
                 arg_type = get_type_fn(arena, call_node%arg_indices(1))
                 call arg_type%sync_from_arena()
-                call extract_rank_and_base(arg_type, arg_rank, element_type)
+                call safe_extract_array_rank(arg_type, arg_rank, element_type)
             end if
         end if
 
@@ -244,7 +245,7 @@ contains
             if (size(call_node%arg_indices) >= 1) then
                 arg_type = get_type_fn(arena, call_node%arg_indices(1))
                 call arg_type%sync_from_arena()
-                call extract_rank_and_base(arg_type, arg_rank, element_type)
+                call safe_extract_array_rank(arg_type, arg_rank, element_type)
             end if
         end if
 
@@ -400,36 +401,7 @@ contains
         if (num_args >= 1) then
             arg_type = get_type_fn(arena, call_node%arg_indices(1))
             call arg_type%sync_from_arena()
-            element_type = arg_type
-
-            ! Cycle detection for type traversal
-            block
-                integer :: visited_indices(100), visited_count, i
-                logical :: is_cycle
-
-                visited_count = 0
-                do while (element_type%kind == TARRAY .and. &
-                          element_type%has_args())
-                    ! Check for cycles
-                    is_cycle = .false.
-                    do i = 1, visited_count
-                        if (visited_indices(i) == element_type%handle%type_id) then
-                            is_cycle = .true.
-                            exit
-                        end if
-                    end do
-                    if (is_cycle) exit
-
-                    ! Track this type_id
-                    visited_count = visited_count + 1
-                    if (visited_count <= size(visited_indices)) then
-                        visited_indices(visited_count) = element_type%handle%type_id
-                    end if
-
-                    element_type = element_type%get_arg(1)
-                    call element_type%sync_from_arena()
-                end do
-            end block
+            element_type = safe_peel_array_to_base(arg_type)
 
             if (element_type%kind > 0) element_kind = element_type%kind
         end if

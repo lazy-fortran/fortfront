@@ -23,8 +23,8 @@ program test_issue_2165_undeclared_argument
         error stop 1
     end if
 
-    if (index(output_code, "double(uninitialized_var)") == 0) then
-        print *, "FAIL: Function call missing expected argument"
+    if (index(output_code, "print *, double(uninitialized_var)") == 0) then
+        print *, "FAIL: Print statement missing expected call"
         print *, output_code
         error stop 1
     end if

@@ -6,10 +6,20 @@ module codegen_program_variables
                               range_subscript_node
     use ast_nodes_misc, only: contains_node, use_statement_node, &
                               allocate_statement_node, interface_block_node, &
-                              module_procedure_node
+                              module_procedure_node, implicit_statement_node, &
+                              comment_node, blank_line_node, namelist_statement_node
     use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
+    use codegen_program_decl_utils, only: exists_in_list, &
+                                           build_function_return_type_table, &
+                                           program_decl_state_t, &
+                                           program_decl_max_vars, &
+                                           record_declared_name, &
+                                           record_namelist_group, &
+                                           record_use_associated_name, &
+                                           record_use_module_name, &
+                                           seed_namelist_groups_from_text
     use codegen_type_utils, only: get_type_standardization
     use codegen_type_inference_utils, only: canonicalize_type, &
                                             deduce_type_from_arguments, &
@@ -18,37 +28,19 @@ module codegen_program_variables
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t
+    use variable_usage_dispatcher_module, only: collect_identifiers_recursive
+    use variable_usage_core_module, only: variable_usage_info_t, &
+                                          create_variable_usage_info
     implicit none
     private
     public :: collect_program_variable_decls
 
-    integer, parameter :: program_decl_max_vars = 256
-
-    type :: program_decl_state_t
-        character(len=64) :: declared_names(program_decl_max_vars)
-        character(len=64) :: var_names(program_decl_max_vars)
-        character(len=64) :: var_types(program_decl_max_vars)
-        character(len=64) :: func_names(program_decl_max_vars)
-        character(len=64) :: func_types(program_decl_max_vars)
-        character(len=64) :: internal_funcs(program_decl_max_vars)
-        character(len=64) :: defined_func_names(program_decl_max_vars)
-        character(len=64) :: defined_func_types(program_decl_max_vars)
-        character(len=64) :: use_associated_names(program_decl_max_vars)
-        character(len=64) :: use_module_names(program_decl_max_vars)
-        integer :: declared_count
-        integer :: var_count
-        integer :: func_count
-        integer :: internal_count
-        integer :: defined_func_count
-        integer :: use_associated_count
-        integer :: use_module_count
-    end type program_decl_state_t
-
 contains
 
-    function collect_program_variable_decls(arena, prog) result(decl_code)
+    function collect_program_variable_decls(arena, prog, header_code) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
+        character(len=*), intent(in), optional :: header_code
         character(len=:), allocatable :: decl_code
         type(program_decl_state_t) :: state
 
@@ -56,12 +48,17 @@ contains
         if (.not. allocated(prog%body_indices)) return
 
         call initialize_program_decl_state(state)
+        if (present(header_code)) then
+            call seed_namelist_groups_from_text(state, header_code)
+        end if
         call populate_defined_function_table(arena, state)
         call collect_use_associated_symbols(arena, prog, state)
         call collect_local_module_exports(arena, prog, state)
         call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
+        call collect_namelist_groups(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
+        call collect_executable_identifier_symbols(arena, prog, state)
 
         if (state%var_count == 0 .and. state%func_count == 0) return
 
@@ -81,6 +78,7 @@ contains
         state%defined_func_types = ""
         state%use_associated_names = ""
         state%use_module_names = ""
+        state%namelist_group_names = ""
         state%declared_count = 0
         state%var_count = 0
         state%func_count = 0
@@ -88,6 +86,7 @@ contains
         state%defined_func_count = 0
         state%use_associated_count = 0
         state%use_module_count = 0
+        state%namelist_group_count = 0
     end subroutine initialize_program_decl_state
 
     subroutine populate_defined_function_table(arena, state)
@@ -283,34 +282,6 @@ contains
         end select
     end subroutine extract_procedure_names
 
-    subroutine record_use_associated_name(state, name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-        character(len=64) :: normalized_name
-
-        normalized_name = trim(to_lower(name))
-        if (len_trim(normalized_name) == 0) return
-        if (state%use_associated_count >= program_decl_max_vars) return
-        if (exists_in_list(state%use_associated_names, &
-                           state%use_associated_count, normalized_name)) return
-        state%use_associated_count = state%use_associated_count + 1
-        state%use_associated_names(state%use_associated_count) = normalized_name
-    end subroutine record_use_associated_name
-
-    subroutine record_use_module_name(state, module_name)
-        type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: module_name
-        character(len=64) :: normalized_name
-
-        normalized_name = trim(to_lower(module_name))
-        if (len_trim(normalized_name) == 0) return
-        if (state%use_module_count >= program_decl_max_vars) return
-        if (exists_in_list(state%use_module_names, &
-                           state%use_module_count, normalized_name)) return
-        state%use_module_count = state%use_module_count + 1
-        state%use_module_names(state%use_module_count) = normalized_name
-    end subroutine record_use_module_name
-
     logical function module_is_used(state, module_name)
         type(program_decl_state_t), intent(in) :: state
         character(len=*), intent(in) :: module_name
@@ -357,23 +328,32 @@ contains
                         call try_add_internal_function(state, trim(decl%name))
                     end if
                 end if
+            type is (namelist_statement_node)
+                if (contains_seen) cycle
+                if (allocated(decl%group_name)) then
+                    call record_namelist_group(state, decl%group_name)
+                end if
             end select
         end do
     end subroutine collect_declared_symbols
 
-    subroutine record_declared_name(state, name)
+    subroutine collect_namelist_groups(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
         type(program_decl_state_t), intent(inout) :: state
-        character(len=*), intent(in) :: name
-        character(len=64) :: normalized_name
+        integer :: i
 
-        normalized_name = trim(to_lower(name))
-        if (len_trim(normalized_name) == 0) return
-        if (state%declared_count >= program_decl_max_vars) return
-        if (exists_in_list(state%declared_names, state%declared_count, &
-                           normalized_name)) return
-        state%declared_count = state%declared_count + 1
-        state%declared_names(state%declared_count) = normalized_name
-    end subroutine record_declared_name
+        if (.not. allocated(arena%entries)) return
+
+        do i = 1, min(arena%size, size(arena%entries))
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (stmt => arena%entries(i)%node)
+            type is (namelist_statement_node)
+                if (.not. allocated(stmt%group_name)) cycle
+                call record_namelist_group(state, stmt%group_name)
+            end select
+        end do
+    end subroutine collect_namelist_groups
 
     subroutine try_add_internal_function(state, name)
         type(program_decl_state_t), intent(inout) :: state
@@ -452,6 +432,88 @@ contains
         end do
     end subroutine collect_assignment_symbols
 
+    subroutine collect_executable_identifier_symbols(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+        logical :: standardize_types_enabled
+
+        if (.not. allocated(prog%body_indices)) return
+
+        call get_type_standardization(standardize_types_enabled)
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+
+            select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                exit
+            type is (declaration_node)
+                cycle
+            type is (use_statement_node)
+                cycle
+            type is (implicit_statement_node)
+                cycle
+            type is (comment_node)
+                cycle
+            type is (blank_line_node)
+                cycle
+            type is (interface_block_node)
+                cycle
+            type is (module_node)
+                cycle
+            type is (module_procedure_node)
+                cycle
+            type is (function_def_node)
+                cycle
+            type is (subroutine_def_node)
+                cycle
+            type is (entry_node)
+                cycle
+            type is (allocate_statement_node)
+                cycle
+            type is (namelist_statement_node)
+                cycle
+            class default
+                call collect_identifiers_for_node(arena, idx, state, &
+                                                  standardize_types_enabled)
+            end select
+        end do
+    end subroutine collect_executable_identifier_symbols
+
+    subroutine collect_identifiers_for_node(arena, node_index, state, &
+                                            standardize_types_enabled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(program_decl_state_t), intent(inout) :: state
+        logical, intent(in) :: standardize_types_enabled
+        type(variable_usage_info_t) :: usage
+        integer :: i, ident_index
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        usage = create_variable_usage_info()
+        call collect_identifiers_recursive(arena, node_index, usage)
+
+        if (.not. allocated(usage%variable_names)) return
+
+        do i = 1, size(usage%variable_names)
+            ident_index = usage%node_indices(i)
+            if (ident_index <= 0 .or. ident_index > arena%size) cycle
+            if (.not. allocated(arena%entries(ident_index)%node)) cycle
+            select type (id => arena%entries(ident_index)%node)
+            type is (identifier_node)
+                call register_identifier_reference(state, trim(id%name), &
+                                                   id%inferred_type, &
+                                                   standardize_types_enabled)
+            end select
+        end do
+    end subroutine collect_identifiers_for_node
+
 
     subroutine process_assignment_target(arena, stmt, state)
         type(ast_arena_t), intent(in) :: arena
@@ -462,6 +524,7 @@ contains
         character(len=:), allocatable :: type_buf
         character(len=:), allocatable :: func_return_type
         logical :: standardize_types_enabled
+        character(len=:), allocatable :: normalized_target
 
         call get_type_standardization(standardize_types_enabled)
 
@@ -473,6 +536,11 @@ contains
         type is (identifier_node)
             name_buf = trim(id%name)
             if (len_trim(name_buf) == 0) return
+            normalized_target = to_lower(trim(name_buf))
+            if (len_trim(normalized_target) == 0) return
+            if (normalized_target == 'namelist') return
+            if (exists_in_list(state%namelist_group_names, &
+                               state%namelist_group_count, normalized_target)) return
             if (exists_in_list(state%declared_names, state%declared_count, &
                                name_buf)) return
             if (exists_in_list(state%var_names, state%var_count, name_buf)) return
@@ -636,9 +704,15 @@ contains
         type(mono_type_t), intent(in) :: inferred_type
         logical, intent(in) :: standardize_types_enabled
         character(len=:), allocatable :: type_buf
+        character(len=:), allocatable :: normalized_name
 
         if (len_trim(name) == 0) return
-        if (exists_in_list(state%declared_names, state%declared_count, name)) return
+        normalized_name = trim(to_lower(name))
+        if (normalized_name == 'namelist') return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           name)) return
         if (exists_in_list(state%var_names, state%var_count, name)) return
         if (exists_in_list(state%use_associated_names, &
                            state%use_associated_count, name)) return
@@ -764,6 +838,9 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%var_count >= program_decl_max_vars) return
         if (exists_in_list(state%var_names, state%var_count, normalized_name)) return
+        if (normalized_name == 'namelist') return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
 
         adjusted_type = trim(type_name)
         lowered = to_lower(adjusted_type)
@@ -871,56 +948,5 @@ contains
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
     end function emit_program_declarations
-
-    logical function exists_in_list(list, count, name)
-        character(len=*), intent(in) :: list(:)
-        integer, intent(in) :: count
-        character(len=*), intent(in) :: name
-        integer :: i
-        character(len=64) :: normalized_target
-        character(len=64) :: normalized_entry
-
-        exists_in_list = .false.
-        normalized_target = trim(to_lower(name))
-        do i = 1, count
-            normalized_entry = trim(to_lower(list(i)))
-            if (trim(normalized_entry) == trim(normalized_target)) then
-                exists_in_list = .true.
-                return
-            end if
-        end do
-    end function exists_in_list
-
-    subroutine build_function_return_type_table(arena, func_names, func_types, count)
-        type(ast_arena_t), intent(in) :: arena
-        character(len=*), intent(inout) :: func_names(:)
-        character(len=*), intent(inout) :: func_types(:)
-        integer, intent(out) :: count
-        integer :: i
-        character(len=64) :: func_name
-
-        count = 0
-        func_names = ""
-        func_types = ""
-
-        do i = 1, arena%size
-            if (count >= size(func_names)) exit
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (func => arena%entries(i)%node)
-            type is (function_def_node)
-                if (.not. allocated(func%name)) cycle
-                func_name = trim(func%name)
-                if (len_trim(func_name) == 0) cycle
-                if (exists_in_list(func_names, count, func_name)) cycle
-                count = count + 1
-                func_names(count) = trim(to_lower(func_name))
-                if (allocated(func%return_type)) then
-                    if (len_trim(func%return_type) > 0) then
-                        func_types(count) = trim(func%return_type)
-                    end if
-                end if
-            end select
-        end do
-    end subroutine build_function_return_type_table
 
 end module codegen_program_variables

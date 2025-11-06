@@ -4,6 +4,7 @@ module semantic_function_helpers
                                    TCOMPLEX, TFUN, TARRAY, TVAR, &
                                    type_args_allocated, type_args_size, &
                                    type_args_element
+    use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node
@@ -106,12 +107,7 @@ contains
         do i = 1, size(arg_types)
             block
                 type(mono_type_t) :: type_copy
-                type_copy = arg_types(i)
-                call type_copy%sync_from_arena()
-                do while (type_copy%kind == TARRAY .and. type_copy%has_args())
-                    type_copy = type_copy%get_arg(1)
-                    call type_copy%sync_from_arena()
-                end do
+                type_copy = safe_peel_array_to_base(arg_types(i))
                 current_kind = type_copy%kind
             end block
             if (current_kind <= 0) cycle

@@ -5,7 +5,8 @@ module standardizer_declarations_insertion
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_misc, only: blank_line_node, comment_node, &
                               implicit_statement_node, intrinsic_statement_node, &
-                              use_statement_node, allocate_statement_node
+                              use_statement_node, allocate_statement_node, &
+                              namelist_statement_node
     use ast_nodes_procedure, only: function_def_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
     use lexer_core, only: to_lower
@@ -258,6 +259,8 @@ contains
                     type is (declaration_node)
                         keep_scanning = (mode >= 2)
                     type is (parameter_declaration_node)
+                        keep_scanning = (mode >= 2)
+                    type is (namelist_statement_node)
                         keep_scanning = (mode >= 2)
                     class default
                         keep_scanning = .false.

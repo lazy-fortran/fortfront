@@ -31,7 +31,8 @@ module parser_dispatcher_module
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
     use parser_statement_data_module, only: parse_data_statement, &
-                                            get_data_additional_indices
+                                            get_data_additional_indices, &
+                                            parse_namelist_statement
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_control_flow_router_module, only: route_control_flow
     use ast_arena_modern, only: ast_arena_t
@@ -222,6 +223,8 @@ contains
                         call move_alloc(extra_indices, additional_indices)
                     end if
                 end block
+            case ("namelist")
+                stmt_index = parse_namelist_statement(parser, arena)
             case ("equivalence", "common")
                 stmt_index = parse_legacy_statement(lowered_keyword, parser, arena)
             case ("enum", "enumerator")

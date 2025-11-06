@@ -10,6 +10,7 @@ module codegen_procedure_shared
     use string_utils_mod, only: int_to_string
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, TARRAY
+    use type_array_safe, only: safe_extract_array_rank
     implicit none
     private
     public :: build_parameter_clause
@@ -435,19 +436,11 @@ contains
     function build_assumed_shape_dimensions(inferred_type) result(dim_clause)
         type(mono_type_t), intent(in) :: inferred_type
         character(len=:), allocatable :: dim_clause
-        type(mono_type_t) :: current_type
+        type(mono_type_t) :: base_type
         integer :: rank, j
 
         dim_clause = ""
-        rank = 0
-        current_type = inferred_type
-
-        do while (current_type%kind == TARRAY)
-            rank = rank + 1
-            if (.not. current_type%has_args() .or. &
-                current_type%get_args_count() < 1) exit
-            current_type = current_type%get_arg(1)
-        end do
+        call safe_extract_array_rank(inferred_type, rank, base_type)
 
         if (rank > 0) then
             dim_clause = "("

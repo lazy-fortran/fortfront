@@ -2,6 +2,7 @@ module semantic_binary_ops_core
     ! Binary operation type inference
     use type_system_unified, only: mono_type_t, create_mono_type, TCHAR, TREAL, &
                                    TARRAY, allocation_info_t
+    use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: binary_op_node
     use semantic_binary_operations, only: infer_string_concatenation, &
@@ -213,15 +214,9 @@ contains
 
     integer function array_rank(typ) result(rank)
         type(mono_type_t), intent(in) :: typ
-        type(mono_type_t) :: current
+        type(mono_type_t) :: base_type
 
-        rank = 0
-        current = typ
-        do while (current%kind == TARRAY)
-            rank = rank + 1
-            if (.not. current%has_args() .or. current%get_args_count() < 1) exit
-            current = current%get_arg(1)
-        end do
+        call safe_extract_array_rank(typ, rank, base_type)
     end function array_rank
 
     integer function shape_at(shape, idx) result(value)
@@ -253,14 +248,10 @@ contains
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: inner_typ
 
-        inner_typ = typ
-        do while (inner_typ%kind == TARRAY)
-            if (.not. inner_typ%has_args() .or. inner_typ%get_args_count() < 1) then
-                inner_typ%kind = 0
-                return
-            end if
-            inner_typ = inner_typ%get_arg(1)
-        end do
+        inner_typ = safe_peel_array_to_base(typ)
+        if (inner_typ%kind == TARRAY) then
+            inner_typ%kind = 0
+        end if
     end function peel_array_layer
 
     subroutine rewrite_operator(arena, node_index, new_operator)
