@@ -1,9 +1,11 @@
 module semantic_array_slice
-    use type_system_unified, only: mono_type_t, create_mono_type, TARRAY
+    use type_system_unified, only: mono_type_t, create_mono_type, TARRAY, TCHAR
     use type_array_safe, only: safe_extract_array_rank
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_bounds, only: array_slice_node, range_expression_node, &
                                 array_bounds_node
+    use ast_nodes_core, only: literal_node
+    use ast_base, only: LITERAL_INTEGER
     use semantic_function_helpers, only: get_type_lookup
     implicit none
     private
@@ -26,8 +28,17 @@ contains
         integer :: i
         integer :: bounds_idx
         logical :: is_range
+        integer :: substring_len
 
         source_type = get_type_fn(arena, slice_node%array_index)
+        if (source_type%kind == TCHAR) then
+            typ = source_type
+            substring_len = infer_character_substring_length(arena, slice_node, &
+                                                             source_type%size)
+            if (substring_len > 0) typ%size = substring_len
+            return
+        end if
+
         if (source_type%kind /= TARRAY) then
             typ = source_type
             return
@@ -82,5 +93,123 @@ contains
             deallocate (args)
         end do
     end function infer_array_slice_type
+
+    integer function infer_character_substring_length(arena, slice_node, &
+                                                      base_length) result(len)
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_slice_node), intent(in) :: slice_node
+        integer, intent(in) :: base_length
+        integer :: bounds_idx
+        integer :: start_expr_idx
+        integer :: end_expr_idx
+        integer :: start_value
+        integer :: end_value
+        logical :: has_start
+        logical :: has_end
+
+        len = -1
+        if (slice_node%num_dimensions <= 0) return
+
+        bounds_idx = slice_node%bounds_indices(1)
+        if (bounds_idx <= 0 .or. bounds_idx > arena%size) return
+        if (.not. allocated(arena%entries(bounds_idx)%node)) return
+
+        select type (bounds => arena%entries(bounds_idx)%node)
+        type is (range_expression_node)
+            start_expr_idx = bounds%start_index
+            end_expr_idx = bounds%end_index
+        type is (array_bounds_node)
+            start_expr_idx = bounds%lower_bound_index
+            end_expr_idx = bounds%upper_bound_index
+        class default
+            return
+        end select
+
+        if (start_expr_idx <= 0) then
+            start_value = 1
+            has_start = .true.
+        else
+            has_start = get_constant_integer_value(arena, start_expr_idx, &
+                                                   start_value)
+        end if
+
+        if (end_expr_idx <= 0) then
+            if (base_length > 0) then
+                end_value = base_length
+                has_end = .true.
+            else
+                has_end = .false.
+            end if
+        else
+            has_end = get_constant_integer_value(arena, end_expr_idx, end_value)
+        end if
+
+        if (.not. (has_start .and. has_end)) then
+            len = -1
+            return
+        end if
+
+        len = end_value - start_value + 1
+        if (len <= 0) len = -1
+    end function infer_character_substring_length
+
+    logical function get_constant_integer_value(arena, expr_index, value) &
+        result(found)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: expr_index
+        integer, intent(out) :: value
+
+        found = .false.
+        value = 0
+
+        if (expr_index <= 0) return
+        if (expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (literal_node)
+            if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) then
+                value = node%constant_integer
+                found = .true.
+                return
+            end if
+
+            if (allocated(node%value)) then
+                found = parse_literal_integer_value(node%value, value)
+            end if
+        class default
+            if (node%is_constant .and. node%constant_type == LITERAL_INTEGER) &
+                then
+                value = node%constant_integer
+                found = .true.
+            end if
+        end select
+    end function get_constant_integer_value
+
+    logical function parse_literal_integer_value(raw_text, number) result(success)
+        character(len=*), intent(in) :: raw_text
+        integer, intent(out) :: number
+        character(len=:), allocatable :: cleaned
+        integer :: underscore_pos
+        integer :: ios
+
+        success = .false.
+        number = 0
+
+        cleaned = trim(adjustl(raw_text))
+        underscore_pos = index(cleaned, '_')
+        if (underscore_pos > 0) then
+            if (underscore_pos == 1) then
+                cleaned = ''
+            else
+                cleaned = cleaned(1:underscore_pos - 1)
+            end if
+        end if
+
+        if (len(cleaned) == 0) return
+
+        read (cleaned, *, iostat=ios) number
+        success = ios == 0
+    end function parse_literal_integer_value
 
 end module semantic_array_slice
