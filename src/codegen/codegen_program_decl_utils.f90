@@ -6,6 +6,34 @@ module codegen_program_decl_utils
     implicit none
     private
     public :: exists_in_list, build_function_return_type_table
+    public :: program_decl_state_t, program_decl_max_vars
+    public :: record_declared_name, record_namelist_group
+    public :: record_use_associated_name, record_use_module_name
+    public :: seed_namelist_groups_from_text
+
+    integer, parameter :: program_decl_max_vars = 256
+
+    type :: program_decl_state_t
+        character(len=64) :: declared_names(program_decl_max_vars)
+        character(len=64) :: var_names(program_decl_max_vars)
+        character(len=64) :: var_types(program_decl_max_vars)
+        character(len=64) :: func_names(program_decl_max_vars)
+        character(len=64) :: func_types(program_decl_max_vars)
+        character(len=64) :: internal_funcs(program_decl_max_vars)
+        character(len=64) :: defined_func_names(program_decl_max_vars)
+        character(len=64) :: defined_func_types(program_decl_max_vars)
+        character(len=64) :: use_associated_names(program_decl_max_vars)
+        character(len=64) :: use_module_names(program_decl_max_vars)
+        character(len=64) :: namelist_group_names(program_decl_max_vars)
+        integer :: declared_count
+        integer :: var_count
+        integer :: func_count
+        integer :: internal_count
+        integer :: defined_func_count
+        integer :: use_associated_count
+        integer :: use_module_count
+        integer :: namelist_group_count
+    end type program_decl_state_t
 
 contains
 
@@ -60,5 +88,137 @@ contains
             end select
         end do
     end subroutine build_function_return_type_table
+
+    subroutine record_declared_name(state, name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+        character(len=64) :: normalized_name
+
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
+        if (state%declared_count >= program_decl_max_vars) return
+        if (exists_in_list(state%declared_names, state%declared_count, &
+                           normalized_name)) return
+        state%declared_count = state%declared_count + 1
+        state%declared_names(state%declared_count) = normalized_name
+    end subroutine record_declared_name
+
+    subroutine record_namelist_group(state, group_name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: group_name
+        character(len=64) :: normalized_name
+
+        normalized_name = trim(to_lower(group_name))
+        if (len_trim(normalized_name) == 0) return
+        if (state%namelist_group_count >= program_decl_max_vars) return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
+        state%namelist_group_count = state%namelist_group_count + 1
+        state%namelist_group_names(state%namelist_group_count) = &
+            normalized_name
+    end subroutine record_namelist_group
+
+    subroutine record_use_associated_name(state, name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+        character(len=64) :: normalized_name
+
+        normalized_name = trim(to_lower(name))
+        if (len_trim(normalized_name) == 0) return
+        if (state%use_associated_count >= program_decl_max_vars) return
+        if (exists_in_list(state%use_associated_names, &
+                           state%use_associated_count, normalized_name)) return
+        state%use_associated_count = state%use_associated_count + 1
+        state%use_associated_names(state%use_associated_count) = normalized_name
+    end subroutine record_use_associated_name
+
+    subroutine record_use_module_name(state, module_name)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: module_name
+        character(len=64) :: normalized_name
+
+        normalized_name = trim(to_lower(module_name))
+        if (len_trim(normalized_name) == 0) return
+        if (state%use_module_count >= program_decl_max_vars) return
+        if (exists_in_list(state%use_module_names, &
+                           state%use_module_count, normalized_name)) return
+        state%use_module_count = state%use_module_count + 1
+        state%use_module_names(state%use_module_count) = normalized_name
+    end subroutine record_use_module_name
+
+    subroutine seed_namelist_groups_from_text(state, header_code)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: header_code
+        integer :: start_pos, newline_pos, code_len
+        character(len=:), allocatable :: line
+
+        if (len(header_code) == 0) return
+        code_len = len(header_code)
+        start_pos = 1
+
+        do
+            newline_pos = index(header_code(start_pos:), new_line('A'))
+            if (newline_pos == 0) then
+                line = header_code(start_pos:)
+                call analyze_namelist_line(state, line)
+                exit
+            else
+                line = header_code(start_pos:start_pos + newline_pos - 2)
+                call analyze_namelist_line(state, line)
+                start_pos = start_pos + newline_pos
+                if (start_pos > code_len) exit
+            end if
+        end do
+    contains
+        subroutine analyze_namelist_line(state, raw_line)
+            type(program_decl_state_t), intent(inout) :: state
+            character(len=*), intent(in) :: raw_line
+            character(len=:), allocatable :: trimmed
+            character(len=:), allocatable :: lowered
+            character(len=:), allocatable :: group_name
+            integer :: comment_pos, slash_start, slash_end
+            integer :: label_pos
+            character(len=1) :: ch
+
+            trimmed = adjustl(raw_line)
+            if (len_trim(trimmed) == 0) return
+
+            comment_pos = index(trimmed, '!')
+            if (comment_pos == 1) return
+            if (comment_pos > 1) then
+                trimmed = trimmed(:comment_pos - 1)
+            end if
+            trimmed = adjustl(trimmed)
+            if (len_trim(trimmed) == 0) return
+
+            label_pos = 1
+            do while (label_pos <= len_trim(trimmed))
+                ch = trimmed(label_pos:label_pos)
+                if (ch < '0' .or. ch > '9') exit
+                label_pos = label_pos + 1
+            end do
+            if (label_pos > 1) then
+                trimmed = adjustl(trimmed(label_pos:))
+            end if
+            if (len_trim(trimmed) == 0) return
+
+            lowered = to_lower(trimmed)
+            if (index(lowered, 'namelist') /= 1) return
+
+            slash_start = index(trimmed, '/')
+            if (slash_start <= 0) return
+            slash_end = index(trimmed(slash_start + 1:), '/')
+            if (slash_end <= 0) return
+            slash_end = slash_start + slash_end
+            if (slash_end <= slash_start + 1) return
+
+            group_name = trimmed(slash_start + 1:slash_end - 1)
+            group_name = adjustl(group_name)
+            group_name = trim(group_name)
+            if (len_trim(group_name) == 0) return
+
+            call record_namelist_group(state, group_name)
+        end subroutine analyze_namelist_line
+    end subroutine seed_namelist_groups_from_text
 
 end module codegen_program_decl_utils
