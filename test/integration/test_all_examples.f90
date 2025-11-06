@@ -30,6 +30,9 @@ program test_all_examples
     integer :: num_diagnostic_examples
     character(len=:), allocatable :: fortfront_exe
     character(len=:), allocatable :: temp_dir
+    character(len=:), allocatable :: example_timeout_launcher
+    logical :: timeout_requires_command_string = .false.
+    logical :: timeout_string_needs_quotes = .false.
     real(dp) :: success_rate
 
     test_count = 0
@@ -41,6 +44,7 @@ program test_all_examples
 
     is_windows = check_if_windows()
     call verify_shell_helpers(is_windows)
+    call initialize_example_timeout_launcher(is_windows)
 
     ! Create temp directory for test outputs
     call create_temp_directory(temp_dir, is_windows)
@@ -320,8 +324,8 @@ contains
         character(len=*), intent(in) :: output_file, error_file
         logical, intent(in) :: is_windows, is_f90_roundtrip
         logical, intent(out) :: has_error, has_unparsed, has_warning
-        character(len=2048) :: command
         character(len=:), allocatable :: input_arg, exe_arg, output_arg, error_arg
+        character(len=:), allocatable :: raw_command, timed_command
         integer :: exit_code
 
         input_arg = quote_for_shell(filepath, is_windows, &
@@ -341,15 +345,12 @@ contains
             return
         end if
 
-        if (is_windows) then
-            command = 'cmd /C "' // trim(exe_arg) // ' ' // trim(input_arg) // &
-                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg) // '"'
-        else
-            command = trim(exe_arg) // ' ' // trim(input_arg) // &
-                      ' > ' // trim(output_arg) // ' 2> ' // trim(error_arg)
-        end if
+        raw_command = trim(exe_arg) // ' ' // trim(input_arg) // ' > ' // &
+                      trim(output_arg) // ' 2> ' // trim(error_arg)
 
-        call execute_command_line(trim(command), exitstat=exit_code)
+        timed_command = build_timed_command(raw_command)
+
+        call execute_command_line(trim(timed_command), exitstat=exit_code)
 
         has_error = (exit_code /= 0)
         has_unparsed = .false.
@@ -576,5 +577,66 @@ contains
         call execute_command_line(trim(command), exitstat=exit_code)
         compile_f90_example = (exit_code == 0)
     end function compile_f90_example
+
+    subroutine initialize_example_timeout_launcher(is_windows)
+        logical, intent(in) :: is_windows
+        logical :: exists
+        integer :: ec
+        character(len=:), allocatable :: launcher
+
+        if (is_windows) then
+            inquire (file='scripts\with_timeout.ps1', exist=exists)
+            if (.not. exists) then
+                print *, 'ERROR: scripts\with_timeout.ps1 is required for example timeouts on Windows'
+                stop 1
+            end if
+            launcher = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\with_timeout.ps1'
+            example_timeout_launcher = trim(launcher)
+            timeout_requires_command_string = .true.
+            timeout_string_needs_quotes = .false.
+        else
+            inquire (file='scripts/with_timeout.sh', exist=exists)
+            if (exists) then
+                launcher = quote_for_shell('scripts/with_timeout.sh', .false.)
+                example_timeout_launcher = trim(launcher)
+                timeout_requires_command_string = .false.
+                return
+            end if
+            call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=ec)
+            if (ec == 0) then
+                example_timeout_launcher = 'timeout'
+                timeout_requires_command_string = .false.
+                return
+            end if
+            print *, 'ERROR: Unable to enforce example timeouts (provide scripts/with_timeout.sh or install timeout command)'
+            stop 1
+        end if
+    end subroutine initialize_example_timeout_launcher
+
+    function build_timed_command(raw_command) result(full_command)
+        character(len=*), intent(in) :: raw_command
+        character(len=:), allocatable :: full_command
+        character(len=:), allocatable :: quoted_cmd
+
+        if (.not. allocated(example_timeout_launcher)) then
+            print *, 'ERROR: Example timeout launcher not initialized'
+            stop 1
+        end if
+
+        if (timeout_requires_command_string) then
+            if (timeout_string_needs_quotes) then
+                quoted_cmd = quote_for_shell(trim(raw_command), .true., &
+                                             escape_for_cmd=.true.)
+                full_command = trim(example_timeout_launcher) // ' 1 ' // &
+                               trim(quoted_cmd)
+            else
+                full_command = trim(example_timeout_launcher) // ' 1 ' // &
+                               trim(raw_command)
+            end if
+        else
+            full_command = trim(example_timeout_launcher) // ' 1 ' // &
+                           trim(raw_command)
+        end if
+    end function build_timed_command
 
 end program test_all_examples

@@ -1,5 +1,7 @@
 program test_issue_177_line_length_fix
     ! Test for issue #177: Line length enforcement with continuations
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                             iostat_eor
     use fortfront, only: transform_lazy_fortran_string_with_format, &
                          format_options_t
     implicit none
@@ -20,9 +22,11 @@ program test_issue_177_line_length_fix
 contains
 
     subroutine test_line_breaking()
-        character(len=*), parameter :: long_assignment = &
-                                       "result = very_long_variable_name_one + very_long_var_two"
-        integer :: continuation_count, ampersand_pos
+        character(len=:), allocatable :: long_assignment
+        integer :: continuation_count, search_start, rel_pos
+
+        call read_example('examples/lf/issue_0177_line_length_long_assignment.lf', &
+                          long_assignment)
 
         options%line_length = 50  ! Force breaking
 
@@ -37,12 +41,14 @@ contains
 
         ! Count continuation characters
         continuation_count = 0
-        ampersand_pos = 1
+        search_start = 1
         do
-            ampersand_pos = index(output(ampersand_pos:), " &")
-            if (ampersand_pos == 0) exit
+            if (search_start > len(output)) exit
+            rel_pos = index(output(search_start:), " &")
+            if (rel_pos == 0) exit
             continuation_count = continuation_count + 1
-            ampersand_pos = ampersand_pos + 2
+            search_start = search_start + rel_pos + 1
+            ! Skip past the found continuation marker
         end do
 
         if (continuation_count == 0) then
@@ -61,7 +67,10 @@ contains
     end subroutine test_line_breaking
 
     subroutine test_no_breaking()
-        character(len=*), parameter :: short_assignment = "x = y + z"
+        character(len=:), allocatable :: short_assignment
+
+        call read_example('examples/lf/issue_0177_line_length_short_assignment.lf', &
+                          short_assignment)
 
         options%line_length = 80  ! Should not break
 
@@ -83,5 +92,19 @@ contains
 
         print *, "PASS: Short line preserved without continuation"
     end subroutine test_no_breaking
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_177_line_length_fix

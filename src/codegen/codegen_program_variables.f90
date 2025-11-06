@@ -1,12 +1,14 @@
 module codegen_program_variables
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
-                              identifier_node, program_node
+                              identifier_node, program_node, binary_op_node, &
+                              array_literal_node, component_access_node, &
+                              range_subscript_node
     use ast_nodes_misc, only: contains_node, use_statement_node, &
                               allocate_statement_node, interface_block_node, &
                               module_procedure_node
     use ast_nodes_data, only: declaration_node, module_node
-    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use codegen_type_utils, only: get_type_standardization
     use codegen_type_inference_utils, only: canonicalize_type, &
@@ -450,6 +452,7 @@ contains
         end do
     end subroutine collect_assignment_symbols
 
+
     subroutine process_assignment_target(arena, stmt, state)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
@@ -560,7 +563,93 @@ contains
             if (len_trim(type_buf) == 0) type_buf = 'real'
             call try_add_function_reference(state, name_buf, trim(type_buf))
         end select
+
+        call collect_expr_identifiers(arena, value_idx, state, &
+                                      standardize_types_enabled)
     end subroutine process_assignment_value
+
+    recursive subroutine collect_expr_identifiers(arena, expr_index, state, &
+                                                  standardize_types_enabled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        type(program_decl_state_t), intent(inout) :: state
+        logical, intent(in) :: standardize_types_enabled
+        integer :: i
+
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (expr => arena%entries(expr_index)%node)
+        type is (identifier_node)
+            if (.not. allocated(expr%name)) return
+            call register_identifier_reference(state, trim(expr%name), &
+                                               expr%inferred_type, &
+                                               standardize_types_enabled)
+        type is (binary_op_node)
+            call collect_expr_identifiers(arena, expr%left_index, state, &
+                                          standardize_types_enabled)
+            call collect_expr_identifiers(arena, expr%right_index, state, &
+                                          standardize_types_enabled)
+        type is (call_or_subscript_node)
+            if (expr%base_expr_index > 0) then
+                call collect_expr_identifiers(arena, expr%base_expr_index, state, &
+                                              standardize_types_enabled)
+            end if
+            if (allocated(expr%arg_indices)) then
+                do i = 1, size(expr%arg_indices)
+                    call collect_expr_identifiers(arena, expr%arg_indices(i), &
+                                                  state, standardize_types_enabled)
+                end do
+            end if
+        type is (array_literal_node)
+            if (allocated(expr%element_indices)) then
+                do i = 1, size(expr%element_indices)
+                    call collect_expr_identifiers(arena, expr%element_indices(i), &
+                                                  state, standardize_types_enabled)
+                end do
+            end if
+        type is (component_access_node)
+            if (expr%base_expr_index > 0) then
+                call collect_expr_identifiers(arena, expr%base_expr_index, state, &
+                                              standardize_types_enabled)
+            end if
+        type is (range_subscript_node)
+            if (expr%base_expr_index > 0) then
+                call collect_expr_identifiers(arena, expr%base_expr_index, state, &
+                                              standardize_types_enabled)
+            end if
+            if (expr%start_index > 0) then
+                call collect_expr_identifiers(arena, expr%start_index, state, &
+                                              standardize_types_enabled)
+            end if
+            if (expr%end_index > 0) then
+                call collect_expr_identifiers(arena, expr%end_index, state, &
+                                              standardize_types_enabled)
+            end if
+        end select
+    end subroutine collect_expr_identifiers
+
+    subroutine register_identifier_reference(state, name, inferred_type, &
+                                             standardize_types_enabled)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+        type(mono_type_t), intent(in) :: inferred_type
+        logical, intent(in) :: standardize_types_enabled
+        character(len=:), allocatable :: type_buf
+
+        if (len_trim(name) == 0) return
+        if (exists_in_list(state%declared_names, state%declared_count, name)) return
+        if (exists_in_list(state%var_names, state%var_count, name)) return
+        if (exists_in_list(state%use_associated_names, &
+                           state%use_associated_count, name)) return
+
+        type_buf = mono_type_to_string(inferred_type, &
+                                       include_shape=.true., &
+                                       standardize_real=standardize_types_enabled, &
+                                       fallback='')
+        if (len_trim(type_buf) == 0) type_buf = 'real'
+        call try_add_variable(state, name, trim(type_buf))
+    end subroutine register_identifier_reference
 
     subroutine process_allocate_variables(arena, stmt, state)
         type(ast_arena_t), intent(in) :: arena
