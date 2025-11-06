@@ -59,7 +59,8 @@ contains
         end if
 
         extra_decl_code = ""
-        extra_decls = collect_program_variable_decls(arena, node)
+        extra_decls = collect_program_variable_decls(arena, node, &
+                                                     declaration_statements_code)
         if (len_trim(extra_decls) > 0) then
             code = code // extra_decls
         end if

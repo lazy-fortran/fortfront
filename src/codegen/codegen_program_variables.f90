@@ -54,9 +54,10 @@ module codegen_program_variables
 
 contains
 
-    function collect_program_variable_decls(arena, prog) result(decl_code)
+    function collect_program_variable_decls(arena, prog, header_code) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
+        character(len=*), intent(in), optional :: header_code
         character(len=:), allocatable :: decl_code
         type(program_decl_state_t) :: state
 
@@ -64,6 +65,9 @@ contains
         if (.not. allocated(prog%body_indices)) return
 
         call initialize_program_decl_state(state)
+        if (present(header_code)) then
+            call seed_namelist_groups_from_text(state, header_code)
+        end if
         call populate_defined_function_table(arena, state)
         call collect_use_associated_symbols(arena, prog, state)
         call collect_local_module_exports(arena, prog, state)
@@ -385,11 +389,9 @@ contains
         integer :: i
 
         if (.not. allocated(arena%entries)) return
-        write (*,*) 'DEBUG scanning arena, size=', arena%size
 
         do i = 1, min(arena%size, size(arena%entries))
             if (.not. allocated(arena%entries(i)%node)) cycle
-            write (*,*) 'DEBUG node type', trim(arena%entries(i)%node_type)
             select type (stmt => arena%entries(i)%node)
             type is (namelist_statement_node)
                 if (.not. allocated(stmt%group_name)) cycle
@@ -425,8 +427,82 @@ contains
         state%namelist_group_count = state%namelist_group_count + 1
         state%namelist_group_names(state%namelist_group_count) = &
             normalized_name
-        write (*,*) 'DEBUG recorded namelist group', normalized_name
     end subroutine record_namelist_group
+
+    subroutine seed_namelist_groups_from_text(state, header_code)
+        type(program_decl_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: header_code
+        integer :: start_pos, newline_pos, code_len
+        character(len=:), allocatable :: line
+
+        if (len(header_code) == 0) return
+        code_len = len(header_code)
+        start_pos = 1
+
+        do
+            newline_pos = index(header_code(start_pos:), new_line('A'))
+            if (newline_pos == 0) then
+                line = header_code(start_pos:)
+                call analyze_namelist_line(state, line)
+                exit
+            else
+                line = header_code(start_pos:start_pos + newline_pos - 2)
+                call analyze_namelist_line(state, line)
+                start_pos = start_pos + newline_pos - 1
+                if (start_pos > code_len) exit
+            end if
+        end do
+    contains
+        subroutine analyze_namelist_line(state, raw_line)
+            type(program_decl_state_t), intent(inout) :: state
+            character(len=*), intent(in) :: raw_line
+            character(len=:), allocatable :: trimmed
+            character(len=:), allocatable :: lowered
+            character(len=:), allocatable :: group_name
+            integer :: comment_pos, slash_start, slash_end
+            integer :: label_pos
+            character(len=1) :: ch
+
+            trimmed = adjustl(raw_line)
+            if (len_trim(trimmed) == 0) return
+
+            comment_pos = index(trimmed, '!')
+            if (comment_pos == 1) return
+            if (comment_pos > 1) then
+                trimmed = trimmed(:comment_pos - 1)
+            end if
+            trimmed = adjustl(trimmed)
+            if (len_trim(trimmed) == 0) return
+
+            label_pos = 1
+            do while (label_pos <= len_trim(trimmed))
+                ch = trimmed(label_pos:label_pos)
+                if (ch < '0' .or. ch > '9') exit
+                label_pos = label_pos + 1
+            end do
+            if (label_pos > 1) then
+                trimmed = adjustl(trimmed(label_pos:))
+            end if
+            if (len_trim(trimmed) == 0) return
+
+            lowered = to_lower(trimmed)
+            if (index(lowered, 'namelist') /= 1) return
+
+            slash_start = index(trimmed, '/')
+            if (slash_start <= 0) return
+            slash_end = index(trimmed(slash_start + 1:), '/')
+            if (slash_end <= 0) return
+            slash_end = slash_start + slash_end
+            if (slash_end <= slash_start + 1) return
+
+            group_name = trimmed(slash_start + 1:slash_end - 1)
+            group_name = adjustl(group_name)
+            group_name = trim(group_name)
+            if (len_trim(group_name) == 0) return
+
+            call record_namelist_group(state, group_name)
+        end subroutine analyze_namelist_line
+    end subroutine seed_namelist_groups_from_text
 
     subroutine try_add_internal_function(state, name)
         type(program_decl_state_t), intent(inout) :: state
@@ -597,6 +673,7 @@ contains
         character(len=:), allocatable :: type_buf
         character(len=:), allocatable :: func_return_type
         logical :: standardize_types_enabled
+        character(len=:), allocatable :: normalized_target
 
         call get_type_standardization(standardize_types_enabled)
 
@@ -608,6 +685,11 @@ contains
         type is (identifier_node)
             name_buf = trim(id%name)
             if (len_trim(name_buf) == 0) return
+            normalized_target = to_lower(trim(name_buf))
+            if (len_trim(normalized_target) == 0) return
+            if (normalized_target == 'namelist') return
+            if (exists_in_list(state%namelist_group_names, &
+                               state%namelist_group_count, normalized_target)) return
             if (exists_in_list(state%declared_names, state%declared_count, &
                                name_buf)) return
             if (exists_in_list(state%var_names, state%var_count, name_buf)) return
@@ -905,6 +987,9 @@ contains
         if (len_trim(normalized_name) == 0) return
         if (state%var_count >= program_decl_max_vars) return
         if (exists_in_list(state%var_names, state%var_count, normalized_name)) return
+        if (normalized_name == 'namelist') return
+        if (exists_in_list(state%namelist_group_names, &
+                           state%namelist_group_count, normalized_name)) return
 
         adjusted_type = trim(type_name)
         lowered = to_lower(adjusted_type)
