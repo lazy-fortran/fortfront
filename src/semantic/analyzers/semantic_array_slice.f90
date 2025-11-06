@@ -1,5 +1,6 @@
 module semantic_array_slice
     use type_system_unified, only: mono_type_t, create_mono_type, TARRAY
+    use type_array_safe, only: safe_extract_array_rank
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_bounds, only: array_slice_node, range_expression_node, &
                                 array_bounds_node
@@ -17,7 +18,6 @@ contains
         procedure(get_type_lookup) :: get_type_fn
         type(mono_type_t) :: typ
         type(mono_type_t) :: source_type
-        type(mono_type_t) :: walker_type
         type(mono_type_t) :: base_type
         type(mono_type_t), allocatable :: args(:)
         logical, allocatable :: keep_dim(:)
@@ -33,14 +33,7 @@ contains
             return
         end if
 
-        walker_type = source_type
-        max_dims = 0
-        do while (walker_type%kind == TARRAY .and. walker_type%has_args())
-            if (walker_type%get_args_count() <= 0) exit
-            max_dims = max_dims + 1
-            walker_type = walker_type%get_arg(1)
-        end do
-        base_type = walker_type
+        call safe_extract_array_rank(source_type, max_dims, base_type)
 
         if (max_dims <= 0) then
             typ = source_type

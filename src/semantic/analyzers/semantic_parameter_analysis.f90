@@ -3,6 +3,7 @@ module semantic_parameter_analysis
                                    create_mono_type, create_type_var, &
                                    create_poly_type, TVAR, TREAL, TDOUBLE, &
                                    TINT, TCHAR
+    use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use semantic_type_operations, only: get_common_type
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node, &
@@ -106,24 +107,11 @@ contains
     end function merge_array_types
 
     subroutine extract_rank_and_base_type(array_type, rank, base_type)
-        use type_system_unified, only: TARRAY, type_args_allocated, &
-                                        type_args_size, type_args_element
         type(mono_type_t), intent(in) :: array_type
         integer, intent(out) :: rank
         type(mono_type_t), intent(out) :: base_type
-        type(mono_type_t) :: current
 
-        rank = 0
-        base_type = array_type
-        current = array_type
-
-        do while (current%kind == TARRAY)
-            rank = rank + 1
-            if (.not. type_args_allocated(current)) exit
-            if (type_args_size(current) < 1) exit
-            base_type = type_args_element(current, 1)
-            current = base_type
-        end do
+        call safe_extract_array_rank(array_type, rank, base_type)
     end subroutine extract_rank_and_base_type
 
     subroutine fetch_parameter_metadata(arena, param_index, param_name, param_type)
@@ -753,21 +741,10 @@ contains
     end function node_within_scope
 
     function extract_array_base_type(array_type) result(base_type)
-        use type_system_unified, only: TARRAY, type_args_allocated, &
-                                        type_args_size, type_args_element
         type(mono_type_t), intent(in) :: array_type
         type(mono_type_t) :: base_type
-        type(mono_type_t) :: current
 
-        base_type = array_type
-        current = array_type
-
-        do while (current%kind == TARRAY)
-            if (.not. type_args_allocated(current)) exit
-            if (type_args_size(current) < 1) exit
-            base_type = type_args_element(current, 1)
-            current = base_type
-        end do
+        base_type = safe_peel_array_to_base(array_type)
     end function extract_array_base_type
 
     subroutine refine_parameters_from_body_usage(arena, func_node, param_types, &

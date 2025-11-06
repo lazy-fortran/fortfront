@@ -3,7 +3,7 @@ module codegen_program_header
     use ast_nodes_core, only: program_node, literal_node
     use ast_nodes_misc, only: comment_node, blank_line_node, implicit_statement_node, &
                               use_statement_node, intrinsic_statement_node, &
-                              interface_block_node
+                              interface_block_node, namelist_statement_node
     use ast_nodes_data, only: derived_type_node, declaration_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_declarations_inference, only: collect_program_variable_decls
@@ -59,7 +59,11 @@ contains
         end if
 
         extra_decl_code = ""
-        extra_decls = collect_program_variable_decls(arena, node)
+        ! Pass both declaration and legacy storage code (includes namelist) so that
+        ! namelist groups can be identified before variable declarations are generated
+        extra_decls = collect_program_variable_decls(arena, node, &
+                                                     declaration_statements_code // &
+                                                     legacy_storage_code)
         if (len_trim(extra_decls) > 0) then
             code = code // extra_decls
         end if
@@ -242,6 +246,9 @@ contains
         type is (interface_block_node)
             call process_interface_block(arena, body_index, interface_blocks_code)
             is_header = .true.
+        type is (namelist_statement_node)
+            call process_namelist_statement(arena, body_index, legacy_storage_code)
+            is_header = .true.
         type is (literal_node)
             is_header = process_literal_node(ib, has_implicit, &
                                              implicit_statements_code)
@@ -388,6 +395,18 @@ contains
                                     indent_lines(stmt_code, 1) // new_line('A')
         end if
     end subroutine process_interface_block
+
+    subroutine process_namelist_statement(arena, body_index, legacy_storage_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
+        character(len=:), allocatable :: stmt_code
+
+        stmt_code = generate_code_from_arena(arena, body_index)
+        if (len_trim(stmt_code) > 0) then
+            legacy_storage_code = legacy_storage_code // "    " // stmt_code // new_line('A')
+        end if
+    end subroutine process_namelist_statement
 
     logical function process_literal_node(ib, has_implicit, implicit_statements_code) &
         result(is_header)

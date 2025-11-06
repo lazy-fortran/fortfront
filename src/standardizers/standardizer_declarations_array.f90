@@ -6,6 +6,7 @@ module standardizer_declarations_array
     use ast_base, only: LITERAL_INTEGER
     use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t, TARRAY
+    use type_array_safe, only: safe_extract_array_rank
     use uid_generator, only: generate_uid
     implicit none
     private
@@ -226,17 +227,9 @@ contains
     function count_array_dimensions(inferred_type) result(ndims)
         type(mono_type_t), intent(in) :: inferred_type
         integer :: ndims
-        type(mono_type_t) :: current_type
+        type(mono_type_t) :: base_type
 
-        current_type = inferred_type
-        ndims = 0
-
-        do while (current_type%kind == TARRAY)
-            ndims = ndims + 1
-            if (.not. current_type%has_args() .or. &
-                current_type%get_args_count() < 1) exit
-            current_type = current_type%get_arg(1)
-        end do
+        call safe_extract_array_rank(inferred_type, ndims, base_type)
 
         if (ndims > 1) then
             ndims = 2
@@ -267,13 +260,12 @@ contains
             end if
         else
             current_type = inferred_type
-            dim_idx = 1
-            do while (current_type%kind == TARRAY .and. dim_idx <= ndims)
+            do dim_idx = 1, ndims
+                if (current_type%kind /= TARRAY) exit
                 dim_sizes(dim_idx) = current_type%size
                 if (.not. current_type%has_args() .or. &
                     current_type%get_args_count() < 1) exit
                 current_type = current_type%get_arg(1)
-                dim_idx = dim_idx + 1
             end do
         end if
     end subroutine extract_dimension_sizes

@@ -2,5 +2,4 @@ function double(x)
     double = x * 2
 end function
 
-result = double(uninitialized_var)
-print *, "Result:", result
+print *, double(uninitialized_var)

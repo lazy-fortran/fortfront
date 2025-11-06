@@ -86,7 +86,6 @@ contains
                                            module_count, module_names, &
                                            program_indices, &
                                            program_count)
-
         if (module_count == 0) then
             root_prog%body_indices = preserved_indices(1:preserved_count)
             return
@@ -98,7 +97,6 @@ contains
                                          module_indices, module_count, module_names, &
                                          program_indices, &
                                          program_count)
-
     end subroutine transform_monomorphization
 
     ! Handle root node that is not a program node
