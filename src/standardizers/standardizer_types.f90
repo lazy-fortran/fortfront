@@ -831,7 +831,7 @@ contains
         integer :: inner_size
 
         if (size(node%element_indices) == 0) then
-            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+            var_type = trim(elem_type_str) // ", dimension(0)"
             return
         end if
 

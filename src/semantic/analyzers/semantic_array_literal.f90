@@ -138,10 +138,16 @@ contains
 
         array_type = create_mono_type(TARRAY, args=args)
         array_type%size = 0
-        array_type%alloc_info%is_allocatable = .true.
-        array_type%alloc_info%needs_allocation_check = .true.
         array_type%alloc_info%is_pointer = .false.
         array_type%alloc_info%needs_allocatable_string = .false.
+
+        if (explicit_type%kind > 0) then
+            array_type%alloc_info%is_allocatable = .false.
+            array_type%alloc_info%needs_allocation_check = .false.
+        else
+            array_type%alloc_info%is_allocatable = .true.
+            array_type%alloc_info%needs_allocation_check = .true.
+        end if
     end function build_empty_array_type
 
     function build_explicit_array_type(explicit_type, element_count) &
