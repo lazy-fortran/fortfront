@@ -11,6 +11,9 @@ program test_multi_param_intent
     character(len=:), allocatable :: result
     character(len=:), allocatable :: error_msg
     logical :: test_passed
+    logical :: has_real_inputs
+    logical :: has_flag_param
+    logical :: has_output_buffer
 
     print *, "=== Testing Multi-Parameter Declarations with Intent ==="
 
@@ -55,12 +58,18 @@ program test_multi_param_intent
 
     call transform_lazy_fortran_string(source_code, result, error_msg)
 
-    test_passed = (index(result, "real(8) :: x, y") > 0 .or. &
-                   index(result, "real :: x, y") > 0) .and. &
-                  (index(result, "logical, intent(in) :: flag") > 0 .or. &
-                   index(result, "logical :: flag") > 0) .and. &
-                  (index(result, "real(8), intent(out) :: output") > 0 .or. &
-                   index(result, "real, intent(out) :: output") > 0)
+    has_real_inputs = index(result, "real(8), intent(in) :: x, y") > 0 .or. &
+                      index(result, "real, intent(in) :: x, y") > 0 .or. &
+                      index(result, "real(8) :: x, y") > 0 .or. &
+                      index(result, "real :: x, y") > 0
+
+    has_flag_param = index(result, "logical, intent(in) :: flag") > 0 .or. &
+                     index(result, "logical :: flag") > 0
+
+    has_output_buffer = index(result, "real(8), intent(out) :: output") > 0 .or. &
+                        index(result, "real, intent(out) :: output") > 0
+
+    test_passed = has_real_inputs .and. has_flag_param .and. has_output_buffer
 
     if (test_passed) then
         print *, "  PASS: Mixed parameter declarations with different intents"

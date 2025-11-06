@@ -34,6 +34,8 @@ contains
         integer :: j
         character(len=:), allocatable :: type_name
         logical :: append_kind
+        character(len=:), allocatable :: dimension_suffix
+        logical :: has_dimensions
 
         allocate (is_param(size(node%var_names)))
         found_params = .false.
@@ -70,11 +72,15 @@ contains
         call add_intent_optional_target(node, param_map, first_param_idx, &
                                         preserve_intent, code)
 
+        dimension_suffix = build_inline_dimension_suffix(arena, node)
+        has_dimensions = len(dimension_suffix) > 0
+
         code = code // " :: "
         do j = 1, size(node%var_names)
             if (.not. is_param(j)) cycle
             if (j > 1) code = code // ", "
             code = code // trim(node%var_names(j))
+            if (has_dimensions) code = code // dimension_suffix
         end do
         code = code // new_line('A')
 
@@ -92,13 +98,15 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         character(len=:), allocatable :: param_intent
 
-        if (preserve_intent) then
-            if (node%has_intent) then
-                code = code // ", intent(" // node%intent // ")"
-            else if (allocated(param_map(first_param_idx)%intent_str)) then
-                param_intent = trim(param_map(first_param_idx)%intent_str)
-                if (len_trim(param_intent) > 0) then
-                    code = code // ", intent(" // param_intent // ")"
+        if (node%has_intent) then
+            code = code // ", intent(" // node%intent // ")"
+        else if (preserve_intent) then
+            if (first_param_idx > 0) then
+                if (allocated(param_map(first_param_idx)%intent_str)) then
+                    param_intent = trim(param_map(first_param_idx)%intent_str)
+                    if (len_trim(param_intent) > 0) then
+                        code = code // ", intent(" // param_intent // ")"
+                    end if
                 end if
             end if
         end if
@@ -123,17 +131,22 @@ contains
         character(len=:), allocatable :: nonparam_list
         character(len=:), allocatable :: local_type
         character(len=:), allocatable :: kind_text
+        character(len=:), allocatable :: dimension_suffix
         logical :: have_nonparam
         logical :: local_append_kind
         logical :: type_is_character
+        logical :: has_dimensions
         integer :: j
 
         nonparam_list = ""
+        dimension_suffix = build_inline_dimension_suffix(arena, node)
+        has_dimensions = len(dimension_suffix) > 0
         have_nonparam = .false.
         do j = 1, size(node%var_names)
             if (.not. is_param(j)) then
                 if (have_nonparam) nonparam_list = nonparam_list // ", "
                 nonparam_list = nonparam_list // trim(node%var_names(j))
+                if (has_dimensions) nonparam_list = nonparam_list // dimension_suffix
                 have_nonparam = .true.
             end if
         end do
@@ -168,9 +181,9 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         integer :: param_idx
         character(len=:), allocatable :: type_name
-        character(len=:), allocatable :: stmt_code
         logical :: append_kind_single
-        integer :: j
+        character(len=:), allocatable :: dimension_suffix
+        logical :: has_dimensions
 
         param_idx = find_parameter_info(param_map, node%var_name)
         if (param_idx <= 0) return
@@ -204,27 +217,10 @@ contains
             code = code // ", target"
         end if
         if (node%is_pointer) code = code // ", pointer"
+        dimension_suffix = build_inline_dimension_suffix(arena, node)
+        has_dimensions = len(dimension_suffix) > 0
         code = code // " :: " // trim(node%var_name)
-        if (allocated(node%dimension_indices)) then
-            if (size(node%dimension_indices) > 0) then
-                code = code // "("
-                do j = 1, size(node%dimension_indices)
-                    if (j > 1) code = code // ", "
-                    if (node%dimension_indices(j) <= 0) then
-                        code = code // ":"
-                    else
-                        stmt_code = generate_code_from_arena(arena, &
-                                                             node%dimension_indices(j))
-                        if (len_trim(stmt_code) == 0) then
-                            code = code // ":"
-                        else
-                            code = code // stmt_code
-                        end if
-                    end if
-                end do
-                code = code // ")"
-            end if
-        end if
+        if (has_dimensions) code = code // dimension_suffix
         code = code // new_line('A')
     end subroutine process_single_decl_param
 
@@ -236,7 +232,6 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         integer :: param_idx
         character(len=:), allocatable :: type_name
-        character(len=:), allocatable :: stmt_code
         logical :: append_kind_param
         integer :: j
 
@@ -274,6 +269,37 @@ contains
         end if
         code = code // new_line('A')
     end subroutine process_param_decl_node
+
+    function build_inline_dimension_suffix(arena, node) result(suffix)
+        type(ast_arena_t), intent(in) :: arena
+        type(declaration_node), intent(in) :: node
+        character(len=:), allocatable :: suffix
+        character(len=:), allocatable :: dim_code
+        integer :: j
+        integer :: dim_index
+
+        suffix = ""
+        if (.not. node%is_array) return
+        if (.not. allocated(node%dimension_indices)) return
+        if (size(node%dimension_indices) == 0) return
+
+        suffix = "("
+        do j = 1, size(node%dimension_indices)
+            if (j > 1) suffix = suffix // ", "
+            dim_index = node%dimension_indices(j)
+            if (dim_index <= 0) then
+                suffix = suffix // ":"
+            else
+                dim_code = generate_code_from_arena(arena, dim_index)
+                if (len_trim(dim_code) == 0) then
+                    suffix = suffix // ":"
+                else
+                    suffix = suffix // dim_code
+                end if
+            end if
+        end do
+        suffix = suffix // ")"
+    end function build_inline_dimension_suffix
 
     function should_skip_result_decl(node, result_var_name, &
                                      has_return_type_in_signature, &

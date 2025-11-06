@@ -3,12 +3,13 @@ module standardizer_function_param_scanner
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node
     use ast_nodes_core, only: call_or_subscript_node, component_access_node, &
                               identifier_node
-    use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_parameter, only: metadata_find_param, node_exists, &
                                       param_metadata_t
     implicit none
     private
     public :: analyze_parameter_usage
+    public :: analyze_subroutine_parameter_usage
 contains
 
     subroutine analyze_parameter_usage(arena, func_def, metadata)
@@ -22,6 +23,18 @@ contains
             call scan_node(arena, func_def%body_indices(body_idx), metadata)
         end do
     end subroutine analyze_parameter_usage
+
+    subroutine analyze_subroutine_parameter_usage(arena, sub_def, metadata)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        type(param_metadata_t), intent(inout) :: metadata
+        integer :: body_idx
+
+        if (.not. allocated(sub_def%body_indices)) return
+        do body_idx = 1, size(sub_def%body_indices)
+            call scan_node(arena, sub_def%body_indices(body_idx), metadata)
+        end do
+    end subroutine analyze_subroutine_parameter_usage
 
     recursive subroutine scan_node(arena, node_index, metadata)
         use ast_nodes_core, only: assignment_node, binary_op_node
@@ -58,9 +71,22 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: node
         type(param_metadata_t), intent(inout) :: metadata
+        integer, allocatable :: target_params(:)
+        integer, allocatable :: value_params(:)
+        logical :: target_has_array
 
         call scan_optional_child(arena, node%target_index, metadata)
         call scan_optional_child(arena, node%value_index, metadata)
+
+        call collect_param_indices(arena, node%target_index, metadata, &
+                                   target_params)
+        call collect_param_indices(arena, node%value_index, metadata, &
+                                   value_params)
+
+        target_has_array = has_array_parameter(metadata, target_params)
+        if (target_has_array) then
+            call mark_params_as_array(metadata, value_params)
+        end if
     end subroutine scan_assignment_children
 
     subroutine scan_binary_children(arena, node, metadata)
@@ -256,5 +282,111 @@ contains
         allocate (indices(count_children))
         indices = arena%entries(node_index)%child_indices(1:count_children)
     end function get_child_list
+
+    subroutine collect_param_indices(arena, node_index, metadata, params)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(param_metadata_t), intent(in) :: metadata
+        integer, allocatable, intent(out) :: params(:)
+
+        allocate (params(0))
+        call collect_recursive(node_index)
+
+    contains
+
+        recursive subroutine collect_recursive(current_index)
+            use ast_nodes_core, only: identifier_node, call_or_subscript_node
+            use ast_nodes_core, only: binary_op_node
+            integer, intent(in) :: current_index
+            integer :: param_idx
+            integer :: j
+            integer, allocatable :: children(:)
+
+            if (.not. node_exists(arena, current_index)) return
+
+            select type (node => arena%entries(current_index)%node)
+            type is (identifier_node)
+                if (allocated(node%name)) then
+                    param_idx = metadata_find_param(metadata, trim(node%name))
+                    if (param_idx > 0) call append_param(param_idx)
+                end if
+            type is (call_or_subscript_node)
+                if (allocated(node%name)) then
+                    param_idx = metadata_find_param(metadata, trim(node%name))
+                    if (param_idx > 0) call append_param(param_idx)
+                end if
+                if (node%base_expr_index > 0) call collect_recursive( &
+                    node%base_expr_index)
+                if (allocated(node%arg_indices)) then
+                    do j = 1, size(node%arg_indices)
+                        call collect_recursive(node%arg_indices(j))
+                    end do
+                end if
+            type is (binary_op_node)
+                if (node%left_index > 0) call collect_recursive(node%left_index)
+                if (node%right_index > 0) call collect_recursive(node%right_index)
+            class default
+                children = get_child_list(arena, current_index)
+                if (allocated(children)) then
+                    do j = 1, size(children)
+                        call collect_recursive(children(j))
+                    end do
+                end if
+            end select
+        end subroutine collect_recursive
+
+        subroutine append_param(param_idx)
+            integer, intent(in) :: param_idx
+            if (param_idx <= 0) return
+            if (any(params == param_idx)) return
+            call append_value(params, param_idx)
+        end subroutine append_param
+
+        subroutine append_value(values, new_value)
+            integer, allocatable, intent(inout) :: values(:)
+            integer, intent(in) :: new_value
+            integer, allocatable :: tmp(:)
+            integer :: current_size
+
+            current_size = size(values)
+            allocate (tmp(current_size + 1))
+            if (current_size > 0) tmp(1:current_size) = values
+            tmp(current_size + 1) = new_value
+            call move_alloc(tmp, values)
+        end subroutine append_value
+    end subroutine collect_param_indices
+
+    logical function has_array_parameter(metadata, param_indices)
+        type(param_metadata_t), intent(in) :: metadata
+        integer, intent(in) :: param_indices(:)
+        integer :: i, idx
+
+        has_array_parameter = .false.
+        do i = 1, size(param_indices)
+            idx = param_indices(i)
+            if (idx <= 0) cycle
+            if (metadata%is_array(idx)) then
+                has_array_parameter = .true.
+                return
+            end if
+            if (metadata%rank(idx) > 0) then
+                has_array_parameter = .true.
+                return
+            end if
+        end do
+    end function has_array_parameter
+
+    subroutine mark_params_as_array(metadata, param_indices)
+        type(param_metadata_t), intent(inout) :: metadata
+        integer, intent(in) :: param_indices(:)
+        integer :: i, idx
+
+        do i = 1, size(param_indices)
+            idx = param_indices(i)
+            if (idx <= 0) cycle
+            metadata%is_array(idx) = .true.
+            if (metadata%rank(idx) <= 0) metadata%rank(idx) = 1
+        end do
+    end subroutine mark_params_as_array
 
 end module standardizer_function_param_scanner
