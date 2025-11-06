@@ -546,6 +546,13 @@ contains
                     end select
                 end if
             end if
+
+            if (assign%value_index > 0) then
+                call collect_statement_vars(arena, assign%value_index, &
+                                            var_names, var_types, &
+                                            var_declared, var_count, &
+                                            function_names, func_count)
+            end if
         end select
     end subroutine collect_assignment_vars
 

@@ -47,4 +47,5 @@ lf/issue_1814_nested_lazy_function.lf
 lf/issue_2012_subroutine_local_not_inferred.lf
 lf/issue_2016_nested_call_type_mismatch.lf
 lf/issue_2019_statements_after_if_dropped.lf
+lf/issue_2165_variable_undeclared_argument.lf
 lf/issue_652_multi_var_allocatable.lf
