@@ -154,11 +154,30 @@ contains
         integer :: name_idx
         integer :: param_idx
         logical :: matched
+        logical :: has_reference_intent
+        logical :: conflict_detected
+        character(len=16) :: reference_intent
+        character(len=16) :: current_intent
 
         matched = .false.
+        has_reference_intent = .false.
+        conflict_detected = .false.
+        reference_intent = ""
+
         do name_idx = 1, size(stmt%var_names)
             param_idx = metadata_find_param(metadata, stmt%var_names(name_idx))
             if (param_idx <= 0) cycle
+
+            current_intent = trim(metadata%intent(param_idx))
+            if (len_trim(current_intent) > 0) then
+                if (.not. has_reference_intent) then
+                    has_reference_intent = .true.
+                    reference_intent = current_intent
+                else if (trim(current_intent) /= trim(reference_intent)) then
+                    conflict_detected = .true.
+                end if
+            end if
+
             call sync_process_single_declaration(stmt, decl_index, param_idx, &
                                                  metadata, &
                                                  default_intent, stmt_intent)
@@ -167,7 +186,14 @@ contains
 
         if (.not. matched) return
         call apply_type_standardization_to_stmt(stmt, standardize_types)
-        call sync_finalize_intent(stmt, stmt_intent, default_intent)
+
+        if (conflict_detected) then
+            stmt_intent = ""
+            if (allocated(stmt%intent)) deallocate (stmt%intent)
+            stmt%has_intent = .false.
+        else
+            call sync_finalize_intent(stmt, stmt_intent, default_intent)
+        end if
     end subroutine sync_handle_multi_declaration
 
     subroutine sync_process_single_declaration(stmt, decl_index, param_idx, &
