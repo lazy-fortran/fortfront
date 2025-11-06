@@ -6,7 +6,8 @@ module codegen_program_variables
                               range_subscript_node
     use ast_nodes_misc, only: contains_node, use_statement_node, &
                               allocate_statement_node, interface_block_node, &
-                              module_procedure_node
+                              module_procedure_node, implicit_statement_node, &
+                              comment_node, blank_line_node
     use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
@@ -18,6 +19,9 @@ module codegen_program_variables
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t
+    use variable_usage_dispatcher_module, only: collect_identifiers_recursive
+    use variable_usage_core_module, only: variable_usage_info_t, &
+                                          create_variable_usage_info
     implicit none
     private
     public :: collect_program_variable_decls
@@ -62,6 +66,7 @@ contains
         call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
+        call collect_executable_identifier_symbols(arena, prog, state)
 
         if (state%var_count == 0 .and. state%func_count == 0) return
 
@@ -451,6 +456,86 @@ contains
             end select
         end do
     end subroutine collect_assignment_symbols
+
+    subroutine collect_executable_identifier_symbols(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+        logical :: standardize_types_enabled
+
+        if (.not. allocated(prog%body_indices)) return
+
+        call get_type_standardization(standardize_types_enabled)
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+
+            select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                exit
+            type is (declaration_node)
+                cycle
+            type is (use_statement_node)
+                cycle
+            type is (implicit_statement_node)
+                cycle
+            type is (comment_node)
+                cycle
+            type is (blank_line_node)
+                cycle
+            type is (interface_block_node)
+                cycle
+            type is (module_node)
+                cycle
+            type is (module_procedure_node)
+                cycle
+            type is (function_def_node)
+                cycle
+            type is (subroutine_def_node)
+                cycle
+            type is (entry_node)
+                cycle
+            type is (allocate_statement_node)
+                cycle
+            class default
+                call collect_identifiers_for_node(arena, idx, state, &
+                                                  standardize_types_enabled)
+            end select
+        end do
+    end subroutine collect_executable_identifier_symbols
+
+    subroutine collect_identifiers_for_node(arena, node_index, state, &
+                                            standardize_types_enabled)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(program_decl_state_t), intent(inout) :: state
+        logical, intent(in) :: standardize_types_enabled
+        type(variable_usage_info_t) :: usage
+        integer :: i, ident_index
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        usage = create_variable_usage_info()
+        call collect_identifiers_recursive(arena, node_index, usage)
+
+        if (.not. allocated(usage%variable_names)) return
+
+        do i = 1, size(usage%variable_names)
+            ident_index = usage%node_indices(i)
+            if (ident_index <= 0 .or. ident_index > arena%size) cycle
+            if (.not. allocated(arena%entries(ident_index)%node)) cycle
+            select type (id => arena%entries(ident_index)%node)
+            type is (identifier_node)
+                call register_identifier_reference(state, trim(id%name), &
+                                                   id%inferred_type, &
+                                                   standardize_types_enabled)
+            end select
+        end do
+    end subroutine collect_identifiers_for_node
 
 
     subroutine process_assignment_target(arena, stmt, state)
