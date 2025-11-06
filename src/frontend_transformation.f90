@@ -12,6 +12,7 @@ module frontend_transformation
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
+    use type_system_unified, only: reset_type_system
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization, &
                             mark_pointer_targets
@@ -112,6 +113,11 @@ contains
         else
             call shared_arena%reset()
         end if
+
+        ! Reset type system arena to prevent type accumulation across transformations
+        ! CRITICAL: This prevents circular type references and slowdowns when running
+        ! multiple transformations in sequence (e.g., during test suite execution)
+        call reset_type_system()
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(source)) then

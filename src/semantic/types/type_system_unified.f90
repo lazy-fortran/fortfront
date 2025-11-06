@@ -128,6 +128,7 @@ module type_system_unified
     ! Public API functions (compatibility with legacy system)
     public :: create_type_var, create_mono_type, create_poly_type, create_fun_type
     public :: compose_substitutions, occurs_check, free_type_vars
+    public :: reset_type_system
 
     ! Compatibility wrapper functions for type_checker
     public :: type_has_args, type_get_arg, type_get_args_count
@@ -144,6 +145,16 @@ contains
             arena_initialized = .true.
         end if
     end subroutine ensure_arena_initialized
+
+    ! Reset type system arena to prevent accumulation across transformations
+    ! CRITICAL: Must be called at the start of each transformation to prevent
+    ! type IDs from accumulating and causing circular references or slowdowns
+    subroutine reset_type_system()
+        if (arena_initialized) then
+            call destroy_type_arena(global_arena)
+            global_arena = create_type_arena(65536)
+        end if
+    end subroutine reset_type_system
 
     ! Create type variable (compatibility function)
     function create_type_var(id, name) result(tv)

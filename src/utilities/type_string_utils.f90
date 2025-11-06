@@ -202,15 +202,56 @@ contains
     recursive subroutine collect_array_dimensions(mono_type, dim_spec)
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable, intent(inout) :: dim_spec
+        integer :: visited_ids(100)
+        integer :: visited_count
+        integer :: depth
+
+        visited_count = 0
+        depth = 0
+        call collect_array_dimensions_impl(mono_type, dim_spec, &
+                                          visited_ids, visited_count, depth)
+    end subroutine collect_array_dimensions
+
+    recursive subroutine collect_array_dimensions_impl(mono_type, dim_spec, &
+                                                       visited_ids, visited_count, depth)
+        type(mono_type_t), intent(in) :: mono_type
+        character(len=:), allocatable, intent(inout) :: dim_spec
+        integer, intent(inout) :: visited_ids(100)
+        integer, intent(inout) :: visited_count
+        integer, intent(inout) :: depth
         character(len=32) :: size_buffer
         type(mono_type_t) :: inner_element
+        integer :: i
+        logical :: is_cycle
+        integer, parameter :: MAX_DEPTH = 50
 
         if (mono_type%kind /= TARRAY) return
+
+        ! Limit recursion depth
+        depth = depth + 1
+        if (depth > MAX_DEPTH) return
+
+        ! Check for cycles
+        is_cycle = .false.
+        do i = 1, visited_count
+            if (visited_ids(i) == mono_type%handle%type_id) then
+                is_cycle = .true.
+                exit
+            end if
+        end do
+        if (is_cycle) return
+
+        ! Track this type_id
+        visited_count = visited_count + 1
+        if (visited_count <= size(visited_ids)) then
+            visited_ids(visited_count) = mono_type%handle%type_id
+        end if
 
         if (type_args_allocated(mono_type) .and. type_args_size(mono_type) > 0) then
             inner_element = type_args_element(mono_type, 1)
             if (inner_element%kind == TARRAY) then
-                call collect_array_dimensions(inner_element, dim_spec)
+                call collect_array_dimensions_impl(inner_element, dim_spec, &
+                                                  visited_ids, visited_count, depth)
             end if
         end if
 
@@ -234,6 +275,6 @@ contains
                 dim_spec = ":" // "," // trim(dim_spec)
             end if
         end if
-    end subroutine collect_array_dimensions
+    end subroutine collect_array_dimensions_impl
 
 end module type_string_utils
