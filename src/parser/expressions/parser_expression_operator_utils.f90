@@ -66,7 +66,7 @@ contains
         case (".and.")
             entry%symbol = token%text
             entry%precedence = PREC_LOGICAL_AND
-        case ("=", "==", "/=", "<=", ">=", "<", ">")
+        case ("==", "/=", "<=", ">=", "<", ">")
             entry%symbol = token%text
             entry%precedence = PREC_COMPARISON
         case ("//")
