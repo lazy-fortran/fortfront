@@ -569,6 +569,9 @@ contains
                         type_buf = func_return_type
                     else if (curr_lower == 'real' .and. func_lower /= 'real') then
                         type_buf = func_return_type
+                    else if (curr_lower == 'logical' .and. func_lower /= &
+                             'logical') then
+                        type_buf = func_return_type
                     end if
                 end block
             end if
@@ -623,6 +626,9 @@ contains
                              'integer') then
                         type_buf = func_return_type
                     else if (curr_lower == 'real' .and. func_lower /= 'real') then
+                        type_buf = func_return_type
+                    else if (curr_lower == 'logical' .and. func_lower /= &
+                             'logical') then
                         type_buf = func_return_type
                     end if
                 end block
