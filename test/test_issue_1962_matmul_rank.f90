@@ -21,7 +21,7 @@ program test_issue_1962_matmul_rank
 
     lowered_output = to_lower(output_code)
 
-    if (index(lowered_output, 'real, allocatable :: c(:,:)') == 0) then
+    if (.not. has_rank_two_declaration(lowered_output)) then
         write (error_unit, '(A)') 'FAIL: matmul result not inferred as rank-2 array'
         write (error_unit, '(A)') trim(output_code)
         error stop 1
@@ -42,6 +42,25 @@ program test_issue_1962_matmul_rank
     print *, 'PASS: matmul result inferred as rank-2 array'
 
 contains
+
+    logical function has_rank_two_declaration(text) result(has_rank_two)
+        character(len=*), intent(in) :: text
+        integer :: decl_pos
+        integer :: close_pos
+        integer :: relative_close
+
+        has_rank_two = index(text, ':: c(:,:)') > 0
+        if (has_rank_two) return
+
+        decl_pos = index(text, ':: c(')
+        if (decl_pos <= 0) return
+
+        relative_close = index(text(decl_pos:), ')')
+        if (relative_close <= 0) return
+
+        close_pos = decl_pos + relative_close - 1
+        if (index(text(decl_pos:close_pos), ',') > 0) has_rank_two = .true.
+    end function has_rank_two_declaration
 
     include 'common/cli_io_reader.inc'
 

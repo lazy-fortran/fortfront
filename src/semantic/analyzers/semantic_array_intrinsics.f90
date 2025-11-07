@@ -3,14 +3,15 @@ module semantic_array_intrinsics
                                    TLOGICAL, TARRAY
     use type_array_safe, only: safe_extract_array_rank, safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: call_or_subscript_node, array_literal_node, &
-                               literal_node
+    use ast_nodes_core, only: call_or_subscript_node, array_literal_node
     use string_utils_mod, only: to_lower
     use semantic_array_type_builders, only: build_deferred_shape_array, &
                                             build_fixed_shape_array
     use semantic_type_operations, only: get_common_type
     use semantic_function_helpers, only: get_type_lookup, &
                                          gather_call_argument_types
+    use semantic_constant_values, only: get_constant_integer_value
+    use constant_transformation, only: fold_constants_in_arena
     implicit none
     private
 
@@ -79,6 +80,11 @@ contains
         integer :: lhs_rank
         integer :: rhs_rank
         integer :: i
+        integer, allocatable :: lhs_dims(:)
+        integer, allocatable :: rhs_dims(:)
+        integer, allocatable :: fixed_dims(:)
+        logical :: lhs_dims_known
+        logical :: rhs_dims_known
 
         if (num_args < 2) then
             typ = build_deferred_shape_array(create_mono_type(TREAL), 1)
@@ -101,6 +107,45 @@ contains
         result_element = get_common_type(lhs_base, rhs_base)
         call result_element%sync_from_arena()
 
+        call collect_array_dimensions(lhs_type, lhs_dims, lhs_dims_known)
+        call collect_array_dimensions(rhs_type, rhs_dims, rhs_dims_known)
+
+        if (lhs_rank == 2 .and. rhs_rank == 2 .and. lhs_dims_known .and. &
+            rhs_dims_known) then
+            if (size(lhs_dims) >= 2 .and. size(rhs_dims) >= 2) then
+                allocate (fixed_dims(2))
+                fixed_dims(1) = lhs_dims(1)
+                fixed_dims(2) = rhs_dims(2)
+                typ = build_fixed_shape_array(result_element, fixed_dims)
+                call typ%sync_from_arena()
+                call cleanup_matmul_dims(lhs_dims, rhs_dims, fixed_dims)
+                return
+            end if
+        end if
+
+        if (lhs_rank == 2 .and. rhs_rank == 1 .and. lhs_dims_known) then
+            if (size(lhs_dims) >= 1) then
+                allocate (fixed_dims(1))
+                fixed_dims(1) = lhs_dims(1)
+                typ = build_fixed_shape_array(result_element, fixed_dims)
+                call typ%sync_from_arena()
+                call cleanup_matmul_dims(lhs_dims, rhs_dims, fixed_dims)
+                return
+            end if
+        end if
+
+        if (lhs_rank == 1 .and. rhs_rank == 2 .and. rhs_dims_known) then
+            if (size(rhs_dims) >= 2) then
+                allocate (fixed_dims(1))
+                fixed_dims(1) = rhs_dims(2)
+                typ = build_fixed_shape_array(result_element, fixed_dims)
+                call typ%sync_from_arena()
+                call cleanup_matmul_dims(lhs_dims, rhs_dims, fixed_dims)
+                return
+            end if
+        end if
+
+        call cleanup_matmul_dims(lhs_dims, rhs_dims, fixed_dims)
         typ = build_matmul_result(result_element, lhs_rank, rhs_rank)
     end function handle_matmul_intrinsic
 
@@ -175,6 +220,8 @@ contains
         integer :: ndims
         integer, allocatable :: dimension_sizes(:)
         logical :: has_literal_dimensions
+
+        call fold_constants_in_arena(arena)
 
         element_type = create_mono_type(TREAL)
         ndims = 0
@@ -284,7 +331,7 @@ contains
 
     subroutine extract_reshape_dimensions(arena, shape_idx, ndims, &
                                           dimension_sizes, has_literals)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: shape_idx
         integer, intent(out) :: ndims
         integer, allocatable, intent(out) :: dimension_sizes(:)
@@ -304,7 +351,7 @@ contains
 
     subroutine populate_literal_dimensions(arena, shape_node, ndims, &
                                            dimension_sizes, has_literals)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: shape_node
         integer, intent(out) :: ndims
         integer, allocatable, intent(out) :: dimension_sizes(:)
@@ -337,34 +384,14 @@ contains
     end subroutine populate_literal_dimensions
 
     logical function literal_dimension_value(arena, elem_idx, value)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: elem_idx
         integer, intent(out) :: value
-        logical :: success
+        logical :: is_constant
 
-        literal_dimension_value = .false.
-        value = 0
-        if (elem_idx <= 0 .or. elem_idx > arena%size) return
-        if (.not. allocated(arena%entries(elem_idx)%node)) return
-
-        select type (elem_node => arena%entries(elem_idx)%node)
-        type is (literal_node)
-            call parse_literal_integer(elem_node%value, value, success)
-            if (success) literal_dimension_value = .true.
-        end select
+        is_constant = get_constant_integer_value(arena, elem_idx, value)
+        literal_dimension_value = is_constant .and. value > 0
     end function literal_dimension_value
-
-    subroutine parse_literal_integer(literal_str, value, success)
-        character(len=*), intent(in) :: literal_str
-        integer, intent(out) :: value
-        logical, intent(out) :: success
-        integer :: ios
-
-        value = 0
-        success = .false.
-        read (literal_str, *, iostat=ios) value
-        if (ios == 0 .and. value > 0) success = .true.
-    end subroutine parse_literal_integer
 
     pure logical function is_reduction_intrinsic(name) result(is_reduction)
         character(len=*), intent(in) :: name
@@ -424,5 +451,50 @@ contains
         typ%alloc_info%needs_allocation_check = .false.
         typ%alloc_info%is_pointer = .false.
     end function infer_reduction_intrinsic_result
+
+    subroutine collect_array_dimensions(array_type, dims, all_known)
+        type(mono_type_t), intent(in) :: array_type
+        integer, allocatable, intent(out) :: dims(:)
+        logical, intent(out) :: all_known
+        type(mono_type_t) :: current
+        integer :: rank
+        integer :: idx
+
+        call safe_extract_array_rank(array_type, rank, current)
+        if (rank <= 0) then
+            allocate (dims(0))
+            all_known = .false.
+            return
+        end if
+
+        allocate (dims(rank))
+        current = array_type
+        all_known = .true.
+
+        do idx = 1, rank
+            if (current%kind /= TARRAY) then
+                all_known = .false.
+                exit
+            end if
+            dims(idx) = current%size
+            if (dims(idx) <= 0) all_known = .false.
+            if (current%has_args() .and. current%get_args_count() >= 1) then
+                current = current%get_arg(1)
+            else if (idx < rank) then
+                all_known = .false.
+                exit
+            end if
+        end do
+    end subroutine collect_array_dimensions
+
+    subroutine cleanup_matmul_dims(lhs_dims, rhs_dims, fixed_dims)
+        integer, allocatable, intent(inout) :: lhs_dims(:)
+        integer, allocatable, intent(inout) :: rhs_dims(:)
+        integer, allocatable, intent(inout) :: fixed_dims(:)
+
+        if (allocated(lhs_dims)) deallocate (lhs_dims)
+        if (allocated(rhs_dims)) deallocate (rhs_dims)
+        if (allocated(fixed_dims)) deallocate (fixed_dims)
+    end subroutine cleanup_matmul_dims
 
 end module semantic_array_intrinsics
