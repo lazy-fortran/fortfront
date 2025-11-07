@@ -1,0 +1,13 @@
+! Issue #2150: Reshape array sizing inconsistent (literal vs variable shape dimensions)
+! This example demonstrates that both literal and variable shape dimensions work correctly
+
+! Test 1: Literal shape dimensions (this always worked)
+matrix_literal = reshape([1, 2, 3, 4, 5, 6], [2, 3])
+print *, 'Literal shape result:', matrix_literal(1, 1)
+
+! Test 2: Variable shape dimensions (fixed by #2183 which also fixed #2143)
+n = 3
+matrix_var = reshape([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [n, n])
+print *, 'Variable shape result:', matrix_var(1, 1)
+
+! Both should produce fixed-size arrays, not allocatable arrays
