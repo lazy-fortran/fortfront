@@ -248,7 +248,6 @@ contains
         type(mono_type_t), intent(inout) :: selected
         type(mono_type_t), intent(inout) :: fallback
         type(mono_type_t) :: candidate
-        integer :: i
 
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
         if (.not. allocated(arena%entries(stmt_index)%node)) return
@@ -265,117 +264,53 @@ contains
                 call merge_parameter_type(selected, candidate)
             end if
         type is (if_node)
-            if (allocated(stmt%then_body_indices)) then
-                call accumulate_body_list(arena, stmt%then_body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-            end if
-            if (allocated(stmt%elseif_blocks)) then
-                do i = 1, size(stmt%elseif_blocks)
-                    if (allocated(stmt%elseif_blocks(i)%body_indices)) then
-                        call accumulate_body_list( &
-                            arena, stmt%elseif_blocks(i)%body_indices, result_name, &
-                            aliases, param_names, param_types, selected, fallback)
-                    end if
-                end do
-            end if
-            if (allocated(stmt%else_body_indices)) then
-                call accumulate_body_list(arena, stmt%else_body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-            end if
-        type is (do_loop_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-            end if
-        type is (do_while_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-            end if
-        type is (forall_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
-                                          aliases, param_names, param_types, &
-                                          selected, fallback)
-            end if
+            call process_if_node(arena, stmt, result_name, aliases, param_names, &
+                                 param_types, selected, fallback)
         type is (where_node)
-            if (allocated(stmt%where_body_indices)) then
-                call accumulate_body_list(arena, stmt%where_body_indices, result_name, &
+            call process_where_node(arena, stmt, result_name, aliases, param_names, &
+                                    param_types, selected, fallback)
+        type is (select_case_node)
+            call process_select_case_node(arena, stmt, result_name, aliases, &
+                                          param_names, param_types, selected, fallback)
+        type is (select_type_node)
+            call process_select_type_node(arena, stmt, result_name, aliases, &
+                                          param_names, param_types, selected, fallback)
+        type is (do_loop_node)
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
-            if (allocated(stmt%elsewhere_clauses)) then
-                do i = 1, size(stmt%elsewhere_clauses)
-                    if (allocated(stmt%elsewhere_clauses(i)%body_indices)) then
-                        call accumulate_body_list( &
-                            arena, stmt%elsewhere_clauses(i)%body_indices, &
-                            result_name, aliases, param_names, param_types, &
-                            selected, fallback)
-                    end if
-                end do
-            end if
+        type is (do_while_node)
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+        type is (forall_node)
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
         type is (where_stmt_node)
             call accumulate_result_assignments(arena, stmt%assignment_index, &
                                                result_name, aliases, param_names, &
                                                param_types, selected, fallback)
-        type is (select_case_node)
-            if (allocated(stmt%case_indices)) then
-                do i = 1, size(stmt%case_indices)
-                call accumulate_result_assignments(arena, stmt%case_indices(i), &
-                                                       result_name, aliases, &
-                                                       param_names, param_types, &
-                                                       selected, fallback)
-                end do
-            end if
-            call accumulate_result_assignments(arena, stmt%default_index, result_name, &
-                                               aliases, param_names, param_types, &
-                                               selected, fallback)
         type is (case_block_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
         type is (case_default_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
-        type is (select_type_node)
-            if (allocated(stmt%guard_indices)) then
-                do i = 1, size(stmt%guard_indices)
-                    call accumulate_result_assignments(arena, stmt%guard_indices(i), &
-                                                       result_name, aliases, &
-                                                       param_names, param_types, &
-                                                       selected, fallback)
-                end do
-            end if
-            call accumulate_result_assignments(arena, stmt%default_index, result_name, &
-                                               aliases, param_names, param_types, &
-                                               selected, fallback)
         type is (type_guard_block_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
         type is (associate_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
         type is (block_construct_node)
-            if (allocated(stmt%body_indices)) then
-                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+            call process_simple_body_node(arena, stmt%body_indices, result_name, &
                                           aliases, param_names, param_types, &
                                           selected, fallback)
-            end if
         type is (function_def_node)
             return
         type is (subroutine_def_node)
@@ -385,6 +320,141 @@ contains
             ! or do not affect result type inference.
         end select
     end subroutine accumulate_result_assignments
+
+    recursive subroutine process_simple_body_node(arena, body_indices, &
+                                                  result_name, aliases, &
+                                                  param_names, param_types, &
+                                                  selected, fallback)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+
+        if (allocated(body_indices)) then
+            call accumulate_body_list(arena, body_indices, result_name, &
+                                      aliases, param_names, param_types, &
+                                      selected, fallback)
+        end if
+    end subroutine process_simple_body_node
+
+    recursive subroutine process_if_node(arena, stmt, result_name, aliases, &
+                                         param_names, param_types, selected, fallback)
+        type(ast_arena_t), intent(in) :: arena
+        type(if_node), intent(in) :: stmt
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+        integer :: i
+
+        if (allocated(stmt%then_body_indices)) then
+            call accumulate_body_list(arena, stmt%then_body_indices, result_name, &
+                                      aliases, param_names, param_types, &
+                                      selected, fallback)
+        end if
+        if (allocated(stmt%elseif_blocks)) then
+            do i = 1, size(stmt%elseif_blocks)
+                if (allocated(stmt%elseif_blocks(i)%body_indices)) then
+                    call accumulate_body_list( &
+                        arena, stmt%elseif_blocks(i)%body_indices, result_name, &
+                        aliases, param_names, param_types, selected, fallback)
+                end if
+            end do
+        end if
+        if (allocated(stmt%else_body_indices)) then
+            call accumulate_body_list(arena, stmt%else_body_indices, result_name, &
+                                      aliases, param_names, param_types, &
+                                      selected, fallback)
+        end if
+    end subroutine process_if_node
+
+    recursive subroutine process_where_node(arena, stmt, result_name, aliases, &
+                                            param_names, param_types, selected, &
+                                            fallback)
+        type(ast_arena_t), intent(in) :: arena
+        type(where_node), intent(in) :: stmt
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+        integer :: i
+
+        if (allocated(stmt%where_body_indices)) then
+            call accumulate_body_list(arena, stmt%where_body_indices, result_name, &
+                                      aliases, param_names, param_types, &
+                                      selected, fallback)
+        end if
+        if (allocated(stmt%elsewhere_clauses)) then
+            do i = 1, size(stmt%elsewhere_clauses)
+                if (allocated(stmt%elsewhere_clauses(i)%body_indices)) then
+                    call accumulate_body_list( &
+                        arena, stmt%elsewhere_clauses(i)%body_indices, &
+                        result_name, aliases, param_names, param_types, &
+                        selected, fallback)
+                end if
+            end do
+        end if
+    end subroutine process_where_node
+
+    recursive subroutine process_select_case_node(arena, stmt, result_name, &
+                                                   aliases, param_names, &
+                                                   param_types, selected, fallback)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_case_node), intent(in) :: stmt
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+        integer :: i
+
+        if (allocated(stmt%case_indices)) then
+            do i = 1, size(stmt%case_indices)
+            call accumulate_result_assignments(arena, stmt%case_indices(i), &
+                                                   result_name, aliases, &
+                                                   param_names, param_types, &
+                                                   selected, fallback)
+            end do
+        end if
+        call accumulate_result_assignments(arena, stmt%default_index, result_name, &
+                                           aliases, param_names, param_types, &
+                                           selected, fallback)
+    end subroutine process_select_case_node
+
+    recursive subroutine process_select_type_node(arena, stmt, result_name, &
+                                                   aliases, param_names, &
+                                                   param_types, selected, fallback)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_type_node), intent(in) :: stmt
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+        integer :: i
+
+        if (allocated(stmt%guard_indices)) then
+            do i = 1, size(stmt%guard_indices)
+                call accumulate_result_assignments(arena, stmt%guard_indices(i), &
+                                                   result_name, aliases, &
+                                                   param_names, param_types, &
+                                                   selected, fallback)
+            end do
+        end if
+        call accumulate_result_assignments(arena, stmt%default_index, result_name, &
+                                           aliases, param_names, param_types, &
+                                           selected, fallback)
+    end subroutine process_select_type_node
 
     recursive subroutine accumulate_body_list(arena, indices, result_name, &
                                               aliases, param_names, param_types, &
