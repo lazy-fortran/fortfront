@@ -165,6 +165,7 @@ contains
         character(len=:), allocatable :: function_name
         logical :: rename_result
         logical :: needs_result_for_recursion
+        logical :: needs_result_for_array
         logical :: missing_result_variable
         logical :: has_return_type
 
@@ -195,8 +196,10 @@ contains
         needs_result_for_recursion = node%is_recursive .and. &
                                      missing_result_variable .and. &
                                      has_return_type
+        needs_result_for_array = should_use_result_for_array(arena, node) .and. &
+                                missing_result_variable
 
-        if (rename_result .or. needs_result_for_recursion) then
+        if (rename_result .or. needs_result_for_recursion .or. needs_result_for_array) then
             result_name = trim(node%name) // "_result"
         else
             if (.not. allocated(node%result_variable)) return
@@ -206,7 +209,8 @@ contains
         if (len_trim(result_name) == 0) return
 
         if (allocated(node%name)) then
-            if (.not. rename_result .and. .not. needs_result_for_recursion) then
+            if (.not. rename_result .and. .not. needs_result_for_recursion .and. &
+                .not. needs_result_for_array) then
                 if (result_name == trim(node%name)) return
             end if
         end if
@@ -244,7 +248,7 @@ contains
                                                          filtered_body_indices, 1, &
                                                          param_map, node)
         call reorder_import_lines(body)
-        call rename_result_variable_in_body(node, body)
+        call rename_result_variable_in_body(node, body, arena)
     end function build_function_body_section
 
     logical function should_omit_return_type(arena, node, return_type_code) &
@@ -1009,9 +1013,10 @@ contains
     end function collect_entry_parameter_decls
 
 
-    subroutine rename_result_variable_in_body(node, body)
+    subroutine rename_result_variable_in_body(node, body, arena)
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable, intent(inout) :: body
+        type(ast_arena_t), intent(in) :: arena
         character(len=:), allocatable :: old_name, new_name
         character(len=:), allocatable :: search_pattern, replace_pattern
         integer :: pos, start_pos
@@ -1040,6 +1045,8 @@ contains
 
         needs_rename = should_rename_deferred_char_result(node) .or. &
                        (node%is_recursive .and. has_return_type .and. &
+                        missing_result_variable) .or. &
+                       (should_use_result_for_array(arena, node) .and. &
                         missing_result_variable)
 
         if (.not. needs_rename) return
@@ -1097,6 +1104,55 @@ contains
         should_rename = (index(lowered, 'character') == 1) .and. &
                         (index(lowered, 'len=:') > 0)
     end function should_rename_deferred_char_result
+
+    logical function should_use_result_for_array(arena, node) result(needs_result)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: result_name
+        type(mono_type_t) :: inferred_result_type
+        integer :: i, stmt_idx
+
+        needs_result = .false.
+
+        ! Determine result variable name
+        if (allocated(node%result_variable)) then
+            result_name = trim(node%result_variable)
+        else if (allocated(node%name)) then
+            result_name = trim(node%name)
+        else
+            return
+        end if
+
+        if (len_trim(result_name) == 0) return
+
+        ! Check if the inferred result type is an array
+        if (.not. allocated(node%body_indices)) return
+
+        do i = 1, size(node%body_indices)
+            stmt_idx = node%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (assignment_node)
+                if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
+                if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
+
+                select type (target => arena%entries(stmt%target_index)%node)
+                type is (identifier_node)
+                    if (.not. allocated(target%name)) cycle
+                    if (trim(target%name) /= trim(result_name)) cycle
+
+                    ! Found assignment to result variable
+                    inferred_result_type = target%inferred_type
+                    if (inferred_result_type%kind == TARRAY) then
+                        needs_result = .true.
+                        return
+                    end if
+                end select
+            end select
+        end do
+    end function should_use_result_for_array
 
     logical function is_identifier_char(c) result(is_id)
         character(len=1), intent(in) :: c
