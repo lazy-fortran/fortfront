@@ -116,7 +116,7 @@ contains
 
         if (identifier%inferred_type%kind > 0) then
             inferred_type = mono_type_to_string( &
-                            identifier%inferred_type, include_shape=.false., &
+                            identifier%inferred_type, include_shape=.true., &
                             prefer_len_zero_char=.true., &
                             standardize_real=standardize_flag, &
                             success=success_flag)
