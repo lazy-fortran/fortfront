@@ -20,4 +20,19 @@ if $block; then
   exit 1
 fi
 
+# Check project root cleanliness (issue #2148)
+# Project root must be free of build artifacts and test files
+polluting_files=$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$' 2>/dev/null || true)
+if [ -n "$polluting_files" ]; then
+  echo "Pre-commit: Project root is polluted with build/test artifacts (issue #2148)" >&2
+  echo "Found the following polluting files:" >&2
+  echo "$polluting_files" >&2
+  echo "" >&2
+  echo "Please clean up the project root:" >&2
+  echo "  rm -f *.mod *.a *.o *.lf *.f90 *.txt" >&2
+  echo "" >&2
+  echo "Use /tmp/ for temporary test files, not the project root." >&2
+  exit 1
+fi
+
 exit 0
