@@ -2,7 +2,8 @@ program test_issue_2150_reshape_literal_vs_variable
     ! Test for issue #2150: Reshape array sizing inconsistent (literal vs variable shape)
     ! Verifies that both literal [2, 3] and variable [n, n] shapes produce fixed-size arrays
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     implicit none
     character(len=:), allocatable :: source, output, error_msg
 
