@@ -181,13 +181,20 @@ contains
             return
         end if
 
-        if (index(code, 'integer, dimension(:), allocatable :: subset') == 0) then
-            print *, '  FAIL: subset slice not inferred as integer allocatable'
+        if (index(code, 'integer :: subset(3)') == 0 .and. &
+            index(code, 'integer, dimension(3) :: subset') == 0) then
+            print *, '  FAIL: subset slice missing explicit extent'
             test_slice_type_inference = .false.
         end if
 
-        if (index(code, 'real(8), dimension(:), allocatable :: subset') /= 0) then
-            print *, '  FAIL: subset slice still inferred as real(8)'
+        if (index(code, 'allocatable :: subset') /= 0) then
+            print *, '  FAIL: subset slice incorrectly marked allocatable'
+            test_slice_type_inference = .false.
+        end if
+
+        if (index(code, 'real :: subset') /= 0 .or. &
+            index(code, 'real(8) :: subset') /= 0) then
+            print *, '  FAIL: subset slice still inferred as real'
             test_slice_type_inference = .false.
         end if
     end function test_slice_type_inference
