@@ -319,148 +319,25 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-v2-
 
-    - name: Cache build artifacts (Windows)
-      uses: actions/cache@v4
-      with:
-        path: |
-          build\gfortran_*
-          !build\gfortran_*/test
-        key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.f90') }}
-        restore-keys: |
-          ${{ runner.os }}-build-
-
-    - name: Windows build validation
-      shell: pwsh  
-      timeout-minutes: 10  # Extended timeout for comprehensive validation
-      run: |
-        Write-Host "Windows build validation"
-        Write-Host "Addressing Windows CI stability"
-        
-        # Explicitly add FPM to PATH for this session (CRITICAL FIX)
-        $env:PATH = "C:\tools\fpm;$env:PATH"
-        
-        # Verify MinGW and FPM are available with detailed diagnostics
-        Write-Host "🔍 Compiler Diagnostics:"
-        try {
-          gfortran --version
-          Write-Host "✅ GFortran available"
-        } catch {
-          Write-Host "❌ GFortran not available: $_"
-          exit 1
-        }
-
-    - name: Windows smoke run (fortfront --version, hello example)
+    - name: Show compiler versions
       shell: pwsh
       run: |
-        # Ensure fpm is on PATH for this step too
         $env:PATH = "C:\tools\fpm;$env:PATH"
-        # Find fortfront.exe
-        $ff = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
-        if ($ff) {
-          Write-Host "Running: $($ff.FullName) --version"
-          try {
-            & $ff.FullName --version 2>&1 | ForEach-Object { Write-Host $_ }
-            Write-Host "fortfront --version exited: $LASTEXITCODE"
-          } catch {
-            Write-Host "fortfront --version failed: $_"
-          }
-        } else {
-          Write-Host "fortfront.exe not found for smoke run"
-        }
+        gfortran --version
+        fpm --version
 
-        # Find hello example
-        $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $hello) {
-          Write-Host "hello.exe not found; attempting to build and run via fpm"
-          try {
-            fpm build | Out-Host
-            fpm run --example hello | Out-Host
-          } catch {
-            Write-Host "fpm example run failed: $_"
-          }
-        } else {
-          Write-Host "Running example: $($hello.FullName)"
-          try {
-            & $hello.FullName 2>&1 | ForEach-Object { Write-Host $_ }
-            Write-Host "hello.exe exited: $LASTEXITCODE"
-          } catch {
-            Write-Host "hello.exe failed: $_"
-          }
-        }
-        
-        try {
-          fpm --version
-          Write-Host "✅ FPM available"
-        } catch {
-          Write-Host "❌ FPM not available: $_"
-          exit 1
-        }
-        
-        Write-Host "🎯 Windows build and test"
-
-        try {
-          Write-Host "Running fpm build"
-          fpm build --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
-        } catch {
-          Write-Host "❌ Windows build failed: $_"
-          exit 1
-        }
-
-        try {
-          Write-Host "Running fpm test"
-          fpm test --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
-        } catch {
-          Write-Host "❌ Windows tests failed: $_"
-          exit 1
-        }
-
-    # Backtrace diagnostic temporarily removed due to workflow parse issues
-
-    - name: Run tests (Windows)
+    - name: Build and Test
       shell: pwsh
       env:
         RUN_SYSTEM_TESTS: '1'
-        FORTFRONT_TRACE: '1'
       run: |
-        $env:PATH = "C:\\tools\\fpm;$env:PATH"
-        # Use absolute path for trace file to ensure we can read it later
-        $traceFile = Join-Path (Get-Location) 'cli_trace.txt'
-        $env:FORTFRONT_TRACE_FILE = $traceFile
-        # Discover built fortfront.exe and pass to tests for robust CLI invocation
-        $exe = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
-        if ($exe) {
-          Write-Host "Found fortfront.exe at: $($exe.FullName)"
-          $env:FORTFRONT_EXE = $exe.FullName
-        } else {
-          Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
-        }
-        fpm test --flag "-Wl,--stack,16777216"
-        if (Test-Path $traceFile) {
-          Write-Host '--- CLI trace file (cli_trace.txt) ---'
-          Get-Content $traceFile | ForEach-Object { Write-Host $_ }
-        } else {
-          Write-Host 'cli_trace.txt not found'
-        }
+        $env:PATH = "C:\tools\fpm;$env:PATH"
 
-    - name: Cleanup build cache and logs (Windows)
-      if: always()
-      shell: pwsh
-      run: |
-        Write-Host "Pruning old build cache directories (keeping 2 newest)"
-        if (Test-Path build) {
-          Get-ChildItem build -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like 'gfortran_*' } |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -Skip 2 |
-            ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
-        }
-        Write-Host "Deleting stale logs older than 7 days"
-        $logDir = Join-Path (Get-Location) 'logs'
-        if (Test-Path $logDir) {
-          Get-ChildItem $logDir -Recurse -Include *.log -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } |
-            ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
-        }
+        # Build with Windows stack size requirement
+        fpm build --flag "-Wl,--stack,16777216"
+
+        # Run full test suite (same as Linux)
+        fpm test --flag "-Wl,--stack,16777216"
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
