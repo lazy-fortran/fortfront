@@ -2,5 +2,5 @@ subroutine greet(name)
     print *, "Hello", name
 end subroutine
 
-call greet("World")     !! character(len=5)
-call greet("Fortran")   !! character(len=7)
+call greet("World")
+call greet("Fortran")
