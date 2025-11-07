@@ -570,7 +570,8 @@ contains
         else if (index(text_content, "garbage") > 0 .and. &
                  (index(text_content, "***") > 0 .or. index(text_content, "** *") > 0)) then
             is_invalid = .true.
-            ! Pattern 3: Too many consecutive identifiers without structure (5+ consecutive identifiers without any Fortran keywords)
+            ! Pattern 3: Too many consecutive identifiers without structure
+            ! (5+ consecutive identifiers without any Fortran keywords)
         else if (consecutive_identifiers > 5) then
             is_invalid = .true.
         end if
