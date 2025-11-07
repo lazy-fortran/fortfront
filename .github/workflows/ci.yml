@@ -200,7 +200,7 @@ jobs:
 
     # ============= COVERAGE (Linux only) =============
     - name: Generate coverage data (optimized)
-      if: false  # coverage disabled
+      if: false && runner.os == 'Linux'  # coverage disabled
       run: |
         # Optimized parallel lcov processing with cross-platform CPU detection
         PARALLEL_JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -249,7 +249,7 @@ jobs:
 
 
     - name: Produce the coverage report
-      if: false  # coverage disabled
+      if: false && runner.os == 'Linux'  # coverage disabled
       id: coverage_report
       uses: insightsengineering/coverage-action@v3
       continue-on-error: true
@@ -279,7 +279,7 @@ jobs:
       # Create checks only when coverage XML exists. This naturally skips
       # PR runs (fast path, no coverage) and runs on main pushes where
       # coverage is generated.
-      if: false  # coverage disabled
+      if: false && runner.os == 'Linux'  # coverage disabled
       uses: actions/github-script@v7
       with:
         script: |
@@ -335,7 +335,7 @@ jobs:
           });
 
     - name: Upload coverage artifacts
-      if: false  # coverage disabled
+      if: false && runner.os == 'Linux'  # coverage disabled
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report
