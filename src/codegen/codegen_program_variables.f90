@@ -801,11 +801,6 @@ contains
 
         type_buf = trim(base_type)
 
-        if (.not. allocated(stmt%type_spec)) then
-            lowered = to_lower(type_buf)
-            if (trim(lowered) == 'real') type_buf = 'integer'
-        end if
-
         if (rank > 0) then
             dimension_spec = ':'
             do dim_index = 2, rank
