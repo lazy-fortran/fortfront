@@ -34,7 +34,7 @@ contains
 
         call read_example('examples/lf/issue_2160_global_var_and_calls.lf', source)
 
-        call transform_lazy_fortran_string(source, output, error_msg)
+        call transform_lazy_fortran_string(source, output, error_msg, enable_ast_wrapping=.true.)
 
         if (allocated(error_msg)) then
             if (len_trim(error_msg) > 0) then
@@ -48,6 +48,15 @@ contains
             print *, '  FAIL: No output generated'
             test_global_var_with_function = .false.
             return
+        end if
+
+        ! DEBUG: Show actual output
+        print *, '  DEBUG: Output length:', len(output)
+        print *, '  DEBUG: First 500 chars:'
+        if (len(output) > 500) then
+            print *, output(1:500)
+        else
+            print *, output
         end if
 
         ! Check that the output contains the expected elements

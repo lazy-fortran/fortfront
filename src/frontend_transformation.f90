@@ -1776,11 +1776,77 @@ contains
                     proc_indices = [proc_indices, child_index]
                 type is (subroutine_def_node)
                     proc_indices = [proc_indices, child_index]
+                class default
+                    ! Non-procedure, non-program statements (bare statements)
+                    ! Always collect them - we'll merge with program node if one exists
+                    main_stmts = [main_stmts, child_index]
                 end select
             end do
         class default
             return
         end select
+
+        ! If we have procedures but no program node, create one from bare statements
+        if (main_prog_index == 0 .and. size(proc_indices) > 0) then
+            ! Create program structure with bare statements + contains + procedures
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                          line=1, column=1, &
+                                                          parent_index=0)
+
+            body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
+            allocate (new_body(body_size))
+            new_body(1) = implicit_none_index
+            do i = 1, size(main_stmts)
+                new_body(1 + i) = main_stmts(i)
+            end do
+
+            ! Add contains statement
+            block
+                type(contains_node) :: contains_stmt
+                contains_stmt%line = 1
+                contains_stmt%column = 1
+                call arena%push(contains_stmt, "contains", 0)
+                contains_index = arena%size
+            end block
+            new_body(1 + size(main_stmts) + 1) = contains_index
+
+            ! Add procedures
+            do i = 1, size(proc_indices)
+                new_body(1 + size(main_stmts) + 1 + i) = proc_indices(i)
+            end do
+
+            ! Create program node
+            block
+                type(program_node) :: prog
+                prog%name = "main"
+                prog%body_indices = new_body
+                prog%line = 1
+                prog%column = 1
+                call arena%push(prog, "program", 0)
+                main_prog_index = arena%size
+            end block
+
+            ! Update parent indices
+            arena%entries(implicit_none_index)%parent_index = main_prog_index
+            do i = 1, size(main_stmts)
+                arena%entries(main_stmts(i))%parent_index = main_prog_index
+            end do
+            arena%entries(contains_index)%parent_index = main_prog_index
+            do i = 1, size(proc_indices)
+                arena%entries(proc_indices(i))%parent_index = main_prog_index
+            end do
+
+            ! Replace the __MULTI_UNIT__ children with just the new program
+            select type (root_prog => arena%entries(root_index)%node)
+            type is (program_node)
+                deallocate (root_prog%body_indices)
+                allocate (root_prog%body_indices(1))
+                root_prog%body_indices(1) = main_prog_index
+                arena%entries(main_prog_index)%parent_index = root_index
+            end select
+
+            return
+        end if
 
         if (main_prog_index == 0) return
         if (size(proc_indices) == 0) return
@@ -1807,16 +1873,27 @@ contains
                                                size(main_prog%body_indices) + 1)
             end if
 
+            ! Merge: existing program body + bare statements + procedures
             body_size = size(main_prog%body_indices)
             n_proc = size(proc_indices)
-            allocate (new_body(body_size + n_proc))
+            allocate (new_body(body_size + size(main_stmts) + n_proc))
             if (body_size > 0) then
                 new_body(1:body_size) = main_prog%body_indices
             end if
+            ! Add bare statements that weren't in the program yet
+            do i = 1, size(main_stmts)
+                new_body(body_size + i) = main_stmts(i)
+            end do
+            ! Add procedures after the contains statement
             do i = 1, n_proc
-                new_body(body_size + i) = proc_indices(i)
+                new_body(body_size + size(main_stmts) + i) = proc_indices(i)
             end do
             main_prog%body_indices = new_body
+
+            ! Update parent indices for the newly added bare statements
+            do i = 1, size(main_stmts)
+                arena%entries(main_stmts(i))%parent_index = main_prog_index
+            end do
         end select
 
         do i = 1, size(proc_indices)
