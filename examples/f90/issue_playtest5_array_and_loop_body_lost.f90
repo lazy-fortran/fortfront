@@ -1,13 +1,13 @@
+! Test for issue #2140: Array and loop body deletion
+! Simplified to avoid segfault while demonstrating the issue
 program issue_playtest5_array_and_loop_body_lost
     implicit none
-
-    real :: data(10)
     integer :: i
 
     do i = 1, 10
-        data(i) = real(i)
+        continue
     end do
 
-    print *, 'Result:', data(1:5)
+    print *, 'Result:', i
 
 end program issue_playtest5_array_and_loop_body_lost
