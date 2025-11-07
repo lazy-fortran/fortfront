@@ -142,7 +142,7 @@ module semantic_analyzer
         end function infer_statement_type
 
         module function infer_type(this, arena, expr_index) result(typ)
-            class(semantic_context_t), intent(inout) :: this
+            class(semantic_context_t), intent(inout), target :: this
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: expr_index
             type(mono_type_t) :: typ
