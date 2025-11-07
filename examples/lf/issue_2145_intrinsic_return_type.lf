@@ -2,5 +2,7 @@ name = "Fortran"
 version = "90"
 message = trim(name) // " " // version
 len_msg = len_trim(message)
+len_name = len(name)
 print *, message
 print *, "Length:", len_msg
+print *, "Name length:", len_name
