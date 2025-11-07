@@ -521,6 +521,20 @@ contains
                     call add_to_implicit_preserved(implicit_preserved, &
                                                    implicit_preserved_count, child_idx)
                 end if
+            type is (program_node)
+                ! Extract statements from nested program node (issue #2160)
+                ! When bare statements are parsed together, they create a program node
+                ! We need to extract the body statements instead of nesting programs
+                if (allocated(node%body_indices)) then
+                    block
+                        integer :: j
+                        do j = 1, size(node%body_indices)
+                            call add_to_implicit_preserved(implicit_preserved, &
+                                                           implicit_preserved_count, &
+                                                           node%body_indices(j))
+                        end do
+                    end block
+                end if
             class default
                 call add_to_implicit_preserved(implicit_preserved, &
                                                implicit_preserved_count, child_idx)

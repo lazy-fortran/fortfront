@@ -1,0 +1,13 @@
+counter = 0
+
+function increment()
+    counter = counter + 1
+    increment = counter
+end function
+
+x = increment()
+y = increment()
+z = increment()
+
+print *, "x, y, z:", x, y, z
+print *, "counter:", counter
