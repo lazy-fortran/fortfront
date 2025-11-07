@@ -13,7 +13,6 @@ module semantic_subroutine_analysis
                                           merge_parameter_type, &
                                           infer_identifier_type_from_context, &
                                           infer_expression_type_static
-    use semantic_parameter_analysis, only: refine_subroutine_parameters_from_body_usage
     use semantic_procedure_utils, only: declaration_type_to_mono
     implicit none
     private
@@ -293,10 +292,6 @@ contains
                                                          stored_names, param_types, &
                                                          scopes, next_var_id)
         end if
-
-        ! Refine parameter types based on body usage (e.g., detect arrays from subscripting)
-        call refine_subroutine_parameters_from_body_usage(arena, sub_node, &
-                                                           param_types, stored_names)
 
         call update_subroutine_param_nodes(arena, sub_node, param_types, stored_names)
 
