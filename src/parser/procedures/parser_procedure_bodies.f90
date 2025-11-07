@@ -21,6 +21,7 @@ module parser_procedure_bodies_module
     use parser_do_constructs_module, only: parse_do_loop
     use parser_utilities, only: skip_to_end_of_line
     use parser_io_statements_module, only: parse_print_statement
+    use parser_control_statements_module, only: parse_entry_statement
     implicit none
     private
 
@@ -409,6 +410,9 @@ contains
                 ! Handle legacy statements
                 stmt_index = parse_legacy_statement(trim(to_lower(token%text)), &
                                                     parser, arena)
+            case ("entry")
+                ! Handle ENTRY statements
+                stmt_index = parse_entry_statement(parser, arena)
             case default
                 if (token_is_identifier_like(token)) then
                     stmt_index = try_parse_keyword_assignment(parser, arena)

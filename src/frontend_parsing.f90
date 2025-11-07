@@ -10,6 +10,8 @@ module frontend_parsing
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node, block_data_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_transfer, only: entry_node
     use ast_factory, only: push_program
     use iso_fortran_env, only: error_unit
     use frontend_utilities, only: int_to_str, is_type_start
@@ -168,6 +170,18 @@ contains
                 type is (block_data_node)
                     ! Do not wrap a lone BLOCK DATA in a synthetic program
                     prog_index = unit_indices(1)
+                type is (function_def_node)
+                    if (procedure_has_entry(arena, unit_indices(1))) then
+                        prog_index = unit_indices(1)
+                    else
+                        prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
+                    end if
+                type is (subroutine_def_node)
+                    if (procedure_has_entry(arena, unit_indices(1))) then
+                        prog_index = unit_indices(1)
+                    else
+                        prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
+                    end if
                 class default
                     prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
                 end select
@@ -458,6 +472,48 @@ contains
 
         deallocate (unit_tokens)
     end subroutine process_program_unit
+
+    logical function procedure_has_entry(arena, proc_index) result(has_entry)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_index
+
+        has_entry = .false.
+        if (proc_index <= 0) return
+        if (proc_index > arena%size) return
+        if (.not. allocated(arena%entries(proc_index)%node)) return
+
+        select type (proc => arena%entries(proc_index)%node)
+        type is (function_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            has_entry = body_indices_have_entry(arena, proc%body_indices)
+        type is (subroutine_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            has_entry = body_indices_have_entry(arena, proc%body_indices)
+        class default
+            has_entry = .false.
+        end select
+    end function procedure_has_entry
+
+    logical function body_indices_have_entry(arena, body_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer :: i, idx
+
+        found = .false.
+        if (size(body_indices) == 0) return
+
+        do i = 1, size(body_indices)
+            idx = body_indices(i)
+            if (idx <= 0) cycle
+            if (idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (entry_node)
+                found = .true.
+                return
+            end select
+        end do
+    end function body_indices_have_entry
 
     ! Find program unit boundary
     subroutine find_program_unit_boundary(tokens, start_pos, unit_start, unit_end)
