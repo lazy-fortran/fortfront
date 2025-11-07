@@ -73,21 +73,21 @@ contains
         if (n_args > 0) then
             if (len(return_type_tmp) > 0) then
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   return_kind, node_index, 0, 0, &
+                                   deduced_kind, node_index, 0, 0, &
                                    param_type_strings, return_type_tmp)
             else
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   return_kind, node_index, 0, 0, &
+                                   deduced_kind, node_index, 0, 0, &
                                    param_type_strings=param_type_strings)
             end if
         else
             if (len(return_type_tmp) > 0) then
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   return_kind, node_index, 0, 0, &
+                                   deduced_kind, node_index, 0, 0, &
                                    return_type_string=return_type_tmp)
             else
                 call add_signature(signatures, call_node%name, param_kinds, &
-                                   return_kind, node_index, 0, 0)
+                                   deduced_kind, node_index, 0, 0)
             end if
         end if
     end subroutine collect_call_signature
