@@ -264,6 +264,13 @@ contains
         logical :: has_header_return_type
 
         omit = .false.
+
+        ! Array functions with result clauses have type in result var declaration
+        if (should_use_result_for_array(arena, node)) then
+            omit = .true.
+            return
+        end if
+
         result_name = ""
         if (allocated(node%result_variable)) then
             result_name = trim(node%result_variable)
@@ -1106,10 +1113,12 @@ contains
     end function should_rename_deferred_char_result
 
     logical function should_use_result_for_array(arena, node) result(needs_result)
+        use ast_nodes_core, only: array_literal_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: result_name
-        integer :: i, stmt_idx
+        integer :: i, stmt_idx, value_idx
+        logical :: is_array_value
 
         needs_result = .false.
 
@@ -1124,7 +1133,7 @@ contains
 
         if (len_trim(result_name) == 0) return
 
-        ! Check if the inferred result type is an array
+        ! Check if any assignment to result variable has an array value
         if (.not. allocated(node%body_indices)) return
 
         do i = 1, size(node%body_indices)
@@ -1142,11 +1151,24 @@ contains
                     if (.not. allocated(target%name)) cycle
                     if (trim(target%name) /= trim(result_name)) cycle
 
-                    ! Found assignment to result variable - check if it's an array
-                    ! Directly check the kind field without copying the whole structure
-                    ! First verify the type is initialized (kind > 0)
-                    if (target%inferred_type%kind > 0 .and. &
-                        target%inferred_type%kind == TARRAY) then
+                    ! Found assignment to result variable - check if value is array
+                    value_idx = stmt%value_index
+                    if (value_idx <= 0 .or. value_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(value_idx)%node)) cycle
+
+                    is_array_value = .false.
+                    select type (value => arena%entries(value_idx)%node)
+                    type is (array_literal_node)
+                        is_array_value = .true.
+                    class default
+                        ! Check inferred type as fallback
+                        if (target%inferred_type%kind > 0 .and. &
+                            target%inferred_type%kind == TARRAY) then
+                            is_array_value = .true.
+                        end if
+                    end select
+
+                    if (is_array_value) then
                         needs_result = .true.
                         return
                     end if
