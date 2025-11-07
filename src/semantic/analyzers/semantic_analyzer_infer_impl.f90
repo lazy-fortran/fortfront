@@ -6,6 +6,9 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                    TFUN, TARRAY, TLOGICAL, TINT, TCHAR
     use semantic_type_operations, only: get_common_type
     use ast_nodes_misc, only: data_statement_node
+    use semantic_type_lookup_wrapper, only: set_semantic_context_for_lookup, &
+                                            clear_semantic_context_for_lookup, &
+                                            get_type_with_stored_context
     implicit none
 
     ! Module-level context for wrapper function (not thread-safe, but works around gfortran bug)
@@ -259,12 +262,12 @@ contains
             type is (data_statement_node)
                 call finalize_data_statement_node(node_index, expr)
             type is (array_literal_node)
-                ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
+                call set_semantic_context_for_lookup(this)
                 node_type = infer_array_literal_type(arena, expr, &
                                                      module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)
             type is (array_slice_node)
-                ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
+                call set_semantic_context_for_lookup(this)
                 node_type = infer_array_slice_type(arena, expr, &
                                                    module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)
@@ -985,7 +988,10 @@ contains
             type(call_or_subscript_node), intent(inout) :: expr
             type(mono_type_t) :: node_type
 
-            ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
+            ! Set the semantic context for the wrapper function
+            call set_semantic_context_for_lookup(this)
+
+            ! Use the wrapper function instead of the internal procedure
             node_type = infer_function_call_type(arena, expr, this%scopes, &
                                                  module_get_node_type_wrapper)
             call collect_call_signature(this%signatures, arena, expr, node_type, &
