@@ -263,22 +263,22 @@ contains
 
                         ! Handle end constructs
                     case ("endif", "end")
-                        if (tokens(stmt_start)%text == "if") then
-                            if (tokens(i)%text == "endif") then
-                                nesting_level = nesting_level - 1
-                                if (nesting_level == 0) then
-                                    stmt_end = i
-                                    exit
-                                end if
-                            else if (tokens(i)%text == "end") then
-                                if (i + 1 <= size(tokens)) then
-                                    if (tokens(i + 1)%kind == TK_KEYWORD .and. &
-                                        tokens(i + 1)%text == "if") then
-                                        nesting_level = nesting_level - 1
-                                        if (nesting_level == 0) then
-                                            stmt_end = i + 1
-                                            exit
-                                        end if
+                        ! Always decrement for END IF to match IF/THEN increments
+                        ! But only exit if this matches our starting construct
+                        if (tokens(i)%text == "endif") then
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0 .and. tokens(stmt_start)%text == "if") then
+                                stmt_end = i
+                                exit
+                            end if
+                        else if (tokens(i)%text == "end") then
+                            if (i + 1 <= size(tokens)) then
+                                if (tokens(i + 1)%kind == TK_KEYWORD .and. &
+                                    tokens(i + 1)%text == "if") then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0 .and. tokens(stmt_start)%text == "if") then
+                                        stmt_end = i + 1
+                                        exit
                                     end if
                                 end if
                             end if
