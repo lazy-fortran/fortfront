@@ -882,6 +882,11 @@ contains
             if (has_explicit_array_bounds(decl)) then
                 return
             end if
+            ! Do NOT convert arrays with known fixed sizes from type inference (fixes #2149)
+            ! Arrays inferred from slices like arr(1:5) should remain fixed-size
+            if (has_inferred_fixed_size(decl)) then
+                return
+            end if
             ! Assignment tracking now excludes element writes, so this path only
             ! runs for arrays that must be deferred shape.
             decl%is_allocatable = .true.
@@ -917,6 +922,28 @@ contains
             has_len = .false.
         end if
     end function has_explicit_character_length
+
+    pure logical function has_inferred_fixed_size(decl) result(has_fixed_size)
+        ! Check if a declaration has a fixed size inferred from the type system
+        ! (e.g., slice1 = arr(1:5) infers integer :: slice1(5))
+        ! Arrays with known fixed sizes from inference should NOT be converted
+        ! to allocatable (fixes #2149).
+        type(declaration_node), intent(in) :: decl
+        type(mono_type_t) :: current_type
+
+        has_fixed_size = .false.
+
+        if (.not. decl%is_array) return
+        if (decl%inferred_type%kind /= TARRAY) return
+
+        ! Check if the inferred type has a known fixed size and is not allocatable
+        current_type = decl%inferred_type
+        if (current_type%size > 0 .and. &
+            .not. current_type%alloc_info%is_allocatable) then
+            has_fixed_size = .true.
+            return
+        end if
+    end function has_inferred_fixed_size
 
     pure logical function has_explicit_array_bounds(decl) result(has_bounds)
         ! Check if a declaration has explicit array bounds or size
