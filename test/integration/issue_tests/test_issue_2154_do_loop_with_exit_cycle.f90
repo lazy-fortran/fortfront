@@ -2,6 +2,8 @@ program test_issue_2154_do_loop_with_exit_cycle
     ! Test for issue #2154: Statements after DO loop with EXIT/CYCLE silently deleted
     ! This test verifies that print statements after a DO loop containing EXIT/CYCLE
     ! are correctly parsed and included in the output.
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                              iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: to_lower
     implicit none

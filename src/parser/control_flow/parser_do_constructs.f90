@@ -798,6 +798,42 @@ contains
                     end if
                 end select
             end if
+
+            ! Consume the "end do" tokens after loop body is parsed
+            block
+                type(token_t) :: end_token
+                integer :: skip_idx
+
+                if (parser%current_token <= size(parser%tokens)) then
+                    end_token = parser%peek()
+                    if (end_token%kind == TK_KEYWORD) then
+                        if (end_token%text == "enddo" .or. end_token%text == "end do") then
+                            end_token = parser%consume()
+                        else if (end_token%text == "end") then
+                            end_token = parser%consume()  ! consume "end"
+                            ! Skip whitespace/newlines/comments to find "do"
+                            do while (parser%current_token <= size(parser%tokens))
+                                end_token = parser%peek()
+                                if (end_token%kind == TK_WHITESPACE .or. &
+                                    end_token%kind == TK_NEWLINE .or. &
+                                    end_token%kind == TK_COMMENT) then
+                                    end_token = parser%consume()
+                                else
+                                    exit
+                                end if
+                            end do
+                            ! Consume "do"
+                            if (parser%current_token <= size(parser%tokens)) then
+                                end_token = parser%peek()
+                                if (end_token%kind == TK_KEYWORD .and. &
+                                    end_token%text == "do") then
+                                    end_token = parser%consume()
+                                end if
+                            end if
+                        end if
+                    end if
+                end if
+            end block
         end block
 
         if (control_count > 1) then
