@@ -46,12 +46,18 @@ contains
         end if
     end subroutine gather_call_argument_types
 
-    subroutine refine_type_from_arguments(arg_types, typ)
+    subroutine refine_type_from_arguments(arg_types, typ, type_locked)
         type(mono_type_t), intent(in) :: arg_types(:)
         type(mono_type_t), intent(inout) :: typ
+        logical, intent(in), optional :: type_locked
+        logical :: allow_refinement
         integer :: deduced_kind
 
         if (size(arg_types) <= 0) return
+
+        allow_refinement = .true.
+        if (present(type_locked)) allow_refinement = .not. type_locked
+        if (.not. allow_refinement) return
 
         deduced_kind = deduce_return_kind_from_args(arg_types)
         if (deduced_kind <= 0) return

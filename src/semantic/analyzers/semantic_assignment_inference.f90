@@ -151,6 +151,9 @@ contains
                                 end block
                                 override_expr_type = .true.
                             end if
+                        case ("len", "len_trim")
+                            expr_typ = create_mono_type(TINT)
+                            override_expr_type = .true.
                         end select
                         if (override_expr_type) then
                             value_node%inferred_type = expr_typ
