@@ -1701,7 +1701,8 @@ contains
             end if
 
             ! Create a program with main code and internal procedures
-            if (size(main_stmts) > 0 .and. size(proc_indices) > 0) then
+            ! Handle case where we have procedures (with or without main code)
+            if (size(proc_indices) > 0) then
                 ! Create program structure: implicit none + main statements + contains + procedures
                 implicit_none_index = push_implicit_statement(arena, .true., &
                                                               line=1, column=1, &
