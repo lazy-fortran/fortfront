@@ -1,16 +1,25 @@
 module semantic_function_inference
     use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
-                                   create_type_var, TVAR, TREAL, TCHAR
+                                   create_type_var, TVAR, TREAL, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
-                              call_or_subscript_node
-    use ast_nodes_procedure, only: function_def_node
+                              call_or_subscript_node, array_literal_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
+                                 select_case_node, case_block_node, &
+                                 case_default_node, select_type_node, &
+                                 type_guard_block_node, where_node, &
+                                 where_stmt_node, associate_node, &
+                                 block_construct_node, forall_node, &
+                                 elseif_wrapper, elsewhere_clause_t
     use ast_nodes_data, only: declaration_node
     use semantic_procedure_utils, only: detect_result_name, &
                                         declaration_type_to_mono
     use semantic_type_context, only: infer_type_from_usage_context, &
                                      infer_expression_type_static
     use semantic_array_type_builders, only: build_deferred_shape_array
+    use semantic_parameter_analysis, only: merge_parameter_type
+    use type_array_safe, only: safe_peel_array_to_base
     implicit none
     private
 
@@ -124,70 +133,291 @@ contains
         if (.not. allocated(func_node%body_indices)) return
 
         result_type = select_best_assignment_type( &
-                      arena, func_node%body_indices, result_name, param_names, &
-                      param_types)
+                      arena, func_node%body_indices, func_node, result_name, &
+                      param_names, param_types)
     end function infer_result_type_from_assignments
 
-    function select_best_assignment_type(arena, body_indices, result_name, &
-                                         param_names, param_types) result(selected)
+    function build_result_aliases(func_node, result_name) result(aliases)
+        type(function_def_node), intent(in) :: func_node
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable :: aliases(:)
+
+        call append_alias(result_name, aliases)
+        if (allocated(func_node%name)) then
+            call append_alias(func_node%name, aliases)
+        end if
+        if (allocated(func_node%result_variable)) then
+            call append_alias(func_node%result_variable, aliases)
+        end if
+        if (.not. allocated(aliases)) allocate (aliases(0))
+    end function build_result_aliases
+
+    pure function normalize_alias(name) result(norm_name)
+        character(len=*), intent(in) :: name
+        character(len=64) :: norm_name
+        integer :: nlen
+
+        norm_name = ''
+        nlen = len_trim(name)
+        if (nlen <= 0) return
+        if (nlen > len(norm_name)) nlen = len(norm_name)
+        norm_name(1:nlen) = name(1:nlen)
+    end function normalize_alias
+
+    subroutine append_alias(name, aliases)
+        character(len=*), intent(in) :: name
+        character(len=64), allocatable, intent(inout) :: aliases(:)
+        character(len=64) :: normalized
+        character(len=64), allocatable :: temp(:)
+        integer :: i, count
+
+        normalized = normalize_alias(name)
+        if (len_trim(normalized) == 0) return
+
+        if (.not. allocated(aliases)) then
+            allocate (aliases(1))
+            aliases(1) = normalized
+            return
+        end if
+
+        do i = 1, size(aliases)
+            if (trim(aliases(i)) == trim(normalized)) return
+        end do
+
+        count = size(aliases)
+        allocate (temp(count + 1))
+        temp(1:count) = aliases
+        temp(count + 1) = normalized
+        call move_alloc(temp, aliases)
+    end subroutine append_alias
+
+    logical function matches_alias(name, aliases) result(found)
+        character(len=*), intent(in) :: name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64) :: normalized
+        integer :: i
+
+        found = .false.
+        if (.not. allocated(aliases)) return
+        normalized = normalize_alias(name)
+        if (len_trim(normalized) == 0) return
+
+        do i = 1, size(aliases)
+            if (trim(aliases(i)) == trim(normalized)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function matches_alias
+
+    function select_best_assignment_type(arena, body_indices, func_node, &
+                                         result_name, param_names, param_types) &
+        result(selected)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
+        type(function_def_node), intent(in) :: func_node
         character(len=*), intent(in) :: result_name
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: selected
-        type(mono_type_t) :: candidate
-        type(mono_type_t) :: best
+        type(mono_type_t) :: fallback
+        character(len=64), allocatable :: aliases(:)
         integer :: i
-        integer :: stmt_index
 
         selected%kind = 0
-        best%kind = 0
-
+        fallback%kind = 0
+        aliases = build_result_aliases(func_node, result_name)
         do i = 1, size(body_indices)
-            stmt_index = body_indices(i)
-            candidate = evaluate_result_assignment(arena, stmt_index, result_name, &
-                                                   param_names, param_types)
-            if (candidate%kind == 0) cycle
-            if (candidate%kind /= TVAR) then
-                selected = candidate
-                return
-            end if
-            if (best%kind == 0) best = candidate
+            call accumulate_result_assignments(arena, body_indices(i), result_name, &
+                                               aliases, param_names, param_types, &
+                                               selected, fallback)
         end do
-
-        if (best%kind /= 0) selected = best
+        if (selected%kind == 0) selected = fallback
     end function select_best_assignment_type
 
-    function evaluate_result_assignment(arena, stmt_index, result_name, &
-                                        param_names, param_types) result(candidate)
+    recursive subroutine accumulate_result_assignments(arena, stmt_index, &
+                                                       result_name, aliases, &
+                                                       param_names, param_types, &
+                                                       selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
         type(mono_type_t) :: candidate
+        integer :: i
 
-        candidate%kind = 0
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
         if (.not. allocated(arena%entries(stmt_index)%node)) return
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (assignment_node)
             candidate = infer_assignment_result_type(arena, stmt, result_name, &
-                                                     param_names, param_types)
+                                                     aliases, param_names, param_types)
+            if (candidate%kind == 0) then
+                ! no-op
+            else if (candidate%kind == TVAR) then
+                if (fallback%kind == 0) fallback = candidate
+            else
+                call merge_parameter_type(selected, candidate)
+            end if
+        type is (if_node)
+            if (allocated(stmt%then_body_indices)) then
+                call accumulate_body_list(arena, stmt%then_body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+            if (allocated(stmt%elseif_blocks)) then
+                do i = 1, size(stmt%elseif_blocks)
+                    if (allocated(stmt%elseif_blocks(i)%body_indices)) then
+                        call accumulate_body_list( &
+                            arena, stmt%elseif_blocks(i)%body_indices, result_name, &
+                            aliases, param_names, param_types, selected, fallback)
+                    end if
+                end do
+            end if
+            if (allocated(stmt%else_body_indices)) then
+                call accumulate_body_list(arena, stmt%else_body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (do_loop_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (do_while_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (forall_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (where_node)
+            if (allocated(stmt%where_body_indices)) then
+                call accumulate_body_list(arena, stmt%where_body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+            if (allocated(stmt%elsewhere_clauses)) then
+                do i = 1, size(stmt%elsewhere_clauses)
+                    if (allocated(stmt%elsewhere_clauses(i)%body_indices)) then
+                        call accumulate_body_list( &
+                            arena, stmt%elsewhere_clauses(i)%body_indices, &
+                            result_name, aliases, param_names, param_types, &
+                            selected, fallback)
+                    end if
+                end do
+            end if
+        type is (where_stmt_node)
+            call accumulate_result_assignments(arena, stmt%assignment_index, &
+                                               result_name, aliases, param_names, &
+                                               param_types, selected, fallback)
+        type is (select_case_node)
+            if (allocated(stmt%case_indices)) then
+                do i = 1, size(stmt%case_indices)
+                call accumulate_result_assignments(arena, stmt%case_indices(i), &
+                                                       result_name, aliases, &
+                                                       param_names, param_types, &
+                                                       selected, fallback)
+                end do
+            end if
+            call accumulate_result_assignments(arena, stmt%default_index, result_name, &
+                                               aliases, param_names, param_types, &
+                                               selected, fallback)
+        type is (case_block_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (case_default_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (select_type_node)
+            if (allocated(stmt%guard_indices)) then
+                do i = 1, size(stmt%guard_indices)
+                    call accumulate_result_assignments(arena, stmt%guard_indices(i), &
+                                                       result_name, aliases, &
+                                                       param_names, param_types, &
+                                                       selected, fallback)
+                end do
+            end if
+            call accumulate_result_assignments(arena, stmt%default_index, result_name, &
+                                               aliases, param_names, param_types, &
+                                               selected, fallback)
+        type is (type_guard_block_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (associate_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (block_construct_node)
+            if (allocated(stmt%body_indices)) then
+                call accumulate_body_list(arena, stmt%body_indices, result_name, &
+                                          aliases, param_names, param_types, &
+                                          selected, fallback)
+            end if
+        type is (function_def_node)
+            return
+        type is (subroutine_def_node)
+            return
+        class default
+            ! Unhandled node types either cannot contain statements
+            ! or do not affect result type inference.
         end select
-    end function evaluate_result_assignment
+    end subroutine accumulate_result_assignments
 
-    function infer_assignment_result_type(arena, stmt, result_name, param_names, &
-                                          param_types) result(candidate)
+    recursive subroutine accumulate_body_list(arena, indices, result_name, &
+                                              aliases, param_names, param_types, &
+                                              selected, fallback)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: indices(:)
+        character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        type(mono_type_t), intent(inout) :: selected
+        type(mono_type_t), intent(inout) :: fallback
+        integer :: i
+
+        if (size(indices) <= 0) return
+        do i = 1, size(indices)
+            call accumulate_result_assignments(arena, indices(i), result_name, &
+                                               aliases, param_names, param_types, &
+                                               selected, fallback)
+        end do
+    end subroutine accumulate_body_list
+
+    function infer_assignment_result_type(arena, stmt, result_name, aliases, &
+                                          param_names, param_types) result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: candidate
         integer :: target_index
+        logical :: value_is_array_literal
 
         candidate%kind = 0
         target_index = stmt%target_index
@@ -196,18 +426,37 @@ contains
 
         select type (target => arena%entries(target_index)%node)
         type is (identifier_node)
-            if (trim(target%name) /= trim(result_name)) return
+            if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
+            value_is_array_literal = is_array_literal_node(arena, stmt%value_index)
+            if (.not. value_is_array_literal) then
+                if (candidate%kind == TARRAY) then
+                    candidate = safe_peel_array_to_base(candidate)
+                end if
+            end if
             if (needs_deferred_shape(candidate)) then
                 candidate = convert_to_deferred_shape_array(candidate)
             end if
         type is (call_or_subscript_node)
             candidate = infer_array_assignment_type(arena, target, stmt%value_index, &
-                                                    result_name, param_names, &
-                                                    param_types)
+                                                    result_name, aliases, &
+                                                    param_names, param_types)
         end select
     end function infer_assignment_result_type
+
+    logical function is_array_literal_node(arena, node_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_array_literal_node = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        select type (value_node => arena%entries(node_index)%node)
+        type is (array_literal_node)
+            is_array_literal_node = .true.
+        end select
+    end function is_array_literal_node
 
     logical function needs_deferred_shape(typ) result(needs)
         use type_system_unified, only: TARRAY
@@ -219,11 +468,13 @@ contains
     end function needs_deferred_shape
 
     function infer_array_assignment_type(arena, target, value_index, result_name, &
-                                         param_names, param_types) result(candidate)
+                                         aliases, param_names, param_types) &
+        result(candidate)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: target
         integer, intent(in) :: value_index
         character(len=*), intent(in) :: result_name
+        character(len=64), allocatable, intent(in) :: aliases(:)
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: candidate
@@ -232,7 +483,7 @@ contains
 
         candidate%kind = 0
         if (.not. allocated(target%name)) return
-        if (trim(target%name) /= trim(result_name)) return
+        if (.not. matches_alias(target%name, aliases)) return
         if (.not. allocated(target%arg_indices)) return
         rank = size(target%arg_indices)
         if (rank <= 0) return
