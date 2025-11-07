@@ -8,16 +8,24 @@ program test_issue_2164_derived_type_field_lost
 
     character(len=:), allocatable :: source_code
     character(len=:), allocatable :: output_code
+    character(len=:), allocatable :: error_msg
     type(transform_context_t) :: ctx
     logical :: found_data_field, found_inner_field, found_correct_assignment
-    integer :: i
 
     ! Read the example file
     call read_example('examples/f90/issue_playtest5_derived_type_field_lost.f90', source_code)
 
     ! Transform using standard Fortran mode (round-trip)
-    call transform_with_context(source_code, INPUT_MODE_STANDARD, ctx)
-    output_code = ctx%output
+    ctx%input_mode = INPUT_MODE_STANDARD
+    ctx%has_filename = .true.
+    ctx%source_name = "issue_2164_test"
+
+    call transform_with_context(source_code, output_code, error_msg, ctx)
+
+    if (len_trim(error_msg) > 0) then
+        write (error_unit, '(A)') 'FAIL: transform_with_context returned error: ' // trim(error_msg)
+        error stop 1
+    end if
 
     ! Check that output contains both fields in the derived type definition
     found_inner_field = .false.
