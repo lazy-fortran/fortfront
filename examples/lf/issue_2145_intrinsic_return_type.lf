@@ -1,0 +1,6 @@
+name = "Fortran"
+version = "90"
+message = trim(name) // " " // version
+len_msg = len_trim(message)
+print *, message
+print *, "Length:", len_msg
