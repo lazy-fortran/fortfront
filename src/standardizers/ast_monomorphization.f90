@@ -1758,6 +1758,10 @@ contains
         character(len=:), allocatable :: dim_spec, base_type
         character(len=:), allocatable :: lowered
 
+        ! Safety check
+        if (.not. allocated(type_name)) return
+        if (len_trim(type_name) == 0) return
+
         lowered = to_lower(type_name)
         dim_start = index(lowered, "dimension(")
         if (dim_start == 0) return
@@ -1793,6 +1797,9 @@ contains
         allocate (dimension_indices(ndims))
         dimension_indices = 0
 
+        ! Initialize base_type
+        base_type = ""
+
         ! Extract base type by removing dimension specification
         if (dim_start > 1) then
             ! Check if there's a comma before "dimension"
@@ -1800,7 +1807,11 @@ contains
             do while (i > 0 .and. (lowered(i:i) == ' ' .or. lowered(i:i) == ','))
                 i = i - 1
             end do
-            base_type = trim(type_name(1:i))
+            if (i > 0) then
+                base_type = trim(type_name(1:i))
+            else
+                base_type = ""
+            end if
         else
             base_type = ""
         end if
