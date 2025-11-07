@@ -1,4 +1,5 @@
 module parser_procedure_definition_bodies_module
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_NEWLINE, &
                           TK_WHITESPACE, TK_OPERATOR, TK_COMMENT, TK_EOF
@@ -15,6 +16,9 @@ module parser_procedure_definition_bodies_module
     private
 
     public :: parse_procedure_body
+    public :: reset_nested_internal_procedure_error
+    public :: has_nested_internal_procedure_error
+    public :: get_nested_internal_procedure_message
 
     abstract interface
         function parse_function_definition_iface(parser, arena, prefix_buffer, &
@@ -36,6 +40,9 @@ module parser_procedure_definition_bodies_module
             integer :: sub_index
         end function parse_subroutine_definition_iface
     end interface
+
+    logical :: nested_internal_procedure_error = .false.
+    character(len=:), allocatable :: nested_internal_procedure_message
 
 contains
 
@@ -77,24 +84,8 @@ contains
             ! Lazy fortran: detect nested internal procedures (not supported)
             if (token%kind == TK_KEYWORD .and. &
                 (token%text == "function" .or. token%text == "subroutine")) then
-                ! Nested internal procedures are not supported in standard Fortran
-                block
-                    use iso_fortran_env, only: error_unit
-                    write (error_unit, '(A)') &
-                        'Error: Nested internal procedures are not supported.'
-                    write (error_unit, '(A,A,A,I0,A,I0)') &
-                        '  Found "', trim(token%text), '" at line ', token%line, &
-                        ', column ', token%column
-                    write (error_unit, '(A)') &
-                        '  Internal procedures cannot contain other internal' // &
-                        ' procedures.'
-                    write (error_unit, '(A)') &
-                        '  Move the inner procedure to the same contains section as'
-                    write (error_unit, '(A)') &
-                        '  the outer procedure.'
-                end block
-                ! Skip this token and continue - will produce partial output
-                token = parser%consume()
+                call record_nested_internal_procedure_error(token, procedure_name)
+                call skip_nested_internal_procedure(parser)
                 cycle
             end if
 
@@ -106,6 +97,126 @@ contains
             end if
         end do
     end subroutine parse_procedure_body
+
+    subroutine reset_nested_internal_procedure_error()
+        nested_internal_procedure_error = .false.
+        if (allocated(nested_internal_procedure_message)) then
+            deallocate (nested_internal_procedure_message)
+        end if
+    end subroutine reset_nested_internal_procedure_error
+
+    logical function has_nested_internal_procedure_error()
+        has_nested_internal_procedure_error = nested_internal_procedure_error
+    end function has_nested_internal_procedure_error
+
+    function get_nested_internal_procedure_message() result(message)
+        character(len=:), allocatable :: message
+
+        if (allocated(nested_internal_procedure_message)) then
+            message = nested_internal_procedure_message
+        else
+            allocate (character(len=0) :: message)
+        end if
+    end function get_nested_internal_procedure_message
+
+    subroutine record_nested_internal_procedure_error(token, procedure_name)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: procedure_name
+        character(len=32) :: line_str
+        character(len=32) :: column_str
+        character(len=:), allocatable :: message
+        character(len=:), allocatable :: lowered_keyword
+
+        write (line_str, '(I0)') token%line
+        write (column_str, '(I0)') token%column
+        lowered_keyword = to_lower(trim(token%text))
+
+        call write_nested_procedure_error(lowered_keyword, procedure_name, &
+                                          trim(line_str), trim(column_str))
+
+        message = 'Nested internal procedures are not supported.' // &
+                  new_line('a') // 'Found "' // trim(lowered_keyword) // &
+                  '" inside procedure "' // trim(procedure_name) // '" at line ' // &
+                  trim(line_str) // ', column ' // trim(column_str) // '.' // &
+                  new_line('a') // 'Internal procedures cannot contain other ' // &
+                  'internal procedures.' // new_line('a') // 'Move the inner ' // &
+                  'procedure to the same contains section as the outer ' // &
+                  'procedure.'
+
+        if (.not. nested_internal_procedure_error) then
+            nested_internal_procedure_message = message
+            nested_internal_procedure_error = .true.
+        end if
+    end subroutine record_nested_internal_procedure_error
+
+    subroutine write_nested_procedure_error(keyword, procedure_name, line_str, &
+                                            column_str)
+        character(len=*), intent(in) :: keyword
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: line_str
+        character(len=*), intent(in) :: column_str
+
+        write (error_unit, '(A)') &
+            'Error: Nested internal procedures are not supported.'
+        write (error_unit, '(A)') '  Found "' // trim(keyword) // '" inside "' // &
+            trim(procedure_name) // '" at line ' // trim(line_str) // ', column ' // &
+            trim(column_str) // '.'
+        write (error_unit, '(A)') &
+            '  Internal procedures cannot contain other internal procedures.'
+        write (error_unit, '(A)') &
+            '  Move the inner procedure to the same contains section as the ' // &
+            'outer procedure.'
+    end subroutine write_nested_procedure_error
+
+    subroutine skip_nested_internal_procedure(parser)
+        type(parser_state_t), intent(inout) :: parser
+        integer :: depth
+        type(token_t) :: token
+
+        token = parser%consume()
+        if (token%kind /= TK_KEYWORD) return
+
+        depth = 1
+        do while (depth > 0 .and. .not. parser%is_at_end())
+            token = parser%consume()
+            if (token%kind /= TK_KEYWORD) cycle
+
+            select case (token%text)
+            case ("function", "subroutine")
+                depth = depth + 1
+            case ("end")
+                call consume_end_procedure(parser, depth)
+            end select
+        end do
+    end subroutine skip_nested_internal_procedure
+
+    subroutine consume_end_procedure(parser, depth)
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(inout) :: depth
+        type(token_t) :: next_token
+
+        if (parser%is_at_end()) return
+
+        next_token = parser%peek()
+        if (next_token%kind == TK_KEYWORD .and. &
+            (next_token%text == "function" .or. next_token%text == "subroutine")) then
+            next_token = parser%consume()
+            depth = depth - 1
+            call consume_optional_identifier_token(parser)
+        end if
+    end subroutine consume_end_procedure
+
+    subroutine consume_optional_identifier_token(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        if (parser%is_at_end()) return
+
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+        end if
+    end subroutine consume_optional_identifier_token
 
     logical function check_procedure_end(parser, first_token, end_keyword, &
                                          procedure_name) result(is_end)
