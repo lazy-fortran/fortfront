@@ -1753,8 +1753,9 @@ contains
     subroutine extract_dimension_from_type_string(type_name, dimension_indices)
         character(len=:), allocatable, intent(inout) :: type_name
         integer, allocatable, intent(out) :: dimension_indices(:)
-        integer :: dim_pos, comma_pos, ndims, i
-        character(len=:), allocatable :: base_type
+        integer :: dim_pos, paren_start, paren_end, ndims, i, comma_count
+        character(len=:), allocatable :: base_type, dim_spec
+        integer :: has_colon
 
         ! Safety checks
         if (.not. allocated(type_name)) return
@@ -1767,22 +1768,51 @@ contains
             dim_pos = index(to_lower(type_name), "dimension(")
             if (dim_pos /= 1) return  ! Not at start either, give up
             base_type = ""
+            paren_start = 10  ! len("dimension(")
         else
             ! Extract base type (everything before ", dimension(")
             base_type = trim(type_name(1:dim_pos-1))
+            paren_start = dim_pos + 12  ! len(", dimension(")
         end if
 
-        ! Count dimensions by counting colons in dimension spec
-        ! Assumption: dimension spec is like "dimension(:)" or "dimension(:,:)"
-        ndims = 0
-        do i = 1, len(type_name)
-            if (type_name(i:i) == ':') ndims = ndims + 1
+        ! Find the matching closing parenthesis
+        paren_end = index(type_name(paren_start:), ")")
+        if (paren_end == 0) return  ! No closing paren found
+        paren_end = paren_start + paren_end - 2  ! Adjust to global position
+
+        ! Extract dimension specification (e.g., ":", "3", ":,:","3,5")
+        if (paren_end >= paren_start) then
+            dim_spec = type_name(paren_start:paren_end)
+        else
+            dim_spec = ""
+        end if
+
+        ! Count dimensions by counting colons or commas
+        ! First check if we have any colons (assumed-shape)
+        has_colon = 0
+        do i = 1, len(dim_spec)
+            if (dim_spec(i:i) == ':') has_colon = 1
         end do
 
-        ! If we found colons, allocate dimension_indices
+        if (has_colon > 0) then
+            ! Count colons for assumed-shape arrays: dimension(:) or dimension(:,:)
+            ndims = 0
+            do i = 1, len(dim_spec)
+                if (dim_spec(i:i) == ':') ndims = ndims + 1
+            end do
+        else
+            ! Count commas + 1 for explicit-shape arrays: dimension(3) or dimension(3,5)
+            comma_count = 0
+            do i = 1, len(dim_spec)
+                if (dim_spec(i:i) == ',') comma_count = comma_count + 1
+            end do
+            ndims = comma_count + 1
+        end if
+
+        ! Allocate dimension_indices if we found dimensions
         if (ndims > 0) then
             allocate (dimension_indices(ndims))
-            dimension_indices = 0  ! 0 means assumed-shape (:)
+            dimension_indices = 0  ! 0 means assumed-shape (:) for now
         end if
 
         ! Update type_name to just the base type
