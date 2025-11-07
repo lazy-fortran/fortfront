@@ -18,6 +18,7 @@ program test_all_examples
 
     integer :: test_count, pass_count, fail_count, skip_count
     integer :: xfail_count, xpass_count
+    integer :: example_timeout_seconds
     logical :: is_windows
     character(len=256) :: examples_dir
     character(len=256), allocatable :: expected_failures(:)
@@ -43,6 +44,11 @@ program test_all_examples
     xpass_count = 0
 
     is_windows = check_if_windows()
+    if (is_windows) then
+        example_timeout_seconds = 5
+    else
+        example_timeout_seconds = 2
+    end if
     call verify_shell_helpers(is_windows)
     call initialize_example_timeout_launcher(is_windows)
 
@@ -348,7 +354,7 @@ contains
         raw_command = trim(exe_arg) // ' ' // trim(input_arg) // ' > ' // &
                       trim(output_arg) // ' 2> ' // trim(error_arg)
 
-        timed_command = build_timed_command(raw_command)
+        timed_command = build_timed_command(raw_command, example_timeout_seconds)
 
         call execute_command_line(trim(timed_command), exitstat=exit_code)
 
@@ -613,29 +619,37 @@ contains
         end if
     end subroutine initialize_example_timeout_launcher
 
-    function build_timed_command(raw_command) result(full_command)
+    function build_timed_command(raw_command, timeout_seconds) result(full_command)
         character(len=*), intent(in) :: raw_command
+        integer, intent(in) :: timeout_seconds
         character(len=:), allocatable :: full_command
         character(len=:), allocatable :: quoted_cmd
+        character(len=:), allocatable :: launcher_prefix
+        character(len=16) :: timeout_buffer
+        character(len=:), allocatable :: timeout_arg
+        integer :: effective_timeout
 
         if (.not. allocated(example_timeout_launcher)) then
             print *, 'ERROR: Example timeout launcher not initialized'
             stop 1
         end if
 
+        effective_timeout = max(1, timeout_seconds)
+        write (timeout_buffer, '(I0)') effective_timeout
+        timeout_arg = trim(timeout_buffer)
+        launcher_prefix = trim(example_timeout_launcher) // ' ' // &
+                          trim(timeout_arg) // ' '
+
         if (timeout_requires_command_string) then
             if (timeout_string_needs_quotes) then
                 quoted_cmd = quote_for_shell(trim(raw_command), .true., &
                                              escape_for_cmd=.true.)
-                full_command = trim(example_timeout_launcher) // ' 1 ' // &
-                               trim(quoted_cmd)
+                full_command = launcher_prefix // trim(quoted_cmd)
             else
-                full_command = trim(example_timeout_launcher) // ' 1 ' // &
-                               trim(raw_command)
+                full_command = launcher_prefix // trim(raw_command)
             end if
         else
-            full_command = trim(example_timeout_launcher) // ' 1 ' // &
-                           trim(raw_command)
+            full_command = launcher_prefix // trim(raw_command)
         end if
     end function build_timed_command
 
