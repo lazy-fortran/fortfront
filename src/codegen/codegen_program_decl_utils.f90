@@ -94,6 +94,9 @@ contains
                 func_name = trim(func%name)
                 if (len_trim(func_name) == 0) cycle
                 if (exists_in_list(func_names, count, func_name)) cycle
+                ! Skip functions inside interface blocks - they don't have bodies
+                ! Functions in interface blocks are just declarations, not definitions
+                if (.not. allocated(func%body_indices)) cycle
                 count = count + 1
                 func_names(count) = trim(to_lower(func_name))
                 if (allocated(func%return_type)) then

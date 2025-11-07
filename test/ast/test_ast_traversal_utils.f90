@@ -6,11 +6,8 @@ program test_ast_traversal_utils
     use ast_traversal_utils, only: find_nodes_by_type, get_ancestor_of_type, &
                                     has_child_of_type, get_children, &
                                     traverse_ast, traverse_callback
+    use test_ast_traversal_utils_helpers, only: traverse_counter_t, count_callback
     implicit none
-
-    type :: traverse_counter_t
-        integer :: count
-    end type traverse_counter_t
 
     type(ast_arena_t) :: arena
     integer :: prog_idx, assign1_idx, assign2_idx, id1_idx, id2_idx, id3_idx
@@ -246,18 +243,5 @@ contains
 
         print *, "  PASS: Traversed", counter%count, "nodes"
     end subroutine test_traverse_ast
-
-    subroutine count_callback(arena, node_index, user_data)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        class(*), intent(inout), optional :: user_data
-
-        if (present(user_data)) then
-            select type (user_data)
-            type is (traverse_counter_t)
-                user_data%count = user_data%count + 1
-            end select
-        end if
-    end subroutine count_callback
 
 end program test_ast_traversal_utils

@@ -13,51 +13,7 @@ module parser_memory_statements_module
 
     public :: parse_allocate_statement, parse_deallocate_statement
 
-    abstract interface
-        subroutine list_item_handler_t(parser, arena, token, in_variable_list)
-            import :: parser_state_t, ast_arena_t, token_t
-            type(parser_state_t), intent(inout) :: parser
-            type(ast_arena_t), intent(inout) :: arena
-            type(token_t), intent(in) :: token
-            logical, intent(inout) :: in_variable_list
-        end subroutine list_item_handler_t
-    end interface
-
 contains
-
-    subroutine parse_parenthesized_list(parser, arena, closing_text, &
-                                        in_variable_list, handler)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: closing_text
-        logical, intent(inout) :: in_variable_list
-        procedure(list_item_handler_t) :: handler
-        type(token_t) :: token
-
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == closing_text) then
-            token = parser%consume()
-            return
-        end if
-
-        do
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == &
-                closing_text) exit
-            call handler(parser, arena, token, in_variable_list)
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()
-            else
-                exit
-            end if
-        end do
-
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == closing_text) then
-            token = parser%consume()
-        end if
-    end subroutine parse_parenthesized_list
 
     ! Helper subroutine to parse allocate variable with optional dimensions
     subroutine parse_allocate_variable(parser, arena, var_indices, &
@@ -266,9 +222,58 @@ contains
                 end if
             end if
 
-            call parse_parenthesized_list(parser, arena, ")", &
-                                          in_variable_list, &
-                                          process_allocate_item)
+            ! Inline the list processing logic to avoid procedure pointer issues
+            token = parser%peek()
+            if (.not. (token%kind == TK_OPERATOR .and. token%text == ")")) then
+                do
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") exit
+
+                    ! Process allocate item inline
+                    select case (token%kind)
+                    case (TK_IDENTIFIER)
+                        select case (token%text)
+                        case ("stat", "errmsg", "source", "mold")
+                            call parse_allocate_params(parser, arena, &
+                                                       token%text, &
+                                                       stat_var_index, &
+                                                       errmsg_var_index, &
+                                                       source_expr_index, &
+                                                       mold_expr_index)
+                            in_variable_list = .false.
+                        case default
+                            if (in_variable_list) then
+                                call parse_allocate_variable(parser, arena, &
+                                                             var_indices, &
+                                                             shape_indices)
+                            else
+                                token = parser%consume()
+                            end if
+                        end select
+                    case default
+                        if (in_variable_list) then
+                            call parse_allocate_variable(parser, arena, &
+                                                         var_indices, &
+                                                         shape_indices)
+                        else
+                            token = parser%consume()
+                        end if
+                    end select
+
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()
+                    else
+                        exit
+                    end if
+                end do
+            end if
+
+            ! Consume closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
         end if
 
         ! Create allocate statement node
@@ -288,46 +293,6 @@ contains
                                            mold_expr_index, &
                                            line, column)
         end if
-    contains
-        subroutine process_allocate_item(local_parser, local_arena, token, &
-                                         in_variable_list)
-            type(parser_state_t), intent(inout) :: local_parser
-            type(ast_arena_t), intent(inout) :: local_arena
-            type(token_t), intent(in) :: token
-            logical, intent(inout) :: in_variable_list
-
-            type(token_t) :: discard
-
-            select case (token%kind)
-            case (TK_IDENTIFIER)
-                select case (token%text)
-                case ("stat", "errmsg", "source", "mold")
-                    call parse_allocate_params(local_parser, local_arena, &
-                                               token%text, &
-                                               stat_var_index, &
-                                               errmsg_var_index, &
-                                               source_expr_index, &
-                                               mold_expr_index)
-                    in_variable_list = .false.
-                case default
-                    if (in_variable_list) then
-                        call parse_allocate_variable(local_parser, &
-                                                     local_arena, &
-                                                     var_indices, &
-                                                     shape_indices)
-                    else
-                        discard = local_parser%consume()
-                    end if
-                end select
-            case default
-                if (in_variable_list) then
-                    call parse_allocate_variable(local_parser, local_arena, &
-                                                 var_indices, shape_indices)
-                else
-                    discard = local_parser%consume()
-                end if
-            end select
-        end subroutine process_allocate_item
     end function parse_allocate_statement
 
     function parse_deallocate_statement(parser, arena) result(deallocate_index)
@@ -358,9 +323,67 @@ contains
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
 
-            call parse_parenthesized_list(parser, arena, ")", &
-                                          in_variable_list, &
-                                          process_deallocate_item)
+            ! Inline the list processing logic to avoid procedure pointer issues
+            token = parser%peek()
+            if (.not. (token%kind == TK_OPERATOR .and. token%text == ")")) then
+                do
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") exit
+
+                    ! Process deallocate item inline
+                    select case (token%kind)
+                    case (TK_IDENTIFIER)
+                        select case (token%text)
+                        case ("stat")
+                            token = parser%consume()
+                            token = parser%peek()
+                            if (token%kind == TK_OPERATOR .and. &
+                                token%text == "=") then
+                                token = parser%consume()
+                                stat_var_index = parse_comparison(parser, arena)
+                            end if
+                            in_variable_list = .false.
+                        case ("errmsg")
+                            token = parser%consume()
+                            token = parser%peek()
+                            if (token%kind == TK_OPERATOR .and. &
+                                token%text == "=") then
+                                token = parser%consume()
+                                errmsg_var_index = parse_comparison(parser, &
+                                                                    arena)
+                            end if
+                            in_variable_list = .false.
+                        case default
+                            if (in_variable_list) then
+                                var_indices = [var_indices, &
+                                               parse_comparison(parser, arena)]
+                            else
+                                token = parser%consume()
+                            end if
+                        end select
+                    case default
+                        if (in_variable_list) then
+                            var_indices = [var_indices, &
+                                           parse_comparison(parser, arena)]
+                        else
+                            token = parser%consume()
+                        end if
+                    end select
+
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()
+                    else
+                        exit
+                    end if
+                end do
+            end if
+
+            ! Consume closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
         end if
 
         ! Create deallocate statement node
@@ -368,60 +391,6 @@ contains
                                            stat_var_index, &
                                            errmsg_var_index, &
                                            line, column)
-    contains
-        subroutine process_deallocate_item(local_parser, local_arena, token, &
-                                           in_variable_list)
-            type(parser_state_t), intent(inout) :: local_parser
-            type(ast_arena_t), intent(inout) :: local_arena
-            type(token_t), intent(in) :: token
-            logical, intent(inout) :: in_variable_list
-
-            type(token_t) :: discard
-
-            select case (token%kind)
-            case (TK_IDENTIFIER)
-                select case (token%text)
-                case ("stat")
-                    call consume_assignment(local_parser, local_arena, &
-                                            stat_var_index)
-                    in_variable_list = .false.
-                case ("errmsg")
-                    call consume_assignment(local_parser, local_arena, &
-                                            errmsg_var_index)
-                    in_variable_list = .false.
-                case default
-                    if (in_variable_list) then
-                        var_indices = [var_indices, &
-                                       parse_comparison(local_parser, &
-                                                        local_arena)]
-                    else
-                        discard = local_parser%consume()
-                    end if
-                end select
-            case default
-                if (in_variable_list) then
-                    var_indices = [var_indices, &
-                                   parse_comparison(local_parser, &
-                                                    local_arena)]
-                else
-                    discard = local_parser%consume()
-                end if
-            end select
-        end subroutine process_deallocate_item
-
-        subroutine consume_assignment(local_parser, local_arena, target_index)
-            type(parser_state_t), intent(inout) :: local_parser
-            type(ast_arena_t), intent(inout) :: local_arena
-            integer, intent(inout) :: target_index
-            type(token_t) :: lookahead
-
-            lookahead = local_parser%consume()
-            lookahead = local_parser%peek()
-            if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "=") then
-                lookahead = local_parser%consume()
-                target_index = parse_comparison(local_parser, local_arena)
-            end if
-        end subroutine consume_assignment
     end function parse_deallocate_statement
 
 end module parser_memory_statements_module
