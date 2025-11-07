@@ -1,0 +1,7 @@
+function add(a, b)
+    add = a + b
+end function
+
+x = add(5, 3)
+y = add(2.5, 1.5)
+z = add(1.0d0, 2.0d0)
