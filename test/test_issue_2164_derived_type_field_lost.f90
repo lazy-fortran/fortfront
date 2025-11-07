@@ -1,0 +1,87 @@
+program test_issue_2164_derived_type_field_lost
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use frontend_transformation, only: INPUT_MODE_STANDARD
+    use string_utils_mod, only: to_lower
+    use transformation_api, only: transform_with_context, transform_context_t
+    implicit none
+
+    character(len=:), allocatable :: source_code
+    character(len=:), allocatable :: output_code
+    type(transform_context_t) :: ctx
+    logical :: found_data_field, found_inner_field, found_correct_assignment
+    integer :: i
+
+    ! Read the example file
+    call read_example('examples/f90/issue_playtest5_derived_type_field_lost.f90', source_code)
+
+    ! Transform using standard Fortran mode (round-trip)
+    call transform_with_context(source_code, INPUT_MODE_STANDARD, ctx)
+    output_code = ctx%output
+
+    ! Check that output contains both fields in the derived type definition
+    found_inner_field = .false.
+    found_data_field = .false.
+    found_correct_assignment = .false.
+
+    ! Look for "type(inner_type) :: inner" in the type definition
+    if (index(output_code, 'type(inner_type) :: inner') > 0 .or. &
+        index(output_code, 'type(inner_type):: inner') > 0 .or. &
+        index(output_code, 'type (inner_type) :: inner') > 0) then
+        found_inner_field = .true.
+    end if
+
+    ! Look for "real :: data" in the type definition
+    if (index(output_code, 'real :: data') > 0 .or. &
+        index(output_code, 'real:: data') > 0 .or. &
+        index(output_code, 'real ::data') > 0 .or. &
+        index(output_code, 'real::data') > 0) then
+        found_data_field = .true.
+    end if
+
+    ! Look for correct assignment "obj%data = 3.14" (not "obj = 3.14")
+    if (index(output_code, 'obj%data') > 0) then
+        found_correct_assignment = .true.
+    end if
+
+    ! Report results
+    if (.not. found_inner_field) then
+        write (error_unit, '(A)') 'FAIL: inner field not found in output'
+        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. found_data_field) then
+        write (error_unit, '(A)') 'FAIL: data field not found in output (BUG #2164)'
+        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. found_correct_assignment) then
+        write (error_unit, '(A)') 'FAIL: correct assignment obj%data not found (BUG #2164)'
+        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    print *, 'PASS: Issue #2164 test passed'
+
+contains
+
+    include 'common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
+
+end program test_issue_2164_derived_type_field_lost
