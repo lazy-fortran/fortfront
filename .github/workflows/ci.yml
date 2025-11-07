@@ -24,28 +24,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-linux:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      fail-fast: true  # Cancel all jobs immediately when any OS fails
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    
+
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Cache FPM binary
+
+    # ============= LINUX SETUP =============
+    - name: Cache FPM binary (Linux)
+      if: runner.os == 'Linux'
       id: cache-fpm
       uses: actions/cache@v4
       with:
         path: /usr/local/bin/fpm
         key: ${{ runner.os }}-fpm-0.12.0
-    
-    - name: Setup FPM
-      if: steps.cache-fpm.outputs.cache-hit != 'true'
+
+    - name: Setup FPM (Linux)
+      if: runner.os == 'Linux' && steps.cache-fpm.outputs.cache-hit != 'true'
       run: |
         wget https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
         chmod +x fpm-0.12.0-linux-x86_64-gcc-12
         sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
-    
-    - name: Setup newer GCC
+
+    - name: Setup newer GCC (Linux)
+      if: runner.os == 'Linux'
       run: |
         # Add GCC 14 PPA for Ubuntu
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
@@ -55,8 +63,9 @@ jobs:
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
         sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-14 100
-    
-    - name: Cache FPM dependencies
+
+    - name: Cache FPM dependencies (Linux)
+      if: runner.os == 'Linux'
       uses: actions/cache@v4
       with:
         path: |
@@ -66,24 +75,28 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-v2-
 
-    - name: Setup Python
+    - name: Setup Python (Linux)
+      if: runner.os == 'Linux'
       uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-    
-    - name: Show compiler versions
+
+    - name: Show compiler versions (Linux)
+      if: runner.os == 'Linux'
       run: |
         gfortran --version
         fpm --version
         python3 --version
 
     - name: Check Test Duplication (CLAUDE.md compliance)
+      if: runner.os == 'Linux'
       continue-on-error: true
       run: |
         echo "Checking for end-to-end test duplication violations..."
         make check-duplication || echo "⚠️ Found test duplication violations - see issue #1975"
 
-    - name: Build and Test
+    - name: Build and Test (Linux)
+      if: runner.os == 'Linux'
       run: |
         # Simulate a smaller Windows-like stack on Linux to catch stack bugs
         ulimit -s 512 || true
@@ -91,179 +104,21 @@ jobs:
         ulimit -s 512 || true
         RUN_SYSTEM_TESTS=1 make test
 
-    # Code validation gate removed (redundant with test suite)
-
-    # No additional cleanup steps
-
-    - name: Generate coverage data (optimized)
-      if: false  # coverage disabled
-      run: |
-        # Optimized parallel lcov processing with cross-platform CPU detection
-        PARALLEL_JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-        echo "Using $PARALLEL_JOBS parallel jobs for coverage processing"
-        
-        # Generate lcov coverage data with parallel processing
-        lcov --capture --directory build/ --output-file coverage.info \
-          --rc branch_coverage=1 \
-          --ignore-errors inconsistent \
-          --ignore-errors mismatch \
-          --ignore-errors unused \
-          --parallel $PARALLEL_JOBS
-        
-        # Filter coverage with optimized exclusions
-        lcov --remove coverage.info \
-          'build/dependencies/*' \
-          'test/*' \
-          '/usr/*' \
-          --output-file coverage_filtered.info \
-          --rc branch_coverage=1 \
-          --ignore-errors mismatch \
-          --ignore-errors unused \
-          --ignore-errors inconsistent \
-          --parallel $PARALLEL_JOBS
-        
-        # Install and run lcov_cobertura with race condition protection
-        pip install lcov_cobertura &
-        wait
-        
-        # Verify coverage_filtered.info exists and is ready
-        if [ ! -f "coverage_filtered.info" ] || [ ! -s "coverage_filtered.info" ]; then
-            echo "❌ coverage_filtered.info is missing or empty"
-            exit 1
-        fi
-        
-        # Add small delay to ensure file I/O completion
-        sleep 1
-        lcov_cobertura coverage_filtered.info --output cobertura.xml
-        
-        # Verify XML was created
-        if [ ! -f "cobertura.xml" ]; then
-          echo "❌ Failed to generate cobertura.xml"
-          exit 1
-        fi
-        echo "✅ Coverage data ready ($(wc -l < coverage_filtered.info) lines processed)"
-
-
-    - name: Produce the coverage report
-      if: false  # coverage disabled
-      id: coverage_report
-      uses: insightsengineering/coverage-action@v3
-      continue-on-error: true
-      with:
-        # Path to the Cobertura XML report.
-        path: ./cobertura.xml
-        # Minimum total coverage threshold
-        threshold: 70
-        # Fail if coverage below threshold (but continue workflow)
-        fail: true
-        # Publish the rendered output as a PR comment
-        publish: true
-        # Enable diff coverage with storage branch
-        diff: true
-        # Branch to diff against
-        diff-branch: main
-        # Storage branch for coverage history (lightweight XML files only)
-        diff-storage: _coverage_storage
-        # Custom title for the coverage summary
-        coverage-summary-title: "Code Coverage Summary"
-        # Enable togglable report for organized sections
-        togglable-report: true
-        # Include detailed coverage with percentages and positions
-        exclude-detailed-coverage: false
-
-    - name: Create coverage checks
-      # Create checks only when coverage XML exists. This naturally skips
-      # PR runs (fast path, no coverage) and runs on main pushes where
-      # coverage is generated.
-      if: false  # coverage disabled
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const fs = require('fs');
-          const xml = fs.readFileSync('cobertura.xml', 'utf8');
-          
-          // Extract overall project coverage
-          const coverageMatch = xml.match(/line-rate="([0-9.]+)"/);
-          const projectCoverage = coverageMatch ? (parseFloat(coverageMatch[1]) * 100).toFixed(2) : '0.00';
-          
-          // For patch coverage, we'll use a simplified approach for now
-          // In a full implementation, this would analyze only changed lines
-          const patchCoverage = projectCoverage; // Simplified - normally would calculate differently
-          
-          const projectThreshold = 70;
-          const patchThreshold = 70;
-          
-          const projectPassed = parseFloat(projectCoverage) >= projectThreshold;
-          const patchPassed = parseFloat(patchCoverage) >= patchThreshold;
-          
-          // Create project coverage check
-          await github.rest.checks.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            name: 'coverage/project',
-            head_sha: context.sha,
-            status: 'completed',
-            conclusion: projectPassed ? 'success' : 'failure',
-            output: {
-              title: projectPassed ? `OK - ${projectCoverage}%` : `FAIL - ${projectCoverage}%`,
-              summary: projectPassed 
-                ? `✅ Project coverage ${projectCoverage}% meets the ${projectThreshold}.00% threshold`
-                : `❌ Project coverage ${projectCoverage}% is below the ${projectThreshold}.00% threshold`,
-              text: `Current project coverage: ${projectCoverage}%\nRequired threshold: ${projectThreshold}.00%`
-            }
-          });
-          
-          // Create patch coverage check  
-          await github.rest.checks.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            name: 'coverage/patch',
-            head_sha: context.sha,
-            status: 'completed',
-            conclusion: patchPassed ? 'success' : 'failure',
-            output: {
-              title: patchPassed ? `OK - ${patchCoverage}%` : `FAIL - ${patchCoverage}%`,
-              summary: patchPassed 
-                ? `✅ Patch coverage ${patchCoverage}% meets the ${patchThreshold}.00% threshold`
-                : `❌ Patch coverage ${patchCoverage}% is below the ${patchThreshold}.00% threshold`,
-              text: `Current patch coverage: ${patchCoverage}%\nRequired threshold: ${patchThreshold}.00%\n\nNote: Patch coverage analyzes only the lines changed in this PR.`
-            }
-          });
-
-    - name: Upload coverage artifacts
-      if: false  # coverage disabled
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report
-        path: |
-          coverage_filtered.info
-          coverage_html/
-          coverage-badge.svg
-          coverage-badge.json
-        retention-days: 30
-
-  test-windows:
-    runs-on: windows-latest
-    # FRAUD RECOVERY: Removed continue-on-error to expose actual Windows failures
-    # continue-on-error: true was masking systematic Windows build issues
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Self-Contained MinGW Environment
+    # ============= WINDOWS SETUP =============
+    - name: Setup Self-Contained MinGW Environment (Windows)
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         Write-Host "🔧 Setting up self-contained MinGW environment..."
-        
+
         # Use MSYS2 MinGW which is preinstalled on GitHub Actions Windows runners
         $mingwPath = "C:\msys64\mingw64\bin"
-        
+
         # Check if path exists
         if (Test-Path $mingwPath) {
           echo $mingwPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           Write-Host "✅ MinGW path added: $mingwPath"
-          
+
           # Verify gfortran is available
           $gfortranPath = Join-Path $mingwPath "gfortran.exe"
           if (Test-Path $gfortranPath) {
@@ -276,7 +131,7 @@ jobs:
         } else {
           Write-Error "❌ MSYS2 MinGW installation path not found at: $mingwPath"
           Write-Host "Checking other possible locations..."
-          
+
           # Try GitHub Actions default MinGW location
           $altPath = "C:\mingw64\bin"
           if (Test-Path $altPath) {
@@ -289,27 +144,29 @@ jobs:
         }
 
     - name: Cache FPM binary (Windows)
+      if: runner.os == 'Windows'
       id: cache-fpm-win
       uses: actions/cache@v4
       with:
         path: C:\tools\fpm\fpm.exe
         key: ${{ runner.os }}-fpm-0.12.0
 
-    - name: Install FPM
-      if: steps.cache-fpm-win.outputs.cache-hit != 'true'
+    - name: Install FPM (Windows)
+      if: runner.os == 'Windows' && steps.cache-fpm-win.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
         Write-Host "📦 Installing FPM directly from GitHub releases..."
         New-Item -ItemType Directory -Force -Path "C:\tools\fpm"
         Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "C:\tools\fpm\fpm.exe"
-        
+
         # Add FPM to PATH
         echo "C:\tools\fpm" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        
+
         # Verify installation
         & "C:\tools\fpm\fpm.exe" --version
 
     - name: Cache FPM dependencies (Windows)
+      if: runner.os == 'Windows'
       uses: actions/cache@v4
       with:
         path: |
@@ -319,14 +176,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-v2-
 
-    - name: Show compiler versions
+    - name: Show compiler versions (Windows)
+      if: runner.os == 'Windows'
       shell: pwsh
       run: |
         $env:PATH = "C:\tools\fpm;$env:PATH"
         gfortran --version
         fpm --version
 
-    - name: Build and Test
+    - name: Build and Test (Windows)
+      if: runner.os == 'Windows'
       shell: pwsh
       env:
         RUN_SYSTEM_TESTS: '1'
