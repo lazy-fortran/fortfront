@@ -1,0 +1,9 @@
+! Nested internal procedures should halt processing (issue #2168)
+function outer(x)
+    function inner(y)
+        inner = y * 2
+    end function
+    outer = inner(x) + 5
+end function
+
+result = outer(10)

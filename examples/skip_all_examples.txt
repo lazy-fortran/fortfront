@@ -44,6 +44,7 @@ lf/issue_1971_inquiry_intrinsics.lf
 lf/issue_1972_do_if_hang.lf
 lf/issue_1973_empty_typed_array_constructor.lf
 lf/issue_1814_nested_lazy_function.lf
+lf/issue_playtest5_nested_function_chaos.lf
 lf/issue_2012_subroutine_local_not_inferred.lf
 lf/issue_2016_nested_call_type_mismatch.lf
 lf/issue_2019_statements_after_if_dropped.lf

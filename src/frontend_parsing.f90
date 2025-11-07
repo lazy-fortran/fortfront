@@ -39,6 +39,10 @@ module frontend_parsing
     use frontend_mixed_constructs, only: parse_mixed_constructs, &
                                          create_mixed_construct_container_arena, &
                                          parse_declaration_range, parse_program_range
+    use parser_procedure_definition_bodies_module, only: &
+        reset_nested_internal_procedure_error, &
+        has_nested_internal_procedure_error, &
+        get_nested_internal_procedure_message
 
     implicit none
     private
@@ -89,9 +93,11 @@ contains
         logical :: debug_units
         character(len=:), allocatable :: start_text, end_text
         type(token_t), allocatable :: tokens_local(:)
+        character(len=:), allocatable :: nested_error
 
         error_msg = ""
         prog_index = 0
+        call reset_nested_internal_procedure_error()
 
         call ensure_if_do_registration()
 
@@ -152,6 +158,17 @@ contains
                 i = i + 1
             end if
         end do
+
+        if (has_nested_internal_procedure_error()) then
+            nested_error = get_nested_internal_procedure_message()
+            if (allocated(nested_error)) then
+                error_msg = trim(nested_error)
+            else
+                error_msg = 'Nested internal procedures are not supported.'
+            end if
+            prog_index = 0
+            return
+        end if
 
         ! Handle final program structure
         if (unit_count == 0) then
