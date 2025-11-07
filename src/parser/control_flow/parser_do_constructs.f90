@@ -318,11 +318,29 @@ contains
         end do
     end function find_matching_end_if
 
+    integer function skip_trivia_tokens(tokens, start_idx) result(next_idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx
+        integer :: idx
+
+        idx = start_idx
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+        next_idx = idx
+    end function skip_trivia_tokens
+
     integer function find_matching_end_do(tokens, start_pos) result(end_index)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
 
-        integer :: idx
+        integer :: idx, next_idx
         integer :: depth
         type(token_t) :: token
 
@@ -357,21 +375,23 @@ contains
                         return
                     end if
                 case ("end")
-                    if (idx + 1 <= size(tokens)) then
-                        if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
-                            tokens(idx + 1)%text == "do") then
+                    ! Skip whitespace/newlines/comments after "end"
+                    next_idx = skip_trivia_tokens(tokens, idx + 1)
+                    if (next_idx <= size(tokens)) then
+                        if (tokens(next_idx)%kind == TK_KEYWORD .and. &
+                            tokens(next_idx)%text == "do") then
                             depth = depth - 1
                             if (depth == 0) then
                                 ! Check if there's a label after "end do"
-                                if (idx + 2 <= size(tokens) .and. &
-                                    tokens(idx + 2)%kind == TK_IDENTIFIER) then
-                                    end_index = idx + 2
+                                if (next_idx + 1 <= size(tokens) .and. &
+                                    tokens(next_idx + 1)%kind == TK_IDENTIFIER) then
+                                    end_index = next_idx + 1
                                 else
-                                    end_index = idx + 1
+                                    end_index = next_idx
                                 end if
                                 return
                             end if
-                            idx = idx + 1
+                            idx = next_idx
                         end if
                     end if
                 end select
@@ -551,17 +571,23 @@ contains
             do while (parser%current_token <= size(parser%tokens))
                 block
                     type(token_t) :: current_token
+                    integer :: check_idx
 
                     current_token = parser%peek()
                     if (current_token%kind == TK_KEYWORD .and. &
                         current_token%text == "end") then
-                        if (parser%current_token + 1 <= size(parser%tokens)) then
-                            next_index = parser%current_token + 1
-                            next_token = parser%tokens(next_index)
-                            if (next_token%kind == TK_KEYWORD .and. &
-                                next_token%text == "do") then
-                                current_token = parser%consume()
-                                current_token = parser%consume()
+                        ! Skip whitespace/newlines/comments after "end"
+                        check_idx = skip_trivia_tokens(parser%tokens, &
+                                                       parser%current_token + 1)
+                        if (check_idx <= size(parser%tokens)) then
+                            if (parser%tokens(check_idx)%kind == TK_KEYWORD .and. &
+                                parser%tokens(check_idx)%text == "do") then
+                                ! Consume all tokens from "end" to "do"
+                                current_token = parser%consume()  ! consume "end"
+                                do while (parser%current_token < check_idx)
+                                    current_token = parser%consume()  ! skip trivia
+                                end do
+                                current_token = parser%consume()  ! consume "do"
                                 exit
                             end if
                         end if
@@ -587,8 +613,9 @@ contains
                         parser%current_token = stmt_start
                         exit
                     else if (parser%tokens(stmt_start)%text == "end") then
-                        if (stmt_start + 1 <= size(parser%tokens)) then
-                            next_index = stmt_start + 1
+                        ! Skip whitespace/newlines/comments after "end"
+                        next_index = skip_trivia_tokens(parser%tokens, stmt_start + 1)
+                        if (next_index <= size(parser%tokens)) then
                             next_token = parser%tokens(next_index)
                             if (next_token%kind == TK_KEYWORD .and. &
                                 next_token%text == "do") then
@@ -771,6 +798,42 @@ contains
                     end if
                 end select
             end if
+
+            ! Consume the "end do" tokens after loop body is parsed
+            block
+                type(token_t) :: end_token
+                integer :: skip_idx
+
+                if (parser%current_token <= size(parser%tokens)) then
+                    end_token = parser%peek()
+                    if (end_token%kind == TK_KEYWORD) then
+                        if (end_token%text == "enddo" .or. end_token%text == "end do") then
+                            end_token = parser%consume()
+                        else if (end_token%text == "end") then
+                            end_token = parser%consume()  ! consume "end"
+                            ! Skip whitespace/newlines/comments to find "do"
+                            do while (parser%current_token <= size(parser%tokens))
+                                end_token = parser%peek()
+                                if (end_token%kind == TK_WHITESPACE .or. &
+                                    end_token%kind == TK_NEWLINE .or. &
+                                    end_token%kind == TK_COMMENT) then
+                                    end_token = parser%consume()
+                                else
+                                    exit
+                                end if
+                            end do
+                            ! Consume "do"
+                            if (parser%current_token <= size(parser%tokens)) then
+                                end_token = parser%peek()
+                                if (end_token%kind == TK_KEYWORD .and. &
+                                    end_token%text == "do") then
+                                    end_token = parser%consume()
+                                end if
+                            end if
+                        end if
+                    end if
+                end if
+            end block
         end block
 
         if (control_count > 1) then
@@ -916,8 +979,10 @@ contains
                 token = parser%peek()
 
                 if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        next_index = parser%current_token + 1
+                    ! Skip whitespace/newlines/comments after "end"
+                    next_index = skip_trivia_tokens(parser%tokens, &
+                                                    parser%current_token + 1)
+                    if (next_index <= size(parser%tokens)) then
                         if (parser%tokens(next_index)%kind == TK_KEYWORD .and. &
                             parser%tokens(next_index)%text == "do") then
                             exit
@@ -934,8 +999,9 @@ contains
                         parser%current_token = stmt_start
                         exit
                     else if (parser%tokens(stmt_start)%text == "end") then
-                        if (stmt_start + 1 <= size(parser%tokens)) then
-                            next_index = stmt_start + 1
+                        ! Skip whitespace/newlines/comments after "end"
+                        next_index = skip_trivia_tokens(parser%tokens, stmt_start + 1)
+                        if (next_index <= size(parser%tokens)) then
                             if (parser%tokens(next_index)%kind == TK_KEYWORD .and. &
                                 parser%tokens(next_index)%text == "do") then
                                 parser%current_token = stmt_start
@@ -1005,9 +1071,20 @@ contains
         ! Consume 'end do' tokens
         block
             type(token_t) :: token
+            integer :: check_idx
             token = parser%peek()
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 while_token = parser%consume()  ! consume 'end'
+                ! Skip whitespace/newlines/comments to find "do"
+                do while (.not. parser%is_at_end())
+                    token = parser%peek()
+                    if (token%kind == TK_WHITESPACE .or. token%kind == TK_NEWLINE .or. &
+                        token%kind == TK_COMMENT) then
+                        while_token = parser%consume()  ! skip trivia
+                    else
+                        exit
+                    end if
+                end do
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD .and. token%text == "do") then
                     while_token = parser%consume()  ! consume 'do'
