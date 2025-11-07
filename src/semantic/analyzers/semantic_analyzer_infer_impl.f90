@@ -8,6 +8,10 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
     use ast_nodes_misc, only: data_statement_node
     implicit none
 
+    ! Module-level context for wrapper function (not thread-safe, but works around gfortran bug)
+    class(semantic_context_t), pointer :: g_current_context => null()
+    type(ast_arena_t), pointer :: g_current_arena => null()
+
     type :: infer_frame_t
         integer :: node_index = 0
         integer :: state = 0
@@ -18,27 +22,20 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
         type(mono_type_t), allocatable :: param_types(:)
     end type infer_frame_t
 
-    ! Module-level variable to store current semantic context for type lookup
-    ! This is needed because internal procedures with host association cannot
-    ! be safely passed as procedure pointers in Fortran.
-    class(semantic_context_t), pointer :: g_current_context => null()
-
 contains
 
-    ! Module-level wrapper function for type lookup
-    ! This uses the stored g_current_context instead of a closure
-    function module_get_type_lookup(a, idx) result(res_type)
+    ! Module-level wrapper function that uses global context (workaround for gfortran bug with internal procedures as procedure pointers)
+    function module_get_node_type_wrapper(a, idx) result(res_type)
         type(ast_arena_t), intent(inout) :: a
         integer, intent(in) :: idx
         type(mono_type_t) :: res_type
 
-        if (.not. associated(g_current_context)) then
+        if (associated(g_current_context) .and. associated(g_current_arena)) then
+            res_type = get_inferred_type_from_arena(g_current_context, g_current_arena, idx)
+        else
             res_type = create_mono_type(TREAL)
-            return
         end if
-
-        res_type = get_inferred_type_from_arena(g_current_context, a, idx)
-    end function module_get_type_lookup
+    end function module_get_node_type_wrapper
 
     module function infer_statement_type(this, arena, stmt_index) result(typ)
         class(semantic_context_t), intent(inout) :: this
@@ -51,7 +48,7 @@ contains
 
     module function infer_type(this, arena, expr_index) result(typ)
         class(semantic_context_t), intent(inout), target :: this
-        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_t), intent(inout), target :: arena
         integer, intent(in) :: expr_index
         type(mono_type_t) :: typ
         type(infer_frame_t), allocatable :: stack(:)
@@ -62,18 +59,13 @@ contains
         integer, parameter :: STATE_POST = 1
         integer, parameter :: STATE_ASSOC_DEFINE = 2
 
-        ! Store context for module-level type lookup function
-        g_current_context => this
-
         typ = create_mono_type(TREAL)
-        if (expr_index <= 0 .or. expr_index > arena%size) then
-            g_current_context => null()
-            return
-        end if
-        if (.not. allocated(arena%entries(expr_index)%node)) then
-            g_current_context => null()
-            return
-        end if
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        ! Set global context for module_get_node_type_wrapper (workaround for gfortran bug)
+        g_current_context => this
+        g_current_arena => arena
 
         stack_capacity = max(16, arena%size / 4 + 1)
         allocate (stack(stack_capacity))
@@ -97,8 +89,9 @@ contains
 
         typ = get_node_type(expr_index)
 
-        ! Clean up global context
+        ! Clear global pointers
         g_current_context => null()
+        g_current_arena => null()
 
     contains
 
@@ -266,12 +259,14 @@ contains
             type is (data_statement_node)
                 call finalize_data_statement_node(node_index, expr)
             type is (array_literal_node)
+                ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
                 node_type = infer_array_literal_type(arena, expr, &
-                                                     module_get_type_lookup)
+                                                     module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)
             type is (array_slice_node)
+                ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
                 node_type = infer_array_slice_type(arena, expr, &
-                                                   module_get_type_lookup)
+                                                   module_get_node_type_wrapper)
                 call finalize_node(node_index, node_type)
             type is (if_node)
                 call process_if_node_branches(expr, node_type)
@@ -990,8 +985,9 @@ contains
             type(call_or_subscript_node), intent(inout) :: expr
             type(mono_type_t) :: node_type
 
+            ! Use module-level wrapper instead of internal procedure (workaround for gfortran bug)
             node_type = infer_function_call_type(arena, expr, this%scopes, &
-                                                 module_get_type_lookup)
+                                                 module_get_node_type_wrapper)
             call collect_call_signature(this%signatures, arena, expr, node_type, &
                                         node_index)
             call finalize_node(node_index, node_type)
@@ -1105,6 +1101,14 @@ contains
 
             res_type = get_inferred_type_from_arena(this, arena, idx)
         end function get_node_type
+
+        function get_node_type_with_arena(a, idx) result(res_type)
+            type(ast_arena_t), intent(inout) :: a
+            integer, intent(in) :: idx
+            type(mono_type_t) :: res_type
+
+            res_type = get_inferred_type_from_arena(this, a, idx)
+        end function get_node_type_with_arena
 
         subroutine handle_declaration(node, node_index)
             type(declaration_node), intent(in) :: node
