@@ -877,8 +877,9 @@ contains
         ! - character strings with deferred length
         ! - arrays flagged by assignment tracking (but NOT if they have explicit bounds)
         if (decl%is_array) then
-            ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812)
+            ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812, #2149)
             ! Arrays like integer :: arr(0:9) or real :: arr(-5:5) must preserve bounds
+            ! Arrays from slices like slice1 = arr(1:5) have fixed sizes already set
             if (has_explicit_array_bounds(decl)) then
                 return
             end if
