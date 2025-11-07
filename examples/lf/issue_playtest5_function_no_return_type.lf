@@ -1,0 +1,13 @@
+function compute(flag)
+    if (flag) then
+        compute = 42
+    else
+        compute = 3.14
+    end if
+end function
+
+result1 = compute(.true.)
+result2 = compute(.false.)
+
+print *, "True:", result1
+print *, "False:", result2
