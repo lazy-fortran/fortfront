@@ -1750,6 +1750,80 @@ contains
         end if
     end function clone_function_body_with_updated_result
 
+    subroutine extract_dimension_from_type_string(type_name, dimension_indices)
+        character(len=:), allocatable, intent(inout) :: type_name
+        integer, allocatable, intent(out) :: dimension_indices(:)
+        integer :: dim_start, dim_end, paren_count
+        integer :: i, ndims
+        character(len=:), allocatable :: dim_spec, base_type
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(type_name)
+        dim_start = index(lowered, "dimension(")
+        if (dim_start == 0) return
+
+        ! Find the matching closing parenthesis
+        paren_count = 0
+        dim_end = 0
+        do i = dim_start + len("dimension"), len(lowered)
+            if (lowered(i:i) == '(') then
+                paren_count = paren_count + 1
+            else if (lowered(i:i) == ')') then
+                if (paren_count == 0) then
+                    dim_end = i
+                    exit
+                else
+                    paren_count = paren_count - 1
+                end if
+            end if
+        end do
+
+        if (dim_end == 0) return
+
+        ! Extract dimension specification between parentheses
+        dim_spec = type_name(dim_start + len("dimension("):dim_end - 1)
+
+        ! Count dimensions (number of commas + 1)
+        ndims = 1
+        do i = 1, len(dim_spec)
+            if (dim_spec(i:i) == ',') ndims = ndims + 1
+        end do
+
+        ! Allocate dimension_indices (0 means assumed-shape :)
+        allocate (dimension_indices(ndims))
+        dimension_indices = 0
+
+        ! Extract base type by removing dimension specification
+        if (dim_start > 1) then
+            ! Check if there's a comma before "dimension"
+            i = dim_start - 1
+            do while (i > 0 .and. (lowered(i:i) == ' ' .or. lowered(i:i) == ','))
+                i = i - 1
+            end do
+            base_type = trim(type_name(1:i))
+        else
+            base_type = ""
+        end if
+
+        ! Check if there's anything after dimension specification
+        if (dim_end < len(type_name)) then
+            i = dim_end + 1
+            do while (i <= len(type_name) .and. (type_name(i:i) == ' ' &
+                      .or. type_name(i:i) == ','))
+                i = i + 1
+            end do
+            if (i <= len(type_name)) then
+                if (len_trim(base_type) > 0) then
+                    base_type = trim(base_type) // ", " // trim(type_name(i:))
+                else
+                    base_type = trim(type_name(i:))
+                end if
+            end if
+        end if
+
+        type_name = base_type
+    end subroutine extract_dimension_from_type_string
+
     function clone_parameter_with_kind(arena, param_idx, kind_value, type_override) &
         result(new_idx)
         type(ast_arena_t), intent(inout) :: arena
@@ -1798,10 +1872,12 @@ contains
             new_param%has_kind = .false.
             new_param%kind_value = 0
             if (index(to_lower(new_param%type_name), "dimension(") > 0) then
-                ! For array parameters, strip dimension() from type_name to avoid duplication
+                ! Extract dimension info before stripping (for assumed-shape output)
+                call extract_dimension_from_type_string(new_param%type_name, &
+                                                       new_param%dimension_indices)
+                ! Strip dimension() from type_name to avoid duplication
                 ! The dimension spec will come from dimension_indices instead
                 new_param%type_name = strip_dimension_from_type(new_param%type_name)
-                ! Keep dimension_indices for assumed-shape output (:)
                 new_param%is_array = .true.
             end if
         else
