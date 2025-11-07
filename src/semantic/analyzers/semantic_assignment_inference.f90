@@ -199,11 +199,21 @@ contains
                                              identifier%name)
         end if
 
-        ! Update all identifier nodes in the arena with the inferred type
-        call update_identifier_type_in_arena(arena, identifier%name, expr_typ)
-
         ! Force complex type for variables assigned from complex literals
         final_type = get_final_assignment_type(arena, assignment, expr_typ)
+
+        ! Issue #2152: Preserve array type if assigning scalar to array
+        ! (scalar broadcast is valid in Fortran, e.g., in WHERE blocks)
+        if (allocated(existing_scheme)) then
+            if (existing_scheme%mono_kind == TARRAY .and. &
+                final_type%kind /= TARRAY) then
+                ! Keep the existing array type, don't downgrade to scalar
+                final_type = existing_scheme%get_mono()
+            end if
+        end if
+
+        ! Update all identifier nodes in the arena with the inferred type
+        call update_identifier_type_in_arena(arena, identifier%name, final_type)
 
         scheme = create_poly_type(forall_vars=[type_var_t ::], mono=final_type)
         call scopes%define(identifier%name, scheme)
