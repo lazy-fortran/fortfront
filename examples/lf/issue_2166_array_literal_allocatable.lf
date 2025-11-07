@@ -1,0 +1,4 @@
+source = [1, 2, 3, 4, 5]
+dest = [0, 0, 0]
+
+dest = source(1:3)

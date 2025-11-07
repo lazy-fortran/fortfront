@@ -1,7 +1,7 @@
 program test_array_slice_type_inference
     use transformation_api, only: transform_lazy_fortran_string
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
-        iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     implicit none
     character(len=:), allocatable :: source, output, error_msg
 
@@ -15,14 +15,22 @@ program test_array_slice_type_inference
         end if
     end if
 
-    if (index(output, 'integer, allocatable :: slice(:)') == 0) then
-        print *, 'FAIL: Expected integer allocatable slice'
+    if (index(output, 'integer :: slice(3)') == 0) then
+        print *, 'FAIL: Expected integer slice with explicit extent'
         print *, 'Output:'
         print *, output
         stop 1
     end if
 
-    if (index(output, 'real, allocatable :: slice(:)') > 0) then
+    if (index(output, 'allocatable :: slice') > 0) then
+        print *, 'FAIL: Slice incorrectly marked allocatable'
+        print *, 'Output:'
+        print *, output
+        stop 1
+    end if
+
+    if (index(output, 'real :: slice') > 0 .or. &
+        index(output, 'real(8) :: slice') > 0) then
         print *, 'FAIL: Found incorrect real type for slice'
         print *, 'Output:'
         print *, output
