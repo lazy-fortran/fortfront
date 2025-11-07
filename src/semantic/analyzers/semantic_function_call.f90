@@ -33,6 +33,7 @@ contains
         character(len=:), allocatable :: lowered_name
         logical :: is_intrinsic_func
         logical :: has_function_scheme
+        logical :: return_type_locked
         type(mono_type_t), allocatable :: arg_types(:)
 
         typ = create_mono_type(TREAL)
@@ -50,7 +51,8 @@ contains
 
         call resolve_function_call_type(arena, call_node, scopes, get_type_fn, &
                                         typ, is_intrinsic_func, &
-                                        has_function_scheme)
+                                        has_function_scheme, &
+                                        return_type_locked)
 
         if (is_intrinsic_func) then
             call refine_character_intrinsic_result(lowered_name, &
@@ -60,7 +62,7 @@ contains
         call apply_array_access_rules(call_node, has_function_scheme, &
                                       is_intrinsic_func, typ)
 
-        call refine_type_from_arguments(arg_types, typ)
+        call refine_type_from_arguments(arg_types, typ, return_type_locked)
 
         if (is_intrinsic_func) then
             select case (lowered_name)
@@ -75,7 +77,8 @@ contains
     subroutine resolve_function_call_type(arena, call_node, scopes, &
                                           get_type_fn, typ, &
                                           is_intrinsic_func, &
-                                          has_function_scheme)
+                                          has_function_scheme, &
+                                          return_type_locked)
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(inout) :: call_node
         type(scope_stack_t), intent(inout) :: scopes
@@ -83,12 +86,14 @@ contains
         type(mono_type_t), intent(inout) :: typ
         logical, intent(out) :: is_intrinsic_func
         logical, intent(out) :: has_function_scheme
+        logical, intent(out) :: return_type_locked
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: scheme_mono
         character(len=:), allocatable :: intrinsic_sig
 
         is_intrinsic_func = .false.
         has_function_scheme = .false.
+        return_type_locked = .false.
 
         if (allocated(call_node%name)) then
             call scopes%lookup(call_node%name, scheme)
@@ -102,6 +107,7 @@ contains
                 type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)
             end if
+            return_type_locked = has_function_scheme
             return
         end if
 
@@ -112,6 +118,7 @@ contains
 
         if (find_return_type(arena, call_node%name, typ)) then
             has_function_scheme = .true.
+            return_type_locked = .true.
             return
         end if
 
@@ -119,6 +126,7 @@ contains
 
         if (.not. is_intrinsic_func) then
             typ = create_mono_type(TREAL)
+            return_type_locked = .false.
             return
         end if
 
@@ -131,18 +139,25 @@ contains
 
         if (index(intrinsic_sig, "real(") == 1) then
             typ = create_mono_type(TREAL)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "integer(") == 1) then
             typ = create_mono_type(TINT)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "logical(") == 1) then
             typ = create_mono_type(TLOGICAL)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "character(") == 1) then
             typ = create_mono_type(TCHAR)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "complex(") == 1) then
             typ = create_mono_type(TCOMPLEX)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "array(") == 1) then
             typ = infer_array_intrinsic_type(arena, call_node, get_type_fn)
+            return_type_locked = .false.
         else
             typ = create_mono_type(TREAL)
+            return_type_locked = .false.
         end if
     end subroutine resolve_function_call_type
 
