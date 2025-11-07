@@ -99,9 +99,10 @@ contains
         integer :: unit_num, ios, file_size
         character(len=1), allocatable :: buffer(:)
         integer :: i
+        character(len=1) :: ch
 
         open (newunit=unit_num, file=filepath, status='old', &
-              action='read', iostat=ios)
+              action='read', access='stream', iostat=ios)
         if (ios /= 0) then
             print *, 'ERROR: Could not open file:', filepath
             stop 1
@@ -114,9 +115,10 @@ contains
         i = 0
         do
             if (i >= file_size) exit
-            i = i + 1
-            read (unit_num, '(A)', advance='no', iostat=ios) buffer(i)
+            read (unit_num, iostat=ios) ch
             if (ios /= 0) exit
+            i = i + 1
+            buffer(i) = ch
         end do
 
         close (unit_num)
