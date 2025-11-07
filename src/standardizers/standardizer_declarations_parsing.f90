@@ -28,6 +28,24 @@ contains
         end if
     end subroutine parse_base_and_attributes
 
+    pure function normalize_base_name(text) result(base_name)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: base_name
+        integer :: paren_pos
+
+        base_name = to_lower(trim(text))
+        if (len_trim(base_name) == 0) return
+
+        paren_pos = index(base_name, '(')
+        if (paren_pos > 0) then
+            if (paren_pos > 1) then
+                base_name = trim(base_name(:paren_pos - 1))
+            else
+                base_name = ''
+            end if
+        end if
+    end function normalize_base_name
+
     subroutine extract_kind_from_base(base_part, decl_node)
         character(len=:), allocatable, intent(inout) :: base_part
         type(declaration_node), intent(inout) :: decl_node
@@ -132,24 +150,48 @@ contains
         type(declaration_node), intent(inout) :: decl_node
         integer :: dim_pos
         logical :: has_dimension_attr
+        logical :: keep_base_type
         character(len=:), allocatable :: lowered_type
         character(len=:), allocatable :: base_part
         character(len=:), allocatable :: attr_part
         character(len=:), allocatable :: filtered_attr
+        character(len=:), allocatable :: existing_base
+        character(len=:), allocatable :: existing_attr
+        character(len=:), allocatable :: base_name_existing
+        character(len=:), allocatable :: base_name_new
 
         has_dimension_attr = .false.
         lowered_type = to_lower(var_type)
+        keep_base_type = .false.
 
         call parse_base_and_attributes(var_type, base_part, attr_part)
-        call extract_kind_from_base(base_part, decl_node)
+        base_name_new = normalize_base_name(base_part)
 
-        decl_node%type_name = trim(base_part)
+        if (allocated(decl_node%type_name)) then
+            call parse_base_and_attributes(decl_node%type_name, existing_base, &
+                                           existing_attr)
+            base_name_existing = normalize_base_name(existing_base)
+            if (len_trim(base_name_existing) > 0 .and. &
+                len_trim(base_name_new) > 0) then
+                if (trim(base_name_new) == 'integer' .and. &
+                    trim(base_name_existing) /= 'integer') then
+                    keep_base_type = .true.
+                end if
+            end if
+        end if
+
+        if (.not. keep_base_type) then
+            call extract_kind_from_base(base_part, decl_node)
+            decl_node%type_name = trim(base_part)
+        end if
         call remove_dimension_attrs(attr_part, filtered_attr)
         call build_filtered_attrs(attr_part, filtered_attr)
 
-        if (len_trim(filtered_attr) > 0) then
-            decl_node%type_name = trim(decl_node%type_name) // ', ' // &
-                                  trim(filtered_attr)
+        if (.not. keep_base_type) then
+            if (len_trim(filtered_attr) > 0) then
+                decl_node%type_name = trim(decl_node%type_name) // ', ' // &
+                                      trim(filtered_attr)
+            end if
         end if
 
         dim_pos = index(lowered_type, 'dimension(')
@@ -166,13 +208,13 @@ contains
 
         if (index(lowered_type, 'allocatable') > 0) then
             decl_node%is_allocatable = .true.
-        else if (.not. has_dimension_attr) then
+        else if (.not. has_dimension_attr .and. .not. keep_base_type) then
             decl_node%is_allocatable = .false.
         end if
 
         if (index(lowered_type, 'pointer') > 0) then
             decl_node%is_pointer = .true.
-        else
+        else if (.not. keep_base_type) then
             decl_node%is_pointer = .false.
         end if
 

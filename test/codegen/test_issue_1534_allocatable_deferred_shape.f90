@@ -56,6 +56,12 @@ contains
             return
         end if
 
+        if (.not. has_iso_dp_import(output)) then
+            print *, '  FAIL: Missing iso_fortran_env dp import'
+            test_single_dimension_allocatable = .false.
+            return
+        end if
+
         print *, '  PASS: Deferred shape preserved for single array'
     end function test_single_dimension_allocatable
 
@@ -94,8 +100,21 @@ contains
             return
         end if
 
+        if (.not. has_iso_dp_import(output)) then
+            print *, '  FAIL: Missing iso_fortran_env dp import'
+            test_multi_dimension_allocatable = .false.
+            return
+        end if
+
         print *, '  PASS: Deferred shape preserved for multi array'
     end function test_multi_dimension_allocatable
+
+    logical function has_iso_dp_import(output)
+        character(len=*), intent(in) :: output
+
+        has_iso_dp_import = index(output, 'iso_fortran_env') > 0 .and. &
+                            index(output, 'dp => real64') > 0
+    end function has_iso_dp_import
 
     subroutine read_example(filepath, content)
         character(len=*), intent(in) :: filepath

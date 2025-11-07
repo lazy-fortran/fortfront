@@ -14,6 +14,7 @@ f90/issue_1970_implied_do_array_constructor.f90
 f90/issue_2013_nested_implied_do_duplicate_var.f90
 f90/issue_2018_function_returns_array_duplicate_var.f90
 f90/issue_2022_fixed_array_to_unallocated.f90
+f90/issue_playtest5_array_type_changed_real_to_int.f90
 f90/tests/debug/h5/he/test_dimension_tokens/dimension_tokens_case_1.f90
 lf/api_complex_transform.lf
 lf/api_function_transform.lf
