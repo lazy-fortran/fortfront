@@ -5,7 +5,9 @@ program test_reshape_variable_shape_inference
     implicit none
     character(len=:), allocatable :: source, output, error_msg
 
-    call read_example('examples/lf/issue_playtest5_reshape_allocatable_never_allocated.lf', source)
+    call read_example( &
+        'examples/lf/issue_playtest5_reshape_allocatable_never_allocated.lf', &
+        source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (allocated(error_msg)) then
