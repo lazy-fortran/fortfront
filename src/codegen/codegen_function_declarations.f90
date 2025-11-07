@@ -900,6 +900,47 @@ contains
                     trim(result_name) // new_line('A')
     end function collect_recursive_result_decl
 
+    function collect_array_result_decl(arena, node) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: decl_code
+        character(len=:), allocatable :: type_str
+        character(len=:), allocatable :: result_name
+        character(len=:), allocatable :: function_name
+        logical :: missing_result_variable
+
+        decl_code = ""
+
+        if (.not. should_use_result_for_array(arena, node)) return
+        if (.not. allocated(node%name)) return
+
+        function_name = trim(node%name)
+
+        if (allocated(node%result_variable)) then
+            missing_result_variable = len_trim(node%result_variable) == 0
+            if (.not. missing_result_variable) then
+                if (len_trim(function_name) > 0) then
+                    missing_result_variable = &
+                        (trim(node%result_variable) == function_name)
+                end if
+            end if
+        else
+            missing_result_variable = .true.
+        end if
+        if (.not. missing_result_variable) return
+
+        if (should_rename_deferred_char_result(node)) return
+
+        if (.not. allocated(node%return_type)) return
+        if (len_trim(node%return_type) == 0) return
+
+        type_str = trim(node%return_type)
+        result_name = trim(function_name) // "_result"
+
+        decl_code = "    " // trim(type_str) // " :: " // &
+                    trim(result_name) // new_line('A')
+    end function collect_array_result_decl
+
     subroutine get_deferred_char_type_info(arena, node, full_type, base_type, &
                                            result_name)
         type(ast_arena_t), intent(in) :: arena
@@ -1113,12 +1154,10 @@ contains
     end function should_rename_deferred_char_result
 
     logical function should_use_result_for_array(arena, node) result(needs_result)
-        use ast_nodes_core, only: array_literal_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: result_name
-        integer :: i, stmt_idx, value_idx
-        logical :: is_array_value
+        integer :: i, stmt_idx
 
         needs_result = .false.
 
@@ -1133,7 +1172,7 @@ contains
 
         if (len_trim(result_name) == 0) return
 
-        ! Check if any assignment to result variable has an array value
+        ! Check if any assignment to result variable has inferred array type
         if (.not. allocated(node%body_indices)) return
 
         do i = 1, size(node%body_indices)
@@ -1151,24 +1190,9 @@ contains
                     if (.not. allocated(target%name)) cycle
                     if (trim(target%name) /= trim(result_name)) cycle
 
-                    ! Found assignment to result variable - check if value is array
-                    value_idx = stmt%value_index
-                    if (value_idx <= 0 .or. value_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(value_idx)%node)) cycle
-
-                    is_array_value = .false.
-                    select type (value => arena%entries(value_idx)%node)
-                    type is (array_literal_node)
-                        is_array_value = .true.
-                    class default
-                        ! Check inferred type as fallback
-                        if (target%inferred_type%kind > 0 .and. &
-                            target%inferred_type%kind == TARRAY) then
-                            is_array_value = .true.
-                        end if
-                    end select
-
-                    if (is_array_value) then
+                    ! Found assignment to result variable - check if inferred type is array
+                    if (target%inferred_type%kind > 0 .and. &
+                        target%inferred_type%kind == TARRAY) then
                         needs_result = .true.
                         return
                     end if
