@@ -45,8 +45,11 @@ program test_issue_2153_array_call_scalar_param
     end if
 
     ! Check that array variant exists
+    ! Array variants are now named with rank suffix (e.g., process__i32rank1)
     if (index(output, 'process__arr') == 0 .and. &
-        index(output, 'process__i32_arr') == 0) then
+        index(output, 'process__i32_arr') == 0 .and. &
+        index(output, 'process__i32rank1') == 0 .and. &
+        index(output, 'process__r32rank1') == 0) then
         write (error_unit, '(A)') 'FAIL: missing array monomorphization'
         write (error_unit, '(A)') trim(output)
         error stop 1
