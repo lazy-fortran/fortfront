@@ -1751,10 +1751,11 @@ contains
             new_param%has_kind = .false.
             new_param%kind_value = 0
             if (index(to_lower(new_param%type_name), "dimension(") > 0) then
-                if (allocated(new_param%dimension_indices)) then
-                    deallocate (new_param%dimension_indices)
-                end if
-                new_param%is_array = .false.
+                ! For array parameters, strip dimension() from type_name to avoid duplication
+                ! The dimension spec will come from dimension_indices instead
+                new_param%type_name = strip_dimension_from_type(new_param%type_name)
+                ! Keep dimension_indices for assumed-shape output (:)
+                new_param%is_array = .true.
             end if
         else
             if (is_array_kind) then
@@ -2299,5 +2300,76 @@ contains
         ! All parameters have explicit types - this is standard Fortran
         has_types = .true.
     end function procedure_has_explicit_types
+
+    ! Strip dimension() attribute from type string
+    ! e.g., "integer, dimension(5), intent(in)" -> "integer, intent(in)"
+    !       "real, dimension(3,4)" -> "real"
+    function strip_dimension_from_type(type_str) result(stripped)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: stripped
+        integer :: dim_start, paren_end, paren_count, i
+        character(len=512) :: before_dim, after_dim
+
+        stripped = type_str
+
+        ! Find "dimension("
+        dim_start = index(to_lower(type_str), "dimension(")
+        if (dim_start == 0) return
+
+        ! Find the matching closing parenthesis
+        paren_count = 1
+        paren_end = 0
+        do i = dim_start + len("dimension("), len(type_str)
+            if (type_str(i:i) == '(') paren_count = paren_count + 1
+            if (type_str(i:i) == ')') then
+                paren_count = paren_count - 1
+                if (paren_count == 0) then
+                    paren_end = i
+                    exit
+                end if
+            end if
+        end do
+
+        if (paren_end == 0) return  ! Malformed, return as-is
+
+        ! Extract parts before and after dimension()
+        before_dim = ''
+        after_dim = ''
+        if (dim_start > 1) then
+            before_dim = type_str(1:dim_start-1)
+        end if
+        if (paren_end < len(type_str)) then
+            after_dim = type_str(paren_end+1:len(type_str))
+        end if
+
+        ! Remove leading/trailing commas and spaces
+        before_dim = adjustl(trim(before_dim))
+        after_dim = adjustl(trim(after_dim))
+
+        ! Remove trailing comma from before_dim
+        if (len_trim(before_dim) > 0) then
+            if (before_dim(len_trim(before_dim):len_trim(before_dim)) == ',') then
+                before_dim = before_dim(1:len_trim(before_dim)-1)
+            end if
+        end if
+
+        ! Remove leading comma from after_dim
+        if (len_trim(after_dim) > 0) then
+            if (after_dim(1:1) == ',') then
+                after_dim = after_dim(2:len_trim(after_dim))
+            end if
+        end if
+
+        ! Reconstruct the type string
+        if (len_trim(before_dim) > 0 .and. len_trim(after_dim) > 0) then
+            stripped = trim(before_dim) // ', ' // trim(after_dim)
+        else if (len_trim(before_dim) > 0) then
+            stripped = trim(before_dim)
+        else if (len_trim(after_dim) > 0) then
+            stripped = trim(after_dim)
+        else
+            stripped = ''
+        end if
+    end function strip_dimension_from_type
 
 end module ast_monomorphization
