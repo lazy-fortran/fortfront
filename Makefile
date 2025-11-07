@@ -1,4 +1,4 @@
-.PHONY: all build test test-small-stack check-duplication clean help
+.PHONY: all build test test-small-stack check-duplication check-root-cleanliness clean help
 
 # Default target
 all: build
@@ -41,6 +41,22 @@ test-small-stack:
 check-duplication:
 	@python3 scripts/check_test_duplication.py
 
+# Check project root cleanliness (issue #2148)
+check-root-cleanliness:
+	@echo "Checking project root for polluting files..."
+	@polluting_count=$$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$$' 2>/dev/null | wc -l); \
+	if [ "$$polluting_count" -gt 0 ]; then \
+	    echo "❌ FAILURE: Project root is polluted with $$polluting_count files"; \
+	    echo "Found the following polluting files:"; \
+	    ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$$'; \
+	    echo ""; \
+	    echo "Project root must be clean - see issue #2148"; \
+	    echo "Please clean up: rm -f *.mod *.a *.o *.lf *.f90 *.txt"; \
+	    exit 1; \
+	else \
+	    echo "✅ Project root is clean (0 polluting files)"; \
+	fi
+
 clean:
 	fpm clean --all
 	@echo "Cleaning root directory artifacts..."
@@ -58,4 +74,5 @@ help:
 	@echo "  make test     - Run tests"
 	@echo "  make test-small-stack [TEST_STACK_KB=1024] - Run tests with small stack"
 	@echo "  make check-duplication - Check for test duplication violations"
+	@echo "  make check-root-cleanliness - Check project root for polluting files (issue #2148)"
 	@echo "  make clean    - Clean build artifacts"

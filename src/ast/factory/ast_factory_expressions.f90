@@ -63,8 +63,8 @@ contains
 
     ! Create call or subscript with array slice detection
     function push_call_or_subscript_with_slice_detection(arena, name, &
-                                                         arg_indices, line, column, &
-                                                         parent_index, base_expr_index) result(node_index)
+            arg_indices, line, column, parent_index, base_expr_index) &
+            result(node_index)
         use ast_factory_arrays, only: push_array_slice
         use ast_factory_core, only: push_identifier
         type(ast_arena_t), intent(inout) :: arena

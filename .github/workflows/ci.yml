@@ -95,6 +95,23 @@ jobs:
         echo "Checking for end-to-end test duplication violations..."
         make check-duplication || echo "⚠️ Found test duplication violations - see issue #1975"
 
+    - name: Check Project Root Cleanliness (issue #2148)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Checking project root for polluting files..."
+        polluting_count=$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$' 2>/dev/null | wc -l || echo 0)
+        if [ "$polluting_count" -gt 0 ]; then
+          echo "❌ FAILURE: Project root is polluted with $polluting_count files"
+          echo "Found the following polluting files:"
+          ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$'
+          echo ""
+          echo "Project root must be clean - see issue #2148"
+          echo "Please clean up: rm -f *.mod *.a *.o *.lf *.f90 *.txt"
+          exit 1
+        else
+          echo "✅ Project root is clean (0 polluting files)"
+        fi
+
     - name: Build and Test (Linux)
       if: runner.os == 'Linux'
       run: |
