@@ -37,6 +37,22 @@ module codegen_program_decl_utils
 
 contains
 
+    pure function normalize_declared_identifier(raw_name) result(normalized)
+        character(len=*), intent(in) :: raw_name
+        character(len=64) :: normalized
+        integer :: paren_pos
+
+        normalized = trim(to_lower(raw_name))
+        paren_pos = index(normalized, '(')
+        if (paren_pos > 0) then
+            if (paren_pos == 1) then
+                normalized = ''
+            else
+                normalized = trim(normalized(:paren_pos - 1))
+            end if
+        end if
+    end function normalize_declared_identifier
+
     logical function exists_in_list(list, count, name)
         character(len=*), intent(in) :: list(:)
         integer, intent(in) :: count
@@ -94,7 +110,7 @@ contains
         character(len=*), intent(in) :: name
         character(len=64) :: normalized_name
 
-        normalized_name = trim(to_lower(name))
+        normalized_name = normalize_declared_identifier(name)
         if (len_trim(normalized_name) == 0) return
         if (state%declared_count >= program_decl_max_vars) return
         if (exists_in_list(state%declared_names, state%declared_count, &
