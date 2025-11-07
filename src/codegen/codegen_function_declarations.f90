@@ -1109,7 +1109,6 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: result_name
-        type(mono_type_t) :: inferred_result_type
         integer :: i, stmt_idx
 
         needs_result = .false.
@@ -1143,9 +1142,11 @@ contains
                     if (.not. allocated(target%name)) cycle
                     if (trim(target%name) /= trim(result_name)) cycle
 
-                    ! Found assignment to result variable
-                    inferred_result_type = target%inferred_type
-                    if (inferred_result_type%kind == TARRAY) then
+                    ! Found assignment to result variable - check if it's an array
+                    ! Directly check the kind field without copying the whole structure
+                    ! First verify the type is initialized (kind > 0)
+                    if (target%inferred_type%kind > 0 .and. &
+                        target%inferred_type%kind == TARRAY) then
                         needs_result = .true.
                         return
                     end if
