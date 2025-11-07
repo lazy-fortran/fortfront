@@ -1265,8 +1265,10 @@ contains
                         map_type_string_to_kind(signature%param_type_strings(i))
                     if (mapped_kind == TVAR .or. mapped_kind /= &
                         signature%param_kinds(i)) then
-                        signature%param_type_strings(i) = kind_to_string_local( &
-                                                          signature%param_kinds(i))
+                        if (signature%param_kinds(i) /= TARRAY) then
+                            signature%param_type_strings(i) = kind_to_string_local( &
+                                                              signature%param_kinds(i))
+                        end if
                     end if
                 end if
             end if
