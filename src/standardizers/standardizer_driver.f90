@@ -2,10 +2,14 @@ module standardizer_driver
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node
+    use ast_nodes_transfer, only: entry_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_program, only: standardize_program
     use standardizer_module, only: standardize_module
-    use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
+    use standardizer_function, only: standardize_function_def
+    use standardizer_subroutine, only: standardize_subroutine_def
+    use standardizer_subprograms, only: wrap_function_in_program, &
+                                        wrap_subroutine_in_program
     implicit none
     private
 
@@ -67,15 +71,27 @@ contains
                 end if
             type is (function_def_node)
                 if (.not. get_in_module()) then
-                    original_index = current_index
-                    call wrap_function_in_program(arena, current_index)
-                    if (original_index == root_tracker) root_tracker = current_index
+                    if (procedure_contains_entry(arena, current_index)) then
+                        call standardize_function_def(arena, node, current_index)
+                    else
+                        original_index = current_index
+                        call wrap_function_in_program(arena, current_index)
+                        if (original_index == root_tracker) then
+                            root_tracker = current_index
+                        end if
+                    end if
                 end if
             type is (subroutine_def_node)
                 if (.not. get_in_module()) then
-                    original_index = current_index
-                    call wrap_subroutine_in_program(arena, current_index)
-                    if (original_index == root_tracker) root_tracker = current_index
+                    if (procedure_contains_entry(arena, current_index)) then
+                        call standardize_subroutine_def(arena, node, current_index)
+                    else
+                        original_index = current_index
+                        call wrap_subroutine_in_program(arena, current_index)
+                        if (original_index == root_tracker) then
+                            root_tracker = current_index
+                        end if
+                    end if
                 end if
             class default
                 ! no-op
@@ -133,5 +149,47 @@ contains
         end subroutine grow
 
     end subroutine standardize_ast_iter
+
+    logical function procedure_contains_entry(arena, proc_index) &
+        result(has_entry)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_index
+
+        has_entry = .false.
+        if (proc_index <= 0) return
+        if (proc_index > arena%size) return
+        if (.not. allocated(arena%entries(proc_index)%node)) return
+
+        select type (proc => arena%entries(proc_index)%node)
+        type is (function_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            has_entry = body_contains_entry(arena, proc%body_indices)
+        type is (subroutine_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            has_entry = body_contains_entry(arena, proc%body_indices)
+        class default
+            has_entry = .false.
+        end select
+    end function procedure_contains_entry
+
+    logical function body_contains_entry(arena, body_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer :: i, idx
+
+        found = .false.
+
+        do i = 1, size(body_indices)
+            idx = body_indices(i)
+            if (idx <= 0) cycle
+            if (idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (entry_node)
+                found = .true.
+                return
+            end select
+        end do
+    end function body_contains_entry
 
 end module standardizer_driver
