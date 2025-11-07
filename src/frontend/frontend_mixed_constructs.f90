@@ -129,7 +129,7 @@ contains
             end do
 
             call parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-                                                     explicit_indices, error_msg)
+                                                     implicit_indices, error_msg)
             if (len_trim(error_msg) > 0) return
         end if
 
@@ -227,11 +227,11 @@ contains
     end subroutine mark_token_range
 
     subroutine parse_remaining_statement_sequences(tokens, used_tokens, arena, &
-                                                   explicit_indices, error_msg)
+                                                   implicit_indices, error_msg)
         type(token_t), intent(in) :: tokens(:)
         logical, intent(inout) :: used_tokens(:)
         type(ast_arena_t), intent(inout) :: arena
-        integer, allocatable, intent(inout) :: explicit_indices(:)
+        integer, allocatable, intent(inout) :: implicit_indices(:)
         character(len=*), intent(inout) :: error_msg
         integer :: i, seq_start, seq_end, stmt_index
         logical :: in_sequence
@@ -254,7 +254,7 @@ contains
                     call parse_sequence(tokens, seq_start, seq_end, arena, &
                                         stmt_index, error_msg)
                     if (len_trim(error_msg) > 0) return
-                    if (stmt_index > 0) call append_explicit(explicit_indices, &
+                    if (stmt_index > 0) call append_implicit(implicit_indices, &
                                                              stmt_index)
                     call mark_token_range(used_tokens, seq_start, seq_end)
                     in_sequence = .false.
@@ -267,7 +267,7 @@ contains
             call parse_sequence(tokens, seq_start, seq_end, arena, stmt_index, &
                                 error_msg)
             if (len_trim(error_msg) > 0) return
-            if (stmt_index > 0) call append_explicit(explicit_indices, stmt_index)
+            if (stmt_index > 0) call append_implicit(implicit_indices, stmt_index)
             call mark_token_range(used_tokens, seq_start, seq_end)
         end if
     contains
@@ -299,13 +299,13 @@ contains
                                               error_msg)
         end subroutine parse_sequence
 
-        subroutine append_explicit(explicit_indices, stmt_index)
-            integer, allocatable, intent(inout) :: explicit_indices(:)
+        subroutine append_implicit(implicit_indices, stmt_index)
+            integer, allocatable, intent(inout) :: implicit_indices(:)
             integer, intent(in) :: stmt_index
 
             if (stmt_index <= 0) return
-            explicit_indices = [explicit_indices, stmt_index]
-        end subroutine append_explicit
+            implicit_indices = [implicit_indices, stmt_index]
+        end subroutine append_implicit
     end subroutine parse_remaining_statement_sequences
 
 end module frontend_mixed_constructs
