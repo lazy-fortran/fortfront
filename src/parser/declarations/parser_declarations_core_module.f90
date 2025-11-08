@@ -734,7 +734,7 @@ contains
                     return
                 end select
             end if
-        case ("in", "out", "inout")
+        case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
         case default
             return

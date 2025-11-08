@@ -10,6 +10,8 @@ module codegen_grouped_body_params
                                                    process_single_decl_param, &
                                                    process_param_decl_node, &
                                                    should_skip_result_decl
+    use codegen_entry_utils, only: collect_entry_param_names, &
+                                    is_entry_parameter_decl
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t, find_parameter_info
     use codegen_type_utils, only: get_type_standardization
@@ -101,6 +103,7 @@ contains
                                       has_return_type_in_signature, &
                                       force_keep_result_decl, filtered_indices, &
                                       filtered_count)
+        use ast_nodes_transfer, only: entry_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         type(parameter_info_t), intent(in) :: param_map(:)
@@ -110,12 +113,17 @@ contains
         integer, allocatable, intent(out) :: filtered_indices(:)
         integer, intent(out) :: filtered_count
         logical :: should_skip
+        logical :: after_entry
         integer :: i
         integer :: param_idx
         integer :: var_idx
+        character(len=64), allocatable :: entry_params(:)
+        integer :: num_entry_params
 
         allocate (filtered_indices(size(body_indices)))
         filtered_count = 0
+        after_entry = .false.
+        num_entry_params = 0
 
         do i = 1, size(body_indices)
             should_skip = .false.
@@ -123,6 +131,10 @@ contains
             if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
 
             select type (node => arena%entries(body_indices(i))%node)
+            type is (entry_node)
+                ! Track that we've seen an entry and collect its parameter names
+                after_entry = .true.
+                call collect_entry_param_names(node, entry_params, num_entry_params)
             type is (declaration_node)
                 if (node%is_multi_declaration .and. allocated(node%var_names)) then
                     do var_idx = 1, size(node%var_names)
@@ -132,10 +144,24 @@ contains
                             should_skip = .true.
                             exit
                         end if
+                        ! Skip if this is an entry parameter declaration after an entry
+                        if (after_entry .and. &
+                            is_entry_parameter_decl(node, entry_params, &
+                                                    num_entry_params)) then
+                            should_skip = .true.
+                            exit
+                        end if
                     end do
                 else
                     param_idx = find_parameter_info(param_map, node%var_name)
                     if (param_idx > 0) should_skip = .true.
+                    ! Skip if this is an entry parameter declaration after an entry
+                    if (.not. should_skip .and. after_entry) then
+                        if (is_entry_parameter_decl(node, entry_params, &
+                                                    num_entry_params)) then
+                            should_skip = .true.
+                        end if
+                    end if
                 end if
 
                 if (.not. should_skip) then
