@@ -1270,6 +1270,14 @@ contains
                                                               signature%param_kinds(i))
                         end if
                     end if
+                    ! For array parameters, strip dimension() to normalize signatures
+                    ! This ensures arrays with different explicit dimensions are recognized as identical
+                    if (signature%param_kinds(i) == TARRAY) then
+                        if (index(to_lower(signature%param_type_strings(i)), "dimension(") > 0) then
+                            signature%param_type_strings(i) = &
+                                strip_dimension_from_type(signature%param_type_strings(i))
+                        end if
+                    end if
                 end if
             end if
         end do
