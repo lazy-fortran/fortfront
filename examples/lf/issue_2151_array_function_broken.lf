@@ -1,0 +1,6 @@
+function make_array(n)
+    make_array = [(i, i=1,n)]
+end function
+
+arr = make_array(5)
+print *, "Array:", arr
