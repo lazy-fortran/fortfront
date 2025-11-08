@@ -37,10 +37,10 @@ contains
                 ! Mark assignment nodes as keyword arguments
                 if (arg_index <= arena%size) then
                     if (allocated(arena%entries(arg_index)%node)) then
-                        select type (node => arena%entries(arg_index)%node)
+                        select type (node_ptr => arena%entries(arg_index)%node)
                         type is (assignment_node)
-                            node%is_keyword_argument = .true.
-                            arena%entries(arg_index)%node = node
+                            ! Directly modify the node in place
+                            node_ptr%is_keyword_argument = .true.
                         end select
                     end if
                 end if
