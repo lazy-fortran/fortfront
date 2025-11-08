@@ -1094,21 +1094,26 @@ contains
         needs_rename = should_rename_deferred_char_result(node) .or. &
                        (node%is_recursive .and. has_return_type .and. &
                         missing_result_variable) .or. &
-                       (should_use_result_for_array(arena, node) .and. &
-                        missing_result_variable)
+                       should_use_result_for_array(arena, node)
 
         if (.not. needs_rename) return
 
-        if (allocated(node%result_variable)) then
+        ! For array functions, rename from function name to result variable
+        if (should_use_result_for_array(arena, node)) then
+            old_name = function_name
+            ! Always use generated name for array functions
+            new_name = trim(function_name) // "_result"
+        else if (allocated(node%result_variable)) then
             if (len_trim(node%result_variable) > 0) then
                 old_name = trim(node%result_variable)
             else
                 old_name = function_name
             end if
+            new_name = trim(function_name) // "_result"
         else
             old_name = function_name
+            new_name = trim(function_name) // "_result"
         end if
-        new_name = trim(function_name) // "_result"
 
         start_pos = 1
         do
@@ -1155,27 +1160,59 @@ contains
 
     logical function should_use_result_for_array(arena, node) result(needs_result)
         use ast_nodes_core, only: array_literal_node
+        use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
-        character(len=:), allocatable :: result_name
-        integer :: i, stmt_idx
+        character(len=:), allocatable :: function_name
+        integer :: i, stmt_idx, k
+        logical :: has_array_declaration
 
         needs_result = .false.
 
-        ! Determine result variable name
-        if (allocated(node%result_variable)) then
-            result_name = trim(node%result_variable)
-        else if (allocated(node%name)) then
-            result_name = trim(node%name)
-        else
+        ! Get function name to look for assignments
+        if (.not. allocated(node%name)) return
+        function_name = trim(node%name)
+        if (len_trim(function_name) == 0) return
+
+        if (.not. allocated(node%body_indices)) return
+
+        ! Check for explicit array declaration of function name
+        has_array_declaration = .false.
+        do i = 1, size(node%body_indices)
+            stmt_idx = node%body_indices(i)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (decl => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                    do k = 1, size(decl%var_names)
+                        if (trim(decl%var_names(k)) == trim(function_name)) then
+                            if (decl%is_array .or. decl%inferred_type%kind == TARRAY) then
+                                has_array_declaration = .true.
+                                exit
+                            end if
+                        end if
+                    end do
+                else if (allocated(decl%var_name)) then
+                    if (trim(decl%var_name) == trim(function_name)) then
+                        if (decl%is_array .or. decl%inferred_type%kind == TARRAY) then
+                            has_array_declaration = .true.
+                            exit
+                        end if
+                    end if
+                end if
+            end select
+            if (has_array_declaration) exit
+        end do
+
+        ! If we found an explicit array declaration, we need a result clause
+        if (has_array_declaration) then
+            needs_result = .true.
             return
         end if
 
-        if (len_trim(result_name) == 0) return
-
-        ! Check if the result variable has an inferred array type
-        if (.not. allocated(node%body_indices)) return
-
+        ! Otherwise, check for inferred array type from assignments
         do i = 1, size(node%body_indices)
             stmt_idx = node%body_indices(i)
             if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
@@ -1189,9 +1226,10 @@ contains
                 select type (target => arena%entries(stmt%target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle
-                    if (trim(target%name) /= trim(result_name)) cycle
+                    ! Look for assignment to function name (before rename)
+                    if (trim(target%name) /= trim(function_name)) cycle
 
-                    ! Found assignment to result variable - check inferred type
+                    ! Found assignment to function name - check inferred type
                     if (target%inferred_type%kind == TARRAY) then
                         needs_result = .true.
                         return
