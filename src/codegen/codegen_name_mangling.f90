@@ -66,7 +66,11 @@ contains
         case (TCOMPLEX)
             kind_str = "c64"
         case (TCHAR)
-            kind_str = "ch"
+            if (present(type_hint)) then
+                kind_str = "ch" // extract_char_length_string(lowered)
+            else
+                kind_str = "ch"
+            end if
         case (TLOGICAL)
             kind_str = "l32"
         case (TARRAY)
@@ -133,7 +137,7 @@ contains
         else if (index(type_desc, 'logical') > 0) then
             base = 'l32'
         else if (index(type_desc, 'character') > 0) then
-            base = 'ch'
+            base = 'ch' // extract_char_length_string(type_desc)
         else
             base = 'arr'
         end if
@@ -170,6 +174,77 @@ contains
             if (inside(i:i) == ',') rank = rank + 1
         end do
     end function extract_rank_from_type
+
+    function extract_char_length_string(type_desc) result(length_str)
+        character(len=*), intent(in) :: type_desc
+        character(len=:), allocatable :: length_str
+        integer :: len_pos, equals_pos, paren_pos, comma_pos, end_pos
+        integer :: length_value, i
+        character(len=:), allocatable :: inside
+
+        length_str = ""
+
+        ! Look for "len=" pattern in character(len=N)
+        len_pos = index(type_desc, 'len=')
+        if (len_pos > 0) then
+            ! Extract the length value after "len="
+            equals_pos = len_pos + 4  ! Position after "len="
+            end_pos = equals_pos
+
+            ! Find the end of the number (either ')', ',' or end of string)
+            do while (end_pos <= len(type_desc))
+                if (type_desc(end_pos:end_pos) == ')' .or. &
+                    type_desc(end_pos:end_pos) == ',' .or. &
+                    type_desc(end_pos:end_pos) == ' ') exit
+                end_pos = end_pos + 1
+            end do
+
+            if (end_pos > equals_pos) then
+                inside = adjustl(type_desc(equals_pos:end_pos - 1))
+                ! Check if it's a number
+                if (is_numeric(inside)) then
+                    length_str = trim(inside)
+                end if
+            end if
+        else
+            ! Look for character(N) pattern without "len="
+            paren_pos = index(type_desc, 'character(')
+            if (paren_pos > 0) then
+                equals_pos = paren_pos + 10  ! Position after "character("
+                end_pos = equals_pos
+
+                do while (end_pos <= len(type_desc))
+                    if (type_desc(end_pos:end_pos) == ')' .or. &
+                        type_desc(end_pos:end_pos) == ',') exit
+                    end_pos = end_pos + 1
+                end do
+
+                if (end_pos > equals_pos) then
+                    inside = adjustl(type_desc(equals_pos:end_pos - 1))
+                    ! Check if it's just a number (not "len=" or other keyword)
+                    if (is_numeric(inside)) then
+                        length_str = trim(inside)
+                    end if
+                end if
+            end if
+        end if
+    end function extract_char_length_string
+
+    logical function is_numeric(str) result(numeric)
+        character(len=*), intent(in) :: str
+        integer :: i
+
+        numeric = .false.
+        if (len_trim(str) == 0) return
+
+        numeric = .true.
+        do i = 1, len_trim(str)
+            if (str(i:i) < '0' .or. str(i:i) > '9') then
+                numeric = .false.
+                return
+            end if
+        end do
+    end function is_numeric
 
     function type_signature_to_string(signature) result(sig_str)
         integer, intent(in) :: signature(:)

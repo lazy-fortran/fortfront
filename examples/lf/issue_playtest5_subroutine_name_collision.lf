@@ -1,0 +1,6 @@
+subroutine greet(name)
+    print *, "Hello", name
+end subroutine
+
+call greet("World")
+call greet("Fortran")
