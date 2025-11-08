@@ -307,6 +307,7 @@ contains
         character(len=64), allocatable :: assigned_vars(:)
         integer, allocatable :: assignment_counts(:)
         integer :: var_count, i, j
+        integer, allocatable :: local_indices(:)
 
         ! Skip if program has no body
         if (.not. allocated(prog%body_indices)) return
@@ -327,10 +328,17 @@ contains
         end do
 
         ! Second pass: mark declarations for variables with multiple array assignments
-        do i = 1, size(prog%body_indices)
-            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
-                if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                    call mark_declarations_allocatable(arena, prog%body_indices(i), &
+        ! CRITICAL: Copy indices to local array before iteration to prevent stale access
+        ! When mark_declarations_allocatable modifies the arena (via split_multi_variable_declaration),
+        ! it updates the arena's version of prog%body_indices, but we have a stack copy (intent(in)).
+        ! Using the stale copy causes segfaults when accessing invalid/outdated indices.
+        allocate (local_indices(size(prog%body_indices)))
+        local_indices = prog%body_indices
+
+        do i = 1, size(local_indices)
+            if (local_indices(i) > 0 .and. local_indices(i) <= arena%size) then
+                if (allocated(arena%entries(local_indices(i))%node)) then
+                    call mark_declarations_allocatable(arena, local_indices(i), &
                                                        assigned_vars, &
                                                        assignment_counts, &
                                                        var_count, prog_index)
@@ -338,6 +346,7 @@ contains
             end if
         end do
 
+        deallocate (local_indices)
         deallocate (assigned_vars)
         deallocate (assignment_counts)
     end subroutine mark_allocatable_for_array_reassignments
@@ -535,24 +544,31 @@ contains
         integer :: new_count
         logical :: needs_allocatable
         logical :: is_parameter
+        type(declaration_node) :: template_decl
 
         if (.not. node_is_active(arena, decl_index)) return
 
-        select type (decl => arena%entries(decl_index)%node)
+        select type (decl_orig => arena%entries(decl_index)%node)
         type is (declaration_node)
-            if (.not. (decl%is_multi_declaration .and. &
-                       allocated(decl%var_names))) return
+            if (.not. (decl_orig%is_multi_declaration .and. &
+                       allocated(decl_orig%var_names))) return
 
-            allocate (new_indices(size(decl%var_names)))
+            ! CRITICAL: Copy declaration to stack before arena pushes to avoid dangling pointer
+            ! When append_split_declaration pushes to arena, it may trigger reallocation
+            ! which would invalidate the decl_orig selector. Using a stack copy prevents this.
+            template_decl = decl_orig
+
+            allocate (new_indices(size(template_decl%var_names)))
             new_count = 0
             is_parameter = is_procedure_parameter(arena, decl_index)
 
-            do i = 1, size(decl%var_names)
+            ! Safe: template_decl is a stack copy, not an arena pointer
+            do i = 1, size(template_decl%var_names)
                 needs_allocatable = variable_requires_allocatable( &
-                                    decl%var_names(i), assigned_vars, &
+                                    template_decl%var_names(i), assigned_vars, &
                                     assignment_counts, &
-                                    var_count, is_parameter, decl%is_array)
-                call append_split_declaration(arena, decl, decl%var_names(i), &
+                                    var_count, is_parameter, template_decl%is_array)
+                call append_split_declaration(arena, template_decl, template_decl%var_names(i), &
                                               needs_allocatable, prog_index, &
                                               new_indices, new_count)
             end do

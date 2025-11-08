@@ -282,6 +282,11 @@ contains
 
         source = normalize_line_endings(input)
 
+        ! Reset type system arena to prevent type accumulation across transformations
+        ! IMPORTANT: Must be called BEFORE resetting the AST arena to avoid dangling
+        ! pointers in mono_type_t instances stored in AST nodes
+        call reset_type_system()
+
         ! Initialize or reset shared arena
         if (.not. shared_arena_initialized) then
             call shared_arena%init()

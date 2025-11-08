@@ -22,6 +22,7 @@ module frontend_core
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
+    use type_system_unified, only: reset_type_system
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization, &
                             standardize_multi_unit_children
@@ -79,6 +80,10 @@ contains
             & // input_file
 
         error_msg = ""
+
+        ! Reset type system arena to prevent type accumulation across compilations
+        ! IMPORTANT: Must be called to clear global type state before each compilation
+        call reset_type_system()
 
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
