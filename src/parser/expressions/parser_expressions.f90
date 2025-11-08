@@ -39,7 +39,8 @@ module parser_expressions_module
                                                is_prefix_operator_token, &
                                                token_is_terminator, &
                                                is_legacy_array_literal_start
-    use parser_expression_operator_utils_module, only: PREC_RANGE, PREC_LOGICAL_EQV, &
+    use parser_expression_operator_utils_module, only: PREC_ASSIGNMENT, PREC_RANGE, &
+                                                       PREC_LOGICAL_EQV, &
                                                        PREC_LOGICAL_OR, &
                                                        PREC_LOGICAL_AND, &
                                                        PREC_COMPARISON, &
@@ -624,7 +625,7 @@ contains
                                (next_tok%text == ")" .or. next_tok%text == "]" .or. &
                                 next_tok%text == &
                                 ","))) then
-                        right_index = parse_logical_eqv(parser, arena)
+                        right_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
                     else
                         right_index = 0
                     end if
@@ -645,7 +646,8 @@ contains
             return
         end if
 
-        expr_index = parse_logical_eqv(parser, arena)
+        ! Use PREC_ASSIGNMENT to allow keyword arguments in calls (e.g., name=value)
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
 
         if (.not. parser%is_at_end()) then
             op_token = parser%peek()
@@ -661,7 +663,7 @@ contains
                                     == "]" .or. &
                                     next_tok%text == &
                                     ","))) then
-                            right_index = parse_logical_eqv(parser, arena)
+                            right_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
                         else
                             right_index = 0
                         end if
