@@ -20,23 +20,30 @@ program test_issue_2155_character_length_collision
         error stop 1
     end if
 
-    ! Check for distinct mangled names for different character lengths
-    call assert_contains(output, 'greet__ch5', &
-                         'missing character(len=5) greet specialization')
-    call assert_contains(output, 'greet__ch7', &
-                         'missing character(len=7) greet specialization')
+    ! Character procedures should NOT be monomorphized (Fortran limitation)
+    ! Instead, they should use assumed-length character(len=*)
 
-    ! Verify the correct character lengths in declarations
-    call assert_contains(output, 'character(len=5), intent(in) :: name', &
-                         'missing character(len=5) declaration')
-    call assert_contains(output, 'character(len=7), intent(in) :: name', &
-                         'missing character(len=7) declaration')
+    ! Verify we're NOT creating monomorphized variants with specific lengths
+    call assert_not_contains(output, 'greet__ch5', &
+                             'should not create character(len=5) specialization')
+    call assert_not_contains(output, 'greet__ch7', &
+                             'should not create character(len=7) specialization')
 
-    ! Check that the interface references both specializations
-    call assert_contains(output, 'interface greet', &
-                         'missing interface declaration')
+    ! Verify we're NOT creating a monomorphization module
+    call assert_not_contains(output, 'module auto_greet', &
+                             'should not monomorphize character-only variations')
+    call assert_not_contains(output, 'interface greet', &
+                             'should not create generic interface for character-only variations')
 
-    ! Ensure no duplicate names (this will fail if both are named greet__ch)
+    ! Verify we're using assumed-length character
+    call assert_contains(output, 'character(len=*)', &
+                         'should use assumed-length character')
+
+    ! Verify the subroutine is defined once with assumed-length
+    call assert_contains(output, 'subroutine greet(name)', &
+                         'missing greet subroutine definition')
+
+    ! Ensure no duplicate procedure definitions
     call assert_no_duplicate_procedure_names(output)
 
     print *, "PASS: Character length collision test passed"
@@ -56,6 +63,18 @@ contains
             error stop 1
         end if
     end subroutine assert_contains
+
+    subroutine assert_not_contains(text, pattern, message)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=*), intent(in) :: message
+
+        if (index(text, pattern) > 0) then
+            write (error_unit, '(A)') 'FAIL: ' // trim(message)
+            write (error_unit, '(A)') 'Did not expect to find: ' // trim(pattern)
+            error stop 1
+        end if
+    end subroutine assert_not_contains
 
     subroutine assert_no_duplicate_procedure_names(text)
         character(len=*), intent(in) :: text
