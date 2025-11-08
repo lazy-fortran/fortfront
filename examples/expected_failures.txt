@@ -2,7 +2,6 @@
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
 
-issue_1784_subroutine_wrapping.lf  # transformation regression tracked in #1784
 issue_1608_class_program.f90  # class declarations still rewritten incorrectly (former test_issue_1608)
 issue_1608_class_subroutine.f90  # class arguments produce invalid wrapper (former test_issue_1608)
 issue_1744_operator_interface.f90  # operator/assignment interfaces degraded (former test_issue_1744)
@@ -15,3 +14,4 @@ issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return r
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch #2068
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword #2075
 issue_2111_recursive_missing_result.lf  # semantic analysis does not populate return_type for recursive functions yet #2111
+issue_256_assignment_in_condition.f90  # invalid syntax to test error reporting (uses = instead of == in if condition) #256
