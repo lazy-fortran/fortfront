@@ -132,10 +132,7 @@ contains
             i = i + 1
             return
         end if
-        if (node%has_intent) then
-            i = i + 1
-            return
-        end if
+        ! Note: removed has_intent skip to prevent silently dropping declarations (fixes #2140)
         if (.not. in_contains_section .and. node%initializer_index == 0) then
             call process_grouped_declarations(arena, body_indices, i, indent_str, &
                                               code)
