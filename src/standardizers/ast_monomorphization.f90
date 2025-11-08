@@ -1903,11 +1903,38 @@ contains
                 if (len_trim(type_str) == 0) then
                     type_str = fallback_return_type_from_params( &
                         signature%param_kinds)
-                else if (trim(type_str) == "integer") then
-                    if (any(signature%param_kinds /= 2)) then
-                        type_str = fallback_return_type_from_params( &
+                else
+                    ! For monomorphization, check if return type matches parameters
+                    ! If not, use parameter-based return type (fixes #2142)
+                    block
+                        character(len=:), allocatable :: param_return_type
+                        integer :: dominant_kind
+
+                        param_return_type = fallback_return_type_from_params( &
                             signature%param_kinds)
-                    end if
+
+                        ! Get dominant kind from parameters
+                        dominant_kind = 0
+                        if (any(signature%param_kinds == 9)) then  ! TDOUBLE
+                            dominant_kind = 9
+                        else if (any(signature%param_kinds == 8)) then  ! TCOMPLEX
+                            dominant_kind = 8
+                        else if (any(signature%param_kinds == 3)) then  ! TREAL
+                            dominant_kind = 3
+                        else if (any(signature%param_kinds == 4)) then  ! TCHAR
+                            dominant_kind = 4
+                        else if (any(signature%param_kinds == 5)) then  ! TLOGICAL
+                            dominant_kind = 5
+                        else if (any(signature%param_kinds == 2)) then  ! TINT
+                            dominant_kind = 2
+                        end if
+
+                        ! If return_kind doesn't match dominant parameter kind,
+                        ! use parameter-based return type
+                        if (dominant_kind > 0 .and. signature%return_kind /= dominant_kind) then
+                            type_str = param_return_type
+                        end if
+                    end block
                 end if
             end if
         end if
