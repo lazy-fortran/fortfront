@@ -32,8 +32,10 @@ program test_issue_2106_missing_intent_monomorphization
 
     call assert_contains(output, 'subroutine print_value__ch', &
                          'missing character print_value specialization')
-    call assert_contains(output, 'character(len=4), intent(in) :: x', &
+    call assert_contains(output, 'character(len=*), intent(in) :: x', &
                          'missing intent for character print_value specialization')
+
+    print *, "PASS: Issue #2106 monomorphized subroutine intents test passed"
 
 contains
 

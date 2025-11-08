@@ -1278,9 +1278,21 @@ contains
                                 strip_dimension_from_type(signature%param_type_strings(i))
                         end if
                     end if
+                    ! Normalize character types to ignore length for monomorphization
+                    ! Fortran does not support generic interfaces differing only in character length
+                    if (signature%param_kinds(i) == TCHAR) then
+                        signature%param_type_strings(i) = "character(len=*)"
+                    end if
                 end if
             end if
         end do
+
+        ! Also normalize return type string if it's a character
+        if (allocated(signature%return_type_string)) then
+            if (signature%return_kind == TCHAR) then
+                signature%return_type_string = "character(len=*)"
+            end if
+        end if
     end subroutine normalize_signature_param_types
 
     pure logical function signatures_are_identical(sig1, sig2) result(identical)

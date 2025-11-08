@@ -2,7 +2,6 @@
 # One filename per line. Lines starting with # are comments.
 # Format: filename  # optional comment with issue reference
 
-issue_1784_subroutine_wrapping.lf  # transformation regression tracked in #1784
 issue_1608_class_program.f90  # class declarations still rewritten incorrectly (former test_issue_1608)
 issue_1608_class_subroutine.f90  # class arguments produce invalid wrapper (former test_issue_1608)
 issue_1744_operator_interface.f90  # operator/assignment interfaces degraded (former test_issue_1744)
