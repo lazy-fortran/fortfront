@@ -1289,13 +1289,19 @@ contains
             end if
             if (allocated(signature%param_type_strings)) then
                 if (i <= size(signature%param_type_strings)) then
+                    ! Only process if the type string is non-empty
+                    if (len_trim(signature%param_type_strings(i)) == 0) cycle
+
                     mapped_kind = &
                         map_type_string_to_kind(signature%param_type_strings(i))
                     ! For array types, normalize while preserving dimension info
                     if (signature%param_kinds(i) == TARRAY) then
-                        temp_type_string = signature%param_type_strings(i)
-                        call normalize_array_type_string(temp_type_string)
-                        signature%param_type_strings(i) = temp_type_string
+                        ! Only normalize if it contains "dimension"
+                        if (index(to_lower(signature%param_type_strings(i)), 'dimension') > 0) then
+                            temp_type_string = signature%param_type_strings(i)
+                            call normalize_array_type_string(temp_type_string)
+                            signature%param_type_strings(i) = temp_type_string
+                        end if
                     else if (mapped_kind == TVAR .or. mapped_kind /= &
                              signature%param_kinds(i)) then
                         signature%param_type_strings(i) = kind_to_string_local( &
@@ -1322,9 +1328,12 @@ contains
         character(len=:), allocatable, intent(inout) :: type_string
         character(len=:), allocatable :: base_type, dim_spec, normalized_dim_spec
         integer :: dim_pos, paren_start, paren_end, mapped_kind
+        integer :: type_len
 
         if (.not. allocated(type_string)) return
         if (len_trim(type_string) == 0) return
+
+        type_len = len(type_string)
 
         ! Find "dimension(" in the string
         dim_pos = index(to_lower(type_string), ", dimension(")
@@ -1338,6 +1347,12 @@ contains
             paren_start = dim_pos + 12  ! len(", dimension(")
         end if
 
+        ! Safety check - ensure paren_start is within bounds
+        if (paren_start > type_len) then
+            ! Malformed dimension spec, abort normalization
+            return
+        end if
+
         ! Extract base type and normalize it
         if (len_trim(base_type) > 0) then
             ! Remove attributes like intent(in), etc
@@ -1348,7 +1363,7 @@ contains
 
             ! Map to canonical type name
             mapped_kind = map_type_string_to_kind(base_type)
-            if (mapped_kind /= TVAR) then
+            if (mapped_kind /= TVAR .and. mapped_kind > 0) then
                 base_type = kind_to_string_local(mapped_kind)
             end if
         else
@@ -1358,13 +1373,21 @@ contains
         ! Extract dimension specification and count rank
         ! For normalization/deduplication, we normalize all arrays to assumed-shape
         ! This ensures dimension(3) and dimension(5) are treated as identical
-        paren_end = index(type_string(paren_start:), ")")
-        if (paren_end > 0) then
-            paren_end = paren_start + paren_end - 2
-            dim_spec = trim(type_string(paren_start:paren_end))
-            ! Count rank by counting commas + 1
-            ! dimension(:) has rank 1, dimension(:,:) has rank 2, etc.
-            call count_array_rank(dim_spec, normalized_dim_spec)  ! Normalize to assumed-shape
+        if (paren_start <= type_len) then
+            paren_end = index(type_string(paren_start:), ")")
+            if (paren_end > 0) then
+                paren_end = paren_start + paren_end - 2
+                if (paren_end >= paren_start .and. paren_end <= type_len) then
+                    dim_spec = trim(type_string(paren_start:paren_end))
+                    ! Count rank by counting commas + 1
+                    ! dimension(:) has rank 1, dimension(:,:) has rank 2, etc.
+                    call count_array_rank(dim_spec, normalized_dim_spec)
+                else
+                    normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
+                end if
+            else
+                normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
+            end if
         else
             normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
         end if
