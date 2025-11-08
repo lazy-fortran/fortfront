@@ -77,6 +77,8 @@ contains
 
         if (index(output_code, 'call process(b = 2, a = 1, c = 3)') <= 0) then
             write (error_unit, '(A)') 'FAIL: keyword arguments not preserved'
+            write (error_unit, '(A)') 'Generated code:'
+            write (error_unit, '(A)') trim(output_code)
             passed = .false.
         end if
 

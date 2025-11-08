@@ -17,6 +17,7 @@ module parser_expression_operator_utils_module
     private
 
     integer, parameter, public :: PREC_RANGE = 10
+    integer, parameter, public :: PREC_ASSIGNMENT = 15
     integer, parameter, public :: PREC_LOGICAL_EQV = 20
     integer, parameter, public :: PREC_LOGICAL_OR = 30
     integer, parameter, public :: PREC_LOGICAL_AND = 40
@@ -57,6 +58,10 @@ contains
         last_char = len_trim(lowered)
 
         select case (lowered)
+        case ("=")
+            entry%symbol = token%text
+            entry%precedence = PREC_ASSIGNMENT
+            entry%right_associative = .true.
         case (".eqv.", ".neqv.")
             entry%symbol = token%text
             entry%precedence = PREC_LOGICAL_EQV
@@ -66,7 +71,7 @@ contains
         case (".and.")
             entry%symbol = token%text
             entry%precedence = PREC_LOGICAL_AND
-        case ("=", "==", "/=", "<=", ">=", "<", ">")
+        case ("==", "/=", "<=", ">=", "<", ">")
             entry%symbol = token%text
             entry%precedence = PREC_COMPARISON
         case ("//")
@@ -202,11 +207,12 @@ contains
     end function apply_prefix_stack
 
     subroutine reduce_single_operator(operators, operands, arena)
+        use ast_factory, only: push_assignment
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena
         type(operator_entry_t) :: op_entry
-        integer :: right_index, left_index
+        integer :: right_index, left_index, result_index
 
         op_entry = operator_stack_pop(operators)
         if (op_entry%is_group) return
@@ -219,11 +225,17 @@ contains
             return
         end if
 
-        call operand_stack_push(operands, push_binary_op(arena, left_index, &
-                                                         right_index, &
-                                                         op_entry%symbol, &
-                                                         op_entry%token%line, &
-                                                         op_entry%token%column))
+        ! Handle = operator specially - create assignment node instead of binary_op
+        if (trim(op_entry%symbol) == "=") then
+            result_index = push_assignment(arena, left_index, right_index, &
+                                          op_entry%token%line, op_entry%token%column)
+        else
+            result_index = push_binary_op(arena, left_index, right_index, &
+                                         op_entry%symbol, &
+                                         op_entry%token%line, op_entry%token%column)
+        end if
+
+        call operand_stack_push(operands, result_index)
     end subroutine reduce_single_operator
 
     subroutine reduce_operators_for_incoming(operators, operands, arena, incoming)

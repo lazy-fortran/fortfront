@@ -58,9 +58,15 @@ contains
 
         select type (node => arena%entries(node_idx)%node)
         type is (assignment_node)
-            call mark_lhs_written(arena, node%target_index, metadata, &
-                                 is_read, is_written)
-            call mark_rhs_read(arena, node%value_index, metadata, is_read)
+            ! Skip keyword arguments - they don't modify variables
+            if (.not. node%is_keyword_argument) then
+                call mark_lhs_written(arena, node%target_index, metadata, &
+                                     is_read, is_written)
+                call mark_rhs_read(arena, node%value_index, metadata, is_read)
+            else
+                ! For keyword arguments, only the RHS (value) is read
+                call mark_rhs_read(arena, node%value_index, metadata, is_read)
+            end if
         type is (print_statement_node)
             if (allocated(node%expression_indices)) then
                 do i = 1, size(node%expression_indices)

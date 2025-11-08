@@ -75,20 +75,31 @@ contains
             if (node%name /= "__MULTI_UNIT__") return
             if (.not. allocated(node%body_indices)) return
 
-            do i = 1, size(node%body_indices)
-                child_index = node%body_indices(i)
-                if (child_index <= 0 .or. child_index > arena%size) cycle
-                if (.not. allocated(arena%entries(child_index)%node)) cycle
+            ! CRITICAL: Copy indices before loop to prevent dangling pointer access
+            ! standardize_program calls split_multi_variable_declaration which modifies arena,
+            ! potentially invalidating the 'node' selector. Using a local copy prevents this.
+            block
+                integer, allocatable :: local_indices(:)
+                allocate (local_indices(size(node%body_indices)))
+                local_indices = node%body_indices
 
-                select type (child => arena%entries(child_index)%node)
-                type is (subroutine_def_node)
-                    call standardize_subroutine_def(arena, child, child_index)
-                type is (function_def_node)
-                    call standardize_function_def(arena, child, child_index)
-                type is (program_node)
-                    call standardize_program(arena, child, child_index)
-                end select
-            end do
+                do i = 1, size(local_indices)
+                    child_index = local_indices(i)
+                    if (child_index <= 0 .or. child_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(child_index)%node)) cycle
+
+                    select type (child => arena%entries(child_index)%node)
+                    type is (subroutine_def_node)
+                        call standardize_subroutine_def(arena, child, child_index)
+                    type is (function_def_node)
+                        call standardize_function_def(arena, child, child_index)
+                    type is (program_node)
+                        call standardize_program(arena, child, child_index)
+                    end select
+                end do
+
+                deallocate (local_indices)
+            end block
         end select
     end subroutine standardize_multi_unit_children
 

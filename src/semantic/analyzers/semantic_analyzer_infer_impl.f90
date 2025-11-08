@@ -1180,12 +1180,15 @@ contains
         call ensure_string_literal_type(arena, assignment%value_index, expr_typ)
         updated_expr_typ = expr_typ
 
-        ! Use extracted assignment processing
-        call process_assignment_inference( &
-            arena, assignment, assignment_index, lhs_index, expr_typ, &
-                updated_expr_typ, &
-            ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
-                & ctx%parser_type_hints)
+        ! Skip processing for keyword arguments - they don't create variable declarations
+        if (.not. assignment%is_keyword_argument) then
+            ! Use extracted assignment processing
+            call process_assignment_inference( &
+                arena, assignment, assignment_index, lhs_index, expr_typ, &
+                    updated_expr_typ, &
+                ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
+                    & ctx%parser_type_hints)
+        end if
 
         typ = updated_expr_typ
 

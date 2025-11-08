@@ -523,6 +523,9 @@ contains
 
         select type (assign => arena%entries(assign_index)%node)
         type is (assignment_node)
+            ! Skip keyword arguments - they don't create variable declarations
+            if (assign%is_keyword_argument) return
+
             if (assign%target_index > 0 .and. assign%target_index <= arena%size) then
                 if (allocated(arena%entries(assign%target_index)%node)) then
                     select type (target => arena%entries(assign%target_index)%node)

@@ -191,9 +191,16 @@ contains
         integer, intent(inout) :: program_count
         integer :: i, child_idx
         logical :: handled
+        integer, allocatable :: local_indices(:)
 
-        do i = 1, size(root_prog%body_indices)
-            child_idx = root_prog%body_indices(i)
+        ! CRITICAL: Copy indices before loop - root_prog is a POINTER parameter!
+        ! process_specializable_procedure modifies arena via create_procedure_variants,
+        ! potentially invalidating the root_prog pointer. Using a local copy prevents this.
+        allocate (local_indices(size(root_prog%body_indices)))
+        local_indices = root_prog%body_indices
+
+        do i = 1, size(local_indices)
+            child_idx = local_indices(i)
             if (child_idx < 1 .or. child_idx > arena%size) cycle
             if (.not. allocated(arena%entries(child_idx)%node)) cycle
 
@@ -246,6 +253,8 @@ contains
                 preserved_indices(preserved_count) = child_idx
             end select
         end do
+
+        deallocate (local_indices)
     end subroutine process_program_body_children
 
     subroutine process_specializable_procedure(arena, signatures, proc_idx, &
@@ -1167,30 +1176,42 @@ contains
         integer, allocatable :: inserted_indices(:)
         integer :: orig_size
         integer, allocatable :: updated_body(:)
+        integer, allocatable :: original_body_indices(:)
 
         if (module_count <= 0) return
 
         call get_program_node(arena, prog_idx, prog)
         if (.not. associated(prog)) return
 
+        ! CRITICAL: Copy body_indices before ANY arena modifications
+        ! create_use_statement_node pushes to arena which may invalidate prog pointer
+        if (allocated(prog%body_indices)) then
+            allocate (original_body_indices(size(prog%body_indices)))
+            original_body_indices = prog%body_indices
+        else
+            allocate (original_body_indices(0))
+        end if
+
         allocate (need_use(module_count))
         need_use = .true.
 
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) < 1 .or. &
-                    prog%body_indices(i) > arena%size) cycle
-                if (.not. allocated(arena%entries(prog%body_indices(i))%node)) cycle
-                select type (use_node => arena%entries(prog%body_indices(i))%node)
-                type is (use_statement_node)
-                    call mark_existing_use(use_node%module_name, module_names, &
-                                           need_use)
-                end select
-            end do
-        end if
+        ! Use the copied indices (safe from arena modifications)
+        do i = 1, size(original_body_indices)
+            if (original_body_indices(i) < 1 .or. &
+                original_body_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(original_body_indices(i))%node)) cycle
+            select type (use_node => arena%entries(original_body_indices(i))%node)
+            type is (use_statement_node)
+                call mark_existing_use(use_node%module_name, module_names, &
+                                       need_use)
+            end select
+        end do
 
         insert_count = count(need_use)
-        if (insert_count <= 0) return
+        if (insert_count <= 0) then
+            deallocate (original_body_indices)
+            return
+        end if
 
         allocate (inserted_indices(insert_count))
         insert_count = 0
@@ -1203,16 +1224,22 @@ contains
                                      prog_idx)
         end do
 
-        orig_size = 0
-        if (allocated(prog%body_indices)) orig_size = size(prog%body_indices)
+        ! Safe to use original_body_indices (it's a copy)
+        orig_size = size(original_body_indices)
         allocate (updated_body(insert_count + orig_size))
 
         if (insert_count > 0) updated_body(1:insert_count) = inserted_indices
         if (orig_size > 0) then
-            updated_body(insert_count + 1:) = prog%body_indices
+            updated_body(insert_count + 1:) = original_body_indices
         end if
 
-        prog%body_indices = updated_body
+        ! Reload prog pointer before writing (arena may have been reallocated)
+        call get_program_node(arena, prog_idx, prog)
+        if (associated(prog)) then
+            prog%body_indices = updated_body
+        end if
+
+        deallocate (original_body_indices)
     end subroutine ensure_program_has_uses
 
     subroutine mark_existing_use(use_name, module_names, need_use)

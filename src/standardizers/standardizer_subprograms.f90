@@ -30,21 +30,29 @@ contains
 
         if (.not. allocated(prog%body_indices)) return
 
-        do i = 1, size(prog%body_indices)
-            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= &
-                arena%size) then
-                if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                    select type (stmt => arena%entries(prog%body_indices(i))%node)
-                    type is (function_def_node)
-                        call standardize_function_def(arena, stmt, &
-                                                      prog%body_indices(i))
-                    type is (subroutine_def_node)
-                        call standardize_subroutine_def(arena, stmt, &
-                                                        prog%body_indices(i))
-                    end select
+        ! CRITICAL: Copy indices before loop to prevent dangling pointer access
+        ! standardize_function_def and standardize_subroutine_def call push_implicit_statement
+        ! which modifies arena, potentially invalidating the prog selector used in select type
+        block
+            integer, allocatable :: local_indices(:)
+            allocate (local_indices(size(prog%body_indices)))
+            local_indices = prog%body_indices
+
+            do i = 1, size(local_indices)
+                if (local_indices(i) > 0 .and. local_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(local_indices(i))%node)) then
+                        select type (stmt => arena%entries(local_indices(i))%node)
+                        type is (function_def_node)
+                            call standardize_function_def(arena, stmt, local_indices(i))
+                        type is (subroutine_def_node)
+                            call standardize_subroutine_def(arena, stmt, local_indices(i))
+                        end select
+                    end if
                 end if
-            end if
-        end do
+            end do
+
+            deallocate (local_indices)
+        end block
     end subroutine standardize_subprograms
 
 end module standardizer_subprograms

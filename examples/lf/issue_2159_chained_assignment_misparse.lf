@@ -1,0 +1,4 @@
+a = b = c = 5
+print *, "a:", a
+print *, "b:", b
+print *, "c:", c

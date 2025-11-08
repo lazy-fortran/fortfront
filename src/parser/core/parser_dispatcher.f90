@@ -16,7 +16,11 @@ module parser_dispatcher_module
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
-                                           parse_write_statement, parse_read_statement
+                                           parse_write_statement, parse_read_statement, &
+                                           parse_open_statement, parse_close_statement, &
+                                           parse_format_statement, parse_inquire_statement, &
+                                           parse_backspace_statement, parse_rewind_statement, &
+                                           parse_endfile_statement
     use parser_definition_statements_module, only: parse_function_definition, &
                                                    parse_subroutine_definition, &
                                                    parse_interface_block
@@ -89,6 +93,20 @@ contains
                 stmt_index = parse_write_statement(parser, arena)
             case ("read")
                 stmt_index = parse_read_statement(parser, arena)
+            case ("open")
+                stmt_index = parse_open_statement(parser, arena)
+            case ("close")
+                stmt_index = parse_close_statement(parser, arena)
+            case ("format")
+                stmt_index = parse_format_statement(parser, arena)
+            case ("inquire")
+                stmt_index = parse_inquire_statement(parser, arena)
+            case ("backspace")
+                stmt_index = parse_backspace_statement(parser, arena)
+            case ("rewind")
+                stmt_index = parse_rewind_statement(parser, arena)
+            case ("endfile")
+                stmt_index = parse_endfile_statement(parser, arena)
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)
             case ("deallocate")

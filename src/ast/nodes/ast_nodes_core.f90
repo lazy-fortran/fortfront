@@ -37,6 +37,7 @@ module ast_nodes_core
         logical :: type_was_inferred = .false.  ! true if type was inferred
         character(len=:), allocatable :: inferred_type_name
         logical :: suppress_codegen = .false.
+        logical :: is_keyword_argument = .false.  ! true if this is a keyword argument in a call
     contains
         procedure :: accept => assignment_accept
         procedure :: to_json => assignment_to_json
