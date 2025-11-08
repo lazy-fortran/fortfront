@@ -1154,6 +1154,7 @@ contains
     end function should_rename_deferred_char_result
 
     logical function should_use_result_for_array(arena, node) result(needs_result)
+        use ast_nodes_core, only: array_literal_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: result_name
@@ -1172,7 +1173,7 @@ contains
 
         if (len_trim(result_name) == 0) return
 
-        ! Check if any assignment to result variable has inferred array type
+        ! Check if the result variable has an inferred array type
         if (.not. allocated(node%body_indices)) return
 
         do i = 1, size(node%body_indices)
@@ -1190,9 +1191,8 @@ contains
                     if (.not. allocated(target%name)) cycle
                     if (trim(target%name) /= trim(result_name)) cycle
 
-                    ! Found assignment to result variable - check if inferred type is array
-                    if (target%inferred_type%kind > 0 .and. &
-                        target%inferred_type%kind == TARRAY) then
+                    ! Found assignment to result variable - check inferred type
+                    if (target%inferred_type%kind == TARRAY) then
                         needs_result = .true.
                         return
                     end if
