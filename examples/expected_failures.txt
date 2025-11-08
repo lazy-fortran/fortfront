@@ -15,4 +15,5 @@ issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return r
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch #2068
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword #2075
 issue_2111_recursive_missing_result.lf  # semantic analysis does not populate return_type for recursive functions yet #2111
+issue_2142_mono_wrong_return_types.lf  # monomorphized functions have both type prefix and result clause (invalid Fortran) #2142
 issue_256_assignment_in_condition.f90  # invalid syntax to test error reporting (uses = instead of == in if condition) #256
