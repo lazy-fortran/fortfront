@@ -63,6 +63,9 @@ clean:
 	@find . -maxdepth 1 -name "*.mod" -type f -delete
 	@find . -maxdepth 1 -name "*.o" -type f -delete
 	@find . -maxdepth 1 -name "*.a" -type f -delete
+	@find . -maxdepth 1 -name "*.lf" -type f -delete
+	@find . -maxdepth 1 -name "*.f90" -type f -delete
+	@find . -maxdepth 1 -name "*.txt" -type f -delete
 	@rm -f a.out
 	@echo "Clean complete."
 
