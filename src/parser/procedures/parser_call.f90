@@ -15,6 +15,7 @@ module parser_call_module
 contains
 
     subroutine parse_call_arguments(parser, arena, arg_indices)
+        use ast_nodes_core, only: assignment_node
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: arg_indices(:)
@@ -33,6 +34,16 @@ contains
 
             arg_index = parse_range(parser, arena)
             if (arg_index > 0) then
+                ! Mark assignment nodes as keyword arguments
+                if (arg_index <= arena%size) then
+                    if (allocated(arena%entries(arg_index)%node)) then
+                        select type (node => arena%entries(arg_index)%node)
+                        type is (assignment_node)
+                            node%is_keyword_argument = .true.
+                            arena%entries(arg_index)%node = node
+                        end select
+                    end if
+                end if
                 arg_indices = [arg_indices, arg_index]
             end if
 
