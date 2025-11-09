@@ -6,7 +6,7 @@ module input_validation
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING, &
-                          to_lower
+                          TK_WHITESPACE, to_lower
 
     implicit none
     private
@@ -217,10 +217,13 @@ contains
                             is_arithmetic_if = .false.
                             paren_count = 0
 
-                            ! Look for condition tokens after 'if' on the same line
+                            ! Look for condition tokens after 'if' (scan across continuation lines)
                             do k = i + 1, size(tokens)
                                 if (tokens(k)%kind == TK_EOF) exit
-                                if (tokens(k)%line > current_line) exit
+                                ! Skip whitespace and newlines while scanning for condition
+                                if (tokens(k)%kind == TK_WHITESPACE .or. tokens(k)%kind == TK_NEWLINE) then
+                                    cycle
+                                end if
 
                                 ! Track parentheses to find end of condition
                                 if (tokens(k)%kind == TK_OPERATOR) then
@@ -231,24 +234,45 @@ contains
                                         paren_count = paren_count - 1
                                         ! Check if we've closed all parens and what comes after
                                         if (paren_count == 0 .and. k < size(tokens)) then
-                                            ! Check the token after closing paren
-                                            if (k + 1 <= size(tokens) .and. tokens(k + 1)%line == current_line) then
-                                                ! Check for arithmetic IF: IF (expr) label1, label2, label3
-                                                if (tokens(k + 1)%kind == TK_NUMBER .or. &
-                                                    tokens(k + 1)%kind == TK_IDENTIFIER) then
-                                                    ! Could be arithmetic IF with labels
-                                                    is_arithmetic_if = .true.
-                                                    has_statement_after_condition = .true.
-                                                ! Check if it's a valid statement keyword for single-line if
-                                                else if (tokens(k + 1)%kind == TK_KEYWORD) then
-                                                    select case (to_lower(tokens(k + 1)%text))
-                                                    case ("print", "write", "read", "call", "stop", &
-                                                          "cycle", "exit", "return", "go", "error", "goto", &
-                                                          "allocate", "deallocate", "nullify")
+                                            ! Find next non-whitespace token (may be on continuation line)
+                                            block
+                                                integer :: next_tok_idx
+                                                logical :: found_newline_before_stmt
+                                                found_newline_before_stmt = .false.
+                                                next_tok_idx = k + 1
+
+                                                ! Skip whitespace/newlines to find next token
+                                                do while (next_tok_idx <= size(tokens))
+                                                    if (tokens(next_tok_idx)%kind == TK_WHITESPACE) then
+                                                        next_tok_idx = next_tok_idx + 1
+                                                        cycle
+                                                    else if (tokens(next_tok_idx)%kind == TK_NEWLINE) then
+                                                        found_newline_before_stmt = .true.
+                                                        next_tok_idx = next_tok_idx + 1
+                                                        cycle
+                                                    end if
+                                                    exit
+                                                end do
+
+                                                ! Check the next meaningful token
+                                                if (next_tok_idx <= size(tokens)) then
+                                                    ! Check for arithmetic IF: IF (expr) label1, label2, label3
+                                                    if (tokens(next_tok_idx)%kind == TK_NUMBER .or. &
+                                                        tokens(next_tok_idx)%kind == TK_IDENTIFIER) then
+                                                        ! Could be arithmetic IF with labels
+                                                        is_arithmetic_if = .true.
                                                         has_statement_after_condition = .true.
-                                                    end select
+                                                    ! Check if it's a valid statement keyword for single-line if
+                                                    else if (tokens(next_tok_idx)%kind == TK_KEYWORD) then
+                                                        select case (to_lower(tokens(next_tok_idx)%text))
+                                                        case ("print", "write", "read", "call", "stop", &
+                                                              "cycle", "exit", "return", "go", "error", "goto", &
+                                                              "allocate", "deallocate", "nullify")
+                                                            has_statement_after_condition = .true.
+                                                        end select
+                                                    end if
                                                 end if
-                                            end if
+                                            end block
                                         end if
                                     else
                                         has_condition_tokens = .true.
