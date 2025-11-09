@@ -1650,7 +1650,7 @@ contains
         allocate (new_param_indices(count))
 
         do i = 1, count
-            if (allocated(signature%param_kinds)) then
+            if (allocated(signature%param_kinds) .and. size(signature%param_kinds) > 0) then
                 if (i <= size(signature%param_kinds)) then
                     kind_value = signature%param_kinds(i)
                 else
