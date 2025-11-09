@@ -11,7 +11,8 @@
 ! triggering allocation failures, which require OS-level memory limits.
 
 program test_cli_io_allocation_failure
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                                                                iostat_eor
     implicit none
 
     character(len=:), allocatable :: text
