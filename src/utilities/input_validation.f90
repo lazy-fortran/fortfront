@@ -6,7 +6,7 @@ module input_validation
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING, &
-                          to_lower
+                          TK_WHITESPACE, to_lower
 
     implicit none
     private
