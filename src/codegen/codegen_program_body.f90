@@ -302,10 +302,11 @@ contains
         do i = 1, n
             if (text(i:i) /= '(') cycle
             j = i + 1
-            do while (j <= n .and. is_whitespace_char(text(j:j)))
+            do while (j <= n)
+                if (.not. is_whitespace_char(text(j:j))) exit
                 j = j + 1
             end do
-            if (j + 1 > n) exit
+            if (j > n .or. j + 1 > n) exit
             if (text(j:j + 1) /= 'dp') cycle
             if (j + 2 <= n) then
                 if (is_identifier_char(text(j + 2:j + 2))) cycle
@@ -328,18 +329,24 @@ contains
             if (pos == 0) exit
             pos = start + pos - 1
             idx = pos + 4
-            do while (idx <= n .and. is_whitespace_char(text(idx:idx)))
+            do while (idx <= n)
+                if (.not. is_whitespace_char(text(idx:idx))) exit
                 idx = idx + 1
             end do
-            if (idx > n .or. text(idx:idx) /= '=') then
+            if (idx > n) then
+                start = pos + 4
+                cycle
+            end if
+            if (text(idx:idx) /= '=') then
                 start = pos + 4
                 cycle
             end if
             idx = idx + 1
-            do while (idx <= n .and. is_whitespace_char(text(idx:idx)))
+            do while (idx <= n)
+                if (.not. is_whitespace_char(text(idx:idx))) exit
                 idx = idx + 1
             end do
-            if (idx + 1 > n) then
+            if (idx > n .or. idx + 1 > n) then
                 start = pos + 4
                 cycle
             end if
