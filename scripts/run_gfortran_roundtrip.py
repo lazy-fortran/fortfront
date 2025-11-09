@@ -26,6 +26,7 @@ FORTRAN_SUFFIXES: Sequence[str] = (
 
 DEFAULT_OUTPUT = Path("logs") / "gfortran_dejagnu_roundtrip_results.jsonl"
 DEFAULT_GCC_ROOT = Path("..") / "gcc-dev" / "gcc"
+DEFAULT_JOBS = max(1, (os.cpu_count() or 1))
 MAX_TEST_TIMEOUT = 0.1  # seconds; enforced upper bound per requirement
 
 
@@ -71,8 +72,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--jobs",
         type=int,
-        default=1,
-        help="Maximum concurrent fortfront processes (default: 1).",
+        default=DEFAULT_JOBS,
+        help=(
+            "Maximum concurrent fortfront processes "
+            f"(default: number of CPU cores = {DEFAULT_JOBS})."
+        ),
     )
     parser.add_argument(
         "--resume",
@@ -340,12 +344,13 @@ def main() -> int:
             for test_path in queue:
                 record = worker(test_path)
                 processed += 1
-                if record["status"] == "pass":
+                status = record["status"]
+                if status == "pass":
                     passes += 1
+                elif status == "timeout":
+                    timeouts += 1
                 else:
                     failures += 1
-                    if record["status"] == "timeout":
-                        timeouts += 1
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
                 print_progress(
@@ -360,12 +365,13 @@ def main() -> int:
             with ThreadPoolExecutor(max_workers=args.jobs) as pool:
                 for record in pool.map(worker, queue):
                     processed += 1
-                    if record["status"] == "pass":
+                    status = record["status"]
+                    if status == "pass":
                         passes += 1
+                    elif status == "timeout":
+                        timeouts += 1
                     else:
                         failures += 1
-                        if record["status"] == "timeout":
-                            timeouts += 1
                     handle.write(json.dumps(record) + "\n")
                     handle.flush()
                     print_progress(
@@ -380,7 +386,7 @@ def main() -> int:
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL: {failures - timeouts}, TIMEOUT: {timeouts}. "
+        f"Complete. PASS: {passes}, FAIL: {failures}, TIMEOUT: {timeouts}. "
         f"Results: {output_path}"
     )
     if timeouts > 0:
