@@ -23,3 +23,10 @@ issue_1816_multiple_returns.lf  # multiple return values still broken (#1816 - P
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
 issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of array (segfault in monomorphization) #2153
 issue_2159_chained_assignment_misparse.lf  # chained assignments parsed but need flattening standardizer pass #2159
+
+# Fortran 2018 features - Not fully supported
+issue_2238_select_rank_performance.f90  # assumed-rank arrays (..) not fully supported; SELECT RANK requires them #2238
+select_rank_simple.f90  # SELECT RANK requires assumed-rank arrays (..) which are not fully supported #2238
+
+# Test error reporting
+issue_256_assignment_in_condition.f90  # invalid syntax to test error reporting (uses = instead of == in if condition) #256

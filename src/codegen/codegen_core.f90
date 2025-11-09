@@ -169,6 +169,8 @@ contains
             code = generate_code_select_case(arena, node, node_index)
         type is (select_type_node)
             code = generate_code_select_type(arena, node, node_index)
+        type is (select_rank_node)
+            code = generate_code_select_rank(arena, node, node_index)
         type is (where_node)
             code = generate_code_where(arena, node, node_index)
         type is (forall_node)

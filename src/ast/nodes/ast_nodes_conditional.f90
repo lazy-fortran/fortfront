@@ -11,9 +11,10 @@ module ast_nodes_conditional
     public :: if_node, select_case_node, case_block_node
     public :: case_range_node, case_default_node
     public :: select_type_node, type_guard_block_node
+    public :: select_rank_node, rank_block_node
 
     ! Public factory functions
-    public :: create_if, create_select_case, create_select_type
+    public :: create_if, create_select_case, create_select_type, create_select_rank
 
     ! Elseif wrapper (not an AST node itself)
     type :: elseif_wrapper
@@ -111,6 +112,29 @@ module ast_nodes_conditional
         procedure :: assign => type_guard_block_assign
         generic :: assignment(=) => assign
     end type type_guard_block_node
+
+    ! Select rank construct node
+    type, extends(ast_node) :: select_rank_node
+        integer :: selector_index = 0  ! Selector expression arena index
+        integer, allocatable :: rank_indices(:)  ! Rank block arena indices
+        integer :: default_index = 0  ! Default rank arena index (optional)
+    contains
+        procedure :: accept => select_rank_accept
+        procedure :: to_json => select_rank_to_json
+        procedure :: assign => select_rank_assign
+        generic :: assignment(=) => assign
+    end type select_rank_node
+
+    ! Rank block node (rank (n))
+    type, extends(ast_node) :: rank_block_node
+        integer :: rank_value = -1  ! Rank value (-1 for star/default)
+        integer, allocatable :: body_indices(:)  ! Rank body arena indices
+    contains
+        procedure :: accept => rank_block_accept
+        procedure :: to_json => rank_block_to_json
+        procedure :: assign => rank_block_assign
+        generic :: assignment(=) => assign
+    end type rank_block_node
 
 contains
 
@@ -423,6 +447,95 @@ contains
         end if
     end subroutine type_guard_block_assign
 
+    ! Select rank implementations
+    subroutine select_rank_accept(this, visitor)
+        class(select_rank_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine select_rank_accept
+
+    subroutine select_rank_to_json(this, json, parent)
+        class(select_rank_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'select_rank')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'selector_index', this%selector_index)
+        if (this%default_index > 0) call json%add(obj, 'default_index', &
+                                                  this%default_index)
+        call json%add(parent, obj)
+    end subroutine select_rank_to_json
+
+    subroutine select_rank_assign(lhs, rhs)
+        class(select_rank_node), intent(inout) :: lhs
+        class(select_rank_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy specific components
+        lhs%selector_index = rhs%selector_index
+        lhs%default_index = rhs%default_index
+        ! Deep copy allocatable array
+        if (allocated(rhs%rank_indices)) then
+            if (allocated(lhs%rank_indices)) deallocate (lhs%rank_indices)
+            allocate (lhs%rank_indices(size(rhs%rank_indices)))
+            lhs%rank_indices = rhs%rank_indices
+        end if
+    end subroutine select_rank_assign
+
+    ! Rank block implementations
+    subroutine rank_block_accept(this, visitor)
+        class(rank_block_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine rank_block_accept
+
+    subroutine rank_block_to_json(this, json, parent)
+        class(rank_block_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'rank_block')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'rank_value', this%rank_value)
+        call json%add(parent, obj)
+    end subroutine rank_block_to_json
+
+    subroutine rank_block_assign(lhs, rhs)
+        class(rank_block_node), intent(inout) :: lhs
+        class(rank_block_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy specific components
+        lhs%rank_value = rhs%rank_value
+        ! Deep copy allocatable array
+        if (allocated(rhs%body_indices)) then
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
+            lhs%body_indices = rhs%body_indices
+        end if
+    end subroutine rank_block_assign
+
     ! Factory functions
     function create_if(condition_index, then_body_indices, elseif_blocks, &
                        else_body_indices, line, column) result(node)
@@ -499,5 +612,26 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_select_type
+
+    function create_select_rank(selector_index, rank_indices, &
+                                default_index, line, column) result(node)
+        integer, intent(in) :: selector_index
+        integer, intent(in), optional :: rank_indices(:)
+        integer, intent(in), optional :: default_index
+        integer, intent(in), optional :: line, column
+        type(select_rank_node) :: node
+
+        node%uid = generate_uid()
+        node%selector_index = selector_index
+        if (present(rank_indices)) then
+            if (size(rank_indices) > 0) then
+                node%rank_indices = rank_indices
+            end if
+        end if
+        if (present(default_index)) node%default_index = default_index
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_select_rank
 
 end module ast_nodes_conditional
