@@ -208,90 +208,109 @@ contains
                     if (.not. found_then) then
                         ! Check if this looks like a complete if condition without 'then'
                         block
-                            logical :: has_condition_tokens, has_statement_after_condition
-                            logical :: is_arithmetic_if
-                            integer :: k, paren_count
+                        logical :: has_condition_tokens, has_statement_after_condition
+                        logical :: found_then, continuation_pending
+                        integer :: k, paren_count, cond_end_idx
 
                             has_condition_tokens = .false.
                             has_statement_after_condition = .false.
-                            is_arithmetic_if = .false.
                             paren_count = 0
 
-                            ! Look for condition tokens after 'if' (scan across continuation lines)
+                            cond_end_idx = -1
+                            paren_count = 0
                             do k = i + 1, size(tokens)
                                 if (tokens(k)%kind == TK_EOF) exit
-                                ! Skip whitespace and newlines while scanning for condition
-                                if (tokens(k)%kind == TK_WHITESPACE .or. tokens(k)%kind == TK_NEWLINE) then
+                                select case (tokens(k)%kind)
+                                case (TK_WHITESPACE, TK_COMMENT)
                                     cycle
-                                end if
-
-                                ! Track parentheses to find end of condition
-                                if (tokens(k)%kind == TK_OPERATOR) then
-                                    if (tokens(k)%text == "(") then
+                                case (TK_OPERATOR)
+                                    select case (tokens(k)%text)
+                                    case ("(")
                                         paren_count = paren_count + 1
                                         has_condition_tokens = .true.
-                                    else if (tokens(k)%text == ")") then
-                                        paren_count = paren_count - 1
-                                        ! Check if we've closed all parens and what comes after
-                                        if (paren_count == 0 .and. k < size(tokens)) then
-                                            ! Find next non-whitespace token (may be on continuation line)
-                                            block
-                                                integer :: next_tok_idx
-                                                logical :: found_newline_before_stmt
-                                                found_newline_before_stmt = .false.
-                                                next_tok_idx = k + 1
-
-                                                ! Skip whitespace/newlines to find next token
-                                                do while (next_tok_idx <= size(tokens))
-                                                    if (tokens(next_tok_idx)%kind == TK_WHITESPACE) then
-                                                        next_tok_idx = next_tok_idx + 1
-                                                        cycle
-                                                    else if (tokens(next_tok_idx)%kind == TK_NEWLINE) then
-                                                        found_newline_before_stmt = .true.
-                                                        next_tok_idx = next_tok_idx + 1
-                                                        cycle
-                                                    end if
-                                                    exit
-                                                end do
-
-                                                ! Check the next meaningful token
-                                                if (next_tok_idx <= size(tokens)) then
-                                                    ! Check for arithmetic IF: IF (expr) label1, label2, label3
-                                                    if (tokens(next_tok_idx)%kind == TK_NUMBER .or. &
-                                                        tokens(next_tok_idx)%kind == TK_IDENTIFIER) then
-                                                        ! Could be arithmetic IF with labels
-                                                        is_arithmetic_if = .true.
-                                                        has_statement_after_condition = .true.
-                                                    ! Check if it's a valid statement keyword for single-line if
-                                                    else if (tokens(next_tok_idx)%kind == TK_KEYWORD) then
-                                                        select case (to_lower(tokens(next_tok_idx)%text))
-                                                        case ("print", "write", "read", "call", "stop", &
-                                                              "cycle", "exit", "return", "go", "error", "goto", &
-                                                              "allocate", "deallocate", "nullify")
-                                                            has_statement_after_condition = .true.
-                                                        end select
-                                                    end if
-                                                end if
-                                            end block
+                                    case (")")
+                                        if (paren_count > 0) paren_count = paren_count - 1
+                                        if (paren_count == 0) then
+                                            cond_end_idx = k
+                                            exit
                                         end if
-                                    else
-                                        has_condition_tokens = .true.
-                                    end if
-                                else if (tokens(k)%kind == TK_IDENTIFIER .or. &
-                                         tokens(k)%kind == TK_NUMBER) then
+                                    end select
+                                case (TK_IDENTIFIER, TK_NUMBER, TK_STRING)
                                     has_condition_tokens = .true.
-                                end if
+                                case (TK_NEWLINE)
+                                    if (.not. has_condition_tokens) exit
+                                end select
                             end do
 
-                            ! If we have condition tokens but no 'then', check if it's a valid single-line if
-                            if (has_condition_tokens .and. .not. has_statement_after_condition) then
-                                error_msg = format_enhanced_error("Missing 'then' after 'if' condition", &
-                                                                  tokens(if_pos)%line, tokens(if_pos)%column, &
-                                                                  source_lines, &
-                                                                  "Add 'then' after the if condition", &
-                                                                  "SYNTAX_ERROR")
-                                return
-                            end if
+                            if (cond_end_idx < 0) cycle
+
+                            found_then = .false.
+                            has_statement_after_condition = .false.
+                            continuation_pending = .false.
+                            k = cond_end_idx + 1
+
+                            do while (k <= size(tokens))
+                                select case (tokens(k)%kind)
+                                case (TK_WHITESPACE, TK_COMMENT)
+                                    k = k + 1
+                                case (TK_OPERATOR)
+                                    select case (to_lower(trim(tokens(k)%text)))
+                                    case ("&")
+                                        continuation_pending = .true.
+                                        k = k + 1
+                                    case (";")
+                                        continuation_pending = .false.
+                                        k = k + 1
+                                    case default
+                                        has_statement_after_condition = .true.
+                                        exit
+                                    end select
+                                case (TK_NEWLINE)
+                                    k = k + 1
+                                    if (continuation_pending) then
+                                        continuation_pending = .false.
+                                        cycle
+                                    end if
+                                    do while (k <= size(tokens) .and. &
+                                              (tokens(k)%kind == TK_WHITESPACE .or. &
+                                               tokens(k)%kind == TK_COMMENT))
+                                        k = k + 1
+                                    end do
+                                    if (k <= size(tokens)) then
+                                        if (tokens(k)%kind == TK_OPERATOR) then
+                                            if (to_lower(trim(tokens(k)%text)) == "&") then
+                                                continuation_pending = .true.
+                                                k = k + 1
+                                                cycle
+                                            end if
+                                        end if
+                                    end if
+                                    exit
+                                case (TK_KEYWORD)
+                                    if (to_lower(tokens(k)%text) == "then") then
+                                        found_then = .true.
+                                    else
+                                        has_statement_after_condition = .true.
+                                    end if
+                                    exit
+                                case (TK_IDENTIFIER, TK_NUMBER, TK_STRING)
+                                    has_statement_after_condition = .true.
+                                    exit
+                                case default
+                                    has_statement_after_condition = .true.
+                                    exit
+                                end select
+                            end do
+
+                            if (found_then) cycle
+                            if (has_statement_after_condition) cycle
+
+                            error_msg = format_enhanced_error("Missing 'then' after 'if' condition", &
+                                                              tokens(if_pos)%line, tokens(if_pos)%column, &
+                                                              source_lines, &
+                                                              "Add 'then' after the if condition", &
+                                                              "SYNTAX_ERROR")
+                            return
                         end block
                     end if
                 end block
