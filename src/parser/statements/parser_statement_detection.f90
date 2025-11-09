@@ -19,7 +19,7 @@ contains
         do i = start_index + 1, size(tokens)
             select case (tokens(i)%kind)
             case (TK_KEYWORD)
-                if (tokens(i)%text == "then") then
+                if (to_lower(tokens(i)%text) == "then") then
                     is_block = .true.
                     return
                 else
