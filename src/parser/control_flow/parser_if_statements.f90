@@ -194,6 +194,8 @@ contains
 
         type(parser_state_t) :: body_parser
         integer :: stmt_start, stmt_end
+        integer :: capacity, count
+        integer, allocatable :: temp_indices(:)
 
         if (size(body_tokens) == 0) then
             allocate (body_indices(0))
@@ -201,17 +203,31 @@ contains
         end if
 
         body_parser = create_parser_state(body_tokens)
-        allocate (body_indices(0))
+
+        ! Pre-allocate with initial capacity to avoid O(n²) growth
+        capacity = 64
+        count = 0
+        allocate (body_indices(capacity))
 
         do while (.not. body_parser%is_at_end())
             call skip_if_body_padding(body_parser)
             if (body_parser%is_at_end()) exit
             stmt_start = body_parser%current_token
             stmt_end = find_if_body_line_end(body_tokens, stmt_start)
-            call parse_if_body_line(body_tokens, stmt_start, stmt_end, arena, &
-                                    body_indices)
+            call parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
+                                              arena, body_indices, count, capacity)
             body_parser%current_token = stmt_end + 1
         end do
+
+        ! Trim to actual size
+        if (count == 0) then
+            deallocate(body_indices)
+            allocate(body_indices(0))
+        else if (count < capacity) then
+            allocate(temp_indices(count))
+            temp_indices = body_indices(1:count)
+            call move_alloc(temp_indices, body_indices)
+        end if
     end subroutine parse_if_body_statements
 
     subroutine skip_if_body_padding(body_parser)
@@ -248,17 +264,19 @@ contains
         end do
     end function find_if_body_line_end
 
-    subroutine parse_if_body_line(body_tokens, stmt_start, stmt_end, arena, &
-                                  body_indices)
+    subroutine parse_if_body_line_efficient(body_tokens, stmt_start, stmt_end, &
+                                            arena, body_indices, count, capacity)
         type(token_t), intent(in) :: body_tokens(:)
         integer, intent(in) :: stmt_start, stmt_end
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(inout) :: count, capacity
 
         type(token_t), allocatable, target :: line_tokens(:)
         type(parser_state_t) :: line_parser
         integer :: stmt_size
         integer :: stmt_index
+        integer, allocatable :: temp_indices(:)
 
         stmt_size = stmt_end - stmt_start + 1
         if (stmt_size <= 0) return
@@ -277,10 +295,19 @@ contains
             stmt_index = parse_statement_in_if_block(line_parser, arena, &
                                                      line_parser%peek())
             if (stmt_index > 0) then
-                body_indices = [body_indices, stmt_index]
+                ! Grow array if needed
+                if (count >= capacity) then
+                    capacity = capacity * 2
+                    allocate(temp_indices(capacity))
+                    temp_indices(1:count) = body_indices(1:count)
+                    call move_alloc(temp_indices, body_indices)
+                end if
+
+                count = count + 1
+                body_indices(count) = stmt_index
             end if
         end if
-    end subroutine parse_if_body_line
+    end subroutine parse_if_body_line_efficient
 
     subroutine skip_if_body_line_padding(line_parser)
         type(parser_state_t), intent(inout) :: line_parser
