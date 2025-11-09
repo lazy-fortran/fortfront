@@ -257,9 +257,10 @@ contains
         if (param_map(param_idx)%is_optional) code = code // ", optional"
         if (param_map(param_idx)%is_target) code = code // ", target"
         code = code // " :: " // param_map(param_idx)%name
+        ! Add inline dimension suffix (e.g., x(:) or x(3,5))
         if (allocated(node%dimension_indices)) then
             if (size(node%dimension_indices) > 0) then
-                code = code // ", dimension("
+                code = code // "("
                 do j = 1, size(node%dimension_indices)
                     if (j > 1) code = code // ","
                     code = code // ":"

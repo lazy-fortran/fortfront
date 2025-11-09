@@ -10,17 +10,18 @@ build:
 libfortfront.a:
 	@echo "Building fortfront static library..."
 	fpm build
-	@latest_dir=$$(ls -td build/gfortran_* 2>/dev/null | head -n 1); \
-	if [ -z "$$latest_dir" ]; then \
-	    echo "ERROR: no fpm build artifacts found under build/gfortran_*"; \
+	@lib_dir=$$(find build/gfortran_* -type d -name fortfront 2>/dev/null | head -n 1 | xargs dirname); \
+	if [ -z "$$lib_dir" ]; then \
+	    echo "ERROR: no fpm build artifacts found with fortfront subdirectory"; \
 	    exit 1; \
 	fi; \
+	echo "Found library build directory: $$lib_dir"; \
 	rm -rf fortfront_modules; \
 	mkdir -p fortfront_modules; \
-	find "$$latest_dir" -maxdepth 1 -name '*.mod' -exec cp {} fortfront_modules/ \; ; \
-	objs=$$(find "$$latest_dir/fortfront" \( -name 'src_*.o' -o -name 'build_dependencies_*.o' \) ); \
+	find "$$lib_dir" -maxdepth 1 -name '*.mod' -exec cp {} fortfront_modules/ \; ; \
+	objs=$$(find "$$lib_dir/fortfront" \( -name 'src_*.o' -o -name 'build_dependencies_*.o' \) ); \
 	if [ -z "$$objs" ]; then \
-	    echo "ERROR: no object files found in $$latest_dir/fortfront"; \
+	    echo "ERROR: no object files found in $$lib_dir/fortfront"; \
 	    exit 1; \
 	fi; \
 	rm -f libfortfront.a; \
@@ -63,6 +64,9 @@ clean:
 	@find . -maxdepth 1 -name "*.mod" -type f -delete
 	@find . -maxdepth 1 -name "*.o" -type f -delete
 	@find . -maxdepth 1 -name "*.a" -type f -delete
+	@find . -maxdepth 1 -name "*.lf" -type f -delete
+	@find . -maxdepth 1 -name "*.f90" -type f -delete
+	@find . -maxdepth 1 -name "*.txt" -type f -delete
 	@rm -f a.out
 	@echo "Clean complete."
 

@@ -1,0 +1,7 @@
+function process(x)
+    process = x + 1
+end function
+
+a = process(5)
+b = process(2.5)
+c = process([1, 2, 3])
