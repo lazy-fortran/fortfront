@@ -1273,6 +1273,7 @@ contains
         integer :: fallback_kind
         integer :: i
         integer :: mapped_kind
+        character(len=:), allocatable :: temp_type_string
 
         if (.not. allocated(signature%param_kinds)) return
         if (size(signature%param_kinds) == 0) return
@@ -1288,22 +1289,23 @@ contains
             end if
             if (allocated(signature%param_type_strings)) then
                 if (i <= size(signature%param_type_strings)) then
+                    ! Only process if the type string is non-empty
+                    if (len_trim(signature%param_type_strings(i)) == 0) cycle
+
                     mapped_kind = &
                         map_type_string_to_kind(signature%param_type_strings(i))
-                    if (mapped_kind == TVAR .or. mapped_kind /= &
-                        signature%param_kinds(i)) then
-                        if (signature%param_kinds(i) /= TARRAY) then
-                            signature%param_type_strings(i) = kind_to_string_local( &
-                                                              signature%param_kinds(i))
-                        end if
-                    end if
-                    ! For array parameters, strip dimension() to normalize signatures
-                    ! This ensures arrays with different explicit dimensions are recognized as identical
+                    ! For array types, normalize while preserving dimension info
                     if (signature%param_kinds(i) == TARRAY) then
-                        if (index(to_lower(signature%param_type_strings(i)), "dimension(") > 0) then
-                            signature%param_type_strings(i) = &
-                                strip_dimension_from_type(signature%param_type_strings(i))
+                        ! Only normalize if it contains "dimension"
+                        if (index(to_lower(signature%param_type_strings(i)), 'dimension') > 0) then
+                            temp_type_string = signature%param_type_strings(i)
+                            call normalize_array_type_string(temp_type_string)
+                            signature%param_type_strings(i) = temp_type_string
                         end if
+                    else if (mapped_kind == TVAR .or. mapped_kind /= &
+                             signature%param_kinds(i)) then
+                        signature%param_type_strings(i) = kind_to_string_local( &
+                                                          signature%param_kinds(i))
                     end if
                     ! Normalize character types to ignore length for monomorphization
                     ! Fortran does not support generic interfaces differing only in character length
@@ -1321,6 +1323,110 @@ contains
             end if
         end if
     end subroutine normalize_signature_param_types
+
+    subroutine normalize_array_type_string(type_string)
+        character(len=:), allocatable, intent(inout) :: type_string
+        character(len=:), allocatable :: base_type, dim_spec, normalized_dim_spec
+        integer :: dim_pos, paren_start, paren_end, mapped_kind
+        integer :: type_len
+
+        if (.not. allocated(type_string)) return
+        if (len_trim(type_string) == 0) return
+
+        type_len = len(type_string)
+
+        ! Find "dimension(" in the string
+        dim_pos = index(to_lower(type_string), ", dimension(")
+        if (dim_pos == 0) then
+            dim_pos = index(to_lower(type_string), "dimension(")
+            if (dim_pos /= 1) return  ! No dimension spec found
+            paren_start = 10  ! len("dimension(")
+            base_type = ""
+        else
+            base_type = trim(type_string(1:dim_pos-1))
+            paren_start = dim_pos + 12  ! len(", dimension(")
+        end if
+
+        ! Safety check - ensure paren_start is within bounds
+        if (paren_start > type_len) then
+            ! Malformed dimension spec, abort normalization
+            return
+        end if
+
+        ! Extract base type and normalize it
+        if (len_trim(base_type) > 0) then
+            ! Remove attributes like intent(in), etc
+            if (index(base_type, ',') > 0) then
+                base_type = base_type(1:index(base_type,',')-1)
+            end if
+            base_type = trim(adjustl(base_type))
+
+            ! Map to canonical type name
+            mapped_kind = map_type_string_to_kind(base_type)
+            if (mapped_kind /= TVAR .and. mapped_kind > 0) then
+                base_type = kind_to_string_local(mapped_kind)
+            end if
+        else
+            base_type = "integer"  ! default
+        end if
+
+        ! Extract dimension specification and count rank
+        ! For normalization/deduplication, we normalize all arrays to assumed-shape
+        ! This ensures dimension(3) and dimension(5) are treated as identical
+        if (paren_start <= type_len) then
+            paren_end = index(type_string(paren_start:), ")")
+            if (paren_end > 0) then
+                paren_end = paren_start + paren_end - 2
+                if (paren_end >= paren_start .and. paren_end <= type_len) then
+                    dim_spec = trim(type_string(paren_start:paren_end))
+                    ! Count rank by counting commas + 1
+                    ! dimension(:) has rank 1, dimension(:,:) has rank 2, etc.
+                    call count_array_rank(dim_spec, normalized_dim_spec)
+                else
+                    normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
+                end if
+            else
+                normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
+            end if
+        else
+            normalized_dim_spec = ":"  ! default to rank-1 assumed-shape
+        end if
+
+        ! Reconstruct in canonical form with assumed-shape
+        type_string = trim(base_type) // ", dimension(" // trim(normalized_dim_spec) // ")"
+    end subroutine normalize_array_type_string
+
+    subroutine count_array_rank(dim_spec_in, dim_spec_out)
+        character(len=*), intent(in) :: dim_spec_in
+        character(len=:), allocatable, intent(out) :: dim_spec_out
+        integer :: rank, i, comma_count
+
+        ! Count rank from dimension spec
+        ! Examples: "3" -> rank 1, "3,5" -> rank 2, ":" -> rank 1, ":,:" -> rank 2
+        comma_count = 0
+        do i = 1, len_trim(dim_spec_in)
+            if (dim_spec_in(i:i) == ',') comma_count = comma_count + 1
+        end do
+        rank = comma_count + 1
+
+        ! Generate assumed-shape spec for the rank
+        ! rank 1 -> ":", rank 2 -> ":,:", rank 3 -> ":,:,:", etc.
+        if (rank == 1) then
+            dim_spec_out = ":"
+        else if (rank == 2) then
+            dim_spec_out = ":,:"
+        else if (rank == 3) then
+            dim_spec_out = ":,:,:"
+        else if (rank == 4) then
+            dim_spec_out = ":,:,:,:"
+        else
+            ! For higher ranks, build dynamically
+            dim_spec_out = ":"
+            do i = 2, rank
+                dim_spec_out = dim_spec_out // ",:"
+            end do
+        end if
+    end subroutine count_array_rank
 
     pure logical function signatures_are_identical(sig1, sig2) result(identical)
         type(type_signature_t), intent(in) :: sig1, sig2
@@ -1750,6 +1856,81 @@ contains
         end if
     end function clone_function_body_with_updated_result
 
+    subroutine extract_dimension_from_type_string(type_name, dimension_indices)
+        character(len=:), allocatable, intent(inout) :: type_name
+        integer, allocatable, intent(out) :: dimension_indices(:)
+        integer :: dim_pos, paren_start, paren_end, ndims, i, comma_count
+        character(len=:), allocatable :: base_type, dim_spec
+        integer :: has_colon
+
+        ! Safety checks
+        if (.not. allocated(type_name)) return
+        if (len_trim(type_name) == 0) return
+
+        ! Find ", dimension(" in the type string
+        dim_pos = index(to_lower(type_name), ", dimension(")
+        if (dim_pos == 0) then
+            ! Try without comma (could be at start)
+            dim_pos = index(to_lower(type_name), "dimension(")
+            if (dim_pos /= 1) return  ! Not at start either, give up
+            base_type = ""
+            paren_start = 10  ! len("dimension(")
+        else
+            ! Extract base type (everything before ", dimension(")
+            base_type = trim(type_name(1:dim_pos-1))
+            paren_start = dim_pos + 12  ! len(", dimension(")
+        end if
+
+        ! Find the matching closing parenthesis
+        paren_end = index(type_name(paren_start:), ")")
+        if (paren_end == 0) return  ! No closing paren found
+        paren_end = paren_start + paren_end - 2  ! Adjust to global position
+
+        ! Extract dimension specification (e.g., ":", "3", ":,:","3,5")
+        if (paren_end >= paren_start) then
+            dim_spec = type_name(paren_start:paren_end)
+        else
+            dim_spec = ""
+        end if
+
+        ! Count dimensions by counting colons or commas
+        ! First check if we have any colons (assumed-shape)
+        has_colon = 0
+        do i = 1, len(dim_spec)
+            if (dim_spec(i:i) == ':') has_colon = 1
+        end do
+
+        if (has_colon > 0) then
+            ! Count colons for assumed-shape arrays: dimension(:) or dimension(:,:)
+            ndims = 0
+            do i = 1, len(dim_spec)
+                if (dim_spec(i:i) == ':') ndims = ndims + 1
+            end do
+        else
+            ! Count commas + 1 for explicit-shape arrays: dimension(3) or dimension(3,5)
+            comma_count = 0
+            do i = 1, len(dim_spec)
+                if (dim_spec(i:i) == ',') comma_count = comma_count + 1
+            end do
+            ndims = comma_count + 1
+        end if
+
+        ! Allocate dimension_indices if we found dimensions
+        if (ndims > 0) then
+            allocate (dimension_indices(ndims))
+            dimension_indices = 0  ! 0 means assumed-shape (:) for now
+        end if
+
+        ! Update type_name to just the base type
+        if (len_trim(base_type) > 0) then
+            type_name = base_type
+        else if (dim_pos == 1) then
+            ! dimension(...) was at the start, extract just "integer" or whatever
+            ! This shouldn't happen in practice but handle it
+            type_name = "real"  ! default fallback
+        end if
+    end subroutine extract_dimension_from_type_string
+
     function clone_parameter_with_kind(arena, param_idx, kind_value, type_override) &
         result(new_idx)
         type(ast_arena_t), intent(inout) :: arena
@@ -1797,11 +1978,16 @@ contains
         if (override_provided) then
             new_param%has_kind = .false.
             new_param%kind_value = 0
+            ! Extract dimension info from type string if present
+            ! This handles cases where semantic analysis provides type strings like:
+            ! "real, dimension(:)" or "integer, dimension(:)"
             if (index(to_lower(new_param%type_name), "dimension(") > 0) then
-                ! For array parameters, strip dimension() from type_name to avoid duplication
+                ! Extract dimension info before stripping (for assumed-shape output)
+                call extract_dimension_from_type_string(new_param%type_name, &
+                                                       new_param%dimension_indices)
+                ! Strip dimension() from type_name to avoid duplication
                 ! The dimension spec will come from dimension_indices instead
                 new_param%type_name = strip_dimension_from_type(new_param%type_name)
-                ! Keep dimension_indices for assumed-shape output (:)
                 new_param%is_array = .true.
             end if
         else

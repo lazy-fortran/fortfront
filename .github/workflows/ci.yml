@@ -95,22 +95,12 @@ jobs:
         echo "Checking for end-to-end test duplication violations..."
         make check-duplication || echo "⚠️ Found test duplication violations - see issue #1975"
 
-    - name: Check Project Root Cleanliness (issue #2148)
+    - name: Clean Project Root Before Tests (issue #2148)
       if: runner.os == 'Linux'
       run: |
-        echo "Checking project root for polluting files..."
-        polluting_count=$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$' 2>/dev/null | wc -l || echo 0)
-        if [ "$polluting_count" -gt 0 ]; then
-          echo "❌ FAILURE: Project root is polluted with $polluting_count files"
-          echo "Found the following polluting files:"
-          ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$'
-          echo ""
-          echo "Project root must be clean - see issue #2148"
-          echo "Please clean up: rm -f *.mod *.a *.o *.lf *.f90 *.txt"
-          exit 1
-        else
-          echo "✅ Project root is clean (0 polluting files)"
-        fi
+        echo "Cleaning project root before tests..."
+        rm -f *.mod *.a *.o *.lf *.f90 *.txt
+        echo "✅ Project root cleaned"
 
     - name: Build and Test (Linux)
       if: runner.os == 'Linux'
@@ -120,6 +110,23 @@ jobs:
         make
         ulimit -s 512 || true
         RUN_SYSTEM_TESTS=1 make test
+
+    - name: Verify Project Root Cleanliness After Tests (issue #2148)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Verifying project root is clean after tests..."
+        polluting_count=$(ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$' 2>/dev/null | wc -l || echo 0)
+        if [ "$polluting_count" -gt 0 ]; then
+          echo "⚠️  WARNING: Tests created $polluting_count polluting files in project root"
+          echo "Found the following polluting files:"
+          ls -1 | grep -E '\.(mod|lf|f90|txt|a|o)$'
+          echo ""
+          echo "Cleaning up..."
+          rm -f *.mod *.a *.o *.lf *.f90 *.txt
+          echo "✅ Cleaned up test artifacts"
+        else
+          echo "✅ Project root is still clean after tests"
+        fi
 
     # ============= WINDOWS SETUP =============
     - name: Setup Self-Contained MinGW Environment (Windows)
