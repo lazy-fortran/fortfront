@@ -217,9 +217,13 @@ contains
                             is_arithmetic_if = .false.
                             paren_count = 0
 
-                            ! Look for condition tokens after 'if' (including continuation lines)
+                            ! Look for condition tokens after 'if' (scan across continuation lines)
                             do k = i + 1, size(tokens)
                                 if (tokens(k)%kind == TK_EOF) exit
+                                ! Skip whitespace and newlines while scanning for condition
+                                if (tokens(k)%kind == TK_WHITESPACE .or. tokens(k)%kind == TK_NEWLINE) then
+                                    cycle
+                                end if
 
                                 ! Track parentheses to find end of condition
                                 if (tokens(k)%kind == TK_OPERATOR) then
@@ -230,13 +234,20 @@ contains
                                         paren_count = paren_count - 1
                                         ! Check if we've closed all parens and what comes after
                                         if (paren_count == 0 .and. k < size(tokens)) then
-                                            ! Find next non-whitespace/non-newline token
+                                            ! Find next non-whitespace token (may be on continuation line)
                                             block
                                                 integer :: next_tok_idx
+                                                logical :: found_newline_before_stmt
+                                                found_newline_before_stmt = .false.
                                                 next_tok_idx = k + 1
+
+                                                ! Skip whitespace/newlines to find next token
                                                 do while (next_tok_idx <= size(tokens))
-                                                    if (tokens(next_tok_idx)%kind == TK_WHITESPACE .or. &
-                                                        tokens(next_tok_idx)%kind == TK_NEWLINE) then
+                                                    if (tokens(next_tok_idx)%kind == TK_WHITESPACE) then
+                                                        next_tok_idx = next_tok_idx + 1
+                                                        cycle
+                                                    else if (tokens(next_tok_idx)%kind == TK_NEWLINE) then
+                                                        found_newline_before_stmt = .true.
                                                         next_tok_idx = next_tok_idx + 1
                                                         cycle
                                                     end if
