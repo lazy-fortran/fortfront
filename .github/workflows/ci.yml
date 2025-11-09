@@ -48,7 +48,7 @@ jobs:
     - name: Setup FPM (Linux)
       if: runner.os == 'Linux' && steps.cache-fpm.outputs.cache-hit != 'true'
       run: |
-        wget https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
+        curl -L -o fpm-0.12.0-linux-x86_64-gcc-12 https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
         chmod +x fpm-0.12.0-linux-x86_64-gcc-12
         sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
 
