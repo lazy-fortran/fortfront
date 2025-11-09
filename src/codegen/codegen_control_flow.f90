@@ -18,6 +18,7 @@ module codegen_control_flow
     public :: generate_code_do_while
     public :: generate_code_select_case
     public :: generate_code_select_type
+    public :: generate_code_select_rank
     public :: generate_code_where
     public :: generate_code_forall
     public :: generate_code_associate
@@ -473,6 +474,83 @@ contains
         ! Generate end select
         code = code // new_line('A') // repeat("    ", indent_level) // "end select"
     end function generate_code_select_type
+
+    ! Generate code for SELECT RANK constructs
+    function generate_code_select_rank(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_rank_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: expr_code, body_code
+        integer :: i, indent_level
+        character(len=20) :: rank_str
+
+        indent_level = 0
+
+        ! Generate selector expression
+        if (node%selector_index > 0) then
+            expr_code = generate_code_from_arena(arena, node%selector_index)
+        else
+            expr_code = ""
+        end if
+
+        ! Generate select rank statement
+        code = "select rank (" // expr_code // ")"
+
+        ! Generate rank blocks
+        if (allocated(node%rank_indices)) then
+            do i = 1, size(node%rank_indices)
+                if (node%rank_indices(i) > 0 .and. &
+                    node%rank_indices(i) <= arena%size) then
+                    select type (rank_node => &
+                                 arena%entries(node%rank_indices(i))%node)
+                    type is (rank_block_node)
+                        ! Generate rank statement
+                        code = code // new_line('A') // repeat("    ", indent_level)
+
+                        if (rank_node%rank_value == -2) then
+                            ! RANK (*)
+                            code = code // "rank (*)"
+                        else if (rank_node%rank_value >= 0) then
+                            ! RANK (n)
+                            write(rank_str, '(I0)') rank_node%rank_value
+                            code = code // "rank (" // trim(rank_str) // ")"
+                        end if
+
+                        ! Generate rank body
+                        if (allocated(rank_node%body_indices)) then
+                            body_code = generate_grouped_body_internal( &
+                                        arena, rank_node%body_indices, &
+                                        indent_level + 1)
+                            if (len(body_code) > 0) then
+                                code = code // new_line('A') // body_code
+                            end if
+                        end if
+                    end select
+                end if
+            end do
+        end if
+
+        ! Handle default rank if present
+        if (node%default_index > 0 .and. node%default_index <= arena%size) then
+            select type (default_node => arena%entries(node%default_index)%node)
+            type is (rank_block_node)
+                code = code // new_line('A') // repeat("    ", indent_level) // &
+                       "rank default"
+
+                if (allocated(default_node%body_indices)) then
+                    body_code = generate_grouped_body_internal( &
+                                arena, default_node%body_indices, indent_level + 1)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
+                    end if
+                end if
+            end select
+        end if
+
+        ! Generate end select
+        code = code // new_line('A') // repeat("    ", indent_level) // "end select"
+    end function generate_code_select_rank
 
     ! Generate code for where constructs
     function generate_code_where(arena, node, node_index) result(code)
