@@ -21,6 +21,5 @@ issue_2111_recursive_missing_result.lf  # semantic analysis does not populate re
 # Lazy Fortran - Recent failures needing implementation
 issue_1816_multiple_returns.lf  # multiple return values still broken (#1816 - PR #1848 incomplete)
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
-issue_2142_mono_wrong_return_types.lf  # monomorphized functions return wrong types (#2142)
 issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of array (segfault in monomorphization) #2153
 issue_2159_chained_assignment_misparse.lf  # chained assignments parsed but need flattening standardizer pass #2159
