@@ -331,10 +331,14 @@ contains
             end if
         case default
             if (token%kind == TK_NUMBER) then
-                read (token%text, *) type_spec%kind_value
-                type_spec%has_kind = .true.
-                type_spec%character_length_expr = trim(token%text)
-                type_spec%has_character_length = .true.
+                read_stat = 0
+                read (token%text, *, iostat=read_stat) numeric_value
+                if (read_stat == 0) then
+                    type_spec%kind_value = numeric_value
+                    type_spec%has_kind = .true.
+                    type_spec%character_length_expr = trim(token%text)
+                    type_spec%has_character_length = .true.
+                end if
                 token = parser%consume()
             else if (token%text == "*") then
                 type_spec%has_kind = .true.
