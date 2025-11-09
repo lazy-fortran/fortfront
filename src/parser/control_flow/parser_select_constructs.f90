@@ -21,11 +21,13 @@ module parser_select_constructs_module
                            push_case_block, push_case_range, push_case_default, &
                            push_select_type, push_select_type_with_default, &
                            push_type_guard_block, &
+                           push_select_rank, push_select_rank_with_default, &
+                           push_rank_block, &
                            push_identifier, push_literal, push_assignment
     implicit none
     private
 
-    public :: parse_select_case, parse_select_type
+    public :: parse_select_case, parse_select_type, parse_select_rank
 
 contains
 
@@ -586,5 +588,219 @@ contains
                                             line=line, column=column)
         end if
     end function parse_select_type
+
+    recursive function parse_select_rank(parser, arena) result(select_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: select_index
+
+        type(token_t) :: select_token, rank_token, lparen_token, rparen_token
+        type(token_t) :: rank_block_token, value_token, next_token
+        integer :: selector_index, default_index
+        integer, allocatable :: rank_indices(:)
+        integer :: line, column
+        character(len=20), dimension(2) :: end_keywords
+        type(statement_callbacks_t) :: callbacks
+
+        ! Consume 'select'
+        select_token = parser%consume()
+        line = select_token%line
+        column = select_token%column
+
+        ! Expect 'rank'
+        rank_token = parser%consume()
+        if (rank_token%kind /= TK_KEYWORD .or. rank_token%text /= "rank") then
+            select_index = 0
+            return
+        end if
+
+        ! Expect '('
+        lparen_token = parser%consume()
+        if (lparen_token%kind /= TK_OPERATOR .or. lparen_token%text /= "(") then
+            select_index = 0
+            return
+        end if
+
+        ! Parse selector expression
+        selector_index = parse_expression_until(parser, arena, [")"])
+        if (selector_index <= 0) then
+            select_index = 0
+            return
+        end if
+
+        rparen_token = parser%peek()
+        if (rparen_token%kind /= TK_OPERATOR .or. rparen_token%text /= ")") then
+            select_index = 0
+            return
+        end if
+        rparen_token = parser%consume()
+
+        ! Parse rank blocks
+        allocate (rank_indices(0))
+        default_index = 0
+
+        end_keywords(1) = "rank"
+        end_keywords(2) = "end"
+
+        callbacks = null_statement_callbacks()
+        callbacks%parse_select_rank => parse_select_rank
+
+        do while (parser%current_token <= size(parser%tokens))
+            rank_block_token = parser%peek()
+
+            if (rank_block_token%kind == TK_KEYWORD) then
+                if (rank_block_token%text == "rank") then
+                    ! Parse rank block
+                    block
+                        integer :: rank_block_index, rank_value
+                        integer, allocatable :: body_indices(:)
+
+                        rank_block_token = parser%consume()  ! consume 'rank'
+
+                        ! Check for default or star rank
+                        value_token = parser%peek()
+                        do while (value_token%kind == TK_WHITESPACE .or. &
+                                  value_token%kind == TK_COMMENT .or. &
+                                  value_token%kind == TK_NEWLINE)
+                            value_token = parser%consume()
+                            if (parser%is_at_end()) exit
+                            value_token = parser%peek()
+                        end do
+
+                        if (value_token%kind == TK_KEYWORD .and. &
+                            value_token%text == "default") then
+                            ! RANK DEFAULT case
+                            value_token = parser%consume()  ! consume 'default'
+
+                            ! Skip rest of current line
+                            block
+                                integer :: current_line
+                                type(token_t) :: skip_token
+                                current_line = value_token%line
+                                do while (parser%current_token <= size(parser%tokens))
+                                    skip_token = parser%peek()
+                                    if (skip_token%line == current_line) then
+                                        skip_token = parser%consume()
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end block
+
+                            ! Parse default rank body
+                            body_indices = parse_statement_body(parser, arena, &
+                                                                end_keywords, callbacks)
+
+                            ! Create default rank block
+                            default_index = push_rank_block(arena, -1, body_indices, &
+                                                            line=rank_block_token%line, &
+                                                            column=rank_block_token%column)
+                        else if (value_token%kind == TK_OPERATOR .and. &
+                                 value_token%text == "(") then
+                            ! Regular RANK (n) or RANK (*)
+                            value_token = parser%consume()  ! consume '('
+
+                            ! Get rank value
+                            value_token = parser%peek()
+                            do while (value_token%kind == TK_WHITESPACE .or. &
+                                      value_token%kind == TK_COMMENT .or. &
+                                      value_token%kind == TK_NEWLINE)
+                                value_token = parser%consume()
+                                if (parser%is_at_end()) exit
+                                value_token = parser%peek()
+                            end do
+
+                            if (value_token%kind == TK_OPERATOR .and. &
+                                value_token%text == "*") then
+                                ! RANK (*) - star rank
+                                value_token = parser%consume()
+                                rank_value = -2  ! Use -2 for star rank
+                            else if (value_token%kind == TK_NUMBER) then
+                                ! RANK (n) - specific rank
+                                read (value_token%text, *) rank_value
+                                value_token = parser%consume()
+                            else
+                                select_index = 0
+                                return
+                            end if
+
+                            ! Expect ')'
+                            next_token = parser%peek()
+                            do while (next_token%kind == TK_WHITESPACE .or. &
+                                      next_token%kind == TK_COMMENT .or. &
+                                      next_token%kind == TK_NEWLINE)
+                                next_token = parser%consume()
+                                if (parser%is_at_end()) exit
+                                next_token = parser%peek()
+                            end do
+
+                            if (next_token%kind /= TK_OPERATOR .or. &
+                                next_token%text /= ")") then
+                                select_index = 0
+                                return
+                            end if
+                            next_token = parser%consume()  ! consume ')'
+
+                            ! Skip rest of current line
+                            block
+                                integer :: current_line
+                                type(token_t) :: skip_token
+
+                                if (parser%current_token > 1) then
+                                    current_line = parser%tokens( &
+                                                   parser%current_token - 1)%line
+                                else
+                                    current_line = 1
+                                end if
+
+                                do while (parser%current_token <= size(parser%tokens))
+                                    skip_token = parser%peek()
+                                    if (skip_token%line == current_line) then
+                                        skip_token = parser%consume()
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end block
+
+                            ! Parse rank body statements
+                            body_indices = parse_statement_body(parser, arena, &
+                                                                end_keywords, callbacks)
+
+                            ! Create rank block node
+                            rank_block_index = push_rank_block(arena, rank_value, &
+                                                               body_indices, &
+                                                               line=rank_block_token%line, &
+                                                               column=rank_block_token%column)
+                            rank_indices = [rank_indices, rank_block_index]
+                        end if
+                    end block
+                else if (rank_block_token%text == "end") then
+                    ! Check for 'end select'
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == "select") then
+                        rank_block_token = parser%consume()  ! consume 'end'
+                        rank_block_token = parser%consume()  ! consume 'select'
+                        exit
+                    end if
+                    end if
+                end if
+            else
+                parser%current_token = parser%current_token + 1
+            end if
+        end do
+
+        ! Create select rank node
+        if (default_index > 0) then
+            select_index = push_select_rank_with_default( &
+                           arena, selector_index, rank_indices, default_index, &
+                           line=line, column=column)
+        else
+            select_index = push_select_rank(arena, selector_index, rank_indices, &
+                                            line=line, column=column)
+        end if
+    end function parse_select_rank
 
 end module parser_select_constructs_module
