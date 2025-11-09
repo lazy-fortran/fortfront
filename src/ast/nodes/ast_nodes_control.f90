@@ -7,7 +7,9 @@ module ast_nodes_control
                                      case_block_node, case_range_node, &
                                      case_default_node, create_if, &
                                      create_select_case, select_type_node, &
-                                     type_guard_block_node, create_select_type
+                                     type_guard_block_node, create_select_type, &
+                                     select_rank_node, rank_block_node, &
+                                     create_select_rank
     use ast_nodes_loops, only: MAX_INDEX_NAME_LENGTH, do_loop_node, &
                                do_while_node, forall_node, forall_triplet_t, &
                                create_do_loop, create_do_while
@@ -32,6 +34,7 @@ module ast_nodes_control
     public :: if_node, do_loop_node, do_while_node, forall_node
     public :: select_case_node, case_block_node, case_range_node, case_default_node
     public :: select_type_node, type_guard_block_node
+    public :: select_rank_node, rank_block_node
     public :: where_node, where_stmt_node
     public :: cycle_node, exit_node, stop_node, return_node, entry_node, goto_node
     public :: error_stop_node, continue_node, associate_node, pause_node
@@ -39,7 +42,7 @@ module ast_nodes_control
 
     ! Re-export factory functions
     public :: create_do_loop, create_do_while, create_if, create_select_case
-    public :: create_select_type, create_associate, create_continue
+    public :: create_select_type, create_select_rank, create_associate, create_continue
     public :: create_block_construct
 
 end module ast_nodes_control

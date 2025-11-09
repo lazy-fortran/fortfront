@@ -31,8 +31,9 @@ module ast_factory
         push_if, push_do_loop, push_do_while, push_forall, push_select_case, &
         push_associate, push_block_construct, push_case_block, push_case_range, &
         push_case_default, push_select_case_with_default, push_select_type, &
-        push_select_type_with_default, push_type_guard_block, push_where, &
-        push_where_construct, push_where_construct_with_elsewhere
+        push_select_type_with_default, push_type_guard_block, &
+        push_select_rank, push_select_rank_with_default, push_rank_block, &
+        push_where, push_where_construct, push_where_construct_with_elsewhere
 
     ! I/O statement nodes
     use ast_factory_io, only: &
@@ -90,8 +91,9 @@ module ast_factory
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
     public :: push_associate, push_block_construct, push_case_block, push_case_range
     public :: push_case_default, push_select_case_with_default, push_select_type
-    public :: push_select_type_with_default, push_type_guard_block, push_where
-    public :: push_where_construct, push_where_construct_with_elsewhere
+    public :: push_select_type_with_default, push_type_guard_block
+    public :: push_select_rank, push_select_rank_with_default, push_rank_block
+    public :: push_where, push_where_construct, push_where_construct_with_elsewhere
 
     ! I/O statement nodes
     public :: push_print_statement, push_write_statement, push_read_statement

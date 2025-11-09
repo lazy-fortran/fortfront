@@ -6,6 +6,7 @@ module ast_factory_control
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
                                  case_block_node, case_range_node, case_default_node, &
                                  select_type_node, type_guard_block_node, &
+                                 select_rank_node, rank_block_node, &
                                  where_node, elsewhere_clause_t, associate_node, &
                                  block_construct_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
@@ -21,6 +22,7 @@ module ast_factory_control
     public :: push_case_block, push_case_range, push_case_default, &
               push_select_case_with_default
     public :: push_select_type, push_select_type_with_default, push_type_guard_block
+    public :: push_select_rank, push_select_rank_with_default, push_rank_block
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
 
 contains
@@ -692,6 +694,124 @@ contains
         end if
         guard_index = arena%size
     end function push_type_guard_block
+
+    ! Create SELECT RANK node and add to stack
+    function push_select_rank(arena, selector_index, rank_indices, &
+                              line, column, parent_index) result(select_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: selector_index
+        integer, intent(in), optional :: rank_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: select_index
+
+        type(select_rank_node) :: select_node
+
+        select_node%uid = generate_uid()
+
+        ! Set selector expression index
+        if (selector_index > 0 .and. selector_index <= arena%size) then
+            select_node%selector_index = selector_index
+        end if
+
+        ! Set rank indices
+        if (present(rank_indices)) then
+            if (size(rank_indices) > 0) then
+                select_node%rank_indices = rank_indices
+            end if
+        end if
+
+        ! Set location information
+        if (present(line)) select_node%line = line
+        if (present(column)) select_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(select_node, "select_rank", parent_index)
+        else
+            call arena%push(select_node, "select_rank")
+        end if
+        select_index = arena%size
+    end function push_select_rank
+
+    ! Create SELECT RANK node with default and add to stack
+    function push_select_rank_with_default(arena, selector_index, &
+                                           rank_indices, default_index, &
+                                           line, column, parent_index) &
+        result(select_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: selector_index
+        integer, intent(in), optional :: rank_indices(:)
+        integer, intent(in) :: default_index
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: select_index
+
+        type(select_rank_node) :: select_node
+
+        select_node%uid = generate_uid()
+
+        ! Set selector expression index
+        if (selector_index > 0 .and. selector_index <= arena%size) then
+            select_node%selector_index = selector_index
+        end if
+
+        ! Set rank indices
+        if (present(rank_indices)) then
+            if (size(rank_indices) > 0) then
+                select_node%rank_indices = rank_indices
+            end if
+        end if
+
+        ! Set default rank index
+        if (default_index > 0 .and. default_index <= arena%size) then
+            select_node%default_index = default_index
+        end if
+
+        ! Set location information
+        if (present(line)) select_node%line = line
+        if (present(column)) select_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(select_node, "select_rank", parent_index)
+        else
+            call arena%push(select_node, "select_rank")
+        end if
+        select_index = arena%size
+    end function push_select_rank_with_default
+
+    ! Create rank block node and add to stack
+    function push_rank_block(arena, rank_value, body_indices, &
+                             line, column, parent_index) result(rank_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: rank_value
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: rank_index
+
+        type(rank_block_node) :: rank_node
+
+        rank_node%uid = generate_uid()
+        rank_node%rank_value = rank_value
+
+        ! Set body indices
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                rank_node%body_indices = body_indices
+            end if
+        end if
+
+        ! Set location information
+        if (present(line)) rank_node%line = line
+        if (present(column)) rank_node%column = column
+
+        ! Add node to arena
+        if (present(parent_index)) then
+            call arena%push(rank_node, "rank_block", parent_index)
+        else
+            call arena%push(rank_node, "rank_block")
+        end if
+        rank_index = arena%size
+    end function push_rank_block
 
     ! Create WHERE construct node and add to stack
     function push_where(arena, mask_expr_index, where_body_indices, &
