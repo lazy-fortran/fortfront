@@ -234,11 +234,11 @@ contains
         do idx = start_pos + 1, size(tokens)
             select case (tokens(idx)%kind)
             case (TK_KEYWORD)
-                if (tokens(idx)%text == "then") then
+                if (to_lower(tokens(idx)%text) == "then") then
                     has_then_before_newline = .true.
                     return
-                else if (tokens(idx)%text == "endif" .or. &
-                         tokens(idx)%text == "end") then
+                else if (to_lower(tokens(idx)%text) == "endif" .or. &
+                         to_lower(tokens(idx)%text) == "end") then
                     return
                 end if
             case (TK_NEWLINE, TK_EOF)

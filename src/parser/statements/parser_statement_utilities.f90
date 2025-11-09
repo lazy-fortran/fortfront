@@ -200,7 +200,7 @@ contains
 
         ! Look for 'then' keyword
         then_token = parser%peek()
-        if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
+        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == "then") then
             token = parser%consume()
 
             ! Parse then body with efficient growth
@@ -211,7 +211,7 @@ contains
             do while (.not. parser%is_at_end())
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD) then
-                    if (token%text == "else" .or. token%text == "end") then
+                    if (to_lower(token%text) == "else" .or. to_lower(token%text) == "end") then
                         exit
                     end if
                 end if

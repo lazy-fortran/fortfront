@@ -287,7 +287,7 @@ contains
 
         ! Look for 'then' keyword
         then_token = parser%peek()
-        if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
+        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == "then") then
             ! Standard if/then/endif block
             then_token = parser%consume()
 
@@ -319,7 +319,7 @@ contains
                     then_token = parser%peek()
 
                     if (then_token%kind == TK_KEYWORD) then
-                        if (then_token%text == "elseif" .or. then_token%text == &
+                        if (to_lower(then_token%text) == "elseif" .or. to_lower(then_token%text) == &
                             "else if") then
                             ! Parse elseif block
                             block
@@ -328,12 +328,12 @@ contains
                                 elseif_indices = [elseif_indices, elseif_pair]
                                 elseif_count = elseif_count + 1
                             end block
-                        else if (then_token%text == "else") then
+                        else if (to_lower(then_token%text) == "else") then
                             ! Check if next token is "if" (for "else if")
                             if (parser%current_token + 1 <= size(parser%tokens)) then
                                 if (parser%tokens(parser%current_token + 1)%kind == &
                                     TK_KEYWORD .and. &
-                                    parser%tokens(parser%current_token + 1)%text &
+                                    to_lower(parser%tokens(parser%current_token + 1)%text) &
                                     == "if") then
                                     ! Parse as elseif block
                                     block
@@ -359,7 +359,7 @@ contains
 
                             else_body_indices = parse_if_body(parser, arena, if_index)
                             exit
-                        else if (then_token%text == "endif") then
+                        else if (to_lower(then_token%text) == "endif") then
                             ! End of if statement (single keyword)
                             then_token = parser%consume()
                             exit
@@ -543,7 +543,7 @@ contains
                         if (paren_depth <= 0) exit
                         cycle
                     end if
-                else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == &
+                else if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
                          "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
@@ -566,7 +566,7 @@ contains
             ! Advance parser past the condition tokens until 'then'
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
-                if (paren_token%kind == TK_KEYWORD .and. paren_token%text == &
+                if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
                     "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
@@ -725,7 +725,7 @@ contains
         ! Consume 'elseif' or 'else if'
         elseif_token = parser%consume()
         ! Check if we consumed 'else' and need to consume 'if' as well
-        if (elseif_token%text == "else") then
+        if (to_lower(elseif_token%text) == "else") then
             ! This should be "else if", consume the "if" token too
             elseif_token = parser%consume()
         end if
@@ -735,7 +735,7 @@ contains
 
         ! Look for 'then' keyword
         elseif_token = parser%peek()
-        if (elseif_token%kind == TK_KEYWORD .and. elseif_token%text == "then") then
+        if (elseif_token%kind == TK_KEYWORD .and. to_lower(elseif_token%text) == "then") then
             elseif_token = parser%consume()
         end if
 

@@ -241,9 +241,10 @@ contains
                                                     has_statement_after_condition = .true.
                                                 ! Check if it's a valid statement keyword for single-line if
                                                 else if (tokens(k + 1)%kind == TK_KEYWORD) then
-                                                    select case (tokens(k + 1)%text)
+                                                    select case (to_lower(tokens(k + 1)%text))
                                                     case ("print", "write", "read", "call", "stop", &
-                                                          "cycle", "exit", "return", "go", "error", "goto")
+                                                          "cycle", "exit", "return", "go", "error", "goto", &
+                                                          "allocate", "deallocate", "nullify")
                                                         has_statement_after_condition = .true.
                                                     end select
                                                 end if

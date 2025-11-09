@@ -332,7 +332,7 @@ contains
 
         ! Check if we're at write keyword
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "write") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "write") then
             ! Consume 'write' keyword
             token = parser%consume()
         else
