@@ -26,6 +26,7 @@ FORTRAN_SUFFIXES: Sequence[str] = (
 
 DEFAULT_OUTPUT = Path("logs") / "gfortran_dejagnu_roundtrip_results.jsonl"
 DEFAULT_GCC_ROOT = Path("..") / "gcc-dev" / "gcc"
+MAX_TEST_TIMEOUT = 0.1  # seconds; enforced upper bound per requirement
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,8 +62,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=30.0,
-        help="Per-test timeout in seconds (default: 30).",
+        default=MAX_TEST_TIMEOUT,
+        help=(
+            f"Per-test timeout in seconds (default: {MAX_TEST_TIMEOUT}). Values above "
+            f"{MAX_TEST_TIMEOUT} are clamped to enforce the 100 ms cap."
+        ),
     )
     parser.add_argument(
         "--jobs",
@@ -235,6 +239,7 @@ def print_progress(
     total: int,
     passes: int,
     failures: int,
+    timeouts: int,
     start_time: float,
 ) -> None:
     elapsed = time.monotonic() - start_time
@@ -244,7 +249,7 @@ def print_progress(
     percent = (processed / total * 100.0) if total else 100.0
     message = (
         f"\r[{percent:6.2f}%] {processed}/{total} "
-        f"(pass {passes} | fail {failures}) "
+        f"(pass {passes} | fail {failures} | timeout {timeouts}) "
         f"elapsed {format_seconds(elapsed)} "
         f"eta {format_seconds(eta)} "
         f"rate {rate:.1f}/s"
@@ -309,18 +314,26 @@ def main() -> int:
         processed = len(tests) - len(queue)
         passes = 0
         failures = 0
+        timeouts = 0
         start_time = time.monotonic()
+        effective_timeout = min(max(args.timeout, 0.0), MAX_TEST_TIMEOUT)
+        if args.timeout > MAX_TEST_TIMEOUT:
+            print(
+                f"Requested timeout {args.timeout}s exceeds cap; "
+                f"clamping to {effective_timeout}s per test."
+            )
+
         print(
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, failures, start_time)
+        print_progress(processed, len(tests), passes, failures, timeouts, start_time)
 
         worker = partial(
             run_case,
             fortfront_bin=fortfront_bin,
             gcc_root=gcc_root,
-            timeout=args.timeout,
+            timeout=effective_timeout,
         )
 
         if args.jobs <= 1:
@@ -331,9 +344,18 @@ def main() -> int:
                     passes += 1
                 else:
                     failures += 1
+                    if record["status"] == "timeout":
+                        timeouts += 1
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
-                print_progress(processed, len(tests), passes, failures, start_time)
+                print_progress(
+                    processed,
+                    len(tests),
+                    passes,
+                    failures,
+                    timeouts,
+                    start_time,
+                )
         else:
             with ThreadPoolExecutor(max_workers=args.jobs) as pool:
                 for record in pool.map(worker, queue):
@@ -342,16 +364,29 @@ def main() -> int:
                         passes += 1
                     else:
                         failures += 1
+                        if record["status"] == "timeout":
+                            timeouts += 1
                     handle.write(json.dumps(record) + "\n")
                     handle.flush()
-                    print_progress(processed, len(tests), passes, failures, start_time)
+                    print_progress(
+                        processed,
+                        len(tests),
+                        passes,
+                        failures,
+                        timeouts,
+                        start_time,
+                    )
 
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL/TIMEOUT: {failures}. "
+        f"Complete. PASS: {passes}, FAIL: {failures - timeouts}, TIMEOUT: {timeouts}. "
         f"Results: {output_path}"
     )
+    if timeouts > 0:
+        return 2
+    if failures > 0:
+        return 1
     return 0
 
 
