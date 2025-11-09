@@ -457,15 +457,27 @@ contains
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
         character(len=:), allocatable :: buffer, tmp_text
-        integer :: total_size, capacity, ios, chunk_size
+        integer :: total_size, capacity, ios, chunk_size, alloc_stat
         logical :: exit_inner_loop, reached_end
 
         status = 0
         capacity = INITIAL_CAPACITY
         total_size = 0
 
-        allocate (character(len=capacity) :: text)
-        allocate (character(len=BUFFER_CHUNK_SIZE) :: buffer)
+        allocate (character(len=capacity) :: text, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') &
+                'Failed to allocate input buffer (', capacity, ' bytes)'
+            status = 5
+            return
+        end if
+        allocate (character(len=BUFFER_CHUNK_SIZE) :: buffer, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') &
+                'Failed to allocate read buffer (', BUFFER_CHUNK_SIZE, ' bytes)'
+            status = 5
+            return
+        end if
 
         do
             do
@@ -481,10 +493,16 @@ contains
         end do
 
         if (total_size == 0) then
-            allocate (character(len=0) :: tmp_text)
+            allocate (character(len=0) :: tmp_text, stat=alloc_stat)
         else
-            allocate (character(len=total_size) :: tmp_text)
-            tmp_text = text(1:total_size)
+            allocate (character(len=total_size) :: tmp_text, stat=alloc_stat)
+            if (alloc_stat == 0) tmp_text = text(1:total_size)
+        end if
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') &
+                'Failed to allocate final text buffer (', total_size, ' bytes)'
+            status = 5
+            return
         end if
         call move_alloc(tmp_text, text)
     end subroutine read_all_from_unit
@@ -545,7 +563,7 @@ contains
         integer, intent(inout) :: total_size, capacity
         integer, intent(inout) :: status
         character(len=:), allocatable :: tmp
-        integer :: needed
+        integer :: needed, alloc_stat
 
         needed = total_size + len(chunk)
         if (needed > MAX_INPUT_SIZE) then
@@ -563,7 +581,13 @@ contains
                 status = 4
                 return
             end if
-            allocate (character(len=capacity) :: tmp)
+            allocate (character(len=capacity) :: tmp, stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                write (error_unit, '(A,I0,A)') &
+                    'Failed to allocate memory for input expansion (', capacity, ' bytes)'
+                status = 5
+                return
+            end if
             if (total_size > 0) tmp(1:total_size) = text(1:total_size)
             call move_alloc(tmp, text)
         end if
@@ -576,7 +600,7 @@ contains
         integer, intent(inout) :: total_size, capacity
         integer, intent(inout) :: status
         character(len=:), allocatable :: tmp
-        integer :: needed
+        integer :: needed, alloc_stat
 
         needed = total_size + 1
         if (needed > MAX_INPUT_SIZE) then
@@ -594,7 +618,13 @@ contains
                 status = 4
                 return
             end if
-            allocate (character(len=capacity) :: tmp)
+            allocate (character(len=capacity) :: tmp, stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                write (error_unit, '(A,I0,A)') &
+                    'Failed to allocate memory for newline expansion (', capacity, ' bytes)'
+                status = 5
+                return
+            end if
             if (total_size > 0) tmp(1:total_size) = text(1:total_size)
             call move_alloc(tmp, text)
         end if
