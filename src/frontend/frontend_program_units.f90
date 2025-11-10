@@ -89,7 +89,7 @@ contains
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
-                                                         has_explicit_program)
+                                                         has_explicit_program, parse_error)
             end if
         end block
 
@@ -212,12 +212,15 @@ contains
     end function parse_block_data_unit
 
     ! Parse implicit main program
-    function parse_implicit_main_program(tokens, arena, has_explicit_program) &
-        result(prog_index)
+    function parse_implicit_main_program(tokens, arena, has_explicit_program, &
+                                         error_msg) result(prog_index)
+        use iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: prog_index
+        character(len=:), allocatable :: errors
 
         ! Check if there's meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
@@ -231,6 +234,14 @@ contains
         else
             ! No meaningful content - create empty program
             prog_index = push_program(arena, "main", [integer ::], 1, 1)
+        end if
+
+        ! Extract parser errors if requested (implicit main can have parse errors too)
+        if (present(error_msg)) then
+            errors = get_last_parser_errors()
+            if (len_trim(errors) > 0) then
+                error_msg = errors
+            end if
         end if
     end function parse_implicit_main_program
 

@@ -6,6 +6,8 @@ f90/debug_error_garbage.f90
 f90/issue_256_assignment_in_condition.f90
 f90/issue_256_invalid_syntax.f90
 f90/issue_256_garbage_input.f90
+f90/issue_256_incomplete_expression.f90
+lf/issue_1778_debug.lf
 
 # REMOVED (now transform successfully - parser more robust):
 # f90/debug_error_missing_then.f90
