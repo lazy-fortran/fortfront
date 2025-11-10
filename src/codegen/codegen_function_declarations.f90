@@ -888,16 +888,31 @@ contains
         if (.not. allocated(node%return_type)) return
         if (len_trim(node%return_type) == 0) return
 
-        ! If missing_result_variable = true, then build_function_result_clause will create
-        ! a result() clause: "result(function_name_result)"
-        ! The result() clause creates an implicit declaration, so we don't need explicit one
+        ! CRITICAL: A result() clause creates an implicit declaration for the result variable.
+        ! We should ONLY add an explicit declaration if NO result() clause will be generated.
+
+        ! Case 1: missing_result_variable = true
+        ! This means build_function_result_clause will generate: result(function_name_result)
+        ! The result() clause implicitly declares function_name_result, so skip explicit decl
         if (missing_result_variable) return
 
-        ! If we get here, there's a custom result_variable name that differs from function_name
-        ! and a result() clause will be generated with that name, so skip declaration
+        ! Case 2: result_variable is custom (like "f" instead of "factorial")
+        ! build_function_result_clause will generate: result(f)
+        ! The result() clause implicitly declares f, so skip explicit decl
+        ! This covers ALL cases where result_variable is allocated and differs from function_name
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) then
+                ! Result variable exists and will be in result() clause
+                ! No explicit declaration needed
+                return
+            end if
+        end if
+
+        ! Case 3: Deferred character results get special handling
         if (should_rename_deferred_char_result(node)) return
 
-        ! If we reach here, no result() clause will be generated, so add explicit declaration
+        ! If we reach here, truly no result() clause will be generated
+        ! (This should be rare/impossible for recursive functions)
         type_str = trim(node%return_type)
         call get_type_standardization(standardize_types_enabled)
         if (standardize_types_enabled) then

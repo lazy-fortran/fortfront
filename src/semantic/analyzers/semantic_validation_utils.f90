@@ -148,6 +148,10 @@ contains
             return
         type is (declaration_node)
             ! Rename declarations (e.g., function result variable declarations)
+            ! BUT: Do NOT rename EXTERNAL declarations - they refer to function names,
+            ! not result variables!
+            if (node%is_external) return
+
             if (allocated(node%var_name)) then
                 if (trim(node%var_name) == trim(old_name)) then
                     temp_decl = node
