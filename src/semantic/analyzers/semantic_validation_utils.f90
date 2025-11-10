@@ -43,12 +43,24 @@ contains
     end subroutine check_shape_conformance
 
     ! Helper: Update identifier type throughout arena
-    subroutine update_identifier_type_in_arena(arena, name, new_type)
+    ! PERFORMANCE: This is O(n²) when called repeatedly - only needed for lazy Fortran
+    subroutine update_identifier_type_in_arena(arena, name, new_type, strict_mode)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
+        logical, intent(in), optional :: strict_mode
         integer :: i
         type(mono_type_t) :: merged_type
+
+        ! PERFORMANCE NOTE: This is O(n) per call, O(n²) when called repeatedly
+        ! Standard Fortran with explicit type declarations doesn't need this propagation
+        ! but we don't distinguish standard vs lazy Fortran yet.
+        ! TODO: Add mechanism to skip propagation for standard Fortran files
+        ! (e.g., detect `implicit none` presence)
+        if (present(strict_mode)) then
+            if (strict_mode) return  ! Skip propagation if explicitly requested
+        end if
+        ! Default: Always propagate (needed for lazy Fortran type inference)
 
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then

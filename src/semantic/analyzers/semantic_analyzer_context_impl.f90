@@ -119,6 +119,7 @@ contains
                                 else if (allocated(node%var_name)) then
                                     call ctx%scopes%define(node%var_name, scheme)
                                 end if
+                                ! NOTE: update_identifier_type_in_arena available but not needed here
                             end block
                         class default
                             continue
