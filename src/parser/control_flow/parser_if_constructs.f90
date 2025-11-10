@@ -452,13 +452,14 @@ contains
                 ! Only report error if the condition actually consumed tokens
                 ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
                 if (condition_index > 0) then
-                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct missing 'THEN' keyword"
+                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct Missing 'THEN' keyword"
                     write (error_unit, '(A,I0,A,I0)') "  at line ", if_token%line, &
                         ", column ", if_token%column
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct missing 'THEN' keyword", &
+                    call parser%error("IF construct Missing 'THEN' keyword", &
                                     "Use 'IF (condition) THEN' for multi-line blocks")
-                    stop 1
+                    if_index = 0
+                    return
                 end if
                 ! Return with no node
                 if_index = 0
@@ -506,14 +507,15 @@ contains
                 end do
 
                 if (looks_like_block_if) then
-                    ! This is a malformed block if missing 'then' - report fatal error
-                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct missing 'THEN' keyword"
+                    ! This is a malformed block if Missing 'then' - report error
+                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct Missing 'THEN' keyword"
                     write (error_unit, '(A,I0,A,I0)') "  at line ", if_token%line, &
                         ", column ", if_token%column
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct missing 'THEN' keyword", &
+                    call parser%error("IF construct Missing 'THEN' keyword", &
                                     "Use 'IF (condition) THEN' for multi-line blocks")
-                    stop 1
+                    if_index = 0
+                    return
                 end if
             end block
 

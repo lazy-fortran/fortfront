@@ -53,10 +53,13 @@ module parser_dispatcher_module
     private
 
     public :: parse_statement_dispatcher, get_additional_indices, &
-              clear_additional_indices
+              clear_additional_indices, get_last_parser_errors, clear_parser_errors
 
     ! Module variable to store additional indices from multi-declaration parsing
     integer, allocatable :: additional_indices(:)
+
+    ! Module variable to store parser errors from last dispatcher call
+    character(len=:), allocatable :: last_parser_errors
 
 contains
 
@@ -327,6 +330,13 @@ contains
             ! Parse as expression
             stmt_index = parse_as_expression(tokens, arena)
         end select
+
+        ! Extract parser errors before parser goes out of scope
+        ! Only overwrite if there are new errors (preserve previous errors)
+        if (parser%has_errors()) then
+            last_parser_errors = parser%get_error_messages()
+        end if
+        ! Don't clear errors if this call didn't have any - preserve previous errors
 
     end function parse_statement_dispatcher
 
@@ -755,5 +765,25 @@ contains
 
         stmt_index = push_error_node(arena, error_msg, "submodule", line, column)
     end function parse_submodule_statement
+
+    ! Get last parser errors from dispatcher
+    function get_last_parser_errors() result(errors)
+        use iso_fortran_env, only: error_unit
+        character(len=:), allocatable :: errors
+        if (allocated(last_parser_errors)) then
+            write(error_unit, '(A,I0)') "[DEBUG] get_last_parser_errors: allocated, len=", len_trim(last_parser_errors)
+            write(error_unit, '(A)') "[DEBUG] content=[" // trim(last_parser_errors) // "]"
+            errors = last_parser_errors
+        else
+            write(error_unit, '(A)') "[DEBUG] get_last_parser_errors: NOT ALLOCATED"
+            errors = ""
+        end if
+    end function get_last_parser_errors
+
+    ! Clear parser errors
+    subroutine clear_parser_errors()
+        if (allocated(last_parser_errors)) deallocate(last_parser_errors)
+        last_parser_errors = ""
+    end subroutine clear_parser_errors
 
 end module parser_dispatcher_module
