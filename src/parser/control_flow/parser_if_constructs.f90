@@ -445,7 +445,26 @@ contains
                 end select
             end if
         else
-            ! No 'then' keyword found - could be one-line if or error
+            ! No 'then' keyword found
+            ! If we're at EOF, this is only an error if we parsed a real condition
+            ! (not just "end if" cleanup parsing)
+            if (then_token%kind == TK_EOF .or. parser%is_at_end()) then
+                ! Only report error if the condition actually consumed tokens
+                ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
+                if (condition_index > 0) then
+                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct missing 'THEN' keyword"
+                    write (error_unit, '(A,I0,A,I0)') "  at line ", if_token%line, &
+                        ", column ", if_token%column
+                    write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
+                    call parser%error("IF construct missing 'THEN' keyword", &
+                                    "Use 'IF (condition) THEN' for multi-line blocks")
+                    stop 1
+                end if
+                ! Return with no node
+                if_index = 0
+                return
+            end if
+
             ! Check if this looks like a malformed multi-line if construct
             block
                 logical :: looks_like_block_if
@@ -494,7 +513,6 @@ contains
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
                     call parser%error("IF construct missing 'THEN' keyword", &
                                     "Use 'IF (condition) THEN' for multi-line blocks")
-                    ! Force transformation failure
                     stop 1
                 end if
             end block
