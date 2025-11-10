@@ -329,7 +329,7 @@ contains
             lhs%tokens_handle = null_handle()
         end if
 
-        ! Copy tokens array
+        ! Copy tokens array (avoid deep copy when possible)
         if (associated(lhs%tokens)) then
             if (lhs%owns_tokens) then
                 deallocate (lhs%tokens)
@@ -339,9 +339,15 @@ contains
         end if
 
         if (associated(rhs%tokens)) then
-            allocate (lhs%tokens(size(rhs%tokens)))
-            lhs%tokens = rhs%tokens
-            lhs%owns_tokens = .true.
+            if (rhs%use_arena .or. .not. rhs%owns_tokens) then
+                ! Safe to alias: arena-managed or view into caller-owned tokens
+                lhs%tokens => rhs%tokens
+                lhs%owns_tokens = .false.
+            else
+                allocate (lhs%tokens(size(rhs%tokens)))
+                lhs%tokens = rhs%tokens
+                lhs%owns_tokens = .true.
+            end if
         else
             nullify (lhs%tokens)
             lhs%owns_tokens = .false.

@@ -273,12 +273,9 @@ contains
 
         integer :: idx
         logical :: continuation_pending
-        logical :: saw_line_break
-        integer :: stmt_line
 
         error_msg = ""
         continuation_pending = .false.
-        saw_line_break = .false.
         idx = cond_end_idx + 1
 
         do while (idx <= size(tokens))
@@ -294,10 +291,9 @@ contains
                     continuation_pending = .false.
                     idx = idx + 1
                 case default
-                    exit
+                    return
                 end select
             case (TK_NEWLINE)
-                if (.not. continuation_pending) saw_line_break = .true.
                 continuation_pending = .false.
                 idx = idx + 1
             case default
@@ -315,10 +311,7 @@ contains
             if (to_lower(tokens(idx)%text) == "then") return
         end select
 
-        stmt_line = tokens(idx)%line
-        if (.not. saw_line_break .and. stmt_line == tokens(cond_end_idx)%line) then
-            return
-        end if
+        return
 
         call report_missing_then(tokens(if_idx), source_lines, error_msg)
     end subroutine classify_if_followup
