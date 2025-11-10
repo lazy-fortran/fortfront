@@ -30,8 +30,10 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
 
-        ! Only perform undefined variable checking in standard mode
-        if (input_mode == INPUT_MODE_LAZY) return
+        ! Only perform undefined variable checking in lazy mode (for now)
+        ! Standard mode files have explicit declarations and use statements
+        ! which the checker doesn't fully understand yet
+        if (input_mode == INPUT_MODE_STANDARD) return
 
         ! Recursively traverse the AST to find identifier nodes and check if they're defined
         call traverse_for_undefined_variables(scopes, errors, arena, prog_index)
