@@ -9,6 +9,8 @@ module constant_transformation
     use ast_nodes_data, only: declaration_node
     use ast_nodes_core
     use standardizer_types, only: get_integer_literal_value, INVALID_INTEGER
+    use debug_trace, only: trace_enter, trace_leave, trace_is_enabled
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -19,10 +21,18 @@ contains
     subroutine fold_constants_in_arena(arena)
         type(ast_arena_t), intent(inout) :: arena
         integer :: i
+        integer :: trace_counter
+
+        trace_counter = 0
 
         ! Process all nodes in the arena
         do i = 1, arena%size
             call fold_node_constants(arena, i)
+            trace_counter = trace_counter + 1
+            if (mod(trace_counter, 100) == 0) then
+                write (*, '(A,I0,A,I0)') "fold_constants: processed ", trace_counter, &
+                    " of ", arena%size
+            end if
         end do
     end subroutine fold_constants_in_arena
 
@@ -38,14 +48,25 @@ contains
         type(stack_entry), allocatable :: stack(:)
         integer :: top, capacity
         type(stack_entry) :: current
+        integer :: iteration_count
+
+        call trace_enter('fold_node_constants')
 
         capacity = 64
         allocate (stack(capacity))
         top = 0
+        iteration_count = 0
 
         call push(node_index, .false.)
 
         do while (top > 0)
+            iteration_count = iteration_count + 1
+            if (trace_is_enabled() .and. mod(iteration_count, 100) == 0) then
+                write (error_unit, '(A,I0,A,I0)') &
+                    'fold_node_constants: iteration ', iteration_count, &
+                    ', stack depth ', top
+            end if
+
             current = pop()
             if (current%idx <= 0 .or. current%idx > arena%size) cycle
             if (.not. allocated(arena%entries(current%idx)%node)) cycle
@@ -98,6 +119,8 @@ contains
                 end select
             end if
         end do
+
+        call trace_leave('fold_node_constants')
 
     contains
 
@@ -351,13 +374,29 @@ contains
         integer, intent(in) :: node_index
         integer :: i
         integer :: value
+        integer, save :: total_calls = 0
+        integer, save :: total_scans = 0
+
+        call trace_enter('fold_identifier_node')
+
+        total_calls = total_calls + 1
+
+        if (trace_is_enabled() .and. mod(total_calls, 100) == 0) then
+            write (error_unit, '(A,I0,A,I0)') "fold_identifier_node: called ", &
+                total_calls, " times, total scans: ", total_scans
+        end if
 
         ! Early exit if node name is not allocated
-        if (.not. allocated(node%name)) return
+        if (.not. allocated(node%name)) then
+            call trace_leave('fold_identifier_node')
+            return
+        end if
 
         ! Look for declarations with matching name (including parameters)
         ! Only check nodes that come before this one in the arena
-        do i = node_index - 1, 1, -1
+        ! Limit backwards scan to 200 nodes for performance (O(n) instead of O(n²))
+        do i = node_index - 1, max(1, node_index - 200), -1
+            total_scans = total_scans + 1
             select type (entry => arena%entries(i)%node)
             type is (declaration_node)
                 if (allocated(entry%var_name)) then
@@ -369,6 +408,7 @@ contains
                             node%constant_integer = entry%constant_integer
                             node%constant_real = entry%constant_real
                             node%constant_logical = entry%constant_logical
+                            call trace_leave('fold_identifier_node')
                             return  ! Found match, no need to continue
                         end if
                     end if
@@ -385,11 +425,14 @@ contains
                         node%is_constant = .true.
                         node%constant_type = LITERAL_INTEGER
                         node%constant_integer = value
+                        call trace_leave('fold_identifier_node')
                         return
                     end if
                 end select
             end select
         end do
+
+        call trace_leave('fold_identifier_node')
     end subroutine fold_identifier_node
 
 end module constant_transformation
