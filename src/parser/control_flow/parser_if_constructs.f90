@@ -1,5 +1,6 @@
 module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER, to_lower
     use parser_state_module
@@ -444,7 +445,61 @@ contains
                 end select
             end if
         else
-            ! One-line if statement (no then keyword)
+            ! No 'then' keyword found - could be one-line if or error
+            ! Check if this looks like a malformed multi-line if construct
+            block
+                logical :: looks_like_block_if
+                type(token_t) :: check_tok
+                integer :: check_idx
+
+                looks_like_block_if = .false.
+
+                ! Scan ahead to see if there's a newline before any statement
+                ! or if there's an "end if" later
+                check_idx = parser%current_token
+                do while (check_idx <= size(parser%tokens))
+                    check_tok = parser%tokens(check_idx)
+
+                    ! If we hit a newline immediately, this looks like a block if
+                    if (check_tok%kind == TK_NEWLINE) then
+                        looks_like_block_if = .true.
+                        exit
+                    end if
+
+                    ! Skip whitespace and comments
+                    if (check_tok%kind == TK_WHITESPACE .or. &
+                        check_tok%kind == TK_COMMENT) then
+                        check_idx = check_idx + 1
+                        cycle
+                    end if
+
+                    ! Check for "end if" or "endif" later in the code
+                    if (check_tok%kind == TK_KEYWORD) then
+                        if (to_lower(check_tok%text) == "end" .or. &
+                            to_lower(check_tok%text) == "endif") then
+                            looks_like_block_if = .true.
+                            exit
+                        end if
+                    end if
+
+                    ! Found a non-whitespace token on same line, might be valid one-liner
+                    exit
+                end do
+
+                if (looks_like_block_if) then
+                    ! This is a malformed block if missing 'then' - report fatal error
+                    write (error_unit, '(A)') "[PARSER_ERROR] IF construct missing 'THEN' keyword"
+                    write (error_unit, '(A,I0,A,I0)') "  at line ", if_token%line, &
+                        ", column ", if_token%column
+                    write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
+                    call parser%error("IF construct missing 'THEN' keyword", &
+                                    "Use 'IF (condition) THEN' for multi-line blocks")
+                    ! Force transformation failure
+                    stop 1
+                end if
+            end block
+
+            ! Valid one-line if statement (no then keyword)
             allocate (then_body_indices(1))
 
             ! Parse the single statement
