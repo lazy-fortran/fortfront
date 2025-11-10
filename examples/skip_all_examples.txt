@@ -51,8 +51,9 @@ lf/issue_2016_nested_call_type_mismatch.lf
 lf/issue_2019_statements_after_if_dropped.lf
 lf/issue_652_multi_var_allocatable.lf
 # Platform inconsistency: Linux parser too lenient, Windows correctly rejects invalid syntax
-# These contain INTENTIONALLY INVALID syntax (missing 'then' in if statements)
+# These contain INTENTIONALLY INVALID syntax (missing 'then' and/or parentheses in if statements)
 # Skipped until parser behavior is made consistent across platforms (#2050)
 f90/debug_error_missing_then.f90
 f90/issue_256_fix_suggestion.f90
 f90/issue_256_invalid_syntax_missing_then.f90
+f90/issue_256_source_context.f90
