@@ -1,7 +1,5 @@
 module lexer_token_types
     use error_handling
-    use token_text_pool_mod, only: token_text_handle_t, token_text_pool_t, &
-                                    null_text_handle, is_null_handle
     implicit none
     private
 
@@ -22,10 +20,10 @@ module lexer_token_types
     integer, parameter, public :: TOKEN_COMMENT = TK_COMMENT
     integer, parameter, public :: TOKEN_NEWLINE = TK_NEWLINE
 
-    ! Trivia token type (simpler, non-recursive) - now uses handles
+    ! Trivia token type (simpler, non-recursive)
     type, public :: trivia_token_t
         integer :: kind = TK_UNKNOWN
-        type(token_text_handle_t) :: text_handle
+        character(len=:), allocatable :: text
         integer :: line = 1
         integer :: column = 1
     contains
@@ -33,19 +31,15 @@ module lexer_token_types
         generic :: assignment(=) => assign
     end type trivia_token_t
 
-    ! Token structure - now uses handles instead of allocatable strings
-    ! NOTE: Field order matters for structure constructor compatibility
+    ! Token structure
     type, public :: token_t
         integer :: kind = TK_UNKNOWN
-        ! LEGACY: Keep allocatable text first for compatibility with structure constructor
         character(len=:), allocatable :: text
         integer :: line = 1
         integer :: column = 1
         ! CST trivia storage (optional) - using separate type to avoid recursion
         type(trivia_token_t), allocatable :: leading_trivia(:)
         type(trivia_token_t), allocatable :: trailing_trivia(:)
-        ! New: Handle to pooled text (for performance)
-        type(token_text_handle_t) :: text_handle
     contains
         procedure :: assign => token_assign
         procedure :: deep_copy => token_deep_copy
@@ -80,7 +74,7 @@ module lexer_token_types
 
 contains
 
-    ! Assignment operator for trivia tokens - handles are cheap to copy
+    ! Assignment operator for trivia tokens
     subroutine trivia_token_assign(this, other)
         class(trivia_token_t), intent(out) :: this
         type(trivia_token_t), intent(in) :: other
@@ -88,12 +82,13 @@ contains
         this%kind = other%kind
         this%line = other%line
         this%column = other%column
-        ! Handle copy is trivial - just copy the struct
-        ! Reference counting happens in the pool when handles are used
-        this%text_handle = other%text_handle
+
+        if (allocated(other%text)) then
+            this%text = other%text
+        end if
     end subroutine trivia_token_assign
 
-    ! Assignment operator for tokens - now much cheaper with handles
+    ! Assignment operator for tokens with deep copy
     subroutine token_assign(this, other)
         class(token_t), intent(out) :: this
         type(token_t), intent(in) :: other
@@ -103,15 +98,11 @@ contains
         this%line = other%line
         this%column = other%column
 
-        ! Handle copy is trivial
-        this%text_handle = other%text_handle
-
-        ! LEGACY: Copy allocatable text for compatibility
         if (allocated(other%text)) then
             this%text = other%text
         end if
 
-        ! Copy leading trivia (handles copied, not strings)
+        ! Copy leading trivia
         if (allocated(other%leading_trivia)) then
             allocate (this%leading_trivia(size(other%leading_trivia)))
             do i = 1, size(other%leading_trivia)
@@ -119,7 +110,7 @@ contains
             end do
         end if
 
-        ! Copy trailing trivia (handles copied, not strings)
+        ! Copy trailing trivia
         if (allocated(other%trailing_trivia)) then
             allocate (this%trailing_trivia(size(other%trailing_trivia)))
             do i = 1, size(other%trailing_trivia)
