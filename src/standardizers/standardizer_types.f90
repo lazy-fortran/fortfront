@@ -12,6 +12,8 @@ module standardizer_types
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, &
                               ERROR_TYPE_SYSTEM
+    use debug_trace, only: trace_enter, trace_leave, trace_is_enabled
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -445,21 +447,41 @@ contains
         integer :: idx
         integer :: left_val, right_val
         integer :: iostat
+        integer :: iteration_count
+        integer, save :: total_calls = 0
+
+        call trace_enter('get_integer_literal_value')
+
+        total_calls = total_calls + 1
 
         value = INVALID_INTEGER
-        if (expr_idx <= 0 .or. expr_idx > arena%size) return
+        if (expr_idx <= 0 .or. expr_idx > arena%size) then
+            call trace_leave('get_integer_literal_value')
+            return
+        end if
 
-        if (.not. allocated(arena%entries(expr_idx)%node)) return
+        if (.not. allocated(arena%entries(expr_idx)%node)) then
+            call trace_leave('get_integer_literal_value')
+            return
+        end if
 
         allocate (results(arena%size))
         results = INVALID_INTEGER
         capacity = 64
         allocate (stack(capacity))
         top = 0
+        iteration_count = 0
 
         call push(expr_idx, .false.)
 
         do while (top > 0)
+            iteration_count = iteration_count + 1
+            if (trace_is_enabled() .and. mod(iteration_count, 50) == 0) then
+                write (error_unit, '(A,I0,A,I0,A,I0)') &
+                    'get_integer_literal_value: call ', total_calls, &
+                    ', iteration ', iteration_count, ', stack depth ', top
+            end if
+
             current = pop()
             idx = current%idx
 
@@ -476,6 +498,8 @@ contains
         end do
 
         value = results(expr_idx)
+
+        call trace_leave('get_integer_literal_value')
 
     contains
 

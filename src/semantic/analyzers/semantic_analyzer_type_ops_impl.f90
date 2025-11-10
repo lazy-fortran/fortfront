@@ -77,7 +77,7 @@ contains
         copy%next_var_id = this%next_var_id
         copy%subst = this%subst
         copy%errors = this%errors
-        copy%strict_mode = this%strict_mode
+        copy%input_mode = this%input_mode
         copy%respect_implicit_none = this%respect_implicit_none
         copy%signatures = this%signatures
     end subroutine semantic_context_deep_copy
@@ -90,7 +90,7 @@ contains
         lhs%next_var_id = rhs%next_var_id
         lhs%subst = rhs%subst
         lhs%errors = rhs%errors
-        lhs%strict_mode = rhs%strict_mode
+        lhs%input_mode = rhs%input_mode
         lhs%respect_implicit_none = rhs%respect_implicit_none
         lhs%signatures = rhs%signatures
     end subroutine semantic_context_assign

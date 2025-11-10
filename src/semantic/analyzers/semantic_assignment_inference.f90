@@ -63,7 +63,7 @@ contains
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
                                             lhs_index, expr_typ, updated_expr_typ, &
-                                            scopes, errors, strict_mode, next_var_id, &
+                                            scopes, errors, input_mode, next_var_id, &
                                             type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
@@ -72,7 +72,7 @@ contains
         type(mono_type_t), intent(out) :: updated_expr_typ
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
-        logical, intent(in) :: strict_mode
+        integer, intent(in) :: input_mode
         integer, intent(inout) :: next_var_id
         type(type_annotation_t), intent(in), optional :: type_hints(:)
 
@@ -92,7 +92,7 @@ contains
                     call process_identifier_assignment(arena, assignment, &
                                                        assignment_index, lhs_node, &
                                                        updated_expr_typ, scopes, &
-                                                       type_hints)
+                                                       input_mode, type_hints)
                 type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, lhs_node, &
                                                  expr_typ, updated_expr_typ, scopes)
@@ -167,13 +167,14 @@ contains
     ! Process identifier assignment with scope management
     subroutine process_identifier_assignment(arena, assignment, assignment_index, &
                                              identifier, expr_typ, scopes, &
-                                             type_hints)
+                                             input_mode, type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index
         type(identifier_node), intent(in) :: identifier
         type(mono_type_t), intent(inout) :: expr_typ
         type(scope_stack_t), intent(inout) :: scopes
+        integer, intent(in) :: input_mode
         type(type_annotation_t), intent(in), optional :: type_hints(:)
         type(poly_type_t) :: scheme
         type(poly_type_t), allocatable :: existing_scheme
@@ -213,7 +214,9 @@ contains
         end if
 
         ! Update all identifier nodes in the arena with the inferred type
-        call update_identifier_type_in_arena(arena, identifier%name, final_type)
+        ! Skip propagation for standard Fortran (input_mode == INPUT_MODE_STANDARD)
+        call update_identifier_type_in_arena(arena, identifier%name, final_type, &
+                                             input_mode)
 
         scheme = create_poly_type(forall_vars=[type_var_t ::], mono=final_type)
         call scopes%define(identifier%name, scheme)

@@ -8,7 +8,8 @@ module frontend_program_units
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
-    use parser_dispatcher_module, only: parse_statement_dispatcher
+    use parser_dispatcher_module, only: parse_statement_dispatcher, &
+                                        get_last_parser_errors
     use frontend_statement_processing, only: &
         parse_all_statements => parse_all_statements
     use parser_declarations, only: parse_derived_type_def
@@ -34,14 +35,16 @@ module frontend_program_units
 contains
 
     ! Main program unit parsing dispatch
-    function parse_program_unit(tokens, arena, has_explicit_program) result(unit_index)
+    function parse_program_unit(tokens, arena, has_explicit_program, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
         integer :: first_token_pos
         type(token_t), allocatable :: trimmed_tokens(:)
+        character(len=:), allocatable :: parse_error
 
         ! Check for meaningful content first
         if (not_meaningful_program_unit(tokens)) then
@@ -61,40 +64,64 @@ contains
             return
         end if
 
+        ! Initialize parse_error
+        parse_error = ""
+
         ! Determine unit type and parse accordingly
-        if (is_function_start(trimmed_tokens, 1)) then
-            unit_index = parse_function_unit(trimmed_tokens, arena)
-        else if (is_subroutine_start(trimmed_tokens, 1)) then
-            unit_index = parse_subroutine_unit(trimmed_tokens, arena)
-        else if (is_module_start(trimmed_tokens, 1)) then
-            ! Parse the entire module with its content
-            unit_index = parse_module_unit(trimmed_tokens, arena)
-        else if (is_program_start(trimmed_tokens, 1)) then
-            unit_index = parse_explicit_program_unit(trimmed_tokens, arena)
-        else if (is_block_data_start(trimmed_tokens, 1)) then
-            ! Parse BLOCK DATA unit
-            unit_index = parse_block_data_unit(trimmed_tokens, arena)
-        else if (is_type_start(trimmed_tokens, 1)) then
-            ! Type definitions should be parsed as structured constructs
-            unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
-                                                    prefix_buffer)
-        else
-            ! Mixed module/main files still require implicit main detection
-            unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
-                                                     has_explicit_program)
-        end if
+        block
+            use iso_fortran_env, only: error_unit
+            if (is_function_start(trimmed_tokens, 1)) then
+                unit_index = parse_function_unit(trimmed_tokens, arena, parse_error)
+            else if (is_subroutine_start(trimmed_tokens, 1)) then
+                unit_index = parse_subroutine_unit(trimmed_tokens, arena, parse_error)
+            else if (is_module_start(trimmed_tokens, 1)) then
+                ! Parse the entire module with its content
+                unit_index = parse_module_unit(trimmed_tokens, arena, parse_error)
+            else if (is_program_start(trimmed_tokens, 1)) then
+                unit_index = parse_explicit_program_unit(trimmed_tokens, arena, parse_error)
+            else if (is_block_data_start(trimmed_tokens, 1)) then
+                ! Parse BLOCK DATA unit
+                unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error)
+            else if (is_type_start(trimmed_tokens, 1)) then
+                ! Type definitions should be parsed as structured constructs
+                unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
+                                                        prefix_buffer)
+            else
+                ! Mixed module/main files still require implicit main detection
+                unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
+                                                         has_explicit_program, parse_error)
+            end if
+        end block
+
+        ! Propagate error message if requested
+        block
+            use iso_fortran_env, only: error_unit
+            if (allocated(parse_error)) then
+            end if
+
+            if (present(error_msg)) then
+                if (allocated(parse_error)) then
+                    error_msg = parse_error
+                else
+                    error_msg = ""
+                end if
+            end if
+        end block
     end function parse_program_unit
 
     ! Parse module unit with all its content
-    function parse_module_unit(tokens, arena) result(unit_index)
+    function parse_module_unit(tokens, arena, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the complete module including its content
         ! Module should be parsed with all its statements
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        ! Extract parser errors from dispatcher
+        if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_module_unit
 
     ! Check if program unit has meaningful content
@@ -120,10 +147,14 @@ contains
     end function not_meaningful_program_unit
 
     ! Parse function unit
-    function parse_function_unit(tokens, arena) result(unit_index)
+    function parse_function_unit(tokens, arena, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
+
+        ! Initialize error message
+        if (present(error_msg)) error_msg = ""
 
         ! Multi-line function definition
         block
@@ -131,49 +162,65 @@ contains
             type(parser_prefix_buffer_t) :: prefix_buffer
             parser = create_parser_state(tokens)
             unit_index = parse_function_definition(parser, arena, prefix_buffer)
+            ! Extract parser errors before parser goes out of scope
+            if (present(error_msg) .and. parser%has_errors()) then
+                error_msg = parser%get_error_messages()
+            end if
         end block
     end function parse_function_unit
 
     ! Parse subroutine unit
-    function parse_subroutine_unit(tokens, arena) result(unit_index)
+    function parse_subroutine_unit(tokens, arena, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse the subroutine using the dispatcher
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        ! Extract parser errors from dispatcher
+        if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_subroutine_unit
 
     ! Parse type unit
-    function parse_type_unit(tokens, arena) result(unit_index)
+    function parse_type_unit(tokens, arena, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Statement dispatcher handles parser creation for type definitions
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        ! Extract parser errors from dispatcher
+        if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_type_unit
 
     ! Parse BLOCK DATA unit
-    function parse_block_data_unit(tokens, arena) result(unit_index)
+    function parse_block_data_unit(tokens, arena, error_msg) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: unit_index
         type(parser_prefix_buffer_t) :: prefix_buffer
 
         ! Parse BLOCK DATA using statement dispatcher
         unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        ! Extract parser errors from dispatcher
+        if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_block_data_unit
 
     ! Parse implicit main program
-    function parse_implicit_main_program(tokens, arena, has_explicit_program) &
-        result(prog_index)
+    function parse_implicit_main_program(tokens, arena, has_explicit_program, &
+                                         error_msg) result(prog_index)
+        use iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: prog_index
+        character(len=:), allocatable :: errors
 
         ! Check if there's meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
@@ -187,6 +234,14 @@ contains
         else
             ! No meaningful content - create empty program
             prog_index = push_program(arena, "main", [integer ::], 1, 1)
+        end if
+
+        ! Extract parser errors if requested (implicit main can have parse errors too)
+        if (present(error_msg)) then
+            errors = get_last_parser_errors()
+            if (len_trim(errors) > 0) then
+                error_msg = errors
+            end if
         end if
     end function parse_implicit_main_program
 
@@ -238,14 +293,24 @@ contains
     ! Remove single-statement version to avoid shadowing the multi-statement parser
 
     ! Parse explicit program unit
-    function parse_explicit_program_unit(tokens, arena) result(prog_index)
+    function parse_explicit_program_unit(tokens, arena, error_msg) result(prog_index)
+        use iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: prog_index
         type(parser_prefix_buffer_t) :: prefix_buffer
+        character(len=:), allocatable :: errors
+
 
         ! Parse explicit program statement
         prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+
+        ! Extract parser errors from dispatcher
+        if (present(error_msg)) then
+            errors = get_last_parser_errors()
+            error_msg = errors
+        end if
     end function parse_explicit_program_unit
 
     ! Unit type detection functions

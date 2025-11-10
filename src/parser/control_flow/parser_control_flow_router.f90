@@ -1,5 +1,6 @@
 module parser_control_flow_router_module
-    use lexer_core, only: token_t, TK_KEYWORD, to_lower
+    use lexer_core, only: token_t, TK_KEYWORD, TK_WHITESPACE, TK_COMMENT, &
+                          TK_NEWLINE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_statement_callbacks_module, only: statement_callbacks_t, &
                                                  null_statement_callbacks, &
@@ -76,20 +77,43 @@ contains
             node_index = invoke_no_parent(local_callbacks%parse_do_loop, parser, arena)
         case ("select")
             ! Look ahead to distinguish SELECT CASE / SELECT TYPE / SELECT RANK
-            if (parser%current_token + 1 <= size(parser%tokens)) then
-                if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD) then
-                    if (parser%tokens(parser%current_token + 1)%text == "type") then
+            ! Skip whitespace and comments to find the next keyword
+            block
+                integer :: lookahead_idx
+                type(token_t) :: lookahead_token
+                logical :: found_keyword
+
+                found_keyword = .false.
+                lookahead_idx = parser%current_token + 1
+
+                do while (lookahead_idx <= size(parser%tokens))
+                    lookahead_token = parser%tokens(lookahead_idx)
+                    if (lookahead_token%kind == TK_WHITESPACE .or. &
+                        lookahead_token%kind == TK_COMMENT .or. &
+                        lookahead_token%kind == TK_NEWLINE) then
+                        lookahead_idx = lookahead_idx + 1
+                        cycle
+                    else if (lookahead_token%kind == TK_KEYWORD) then
+                        found_keyword = .true.
+                        exit
+                    else
+                        exit
+                    end if
+                end do
+
+                if (found_keyword) then
+                    if (lookahead_token%text == "type") then
                         node_index = invoke_no_parent(local_callbacks%parse_select_type, &
                                                       parser, arena)
-                    else if (parser%tokens(parser%current_token + 1)%text == "case") then
+                    else if (lookahead_token%text == "case") then
                         node_index = invoke_no_parent(local_callbacks%parse_select_case, &
                                                       parser, arena)
-                    else if (parser%tokens(parser%current_token + 1)%text == "rank") then
+                    else if (lookahead_token%text == "rank") then
                         node_index = invoke_no_parent(local_callbacks%parse_select_rank, &
                                                       parser, arena)
                     end if
                 end if
-            end if
+            end block
         case ("where")
             node_index = invoke_no_parent(local_callbacks%parse_where, parser, arena)
         case ("forall")

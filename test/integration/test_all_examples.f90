@@ -153,18 +153,18 @@ program test_all_examples
         print *, "FAILURE: Some examples did not transform correctly"
         print *, "This indicates parser/semantic/codegen issues"
         print *, "See individual test output above for details"
-        stop 1
+        call exit(1)
     else if (xpass_count > 0) then
         print *, "FAILURE: Unexpected passes detected"
         print *, "Update examples/expected_failures.txt to remove fixed examples"
-        stop 1
+        call exit(1)
     else if (test_count == 0) then
         print *, "WARNING: No examples were tested"
         print *, "Examples directory may not exist or be accessible"
-        stop 0
+        call exit(0)
     else
         print *, "SUCCESS: All examples behaved as expected"
-        stop 0
+        call exit(0)
     end if
 
 contains

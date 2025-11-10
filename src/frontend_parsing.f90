@@ -19,6 +19,7 @@ module frontend_parsing
     use mixed_construct_detector, only: detect_mixed_constructs, &
                                         mixed_construct_result_t
     use error_handling, only: result_t
+    use parser_dispatcher_module, only: clear_parser_errors
 
     ! Import from split modules
     use frontend_program_units, only: parse_program_unit, parse_module_unit, &
@@ -79,6 +80,7 @@ contains
 
     ! Main parsing entry point
     subroutine parse_tokens(tokens, arena, prog_index, error_msg)
+        use iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: prog_index
@@ -99,6 +101,9 @@ contains
         prog_index = 0
         call reset_nested_internal_procedure_error()
 
+        ! Clear any stale parser errors from previous transformations
+        call clear_parser_errors()
+
         call ensure_if_do_registration()
 
         tokens_local = tokens
@@ -111,9 +116,15 @@ contains
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (mixed_result%has_mixed_constructs) then
-            call parse_mixed_constructs(tokens_local, arena, mixed_result, &
-                                        prog_index, &
-                                        error_msg)
+            block
+                character(len=500) :: mixed_error
+                call parse_mixed_constructs(tokens_local, arena, mixed_result, &
+                                            prog_index, &
+                                            mixed_error)
+                if (len_trim(mixed_error) > 0) then
+                    error_msg = trim(mixed_error)
+                end if
+            end block
             return
         end if
 
@@ -132,8 +143,19 @@ contains
             call find_program_unit_boundary(tokens_local, i, unit_start, unit_end)
 
             if (unit_end >= unit_start) then
-                call process_program_unit(tokens_local, unit_start, unit_end, arena, &
-                                          unit_index, has_explicit_program)
+                block
+                    use iso_fortran_env, only: error_unit
+                    character(len=:), allocatable :: unit_error
+                    call process_program_unit(tokens_local, unit_start, unit_end, arena, &
+                                              unit_index, has_explicit_program, unit_error)
+
+                    ! Check for parser errors and propagate
+                    if (allocated(unit_error) .and. len_trim(unit_error) > 0) then
+                        error_msg = trim(unit_error)
+                        prog_index = 0
+                        return
+                    end if
+                end block
 
                 if (debug_units) then
                     start_text = ''
@@ -460,16 +482,21 @@ contains
 
     ! Process program unit
     subroutine process_program_unit(tokens, unit_start, unit_end, arena, &
-                                    unit_index, has_explicit_program)
+                                    unit_index, has_explicit_program, error_msg)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: unit_start, unit_end
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: unit_index
         logical, intent(in) :: has_explicit_program
+        character(len=:), allocatable, intent(out), optional :: error_msg
 
         type(token_t), allocatable, target :: unit_tokens(:)
+        character(len=:), allocatable :: parse_error
 
         unit_index = 0
+
+        ! Initialize error message
+        if (present(error_msg)) error_msg = ""
 
         if (.not. should_process_unit(tokens, unit_start, unit_end)) then
             return
@@ -484,8 +511,21 @@ contains
         unit_tokens(unit_end - unit_start + 2)%line = tokens(unit_end)%line
         unit_tokens(unit_end - unit_start + 2)%column = tokens(unit_end)%column + 1
 
-        ! Parse the unit
-        unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program)
+        ! Parse the unit and capture any errors
+        unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program, parse_error)
+
+        ! Propagate error message if requested
+        block
+            use iso_fortran_env, only: error_unit
+            if (allocated(parse_error)) then
+            end if
+
+            if (present(error_msg) .and. allocated(parse_error)) then
+                if (len_trim(parse_error) > 0) then
+                    error_msg = parse_error
+                end if
+            end if
+        end block
 
         deallocate (unit_tokens)
     end subroutine process_program_unit

@@ -123,10 +123,19 @@ contains
         character(len=:), allocatable :: lowered
         character(len=:), allocatable :: stmt_label
         integer :: stmt_index
+        integer :: last_position
 
         call prefix_buffer%clear()
+        last_position = -1
 
         do while (.not. parser%is_at_end())
+            ! Guard against infinite loop: if we haven't advanced, skip the token
+            if (parser%current_token == last_position) then
+                ! We're stuck at the same token - consume it and continue
+                token = parser%consume()
+                cycle
+            end if
+            last_position = parser%current_token
             token = parser%peek()
             if (token%kind == TK_KEYWORD) then
                 lowered = trim(to_lower(token%text))
@@ -166,6 +175,16 @@ contains
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
                 call flush_pending_prefixes()
                 stmt_index = route_control_flow(parser, arena)
+                ! If routing failed, consume until newline to avoid infinite loop
+                if (stmt_index == 0) then
+                    do while (.not. parser%is_at_end())
+                        block
+                            type(token_t) :: skip_token
+                            skip_token = parser%consume()
+                            if (skip_token%kind == TK_NEWLINE) exit
+                        end block
+                    end do
+                end if
             else
                 select case (token%kind)
                 case (TK_KEYWORD)
