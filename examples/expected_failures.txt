@@ -12,7 +12,6 @@ issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnos
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
 issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return rank mismatch (partial fix in PR #2094) #2067
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch (partial fix in PR #2093) #2068
-issue_2111_recursive_missing_result.lf  # semantic analysis does not populate return_type for recursive functions yet (partial fix in PR #2124) #2111
 issue_2142_mono_wrong_return_types.lf  # monomorphization generates wrong return types (needs semantic validation) #2142
 
 # Lazy Fortran - Recent failures needing implementation

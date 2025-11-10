@@ -6,11 +6,3 @@ f90/issue_256_invalid_syntax.f90
 f90/issue_256_garbage_input.f90
 f90/issue_256_incomplete_expression.f90
 lf/issue_1778_debug.lf
-
-# REMOVED (now transform successfully - parser more robust):
-# f90/debug_error_missing_then.f90
-# f90/issue_256_missing_then.f90
-# f90/issue_256_source_context.f90
-# f90/issue_256_invalid_syntax_missing_then.f90
-# f90/issue_256_fix_suggestion.f90
-# f90/issue_256_location_info.f90
