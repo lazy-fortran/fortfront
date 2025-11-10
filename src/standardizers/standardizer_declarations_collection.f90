@@ -11,6 +11,7 @@ module standardizer_declarations_collection
                             read_statement_node
     use ast_nodes_misc, only: allocate_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_transfer, only: goto_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_LOGICAL, LITERAL_STRING
     use standardizer_declarations_state, only: get_standardizer_type_standardization
     use standardizer_declarations_inference, only: &
@@ -131,6 +132,9 @@ contains
             type is (allocate_statement_node)
                 call collect_allocate_vars(arena_l, node_idx, vnames, &
                                            vtypes, vdecl, vcount)
+            type is (goto_node)
+                ! Handle computed goto: push selector expression to collect variables
+                if (stmt%selector_index > 0) call push(stmt%selector_index)
             type is (function_def_node)
                 ! Do not traverse into contained function bodies
             type is (subroutine_def_node)
