@@ -17,6 +17,7 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use semantic_validation_utils, only: int_to_str
     use ast_nodes_data, only: declaration_node
     use semantic_context_types, only: semantic_context_base_t
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
 contains
 
@@ -68,8 +69,10 @@ contains
 
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
-            if (ctx%respect_implicit_none .and. .not. ctx%strict_mode) then
-                ctx%strict_mode = check_implicit_none(arena, ast)
+            if (ctx%respect_implicit_none .and. ctx%input_mode == INPUT_MODE_LAZY) then
+                if (check_implicit_none(arena, ast)) then
+                    ctx%input_mode = INPUT_MODE_STANDARD
+                end if
             end if
             call analyze_program_node_arena(ctx, arena, ast, root_index)
         type is (module_node)
@@ -138,7 +141,7 @@ contains
             end do
         end if
         call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
-                                               ctx%strict_mode, arena, prog_index)
+                                               ctx%input_mode, arena, prog_index)
     end subroutine analyze_program_node_arena
 
     module subroutine infer_and_store_type(ctx, arena, node_index)
@@ -204,7 +207,7 @@ contains
         temp_context%next_var_id = this%next_var_id
         temp_context%subst = this%subst
         temp_context%errors = this%errors
-        temp_context%strict_mode = this%strict_mode
+        temp_context%input_mode = this%input_mode
         temp_context%respect_implicit_none = this%respect_implicit_none
         temp_context%signatures = this%signatures
 

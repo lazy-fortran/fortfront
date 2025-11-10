@@ -162,7 +162,7 @@ contains
                 call finalize_node(node_index, create_mono_type(TCOMPLEX))
             type is (identifier_node)
                 node_type = infer_identifier_type(expr, this%scopes, this%errors, &
-                                                  this%strict_mode, this%next_var_id)
+                                                  this%input_mode, this%next_var_id)
                 call finalize_node(node_index, node_type)
             type is (binary_op_node)
                 call schedule_binary_operation(current, expr)
@@ -876,7 +876,7 @@ contains
             updated_expr_typ = expr_typ
             call process_assignment_inference( &
                 arena, synthetic_assignment, 0, object_index, expr_typ, &
-                updated_expr_typ, this%scopes, this%errors, this%strict_mode, &
+                updated_expr_typ, this%scopes, this%errors, this%input_mode, &
                 this%next_var_id, this%parser_type_hints)
         end subroutine infer_single_data_object
 
@@ -910,7 +910,7 @@ contains
                     arena, synthetic_assignment, 0, &
                     synthetic_assignment%target_index, expr_typ, &
                     updated_expr_typ, this%scopes, this%errors, &
-                    this%strict_mode, this%next_var_id, &
+                    this%input_mode, this%next_var_id, &
                     this%parser_type_hints)
             end do
         end subroutine infer_multi_data_objects
@@ -1186,7 +1186,7 @@ contains
             call process_assignment_inference( &
                 arena, assignment, assignment_index, lhs_index, expr_typ, &
                     updated_expr_typ, &
-                ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id, &
+                ctx%scopes, ctx%errors, ctx%input_mode, ctx%next_var_id, &
                     & ctx%parser_type_hints)
         end if
 

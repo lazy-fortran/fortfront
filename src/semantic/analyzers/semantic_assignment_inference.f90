@@ -63,7 +63,7 @@ contains
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
                                             lhs_index, expr_typ, updated_expr_typ, &
-                                            scopes, errors, strict_mode, next_var_id, &
+                                            scopes, errors, input_mode, next_var_id, &
                                             type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
@@ -72,7 +72,7 @@ contains
         type(mono_type_t), intent(out) :: updated_expr_typ
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
-        logical, intent(in) :: strict_mode
+        integer, intent(in) :: input_mode
         integer, intent(inout) :: next_var_id
         type(type_annotation_t), intent(in), optional :: type_hints(:)
 

@@ -36,6 +36,7 @@ module frontend_core
         & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
 
     implicit none
     private
@@ -261,9 +262,9 @@ contains
             allocate (ctx)
             call create_semantic_context(ctx)
 
-            ! Use permissive mode here; strictness is decided in semantic analyzer
-            ! based on presence of 'implicit none' within the program unit.
-            ctx%strict_mode = .false.
+            ! Use lazy mode here; will be upgraded to standard mode if implicit none
+            ! is detected in the semantic analyzer
+            ctx%input_mode = INPUT_MODE_LAZY
 
             call analyze_program(ctx, arena, prog_index)
 

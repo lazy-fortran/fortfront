@@ -72,6 +72,7 @@ module semantic_analyzer
     use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map
     use semantic_call_signature_collector, only: collect_call_signature, &
                                                  collect_subroutine_signature
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
 
@@ -85,7 +86,7 @@ module semantic_analyzer
         integer :: next_var_id = 0
         type(substitution_t) :: subst
         type(error_collection_t) :: errors
-        logical :: strict_mode = .false.
+        integer :: input_mode = INPUT_MODE_LAZY
         logical :: respect_implicit_none = .true.
         type(type_annotation_t), allocatable :: parser_type_hints(:)
         type(type_hierarchy_t) :: type_hierarchy

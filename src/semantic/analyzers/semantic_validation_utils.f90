@@ -9,6 +9,7 @@ module semantic_validation_utils
     use ast_nodes_data, only: declaration_node
     use ast_nodes_bounds, only: array_slice_node
     use string_utils_mod, only: int_to_string
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
 
@@ -44,21 +45,25 @@ contains
 
     ! Helper: Update identifier type throughout arena
     ! PERFORMANCE: This is O(n²) when called repeatedly - only needed for lazy Fortran
-    subroutine update_identifier_type_in_arena(arena, name, new_type, strict_mode)
+    subroutine update_identifier_type_in_arena(arena, name, new_type, input_mode)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
-        logical, intent(in), optional :: strict_mode
+        integer, intent(in), optional :: input_mode
         integer :: i
         type(mono_type_t) :: merged_type
 
         ! PERFORMANCE NOTE: This is O(n) per call, O(n²) when called repeatedly
-        ! Standard Fortran with explicit type declarations doesn't need this propagation
-        ! but we don't distinguish standard vs lazy Fortran yet.
-        ! TODO: Add mechanism to skip propagation for standard Fortran files
-        ! (e.g., detect `implicit none` presence)
-        if (present(strict_mode)) then
-            if (strict_mode) return  ! Skip propagation if explicitly requested
+        !
+        ! Input modes:
+        ! - INPUT_MODE_LAZY: Type propagation required (lazy Fortran .lf files)
+        ! - INPUT_MODE_STANDARD: Skip propagation (standard .f90 with implicit none)
+        ! - Standard .f90 WITHOUT implicit none: Currently unsupported (future work)
+        !
+        ! TODO: Flow context%input_mode from CLI through to semantic analyzer
+        ! TODO: Pass input_mode == INPUT_MODE_STANDARD to skip propagation
+        if (present(input_mode)) then
+            if (input_mode == INPUT_MODE_STANDARD) return  ! Skip propagation if standard mode
         end if
         ! Default: Always propagate (needed for lazy Fortran type inference)
 

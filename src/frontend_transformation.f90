@@ -35,6 +35,7 @@ module frontend_transformation
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
 
     implicit none
     private
@@ -60,10 +61,6 @@ module frontend_transformation
         logical :: standardize_types = .true.  ! Whether to standardize type kinds
         integer :: line_length = 130  ! Maximum line length before adding continuations
     end type format_options_t
-
-    ! Input mode enumeration
-    integer, parameter :: INPUT_MODE_LAZY = 1  ! Lazy Fortran (.lf files)
-    integer, parameter :: INPUT_MODE_STANDARD = 2  ! Standard Fortran (.f90, .f, etc.)
 
     ! Context for transformation (source name, wrapping strategy)
     type :: transform_context_t
@@ -756,7 +753,7 @@ contains
             call create_semantic_context(ctx)
 
             ! Keep pre-standardization semantics permissive in string transform path
-            ctx%strict_mode = .false.
+            ctx%input_mode = INPUT_MODE_LAZY
             ctx%respect_implicit_none = .false.
 
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
@@ -834,7 +831,7 @@ contains
             end if
 
             call create_semantic_context(local_ctx)
-            local_ctx%strict_mode = .false.
+            local_ctx%input_mode = INPUT_MODE_LAZY
             local_ctx%respect_implicit_none = .false.
 
             call trace_enter('semantic:analyze_program')
