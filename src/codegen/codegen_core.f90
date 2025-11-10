@@ -46,7 +46,7 @@ module codegen_core
 contains
 
     ! Main entry point for code generation from AST arena
-    function codegen_core_generate_arena(arena, node_index) result(code)
+    recursive function codegen_core_generate_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
