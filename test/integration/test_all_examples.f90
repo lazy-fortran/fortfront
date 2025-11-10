@@ -49,12 +49,13 @@ program test_all_examples
     print *, "=== Platform Diagnostics ==="
     if (is_windows) then
         print *, "Platform: Windows"
+        print *, "Path separator: \"
         example_timeout_seconds = 5
     else
         print *, "Platform: Linux/Unix"
+        print *, "Path separator: /"
         example_timeout_seconds = 2
     end if
-    print *, "Path separator: ", path_separator_for(is_windows)
     print *, "Timeout seconds: ", example_timeout_seconds
     print *, ""
 
