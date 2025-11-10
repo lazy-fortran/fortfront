@@ -78,7 +78,9 @@ contains
             call infer_and_store_type(ctx, arena, root_index)
         end select
 
-        call fold_constants_in_arena(arena)
+        ! Disabled for performance - constant folding causes O(n²) behavior
+        ! on large files and is not needed for standard Fortran round-trip
+        ! call fold_constants_in_arena(arena)
     end subroutine analyze_program
 
     module subroutine analyze_program_node_arena(ctx, arena, prog, prog_index)

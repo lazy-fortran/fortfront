@@ -221,7 +221,8 @@ contains
         integer, allocatable :: dimension_sizes(:)
         logical :: has_literal_dimensions
 
-        call fold_constants_in_arena(arena)
+        ! Disabled for performance
+        ! call fold_constants_in_arena(arena)
 
         element_type = create_mono_type(TREAL)
         ndims = 0
