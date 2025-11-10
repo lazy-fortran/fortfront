@@ -187,12 +187,16 @@ contains
 
     ! Check if program has implicit none statement
     function check_implicit_none(arena, prog) result(has_implicit)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        use debug_trace, only: trace_is_enabled
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         logical :: has_implicit
         integer :: i
+        integer :: implicit_count
 
         has_implicit = .false.
+        implicit_count = 0
 
         ! Scan through program body for implicit none statement
         if (allocated(prog%body_indices)) then
@@ -202,15 +206,27 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (implicit_statement_node)
+                            implicit_count = implicit_count + 1
                             ! True when implicit none statement sets is_none flag
                             if (stmt%is_none) then
                                 has_implicit = .true.
+                                if (trace_is_enabled()) then
+                                    write (error_unit, '(A)') &
+                                        'TRACE: Found implicit none!'
+                                end if
                                 return
                             end if
                         end select
                     end if
                 end if
             end do
+        end if
+
+        if (trace_is_enabled()) then
+            write (error_unit, '(A,I0,A,I0)') &
+                'TRACE: check_implicit_none scanned ', &
+                size(prog%body_indices), ' nodes, found ', implicit_count, &
+                ' implicit statements'
         end if
     end function check_implicit_none
 

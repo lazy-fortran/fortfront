@@ -752,9 +752,9 @@ contains
             handled = .false.
             call create_semantic_context(ctx)
 
-            ! Keep pre-standardization semantics permissive in string transform path
+            ! Start in LAZY mode, but allow automatic detection of implicit none
+            ! which will switch to STANDARD mode for better performance
             ctx%input_mode = INPUT_MODE_LAZY
-            ctx%respect_implicit_none = .false.
 
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
@@ -832,7 +832,6 @@ contains
 
             call create_semantic_context(local_ctx)
             local_ctx%input_mode = INPUT_MODE_LAZY
-            local_ctx%respect_implicit_none = .false.
 
             call trace_enter('semantic:analyze_program')
             call analyze_program(local_ctx, arena, node_idx)

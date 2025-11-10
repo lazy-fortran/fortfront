@@ -1,4 +1,5 @@
 submodule(semantic_analyzer) semantic_analyzer_context_impl
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_fun_type, &
                                    create_poly_type, &
@@ -18,6 +19,7 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use ast_nodes_data, only: declaration_node
     use semantic_context_types, only: semantic_context_base_t
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use debug_trace, only: trace_is_enabled
     implicit none
 contains
 
@@ -67,8 +69,23 @@ contains
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
+        if (trace_is_enabled()) then
+            select type (ast => arena%entries(root_index)%node)
+            type is (program_node)
+                write (error_unit, '(A)') 'TRACE: Root is program_node'
+            type is (module_node)
+                write (error_unit, '(A)') 'TRACE: Root is module_node'
+            class default
+                write (error_unit, '(A)') 'TRACE: Root is OTHER node type'
+            end select
+        end if
+
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
+            if (trace_is_enabled()) then
+                write (error_unit, '(A,L1,A,I0)') 'TRACE: respect_implicit_none=', &
+                    ctx%respect_implicit_none, ' input_mode=', ctx%input_mode
+            end if
             if (ctx%respect_implicit_none .and. ctx%input_mode == INPUT_MODE_LAZY) then
                 if (check_implicit_none(arena, ast)) then
                     ctx%input_mode = INPUT_MODE_STANDARD
@@ -136,6 +153,9 @@ contains
         ! (e.g., n=3; reshape([...], [n,n]) needs to know n=3)
         ! MUST happen BEFORE type inference so reshape can see constant values
         ! Skip for standard Fortran to avoid O(n²) performance issues
+        if (trace_is_enabled()) then
+            write (error_unit, '(A,I0)') 'TRACE: input_mode=', ctx%input_mode
+        end if
         if (ctx%input_mode == INPUT_MODE_LAZY) then
             call fold_constants_in_arena(arena)
         end if
