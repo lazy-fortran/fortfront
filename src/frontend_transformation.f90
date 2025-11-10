@@ -35,6 +35,7 @@ module frontend_transformation
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
 
     implicit none
     private
@@ -60,10 +61,6 @@ module frontend_transformation
         logical :: standardize_types = .true.  ! Whether to standardize type kinds
         integer :: line_length = 130  ! Maximum line length before adding continuations
     end type format_options_t
-
-    ! Input mode enumeration
-    integer, parameter :: INPUT_MODE_LAZY = 1  ! Lazy Fortran (.lf files)
-    integer, parameter :: INPUT_MODE_STANDARD = 2  ! Standard Fortran (.f90, .f, etc.)
 
     ! Context for transformation (source name, wrapping strategy)
     type :: transform_context_t
@@ -601,27 +598,28 @@ contains
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
 
+        ! Local buffer for parse_tokens (character(len=*) requires fixed-length)
+        character(len=500) :: parse_error_buffer
+
         ! Phase 2: Parsing with enhanced error recovery
         call compiler_arena%next_phase("parser")
-        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, parse_error_buffer)
 
-        ! Enhanced error handling - don't stop at first parsing issue
-        if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
-            ! Try to continue parsing with partial results if we have a valid program
-            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
-                ! We have a partial parse - continue with what we have
-                ! Log the parsing warning but don't fail completely
-                write (error_unit, '(A,A)') &
-                    & "Warning: Parsing issues detected but continuing: ", error_msg
-                error_msg = ""  ! Clear error to continue processing
-            else
-                call handle_parsing_error(compiler_arena, prog_index, &
-                                          error_msg, output)
-                return
-            end if
+        ! Copy buffer to allocatable error_msg
+        if (len_trim(parse_error_buffer) > 0) then
+            error_msg = trim(parse_error_buffer)
         end if
 
-        ! Debug: check if we got a valid program index
+        ! Enhanced error handling - propagate errors properly
+        if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
+            ! Don't clear error_msg - we need to propagate it to the caller
+            ! Even if prog_index > 0 (partial parse), the error must be reported
+            call handle_parsing_error(compiler_arena, prog_index, &
+                                      error_msg, output)
+            return
+        end if
+
+        ! Check if we got a valid program index
         if (prog_index <= 0) then
             call handle_invalid_program_index(error_msg, output, compiler_arena)
         end if
@@ -754,9 +752,9 @@ contains
             handled = .false.
             call create_semantic_context(ctx)
 
-            ! Keep pre-standardization semantics permissive in string transform path
-            ctx%strict_mode = .false.
-            ctx%respect_implicit_none = .false.
+            ! Start in LAZY mode, but allow automatic detection of implicit none
+            ! which will switch to STANDARD mode for better performance
+            ctx%input_mode = INPUT_MODE_LAZY
 
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
@@ -833,8 +831,7 @@ contains
             end if
 
             call create_semantic_context(local_ctx)
-            local_ctx%strict_mode = .false.
-            local_ctx%respect_implicit_none = .false.
+            local_ctx%input_mode = INPUT_MODE_LAZY
 
             call trace_enter('semantic:analyze_program')
             call analyze_program(local_ctx, arena, node_idx)

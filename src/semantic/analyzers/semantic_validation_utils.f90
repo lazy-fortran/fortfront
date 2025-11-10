@@ -9,6 +9,7 @@ module semantic_validation_utils
     use ast_nodes_data, only: declaration_node
     use ast_nodes_bounds, only: array_slice_node
     use string_utils_mod, only: int_to_string
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
 
@@ -43,12 +44,28 @@ contains
     end subroutine check_shape_conformance
 
     ! Helper: Update identifier type throughout arena
-    subroutine update_identifier_type_in_arena(arena, name, new_type)
+    ! PERFORMANCE: This is O(n²) when called repeatedly - only needed for lazy Fortran
+    subroutine update_identifier_type_in_arena(arena, name, new_type, input_mode)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
+        integer, intent(in), optional :: input_mode
         integer :: i
         type(mono_type_t) :: merged_type
+
+        ! PERFORMANCE NOTE: This is O(n) per call, O(n²) when called repeatedly
+        !
+        ! Input modes:
+        ! - INPUT_MODE_LAZY: Type propagation required (lazy Fortran .lf files)
+        ! - INPUT_MODE_STANDARD: Skip propagation (standard .f90 with implicit none)
+        ! - Standard .f90 WITHOUT implicit none: Currently unsupported (future work)
+        !
+        ! TODO: Flow context%input_mode from CLI through to semantic analyzer
+        ! TODO: Pass input_mode == INPUT_MODE_STANDARD to skip propagation
+        if (present(input_mode)) then
+            if (input_mode == INPUT_MODE_STANDARD) return  ! Skip propagation if standard mode
+        end if
+        ! Default: Always propagate (needed for lazy Fortran type inference)
 
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then

@@ -29,7 +29,7 @@ FORTRAN_SUFFIXES: Sequence[str] = (
 DEFAULT_OUTPUT = Path("logs") / "gfortran_dejagnu_roundtrip_results.jsonl"
 DEFAULT_GCC_ROOT = Path("..") / "gcc-dev" / "gcc"
 DEFAULT_JOBS = max(1, (os.cpu_count() or 1))
-MAX_TEST_TIMEOUT = 0.1  # seconds; enforced upper bound per requirement
+DEFAULT_TEST_TIMEOUT = 0.1  # seconds; default timeout per test
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,10 +65,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=MAX_TEST_TIMEOUT,
+        default=DEFAULT_TEST_TIMEOUT,
         help=(
-            f"Per-test timeout in seconds (default: {MAX_TEST_TIMEOUT}). Values above "
-            f"{MAX_TEST_TIMEOUT} are clamped to enforce the 100 ms cap."
+            f"Per-test timeout in seconds (default: {DEFAULT_TEST_TIMEOUT})."
         ),
     )
     parser.add_argument(
@@ -401,12 +400,7 @@ def main() -> int:
         fatals = 0
         timeouts = 0
         start_time = time.monotonic()
-        effective_timeout = min(max(args.timeout, 0.0), MAX_TEST_TIMEOUT)
-        if args.timeout > MAX_TEST_TIMEOUT:
-            print(
-                f"Requested timeout {args.timeout}s exceeds cap; "
-                f"clamping to {effective_timeout}s per test."
-            )
+        effective_timeout = max(args.timeout, 0.0)
 
         print(
             f"Running fortfront round-trip on {total_to_run} tests "

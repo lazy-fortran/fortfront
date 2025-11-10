@@ -432,6 +432,9 @@ contains
                     else if (allocated(alloc_stmt%shape_indices)) then
                         rank = size(alloc_stmt%shape_indices)
                     end if
+                class default
+                    ! Unknown node type in allocate - skip it
+                    cycle
                 end select
 
                 if (len_trim(var_name) > 0) then

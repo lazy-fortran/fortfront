@@ -98,7 +98,7 @@ contains
         ! Create test input
         input_file = 'test_3x2_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
-        write (unit, '(a)') 'data = [[1, 2], [3, 4], [5, 6]]'
+        write (unit, '(a)') 'arr = [[1, 2], [3, 4], [5, 6]]'
         close (unit)
 
         ! Compile with frontend
@@ -125,8 +125,8 @@ contains
         do
             read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
-            if (index(line, 'integer :: data(3,2)') > 0 .or. &
-                index(line, 'integer :: data(3, 2)') > 0) then
+            if (index(line, 'integer :: arr(3,2)') > 0 .or. &
+                index(line, 'integer :: arr(3, 2)') > 0) then
                 found_correct_declaration = .true.
                 exit
             end if
@@ -136,7 +136,7 @@ contains
         if (found_correct_declaration) then
             print *, '  PASS: 3x2 array correctly inferred'
         else
-            print *, '  XFAIL: Expected integer :: data(3,2), got 1D array'
+            print *, '  XFAIL: Expected integer :: arr(3,2), got 1D array'
             ! Mark as expected failure since full implementation pending
             test_3x2_array_literal = .true.
         end if

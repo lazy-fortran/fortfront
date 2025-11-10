@@ -11,6 +11,7 @@ module semantic_literal_identifier
     use ast_nodes_core, only: literal_node, identifier_node
     use semantic_function_analysis, only: infer_type_from_usage_context
     use semantic_literal_type_helpers, only: infer_real_literal_kind
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
 
@@ -41,12 +42,12 @@ contains
         end select
     end function infer_literal_type
 
-    function infer_identifier_type(ident, scopes, errors, strict_mode, next_var_id) &
+    function infer_identifier_type(ident, scopes, errors, input_mode, next_var_id) &
         result(typ)
         type(identifier_node), intent(in) :: ident
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
-        logical, intent(in) :: strict_mode
+        integer, intent(in) :: input_mode
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
@@ -63,19 +64,10 @@ contains
         if (allocated(scheme)) then
             typ = instantiate_scheme_simple(scheme, next_var_id)
         else
-            if (strict_mode) then
-                error_result = create_error_result( &
-                               "Undefined variable '"//ident%name//"' in strict mode", &
-                               ERROR_SEMANTIC, &
-                               component="semantic_literal_identifier", &
-                               context="infer_identifier_type", &
-                               suggestion="Declare 'integer :: "//ident%name// &
-                               "' or drop 'implicit none' for lazy Fortran mode")
-                call errors%add_result(error_result)
-
-                typ = create_mono_type(TVAR, var=create_type_var(next_var_id, ""))
-                next_var_id = next_var_id + 1
-            else
+            ! For now, don't error on undefined identifiers in STANDARD mode
+            ! Standard Fortran files have explicit declarations and use statements
+            ! We should trust them and just create type variables
+            if (input_mode == INPUT_MODE_LAZY) then
                 typ = infer_type_from_usage_context(ident%name, next_var_id)
 
                 block
@@ -84,6 +76,10 @@ contains
                                                                ::], mono=typ)
                     call scopes%define(ident%name, new_scheme)
                 end block
+            else
+                ! STANDARD mode: create a type variable without error
+                typ = create_mono_type(TVAR, var=create_type_var(next_var_id, ""))
+                next_var_id = next_var_id + 1
             end if
         end if
     end function infer_identifier_type

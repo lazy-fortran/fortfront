@@ -179,7 +179,10 @@ contains
         default_index = 0
 
         ! Define end keywords for statement parsing
-        end_keywords = [character(len=20) :: "case", "end"]
+        ! Note: "end" is NOT included because parse_statement_body would stop at
+        ! ANY "end" keyword (end if, end do, etc.), not just "end select".
+        ! We handle "end select" detection in the main loop below.
+        end_keywords = [character(len=20) :: "case", ""]
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_case => parse_select_case
@@ -378,7 +381,10 @@ contains
 
         end_keywords(1) = "type"
         end_keywords(2) = "class"
-        end_keywords(3) = "end"
+        ! Note: "end" is NOT included here because parse_statement_body would
+        ! stop at ANY "end" keyword (end if, end do, etc.), not just "end select".
+        ! Instead, we handle "end select" detection in the main loop below.
+        end_keywords(3) = ""
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_type => parse_select_type
@@ -562,16 +568,30 @@ contains
                         end if
                     end block
                 else if (guard_token%text == "end") then
-                    ! Check for 'end select'
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "select") then
+                    ! Check for 'end select' (skip whitespace/comments)
+                    block
+                        type(token_t) :: next_token
+
                         guard_token = parser%consume()  ! consume 'end'
-                        guard_token = parser%consume()  ! consume 'select'
-                        exit
-                    end if
-                    end if
+
+                        ! Skip whitespace, comments, newlines
+                        next_token = parser%peek()
+                        do while (next_token%kind == TK_WHITESPACE .or. &
+                                  next_token%kind == TK_COMMENT .or. &
+                                  next_token%kind == TK_NEWLINE)
+                            next_token = parser%consume()
+                            if (parser%is_at_end()) exit
+                            next_token = parser%peek()
+                        end do
+
+                        if (next_token%kind == TK_KEYWORD .and. &
+                            next_token%text == "select") then
+                            next_token = parser%consume()  ! consume 'select'
+                            exit
+                        end if
+                        ! If not 'end select', we already consumed 'end' and
+                        ! will continue to next iteration to parse what follows
+                    end block
                 end if
             else
                 parser%current_token = parser%current_token + 1
@@ -640,7 +660,10 @@ contains
         default_index = 0
 
         end_keywords(1) = "rank"
-        end_keywords(2) = "end"
+        ! Note: "end" is NOT included because parse_statement_body would stop at
+        ! ANY "end" keyword (end if, end do, etc.), not just "end select".
+        ! We handle "end select" detection in the main loop below.
+        end_keywords(2) = ""
 
         callbacks = null_statement_callbacks()
         callbacks%parse_select_rank => parse_select_rank
@@ -776,16 +799,30 @@ contains
                         end if
                     end block
                 else if (rank_block_token%text == "end") then
-                    ! Check for 'end select'
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "select") then
+                    ! Check for 'end select' (skip whitespace/comments)
+                    block
+                        type(token_t) :: next_token
+
                         rank_block_token = parser%consume()  ! consume 'end'
-                        rank_block_token = parser%consume()  ! consume 'select'
-                        exit
-                    end if
-                    end if
+
+                        ! Skip whitespace, comments, newlines
+                        next_token = parser%peek()
+                        do while (next_token%kind == TK_WHITESPACE .or. &
+                                  next_token%kind == TK_COMMENT .or. &
+                                  next_token%kind == TK_NEWLINE)
+                            next_token = parser%consume()
+                            if (parser%is_at_end()) exit
+                            next_token = parser%peek()
+                        end do
+
+                        if (next_token%kind == TK_KEYWORD .and. &
+                            next_token%text == "select") then
+                            next_token = parser%consume()  ! consume 'select'
+                            exit
+                        end if
+                        ! If not 'end select', we already consumed 'end' and
+                        ! will continue to next iteration to parse what follows
+                    end block
                 end if
             else
                 parser%current_token = parser%current_token + 1

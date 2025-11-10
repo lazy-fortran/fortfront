@@ -200,7 +200,7 @@ contains
 
         ! Format location if available
         if (error%context%line > 0) then
-            write(location_str, '("line ", I0, ", col ", I0)') error%context%line, error%context%column
+            write(location_str, '("line ", I0, ", column ", I0)') error%context%line, error%context%column
         else
             location_str = ""
         end if

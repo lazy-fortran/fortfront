@@ -199,11 +199,39 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in) :: callbacks
+        type(token_t) :: prev_token
+        integer :: prev_idx
+        logical :: skip_if
+        character(len=16) :: prev_keyword
 
         stmt_index = 0
         select case (keyword)
         case ("if")
-            if (associated(callbacks%parse_if)) then
+            ! Check if this "if" is part of a compound keyword like "end if" or "else if"
+            skip_if = .false.
+            if (parser%current_token >= 2) then
+                ! Look back for previous non-whitespace token
+                do prev_idx = parser%current_token - 2, max(1, parser%current_token - 5), -1
+                    if (prev_idx >= 1 .and. prev_idx <= size(parser%tokens)) then
+                        prev_token = parser%tokens(prev_idx)
+                        ! Skip whitespace/newlines/comments
+                        if (prev_token%kind == TK_WHITESPACE .or. &
+                            prev_token%kind == TK_NEWLINE .or. &
+                            prev_token%kind == TK_COMMENT) cycle
+                        ! Check if previous keyword is "end" or "else"
+                        if (prev_token%kind == TK_KEYWORD) then
+                            prev_keyword = to_lower(trim(prev_token%text))
+                            if (prev_keyword == "end" .or. prev_keyword == "else") then
+                                skip_if = .true.
+                            end if
+                        end if
+                        exit  ! Found a significant token, stop searching
+                    end if
+                end do
+            end if
+
+            ! Only call parse_if if this is a standalone "if", not part of compound keyword
+            if (.not. skip_if .and. associated(callbacks%parse_if)) then
                 if (present(parent_index)) then
                     stmt_index = callbacks%parse_if(parser, arena, parent_index)
                 else

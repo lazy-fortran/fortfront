@@ -249,7 +249,24 @@ program fortfront_cli
     call trace_leave('cli:transform')
     call cli_trace('CLI: transform end')
 
-    ! Always write any generated output to stdout first
+    ! Handle errors FIRST: check for errors before writing output
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') trim(error_msg)
+            ! Exit with failure for any ERROR-level message (not just specific markers)
+            ! This includes parser errors, validation errors, syntax errors, etc.
+            if (index(error_msg, 'ERROR') > 0 .or. &
+                index(error_msg, 'FATAL') > 0 .or. &
+                index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
+                index(error_msg, '[VALIDATION') > 0 .or. &
+                index(error_msg, '[PARSER_') > 0) then
+                call exit_quiet(EXIT_FAILURE)
+            end if
+            ! INFO/WARNING messages are advisory only; continue with success
+        end if
+    end if
+
+    ! Only write output if no errors occurred
     if (allocated(output_text) .and. len(output_text) > 0) then
         write (output_unit, '(A)', advance='no') output_text
         ! Ensure a trailing newline for line-buffered environments (e.g., Windows pipes)
@@ -257,20 +274,6 @@ program fortfront_cli
             write (output_unit, '(A)') ''
         end if
         flush (output_unit)
-    end if
-
-    ! Handle errors: print diagnostics and return non-zero exit
-    if (allocated(error_msg)) then
-        if (len_trim(error_msg) > 0) then
-            write (error_unit, '(A)') trim(error_msg)
-            if (index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
-                index(error_msg, '[VALIDATION') > 0 .or. &
-                index(error_msg, '[PARSER_') > 0) then
-                call exit_quiet(EXIT_FAILURE)
-            end if
-            ! Unrecognized input reports are advisory only; continue with success to
-            ! match historical CLI behaviour for pipeline fallbacks.
-        end if
     end if
 
     ! If no output was generated and no error was reported, treat as failure

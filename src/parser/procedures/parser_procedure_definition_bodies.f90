@@ -294,17 +294,16 @@ contains
         integer, intent(out) :: stmt_size
         integer, intent(out) :: stmt_end
 
-        type(token_t), allocatable, target :: all_tokens(:)
         integer :: stmt_start
 
-        call copy_parser_tokens(parser, all_tokens)
-
+        ! Performance: work directly with parser%tokens instead of copying
+        ! the entire token array for every statement
         stmt_start = parser%current_token
         if (is_if_statement_start(first_token)) then
-            stmt_end = locate_block_statement_end(all_tokens, stmt_start, &
+            stmt_end = locate_block_statement_end(parser%tokens, stmt_start, &
                                                   first_token%text)
         else
-            stmt_end = locate_single_line_end(all_tokens, stmt_start, &
+            stmt_end = locate_single_line_end(parser%tokens, stmt_start, &
                                               first_token%line)
         end if
 
@@ -314,21 +313,10 @@ contains
             return
         end if
 
-        call copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
+        call copy_statement_slice(parser%tokens, stmt_start, stmt_end, first_token, &
                                   stmt_tokens)
     end subroutine collect_statement_tokens
 
-    subroutine copy_parser_tokens(parser, tokens)
-        type(parser_state_t), intent(in) :: parser
-        type(token_t), allocatable, intent(out), target :: tokens(:)
-
-        if (associated(parser%tokens)) then
-            allocate (tokens(size(parser%tokens)))
-            tokens = parser%tokens
-        else
-            allocate (tokens(0))
-        end if
-    end subroutine copy_parser_tokens
 
     logical function is_if_statement_start(first_token) result(is_if_start)
         type(token_t), intent(in) :: first_token
