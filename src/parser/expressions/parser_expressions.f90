@@ -139,7 +139,7 @@ contains
                                           open_paren%line, open_paren%column)
     end function try_parse_complex_literal
 
-    function parse_operand_base(parser, arena, view) result(expr_index)
+    recursive function parse_operand_base(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
@@ -719,7 +719,7 @@ contains
 
     ! Parse array indexing or function call postfix operator using parentheses: (...)
     ! Parse postfix operators on an expression
-    function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
+    recursive function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view

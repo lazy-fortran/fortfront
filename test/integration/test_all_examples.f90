@@ -44,11 +44,21 @@ program test_all_examples
     xpass_count = 0
 
     is_windows = check_if_windows()
+
+    ! Print platform diagnostics for CI debugging
+    print *, "=== Platform Diagnostics ==="
     if (is_windows) then
+        print *, "Platform: Windows"
+        print *, "Path separator: ", char(92)  ! backslash
         example_timeout_seconds = 5
     else
+        print *, "Platform: Linux/Unix"
+        print *, "Path separator: /"
         example_timeout_seconds = 2
     end if
+    print *, "Timeout seconds: ", example_timeout_seconds
+    print *, ""
+
     call verify_shell_helpers(is_windows)
     call initialize_example_timeout_launcher(is_windows)
 
@@ -67,6 +77,10 @@ program test_all_examples
         print *, "Please run 'fpm build' before running tests"
         stop 1
     end if
+    print *, "Fortfront executable: ", trim(fortfront_exe)
+
+    ! Print environment variable diagnostics
+    call print_env_diagnostics()
 
     ! fpm test runs from project root, so examples/ is directly accessible
     examples_dir = 'examples'
@@ -154,6 +168,42 @@ program test_all_examples
     end if
 
 contains
+
+    subroutine print_env_diagnostics()
+        character(len=256) :: env_value
+
+        print *, "=== Environment Variables ==="
+
+        call get_environment_variable('CI', env_value)
+        if (len_trim(env_value) > 0) then
+            print *, "CI = ", trim(env_value)
+        else
+            print *, "CI = (not set)"
+        end if
+
+        call get_environment_variable('GITHUB_ACTIONS', env_value)
+        if (len_trim(env_value) > 0) then
+            print *, "GITHUB_ACTIONS = ", trim(env_value)
+        else
+            print *, "GITHUB_ACTIONS = (not set)"
+        end if
+
+        call get_environment_variable('RUN_SYSTEM_TESTS', env_value)
+        if (len_trim(env_value) > 0) then
+            print *, "RUN_SYSTEM_TESTS = ", trim(env_value)
+        else
+            print *, "RUN_SYSTEM_TESTS = (not set)"
+        end if
+
+        call get_environment_variable('RUNNER_OS', env_value)
+        if (len_trim(env_value) > 0) then
+            print *, "RUNNER_OS = ", trim(env_value)
+        else
+            print *, "RUNNER_OS = (not set)"
+        end if
+
+        print *, ""
+    end subroutine print_env_diagnostics
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
                                           temp_dir, test_count, pass_count, &
@@ -445,7 +495,9 @@ contains
 
         call execute_command_line(trim(command), exitstat=exit_code)
         if (exit_code /= 0) then
-            print *, 'DEBUG compile failed:', trim(command)
+            print *, 'DEBUG: Compilation failed with exit code:', exit_code
+            print *, 'DEBUG: Command was:', trim(command)
+            print *, 'DEBUG: Output file:', trim(output_file)
         end if
         compile_generated_output = (exit_code == 0)
     end function compile_generated_output
@@ -524,6 +576,8 @@ contains
         integer :: unit_num, ios, printed
         logical :: exists
 
+        print *, "---- FAILURE DETAILS FOR ", trim(name), " ----"
+
         inquire (file=trim(error_file), exist=exists)
         if (exists) then
             print *, "---- stderr for ", trim(name)
@@ -536,7 +590,8 @@ contains
                     if (ios /= 0) exit
                     print *, trim(line)
                     printed = printed + 1
-                    if (printed >= 10) then
+                    if (printed >= 20) then
+                        print *, "... (truncated, showing first 20 lines)"
                         exit
                     end if
                 end do
@@ -558,13 +613,18 @@ contains
                     if (ios /= 0) exit
                     print *, trim(line)
                     printed = printed + 1
-                    if (printed >= 10) exit
+                    if (printed >= 20) then
+                        print *, "... (truncated, showing first 20 lines)"
+                        exit
+                    end if
                 end do
                 close (unit_num)
             end if
         else
             print *, "---- generated output missing for ", trim(name)
         end if
+
+        print *, "---- END FAILURE DETAILS ----"
     end subroutine report_example_failure
 
     logical function compile_f90_example(filepath, module_dir, temp_dir, is_windows)

@@ -150,7 +150,7 @@ contains
         end do
     end subroutine scan_generic_children
 
-    subroutine scan_optional_child(arena, child_index, metadata)
+    recursive subroutine scan_optional_child(arena, child_index, metadata)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: child_index
         type(param_metadata_t), intent(inout) :: metadata

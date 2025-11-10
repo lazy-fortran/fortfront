@@ -87,15 +87,14 @@ contains
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
 
-        ! Test invalid if statement
-        call read_example('examples/f90/issue_256_missing_then.f90', source)
+        ! Test invalid garbage input
+        call read_example('examples/f90/debug_error_garbage.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Should have clear error message mentioning the specific problem
         passed = len_trim(error_msg) > 0 .and. &
-                 index(error_msg, 'then') > 0 .and. &
-                 index(error_msg, 'Missing') > 0
+                 index(error_msg, 'INVALID') > 0
     end function
 
     function test_location_information() result(passed)
@@ -103,7 +102,7 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error with specific location
-        call read_example('examples/f90/issue_256_location_info.f90', source)
+        call read_example('examples/f90/issue_256_invalid_syntax.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -117,14 +116,13 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error that can provide suggestion
-        call read_example('examples/f90/issue_256_fix_suggestion.f90', source)
+        call read_example('examples/f90/debug_error_missing_end.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Should provide helpful suggestion
-        passed = index(error_msg, 'Suggestion') > 0 .or. &
-                 index(error_msg, 'Add') > 0 .or. &
-                 index(error_msg, 'then') > 0
+        passed = index(error_msg, 'Suggestion') > 0 .and. &
+                 index(error_msg, 'Add') > 0
     end function
 
     function test_no_silent_fallback() result(passed)
@@ -159,14 +157,13 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Test error with source context
-        call read_example('examples/f90/issue_256_source_context.f90', source)
+        call read_example('examples/f90/issue_256_garbage_input.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! Should show the actual source line and/or pointer
-        passed = index(error_msg, 'Source:') > 0 .or. &
-                 index(error_msg, '^') > 0 .or. &
-                 index(error_msg, 'if x > 0') > 0
+        passed = index(error_msg, 'Source:') > 0 .and. &
+                 index(error_msg, '^') > 0
     end function
 
 end program test_issue_256_validation

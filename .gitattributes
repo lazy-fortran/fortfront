@@ -1,0 +1,40 @@
+# Fortran source files should always use LF (Unix) line endings
+*.f90 text eol=lf
+*.f text eol=lf
+*.F90 text eol=lf
+*.F text eol=lf
+*.lf text eol=lf
+
+# Fortran fixed-form source
+*.f77 text eol=lf
+*.for text eol=lf
+
+# Test files
+test/**/*.f90 text eol=lf
+
+# Example files (critical for tests)
+examples/**/*.f90 text eol=lf
+examples/**/*.lf text eol=lf
+
+# Documentation
+*.md text eol=lf
+
+# Scripts
+*.sh text eol=lf
+
+# Windows scripts
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Configuration files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+
+# Build artifacts (binary)
+*.a binary
+*.o binary
+*.mod binary
+*.exe binary

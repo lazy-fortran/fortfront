@@ -412,7 +412,7 @@ contains
         callbacks%parse_associate => parse_associate
     end function build_do_body_callbacks
 
-    function parse_do_loop(parser, arena) result(loop_index)
+    recursive function parse_do_loop(parser, arena) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index

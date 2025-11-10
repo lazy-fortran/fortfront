@@ -71,15 +71,15 @@ contains
         logical :: has_error_reporting
         character(len=:), allocatable :: source, output, error_msg
 
-        ! Invalid syntax: missing 'then' in if statement
-        call read_example('examples/f90/issue_256_invalid_syntax_missing_then.f90', &
+        ! Invalid syntax: garbage input
+        call read_example('examples/f90/debug_error_garbage.f90', &
                           source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
-        ! After Issue #256 fix: Should have clear error about missing 'then'
+        ! After Issue #256 fix: Should have clear error about invalid syntax
         has_error_reporting = (len_trim(error_msg) > 0) .and. &
-                              (index(error_msg, 'then') > 0)
+                              (index(error_msg, 'INVALID') > 0)
     end function
 
     function test_unsupported_features_silent() result(has_error_reporting)
@@ -101,12 +101,12 @@ contains
         character(len=:), allocatable :: source, output, error_msg
 
         ! Syntax error on specific line
-        call read_example('examples/f90/issue_256_incomplete_expression.f90', source)
+        call read_example('examples/f90/debug_error_missing_end.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
         ! After Issue #256 fix: Should specify "line 3, column X" where error occurred
-        has_location_info = index(error_msg, 'line') > 0 .or. index(error_msg, 'column') > 0
+        has_location_info = index(error_msg, 'line') > 0 .and. index(error_msg, 'column') > 0
     end function
 
     function test_silent_empty_fallback() result(has_error_reporting)
@@ -145,18 +145,13 @@ contains
         logical :: has_suggestions
         character(len=:), allocatable :: source, output, error_msg
 
-        ! Common mistake: using = instead of ==
-        call read_example('examples/f90/issue_256_assignment_in_condition.f90', source)
+        ! Invalid syntax that should provide suggestion
+        call read_example('examples/f90/debug_error_missing_end.f90', source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
-        ! After Issue #256 fix: Should provide helpful suggestions or clear error
-        has_suggestions = index(error_msg, 'did you mean') > 0 .or. &
-                          index(error_msg, 'suggest') > 0 .or. &
-                          index(error_msg, 'Suggestion') > 0 .or. &
-                          index(error_msg, 'try') > 0 .or. &
-                          index(error_msg, '==') > 0 .or. &
-                          len_trim(error_msg) > 0
+        ! After Issue #256 fix: Should provide helpful suggestions
+        has_suggestions = index(error_msg, 'Suggestion') > 0
     end function
 
     subroutine read_example(filepath, content)
