@@ -453,7 +453,7 @@ contains
                 ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
                 if (condition_index > 0) then
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct Missing 'then' keyword", &
+                    call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
                                     "Use 'IF (condition) THEN' for multi-line blocks")
                     if_index = 0
                     return
@@ -506,7 +506,7 @@ contains
                 if (looks_like_block_if) then
                     ! This is a malformed block if Missing 'then' - report error
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct Missing 'then' keyword", &
+                    call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
                                     "Use 'IF (condition) THEN' for multi-line blocks")
                     if_index = 0
                     return
