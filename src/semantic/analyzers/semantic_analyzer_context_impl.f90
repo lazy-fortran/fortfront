@@ -132,6 +132,14 @@ contains
             end do
         end if
 
+        ! Enable constant folding for lazy Fortran to support constant propagation
+        ! (e.g., n=3; reshape([...], [n,n]) needs to know n=3)
+        ! MUST happen BEFORE type inference so reshape can see constant values
+        ! Skip for standard Fortran to avoid O(n²) performance issues
+        if (ctx%input_mode == INPUT_MODE_LAZY) then
+            call fold_constants_in_arena(arena)
+        end if
+
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
                 if (prog%body_indices(i) > 0 .and. &

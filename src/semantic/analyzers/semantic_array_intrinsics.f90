@@ -221,8 +221,8 @@ contains
         integer, allocatable :: dimension_sizes(:)
         logical :: has_literal_dimensions
 
-        ! Disabled for performance
-        ! call fold_constants_in_arena(arena)
+        ! Note: Constant folding is now done at program level for lazy Fortran
+        ! (see analyze_program_node_arena in semantic_analyzer_context_impl.f90)
 
         element_type = create_mono_type(TREAL)
         ndims = 0
