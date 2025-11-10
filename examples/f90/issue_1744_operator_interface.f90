@@ -23,14 +23,18 @@ end module vector_ops_interface
 module string_ops_interface
     implicit none
 
+    type :: string_type
+        character(len=:), allocatable :: value
+    end type string_type
+
     interface assignment(=)
         module procedure assign_string
     end interface
 contains
     subroutine assign_string(lhs, rhs)
         implicit none
-        character(len=*), intent(out) :: lhs
+        type(string_type), intent(out) :: lhs
         character(len=*), intent(in) :: rhs
-        lhs = rhs
+        lhs%value = rhs
     end subroutine assign_string
 end module string_ops_interface
