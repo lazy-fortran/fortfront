@@ -1,5 +1,5 @@
 program test_multiline_statement_if
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, iostat_eor
     use frontend_transformation, only: INPUT_MODE_STANDARD
     use transformation_api, only: transform_with_context, transform_context_t
     implicit none
