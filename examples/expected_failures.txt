@@ -3,7 +3,6 @@
 # Format: filename  # optional comment with issue reference
 
 # Standard F90 issues still failing
-issue_1583_computed_goto_minimal.f90  # adds implicit none but variable i is undeclared (#1583 - PR #1586 incomplete)
 issue_1608_class_program.f90  # class declarations still rewritten incorrectly (#1608 - PR #1683 incomplete)
 issue_1608_class_subroutine.f90  # class arguments produce invalid wrapper (#1608 - PR #1683 incomplete)
 issue_1744_operator_interface.f90  # operator/assignment interfaces degraded (#1744 - PR #1756 incomplete)
