@@ -166,6 +166,13 @@ contains
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
                 call flush_pending_prefixes()
                 stmt_index = route_control_flow(parser, arena)
+                ! If routing failed, consume the token to avoid infinite loop
+                if (stmt_index == 0) then
+                    block
+                        type(token_t) :: ignored_token
+                        ignored_token = parser%consume()
+                    end block
+                end if
             else
                 select case (token%kind)
                 case (TK_KEYWORD)
