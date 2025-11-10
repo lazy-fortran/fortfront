@@ -903,6 +903,40 @@ contains
         state%func_types(state%func_count) = normalized_type
     end subroutine try_add_function_reference
 
+    ! Check if a call name matches a variable type (type constructor)
+    logical function is_type_constructor_call(state, call_name) result(is_constructor)
+        type(program_decl_state_t), intent(in) :: state
+        character(len=*), intent(in) :: call_name
+        character(len=64) :: normalized_call, normalized_type
+        character(len=64) :: type_name
+        integer :: i, open_paren, close_paren
+
+        is_constructor = .false.
+        normalized_call = trim(to_lower(call_name))
+
+        ! Check if call_name matches any variable's type
+        do i = 1, state%var_count
+            normalized_type = trim(adjustl(to_lower(state%var_types(i))))
+
+            ! Extract type name from "type(typename)" format
+            if (index(normalized_type, 'type(') == 1) then
+                ! Find the type name between type( and )
+                open_paren = 5  ! Position after "type("
+                close_paren = index(normalized_type, ')')
+                if (close_paren > open_paren) then
+                    type_name = normalized_type(open_paren+1:close_paren-1)
+                    type_name = trim(adjustl(type_name))
+
+                    ! If call name matches the type name, it's a type constructor
+                    if (len_trim(type_name) > 0 .and. normalized_call == type_name) then
+                        is_constructor = .true.
+                        return
+                    end if
+                end if
+            end if
+        end do
+    end function is_type_constructor_call
+
     function emit_program_declarations(state) result(code)
         type(program_decl_state_t), intent(in) :: state
         character(len=:), allocatable :: code
@@ -945,6 +979,8 @@ contains
             if (exists_in_list(state%use_associated_names, &
                                state%use_associated_count, &
                                trim(state%func_names(i)))) cycle
+            ! Skip if the name matches a variable type (likely a type constructor)
+            if (is_type_constructor_call(state, trim(state%func_names(i)))) cycle
             code = code // "    " // trim(state%func_types(i)) // &
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do

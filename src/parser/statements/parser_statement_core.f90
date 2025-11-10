@@ -151,9 +151,9 @@ contains
                    text == "complex" .or. text == "double" .or. text == "procedure")
     end function is_declaration_keyword
 
-    integer function parse_keyword_statement(first_token, parser, arena, &
-                                             parent_index, &
-                                             callbacks) result(stmt_index)
+    recursive integer function parse_keyword_statement(first_token, parser, arena, &
+                                                       parent_index, &
+                                                       callbacks) result(stmt_index)
         type(token_t), intent(in) :: first_token
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena

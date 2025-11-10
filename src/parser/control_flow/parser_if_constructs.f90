@@ -261,7 +261,7 @@ contains
     end function parse_arithmetic_if
 
     ! Parse if statement
-    function parse_if(parser, arena, parent_index) result(if_index)
+    recursive function parse_if(parser, arena, parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index

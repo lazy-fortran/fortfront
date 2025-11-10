@@ -123,8 +123,8 @@ contains
         if (node%inferred_type%kind > 0) typ = node%inferred_type
     end function infer_identifier_expression_type
 
-    function infer_binary_expression_type(arena, node, param_names, param_types) &
-        result(typ)
+    recursive function infer_binary_expression_type(arena, node, param_names, &
+                                                    param_types) result(typ)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)

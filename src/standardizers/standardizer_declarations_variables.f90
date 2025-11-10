@@ -111,6 +111,8 @@ contains
         character(len=:), allocatable :: inferred_type
         logical :: success_flag
         logical :: standardize_flag
+        character(len=1) :: first_char
+        character(len=64) :: implicit_type
 
         call get_standardizer_type_standardization(standardize_flag)
 
@@ -130,7 +132,16 @@ contains
             end if
         end if
 
-        call add_variable(identifier%name, "real", var_names, var_types, &
+        ! Apply Fortran's implicit typing rules when no type is inferred
+        ! Variables starting with I-N are INTEGER, others are REAL
+        first_char = to_lower(identifier%name(1:1))
+        if (first_char >= 'i' .and. first_char <= 'n') then
+            implicit_type = "integer"
+        else
+            implicit_type = "real"
+        end if
+
+        call add_variable(identifier%name, implicit_type, var_names, var_types, &
                           var_declared, var_count, function_names, func_count)
     end subroutine collect_identifier_var
 

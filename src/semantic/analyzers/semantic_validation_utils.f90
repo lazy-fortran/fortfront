@@ -6,6 +6,7 @@ module semantic_validation_utils
                                    TARRAY, TCHAR, TVAR
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, call_or_subscript_node
+    use ast_nodes_data, only: declaration_node
     use ast_nodes_bounds, only: array_slice_node
     use string_utils_mod, only: int_to_string
     implicit none
@@ -124,17 +125,39 @@ contains
         integer, intent(in) :: idx
         character(len=*), intent(in) :: old_name
         character(len=*), intent(in) :: new_name
-        type(identifier_node) :: temp_node
+        type(identifier_node) :: temp_identifier
+        type(declaration_node) :: temp_decl
 
         if (idx <= 0 .or. idx > arena%size) return
         if (.not. allocated(arena%entries(idx)%node)) return
 
         select type (node => arena%entries(idx)%node)
         type is (identifier_node)
+            ! Rename variable references (assignment targets, not function calls)
             if (trim(node%name) == trim(old_name)) then
-                temp_node = node
-                temp_node%name = trim(new_name)
-                arena%entries(idx)%node = temp_node
+                temp_identifier = node
+                temp_identifier%name = trim(new_name)
+                arena%entries(idx)%node = temp_identifier
+            end if
+        type is (call_or_subscript_node)
+            ! EXPLICITLY SKIP: Do NOT rename function/subroutine calls
+            ! Function calls should always use the original function name,
+            ! not the result variable name. Only identifier_node (assignment targets)
+            ! should be renamed.
+            ! Even if node%name == old_name, DO NOT CHANGE IT.
+            return
+        type is (declaration_node)
+            ! Rename declarations (e.g., function result variable declarations)
+            ! BUT: Do NOT rename EXTERNAL declarations - they refer to function names,
+            ! not result variables!
+            if (node%is_external) return
+
+            if (allocated(node%var_name)) then
+                if (trim(node%var_name) == trim(old_name)) then
+                    temp_decl = node
+                    temp_decl%var_name = trim(new_name)
+                    arena%entries(idx)%node = temp_decl
+                end if
             end if
         end select
     end subroutine rename_at_index
