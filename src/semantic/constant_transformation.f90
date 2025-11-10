@@ -29,10 +29,11 @@ contains
         do i = 1, arena%size
             call fold_node_constants(arena, i)
             trace_counter = trace_counter + 1
-            if (mod(trace_counter, 100) == 0) then
-                write (*, '(A,I0,A,I0)') "fold_constants: processed ", trace_counter, &
-                    " of ", arena%size
-            end if
+            ! Debug output disabled to avoid polluting stdout (used for generated code)
+            ! if (mod(trace_counter, 100) == 0) then
+            !     write (error_unit, '(A,I0,A,I0)') "fold_constants: processed ", &
+            !         trace_counter, " of ", arena%size
+            ! end if
         end do
     end subroutine fold_constants_in_arena
 
