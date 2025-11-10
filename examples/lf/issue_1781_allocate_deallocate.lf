@@ -1,11 +1,11 @@
 ! Issue #1781: allocate/deallocate pairing preserved
 program test_allocate_deallocate
     implicit none
-    integer, allocatable :: data(:)
-    allocate(data(100))
-    data = 0
-    if (size(data) > 0) then
+    integer, allocatable :: arr(:)
+    allocate(arr(100))
+    arr = 0
+    if (size(arr) > 0) then
         print *, 'Data allocated'
-        deallocate(data)
+        deallocate(arr)
     end if
 end program test_allocate_deallocate
