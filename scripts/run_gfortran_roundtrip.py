@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
 from typing import Dict, List, Sequence, Set
+import tempfile
+import difflib
 
 FORTRAN_SUFFIXES: Sequence[str] = (
     ".f",
@@ -194,6 +196,72 @@ def format_seconds(seconds: float) -> str:
     return f"{secs}s"
 
 
+def normalize_source(text: str) -> str:
+    return "\n".join(line.rstrip() for line in text.replace("\r\n", "\n").splitlines()).strip()
+
+
+def summarize_diff(original: str, new_text: str, limit: int = 600) -> str:
+    diff_lines = list(
+        difflib.unified_diff(
+            original.splitlines(),
+            new_text.splitlines(),
+            fromfile="original",
+            tofile="roundtrip",
+            lineterm="",
+            n=3,
+        )
+    )
+    if not diff_lines:
+        return "Round-trip output differs but diff is empty."
+    snippet = "\n".join(diff_lines[:40])
+    if len(snippet) > limit:
+        snippet = snippet[: limit - 3] + "..."
+    return snippet
+
+
+def verify_roundtrip(
+    output_text: str,
+    fortfront_bin: Path,
+    timeout: float,
+) -> tuple[bool, Dict[str, object]]:
+    with tempfile.NamedTemporaryFile("w", suffix=".f90", delete=False, encoding="utf-8") as tmp:
+        tmp.write(output_text)
+        tmp_path = tmp.name
+    try:
+        completed = subprocess.run(
+            [str(fortfront_bin), tmp_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        os.unlink(tmp_path)
+        return False, {
+            "roundtrip_timeout": True,
+            "roundtrip_note": "Second pass timed out",
+        }
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+    if completed.returncode != 0:
+        return False, {
+            "roundtrip_exit_code": completed.returncode,
+            "roundtrip_stderr": truncate_text(
+                completed.stderr.decode("utf-8", errors="replace").strip(), 600
+            ),
+        }
+
+    rt_output = completed.stdout.decode("utf-8", errors="replace")
+    if normalize_source(rt_output) != normalize_source(output_text):
+        return False, {
+            "roundtrip_diff": summarize_diff(output_text, rt_output),
+        }
+
+    return True, {}
+
+
 def run_case(
     test_path: Path,
     fortfront_bin: Path,
@@ -212,17 +280,28 @@ def run_case(
             timeout=timeout,
         )
         duration = time.monotonic() - started
-        status = "pass" if completed.returncode == 0 else "fail"
         stderr_text = completed.stderr.decode("utf-8", errors="replace").strip()
+        stdout_text = completed.stdout.decode("utf-8", errors="replace")
         record = {
             "file": rel_path,
-            "status": status,
             "exit_code": completed.returncode,
             "duration_s": round(duration, 4),
             "stdout_bytes": len(completed.stdout),
         }
-        if status != "pass":
+        if completed.returncode != 0:
+            record["status"] = "fatal"
             record["stderr_preview"] = truncate_text(stderr_text, 600)
+            return record
+        if len(stdout_text.strip()) == 0:
+            record["status"] = "fatal"
+            record["stderr_preview"] = "No output produced for successful transform"
+            return record
+        roundtrip_ok, detail = verify_roundtrip(stdout_text, fortfront_bin, timeout)
+        if not roundtrip_ok:
+            record["status"] = "fail"
+            record.update(detail)
+            return record
+        record["status"] = "pass"
         return record
     except subprocess.TimeoutExpired as exc:
         duration = time.monotonic() - started
@@ -242,7 +321,8 @@ def print_progress(
     processed: int,
     total: int,
     passes: int,
-    failures: int,
+    roundtrip_failures: int,
+    fatals: int,
     timeouts: int,
     start_time: float,
 ) -> None:
@@ -253,7 +333,7 @@ def print_progress(
     percent = (processed / total * 100.0) if total else 100.0
     message = (
         f"\r[{percent:6.2f}%] {processed}/{total} "
-        f"(pass {passes} | fail {failures} | timeout {timeouts}) "
+        f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts}) "
         f"elapsed {format_seconds(elapsed)} "
         f"eta {format_seconds(eta)} "
         f"rate {rate:.1f}/s"
@@ -317,7 +397,8 @@ def main() -> int:
 
         processed = len(tests) - len(queue)
         passes = 0
-        failures = 0
+        roundtrip_failures = 0
+        fatals = 0
         timeouts = 0
         start_time = time.monotonic()
         effective_timeout = min(max(args.timeout, 0.0), MAX_TEST_TIMEOUT)
@@ -331,7 +412,7 @@ def main() -> int:
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, failures, timeouts, start_time)
+        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, start_time)
 
         worker = partial(
             run_case,
@@ -347,17 +428,20 @@ def main() -> int:
                 status = record["status"]
                 if status == "pass":
                     passes += 1
-                elif status == "timeout":
-                    timeouts += 1
+                elif status == "fail":
+                    roundtrip_failures += 1
+                elif status == "fatal":
+                    fatals += 1
                 else:
-                    failures += 1
+                    timeouts += 1
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
                 print_progress(
                     processed,
                     len(tests),
                     passes,
-                    failures,
+                    roundtrip_failures,
+                    fatals,
                     timeouts,
                     start_time,
                 )
@@ -368,17 +452,20 @@ def main() -> int:
                     status = record["status"]
                     if status == "pass":
                         passes += 1
-                    elif status == "timeout":
-                        timeouts += 1
+                    elif status == "fail":
+                        roundtrip_failures += 1
+                    elif status == "fatal":
+                        fatals += 1
                     else:
-                        failures += 1
+                        timeouts += 1
                     handle.write(json.dumps(record) + "\n")
                     handle.flush()
                     print_progress(
                         processed,
                         len(tests),
                         passes,
-                        failures,
+                        roundtrip_failures,
+                        fatals,
                         timeouts,
                         start_time,
                     )
@@ -386,12 +473,12 @@ def main() -> int:
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL: {failures}, TIMEOUT: {timeouts}. "
+        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}. "
         f"Results: {output_path}"
     )
-    if timeouts > 0:
+    if fatals > 0 or timeouts > 0:
         return 2
-    if failures > 0:
+    if roundtrip_failures > 0:
         return 1
     return 0
 
