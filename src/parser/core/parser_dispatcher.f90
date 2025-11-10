@@ -771,11 +771,8 @@ contains
         use iso_fortran_env, only: error_unit
         character(len=:), allocatable :: errors
         if (allocated(last_parser_errors)) then
-            write(error_unit, '(A,I0)') "[DEBUG] get_last_parser_errors: allocated, len=", len_trim(last_parser_errors)
-            write(error_unit, '(A)') "[DEBUG] content=[" // trim(last_parser_errors) // "]"
             errors = last_parser_errors
         else
-            write(error_unit, '(A)') "[DEBUG] get_last_parser_errors: NOT ALLOCATED"
             errors = ""
         end if
     end function get_last_parser_errors

@@ -80,6 +80,7 @@ contains
 
     ! Main parsing entry point
     subroutine parse_tokens(tokens, arena, prog_index, error_msg)
+        use iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: prog_index
@@ -115,9 +116,15 @@ contains
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
         if (mixed_result%has_mixed_constructs) then
-            call parse_mixed_constructs(tokens_local, arena, mixed_result, &
-                                        prog_index, &
-                                        error_msg)
+            block
+                character(len=500) :: mixed_error
+                call parse_mixed_constructs(tokens_local, arena, mixed_result, &
+                                            prog_index, &
+                                            mixed_error)
+                if (len_trim(mixed_error) > 0) then
+                    error_msg = trim(mixed_error)
+                end if
+            end block
             return
         end if
 
@@ -137,6 +144,7 @@ contains
 
             if (unit_end >= unit_start) then
                 block
+                    use iso_fortran_env, only: error_unit
                     character(len=:), allocatable :: unit_error
                     call process_program_unit(tokens_local, unit_start, unit_end, arena, &
                                               unit_index, has_explicit_program, unit_error)
@@ -507,11 +515,17 @@ contains
         unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program, parse_error)
 
         ! Propagate error message if requested
-        if (present(error_msg) .and. allocated(parse_error)) then
-            if (len_trim(parse_error) > 0) then
-                error_msg = parse_error
+        block
+            use iso_fortran_env, only: error_unit
+            if (allocated(parse_error)) then
             end if
-        end if
+
+            if (present(error_msg) .and. allocated(parse_error)) then
+                if (len_trim(parse_error) > 0) then
+                    error_msg = parse_error
+                end if
+            end if
+        end block
 
         deallocate (unit_tokens)
     end subroutine process_program_unit

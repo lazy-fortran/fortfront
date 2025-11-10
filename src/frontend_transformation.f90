@@ -601,27 +601,28 @@ contains
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
 
+        ! Local buffer for parse_tokens (character(len=*) requires fixed-length)
+        character(len=500) :: parse_error_buffer
+
         ! Phase 2: Parsing with enhanced error recovery
         call compiler_arena%next_phase("parser")
-        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, parse_error_buffer)
 
-        ! Enhanced error handling - don't stop at first parsing issue
-        if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
-            ! Try to continue parsing with partial results if we have a valid program
-            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
-                ! We have a partial parse - continue with what we have
-                ! Log the parsing warning but don't fail completely
-                write (error_unit, '(A,A)') &
-                    & "Warning: Parsing issues detected but continuing: ", error_msg
-                error_msg = ""  ! Clear error to continue processing
-            else
-                call handle_parsing_error(compiler_arena, prog_index, &
-                                          error_msg, output)
-                return
-            end if
+        ! Copy buffer to allocatable error_msg
+        if (len_trim(parse_error_buffer) > 0) then
+            error_msg = trim(parse_error_buffer)
         end if
 
-        ! Debug: check if we got a valid program index
+        ! Enhanced error handling - propagate errors properly
+        if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
+            ! Don't clear error_msg - we need to propagate it to the caller
+            ! Even if prog_index > 0 (partial parse), the error must be reported
+            call handle_parsing_error(compiler_arena, prog_index, &
+                                      error_msg, output)
+            return
+        end if
+
+        ! Check if we got a valid program index
         if (prog_index <= 0) then
             call handle_invalid_program_index(error_msg, output, compiler_arena)
         end if
