@@ -1143,10 +1143,32 @@ contains
             end if
 
             if (pos + len(old_name) <= len(body)) then
-                ! Skip if followed by '(' - this is a function call, not a variable reference
+                ! Skip if followed by '(' AND not preceded by '::'
+                ! This distinguishes function calls from array declarations
+                ! - foo(n) in assignment/expression = function call (skip)
+                ! - :: foo(3) in declaration = array declaration (rename)
                 if (body(pos + len(old_name):pos + len(old_name)) == '(') then
-                    start_pos = pos + len(old_name)
-                    cycle
+                    ! Check if preceded by '::' (declaration context)
+                    block
+                        integer :: check_pos
+                        logical :: is_declaration
+                        is_declaration = .false.
+                        ! Look backward for '::'
+                        do check_pos = pos - 1, max(1, pos - 50), -1
+                            if (body(check_pos:check_pos+1) == '::') then
+                                is_declaration = .true.
+                                exit
+                            end if
+                            ! Stop at newline or other delimiters
+                            if (body(check_pos:check_pos) == new_line('A') .or. &
+                                body(check_pos:check_pos) == ';') exit
+                        end do
+                        ! If not a declaration, skip (it's a function call)
+                        if (.not. is_declaration) then
+                            start_pos = pos + len(old_name)
+                            cycle
+                        end if
+                    end block
                 end if
                 ! Skip if followed by another identifier character
                 if (is_identifier_char(body(pos + len(old_name):pos + &
