@@ -460,6 +460,20 @@ contains
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
                 token = parser%consume()  ! consume comma
+
+                ! Check if next token is a keyword parameter (e.g., 'fmt=')
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER .and. &
+                    (to_lower(token%text) == "fmt" .or. to_lower(token%text) == "format")) then
+                    token = parser%consume()  ! consume 'fmt' or 'format'
+
+                    ! Expect '=' after keyword
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                        token = parser%consume()  ! consume '='
+                    end if
+                end if
+
                 call parse_format_specifier(parser, format_spec)
             end if
 
