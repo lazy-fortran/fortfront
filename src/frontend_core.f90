@@ -34,7 +34,8 @@ module frontend_core
                               set_line_length_config, get_line_length_config
     use path_validation, only: validate_input_path, validate_output_path, &
         & path_validation_result_t
-    use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
+    use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
+                                parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
 
@@ -195,7 +196,7 @@ contains
         ! Initialize the codegen system
         call initialize_codegen()
 
-        ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
+     ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
         ! and memory corruption when called in error paths. Standardization happens once
         ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
@@ -304,7 +305,8 @@ contains
                     error_msg = error_msg // new_line('a') // "  - " // &
                         & ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // "    Suggestion: " // &
+                        error_msg = error_msg // new_line('a') // &
+                            "    Suggestion: " // &
                             & ctx%errors%errors(i)%suggestion
                     end if
                 end if
@@ -319,7 +321,8 @@ contains
         end if
     end function get_detailed_semantic_errors
 
-    subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, prog_index, &
+    subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, &
+                                                    prog_index, &
                                                     error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(compiler_arena_t), intent(inout) :: compiler_arena
