@@ -572,10 +572,6 @@ contains
                 if (stmt_start <= size(parser%tokens)) then
                     stmt_end = find_statement_end(parser%tokens, stmt_start)
                     if (stmt_end < stmt_start) stmt_end = stmt_start
-                    write (*, '(A,1X,L1,1X,I0,1X,I0)') "DEBUG inline_if:", inline_has_continuation, stmt_start, stmt_end
-                    if (stmt_start <= size(parser%tokens)) then
-                        write (*, '(A,1X,A)') "DEBUG token:", trim(parser%tokens(stmt_start)%text)
-                    end if
                     call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
                                                        stmt_start, stmt_end)
 
