@@ -71,8 +71,8 @@ contains
         end if
 
         ! Call the executable directly instead of using fpm run
-        write (command, '(A,A,A,A,A)') trim(executable_path), ' "', &
-            trim(fixture_path), '" > "', trim(path), '"'
+        write (command, '(A,A,A,A,A)') trim(executable_path), ' ', &
+            trim(fixture_path), ' > ', trim(path)
         call execute_command_line(trim(command), exitstat=exit_status)
         call delete_file(trim(fixture_path))
         call assert_equal_int(exit_status, 0, 'fortfront command failed')
