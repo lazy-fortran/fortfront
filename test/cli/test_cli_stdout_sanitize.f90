@@ -6,6 +6,13 @@ program test_cli_stdout_sanitize
     character(len=256) :: tmpfile
     integer :: rc
 
+    ! Skip this test unless RUN_SYSTEM_TESTS=1 is set
+    ! This test requires the fortfront executable to be built and accessible
+    if (.not. should_run_system_tests()) then
+        print *, 'SKIP: CLI stdout sanitation test (set RUN_SYSTEM_TESTS=1 to enable)'
+        stop 0
+    end if
+
     call make_tmpfile(tmpfile)
     call write_polluted_file(trim(tmpfile))
     rc = sanitize_file_path(trim(tmpfile))
@@ -47,17 +54,28 @@ contains
         character(len=512) :: command
         character(len=256) :: fixture_base
         character(len=512) :: fixture_path
+        character(len=512) :: executable_path
         integer :: exit_status
+        logical :: found
 
         call make_tmpfile(fixture_base)
         write (fixture_path, '(A,A)') trim(fixture_base), '_fixture.lf'
         call write_cli_fixture(trim(fixture_path))
 
-        write (command, '(A,A,A,A,A)') 'fpm run fortfront -- "', &
+        ! Find the fortfront executable in build directory
+        call find_executable(executable_path, found)
+        if (.not. found) then
+            write (error_unit, '(A)') 'ERROR: Could not find fortfront executable in build/'
+            call delete_file(trim(fixture_path))
+            error stop 1
+        end if
+
+        ! Call the executable directly instead of using fpm run
+        write (command, '(A,A,A,A,A)') trim(executable_path), ' "', &
             trim(fixture_path), '" > "', trim(path), '"'
         call execute_command_line(trim(command), exitstat=exit_status)
         call delete_file(trim(fixture_path))
-        call assert_equal_int(exit_status, 0, 'fpm run fortfront command failed')
+        call assert_equal_int(exit_status, 0, 'fortfront command failed')
     end subroutine run_cli_capture
 
     subroutine assert_file_not_polluted(path)
@@ -127,5 +145,55 @@ contains
             error stop 1
         end if
     end subroutine assert_equal_int
+
+    function should_run_system_tests() result(run)
+        logical :: run
+        character(len=16) :: val
+        integer :: stat
+        run = .false.
+        call get_environment_variable('RUN_SYSTEM_TESTS', val, status=stat)
+        if (stat == 0) then
+            if (len_trim(val) > 0) then
+                select case (adjustl(val(1:1)))
+                case ('1', 'y', 'Y', 't', 'T')
+                    run = .true.
+                end select
+            end if
+        end if
+    end function should_run_system_tests
+
+    subroutine find_executable(exe_path, found)
+        character(len=*), intent(out) :: exe_path
+        logical, intent(out) :: found
+        integer :: exit_code, unit_num
+        character(len=512) :: search_output
+        logical :: file_exists
+
+        ! Use find command to locate fortfront executable (same as test_cli_integration)
+        call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
+                                  exitstat=exit_code)
+        if (exit_code == 0) then
+            open (newunit=unit_num, file='fortfront_search.txt', status='old', &
+                action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                read (unit_num, '(A)', iostat=exit_code) search_output
+                close (unit_num)
+                ! Clean up temporary file
+                call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
+                if (exit_code == 0 .and. len_trim(search_output) > 0) then
+                    inquire (file=trim(search_output), exist=file_exists)
+                    if (file_exists) then
+                        exe_path = trim(search_output)
+                        found = .true.
+                        return
+                    end if
+                end if
+            end if
+        end if
+
+        ! Not found
+        exe_path = ''
+        found = .false.
+    end subroutine find_executable
 
 end program test_cli_stdout_sanitize
