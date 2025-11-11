@@ -166,7 +166,8 @@ contains
         end if
     end subroutine parse_argument_list
 
-    ! Parse implied-do expression specific to I/O lists: (expr, var = start, end [, step])
+    ! Parse implied-do expression specific to I/O lists: &
+    ! (expr, var = start, end [, step])
     function parse_io_implied_do(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -383,8 +384,8 @@ contains
                         token = parser%consume()
                     else
                         write (error_unit, *) &
-                            "Error: Expected namelist group name after 'nml=' at line ", &
-                            token%line
+                        "Error: Expected namelist group name after 'nml=' at line ", &
+                        token%line
                     end if
                 end if
             else
@@ -463,8 +464,7 @@ contains
 
                 ! Check if next token is a keyword parameter (e.g., 'fmt=')
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER .and. &
-                    (to_lower(token%text) == "fmt" .or. to_lower(token%text) == "format")) then
+                if (is_format_specifier_keyword(token)) then
                     token = parser%consume()  ! consume 'fmt' or 'format'
 
                     ! Expect '=' after keyword
@@ -508,6 +508,26 @@ contains
         read_index = push_read_statement(arena, unit_spec, var_indices, &
                                          format_spec, line, column)
     end function parse_read_statement
+
+    pure logical function is_format_specifier_keyword(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
+            is_format_specifier_keyword = .false.
+            return
+        end if
+
+        if (.not. allocated(token%text)) then
+            is_format_specifier_keyword = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        lowered = trim(lowered)
+        is_format_specifier_keyword = &
+            (lowered == "fmt" .or. lowered == "format")
+    end function is_format_specifier_keyword
 
     function parse_format_statement(parser, arena) result(format_index)
         type(parser_state_t), intent(inout) :: parser
@@ -604,8 +624,10 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-                ! Only add space if not immediately after '=' AND if token is not a string literal
-                if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= TK_STRING) then
+              ! Only add space if not immediately after '=' AND if token is not &
+              ! a string literal
+                if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= &
+                    TK_STRING) then
                     if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                         spec_text = spec_text // " "
                     end if
@@ -652,8 +674,10 @@ contains
                 exit
             end if
 
-            ! Only add space if not immediately after '=' AND if token is not a string literal
-            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= TK_STRING) then
+            ! Only add space if not immediately after '=' AND if token is not &
+            ! a string literal
+            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= &
+                TK_STRING) then
                 if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                     spec_text = spec_text // " "
                 end if
@@ -699,8 +723,10 @@ contains
                 exit
             end if
 
-            ! Only add space if not immediately after '=' AND if token is not a string literal
-            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= TK_STRING) then
+            ! Only add space if not immediately after '=' AND if token is not &
+            ! a string literal
+            if (len(spec_text) > 0 .and. token%text /= "," .and. token%kind /= &
+                TK_STRING) then
                 if (spec_text(len(spec_text):len(spec_text)) /= '=') then
                     spec_text = spec_text // " "
                 end if
