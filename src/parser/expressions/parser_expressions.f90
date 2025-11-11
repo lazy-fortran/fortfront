@@ -207,12 +207,6 @@ contains
             token = view_consume_token(view, parser)
             expr_index = parse_operand_base(parser, arena, view)
 
-        case (TK_NEWLINE)
-            ! Newlines that reach the parser (after continuation normalization)
-            ! are semantically significant - they end statements
-            ! Return 0 to indicate no operand found
-            expr_index = 0
-
         case default
             call parser%error("Unexpected token '"//trim(token%text)//"' in expression")
             expr_index = 0
