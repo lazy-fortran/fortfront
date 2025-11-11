@@ -12,9 +12,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Sequence, Set
+from dataclasses import dataclass, field
+from typing import Dict, List, Sequence, Set, Tuple, Optional, Any
 import tempfile
 import difflib
+from collections import Counter, defaultdict
+import re
+from rapidfuzz import fuzz
 
 FORTRAN_SUFFIXES: Sequence[str] = (
     ".f",
@@ -199,6 +203,265 @@ def normalize_source(text: str) -> str:
     return "\n".join(line.rstrip() for line in text.replace("\r\n", "\n").splitlines()).strip()
 
 
+def first_line(text: str) -> str:
+    text = text.strip()
+    return text.splitlines()[0] if text else ""
+
+
+@dataclass
+class SummaryGroup:
+    category: str
+    signature: str
+    description: str
+    count: int = 0
+    examples: List[str] = field(default_factory=list)
+
+
+@dataclass
+class Classification:
+    category: str
+    signature: str
+    description: str
+    features: Dict[str, Any] = field(default_factory=dict)
+
+
+class FailureAggregator:
+    def __init__(self, max_examples: int = 10) -> None:
+        self.max_examples = max_examples
+        self.category_totals: Dict[str, int] = defaultdict(int)
+        self.records: Dict[str, List[Tuple[Dict[str, object], Classification]]] = defaultdict(list)
+
+    def add_record(self, record: Dict[str, object]) -> None:
+        classification = classify_failure_record(record)
+        if classification is None:
+            return
+        self.records[classification.category].append((record, classification))
+        self.category_totals[classification.category] += 1
+
+    def build_digest(self, max_groups_per_category: int = 8) -> List[Dict[str, object]]:
+        digest: List[Dict[str, object]] = []
+        for category, entries in self.records.items():
+            groups = self._summarize_category(category, entries)
+            groups.sort(key=lambda g: g.count, reverse=True)
+            digest.append(
+                {
+                    "category": category,
+                    "total": self.category_totals[category],
+                    "groups": [
+                        {
+                            "signature": entry.signature,
+                            "description": entry.description,
+                            "count": entry.count,
+                            "examples": entry.examples,
+                        }
+                        for entry in groups[:max_groups_per_category]
+                    ],
+                    "remaining_groups": max(0, len(entries) - max_groups_per_category),
+                }
+            )
+        digest.sort(key=lambda entry: entry["total"], reverse=True)
+        return digest
+
+    def _summarize_category(
+        self,
+        category: str,
+        entries: List[Tuple[Dict[str, object], Classification]],
+    ) -> List[SummaryGroup]:
+        if category == "roundtrip_diff":
+            return self._summarize_diff(entries)
+        grouped: Dict[str, SummaryGroup] = {}
+        for record, classification in entries:
+            key = classification.signature
+            group = grouped.get(key)
+            if group is None:
+                group = SummaryGroup(
+                    category=category,
+                    signature=classification.signature,
+                    description=classification.description,
+                )
+                grouped[key] = group
+            group.count += 1
+            file_path = record.get("file")
+            if isinstance(file_path, str) and len(group.examples) < self.max_examples:
+                group.examples.append(file_path)
+        return list(grouped.values())
+
+    def _summarize_diff(
+        self,
+        entries: List[Tuple[Dict[str, object], Classification]],
+    ) -> List[SummaryGroup]:
+        # First bucket by heuristic label to keep similarity search bounded.
+        buckets: Dict[str, List[Tuple[Dict[str, object], Classification]]] = defaultdict(list)
+        for record, classification in entries:
+            label = classification.features.get("label", "generic")
+            buckets[label].append((record, classification))
+
+        summary_groups: List[SummaryGroup] = []
+        for label, bucket_entries in buckets.items():
+            clusters = self._cluster_by_similarity(bucket_entries)
+            for prototype, items in clusters:
+                description = items[0][1].description
+                signature = f"{label}:{prototype}"
+                group = SummaryGroup(
+                    category="roundtrip_diff",
+                    signature=signature,
+                    description=description,
+                )
+                group.count = len(items)
+                for record, _ in items[: self.max_examples]:
+                    file_path = record.get("file")
+                    if isinstance(file_path, str):
+                        group.examples.append(file_path)
+                summary_groups.append(group)
+        return summary_groups
+
+    def _cluster_by_similarity(
+        self,
+        bucket_entries: List[Tuple[Dict[str, object], Classification]],
+        threshold: int = 92,
+    ) -> List[Tuple[str, List[Tuple[Dict[str, object], Classification]]]]:
+        clusters: List[Tuple[str, List[Tuple[Dict[str, object], Classification]]]] = []
+        for record, classification in bucket_entries:
+            signature_text = classification.features.get("signature_text", classification.signature)
+            assigned = False
+            for idx, (prototype, items) in enumerate(clusters):
+                score = fuzz.token_set_ratio(signature_text, prototype)
+                if score >= threshold:
+                    items.append((record, classification))
+                    # Update prototype to average maybe keep first for determinism.
+                    assigned = True
+                    break
+            if not assigned:
+                clusters.append((signature_text, [(record, classification)]))
+        clusters.sort(key=lambda entry: len(entry[1]), reverse=True)
+        return clusters
+
+    @staticmethod
+    def print_digest(digest: List[Dict[str, object]]) -> None:
+        if not digest:
+            print("\nNo failures to summarize.")
+            return
+        print("\n\nFailure Digest (grouped signatures):")
+        for section in digest:
+            category = section["category"]
+            total = section["total"]
+            print(f"\n[{category}] total={total}")
+            for group in section["groups"]:
+                signature = group["signature"]
+                count = group["count"]
+                description = group["description"]
+                examples = ", ".join(group["examples"])
+                example_text = f" examples: {examples}" if examples else ""
+                print(f"  - {signature} ({count}) :: {description}{example_text}")
+            remaining = section["remaining_groups"]
+            if remaining:
+                print(f"    ... {remaining} additional unique signatures omitted ...")
+
+
+def classify_failure_record(record: Dict[str, object]) -> Optional[Classification]:
+    status = record.get("status")
+    if status == "pass":
+        return None
+    if status == "fail":
+        if record.get("roundtrip_timeout"):
+            return Classification(
+                category="roundtrip_timeout",
+                signature="second_pass_timeout",
+                description="Second fortfront invocation timed out",
+            )
+        if "roundtrip_exit_code" in record:
+            code = record.get("roundtrip_exit_code")
+            raw_stderr = str(record.get("roundtrip_stderr", ""))
+            stderr_line = first_line(raw_stderr)
+            module_hint = extract_module_hint(raw_stderr)
+            normalized = normalize_message(raw_stderr)
+            path_hint = extract_path_cluster(record)
+            module_label = module_hint or (path_hint and f"path:{path_hint}") or "generic"
+            signature = f"exit:{code}:{module_label}:{normalized}"
+            description = (
+                f"Round-trip exit {code}: {stderr_line or 'no stderr'}"
+                + (
+                    f" [{module_hint}]"
+                    if module_hint
+                    else (f" [{path_hint}]" if path_hint else "")
+                )
+            )
+            return Classification(
+                category="roundtrip_exit",
+                signature=signature,
+                description=description,
+                features={"module": module_hint, "path": path_hint, "normalized": normalized},
+            )
+        if "roundtrip_diff" in record:
+            diff_text = str(record.get("roundtrip_diff", ""))
+            signature, description, features = extract_diff_signature(diff_text)
+            return Classification(
+                category="roundtrip_diff",
+                signature=signature,
+                description=description,
+                features=features,
+            )
+        return Classification(
+            category="roundtrip_unknown",
+            signature="unknown",
+            description="Round-trip failure (unspecified)",
+        )
+    if status == "fatal":
+        if record.get("stderr_preview") == "No output produced for successful transform":
+            return Classification(
+                category="fatal_no_output",
+                signature="no_output",
+                description="fortfront exited 0 but stdout was empty",
+            )
+        exit_code = record.get("exit_code")
+        stderr_text = str(record.get("stderr_preview", ""))
+        stderr_line = first_line(stderr_text)
+        module_hint = extract_module_hint(stderr_text)
+        normalized = normalize_message(stderr_text)
+        path_hint = extract_path_cluster(record)
+        module_label = module_hint or (path_hint and f"path:{path_hint}") or "generic"
+        signature = f"fatal:{exit_code}:{module_label}:{normalized}"
+        description = (
+            f"fortfront exit {exit_code}: {stderr_line or 'no stderr'}"
+            + (
+                f" [{module_hint}]"
+                if module_hint
+                else (f" [{path_hint}]" if path_hint else "")
+            )
+        )
+        return Classification(
+            category="fatal_exit",
+            signature=signature,
+            description=description,
+            features={"module": module_hint, "path": path_hint, "normalized": normalized},
+        )
+    if status == "timeout":
+        stderr_text = str(record.get("stderr_preview", ""))
+        stderr_line = first_line(stderr_text)
+        normalized = normalize_message(stderr_text)
+        path_hint = extract_path_cluster(record)
+        label = path_hint or "generic"
+        signature = f"{label}:{normalized or 'timeout'}"
+        desc_suffix = f" [{path_hint}]" if path_hint else ""
+        return Classification(
+            category="transform_timeout",
+            signature=signature,
+            description=f"Initial fortfront invocation timed out{desc_suffix}",
+            features={"path": path_hint, "normalized": normalized},
+        )
+    if status is None:
+        return Classification(
+            category="unknown_status",
+            signature="missing",
+            description="Record missing status",
+        )
+    return Classification(
+        category="unknown_status",
+        signature=str(status),
+        description=f"Unhandled status {status}",
+    )
+
+
 def summarize_diff(original: str, new_text: str, limit: int = 600) -> str:
     diff_lines = list(
         difflib.unified_diff(
@@ -216,6 +479,185 @@ def summarize_diff(original: str, new_text: str, limit: int = 600) -> str:
     if len(snippet) > limit:
         snippet = snippet[: limit - 3] + "..."
     return snippet
+
+
+_DIGIT_PATTERN = re.compile(r"\d+")
+_SRC_FILE_PATTERN = re.compile(r"(?:\./)?src/[A-Za-z0-9_\-./]+\.(?:f|f\d+|for|fpp)")
+_FORTRAN_FILE_PATTERN = re.compile(r"[A-Za-z0-9_\-./]+\.(?:f|f\d+|for|fpp)")
+_TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+|[^\s]")
+
+
+DIFF_LABEL_DESCRIPTIONS: Dict[str, str] = {
+    "missing_program_scaffold": "Program wrapper removed",
+    "implicit_removed": "Implicit typing statements removed",
+    "implicit_added": "Implicit typing statements inserted",
+    "contains_removed": "Contains section removed",
+    "end_stmt_added": "End statement inserted",
+    "declaration_shuffle": "Declaration order changed",
+    "data_stmt_altered": "DATA statement edited",
+    "interface_changed": "Interface block changed",
+    "pointer_attr_change": "Pointer attributes changed",
+    "coarray_change": "Coarray statements changed",
+    "generic": "Round-trip diff pattern",
+    "no_diff_lines": "Round-trip diff without diff body",
+}
+
+
+def extract_diff_signature(diff_text: str) -> Tuple[str, str, Dict[str, Any]]:
+    change_lines: List[str] = []
+    for line in diff_text.splitlines():
+        if not line:
+            continue
+        if line.startswith(("---", "+++", "@@")):
+            continue
+        if line[0] not in "+-":
+            continue
+        marker = line[0]
+        content = line[1:].strip()
+        if not content:
+            continue
+        change_lines.append(f"{marker}{content}")
+        if len(change_lines) >= 20:
+            break
+
+    if not change_lines:
+        signature = first_line(diff_text)[:120] or "diff"
+        description = "Round-trip diff without diff body"
+        features = {
+            "label": "no_diff_lines",
+            "signature_text": signature,
+            "raw_lines": [],
+            "top_tokens": [],
+        }
+        return signature, description, features
+
+    minus_lines = [line for line in change_lines if line.startswith("-")]
+    plus_lines = [line for line in change_lines if line.startswith("+")]
+    minus_tokens = tokenize_diff_lines(minus_lines)
+    plus_tokens = tokenize_diff_lines(plus_lines)
+    tokens = minus_tokens + plus_tokens
+
+    env = {
+        "minus_lines": minus_lines,
+        "plus_lines": plus_lines,
+        "minus_tokens": minus_tokens,
+        "plus_tokens": plus_tokens,
+        "tokens": tokens,
+    }
+    label = detect_diff_label(env)
+    label_desc = DIFF_LABEL_DESCRIPTIONS.get(label, "Round-trip diff pattern")
+
+    normalized_tokens: List[str] = []
+    for entry in change_lines:
+        marker, content = entry[0], entry[1:]
+        normalized = content.lower()
+        normalized = _DIGIT_PATTERN.sub("#", normalized)
+        normalized = " ".join(normalized.split())
+        normalized_tokens.append(f"{marker}{normalized}")
+
+    top_tokens = [tok for tok, _ in Counter(tokens).most_common(12)]
+    signature_vector = normalized_tokens[:8] + top_tokens[:8]
+    signature_text = " ".join(signature_vector)
+    signature = f"{label}:{' | '.join(signature_vector[:6])}"
+    if len(signature) > 200:
+        signature = signature[:197] + "..."
+    description = f"{label_desc}: {'; '.join(change_lines[:4])}"
+
+    features = {
+        "label": label,
+        "signature_text": signature_text,
+        "raw_lines": change_lines[:12],
+        "top_tokens": top_tokens,
+        "minus_tokens": minus_tokens[:20],
+        "plus_tokens": plus_tokens[:20],
+    }
+    return signature, description, features
+
+
+def tokenize_diff_lines(lines: List[str]) -> List[str]:
+    tokens: List[str] = []
+    for line in lines:
+        for token in _TOKEN_PATTERN.findall(line[1:].lower()):
+            if token in {"+", "-", ":"}:
+                continue
+            normalized = _DIGIT_PATTERN.sub("#", token)
+            tokens.append(normalized)
+    return tokens
+
+
+def detect_diff_label(env: Dict[str, Any]) -> str:
+    minus_tokens = env["minus_tokens"]
+    plus_tokens = env["plus_tokens"]
+    minus_lines = env["minus_lines"]
+    plus_lines = env["plus_lines"]
+    tokens = env["tokens"]
+
+    def has_line(fragment: str, lines: List[str]) -> bool:
+        frag = fragment.lower()
+        return any(frag in line.lower() for line in lines)
+
+    if has_line("program", minus_lines) and has_line("end program", minus_lines):
+        return "missing_program_scaffold"
+    if "implicit" in minus_tokens and "implicit" not in plus_tokens:
+        return "implicit_removed"
+    if "implicit" in plus_tokens and "implicit" not in minus_tokens:
+        return "implicit_added"
+    if "contains" in minus_tokens and "contains" not in plus_tokens:
+        return "contains_removed"
+    if has_line(" end", plus_lines) and not minus_lines:
+        return "end_stmt_added"
+    if "data" in tokens:
+        return "data_stmt_altered"
+    if "interface" in tokens:
+        return "interface_changed"
+    if any(tok in {"pointer", "allocatable"} for tok in tokens):
+        return "pointer_attr_change"
+    if any(tok in {"coarray", "sync", "team"} for tok in tokens):
+        return "coarray_change"
+    if any(tok in {"type", "class"} for tok in tokens):
+        return "declaration_shuffle"
+    return "generic"
+
+
+def normalize_message(text: str) -> str:
+    text = text.strip()
+    if not text:
+        return "no stderr"
+    lowered = text.replace("\r", " ").replace("\n", " ")
+    lowered = _SRC_FILE_PATTERN.sub("<src>", lowered)
+    lowered = _FORTRAN_FILE_PATTERN.sub("<file>", lowered)
+    lowered = lowered.lower()
+    lowered = _DIGIT_PATTERN.sub("#", lowered)
+    lowered = re.sub(r"\s+", " ", lowered)
+    return lowered.strip()
+
+
+def extract_module_hint(text: str) -> Optional[str]:
+    match = _SRC_FILE_PATTERN.search(text)
+    if match:
+        return match.group(0)
+    return None
+
+
+def extract_path_cluster(record: Dict[str, object], depth: int = 2) -> Optional[str]:
+    rel_path = record.get("file")
+    if not isinstance(rel_path, str):
+        return None
+    parts = rel_path.split("/")
+    cluster_start = 0
+    try:
+        gcc_idx = parts.index("gcc")
+        if gcc_idx + 1 < len(parts) and parts[gcc_idx + 1] == "testsuite":
+            cluster_start = gcc_idx + 2
+        else:
+            cluster_start = gcc_idx + 1
+    except ValueError:
+        cluster_start = 0
+    directories = parts[cluster_start:-1]
+    if not directories:
+        return None
+    cluster_parts = directories[:depth]
+    return "/".join(cluster_parts)
 
 
 def verify_roundtrip(
@@ -401,6 +843,7 @@ def main() -> int:
         timeouts = 0
         start_time = time.monotonic()
         effective_timeout = max(args.timeout, 0.0)
+        aggregator = FailureAggregator()
 
         print(
             f"Running fortfront round-trip on {total_to_run} tests "
@@ -430,6 +873,7 @@ def main() -> int:
                     timeouts += 1
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
+                aggregator.add_record(record)
                 print_progress(
                     processed,
                     len(tests),
@@ -454,6 +898,7 @@ def main() -> int:
                         timeouts += 1
                     handle.write(json.dumps(record) + "\n")
                     handle.flush()
+                    aggregator.add_record(record)
                     print_progress(
                         processed,
                         len(tests),
@@ -470,6 +915,26 @@ def main() -> int:
         f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}. "
         f"Results: {output_path}"
     )
+    digest = aggregator.build_digest()
+    FailureAggregator.print_digest(digest)
+    summary_path = output_path.with_name(output_path.stem + "_summary.json")
+    with summary_path.open("w", encoding="utf-8") as summary_handle:
+        json.dump(
+            {
+                "output_file": str(output_path),
+                "summary": digest,
+                "totals": {
+                    "pass": passes,
+                    "roundtrip_fail": roundtrip_failures,
+                    "fatal": fatals,
+                    "timeout": timeouts,
+                },
+            },
+            summary_handle,
+            indent=2,
+        )
+        summary_handle.write("\n")
+    print(f"Summary digest written to {summary_path}")
     if fatals > 0 or timeouts > 0:
         return 2
     if roundtrip_failures > 0:
