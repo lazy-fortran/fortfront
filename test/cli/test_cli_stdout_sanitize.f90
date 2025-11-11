@@ -168,24 +168,52 @@ contains
         integer :: exit_code, unit_num
         character(len=512) :: search_output
         logical :: file_exists
+        character(len=32) :: temp_file
 
-        ! Use find command to locate fortfront executable (same as test_cli_integration)
-        call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
-                                  exitstat=exit_code)
-        if (exit_code == 0) then
-            open (newunit=unit_num, file='fortfront_search.txt', status='old', &
-                action='read', iostat=exit_code)
+        ! Cross-platform executable search
+        if (is_windows()) then
+            ! Windows approach: use dir command
+            temp_file = 'fortfront_search.txt'
+            call execute_command_line('dir /s /b build\fortfront.exe 2>nul > ' // trim(temp_file), &
+                                      exitstat=exit_code)
             if (exit_code == 0) then
-                read (unit_num, '(A)', iostat=exit_code) search_output
-                close (unit_num)
-                ! Clean up temporary file
-                call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
-                if (exit_code == 0 .and. len_trim(search_output) > 0) then
-                    inquire (file=trim(search_output), exist=file_exists)
-                    if (file_exists) then
-                        exe_path = trim(search_output)
-                        found = .true.
-                        return
+                open (newunit=unit_num, file=trim(temp_file), status='old', &
+                    action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    read (unit_num, '(A)', iostat=exit_code) search_output
+                    close (unit_num)
+                    ! Clean up temporary file
+                    call execute_command_line('del ' // trim(temp_file), exitstat=exit_code)
+                    if (exit_code == 0 .and. len_trim(search_output) > 0) then
+                        inquire (file=trim(search_output), exist=file_exists)
+                        if (file_exists) then
+                            exe_path = trim(search_output)
+                            found = .true.
+                            return
+                        end if
+                    end if
+                end if
+            end if
+        else
+            ! Unix/Linux approach: use find command
+            temp_file = 'fortfront_search.txt'
+            call execute_command_line('find build -name "fortfront" -type f | head -1 > ' // trim(temp_file), &
+                                      exitstat=exit_code)
+            if (exit_code == 0) then
+                open (newunit=unit_num, file=trim(temp_file), status='old', &
+                    action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    read (unit_num, '(A)', iostat=exit_code) search_output
+                    close (unit_num)
+                    ! Clean up temporary file
+                    call execute_command_line('rm -f ' // trim(temp_file), exitstat=exit_code)
+                    if (exit_code == 0 .and. len_trim(search_output) > 0) then
+                        inquire (file=trim(search_output), exist=file_exists)
+                        if (file_exists) then
+                            exe_path = trim(search_output)
+                            found = .true.
+                            return
+                        end if
                     end if
                 end if
             end if
@@ -195,5 +223,37 @@ contains
         exe_path = ''
         found = .false.
     end subroutine find_executable
+
+    function is_windows() result(windows)
+        logical :: windows
+        character(len=32) :: val
+        integer :: stat
+
+        ! Check common Windows environment variables
+        windows = .false.
+        call get_environment_variable('OS', val, status=stat)
+        if (stat == 0) then
+            if (index(trim(val), 'Windows') > 0) then
+                windows = .true.
+                return
+            end if
+        end if
+
+        ! Check for WINDIR environment variable (Windows specific)
+        call get_environment_variable('WINDIR', val, status=stat)
+        if (stat == 0) then
+            windows = .true.
+            return
+        end if
+
+        ! Check for COMSPEC environment variable (Windows specific)
+        call get_environment_variable('COMSPEC', val, status=stat)
+        if (stat == 0) then
+            if (index(trim(val), 'cmd.exe') > 0 .or. index(trim(val), 'CMD.EXE') > 0) then
+                windows = .true.
+                return
+            end if
+        end if
+    end function is_windows
 
 end program test_cli_stdout_sanitize
