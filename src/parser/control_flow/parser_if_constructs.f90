@@ -519,7 +519,8 @@ contains
 
                             ! If there's code immediately after newline, it's likely a continued inline IF
                             ! Otherwise, it looks like a block IF
-                            if (.not. found_code_after_newline) then
+                            if (.not. found_code_after_newline .and. &
+                                .not. inline_has_continuation) then
                                 looks_like_block_if = .true.
                             end if
                         end block
