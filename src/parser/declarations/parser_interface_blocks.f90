@@ -66,7 +66,8 @@ contains
                 cycle
             end if
 
-            if (process_interface_body_token(parser, arena, token, body_indices)) cycle
+            if (process_interface_body_token(parser, arena, token, body_indices, &
+                                                prefix_buffer)) cycle
 
             call parser%error("Unexpected token '"//trim(token%text)// &
                               "' in interface block.")
@@ -197,15 +198,17 @@ contains
     end function handle_interface_end
 
     logical function process_interface_body_token(parser, arena, token, &
-                                                  body_indices) result(handled)
+                                                  body_indices, prefix_buffer) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
         integer, allocatable, intent(inout) :: body_indices(:)
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
 
         integer :: stmt_index
         type(token_t) :: consumed_token
         character(len=:), allocatable :: lowered_text
+        character(len=16), allocatable :: prefix_array(:)
 
         handled = .false.
         if (token%kind == TK_KEYWORD) then
@@ -224,6 +227,15 @@ contains
                 end if
                 handled = .true.
                 return
+            else if (is_procedure_prefix(lowered_text)) then
+                ! Collect procedure prefix keywords (pure, elemental, recursive, etc.)
+                ! These will be used when we encounter the actual function/subroutine
+                allocate (character(len=16) :: prefix_array(1))
+                prefix_array(1) = trim(lowered_text)
+                call prefix_buffer%append_all(prefix_array)
+                consumed_token = parser%consume()
+                handled = .true.
+                return
             end if
         end if
 
@@ -231,8 +243,22 @@ contains
         case (TK_NEWLINE, TK_COMMENT)
             consumed_token = parser%consume()
             handled = .true.
+        case (TK_WHITESPACE)
+            consumed_token = parser%consume()
+            handled = .true.
         end select
     end function process_interface_body_token
+
+    logical function is_procedure_prefix(lowered_text) result(is_prefix)
+        character(len=*), intent(in) :: lowered_text
+
+        is_prefix = trim(lowered_text) == "pure" .or. &
+                    trim(lowered_text) == "elemental" .or. &
+                    trim(lowered_text) == "recursive" .or. &
+                    trim(lowered_text) == "impure" .or. &
+                    trim(lowered_text) == "nonrecursive" .or. &
+                    trim(lowered_text) == "non_recursive"
+    end function is_procedure_prefix
 
     function parse_module_procedure_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
