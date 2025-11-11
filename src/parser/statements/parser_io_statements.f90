@@ -463,8 +463,7 @@ contains
 
                 ! Check if next token is a keyword parameter (e.g., 'fmt=')
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER .and. &
-                    (to_lower(token%text) == "fmt" .or. to_lower(token%text) == "format")) then
+                if (is_format_specifier_keyword(token)) then
                     token = parser%consume()  ! consume 'fmt' or 'format'
 
                     ! Expect '=' after keyword
@@ -508,6 +507,26 @@ contains
         read_index = push_read_statement(arena, unit_spec, var_indices, &
                                          format_spec, line, column)
     end function parse_read_statement
+
+    pure logical function is_format_specifier_keyword(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
+            is_format_specifier_keyword = .false.
+            return
+        end if
+
+        if (.not. allocated(token%text)) then
+            is_format_specifier_keyword = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        lowered = trim(lowered)
+        is_format_specifier_keyword = &
+            (lowered == "fmt" .or. lowered == "format")
+    end function is_format_specifier_keyword
 
     function parse_format_statement(parser, arena) result(format_index)
         type(parser_state_t), intent(inout) :: parser

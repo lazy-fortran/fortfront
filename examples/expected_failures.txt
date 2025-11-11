@@ -16,6 +16,7 @@ issue_2068_nested_function_type_inference_mismatch.lf  # nested function type in
 # Lazy Fortran - Recent failures needing implementation
 issue_1816_multiple_returns.lf  # array literal return type inference from result = [q, r] not implemented #1816
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
+issue_2142_mono_wrong_return_types.lf  # monomorphization output still rejected by gfortran (#2142 regression)
 issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of array (segfault in monomorphization) #2153
 issue_2159_chained_assignment_misparse.lf  # chained assignments parsed but need flattening standardizer pass #2159
 
