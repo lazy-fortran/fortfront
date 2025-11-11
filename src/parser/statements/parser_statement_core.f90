@@ -27,6 +27,7 @@ module parser_statement_core_module
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_statement_detection_module, only: is_block_if, find_statement_end, &
                                                  extend_if_statement_end
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     implicit none
     private
 
@@ -86,8 +87,14 @@ contains
         end block
         select case (first_token%kind)
         case (TK_KEYWORD)
-            stmt_index = parse_keyword_statement(first_token, parser, arena, &
-                                                 parent_index, local_callbacks)
+            if (keyword_should_parse_as_identifier(first_token, parser)) then
+                stmt_index = parse_identifier_statement(parser, arena, &
+                                                        parent_index, tokens, &
+                                                        local_callbacks)
+            else
+                stmt_index = parse_keyword_statement(first_token, parser, arena, &
+                                                     parent_index, local_callbacks)
+            end if
         case (TK_IDENTIFIER)
             stmt_index = parse_identifier_statement(parser, arena, parent_index, &
                                                     tokens, local_callbacks)
