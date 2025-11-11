@@ -466,10 +466,12 @@ contains
             ! Check if this looks like a malformed multi-line if construct
             block
                 logical :: looks_like_block_if
+                logical :: has_continuation
                 type(token_t) :: check_tok
                 integer :: check_idx
 
                 looks_like_block_if = .false.
+                has_continuation = .false.
 
                 ! Scan ahead to see if there's a newline before any statement
                 ! or if there's an "end if" later
@@ -477,9 +479,46 @@ contains
                 do while (check_idx <= size(parser%tokens))
                     check_tok = parser%tokens(check_idx)
 
-                    ! If we hit a newline immediately, this looks like a block if
+                    ! Check for line continuation character
+                    if (check_tok%kind == TK_OPERATOR .and. check_tok%text == "&") then
+                        has_continuation = .true.
+                        check_idx = check_idx + 1
+                        cycle
+                    end if
+
+                    ! If we hit a newline, peek ahead to see if there's code after it
                     if (check_tok%kind == TK_NEWLINE) then
-                        looks_like_block_if = .true.
+                        ! Save current position and scan ahead
+                        block
+                            integer :: peek_idx
+                            type(token_t) :: peek_tok
+                            logical :: found_code_after_newline
+
+                            found_code_after_newline = .false.
+                            peek_idx = check_idx + 1
+
+                            ! Skip any following whitespace/comments/newlines
+                            do while (peek_idx <= size(parser%tokens))
+                                peek_tok = parser%tokens(peek_idx)
+                                if (peek_tok%kind == TK_WHITESPACE .or. &
+                                    peek_tok%kind == TK_COMMENT .or. &
+                                    peek_tok%kind == TK_NEWLINE) then
+                                    peek_idx = peek_idx + 1
+                                    cycle
+                                end if
+                                ! Found a non-trivia token
+                                if (peek_tok%kind /= TK_EOF) then
+                                    found_code_after_newline = .true.
+                                end if
+                                exit
+                            end do
+
+                            ! If there's code immediately after newline, it's likely a continued inline IF
+                            ! Otherwise, it looks like a block IF
+                            if (.not. found_code_after_newline) then
+                                looks_like_block_if = .true.
+                            end if
+                        end block
                         exit
                     end if
 
@@ -601,6 +640,25 @@ contains
             ! Simple approach: advance until we find the closing paren or 'then'
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
+
+                ! Check for 'then' keyword
+                if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
+                         "then") then
+                    exit  ! Don't consume 'then', let caller handle it
+                end if
+
+                ! Check for newline (preserve for continuation handling)
+                if (paren_token%kind == TK_NEWLINE) then
+                    exit  ! Don't consume newline, let caller handle continuation logic
+                end if
+
+                ! Skip whitespace and comments
+                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == TK_COMMENT) then
+                    paren_token = parser%consume()
+                    cycle
+                end if
+
+                ! Handle operators
                 if (paren_token%kind == TK_OPERATOR) then
                     if (paren_token%text == "(") then
                         paren_depth = paren_depth + 1
@@ -612,10 +670,9 @@ contains
                         if (paren_depth <= 0) exit
                         cycle
                     end if
-                else if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
-                         "then") then
-                    exit  ! Don't consume 'then', let caller handle it
                 end if
+
+                ! Consume any other token (operators, identifiers, etc. within condition)
                 paren_token = parser%consume()
             end do
         else
@@ -635,10 +692,25 @@ contains
             ! Advance parser past the condition tokens until 'then'
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
+
+                ! Check for 'then' keyword
                 if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
                     "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
+
+                ! Check for newline (preserve for continuation handling)
+                if (paren_token%kind == TK_NEWLINE) then
+                    exit  ! Don't consume newline, let caller handle continuation logic
+                end if
+
+                ! Skip whitespace and comments
+                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == TK_COMMENT) then
+                    paren_token = parser%consume()
+                    cycle
+                end if
+
+                ! Consume any other token
                 paren_token = parser%consume()
             end do
         end if
