@@ -354,7 +354,7 @@ contains
                 parsed_implied_do = .false.
                 if (current%kind == TK_OPERATOR .and. trim(current%text) == "(") then
                     saved_pos = parser%current_token
-                    call try_parse_data_implied_do(values, parsed_implied_do)
+                    call try_parse_data_value_implied_do(values, parsed_implied_do)
                     if (.not. parsed_implied_do) then
                         ! Not an implied-do, restore position and parse as expression
                         parser%current_token = saved_pos
@@ -399,7 +399,7 @@ contains
             success = .true.
         end subroutine parse_value_list
 
-        subroutine try_parse_data_implied_do(values, success)
+        subroutine try_parse_data_value_implied_do(values, success)
             integer, allocatable, intent(inout) :: values(:)
             logical, intent(out) :: success
             type(token_t) :: current
@@ -477,7 +477,7 @@ contains
             call append_index(values, do_loop_index)
 
             success = .true.
-        end subroutine try_parse_data_implied_do
+        end subroutine try_parse_data_value_implied_do
 
         subroutine create_data_node(objects, values, assignments, success)
             integer, allocatable, intent(in) :: objects(:)
