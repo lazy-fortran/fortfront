@@ -278,12 +278,36 @@ contains
                 end block
                 stmt_index = 0
             case ("contains")
+                ! Check if this is an assignment (e.g., "contains = value")
+                ! If so, it's an identifier, not the structural keyword
                 block
-                    type(token_t) :: ignored_token
-                    ignored_token = parser_ref%consume()
+                    type(token_t) :: next_token
+                    logical :: is_assignment
+
+                    is_assignment = .false.
+                    if (parser_ref%current_token + 1 <= size(parser_ref%tokens)) then
+                        next_token = parser_ref%tokens(parser_ref%current_token + 1)
+                        if (next_token%kind == TK_OPERATOR .and. &
+                            (next_token%text == "=" .or. next_token%text == "=>")) then
+                            is_assignment = .true.
+                        end if
+                    end if
+
+                    if (.not. is_assignment) then
+                        ! This is the structural "contains" keyword
+                        block
+                            type(token_t) :: ignored_token
+                            ignored_token = parser_ref%consume()
+                        end block
+                        call flush_pending_prefixes()
+                        stmt_index = 0
+                    else
+                        ! This is "contains" used as an identifier in assignment
+                        ! Don't consume it - let it be handled as an identifier
+                        stmt_index = handle_identifier_token(parser_ref, arena_ref, &
+                                                            parser_ref%peek())
+                    end if
                 end block
-                call flush_pending_prefixes()
-                stmt_index = 0
             case ("function")
                 stmt_index = parse_function_with_prefixes(parser_ref, arena_ref)
             case ("subroutine")
