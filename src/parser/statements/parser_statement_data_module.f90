@@ -2,12 +2,13 @@ module parser_statement_data_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
-    use parser_expressions_module, only: parse_expression_until
+    use parser_expressions_module, only: parse_expression_until, parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: array_literal_node, binary_op_node, literal_node, &
                               identifier_node
     use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
-                           push_namelist_statement, push_data_statement
+                           push_namelist_statement, push_data_statement, &
+                           push_io_implied_do
     use type_system_unified, only: create_mono_type, TARRAY
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
@@ -121,6 +122,114 @@ contains
             end if
         end subroutine store_pending_assignments
 
+        ! Parse DATA implied-do: (object-list, var = start, end [, step])
+        function try_parse_data_implied_do() result(expr_index)
+            integer :: expr_index
+            type(token_t) :: token
+            integer :: saved_pos
+            integer :: value_expr_index
+            integer :: start_index, end_index, step_index
+            character(len=:), allocatable :: var_name
+            integer :: line, column
+
+            expr_index = 0
+            saved_pos = parser%current_token
+
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= "(") return
+            line = token%line
+            column = token%column
+            token = parser%consume()  ! consume '('
+
+            ! Parse the object expression (could be a variable reference)
+            value_expr_index = parse_comparison(parser, arena)
+            if (value_expr_index <= 0) then
+                parser%current_token = saved_pos
+                return
+            end if
+
+            ! Check for comma (required for implied-do)
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+                parser%current_token = saved_pos
+                return
+            end if
+            token = parser%consume()
+
+            ! Check for loop variable (must be identifier)
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER) then
+                parser%current_token = saved_pos
+                return
+            end if
+            var_name = token%text
+            token = parser%consume()
+
+            ! Check for '=' (required)
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
+                parser%current_token = saved_pos
+                return
+            end if
+            token = parser%consume()
+
+            ! Parse start expression
+            start_index = parse_comparison(parser, arena)
+            if (start_index <= 0) then
+                parser%current_token = saved_pos
+                return
+            end if
+
+            ! Check for comma (required)
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
+                parser%current_token = saved_pos
+                return
+            end if
+            token = parser%consume()
+
+            ! Parse end expression
+            end_index = parse_comparison(parser, arena)
+            if (end_index <= 0) then
+                parser%current_token = saved_pos
+                return
+            end if
+
+            ! Check for optional step expression
+            step_index = 0
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+                step_index = parse_comparison(parser, arena)
+                if (step_index <= 0) then
+                    parser%current_token = saved_pos
+                    return
+                end if
+            end if
+
+            ! Check for closing parenthesis (required)
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
+                parser%current_token = saved_pos
+                return
+            end if
+            token = parser%consume()
+
+            ! Create the implied-do node
+            if (step_index > 0) then
+                expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+                                                start_expr_index=start_index, &
+                                                end_expr_index=end_index, &
+                                                step_expr_index=step_index, line=line, &
+                                                column=column)
+            else
+                expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
+                                                start_expr_index=start_index, &
+                                                end_expr_index=end_index, line=line, &
+                                                column=column)
+            end if
+        end function try_parse_data_implied_do
+
         subroutine parse_object_list(objects, success)
             integer, allocatable, intent(out) :: objects(:)
             logical, intent(out) :: success
@@ -148,6 +257,36 @@ contains
                     exit
                 end if
 
+                ! Try parsing as implied-do first if we see '('
+                current = parser%peek()
+                if (current%kind == TK_OPERATOR .and. trim(current%text) == "(") then
+                    object_index = try_parse_data_implied_do()
+                    if (object_index > 0) then
+                        call append_index(objects, object_index)
+                        expect_object = .false.
+                        call skip_trivia(parser)
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR) then
+                            select case (trim(current%text))
+                            case (",")
+                                current = parser%consume()
+                                call skip_trivia(parser)
+                                expect_object = .true.
+                                cycle
+                            case ("/")
+                                exit
+                            case default
+                                call parser%error("Unexpected token in DATA object list")
+                                return
+                            end select
+                        else
+                            call parser%error("Unexpected token in DATA object list")
+                            return
+                        end if
+                    end if
+                end if
+
+                ! Fall back to regular expression parsing
                 object_index = parse_expression_until(parser, arena, [",", "/"])
                 if (object_index <= 0) return
                 call append_index(objects, object_index)
