@@ -329,7 +329,11 @@ contains
         character(len=:), allocatable :: name_text
         logical :: first_name
 
-        if (node%is_module_procedure) then
+        ! If flag explicitly says not a module procedure, emit "procedure"
+        ! Otherwise check context: in module/operator/assignment interfaces use "module procedure"
+        if (.not. node%is_module_procedure) then
+            code = "procedure"
+        else if (in_module_context .or. in_operator_or_assignment_interface) then
             code = "module procedure"
         else
             code = "procedure"
