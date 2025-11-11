@@ -1,6 +1,7 @@
 module parser_expressions_module
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, to_lower
+                          TK_OPERATOR, TK_KEYWORD, TK_WHITESPACE, TK_NEWLINE, &
+                          TK_COMMENT, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: component_access_node, identifier_node, &
                               range_subscript_node
@@ -199,6 +200,18 @@ contains
                 expr_index = push_identifier(arena, token%text, token%line, &
                                              token%column)
             end if
+
+        case (TK_WHITESPACE, TK_COMMENT)
+            ! Skip whitespace and comments in expressions
+            ! (should already be filtered by normalization, but defensive)
+            token = view_consume_token(view, parser)
+            expr_index = parse_operand_base(parser, arena, view)
+
+        case (TK_NEWLINE)
+            ! Newlines that reach the parser (after continuation normalization)
+            ! are semantically significant - they end statements
+            ! Return 0 to indicate no operand found
+            expr_index = 0
 
         case default
             call parser%error("Unexpected token '"//trim(token%text)//"' in expression")
