@@ -430,7 +430,8 @@ contains
         count = 0
 
         do i = 1, size(tokens)
-            if (should_skip_token(tokens(i), suppress_newline, skip_leading_ampersand)) then
+            if (should_skip_token(tokens, i, tokens(i), suppress_newline, &
+                                  skip_leading_ampersand)) then
                 cycle
             end if
             call append_token(normalized, count, tokens(i))
@@ -439,7 +440,10 @@ contains
         call finalize_normalized_tokens(tokens, normalized, count)
     end subroutine normalize_line_continuations
 
-    logical function should_skip_token(token, suppress_newline, skip_leading_ampersand)
+    logical function should_skip_token(tokens, token_index, token, suppress_newline, &
+                                       skip_leading_ampersand)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: token_index
         type(token_t), intent(in) :: token
         logical, intent(inout) :: suppress_newline
         logical, intent(inout) :: skip_leading_ampersand
@@ -465,16 +469,46 @@ contains
             suppress_newline = .true.
             should_skip_token = .true.
         case (TK_NEWLINE)
+            if (.not. suppress_newline) then
+                if (line_starts_with_continuation(tokens, token_index)) then
+                    suppress_newline = .true.
+                    skip_leading_ampersand = .true.
+                else
+                    skip_leading_ampersand = .false.
+                end if
+            end if
             if (suppress_newline) then
                 suppress_newline = .false.
                 should_skip_token = .true.
-            else
-                skip_leading_ampersand = .false.
             end if
         case default
             skip_leading_ampersand = .false.
         end select
     end function should_skip_token
+
+    pure logical function line_starts_with_continuation(tokens, token_index) &
+        result(has_continuation)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: token_index
+        integer :: j
+
+        has_continuation = .false.
+        if (token_index >= size(tokens)) return
+        do j = token_index + 1, size(tokens)
+            select case (tokens(j)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                cycle
+            case (TK_OPERATOR)
+                if (.not. allocated(tokens(j)%text)) return
+                has_continuation = is_line_continuation_token(tokens(j)%text)
+                return
+            case (TK_NEWLINE)
+                return
+            case default
+                return
+            end select
+        end do
+    end function line_starts_with_continuation
 
     subroutine append_token(buffer, count, token)
         type(token_t), allocatable, intent(inout) :: buffer(:)
