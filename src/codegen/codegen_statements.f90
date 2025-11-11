@@ -646,10 +646,11 @@ contains
     end function generate_code_namelist_statement
 
     function generate_code_data_statement(arena, node) result(code)
+        use ast_nodes_loops, only: do_loop_node
         type(ast_arena_t), intent(in) :: arena
         type(data_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: objects_str, values_str
+        character(len=:), allocatable :: objects_str, values_str, value_code
         integer :: i
 
         code = "data "
@@ -667,8 +668,9 @@ contains
         if (allocated(node%value_indices)) then
             do i = 1, size(node%value_indices)
                 if (i > 1) values_str = values_str // ", "
-                values_str = values_str // &
-                    trim(generate_code_from_arena(arena, node%value_indices(i)))
+                ! Check if this value is a do_loop (implied-do)
+                value_code = generate_data_value_code(arena, node%value_indices(i))
+                values_str = values_str // trim(value_code)
             end do
         end if
 
@@ -676,6 +678,62 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_data_statement
+
+    function generate_data_value_code(arena, value_index) result(code)
+        use ast_nodes_loops, only: do_loop_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: value_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: expr_code, var_code, start_code, end_code
+        character(len=:), allocatable :: step_code
+
+        code = ""
+        if (value_index <= 0 .or. value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+
+        ! Check if this is a do_loop node (implied-do)
+        select type (node => arena%entries(value_index)%node)
+        type is (do_loop_node)
+            ! Generate implied-do syntax: (expr, var = start, end [, step])
+            code = "("
+
+            ! Generate the expression (body of the loop)
+            if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
+                expr_code = generate_code_from_arena(arena, node%body_indices(1))
+                code = code // trim(expr_code) // ", "
+            end if
+
+            ! Generate loop variable
+            if (allocated(node%var_name)) then
+                var_code = trim(node%var_name)
+                code = code // var_code // " = "
+            end if
+
+            ! Generate start value
+            if (node%start_expr_index > 0) then
+                start_code = generate_code_from_arena(arena, node%start_expr_index)
+                code = code // trim(start_code) // ", "
+            end if
+
+            ! Generate end value
+            if (node%end_expr_index > 0) then
+                end_code = generate_code_from_arena(arena, node%end_expr_index)
+                code = code // trim(end_code)
+            end if
+
+            ! Generate optional step value
+            if (node%step_expr_index > 0) then
+                step_code = generate_code_from_arena(arena, node%step_expr_index)
+                code = code // ", " // trim(step_code)
+            end if
+
+            code = code // ")"
+
+        class default
+            ! Not an implied-do, generate normally
+            code = generate_code_from_arena(arena, value_index)
+        end select
+    end function generate_data_value_code
 
     ! Generate code for implicit statements
     function generate_code_implicit_statement(node) result(code)

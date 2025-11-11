@@ -8,7 +8,7 @@ module parser_statement_data_module
                               identifier_node
     use ast_factory, only: push_assignment, push_identifier, push_array_literal, &
                            push_namelist_statement, push_data_statement, &
-                           push_io_implied_do
+                           push_io_implied_do, push_do_loop
     use type_system_unified, only: create_mono_type, TARRAY
     use parser_namelist_shared_module, only: consume_namelist_group
     use ast_base, only: LITERAL_INTEGER
@@ -327,6 +327,8 @@ contains
             type(token_t) :: current
             integer :: value_index
             logical :: expect_value
+            integer :: saved_pos
+            logical :: parsed_implied_do
 
             allocate (values(0))
             success = .false.
@@ -348,10 +350,25 @@ contains
                     exit
                 end if
 
-                value_index = parse_expression_until(parser, arena, [",", "/"])
-                if (value_index <= 0) return
-                call expand_repeat_count(arena, value_index, values)
+                ! Try to parse as implied-do loop if we see a '('
+                parsed_implied_do = .false.
+                if (current%kind == TK_OPERATOR .and. trim(current%text) == "(") then
+                    saved_pos = parser%current_token
+                    call try_parse_data_implied_do(values, parsed_implied_do)
+                    if (.not. parsed_implied_do) then
+                        ! Not an implied-do, restore position and parse as expression
+                        parser%current_token = saved_pos
+                    end if
+                end if
 
+                ! If not parsed as implied-do, parse as regular expression
+                if (.not. parsed_implied_do) then
+                    value_index = parse_expression_until(parser, arena, [",", "/"])
+                    if (value_index <= 0) return
+                    call expand_repeat_count(arena, value_index, values)
+                end if
+
+                expect_value = .false.
                 call skip_trivia(parser)
                 current = parser%peek()
                 if (current%kind == TK_OPERATOR) then
@@ -381,6 +398,86 @@ contains
 
             success = .true.
         end subroutine parse_value_list
+
+        subroutine try_parse_data_implied_do(values, success)
+            integer, allocatable, intent(inout) :: values(:)
+            logical, intent(out) :: success
+            type(token_t) :: current
+            integer :: expr_index
+            character(len=:), allocatable :: var_name
+            integer :: start_index, end_index, step_index
+            integer :: do_loop_index
+            integer, allocatable :: expanded_values(:)
+            integer :: i
+
+            success = .false.
+
+            ! Consume opening '('
+            current = parser%peek()
+            if (current%kind /= TK_OPERATOR .or. trim(current%text) /= "(") return
+            current = parser%consume()
+
+            ! Parse the expression (the value to repeat)
+            expr_index = parse_comparison(parser, arena)
+            if (expr_index <= 0) return
+
+            ! Expect comma
+            current = parser%peek()
+            if (current%kind /= TK_OPERATOR .or. trim(current%text) /= ",") return
+            current = parser%consume()
+
+            ! Parse loop variable name
+            current = parser%peek()
+            if (current%kind /= TK_IDENTIFIER) return
+            var_name = trim(current%text)
+            current = parser%consume()
+
+            ! Expect '='
+            current = parser%peek()
+            if (current%kind /= TK_OPERATOR .or. trim(current%text) /= "=") return
+            current = parser%consume()
+
+            ! Parse start value
+            start_index = parse_comparison(parser, arena)
+            if (start_index <= 0) return
+
+            ! Expect comma
+            current = parser%peek()
+            if (current%kind /= TK_OPERATOR .or. trim(current%text) /= ",") return
+            current = parser%consume()
+
+            ! Parse end value
+            end_index = parse_comparison(parser, arena)
+            if (end_index <= 0) return
+
+            ! Optional: parse step value
+            step_index = 0
+            current = parser%peek()
+            if (current%kind == TK_OPERATOR .and. trim(current%text) == ",") then
+                current = parser%consume()
+                step_index = parse_comparison(parser, arena)
+                if (step_index <= 0) return
+                current = parser%peek()
+            end if
+
+            ! Expect closing ')'
+            if (current%kind /= TK_OPERATOR .or. trim(current%text) /= ")") return
+            current = parser%consume()
+
+            ! Create a do_loop node to represent the implied-do
+            allocate (expanded_values(1))
+            expanded_values(1) = expr_index
+            do_loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                         step_index=step_index, &
+                                         body_indices=expanded_values, &
+                                         line=0, column=0)
+            if (do_loop_index <= 0) return
+
+            ! Add the do_loop node to the values list
+            call append_index(values, do_loop_index)
+
+            success = .true.
+        end subroutine try_parse_data_implied_do
 
         subroutine create_data_node(objects, values, assignments, success)
             integer, allocatable, intent(in) :: objects(:)
