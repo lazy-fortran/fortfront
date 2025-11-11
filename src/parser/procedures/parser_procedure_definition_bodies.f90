@@ -74,11 +74,31 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
-                token = parser%consume()
-                call parse_contains_section(parser, arena, procedure_name, &
-                                            end_keyword, body_indices, &
-                                            parse_function_proc, parse_subroutine_proc)
-                exit
+                ! Look ahead to see if this is an assignment (e.g., "contains = value")
+                ! If so, it's an identifier, not the structural keyword
+                block
+                    type(token_t) :: next_token
+                    logical :: is_assignment
+
+                    is_assignment = .false.
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        next_token = parser%tokens(parser%current_token + 1)
+                        if (next_token%kind == TK_OPERATOR .and. &
+                            (next_token%text == "=" .or. next_token%text == "=>")) then
+                            is_assignment = .true.
+                        end if
+                    end if
+
+                    if (.not. is_assignment) then
+                        ! This is the structural "contains" keyword
+                        token = parser%consume()
+                        call parse_contains_section(parser, arena, procedure_name, &
+                                                    end_keyword, body_indices, &
+                                                    parse_function_proc, parse_subroutine_proc)
+                        exit
+                    end if
+                    ! If is_assignment is true, fall through to parse as statement
+                end block
             end if
 
             ! Lazy fortran: detect nested internal procedures (not supported)

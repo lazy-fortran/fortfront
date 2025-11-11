@@ -82,12 +82,86 @@ contains
                 end if
             end if
 
-            ! Check for contains keyword
+            ! Check for contains keyword (but not if it's a variable assignment)
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
-                has_contains = .true.
-                in_contains_section = .true.
-                token = parser%consume()  ! consume "contains"
-                cycle  ! Continue to next iteration
+                ! Look ahead to see if this is an assignment (e.g., "contains = value")
+                ! If so, it's an identifier, not the structural keyword
+                block
+                    type(token_t) :: next_token
+                    logical :: is_assignment
+
+                    is_assignment = .false.
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        next_token = parser%tokens(parser%current_token + 1)
+                        if (next_token%kind == TK_OPERATOR .and. &
+                            (next_token%text == "=" .or. next_token%text == "=>")) then
+                            is_assignment = .true.
+                        end if
+                    end if
+
+                    if (.not. is_assignment) then
+                        ! This is the structural "contains" keyword
+                        has_contains = .true.
+                        in_contains_section = .true.
+                        token = parser%consume()  ! consume "contains"
+                        cycle  ! Continue to next iteration
+                    else
+                        ! Handle "contains" as an identifier in assignment
+                        ! (e.g., "contains = 2.0")
+                        if (.not. in_contains_section) then
+                            block
+                                type(token_t) :: id_token, eq_token, rhs_token
+                                integer :: target_index, rhs_index, assign_index
+                                character(len=:), allocatable :: assignment_op
+
+                                id_token = parser%consume()  ! Get "contains"
+
+                                eq_token = parser%consume()  ! Consume '=' or '=>'
+                                assignment_op = eq_token%text
+
+                                ! Get RHS token
+                                rhs_token = parser%peek()
+                                if (rhs_token%kind == TK_NUMBER .or. &
+                                    rhs_token%kind == TK_IDENTIFIER) then
+                                    rhs_token = parser%consume()
+
+                                    ! Create target identifier for "contains"
+                                    target_index = push_identifier(arena, id_token%text, &
+                                                                   id_token%line, &
+                                                                   id_token%column)
+
+                                    ! Create RHS node
+                                    if (rhs_token%kind == TK_IDENTIFIER) then
+                                        rhs_index = push_identifier(arena, &
+                                                                    rhs_token%text, &
+                                                                    rhs_token%line, &
+                                                                    rhs_token%column)
+                                    else
+                                        rhs_index = push_literal(arena, &
+                                                                 rhs_token%text, &
+                                                                 rhs_token%line, &
+                                                                 rhs_token%column, &
+                                                                 LITERAL_STRING)
+                                    end if
+
+                                    if (rhs_index > 0 .and. target_index > 0) then
+                                        assign_index = push_assignment( &
+                                                       arena, target_index, &
+                                                       rhs_index, &
+                                                       id_token%line, &
+                                                       id_token%column, &
+                                                       operator_text=assignment_op)
+                                        if (assign_index > 0) then
+                                            declaration_indices = &
+                                                [declaration_indices, assign_index]
+                                        end if
+                                    end if
+                                end if
+                            end block
+                            cycle  ! Continue to next iteration
+                        end if
+                    end if
+                end block
             end if
 
             ! Parse declarations in module body (before contains)
