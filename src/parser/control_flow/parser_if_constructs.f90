@@ -273,6 +273,7 @@ contains
         integer, allocatable :: then_body_indices(:), else_body_indices(:)
         integer, allocatable :: elseif_indices(:)
         integer :: elseif_count
+        logical :: inline_has_continuation
 
         ! Consume 'if' keyword
         if_token = parser%consume()
@@ -464,14 +465,13 @@ contains
             end if
 
             ! Check if this looks like a malformed multi-line if construct
+            inline_has_continuation = .false.
             block
                 logical :: looks_like_block_if
-                logical :: has_continuation
                 type(token_t) :: check_tok
                 integer :: check_idx
 
                 looks_like_block_if = .false.
-                has_continuation = .false.
 
                 ! Scan ahead to see if there's a newline before any statement
                 ! or if there's an "end if" later
@@ -481,7 +481,7 @@ contains
 
                     ! Check for line continuation character
                     if (check_tok%kind == TK_OPERATOR .and. check_tok%text == "&") then
-                        has_continuation = .true.
+                        inline_has_continuation = .true.
                         check_idx = check_idx + 1
                         cycle
                     end if
@@ -512,6 +512,10 @@ contains
                                 end if
                                 exit
                             end do
+
+                            if (found_code_after_newline) then
+                                inline_has_continuation = .true.
+                            end if
 
                             ! If there's code immediately after newline, it's likely a continued inline IF
                             ! Otherwise, it looks like a block IF
@@ -557,33 +561,35 @@ contains
 
             ! Parse the single statement
             block
-                type(token_t), allocatable, target :: remaining_tokens(:)
+                integer :: stmt_start, stmt_end
+                integer, allocatable :: stmt_indices(:)
+                type(token_t), allocatable :: stmt_tokens(:)
                 type(token_t) :: tok
-                integer :: i, n
+                type(statement_callbacks_t) :: callbacks
 
-                ! Count remaining tokens
-                n = 0
-                do i = parser%current_token, size(parser%tokens)
-                    n = n + 1
-                end do
-
-                ! Extract remaining tokens
-                allocate (remaining_tokens(n))
-                remaining_tokens = parser%tokens(parser%current_token:)
-
-                ! Parse single statement using shared core
-                block
-                    integer, allocatable :: stmt_indices(:)
-                    type(statement_callbacks_t) :: callbacks
+                call skip_inline_if_leading_tokens(parser, inline_has_continuation)
+                stmt_start = parser%current_token
+                if (stmt_start <= size(parser%tokens)) then
+                    stmt_end = find_statement_end(parser%tokens, stmt_start)
+                    if (stmt_end < stmt_start) stmt_end = stmt_start
+                    call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
+                                                       stmt_start, stmt_end)
 
                     callbacks = build_if_body_callbacks()
-                    stmt_indices = &
-                        parse_basic_statement_core(remaining_tokens, arena, &
-                                                   callbacks=callbacks)
-                    if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
-                        then_body_indices(1) = stmt_indices(1)
+                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                                                              callbacks=callbacks)
+                    if (allocated(stmt_indices)) then
+                        if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
+                            then_body_indices(1) = stmt_indices(1)
+                        end if
                     end if
-                end block
+
+                    if (stmt_end < size(parser%tokens)) then
+                        parser%current_token = stmt_end + 1
+                    else
+                        parser%current_token = size(parser%tokens)
+                    end if
+                end if
 
                 ! Advance parser to end of statement to prevent re-parsing
                 do while (.not. parser%is_at_end())
@@ -892,5 +898,33 @@ contains
         end block
 
     end function parse_elseif_block
+
+    subroutine skip_inline_if_leading_tokens(parser, allow_newlines)
+        type(parser_state_t), intent(inout) :: parser
+        logical, intent(in) :: allow_newlines
+        type(token_t) :: tok
+
+        do while (.not. parser%is_at_end())
+            tok = parser%peek()
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                tok = parser%consume()
+            case (TK_NEWLINE)
+                if (allow_newlines) then
+                    tok = parser%consume()
+                else
+                    return
+                end if
+            case (TK_OPERATOR)
+                if (tok%text == "&") then
+                    tok = parser%consume()
+                else
+                    return
+                end if
+            case default
+                return
+            end select
+        end do
+    end subroutine skip_inline_if_leading_tokens
 
 end module parser_if_constructs_module
