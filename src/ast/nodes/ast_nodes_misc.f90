@@ -193,6 +193,7 @@ module ast_nodes_misc
 
     type, extends(ast_node), public :: module_procedure_node
         type(string_t), allocatable :: procedure_names(:)
+        logical :: is_module_procedure = .true.  ! True for "module procedure", false for "procedure"
     contains
         procedure :: accept => module_procedure_accept
         procedure :: to_json => module_procedure_to_json
@@ -512,14 +513,17 @@ contains
         if (present(column)) node%column = column
     end function create_interface_block
 
-    function create_module_procedure(procedure_names, line, column) result(node)
+    function create_module_procedure(procedure_names, line, column, is_module_procedure) result(node)
         use uid_generator, only: generate_uid
         type(string_t), intent(in), optional :: procedure_names(:)
         integer, intent(in), optional :: line, column
+        logical, intent(in), optional :: is_module_procedure
         type(module_procedure_node) :: node
         integer :: i
 
         node%uid = generate_uid()
+        node%is_module_procedure = .true.
+        if (present(is_module_procedure)) node%is_module_procedure = is_module_procedure
         if (present(procedure_names)) then
             if (size(procedure_names) > 0) then
                 allocate (node%procedure_names(size(procedure_names)))
@@ -1181,6 +1185,7 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
+        lhs%is_module_procedure = rhs%is_module_procedure
 
         if (allocated(rhs%procedure_names)) then
             n = size(rhs%procedure_names)

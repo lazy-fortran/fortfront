@@ -220,6 +220,13 @@ contains
                 end if
                 handled = .true.
                 return
+            else if (trim(lowered_text) == "procedure") then
+                stmt_index = parse_procedure_statement(parser, arena)
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
+                handled = .true.
+                return
             else if (trim(lowered_text) == "import") then
                 stmt_index = parse_import_statement(parser, arena)
                 if (stmt_index > 0) then
@@ -280,6 +287,27 @@ contains
         end if
     end function parse_module_procedure_statement
 
+    function parse_procedure_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+
+        type(string_t), allocatable :: procedure_names(:)
+        integer :: line, column
+
+        stmt_index = 0
+        allocate (procedure_names(0))
+
+        if (.not. consume_procedure_header(parser, line, column)) return
+
+        call collect_module_procedure_names(parser, procedure_names)
+
+        if (size(procedure_names) > 0) then
+            stmt_index = push_module_procedure(arena, procedure_names, line, column, &
+                                              is_module_procedure=.false.)
+        end if
+    end function parse_procedure_statement
+
     logical function consume_module_procedure_header(parser, line, column) &
         result(is_valid)
         type(parser_state_t), intent(inout) :: parser
@@ -313,6 +341,25 @@ contains
 
         is_valid = .true.
     end function consume_module_procedure_header
+
+    logical function consume_procedure_header(parser, line, column) &
+        result(is_valid)
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(out) :: line, column
+
+        type(token_t) :: token
+
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
+        end if
+
+        is_valid = .true.
+    end function consume_procedure_header
 
     subroutine collect_module_procedure_names(parser, procedure_names)
         type(parser_state_t), intent(inout) :: parser

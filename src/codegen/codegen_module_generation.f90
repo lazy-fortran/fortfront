@@ -329,7 +329,7 @@ contains
         character(len=:), allocatable :: name_text
         logical :: first_name
 
-        if (in_module_context .or. in_operator_or_assignment_interface) then
+        if (node%is_module_procedure) then
             code = "module procedure"
         else
             code = "procedure"
