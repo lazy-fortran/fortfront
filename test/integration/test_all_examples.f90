@@ -308,6 +308,7 @@ contains
         logical :: is_f90_roundtrip
         logical :: analysis_only, expect_diagnostic
         character(len=:), allocatable :: module_dir
+        character(len=:), allocatable :: module_cache_dir
 
         basename_str = extract_example_basename(filepath)
         sep = path_separator_for(temp_dir)
@@ -350,9 +351,15 @@ contains
 
         if (.not. has_error .and. .not. has_unparsed .and. &
             .not. analysis_only) then
-            if (.not. compile_generated_output(output_file, module_dir, &
-                                               temp_dir, is_windows)) then
+            call create_temp_directory(module_cache_dir, is_windows)
+            if (len_trim(module_cache_dir) == 0) then
                 has_error = .true.
+            else
+                if (.not. compile_generated_output(output_file, module_dir, &
+                                                   module_cache_dir, &
+                                                   is_windows)) then
+                    has_error = .true.
+                end if
             end if
         end if
 
@@ -365,6 +372,10 @@ contains
                                      expect_fail, expect_diagnostic, analysis_only, &
                                      pass_count, fail_count, xfail_count, &
                                      xpass_count, is_f90_roundtrip)
+
+        if (allocated(module_cache_dir)) then
+            call cleanup_temp_directory(module_cache_dir, is_windows)
+        end if
 
         if (.not. is_f90_roundtrip) then
             call cleanup_file(output_file)
@@ -479,15 +490,16 @@ contains
         close (unit_num)
     end subroutine scan_output_file
 
-    logical function compile_generated_output(output_file, module_dir, temp_dir, &
-                                              is_windows)
+    logical function compile_generated_output(output_file, module_dir, &
+                                              module_cache_dir, is_windows)
         character(len=*), intent(in) :: output_file
-        character(len=*), intent(in) :: module_dir, temp_dir
+        character(len=*), intent(in) :: module_dir, module_cache_dir
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: command
         integer :: exit_code
 
-        command = build_compile_command(output_file, module_dir, temp_dir, is_windows)
+        command = build_compile_command(output_file, module_dir, module_cache_dir, &
+                                        is_windows)
         if (len_trim(command) == 0) then
             compile_generated_output = .false.
             return
