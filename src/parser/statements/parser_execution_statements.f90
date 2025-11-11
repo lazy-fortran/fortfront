@@ -51,6 +51,7 @@ module parser_execution_statements_module
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
+    use parser_keyword_disambiguation_module, only: looks_like_format_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
@@ -464,7 +465,12 @@ contains
                 case ("endfile")
                     stmt_index = parse_endfile_statement(parser_ref, arena_ref)
                 case ("format")
-                    stmt_index = parse_format_statement(parser_ref, arena_ref)
+                    if (looks_like_format_statement(parser_ref)) then
+                        stmt_index = parse_format_statement(parser_ref, arena_ref)
+                    else
+                        stmt_index = handle_identifier_token(parser_ref, arena_ref, &
+                                                            parser_ref%peek())
+                    end if
                 case ("allocate")
                     stmt_index = parse_allocate_statement(parser_ref, arena_ref)
                 case ("deallocate")
