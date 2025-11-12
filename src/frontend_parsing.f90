@@ -10,6 +10,7 @@ module frontend_parsing
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node, block_data_node
+    use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use ast_factory, only: push_program
@@ -225,6 +226,9 @@ contains
                         prog_index = push_program(arena, "main", &
                                                   unit_indices(1:1), 1, 1)
                     end if
+                type is (interface_block_node)
+                    prog_index = push_program(arena, "__MULTI_UNIT__", &
+                                              unit_indices(1:1), 1, 1)
                 class default
                     prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
                 end select
@@ -460,17 +464,31 @@ contains
         type(token_t), intent(in) :: tokens(:)
         logical :: has_explicit_program_unit
         integer :: i
+        integer :: next_idx
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: next_lower
 
         has_explicit_program_unit = .false.
         do i = 1, size(tokens)
-            if (tokens(i)%kind == TK_KEYWORD) then
-                if (tokens(i)%text == "program" .or. tokens(i)%text == "module" .or. &
-                    tokens(i)%text == "function" .or. tokens(i)%text == &
-                    "subroutine") then
-                    has_explicit_program_unit = .true.
-                    exit
+            if (tokens(i)%kind /= TK_KEYWORD) cycle
+
+            lowered = to_lower(trim(tokens(i)%text))
+            select case (lowered)
+            case ("program", "module", "function", "subroutine", "interface")
+                has_explicit_program_unit = .true.
+                exit
+            case ("abstract")
+                next_idx = find_next_nontrivial_index(tokens, i)
+                if (next_idx > 0 .and. next_idx <= size(tokens)) then
+                    if (tokens(next_idx)%kind == TK_KEYWORD) then
+                        next_lower = to_lower(trim(tokens(next_idx)%text))
+                        if (next_lower == "interface") then
+                            has_explicit_program_unit = .true.
+                            exit
+                        end if
+                    end if
                 end if
-            end if
+            end select
         end do
     end function detect_explicit_program_unit
 
@@ -531,8 +549,24 @@ contains
         if (tokens(keyword_idx)%kind /= TK_KEYWORD) return
 
         select case (to_lower(trim(tokens(keyword_idx)%text)))
-        case ("program", "module", "function", "subroutine", "type")
+        case ("program", "module", "function", "subroutine", "type", "interface")
             is_start = .true.
+        case ("abstract")
+            lookahead = keyword_idx + 1
+            do while (lookahead <= size(tokens))
+                select case (tokens(lookahead)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    lookahead = lookahead + 1
+                    cycle
+                case (TK_KEYWORD)
+                    if (to_lower(trim(tokens(lookahead)%text)) == "interface") then
+                        is_start = .true.
+                    end if
+                    exit
+                case default
+                    exit
+                end select
+            end do
         case ("block")
             lookahead = keyword_idx + 1
             do while (lookahead <= size(tokens))
@@ -687,6 +721,7 @@ contains
         character(len=:), allocatable :: next_keyword
         logical :: in_module_contains
         logical :: preceded_by_end
+        logical :: is_interface_unit
 
         unit_start = start_pos
         unit_end = start_pos
@@ -694,6 +729,8 @@ contains
         in_module_contains = .false.
         unit_type = ""
         block_keyword_pos = start_pos
+
+        is_interface_unit = .false.
 
         ! Determine the unit type from the first keyword
         if (start_pos <= size(tokens)) then
@@ -709,38 +746,98 @@ contains
                         next_pos = next_pos + 1
                         cycle
                     case (TK_KEYWORD)
-                        if (to_lower(trim(tokens(next_pos)%text)) == "block") then
-                            unit_type = "block"
-                            block_keyword_pos = next_pos
-                        end if
+                        unit_type = to_lower(trim(tokens(next_pos)%text))
+                        if (unit_type == "block") block_keyword_pos = next_pos
                         exit
                     case default
                         exit
                     end select
                 end do
             end select
-
-            if (unit_type == "block") then
-                next_pos = block_keyword_pos + 1
-                do while (next_pos <= size(tokens))
-                    select case (tokens(next_pos)%kind)
-                    case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                        next_pos = next_pos + 1
-                        cycle
-                    case (TK_KEYWORD, TK_IDENTIFIER)
-                        if (to_lower(trim(tokens(next_pos)%text)) == "data") then
-                            unit_type = "blockdata"
-                        end if
-                        exit
-                    case default
-                        exit
-                    end select
-                end do
-            end if
         end if
 
+        if (unit_type == "block") then
+            next_pos = block_keyword_pos + 1
+            do while (next_pos <= size(tokens))
+                select case (tokens(next_pos)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    next_pos = next_pos + 1
+                    cycle
+                case (TK_KEYWORD, TK_IDENTIFIER)
+                    if (to_lower(trim(tokens(next_pos)%text)) == "data") then
+                        unit_type = "blockdata"
+                    end if
+                    exit
+                case default
+                    exit
+                end select
+            end do
+        else if (unit_type == "abstract") then
+            next_pos = start_pos + 1
+            do while (next_pos <= size(tokens))
+                select case (tokens(next_pos)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    next_pos = next_pos + 1
+                    cycle
+                case (TK_KEYWORD)
+                    if (to_lower(trim(tokens(next_pos)%text)) == "interface") then
+                        unit_type = "interface"
+                        is_interface_unit = .true.
+                    end if
+                    exit
+                case default
+                    exit
+                end select
+            end do
+        else if (unit_type == "interface") then
+            is_interface_unit = .true.
+        end if
+
+        ! For interface blocks, find the matching END INTERFACE
+        if (is_interface_unit) then
+            nesting_level = 1
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    keyword_text = to_lower(trim(tokens(i)%text))
+                    select case (keyword_text)
+                    case ("interface")
+                        nesting_level = nesting_level + 1
+                    case ("end")
+                        next_pos = i + 1
+                        do while (next_pos <= size(tokens))
+                            select case (tokens(next_pos)%kind)
+                            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                                next_pos = next_pos + 1
+                                cycle
+                            case default
+                                exit
+                            end select
+                        end do
+                        if (next_pos <= size(tokens)) then
+                            if (tokens(next_pos)%kind == TK_KEYWORD) then
+                                next_keyword = to_lower(trim(tokens(next_pos)%text))
+                                if (next_keyword == "interface") then
+                                    nesting_level = nesting_level - 1
+                                    unit_end = next_pos
+                                    name_pos = next_pos + 1
+                                    if (name_pos <= size(tokens)) then
+                                        if (tokens(name_pos)%kind == TK_IDENTIFIER) then
+                                            unit_end = name_pos
+                                        end if
+                                    end if
+                                    if (nesting_level == 0) exit
+                                end if
+                            end if
+                        end if
+                    end select
+                end if
+                unit_end = i
+            end do
         ! For modules, we need to find the matching "end module"
-        if (unit_type == "module") then
+        else if (unit_type == "module") then
             nesting_level = 1
             do i = start_pos + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
