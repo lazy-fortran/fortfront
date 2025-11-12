@@ -90,13 +90,28 @@ contains
         integer, intent(out) :: stmt_index
 
         character(len=:), allocatable :: lowered_text
+        type(token_t) :: consumed_prefix
 
         handled = .false.
         stmt_index = 0
 
-        if (token%kind /= TK_KEYWORD) return
+        if (.not. (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) return
 
         lowered_text = to_lower(token%text)
+
+        if (is_procedure_prefix(lowered_text)) then
+            call append_interface_prefix(prefix_buffer, lowered_text)
+            consumed_prefix = parser%consume()
+            handled = .true.
+            return
+        else if (is_interface_return_type_keyword(lowered_text)) then
+            call collect_interface_return_type(parser, prefix_buffer, lowered_text)
+            handled = .true.
+            return
+        end if
+
+        if (token%kind /= TK_KEYWORD) return
+
         if (trim(lowered_text) /= "subroutine" .and. &
             trim(lowered_text) /= "function") return
 
@@ -211,7 +226,6 @@ contains
         integer :: stmt_index
         type(token_t) :: consumed_token
         character(len=:), allocatable :: lowered_text
-        character(len=16), allocatable :: prefix_array(:)
 
         handled = .false.
         if (token%kind == TK_KEYWORD) then
@@ -240,9 +254,21 @@ contains
             else if (is_procedure_prefix(lowered_text)) then
                 ! Collect procedure prefix keywords (pure, elemental, recursive, etc.)
                 ! These will be used when we encounter the actual function/subroutine
-                allocate (character(len=16) :: prefix_array(1))
-                prefix_array(1) = trim(lowered_text)
-                call prefix_buffer%append_all(prefix_array)
+                call append_interface_prefix(prefix_buffer, lowered_text)
+                consumed_token = parser%consume()
+                handled = .true.
+                return
+            else if (is_interface_return_type_keyword(lowered_text)) then
+                call collect_interface_return_type(parser, prefix_buffer, lowered_text)
+                handled = .true.
+                return
+            end if
+        end if
+
+        if (token%kind == TK_IDENTIFIER) then
+            lowered_text = to_lower(token%text)
+            if (is_procedure_prefix(lowered_text)) then
+                call append_interface_prefix(prefix_buffer, lowered_text)
                 consumed_token = parser%consume()
                 handled = .true.
                 return
@@ -319,6 +345,17 @@ contains
         prefix_array(1) = trim(type_with_kind)
         call prefix_buffer%append_all(prefix_array)
     end subroutine collect_interface_return_type
+
+    subroutine append_interface_prefix(prefix_buffer, keyword_text)
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: keyword_text
+
+        character(len=16), allocatable :: prefix_array(:)
+
+        allocate (character(len=16) :: prefix_array(1))
+        prefix_array(1) = trim(keyword_text)
+        call prefix_buffer%append_all(prefix_array)
+    end subroutine append_interface_prefix
 
     function parse_module_procedure_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
