@@ -28,7 +28,8 @@ module codegen_core
                               intrinsic_statement_node, import_statement_node, &
                               include_statement_node, &
                               visibility_statement_node, namelist_statement_node, &
-                              data_statement_node, contains_node, end_statement_node, &
+                              data_statement_node, contains_node, directive_node, &
+                              end_statement_node, &
                               interface_block_node, module_procedure_node
     use ast_error_nodes, only: error_node_t
     use ast_nodes_control
@@ -151,6 +152,8 @@ contains
             code = generate_code_implicit_statement(node)
         type is (comment_node)
             code = generate_code_comment(node)
+        type is (directive_node)
+            code = generate_code_directive(node)
         type is (blank_line_node)
             code = generate_code_blank_line(node)
         type is (allocate_statement_node)

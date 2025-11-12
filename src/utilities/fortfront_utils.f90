@@ -710,6 +710,8 @@ contains
             node_type = NODE_FORMAT_STATEMENT
         case ("comment_node", "comment")
             node_type = NODE_COMMENT
+        case ("directive_node", "directive")
+            node_type = NODE_DIRECTIVE
         case ("implicit_statement_node", "implicit_statement")
             node_type = NODE_IMPLICIT_STATEMENT
         end select
