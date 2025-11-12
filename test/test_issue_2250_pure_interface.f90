@@ -39,6 +39,12 @@ program test_issue_2250_pure_interface
         error stop 1
     end if
 
+    if (index(output_code, 'character(len=len(text)*2) :: double') == 0) then
+        write (error_unit, '(A)') &
+            'FAIL: function result declaration missing in output'
+        error stop 1
+    end if
+
     print *, 'PASS: Issue #2250 pure interface parsed successfully'
 
 contains

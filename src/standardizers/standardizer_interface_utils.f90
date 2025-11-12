@@ -17,15 +17,19 @@ contains
         if (func_index <= 0 .or. func_index > arena%size) return
 
         parent_index = arena%entries(func_index)%parent_index
-        if (parent_index > 0 .and. parent_index <= arena%size) then
-            if (allocated(arena%entries(parent_index)%node)) then
-                select type (parent => arena%entries(parent_index)%node)
-                type is (interface_block_node)
-                    in_iface = .true.
-                    return
-                end select
+        do while (parent_index > 0 .and. parent_index <= arena%size)
+            if (.not. allocated(arena%entries(parent_index)%node)) then
+                parent_index = arena%entries(parent_index)%parent_index
+                cycle
             end if
-        end if
+            select type (parent => arena%entries(parent_index)%node)
+            type is (interface_block_node)
+                in_iface = .true.
+                return
+            class default
+                parent_index = arena%entries(parent_index)%parent_index
+            end select
+        end do
 
         do iface_index = 1, arena%size
             if (.not. allocated(arena%entries(iface_index)%node)) cycle
