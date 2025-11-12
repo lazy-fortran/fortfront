@@ -7,6 +7,7 @@ program test_parser_keyword_disambiguation
 
     call test_legacy_implicit_statement_detection()
     call test_identifier_assignment_detection()
+    call test_stop_assignment_detection()
 
     print *, 'PASS: parser keyword disambiguation honors implicit statements'
 
@@ -26,7 +27,8 @@ contains
         as_identifier = keyword_should_parse_as_identifier(first_token, parser)
 
         if (as_identifier) then
-            write (error_unit, '(A)') 'FAIL: legacy IMPLICIT statement parsed as identifier'
+            write (error_unit, '(A)') &
+                'FAIL: legacy IMPLICIT statement parsed as identifier'
             error stop 1
         end if
     end subroutine test_legacy_implicit_statement_detection
@@ -45,9 +47,30 @@ contains
         as_identifier = keyword_should_parse_as_identifier(first_token, parser)
 
         if (.not. as_identifier) then
-            write (error_unit, '(A)') 'FAIL: identifier IMPLICIT assignment was not preserved'
+            write (error_unit, '(A)') &
+                'FAIL: identifier IMPLICIT assignment was not preserved'
             error stop 1
         end if
     end subroutine test_identifier_assignment_detection
+
+    subroutine test_stop_assignment_detection()
+        character(len=:), allocatable :: source
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(token_t) :: first_token
+        logical :: as_identifier
+
+        source = 'stop = 1' // new_line('a') // 'end'
+        call tokenize_core(source, tokens)
+        parser = create_parser_state(tokens)
+        first_token = parser%peek()
+        as_identifier = keyword_should_parse_as_identifier(first_token, parser)
+
+        if (.not. as_identifier) then
+            write (error_unit, '(A)') &
+                'FAIL: identifier STOP assignment was not preserved'
+            error stop 1
+        end if
+    end subroutine test_stop_assignment_detection
 
 end program test_parser_keyword_disambiguation

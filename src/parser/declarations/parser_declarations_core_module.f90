@@ -742,6 +742,10 @@ contains
             if (trim(next_lower) == "precision") return
         case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
+        case ("stop", "call", "cycle", "exit", "return", "continue", "goto", &
+              "go", "entry", "select", "contains", "else", "dimension", &
+              "common", "program", "module", "if")
+            ! Allow executable keywords in identifier positions
         case ("implicit")
             parser_copy = parser
             if (parser_copy%current_token > 1) then

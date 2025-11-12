@@ -27,6 +27,7 @@ module parser_statement_utilities_module
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
     use parser_import_resolution_module, only: parse_use_statement
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_goto, push_if, &
                            push_import_statement
@@ -48,6 +49,13 @@ contains
         integer :: stmt_index
         character(len=:), allocatable :: lowered_text
         type(token_t) :: next_token
+
+        if (token%kind == TK_KEYWORD) then
+            if (keyword_should_parse_as_identifier(token, parser)) then
+                stmt_index = parse_assignment_simple(parser, arena)
+                return
+            end if
+        end if
 
         ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
         lowered_text = trim(to_lower(token%text))
