@@ -26,6 +26,8 @@ contains
             as_identifier = .not. looks_like_format_statement(parser)
         case ("implicit")
             as_identifier = .not. looks_like_implicit_statement(parser)
+        case ("if")
+            as_identifier = should_parse_if_as_identifier(parser)
         case default
             if (keyword_supports_assignment_disambiguation(lowered)) then
                 as_identifier = statement_contains_assignment(parser)
@@ -47,6 +49,57 @@ contains
             is_supported = .false.
         end select
     end function keyword_supports_assignment_disambiguation
+
+    ! Decide if leading IF token is an identifier rather than a control keyword.
+    ! Returns true only when no opening parenthesis appears before assignment syntax.
+    logical function should_parse_if_as_identifier(parser) result(as_identifier)
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx, token_count
+        type(token_t) :: tok
+        logical :: continuation
+
+        as_identifier = .true.
+        if (.not. associated(parser%tokens)) return
+
+        token_count = size(parser%tokens)
+        if (token_count < parser%current_token) return
+
+        idx = parser%current_token + 1
+        continuation = .false.
+
+        do while (idx <= token_count)
+            tok = parser%tokens(idx)
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NEWLINE)
+                if (.not. continuation) return
+                continuation = .false.
+                idx = idx + 1
+                cycle
+            case (TK_OPERATOR)
+                select case (tok%text)
+                case ("&")
+                    continuation = .true.
+                    idx = idx + 1
+                    cycle
+                case ("(")
+                    as_identifier = .false.
+                    return
+                case ("=", "=>", ";")
+                    as_identifier = .true.
+                    return
+                case default
+                    as_identifier = .true.
+                    return
+                end select
+            case default
+                as_identifier = .true.
+                return
+            end select
+        end do
+    end function should_parse_if_as_identifier
 
     logical function statement_contains_assignment(parser) result(has_assignment)
         type(parser_state_t), intent(in) :: parser
