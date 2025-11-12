@@ -20,6 +20,7 @@ module standardizer_parameter
         logical, allocatable :: is_allocatable(:)
         logical, allocatable :: type_inferred(:)
         integer, allocatable :: rank(:)
+        logical, allocatable :: is_procedure(:)
     end type param_metadata_t
 
     public :: param_metadata_t
@@ -30,6 +31,7 @@ module standardizer_parameter
     public :: fill_parameter_declaration
     public :: infer_parameter_type
     public :: is_type_variable_str
+    public :: is_procedure_type
     public :: node_exists
     public :: reset_declaration_node
 
@@ -56,6 +58,22 @@ contains
             is_variable = trimmed(1:1) == "'"
         end if
     end function is_type_variable_str
+    pure logical function is_procedure_type(type_name) result(is_proc)
+        character(len=*), intent(in) :: type_name
+        character(len=:), allocatable :: lowered
+
+        if (len_trim(type_name) == 0) then
+            is_proc = .false.
+            return
+        end if
+
+        lowered = to_lower(trim(type_name))
+        if (len(lowered) < 9) then
+            is_proc = .false.
+        else
+            is_proc = lowered(1:9) == "procedure"
+        end if
+    end function is_procedure_type
 
     subroutine synchronize_parameter_declarations(arena, body_indices, metadata, &
                                                   default_intent, &
@@ -122,6 +140,7 @@ contains
         character(len=*), intent(inout) :: stmt_intent
         logical, intent(in) :: standardize_types
         integer :: param_idx
+        logical :: suppress_intent
 
         if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
             call sync_handle_multi_declaration(stmt, decl_index, metadata, &
@@ -135,10 +154,12 @@ contains
 
         call sync_process_single_declaration(stmt, decl_index, param_idx, &
                                              metadata, &
-                                             default_intent, stmt_intent)
+                                             default_intent, stmt_intent, &
+                                             suppress_intent)
         call sync_infer_type_if_variable(stmt, metadata%names(param_idx))
         call apply_type_standardization_to_stmt(stmt, standardize_types)
-        call sync_finalize_intent(stmt, stmt_intent, default_intent)
+        call sync_finalize_intent(stmt, stmt_intent, default_intent, &
+                                  suppress_intent)
     end subroutine sync_handle_declaration
 
     subroutine sync_handle_multi_declaration(stmt, decl_index, metadata, &
@@ -158,11 +179,14 @@ contains
         logical :: conflict_detected
         character(len=16) :: reference_intent
         character(len=16) :: current_intent
+        logical :: contains_procedure
+        logical :: suppress_intent
 
         matched = .false.
         has_reference_intent = .false.
         conflict_detected = .false.
         reference_intent = ""
+        contains_procedure = .false.
 
         do name_idx = 1, size(stmt%var_names)
             param_idx = metadata_find_param(metadata, stmt%var_names(name_idx))
@@ -180,17 +204,19 @@ contains
 
             call sync_process_single_declaration(stmt, decl_index, param_idx, &
                                                  metadata, &
-                                                 default_intent, stmt_intent)
+                                                 default_intent, stmt_intent, &
+                                                 suppress_intent)
+            contains_procedure = contains_procedure .or. suppress_intent
             matched = .true.
         end do
 
         if (.not. matched) return
         call apply_type_standardization_to_stmt(stmt, standardize_types)
 
-        if (conflict_detected) then
-            stmt_intent = ""
-            if (allocated(stmt%intent)) deallocate (stmt%intent)
-            stmt%has_intent = .false.
+        if (contains_procedure) then
+            call sync_finalize_intent(stmt, stmt_intent, default_intent, .true.)
+        else if (conflict_detected) then
+            call sync_finalize_intent(stmt, stmt_intent, default_intent, .true.)
         else
             call sync_finalize_intent(stmt, stmt_intent, default_intent)
         end if
@@ -198,7 +224,8 @@ contains
 
     subroutine sync_process_single_declaration(stmt, decl_index, param_idx, &
                                                metadata, &
-                                               default_intent, stmt_intent)
+                                               default_intent, stmt_intent, &
+                                               suppress_intent)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         integer, intent(in) :: decl_index
@@ -206,9 +233,18 @@ contains
         type(param_metadata_t), intent(inout) :: metadata
         character(len=*), intent(in) :: default_intent
         character(len=*), intent(inout) :: stmt_intent
+        logical, intent(out) :: suppress_intent
 
-        call sync_update_intent(metadata%intent(param_idx), stmt_intent, &
-                                default_intent)
+        suppress_intent = metadata%is_procedure(param_idx)
+        if (suppress_intent) then
+            metadata%intent(param_idx) = ""
+            stmt_intent = ""
+            if (allocated(stmt%intent)) deallocate (stmt%intent)
+            stmt%has_intent = .false.
+        else
+            call sync_update_intent(metadata%intent(param_idx), stmt_intent, &
+                                    default_intent)
+        end if
         if (metadata%optional(param_idx)) stmt%is_optional = .true.
         metadata%found(param_idx) = decl_index
 
@@ -216,6 +252,18 @@ contains
             if (.not. is_type_variable_str(stmt%type_name)) then
                 metadata%type_name(param_idx) = trim(stmt%type_name)
                 metadata%type_inferred(param_idx) = .false.
+            end if
+        end if
+        if (.not. metadata%is_procedure(param_idx)) then
+            if (allocated(stmt%type_name)) then
+                if (is_procedure_type(stmt%type_name)) then
+                    metadata%is_procedure(param_idx) = .true.
+                    suppress_intent = .true.
+                    metadata%intent(param_idx) = ""
+                    stmt_intent = ""
+                    if (allocated(stmt%intent)) deallocate (stmt%intent)
+                    stmt%has_intent = .false.
+                end if
             end if
         end if
 
@@ -231,6 +279,16 @@ contains
         type(param_metadata_t), intent(inout) :: metadata
         integer, intent(in) :: param_idx
         integer :: rank_size
+
+        if (metadata%is_procedure(param_idx)) then
+            metadata%is_array(param_idx) = .false.
+            metadata%rank(param_idx) = 0
+            stmt%is_array = .false.
+            if (allocated(stmt%dimension_indices)) then
+                deallocate (stmt%dimension_indices)
+            end if
+            return
+        end if
 
         if (metadata%is_array(param_idx)) then
             if (metadata%rank(param_idx) <= 0) then
@@ -303,16 +361,32 @@ contains
         stmt%kind_value = 8
     end subroutine apply_type_standardization_to_stmt
 
-    subroutine sync_finalize_intent(stmt, stmt_intent, default_intent)
+    subroutine sync_finalize_intent(stmt, stmt_intent, default_intent, &
+                                    skip_intent)
         use ast_nodes_data, only: declaration_node
         type(declaration_node), intent(inout) :: stmt
         character(len=*), intent(inout) :: stmt_intent
         character(len=*), intent(in) :: default_intent
+        logical, intent(in), optional :: skip_intent
         character(len=16) :: final_intent
+        logical :: suppress
+
+        suppress = .false.
+        if (present(skip_intent)) suppress = skip_intent
+        if (suppress) then
+            stmt_intent = ""
+            if (allocated(stmt%intent)) deallocate (stmt%intent)
+            stmt%has_intent = .false.
+            return
+        end if
 
         final_intent = trim(stmt_intent)
         if (len_trim(final_intent) == 0) final_intent = trim(default_intent)
-        if (len_trim(final_intent) == 0) return
+        if (len_trim(final_intent) == 0) then
+            if (allocated(stmt%intent)) deallocate (stmt%intent)
+            stmt%has_intent = .false.
+            return
+        end if
 
         stmt%intent = final_intent
         stmt%has_intent = .true.
@@ -394,6 +468,7 @@ contains
             (metadata%is_allocatable)
         if (allocated(metadata%type_inferred)) deallocate (metadata%type_inferred)
         if (allocated(metadata%rank)) deallocate (metadata%rank)
+        if (allocated(metadata%is_procedure)) deallocate (metadata%is_procedure)
 
         allocate (character(len=64) :: metadata%names(n_params))
         allocate (metadata%found(n_params))
@@ -406,6 +481,7 @@ contains
         allocate (metadata%is_allocatable(n_params))
         allocate (metadata%type_inferred(n_params))
         allocate (metadata%rank(n_params))
+        allocate (metadata%is_procedure(n_params))
 
         metadata%names = ""
         metadata%found = 0
@@ -418,6 +494,7 @@ contains
         metadata%is_allocatable = .false.
         metadata%type_inferred = .true.
         metadata%rank = 0
+        metadata%is_procedure = .false.
     end subroutine init_param_metadata
 
     logical function node_exists(arena, index) result(has_node)
@@ -438,6 +515,9 @@ contains
         logical, intent(in) :: type_std_enabled
         logical, intent(inout) :: inferred_local
         character(len=32) :: inferred_type
+        logical :: is_proc_param
+
+        is_proc_param = metadata%is_procedure(idx)
 
         if (len_trim(metadata%type_name(idx)) > 0 .and. &
             .not. is_type_variable_str(metadata%type_name(idx))) then
@@ -458,11 +538,18 @@ contains
             decl%kind_value = 8
         end if
 
-        decl%is_array = metadata%is_array(idx)
-        decl%is_allocatable = metadata%is_allocatable(idx)
+        if (is_proc_param) then
+            decl%is_array = .false.
+            decl%is_allocatable = .false.
+        else
+            decl%is_array = metadata%is_array(idx)
+            decl%is_allocatable = metadata%is_allocatable(idx)
+        end if
         decl%var_name = metadata%names(idx)
         decl%is_parameter = .true.
-        if (decl%is_array) call ensure_deferred_shape(decl, metadata%rank(idx))
+        if (.not. is_proc_param) then
+            if (decl%is_array) call ensure_deferred_shape(decl, metadata%rank(idx))
+        end if
     end subroutine fill_parameter_declaration
 
     subroutine infer_parameter_type(param_name, type_name, has_kind, kind_value)

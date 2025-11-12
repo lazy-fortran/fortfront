@@ -10,7 +10,7 @@ module standardizer_function_parameters
     use standardizer_parameter, only: get_standardizer_type_standardization
     use standardizer_parameter, only: infer_parameter_type
     use standardizer_parameter, only: init_param_metadata
-    use standardizer_parameter, only: is_type_variable_str
+    use standardizer_parameter, only: is_type_variable_str, is_procedure_type
     use standardizer_parameter, only: node_exists
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: synchronize_parameter_declarations
@@ -265,6 +265,7 @@ contains
         character(len=*), intent(in) :: inferred_text
         logical, intent(in) :: is_array_flag
         logical, intent(in) :: is_alloc_flag
+        logical :: is_proc_type
 
         if (type_present .and. len_trim(type_text) > 0 .and. &
             .not. is_type_variable_str(type_text)) then
@@ -276,15 +277,30 @@ contains
             metadata%type_inferred(idx) = .false.
         end if
 
-        metadata%has_kind(idx) = has_kind_flag
-        if (has_kind_flag) then
-            metadata%kind_value(idx) = kind_value
-        else
+        is_proc_type = is_procedure_type(metadata%type_name(idx))
+        metadata%is_procedure(idx) = is_proc_type
+        if (is_proc_type) metadata%intent(idx) = ""
+
+        if (is_proc_type) then
+            metadata%has_kind(idx) = .false.
             metadata%kind_value(idx) = 0
+        else
+            metadata%has_kind(idx) = has_kind_flag
+            if (has_kind_flag) then
+                metadata%kind_value(idx) = kind_value
+            else
+                metadata%kind_value(idx) = 0
+            end if
         end if
 
-        metadata%is_array(idx) = is_array_flag
-        metadata%is_allocatable(idx) = is_alloc_flag
+        if (is_proc_type) then
+            metadata%is_array(idx) = .false.
+            metadata%is_allocatable(idx) = .false.
+            metadata%rank(idx) = 0
+        else
+            metadata%is_array(idx) = is_array_flag
+            metadata%is_allocatable(idx) = is_alloc_flag
+        end if
     end subroutine apply_function_type
 
 end module standardizer_function_parameters

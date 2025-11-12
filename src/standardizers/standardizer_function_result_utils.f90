@@ -14,17 +14,24 @@ module standardizer_function_result_utils
     public :: sync_result_declaration
 contains
 
-    subroutine determine_preferred_result_name(arena, func_def, preferred_name)
+    subroutine determine_preferred_result_name(arena, func_def, func_index, &
+                                               preferred_name)
         use ast_nodes_core, only: assignment_node, identifier_node
+        use ast_nodes_data, only: declaration_node
+        use ast_nodes_misc, only: interface_block_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_def
+        integer, intent(in) :: func_index
         character(len=*), intent(out) :: preferred_name
         character(len=64) :: fallback_name
         character(len=64) :: function_name
         character(len=64) :: target_name
         integer :: body_index
+        integer :: name_pos
         integer :: target_index
         integer :: i
+        integer :: parent_index
+        logical :: in_interface_block
 
         preferred_name = ""
         fallback_name = ""
@@ -59,6 +66,45 @@ contains
         end do
 
         if (len_trim(preferred_name) == 0) preferred_name = trim(fallback_name)
+        if (len_trim(preferred_name) == 0 .and. len_trim(function_name) > 0) then
+            in_interface_block = .false.
+            parent_index = arena%entries(func_index)%parent_index
+            if (parent_index > 0 .and. parent_index <= arena%size) then
+                if (allocated(arena%entries(parent_index)%node)) then
+                    select type (parent => arena%entries(parent_index)%node)
+                    type is (interface_block_node)
+                        in_interface_block = .true.
+                    end select
+                end if
+            end if
+
+            if (.not. in_interface_block) then
+                do i = 1, size(func_def%body_indices)
+                    body_index = func_def%body_indices(i)
+                    if (body_index <= 0 .or. body_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(body_index)%node)) cycle
+                    select type (stmt => arena%entries(body_index)%node)
+                    type is (declaration_node)
+                        if (allocated(stmt%var_name)) then
+                            if (trim(stmt%var_name) == trim(function_name)) then
+                                preferred_name = trim(function_name)
+                                return
+                            end if
+                        end if
+                        if (stmt%is_multi_declaration .and. &
+                            allocated(stmt%var_names)) then
+                            do name_pos = 1, size(stmt%var_names)
+                                if (trim(stmt%var_names(name_pos)) == &
+                                    trim(function_name)) then
+                                    preferred_name = trim(function_name)
+                                    return
+                                end if
+                            end do
+                        end if
+                    end select
+                end do
+            end if
+        end if
 
     end subroutine determine_preferred_result_name
     subroutine apply_result_variable(arena, func_def, func_index, preferred_name)
