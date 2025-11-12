@@ -26,8 +26,81 @@ contains
             as_identifier = .not. looks_like_format_statement(parser)
         case ("implicit")
             as_identifier = .not. looks_like_implicit_statement(parser)
+        case default
+            if (keyword_supports_assignment_disambiguation(lowered)) then
+                as_identifier = statement_contains_assignment(parser)
+            end if
         end select
     end function keyword_should_parse_as_identifier
+
+    logical function keyword_supports_assignment_disambiguation(keyword) &
+        result(is_supported)
+        character(len=*), intent(in) :: keyword
+
+        select case (keyword)
+        case ("call", "stop", "cycle", "exit", "return", &
+              "continue", "goto", "go", "entry", "select", &
+              "contains", "else", "dimension", "common", &
+              "program", "module", "if")
+            is_supported = .true.
+        case default
+            is_supported = .false.
+        end select
+    end function keyword_supports_assignment_disambiguation
+
+    logical function statement_contains_assignment(parser) result(has_assignment)
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx, depth, token_count
+        type(token_t) :: tok
+        logical :: continuation
+
+        has_assignment = .false.
+        if (.not. associated(parser%tokens)) return
+
+        token_count = size(parser%tokens)
+        if (token_count < parser%current_token) return
+
+        idx = parser%current_token + 1
+        depth = 0
+        continuation = .false.
+
+        do while (idx <= token_count)
+            tok = parser%tokens(idx)
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NEWLINE)
+                if (.not. continuation) return
+                continuation = .false.
+                idx = idx + 1
+                cycle
+            case (TK_OPERATOR)
+                select case (tok%text)
+                case ("&")
+                    continuation = .true.
+                    idx = idx + 1
+                    cycle
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    if (depth > 0) depth = depth - 1
+                case ("=", "=>")
+                    if (depth == 0) then
+                        has_assignment = .true.
+                        return
+                    end if
+                case (";")
+                    return
+                end select
+            case (TK_EOF)
+                return
+            case default
+                continuation = .false.
+            end select
+            idx = idx + 1
+        end do
+    end function statement_contains_assignment
 
     logical function looks_like_format_statement(parser) result(is_format)
         type(parser_state_t), intent(in) :: parser
