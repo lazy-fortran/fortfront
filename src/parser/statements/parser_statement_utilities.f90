@@ -3,7 +3,7 @@ module parser_statement_utilities_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
-    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_state_module, only: parser_state_t
     use parser_declarations, only: parse_declaration
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, &
@@ -26,9 +26,10 @@ module parser_statement_utilities_module
     use parser_assignment_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
     use parser_statement_data_module, only: parse_data_statement
+    use parser_import_resolution_module, only: parse_use_statement
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_associate, push_if, push_literal
-    use ast_factory
+    use ast_factory, only: push_associate, push_goto, push_if, &
+                           push_import_statement
     use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t
     use parser_legacy_statements_module, only: parse_legacy_statement
@@ -86,6 +87,8 @@ contains
                 stmt_index = parse_data_statement(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
+            case ("use")
+                stmt_index = parse_use_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
                   "double", "type", "class", "procedure")
                 ! Check if this is actually an assignment like "double = 5"
