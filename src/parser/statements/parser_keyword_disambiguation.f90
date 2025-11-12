@@ -338,7 +338,7 @@ contains
         if (idx > token_count) return
 
         tok = parser%tokens(idx)
-        if (tok%kind /= TK_KEYWORD) return
+        if (tok%kind /= TK_KEYWORD .and. tok%kind /= TK_IDENTIFIER) return
 
         lowered = to_lower(trim(tok%text))
         select case (lowered)
