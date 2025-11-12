@@ -5,3 +5,4 @@ f90/issue_256_assignment_in_condition.f90
 f90/issue_256_invalid_syntax.f90
 f90/issue_256_garbage_input.f90
 f90/issue_256_incomplete_expression.f90
+f90/issue_2287_where_elsewhere.f90
