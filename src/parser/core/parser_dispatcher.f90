@@ -230,20 +230,24 @@ contains
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
             case ("data")
-                stmt_index = parse_data_statement(parser, arena)
-                block
-                    integer, allocatable :: extra_indices(:)
-                    extra_indices = get_data_additional_indices()
-                    if (size(extra_indices) > 0) then
-                        if (allocated(additional_indices)) then
-                            block
-                                integer, allocatable :: temp(:)
-                                call move_alloc(additional_indices, temp)
-                            end block
+                if (looks_like_data_statement(parser%tokens, parser%current_token)) then
+                    stmt_index = parse_data_statement(parser, arena)
+                    block
+                        integer, allocatable :: extra_indices(:)
+                        extra_indices = get_data_additional_indices()
+                        if (size(extra_indices) > 0) then
+                            if (allocated(additional_indices)) then
+                                block
+                                    integer, allocatable :: temp(:)
+                                    call move_alloc(additional_indices, temp)
+                                end block
+                            end if
+                            call move_alloc(extra_indices, additional_indices)
                         end if
-                        call move_alloc(extra_indices, additional_indices)
-                    end if
-                end block
+                    end block
+                else
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                end if
             case ("namelist")
                 stmt_index = parse_namelist_statement(parser, arena)
             case ("equivalence", "common")
@@ -602,6 +606,85 @@ contains
             end block
         end if
     end subroutine clear_additional_indices
+
+    logical function looks_like_data_statement(tokens, keyword_idx) &
+        result(is_data_statement)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: keyword_idx
+        integer :: idx
+
+        is_data_statement = .false.
+        if (keyword_idx < 1 .or. keyword_idx > size(tokens)) return
+
+        idx = keyword_idx + 1
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NEWLINE)
+                if (.not. newline_has_continuation(tokens, idx)) return
+                idx = idx + 1
+                cycle
+            case (TK_OPERATOR)
+                select case (trim(tokens(idx)%text))
+                case ("/")
+                    is_data_statement = .true.
+                    return
+                case ("&")
+                    idx = idx + 1
+                    cycle
+                case (";")
+                    return
+                case default
+                    idx = idx + 1
+                end select
+            case (TK_EOF)
+                return
+            case default
+                idx = idx + 1
+            end select
+        end do
+    end function looks_like_data_statement
+
+    logical function newline_has_continuation(tokens, newline_idx) &
+        result(has_continuation)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: newline_idx
+        integer :: scan_idx
+
+        has_continuation = .false.
+        if (newline_idx < 1 .or. newline_idx > size(tokens)) return
+
+        scan_idx = newline_idx - 1
+        do while (scan_idx >= 1)
+            select case (tokens(scan_idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                scan_idx = scan_idx - 1
+                cycle
+            case (TK_OPERATOR)
+                if (trim(tokens(scan_idx)%text) == "&") then
+                    has_continuation = .true.
+                end if
+            end select
+            exit
+        end do
+        if (has_continuation) return
+
+        scan_idx = newline_idx + 1
+        do while (scan_idx <= size(tokens))
+            select case (tokens(scan_idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                scan_idx = scan_idx + 1
+                cycle
+            case (TK_OPERATOR)
+                if (trim(tokens(scan_idx)%text) == "&") then
+                    has_continuation = .true.
+                end if
+            end select
+            exit
+        end do
+    end function newline_has_continuation
 
     logical function try_handle_prefix_sequence(parser, arena, prefix_buffer, &
                                                 stmt_index)

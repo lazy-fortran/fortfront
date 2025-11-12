@@ -116,20 +116,39 @@ contains
         integer, intent(in) :: func_index
         logical, intent(in) :: type_std_enabled
         logical :: has_decl
-        type(declaration_node) :: existing_decl
+        logical :: decl_in_multi
         integer :: decl_index
+        integer :: result_name_position
+        type(declaration_node) :: existing_decl
+
+        call find_result_declaration(arena, func_def, has_decl, decl_index, &
+                                     existing_decl, decl_in_multi, &
+                                     result_name_position)
 
         if (has_function_name_result(func_def)) then
+            if (has_decl) then
+                if (decl_in_multi) then
+                    call detach_result_from_declaration(arena, func_def, &
+                                                        func_index, decl_index, &
+                                                        existing_decl, &
+                                                        result_name_position)
+                end if
+                call remove_intent_from_declaration(arena, decl_index)
+            end if
             call ensure_function_name_return_type(func_def, type_std_enabled)
             arena%entries(func_index)%node = func_def
             return
         end if
 
-        call find_result_declaration(arena, func_def, has_decl, decl_index, &
-                                     existing_decl)
         if (has_decl) then
+            if (decl_in_multi) then
+                call detach_result_from_declaration(arena, func_def, func_index, &
+                                                    decl_index, existing_decl, &
+                                                    result_name_position)
+            end if
             call update_return_type_from_existing(func_def, arena, func_index, &
                                                   existing_decl)
+            call remove_intent_from_declaration(arena, decl_index)
             return
         end if
 
@@ -138,18 +157,22 @@ contains
 
     end subroutine sync_result_declaration
     subroutine find_result_declaration(arena, func_def, has_decl, decl_index, &
-                                       existing_decl)
+                                       existing_decl, in_multi, name_position)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_def
         logical, intent(out) :: has_decl
         integer, intent(out) :: decl_index
         type(declaration_node), intent(out) :: existing_decl
+        logical, intent(out) :: in_multi
+        integer, intent(out) :: name_position
         integer :: i
         integer :: name_pos
 
         has_decl = .false.
         decl_index = 0
+        in_multi = .false.
+        name_position = 0
         if (.not. allocated(func_def%body_indices)) return
 
         do i = 1, size(func_def%body_indices)
@@ -161,6 +184,10 @@ contains
                 if (trim(stmt%var_name) == trim(func_def%result_variable)) then
                     has_decl = .true.
                     existing_decl = stmt
+                    in_multi = stmt%is_multi_declaration .and. &
+                               allocated(stmt%var_names) .and. &
+                               size(stmt%var_names) > 1
+                    if (in_multi) name_position = 1
                     return
                 end if
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
@@ -169,6 +196,8 @@ contains
                             trim(func_def%result_variable)) then
                             has_decl = .true.
                             existing_decl = stmt
+                            in_multi = (size(stmt%var_names) > 1)
+                            name_position = name_pos
                             return
                         end if
                     end do
@@ -419,6 +448,139 @@ contains
         func_def%body_indices = new_body_indices
 
     end subroutine insert_result_declaration_into_body
+
+    subroutine detach_result_from_declaration(arena, func_def, func_index, &
+                                              decl_index, existing_decl, &
+                                              name_position)
+        use ast_nodes_data, only: declaration_node
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: func_index
+        integer, intent(inout) :: decl_index
+        type(declaration_node), intent(inout) :: existing_decl
+        integer, intent(in) :: name_position
+        type(declaration_node) :: result_decl
+        integer :: new_decl_index
+
+        call remove_result_name_from_declaration(arena, decl_index, &
+                                                 name_position)
+
+        result_decl = existing_decl
+        result_decl%is_multi_declaration = .false.
+        result_decl%var_name = trim(func_def%result_variable)
+        if (allocated(result_decl%var_names)) deallocate (result_decl%var_names)
+        result_decl%intent = ""
+        result_decl%has_intent = .false.
+        result_decl%is_optional = .false.
+
+        call arena%push(result_decl, "declaration", func_index)
+        new_decl_index = arena%size
+        call insert_body_index_after(func_def, decl_index, new_decl_index)
+        decl_index = new_decl_index
+        existing_decl = result_decl
+    end subroutine detach_result_from_declaration
+
+    subroutine remove_result_name_from_declaration(arena, decl_index, &
+                                                   name_position)
+        use ast_nodes_data, only: declaration_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        integer, intent(in) :: name_position
+        integer :: i
+        integer :: new_count
+        integer :: length_hint
+        character(len=:), allocatable :: temp_names(:)
+
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. decl%is_multi_declaration) return
+            if (.not. allocated(decl%var_names)) return
+            if (name_position < 1 .or. name_position > size(decl%var_names)) return
+
+            new_count = size(decl%var_names) - 1
+            if (new_count <= 0) then
+                decl%is_multi_declaration = .false.
+                decl%var_name = ""
+                deallocate (decl%var_names)
+                arena%entries(decl_index)%node = decl
+                return
+            end if
+
+            length_hint = len(decl%var_names(1))
+            allocate (character(len=length_hint) :: temp_names(new_count))
+            new_count = 0
+            do i = 1, size(decl%var_names)
+                if (i == name_position) cycle
+                new_count = new_count + 1
+                temp_names(new_count) = decl%var_names(i)
+            end do
+            call move_alloc(temp_names, decl%var_names)
+            decl%is_multi_declaration = new_count > 1
+            if (decl%is_multi_declaration) then
+                decl%var_name = decl%var_names(1)
+            else
+                decl%var_name = decl%var_names(1)
+                deallocate (decl%var_names)
+            end if
+            arena%entries(decl_index)%node = decl
+        end select
+    end subroutine remove_result_name_from_declaration
+
+    subroutine insert_body_index_after(func_def, anchor_index, new_index)
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: anchor_index
+        integer, intent(in) :: new_index
+        integer, allocatable :: new_body(:)
+        integer :: i, n
+        logical :: inserted
+
+        if (.not. allocated(func_def%body_indices)) then
+            allocate (func_def%body_indices(1))
+            func_def%body_indices(1) = new_index
+            return
+        end if
+
+        n = size(func_def%body_indices)
+        allocate (new_body(n + 1))
+        inserted = .false.
+        do i = 1, n
+            new_body(i) = func_def%body_indices(i)
+            if (.not. inserted .and. func_def%body_indices(i) == anchor_index) then
+                new_body(i + 1) = new_index
+                if (i < n) new_body(i + 2:n + 1) = func_def%body_indices(i + 1:n)
+                inserted = .true.
+                exit
+            end if
+        end do
+
+        if (.not. inserted) then
+            new_body(1:n) = func_def%body_indices
+            new_body(n + 1) = new_index
+        end if
+
+        call move_alloc(new_body, func_def%body_indices)
+    end subroutine insert_body_index_after
+
+    subroutine remove_intent_from_declaration(arena, decl_index)
+        use ast_nodes_data, only: declaration_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. decl%has_intent) return
+            decl%intent = ""
+            decl%has_intent = .false.
+            decl%is_optional = .false.
+            arena%entries(decl_index)%node = decl
+        end select
+    end subroutine remove_intent_from_declaration
     logical function is_character_length_decl(type_name) result(is_match)
         character(len=*), intent(in) :: type_name
         character(len=:), allocatable :: lowered
