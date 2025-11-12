@@ -329,10 +329,13 @@ contains
         character(len=:), allocatable :: name_text
         logical :: first_name
 
-        if (in_module_context .or. in_operator_or_assignment_interface) then
+        if (node%has_module_prefix) then
             code = "module procedure"
         else
             code = "procedure"
+        end if
+        if (node%has_double_colon) then
+            code = code // " ::"
         end if
 
         first_name = .true.
