@@ -4,6 +4,9 @@ module frontend_program_structure
 
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
+    use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
+                              end_statement_node, implicit_statement_node, &
+                              interface_block_node
     use ast_factory, only: push_program
 
     implicit none
@@ -72,6 +75,9 @@ contains
                 type is (program_node)
                     ! Already a program node
                     prog_index = valid_units(1)
+                type is (interface_block_node)
+                    prog_index = push_program(arena, "__MULTI_UNIT__", &
+                                              valid_units(1:1), 1, 1)
                 class default
                     ! Wrap in program node for consistent API
                     prog_index = push_program(arena, "main", valid_units(1:1), 1, 1)
@@ -113,15 +119,46 @@ contains
         class(*), intent(in) :: node
         type(ast_arena_t), intent(in) :: arena
         logical :: is_empty
+        logical :: has_meaningful
+        integer :: i
+        integer :: idx
 
         is_empty = .false.
 
         select type (prog_node => node)
         type is (program_node)
-            if ((prog_node%name == "main" .or. prog_node%name == &
-                 "__IMPLICIT_MAIN__") .and. &
-                size(prog_node%body_indices) == 0) then
-                is_empty = .true.
+            if (prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") then
+                if (.not. allocated(prog_node%body_indices) .or. &
+                    size(prog_node%body_indices) == 0) then
+                    is_empty = .true.
+                    return
+                end if
+
+                has_meaningful = .false.
+                do i = 1, size(prog_node%body_indices)
+                    idx = prog_node%body_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (child => arena%entries(idx)%node)
+                    type is (comment_node)
+                        cycle
+                    type is (blank_line_node)
+                        cycle
+                    type is (directive_node)
+                        cycle
+                    type is (implicit_statement_node)
+                        if (.not. child%is_none) then
+                            has_meaningful = .true.
+                        end if
+                    type is (end_statement_node)
+                        cycle
+                    class default
+                        has_meaningful = .true.
+                    end select
+                    if (has_meaningful) exit
+                end do
+
+                if (.not. has_meaningful) is_empty = .true.
             end if
         end select
     end function is_empty_main_program

@@ -2,12 +2,13 @@ module codegen_program_generation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
-                              directive_node, &
-                              implicit_statement_node
+                              directive_node, end_statement_node, &
+                              implicit_statement_node, interface_block_node
     use ast_nodes_procedure, only: subroutine_def_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_program_body, only: append_program_body
     use codegen_program_header, only: assemble_program_header
+
     implicit none
     private
     public :: generate_code_program
@@ -89,9 +90,13 @@ contains
         type(program_node), intent(in) :: node
         character(len=:), allocatable :: code
         integer :: i, child_index
+        logical :: has_interface_child
+        logical :: has_non_interface_child
 
         code = ""
         if (.not. allocated(node%body_indices)) return
+        has_interface_child = .false.
+        has_non_interface_child = .false.
 
         do i = 1, size(node%body_indices)
             child_index = node%body_indices(i)
@@ -101,13 +106,24 @@ contains
             select type (child => arena%entries(child_index)%node)
             type is (program_node)
                 if (append_trivial_program(arena, code, child_index, child%name)) cycle
+                has_non_interface_child = .true.
             type is (subroutine_def_node)
                 if (skip_duplicate_empty_subroutine(arena, node, child, i)) cycle
+                has_non_interface_child = .true.
+            type is (interface_block_node)
+                has_interface_child = .true.
+            class default
+                has_non_interface_child = .true.
             end select
 
             if (len(code) > 0) code = code // new_line('A') // new_line('A')
             code = code // generate_code_from_arena(arena, child_index)
         end do
+
+        if (has_interface_child .and. .not. has_non_interface_child) then
+            if (len_trim(code) > 0) code = code // new_line('A')
+            code = code // "end"
+        end if
     end function generate_multi_unit_program
 
     logical function append_trivial_program(arena, code, program_index, name)
@@ -117,28 +133,19 @@ contains
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: snippet
 
-        snippet = gather_trivial_program_trivia(arena, program_index, name)
-        if (len_trim(snippet) == 0) then
+        if (.not. program_is_trivial_wrapper(arena, program_index, name)) then
             append_trivial_program = .false.
             return
         end if
 
-        if (len(code) > 0) code = code // new_line('A') // new_line('A')
-        code = code // snippet
+        snippet = collect_trivial_program_trivia(arena, program_index)
+        if (len_trim(snippet) > 0) then
+            if (len(code) > 0) code = code // new_line('A') // new_line('A')
+            code = code // snippet
+        end if
+
         append_trivial_program = .true.
     end function append_trivial_program
-
-    function gather_trivial_program_trivia(arena, body_index, name) result(snippet)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_index
-        character(len=*), intent(in) :: name
-        character(len=:), allocatable :: snippet
-
-        snippet = ""
-        if (.not. program_is_trivial_wrapper(arena, body_index, name)) return
-
-        snippet = collect_trivial_program_trivia(arena, body_index)
-    end function gather_trivial_program_trivia
 
     logical function skip_duplicate_empty_subroutine(arena, node, child, position) &
         result(skip)
@@ -232,6 +239,8 @@ contains
                     if (body%is_none) cycle
                     is_trivial = .false.
                     return
+                type is (end_statement_node)
+                    cycle
                 class default
                     is_trivial = .false.
                     return
@@ -266,6 +275,8 @@ contains
                 type is (directive_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 type is (blank_line_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
+                type is (end_statement_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 class default
                     cycle

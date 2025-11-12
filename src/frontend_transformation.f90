@@ -998,9 +998,11 @@ contains
         integer, allocatable, intent(out) :: all_procedures(:)
         integer, intent(out) :: target_prog_idx
         integer :: i
+        integer :: first_main_idx
 
         allocate (all_procedures(0))
         target_prog_idx = 0
+        first_main_idx = 0
 
         if (.not. allocated(root_prog%body_indices)) return
 
@@ -1015,6 +1017,8 @@ contains
                     if (trim(child%name) /= "" .and. child%name /= "main" .and. &
                         child%name /= "MAIN") then
                         target_prog_idx = root_prog%body_indices(i)
+                    else if (first_main_idx == 0) then
+                        first_main_idx = root_prog%body_indices(i)
                     end if
                 end if
             type is (function_def_node)
@@ -1023,6 +1027,8 @@ contains
                 all_procedures = [all_procedures, root_prog%body_indices(i)]
             end select
         end do
+
+        if (target_prog_idx == 0) target_prog_idx = first_main_idx
     end subroutine collect_procedures_and_target
 
     subroutine filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
@@ -1181,6 +1187,7 @@ contains
         integer :: i, target_prog_idx, contains_pos
         integer, allocatable :: procedures(:), all_procedures(:)
         class(program_node), pointer :: root_prog => null()
+        integer :: first_main_idx
 
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
