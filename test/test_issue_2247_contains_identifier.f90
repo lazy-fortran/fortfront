@@ -1,6 +1,6 @@
 program test_issue_2247_contains_identifier
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
-    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+        & iostat_eor
     use frontend_transformation, only: INPUT_MODE_STANDARD
     use transformation_api, only: transform_with_context, transform_context_t
     implicit none
@@ -9,65 +9,69 @@ program test_issue_2247_contains_identifier
     character(len=:), allocatable :: output_code
     character(len=:), allocatable :: error_msg
     type(transform_context_t) :: ctx
-    logical :: found_assignment, found_print
+    logical :: has_real_decl
+    logical :: has_array_assignment
+    logical :: has_element_assignment
+    logical :: has_index_assignment
+    logical :: has_print_stmt
 
-    ! Read the example file
-    call read_example('examples/f90/issue_2247_contains_identifier.f90', &
-                      source_code)
+    call read_example('examples/f90/issue_2247_contains_identifier.f90', source_code)
 
-    ! Transform using standard Fortran mode (round-trip)
     ctx%input_mode = INPUT_MODE_STANDARD
     ctx%has_filename = .true.
-    ctx%source_name = "issue_2247_test"
+    ctx%source_name = 'issue_2247_contains_identifier'
 
     call transform_with_context(source_code, output_code, error_msg, ctx)
 
     if (len_trim(error_msg) > 0) then
-        write (error_unit, '(A)') &
-            'FAIL: transform_with_context returned error: ' // trim(error_msg)
-        error stop 1
-    end if
-
-    ! Check that output contains the assignment "contains = 2.0"
-    found_assignment = .false.
-    found_print = .false.
-
-    ! Look for "contains = 2.0" or "contains =2.0" etc.
-    if (index(output_code, 'contains') > 0) then
-        ! More specifically check for the assignment
-        if (index(output_code, 'contains = 2.0') > 0 .or. &
-            index(output_code, 'contains =2.0') > 0 .or. &
-            index(output_code, 'contains= 2.0') > 0 .or. &
-            index(output_code, 'contains=2.0') > 0) then
-            found_assignment = .true.
-        end if
-    end if
-
-    ! Look for "print *, contains"
-    if (index(output_code, 'print') > 0 .and. &
-        index(output_code, 'contains') > 0) then
-        ! The print statement should contain 'contains' as the variable
-        found_print = .true.
-    end if
-
-    ! Report results
-    if (.not. found_assignment) then
-        write (error_unit, '(A)') &
-            'FAIL: assignment "contains = 2.0" not found in output (BUG #2247)'
-        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') 'FAIL: transform_with_context error: ' // &
+            & trim(error_msg)
         write (error_unit, '(A)') output_code
         error stop 1
     end if
 
-    if (.not. found_print) then
-        write (error_unit, '(A)') &
-            'FAIL: print statement with contains not found (BUG #2247)'
-        write (error_unit, '(A)') 'Output:'
+    has_real_decl = index(output_code, 'real :: contains(2)') > 0
+    has_array_assignment = index(output_code, 'contains = 2.0') > 0
+    has_element_assignment = index(output_code, &
+        'contains(2) = contains(1) + 3.0') > 0
+    has_index_assignment = index(output_code, &
+        'contains(int(contains(1))) = contains(2) - 1.0') > 0
+    has_print_stmt = index(output_code, 'print *, contains(1), contains(2)') > 0
+
+    if (.not. has_real_decl) then
+        write (error_unit, '(A)') 'FAIL: missing real :: contains(2) declaration'
         write (error_unit, '(A)') output_code
         error stop 1
     end if
 
-    print *, 'PASS: Issue #2247 test passed - contains identifier preserved'
+    if (.not. has_array_assignment) then
+        write (error_unit, '(A)') 'FAIL: missing contains = 2.0 assignment'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. has_element_assignment) then
+        write (error_unit, '(A)') &
+            'FAIL: missing contains(2) = contains(1) + 3.0 assignment'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. has_index_assignment) then
+        write (error_unit, '(A)') &
+            'FAIL: missing contains(int(contains(1))) assignment'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. has_print_stmt) then
+        write (error_unit, '(A)') &
+            'FAIL: missing print *, contains(1), contains(2) statement'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    print *, 'PASS: identifier named contains survives round-trip'
 
 contains
 

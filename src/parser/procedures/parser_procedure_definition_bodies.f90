@@ -74,30 +74,52 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
-                ! Look ahead to see if this is an assignment (e.g., "contains = value")
-                ! If so, it's an identifier, not the structural keyword
+                ! Only treat lone "contains" statements as structural section markers.
+                ! Any continuation (assignment, call, array reference, etc.) means the
+                ! identifier should be preserved as regular code (issue #2247).
                 block
-                    type(token_t) :: next_token
-                    logical :: is_assignment
+                    integer :: lookahead_idx
+                    type(token_t) :: lookahead
+                    logical :: is_structural_contains
+                    character(len=:), allocatable :: op_text
 
-                    is_assignment = .false.
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        next_token = parser%tokens(parser%current_token + 1)
-                        if (next_token%kind == TK_OPERATOR .and. &
-                            (next_token%text == "=" .or. next_token%text == "=>")) then
-                            is_assignment = .true.
-                        end if
-                    end if
+                    is_structural_contains = .true.
+                    lookahead_idx = parser%current_token + 1
 
-                    if (.not. is_assignment) then
-                        ! This is the structural "contains" keyword
+                    do while (lookahead_idx <= size(parser%tokens))
+                        lookahead = parser%tokens(lookahead_idx)
+                        select case (lookahead%kind)
+                        case (TK_WHITESPACE)
+                            lookahead_idx = lookahead_idx + 1
+                            cycle
+                        case (TK_NEWLINE, TK_EOF, TK_COMMENT)
+                            exit
+                        case (TK_OPERATOR)
+                            op_text = trim(lookahead%text)
+                            select case (op_text)
+                            case (";")
+                                exit
+                            case ("&")
+                                is_structural_contains = .false.
+                                exit
+                            case default
+                                is_structural_contains = .false.
+                                exit
+                            end select
+                        case default
+                            is_structural_contains = .false.
+                            exit
+                        end select
+                    end do
+
+                    if (is_structural_contains) then
                         token = parser%consume()
                         call parse_contains_section(parser, arena, procedure_name, &
                                                     end_keyword, body_indices, &
                                                     parse_function_proc, parse_subroutine_proc)
                         exit
                     end if
-                    ! If is_assignment is true, fall through to parse as statement
+                    ! Otherwise fall through and treat "contains" as an identifier
                 end block
             end if
 
