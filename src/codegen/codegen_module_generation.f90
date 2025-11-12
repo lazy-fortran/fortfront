@@ -328,11 +328,19 @@ contains
         integer :: i
         character(len=:), allocatable :: name_text
         logical :: first_name
+        logical :: allow_module_prefix
 
-        if (in_module_context .or. in_operator_or_assignment_interface) then
+        allow_module_prefix = node%has_module_prefix .and. &
+                              (in_module_context .or. &
+                               in_operator_or_assignment_interface)
+
+        if (allow_module_prefix) then
             code = "module procedure"
         else
             code = "procedure"
+        end if
+        if (node%has_double_colon) then
+            code = code // " ::"
         end if
 
         first_name = .true.

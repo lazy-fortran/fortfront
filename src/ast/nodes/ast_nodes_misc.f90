@@ -72,7 +72,8 @@ module ast_nodes_misc
     ! Use statement node
     type, extends(ast_node), public :: use_statement_node
         character(len=:), allocatable :: module_name
-        character(len=:), allocatable :: url_spec  ! Optional URL specification for Go-style imports
+        character(len=:), allocatable :: url_spec
+        ! Optional URL specification for Go-style imports
         type(string_t), allocatable :: only_list(:)  ! Optional only clause items
         type(string_t), allocatable :: rename_list(:)  ! Optional rename
         ! mappings (new_name => old_name)
@@ -193,6 +194,8 @@ module ast_nodes_misc
 
     type, extends(ast_node), public :: module_procedure_node
         type(string_t), allocatable :: procedure_names(:)
+        logical :: has_module_prefix = .true.
+        logical :: has_double_colon = .false.
     contains
         procedure :: accept => module_procedure_accept
         procedure :: to_json => module_procedure_to_json
@@ -203,12 +206,14 @@ module ast_nodes_misc
     ! Letter specification for implicit statements
     type, public :: implicit_letter_spec_t
         character :: start_letter = ' '  ! Starting letter of range
-        character :: end_letter = ' '  ! Ending letter of range (same as start for single letters)
+        character :: end_letter = ' '
+        ! Ending letter of range (same as start for single letters)
     end type implicit_letter_spec_t
 
     ! Type specification for implicit statements
     type, public :: implicit_type_spec_t
-        character(len=:), allocatable :: type_name  ! "real", "integer", "character", etc.
+        character(len=:), allocatable :: type_name
+        ! "real", "integer", "character", etc.
         logical :: has_kind = .false.
         integer :: kind_value = 0
         logical :: has_length = .false.  ! For character types
@@ -218,9 +223,11 @@ module ast_nodes_misc
     ! Implicit statement node
     type, extends(ast_node), public :: implicit_statement_node
         logical :: is_none = .false.  ! True for "implicit none"
-        character(len=:), allocatable :: none_spec  ! Specification for implicit none: type, external, etc.
+        character(len=:), allocatable :: none_spec
+        ! Specification for implicit none: type, external, etc.
         type(implicit_type_spec_t) :: type_spec  ! Type specification
-        type(implicit_letter_spec_t), allocatable :: letter_specs(:)  ! Letter ranges/singles
+        type(implicit_letter_spec_t), allocatable :: letter_specs(:)
+        ! Letter ranges/singles
     contains
         procedure :: accept => implicit_statement_accept
         procedure :: to_json => implicit_statement_to_json
@@ -512,14 +519,28 @@ contains
         if (present(column)) node%column = column
     end function create_interface_block
 
-    function create_module_procedure(procedure_names, line, column) result(node)
+    function create_module_procedure(procedure_names, line, column, &
+                                     has_module_prefix, has_double_colon) &
+        result(node)
         use uid_generator, only: generate_uid
         type(string_t), intent(in), optional :: procedure_names(:)
         integer, intent(in), optional :: line, column
+        logical, intent(in), optional :: has_module_prefix
+        logical, intent(in), optional :: has_double_colon
         type(module_procedure_node) :: node
         integer :: i
 
         node%uid = generate_uid()
+        if (present(has_module_prefix)) then
+            node%has_module_prefix = has_module_prefix
+        else
+            node%has_module_prefix = .true.
+        end if
+        if (present(has_double_colon)) then
+            node%has_double_colon = has_double_colon
+        else
+            node%has_double_colon = .false.
+        end if
         if (present(procedure_names)) then
             if (size(procedure_names) > 0) then
                 allocate (node%procedure_names(size(procedure_names)))
@@ -1163,6 +1184,8 @@ contains
             end do
             call json%add(obj, arr)
         end if
+        call json%add(obj, 'has_module_prefix', this%has_module_prefix)
+        call json%add(obj, 'has_double_colon', this%has_double_colon)
         call json%add(parent, obj)
     end subroutine module_procedure_to_json
 
@@ -1181,6 +1204,8 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
+        lhs%has_module_prefix = rhs%has_module_prefix
+        lhs%has_double_colon = rhs%has_double_colon
 
         if (allocated(rhs%procedure_names)) then
             n = size(rhs%procedure_names)
@@ -1303,7 +1328,8 @@ contains
                 call json%add(obj, 'length_value', this%type_spec%length_value)
             end if
 
-            ! For now, just add letter count - full letter spec serialization can be added later
+            ! For now, just add letter count
+            ! Full letter spec serialization can be added later
             if (allocated(this%letter_specs)) then
                 call json%add(obj, 'letter_specs_count', size(this%letter_specs))
             else

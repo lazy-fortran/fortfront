@@ -195,7 +195,7 @@ contains
 
         ! CRITICAL: Copy indices before loop - root_prog is a POINTER parameter!
         ! process_specializable_procedure modifies arena via create_procedure_variants,
-        ! potentially invalidating the root_prog pointer. Using a local copy prevents this.
+        ! so copying the indices prevents root_prog pointer invalidation.
         allocate (local_indices(size(root_prog%body_indices)))
         local_indices = root_prog%body_indices
 
@@ -405,7 +405,7 @@ contains
     end subroutine normalize_and_deduplicate_signatures
 
     subroutine create_procedure_variants(arena, proc_idx, is_function, &
-                                        proc_sigs, variant_indices)
+                                         proc_sigs, variant_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: proc_idx
         logical, intent(in) :: is_function
@@ -449,7 +449,7 @@ contains
     end function create_module_with_interface
 
     subroutine register_generated_module(mod_idx, proc_name, module_indices, &
-                                        module_count, module_names)
+                                         module_count, module_names)
         integer, intent(in) :: mod_idx
         character(len=*), intent(in) :: proc_name
         integer, allocatable, intent(inout) :: module_indices(:)
@@ -516,7 +516,9 @@ contains
             select type (node => arena%entries(child_idx)%node)
             type is (function_def_node)
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                             node%name, .true., handled, module_indices, module_count, &
+                                                     node%name, .true., handled, &
+                                                     module_indices, &
+                                                     module_count, &
                                                      module_names)
                 if (.not. handled) then
                     call add_to_implicit_preserved(implicit_preserved, &
@@ -524,7 +526,9 @@ contains
                 end if
             type is (subroutine_def_node)
                 call process_specializable_procedure(arena, signatures, child_idx, &
-                            node%name, .false., handled, module_indices, module_count, &
+                                                     node%name, .false., handled, &
+                                                     module_indices, &
+                                                     module_count, &
                                                      module_names)
                 if (.not. handled) then
                     call add_to_implicit_preserved(implicit_preserved, &
@@ -1297,7 +1301,8 @@ contains
                     ! For array types, normalize while preserving dimension info
                     if (signature%param_kinds(i) == TARRAY) then
                         ! Only normalize if it contains "dimension"
-                        if (index(to_lower(signature%param_type_strings(i)), 'dimension') > 0) then
+                        if (index(to_lower(signature%param_type_strings(i)), &
+                                  'dimension') > 0) then
                             temp_type_string = signature%param_type_strings(i)
                             call normalize_array_type_string(temp_type_string)
                             signature%param_type_strings(i) = temp_type_string
@@ -1308,7 +1313,7 @@ contains
                                                           signature%param_kinds(i))
                     end if
                     ! Normalize character types to ignore length for monomorphization
-                    ! Fortran does not support generic interfaces differing only in character length
+                    ! Fortran forbids generics that differ only by character length
                     if (signature%param_kinds(i) == TCHAR) then
                         signature%param_type_strings(i) = "character(len=*)"
                     end if
@@ -1343,7 +1348,7 @@ contains
             paren_start = 10  ! len("dimension(")
             base_type = ""
         else
-            base_type = trim(type_string(1:dim_pos-1))
+            base_type = trim(type_string(1:dim_pos - 1))
             paren_start = dim_pos + 12  ! len(", dimension(")
         end if
 
@@ -1357,7 +1362,7 @@ contains
         if (len_trim(base_type) > 0) then
             ! Remove attributes like intent(in), etc
             if (index(base_type, ',') > 0) then
-                base_type = base_type(1:index(base_type,',')-1)
+                base_type = base_type(1:index(base_type, ',') - 1)
             end if
             base_type = trim(adjustl(base_type))
 
@@ -1393,7 +1398,8 @@ contains
         end if
 
         ! Reconstruct in canonical form with assumed-shape
-        type_string = trim(base_type) // ", dimension(" // trim(normalized_dim_spec) // ")"
+        type_string = trim(base_type) // ", dimension(" // &
+            trim(normalized_dim_spec) // ")"
     end subroutine normalize_array_type_string
 
     subroutine count_array_rank(dim_spec_in, dim_spec_out)
@@ -1650,7 +1656,8 @@ contains
         allocate (new_param_indices(count))
 
         do i = 1, count
-            if (allocated(signature%param_kinds) .and. size(signature%param_kinds) > 0) then
+            if (allocated(signature%param_kinds) .and. &
+                size(signature%param_kinds) > 0) then
                 if (i <= size(signature%param_kinds)) then
                     kind_value = signature%param_kinds(i)
                 else
@@ -1877,7 +1884,7 @@ contains
             paren_start = 10  ! len("dimension(")
         else
             ! Extract base type (everything before ", dimension(")
-            base_type = trim(type_name(1:dim_pos-1))
+            base_type = trim(type_name(1:dim_pos - 1))
             paren_start = dim_pos + 12  ! len(", dimension(")
         end if
 
@@ -1984,7 +1991,7 @@ contains
             if (index(to_lower(new_param%type_name), "dimension(") > 0) then
                 ! Extract dimension info before stripping (for assumed-shape output)
                 call extract_dimension_from_type_string(new_param%type_name, &
-                                                       new_param%dimension_indices)
+                                                        new_param%dimension_indices)
                 ! Strip dimension() from type_name to avoid duplication
                 ! The dimension spec will come from dimension_indices instead
                 new_param%type_name = strip_dimension_from_type(new_param%type_name)
@@ -2023,7 +2030,8 @@ contains
                                                             variant_indices(i))
         end do
 
-        mod_proc = create_module_procedure(proc_names)
+        mod_proc = create_module_procedure(proc_names, has_module_prefix=.true., &
+                                           has_double_colon=.false.)
         call arena%push(mod_proc)
         idx = arena%size
     end function create_module_procedure_node
@@ -2144,7 +2152,7 @@ contains
                         integer :: dominant_kind
 
                         param_return_type = fallback_return_type_from_params( &
-                            signature%param_kinds)
+                                            signature%param_kinds)
 
                         ! Get dominant kind from parameters
                         dominant_kind = 0
@@ -2164,7 +2172,8 @@ contains
 
                         ! If return_kind doesn't match dominant parameter kind,
                         ! use parameter-based return type
-                        if (dominant_kind > 0 .and. signature%return_kind /= dominant_kind) then
+                        if (dominant_kind > 0 .and. signature%return_kind /= &
+                            dominant_kind) then
                             type_str = param_return_type
                         end if
                     end block
@@ -2596,10 +2605,10 @@ contains
         before_dim = ''
         after_dim = ''
         if (dim_start > 1) then
-            before_dim = type_str(1:dim_start-1)
+            before_dim = type_str(1:dim_start - 1)
         end if
         if (paren_end < len(type_str)) then
-            after_dim = type_str(paren_end+1:len(type_str))
+            after_dim = type_str(paren_end + 1:len(type_str))
         end if
 
         ! Remove leading/trailing commas and spaces
@@ -2609,7 +2618,7 @@ contains
         ! Remove trailing comma from before_dim
         if (len_trim(before_dim) > 0) then
             if (before_dim(len_trim(before_dim):len_trim(before_dim)) == ',') then
-                before_dim = before_dim(1:len_trim(before_dim)-1)
+                before_dim = before_dim(1:len_trim(before_dim) - 1)
             end if
         end if
 
