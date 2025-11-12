@@ -32,6 +32,7 @@ module ast_nodes_io
     ! I/O implied-do node used within I/O lists
     type, extends(ast_node), public :: io_implied_do_node
         integer :: expr_index = 0
+        integer, allocatable :: object_indices(:)
         character(len=:), allocatable :: var_name
         integer :: start_expr_index = 0
         integer :: end_expr_index = 0
@@ -257,6 +258,11 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         lhs%expr_index = rhs%expr_index
+        if (allocated(lhs%object_indices)) deallocate (lhs%object_indices)
+        if (allocated(rhs%object_indices)) then
+            allocate (lhs%object_indices(size(rhs%object_indices)))
+            lhs%object_indices = rhs%object_indices
+        end if
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
         lhs%start_expr_index = rhs%start_expr_index
         lhs%end_expr_index = rhs%end_expr_index
@@ -570,13 +576,14 @@ contains
     end function create_print_statement
 
     function create_io_implied_do(expr_index, var_name, start_expr_index, &
-                                  end_expr_index, step_expr_index, line, column) &
-        result(node)
+                                  end_expr_index, step_expr_index, line, column, &
+                                  object_indices) result(node)
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index
         integer, intent(in), optional :: step_expr_index
         integer, intent(in), optional :: line, column
+        integer, intent(in), optional :: object_indices(:)
         type(io_implied_do_node) :: node
 
         node%uid = generate_uid()
@@ -587,6 +594,12 @@ contains
         if (present(step_expr_index)) node%step_expr_index = step_expr_index
         if (present(line)) node%line = line
         if (present(column)) node%column = column
+        if (present(object_indices)) then
+            if (size(object_indices) > 0) then
+                node%object_indices = object_indices
+                if (node%expr_index <= 0) node%expr_index = object_indices(1)
+            end if
+        end if
     end function create_io_implied_do
 
     function create_open_statement() result(node)
