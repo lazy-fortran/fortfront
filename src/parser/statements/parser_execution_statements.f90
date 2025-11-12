@@ -176,17 +176,21 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. is_control_flow_keyword(lowered)) then
-                call flush_pending_prefixes()
-                stmt_index = route_control_flow(parser, arena)
-                ! If routing failed, consume until newline to avoid infinite loop
-                if (stmt_index == 0) then
-                    do while (.not. parser%is_at_end())
-                        block
-                            type(token_t) :: skip_token
-                            skip_token = parser%consume()
-                            if (skip_token%kind == TK_NEWLINE) exit
-                        end block
-                    end do
+                if (keyword_should_parse_as_identifier(token, parser)) then
+                    stmt_index = handle_identifier_token(parser, arena, token)
+                else
+                    call flush_pending_prefixes()
+                    stmt_index = route_control_flow(parser, arena)
+                    ! If routing failed, consume until newline to avoid infinite loop
+                    if (stmt_index == 0) then
+                        do while (.not. parser%is_at_end())
+                            block
+                                type(token_t) :: skip_token
+                                skip_token = parser%consume()
+                                if (skip_token%kind == TK_NEWLINE) exit
+                            end block
+                        end do
+                    end if
                 end if
             else
                 select case (token%kind)
@@ -497,9 +501,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_stop_statement(parser_ref, arena_ref)
                         end if
@@ -510,9 +516,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_goto_statement(parser_ref, arena_ref)
                         end if
@@ -524,9 +532,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_return_statement(parser_ref, arena_ref)
                         end if
@@ -539,9 +549,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_cycle_statement(parser_ref, arena_ref)
                         end if
@@ -550,9 +562,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_exit_statement(parser_ref, arena_ref)
                         end if
@@ -563,9 +577,11 @@ contains
                     block
                         type(token_t) :: current_token
                         current_token = parser_ref%peek()
-                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
-                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                           additional_execution_indices)
+                        if (keyword_should_parse_as_identifier( &
+                            current_token, parser_ref)) then
+                            call parse_assignment_statement( &
+                                parser_ref, arena_ref, stmt_index, &
+                                additional_execution_indices)
                         else
                             stmt_index = parse_call_statement(parser_ref, arena_ref)
                         end if
