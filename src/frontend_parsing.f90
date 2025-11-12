@@ -146,8 +146,10 @@ contains
                 block
                     use iso_fortran_env, only: error_unit
                     character(len=:), allocatable :: unit_error
-                    call process_program_unit(tokens_local, unit_start, unit_end, arena, &
-                                              unit_index, has_explicit_program, unit_error)
+                    call process_program_unit(tokens_local, unit_start, &
+                                              unit_end, arena, &
+                                              unit_index, has_explicit_program, &
+                                              unit_error)
 
                     ! Check for parser errors and propagate
                     if (allocated(unit_error) .and. len_trim(unit_error) > 0) then
@@ -213,13 +215,15 @@ contains
                     if (procedure_has_entry(arena, unit_indices(1))) then
                         prog_index = unit_indices(1)
                     else
-                        prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
+                        prog_index = push_program(arena, "main", &
+                                                  unit_indices(1:1), 1, 1)
                     end if
                 type is (subroutine_def_node)
                     if (procedure_has_entry(arena, unit_indices(1))) then
                         prog_index = unit_indices(1)
                     else
-                        prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
+                        prog_index = push_program(arena, "main", &
+                                                  unit_indices(1:1), 1, 1)
                     end if
                 class default
                     prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
@@ -265,15 +269,31 @@ contains
             if (tokens(i)%kind /= TK_KEYWORD) cycle
 
             lowered = to_lower(trim(tokens(i)%text))
-            if (lowered /= "end") cycle
+            if (lowered == "end") then
+                prev_token = find_previous_nontrivial_token(tokens, i)
+                if (.not. token_precedes_identifier(prev_token)) cycle
+
+                next_token = find_next_nontrivial_token(tokens, i)
+                if (token_is_block_keyword(next_token)) cycle
+
+                tokens(i)%kind = TK_IDENTIFIER
+                cycle
+            end if
+
+            if (.not. keyword_can_be_identifier(lowered)) cycle
+
+            if (lowered == "goto") then
+                if (is_computed_goto_context(tokens, i)) cycle
+            end if
 
             prev_token = find_previous_nontrivial_token(tokens, i)
-            if (.not. token_precedes_identifier(prev_token)) cycle
-
             next_token = find_next_nontrivial_token(tokens, i)
-            if (token_is_block_keyword(next_token)) cycle
 
-            tokens(i)%kind = TK_IDENTIFIER
+            if (token_precedes_identifier(prev_token) .or. &
+                token_requires_identifier_after(prev_token) .or. &
+                token_follows_identifier_context(next_token)) then
+                tokens(i)%kind = TK_IDENTIFIER
+            end if
         end do
     end subroutine normalize_keyword_identifiers
 
@@ -321,6 +341,25 @@ contains
         end do
     end function find_next_nontrivial_token
 
+    integer function find_next_nontrivial_index(tokens, pos) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: i
+
+        idx = 0
+        if (pos >= size(tokens)) return
+
+        do i = pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                idx = i
+                return
+            end select
+        end do
+    end function find_next_nontrivial_index
+
     logical function token_precedes_identifier(token) result(is_valid)
         type(token_t), intent(in) :: token
         character(len=:), allocatable :: lowered
@@ -333,10 +372,70 @@ contains
 
         lowered = trim(token%text)
         select case (lowered)
-        case ("%", "::", ",", "=", "=>")
+        case ("%", "::", ",", "=", "=>", "(")
             is_valid = .true.
         end select
     end function token_precedes_identifier
+
+    logical function token_requires_identifier_after(token) result(requires)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        requires = .false.
+        if (token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(token%text))
+        select case (lowered)
+        case ("call")
+            requires = .true.
+        end select
+    end function token_requires_identifier_after
+
+    logical function is_computed_goto_context(tokens, pos) result(is_computed)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: next_idx
+
+        is_computed = .false.
+        next_idx = find_next_nontrivial_index(tokens, pos)
+        if (next_idx <= 0) return
+        if (tokens(next_idx)%kind /= TK_OPERATOR) return
+        if (trim(tokens(next_idx)%text) /= "(") return
+
+        next_idx = find_next_nontrivial_index(tokens, next_idx)
+        if (next_idx <= 0) return
+
+        if (tokens(next_idx)%kind == TK_NUMBER) then
+            is_computed = .true.
+        end if
+    end function is_computed_goto_context
+
+    logical function token_follows_identifier_context(token) result(is_valid)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        is_valid = .false.
+        if (token%kind /= TK_OPERATOR) return
+
+        lowered = trim(token%text)
+        select case (lowered)
+        case ("=", "=>", "(", "%")
+            is_valid = .true.
+        end select
+    end function token_follows_identifier_context
+
+    logical function keyword_can_be_identifier(keyword) result(can_be_id)
+        character(len=*), intent(in) :: keyword
+
+        select case (keyword)
+        case ("call", "cycle", "exit", "entry", "select", "goto", "go", &
+              "common", "dimension", "program", "module", "contains", &
+              "stop", "pause", "return", "continue")
+            can_be_id = .true.
+        case default
+            can_be_id = .false.
+        end select
+    end function keyword_can_be_identifier
 
     logical function token_is_block_keyword(token) result(is_block)
         type(token_t), intent(in) :: token
@@ -512,7 +611,8 @@ contains
         unit_tokens(unit_end - unit_start + 2)%column = tokens(unit_end)%column + 1
 
         ! Parse the unit and capture any errors
-        unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program, parse_error)
+        unit_index = parse_program_unit(unit_tokens, arena, has_explicit_program, &
+                                        parse_error)
 
         ! Propagate error message if requested
         block
