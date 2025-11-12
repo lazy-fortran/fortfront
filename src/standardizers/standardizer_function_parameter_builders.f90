@@ -28,6 +28,8 @@ contains
         integer, allocatable :: new_indices(:)
         type(declaration_node) :: decl
         logical :: inferred_local
+        character(len=8) :: intent_value
+        logical :: skip_intent
 
         missing_count = count(metadata%found == 0)
         if (missing_count == 0) return
@@ -48,8 +50,19 @@ contains
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
                                             inferred_local)
-            decl%intent = choose_param_intent(metadata%intent(i))
-            decl%has_intent = .true.
+            skip_intent = metadata%is_procedure(i)
+            if (skip_intent) then
+                if (allocated(decl%intent)) deallocate (decl%intent)
+                decl%has_intent = .false.
+            else
+                intent_value = choose_param_intent(metadata%intent(i))
+                if (len_trim(intent_value) > 0) then
+                    decl%intent = intent_value
+                    decl%has_intent = .true.
+                else
+                    decl%has_intent = .false.
+                end if
+            end if
             decl%is_optional = metadata%optional(i)
             call arena%push(decl, "declaration", func_index)
             new_count = new_count + 1
@@ -147,6 +160,8 @@ contains
         logical :: inferred_local
         integer :: i
         integer :: n_params
+        character(len=8) :: intent_value
+        logical :: skip_intent
 
         n_params = size(metadata%names)
         if (n_params <= 0) then
@@ -160,8 +175,16 @@ contains
             inferred_local = metadata%type_inferred(i)
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
                                             inferred_local)
-            decl%intent = "in"
-            decl%has_intent = .true.
+            skip_intent = metadata%is_procedure(i)
+            if (skip_intent) then
+                if (allocated(decl%intent)) deallocate (decl%intent)
+                decl%has_intent = .false.
+            else
+                intent_value = choose_param_intent(metadata%intent(i))
+                if (len_trim(intent_value) == 0) intent_value = "in"
+                decl%intent = intent_value
+                decl%has_intent = .true.
+            end if
             decl%is_optional = metadata%optional(i)
             call arena%push(decl, "declaration", func_index)
             new_indices(i) = arena%size

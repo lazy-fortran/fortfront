@@ -147,6 +147,8 @@ contains
         integer, allocatable :: new_indices(:)
         type(declaration_node) :: decl
         logical :: inferred_local
+        character(len=8) :: intent_value
+        logical :: skip_intent
         integer :: new_count
 
         missing_count = count(metadata%found == 0)
@@ -169,8 +171,19 @@ contains
             call fill_parameter_declaration(decl, metadata, i, type_std_enabled, &
                                             inferred_local)
             call try_copy_dimension_from_peer(arena, metadata, i, decl)
-            decl%intent = choose_subroutine_intent(metadata%intent(i))
-            decl%has_intent = .true.
+            skip_intent = metadata%is_procedure(i)
+            if (skip_intent) then
+                if (allocated(decl%intent)) deallocate (decl%intent)
+                decl%has_intent = .false.
+            else
+                intent_value = choose_subroutine_intent(metadata%intent(i))
+                if (len_trim(intent_value) > 0) then
+                    decl%intent = intent_value
+                    decl%has_intent = .true.
+                else
+                    decl%has_intent = .false.
+                end if
+            end if
             decl%is_optional = metadata%optional(i)
             call arena%push(decl, "declaration", sub_index)
             new_count = new_count + 1

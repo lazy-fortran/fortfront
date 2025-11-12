@@ -736,6 +736,10 @@ contains
                     return
                 end select
             end if
+        case ("double")
+            next_token = parser%get_token_at_index(parser%current_token + 1)
+            next_lower = to_lower(trim(next_token%text))
+            if (trim(next_lower) == "precision") return
         case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
         case ("implicit")

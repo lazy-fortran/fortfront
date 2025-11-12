@@ -29,6 +29,7 @@ contains
         end do
 
         do i = 1, n_params
+            if (metadata%is_procedure(i)) cycle
             if (len_trim(metadata%intent(i)) > 0) cycle
 
             if (is_written(i) .and. is_read(i)) then

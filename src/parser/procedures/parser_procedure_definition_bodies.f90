@@ -268,7 +268,8 @@ contains
             token_local = parser%consume()
             if (.not. parser%is_at_end()) then
                 token_local = parser%peek()
-                if (token_local%kind == TK_IDENTIFIER .and. &
+                if ((token_local%kind == TK_IDENTIFIER .or. &
+                     token_local%kind == TK_KEYWORD) .and. &
                     token_local%text == procedure_name) then
                     token_local = parser%consume()
                 end if
