@@ -16,10 +16,14 @@ module parser_dispatcher_module
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &
-                                           parse_write_statement, parse_read_statement, &
-                                           parse_open_statement, parse_close_statement, &
-                                           parse_format_statement, parse_inquire_statement, &
-                                           parse_backspace_statement, parse_rewind_statement, &
+                                           parse_write_statement, &
+                                           parse_read_statement, &
+                                           parse_open_statement, &
+                                           parse_close_statement, &
+                                           parse_format_statement, &
+                                           parse_inquire_statement, &
+                                           parse_backspace_statement, &
+                                           parse_rewind_statement, &
                                            parse_endfile_statement
     use parser_definition_statements_module, only: parse_function_definition, &
                                                    parse_subroutine_definition, &
@@ -116,7 +120,11 @@ contains
             case ("deallocate")
                 stmt_index = parse_deallocate_statement(parser, arena)
             case ("if", "do", "where", "select", "forall", "associate")
-                stmt_index = route_control_flow(parser, arena)
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = route_control_flow(parser, arena)
+                end if
             case ("function")
                 stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             case ("subroutine")
@@ -436,7 +444,8 @@ contains
                                     additional_indices = decl_indices(2:)
                                 end if
                             else
-                                stmt_index = parse_declaration(parser, arena)  ! Fallback
+                                stmt_index = parse_declaration(parser, arena)
+                                ! Fallback
                             end if
                         else
                             stmt_index = parse_declaration(parser, arena)  ! Fallback
@@ -908,7 +917,7 @@ contains
 
     ! Clear parser errors
     subroutine clear_parser_errors()
-        if (allocated(last_parser_errors)) deallocate(last_parser_errors)
+        if (allocated(last_parser_errors)) deallocate (last_parser_errors)
         last_parser_errors = ""
     end subroutine clear_parser_errors
 
