@@ -282,6 +282,10 @@ contains
 
             if (.not. keyword_can_be_identifier(lowered)) cycle
 
+            if (lowered == "goto") then
+                if (is_computed_goto_context(tokens, i)) cycle
+            end if
+
             prev_token = find_previous_nontrivial_token(tokens, i)
             next_token = find_next_nontrivial_token(tokens, i)
 
@@ -337,6 +341,25 @@ contains
         end do
     end function find_next_nontrivial_token
 
+    integer function find_next_nontrivial_index(tokens, pos) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: i
+
+        idx = 0
+        if (pos >= size(tokens)) return
+
+        do i = pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                cycle
+            case default
+                idx = i
+                return
+            end select
+        end do
+    end function find_next_nontrivial_index
+
     logical function token_precedes_identifier(token) result(is_valid)
         type(token_t), intent(in) :: token
         character(len=:), allocatable :: lowered
@@ -367,6 +390,25 @@ contains
             requires = .true.
         end select
     end function token_requires_identifier_after
+
+    logical function is_computed_goto_context(tokens, pos) result(is_computed)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: next_idx
+
+        is_computed = .false.
+        next_idx = find_next_nontrivial_index(tokens, pos)
+        if (next_idx <= 0) return
+        if (tokens(next_idx)%kind /= TK_OPERATOR) return
+        if (trim(tokens(next_idx)%text) /= "(") return
+
+        next_idx = find_next_nontrivial_index(tokens, next_idx)
+        if (next_idx <= 0) return
+
+        if (tokens(next_idx)%kind == TK_NUMBER) then
+            is_computed = .true.
+        end if
+    end function is_computed_goto_context
 
     logical function token_follows_identifier_context(token) result(is_valid)
         type(token_t), intent(in) :: token
