@@ -149,8 +149,27 @@ jobs:
             Write-Host "✅ GFortran found at: $gfortranPath"
           } else {
             Write-Host "⚠️ GFortran not found, attempting to install..."
-            # Use pacman to install gfortran if not available
-            C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc-fortran"
+            $mirrorRoot = "C:\msys64\etc\pacman.d"
+            $mingw64List = Join-Path $mirrorRoot "mirrorlist.mingw64"
+            $mingw32List = Join-Path $mirrorRoot "mirrorlist.mingw32"
+            $msysList = Join-Path $mirrorRoot "mirrorlist.msys"
+            $mingw64Mirrors = @(
+              'Server = https://mirror.msys2.org/mingw/mingw64'
+              'Server = https://packages.msys2.org/mirror/mingw/mingw64'
+            )
+            $mingw32Mirrors = @(
+              'Server = https://mirror.msys2.org/mingw/mingw32'
+              'Server = https://packages.msys2.org/mirror/mingw/mingw32'
+            )
+            $msysMirrors = @(
+              'Server = https://mirror.msys2.org/msys/x86_64'
+              'Server = https://packages.msys2.org/mirror/msys/x86_64'
+            )
+            Set-Content -Path $mingw64List -Value $mingw64Mirrors -Encoding ascii
+            Set-Content -Path $mingw32List -Value $mingw32Mirrors -Encoding ascii
+            Set-Content -Path $msysList -Value $msysMirrors -Encoding ascii
+            C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
+            C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm --disable-download-timeout mingw-w64-x86_64-gcc-fortran"
           }
         } else {
           Write-Error "❌ MSYS2 MinGW installation path not found at: $mingwPath"

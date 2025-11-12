@@ -1,9 +1,6 @@
 module standardizer_function
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
-    use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use ast_nodes_misc, only: implicit_statement_node, comment_node
-    use ast_nodes_misc, only: blank_line_node, end_statement_node
     use ast_nodes_procedure, only: function_def_node
     use standardizer_parameter, only: get_standardizer_type_standardization
     use standardizer_function_parameters, only: standardize_function_parameters
@@ -27,19 +24,12 @@ contains
         character(len=:), allocatable :: return_type_str
         logical :: standardizer_type_standardization_enabled
         logical :: skip_result_standardization
-        logical :: skip_full_standardization
 
         call get_standardizer_type_standardization( &
             standardizer_type_standardization_enabled)
         skip_result_standardization = function_in_interface_block(arena, &
                                                                   func_index)
-        skip_full_standardization = skip_result_standardization
-        if (.not. skip_full_standardization) then
-            skip_full_standardization = function_has_only_spec_statements( &
-                arena, func_def)
-        end if
-
-        if (skip_full_standardization) then
+        if (skip_result_standardization) then
             arena%entries(func_index)%node = func_def
             return
         end if
@@ -75,9 +65,7 @@ contains
         call standardize_function_parameters(arena, func_def, func_index)
 
         ! Ensure function result variable is standardized and declared
-        if (.not. skip_result_standardization) then
-            call standardize_function_result(arena, func_def, func_index)
-        end if
+        call standardize_function_result(arena, func_def, func_index)
 
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
@@ -103,39 +91,4 @@ contains
 
     end subroutine standardize_function_result
 
-    logical function function_has_only_spec_statements(arena, func_def) &
-        result(only_specs)
-        type(ast_arena_t), intent(in) :: arena
-        type(function_def_node), intent(in) :: func_def
-        integer :: i, idx
-
-        if (.not. allocated(func_def%body_indices)) then
-            only_specs = .true.
-            return
-        end if
-
-        only_specs = .true.
-        do i = 1, size(func_def%body_indices)
-            idx = func_def%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
-            select type (body_node => arena%entries(idx)%node)
-            type is (declaration_node)
-                cycle
-            type is (parameter_declaration_node)
-                cycle
-            type is (implicit_statement_node)
-                cycle
-            type is (comment_node)
-                cycle
-            type is (blank_line_node)
-                cycle
-            type is (end_statement_node)
-                cycle
-            class default
-                only_specs = .false.
-                return
-            end select
-        end do
-    end function function_has_only_spec_statements
 end module standardizer_function
