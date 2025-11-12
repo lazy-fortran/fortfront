@@ -4,6 +4,7 @@ module standardizer_function_result_utils
     use ast_nodes_procedure, only: function_def_node
     use lexer_core, only: to_lower
     use semantic_validation_utils, only: rename_identifier_in_arena
+    use standardizer_interface_utils, only: function_in_interface_block
     use standardizer_parameter, only: infer_parameter_type, is_type_variable_str, &
                                       reset_declaration_node
     use type_string_utils, only: is_character_type_string
@@ -18,7 +19,6 @@ contains
                                                preferred_name)
         use ast_nodes_core, only: assignment_node, identifier_node
         use ast_nodes_data, only: declaration_node
-        use ast_nodes_misc, only: interface_block_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_def
         integer, intent(in) :: func_index
@@ -30,7 +30,6 @@ contains
         integer :: name_pos
         integer :: target_index
         integer :: i
-        integer :: parent_index
         logical :: in_interface_block
 
         preferred_name = ""
@@ -67,16 +66,7 @@ contains
 
         if (len_trim(preferred_name) == 0) preferred_name = trim(fallback_name)
         if (len_trim(preferred_name) == 0 .and. len_trim(function_name) > 0) then
-            in_interface_block = .false.
-            parent_index = arena%entries(func_index)%parent_index
-            if (parent_index > 0 .and. parent_index <= arena%size) then
-                if (allocated(arena%entries(parent_index)%node)) then
-                    select type (parent => arena%entries(parent_index)%node)
-                    type is (interface_block_node)
-                        in_interface_block = .true.
-                    end select
-                end if
-            end if
+            in_interface_block = function_in_interface_block(arena, func_index)
 
             if (.not. in_interface_block) then
                 do i = 1, size(func_def%body_indices)
@@ -166,6 +156,8 @@ contains
         integer :: decl_index
         integer :: result_name_position
         type(declaration_node) :: existing_decl
+
+        if (function_in_interface_block(arena, func_index)) return
 
         call find_result_declaration(arena, func_def, has_decl, decl_index, &
                                      existing_decl, decl_in_multi, &

@@ -2,12 +2,12 @@ module standardizer_function
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_implicit_statement
     use ast_nodes_procedure, only: function_def_node
-    use ast_nodes_misc, only: interface_block_node
     use standardizer_parameter, only: get_standardizer_type_standardization
     use standardizer_function_parameters, only: standardize_function_parameters
     use standardizer_function_result_utils, only: apply_result_variable
     use standardizer_function_result_utils, only: determine_preferred_result_name
     use standardizer_function_result_utils, only: sync_result_declaration
+    use standardizer_interface_utils, only: function_in_interface_block
     implicit none
     private
     public :: standardize_function_def
@@ -63,11 +63,6 @@ contains
         ! Ensure function result variable is standardized and declared
         if (.not. skip_result_standardization) then
             call standardize_function_result(arena, func_def, func_index)
-        else
-            if (allocated(func_def%name)) then
-                write (*, '(A,A)') 'DBG skipping function result for ', &
-                    trim(func_def%name)
-            end if
         end if
 
         ! Update the arena entry
@@ -93,20 +88,4 @@ contains
         call sync_result_declaration(arena, func_def, func_index, type_std_enabled)
 
     end subroutine standardize_function_result
-    logical function function_in_interface_block(arena, func_index) result(in_iface)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: func_index
-        integer :: parent_index
-
-        in_iface = .false.
-        if (func_index <= 0 .or. func_index > arena%size) return
-        parent_index = arena%entries(func_index)%parent_index
-        if (parent_index <= 0 .or. parent_index > arena%size) return
-        if (.not. allocated(arena%entries(parent_index)%node)) return
-        select type (parent => arena%entries(parent_index)%node)
-        type is (interface_block_node)
-            in_iface = .true.
-        end select
-    end function function_in_interface_block
-
 end module standardizer_function
