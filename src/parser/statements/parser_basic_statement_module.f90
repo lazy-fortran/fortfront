@@ -121,7 +121,9 @@ contains
                 found_end = .false.
                 if (token%kind == TK_KEYWORD) then
                     do j = 1, size(end_keywords)
-                        if (token%text == trim(end_keywords(j))) then
+                        if (matches_keyword_sequence(parser%tokens, &
+                                                     parser%current_token, &
+                                                     trim(end_keywords(j)))) then
                             found_end = .true.
                             exit
                         end if
@@ -257,6 +259,73 @@ contains
             end do
         end block
     end function parse_statement_body
+
+    logical function matches_keyword_sequence(tokens, start_pos, keyword_sequence)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        character(len=*), intent(in) :: keyword_sequence
+        integer :: seq_pos, word_start, word_end
+        integer :: token_pos
+        character(len=:), allocatable :: trimmed_seq
+        character(len=:), allocatable :: word
+        type(token_t) :: current_token
+
+        matches_keyword_sequence = .false.
+        trimmed_seq = trim(keyword_sequence)
+        if (len_trim(trimmed_seq) == 0) return
+
+        seq_pos = 1
+        token_pos = start_pos
+
+        do
+            do while (seq_pos <= len(trimmed_seq) .and. &
+                      trimmed_seq(seq_pos:seq_pos) == " ")
+                seq_pos = seq_pos + 1
+            end do
+            if (seq_pos > len(trimmed_seq)) exit
+            word_start = seq_pos
+            do while (seq_pos <= len(trimmed_seq) .and. &
+                      trimmed_seq(seq_pos:seq_pos) /= " ")
+                seq_pos = seq_pos + 1
+            end do
+            word_end = seq_pos - 1
+            if (word_end < word_start) return
+            word = trimmed_seq(word_start:word_end)
+
+            token_pos = find_next_significant_token(tokens, token_pos)
+            if (token_pos <= 0) return
+            current_token = tokens(token_pos)
+            if (current_token%kind /= TK_KEYWORD) return
+            if (current_token%text /= word) return
+
+            token_pos = token_pos + 1
+        end do
+
+        matches_keyword_sequence = .true.
+    end function matches_keyword_sequence
+
+    integer function find_next_significant_token(tokens, start_index) result(pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+
+        pos = start_index
+        if (pos < 1) then
+            pos = 0
+            return
+        end if
+
+        do while (pos <= size(tokens))
+            select case (tokens(pos)%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                pos = pos + 1
+                cycle
+            case default
+                return
+            end select
+        end do
+
+        pos = 0
+    end function find_next_significant_token
 
     ! Helper function to determine how many tokens an expression consumes
     function parse_expression_length(parser, arena) result(length)

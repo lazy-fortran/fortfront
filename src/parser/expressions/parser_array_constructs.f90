@@ -53,7 +53,7 @@ contains
         type(statement_callbacks_t) :: callbacks
         logical :: single_line
         character(len=9), parameter :: where_end_keywords(2) = [ &
-                                       'elsewhere', 'end      ']
+                                       'elsewhere', 'end where']
 
         ! Consume 'where' keyword
         token = parser%peek()
