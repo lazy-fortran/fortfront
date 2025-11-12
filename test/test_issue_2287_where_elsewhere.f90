@@ -1,31 +1,40 @@
 program test_issue_2287_where_elsewhere
-    use, intrinsic :: iso_fortran_env, only: error_unit
-    use frontend_transformation, only: INPUT_MODE_STANDARD
-    use transformation_api, only: transform_with_context, transform_context_t
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+        & iostat_eor
+    use frontend_core, only: lex_source, emit_fortran
+    use frontend_parsing, only: parse_tokens
+    use lexer_core, only: token_t
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 
     character(len=:), allocatable :: source_code
     character(len=:), allocatable :: output_code
     character(len=:), allocatable :: error_msg
-    type(transform_context_t) :: ctx
+    type(token_t), allocatable :: tokens(:)
+    type(ast_arena_t) :: arena
+    integer :: program_index
     integer :: pos_if, pos_stop, pos_end_if
     integer :: pos_elsewhere, pos_assignment
 
     call read_example('examples/f90/issue_2287_where_elsewhere.f90', source_code)
 
-    ctx%input_mode = INPUT_MODE_STANDARD
-    ctx%has_filename = .true.
-    ctx%source_name = 'issue_2287_where_elsewhere'
+    arena = create_ast_arena()
 
-    call transform_with_context(source_code, output_code, error_msg, ctx)
+    call lex_source(source_code, tokens, error_msg)
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-        write (error_unit, '(A)') 'FAIL: transform_with_context error: ' // &
-            trim(error_msg)
+        write (error_unit, '(A)') 'FAIL: lex_source error: ' // trim(error_msg)
         error stop 1
     end if
 
+    call parse_tokens(tokens, arena, program_index, error_msg)
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        write (error_unit, '(A)') 'FAIL: parse_tokens error: ' // trim(error_msg)
+        error stop 1
+    end if
+
+    call emit_fortran(arena, program_index, output_code)
     if (.not. allocated(output_code)) then
-        write (error_unit, '(A)') 'FAIL: transform_with_context produced no output'
+        write (error_unit, '(A)') 'FAIL: emit_fortran produced no output'
         error stop 1
     end if
 
