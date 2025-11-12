@@ -1,6 +1,7 @@
 module parser_expressions_module
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD, to_lower
+                          TK_OPERATOR, TK_KEYWORD, TK_WHITESPACE, TK_COMMENT, &
+                          TK_NEWLINE, to_lower
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: component_access_node, identifier_node, &
                               range_subscript_node
@@ -370,6 +371,11 @@ contains
             token = view_peek_token(view, parser)
             if (token%kind == TK_EOF) exit main_loop
 
+            if (is_expression_trivia_token(token)) then
+                token = view_consume_token(view, parser)
+                cycle
+            end if
+
             if (.not. expect_operand) then
                 if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
                     if (operator_stack_has_open_group(operators)) then
@@ -592,6 +598,17 @@ contains
         expr_index = parse_postfix_ops(parser, arena, view, expr_index)
     end function parse_postfix_chain
 
+    pure logical function is_expression_trivia_token(token) result(is_trivia)
+        type(token_t), intent(in) :: token
+
+        select case (token%kind)
+        case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+            is_trivia = .true.
+        case default
+            is_trivia = .false.
+        end select
+    end function is_expression_trivia_token
+
     !=================================================================================
     ! RANGE EXPRESSION PARSING SECTION
     !=================================================================================
@@ -625,7 +642,8 @@ contains
                                (next_tok%text == ")" .or. next_tok%text == "]" .or. &
                                 next_tok%text == &
                                 ","))) then
-                        right_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
+                        right_index = parse_expression_with_precedence(parser, arena, &
+                                                                       PREC_ASSIGNMENT)
                     else
                         right_index = 0
                     end if
@@ -663,7 +681,8 @@ contains
                                     == "]" .or. &
                                     next_tok%text == &
                                     ","))) then
-                            right_index = parse_expression_with_precedence(parser, arena, PREC_ASSIGNMENT)
+                            right_index = parse_expression_with_precedence( &
+                                          parser, arena, PREC_ASSIGNMENT)
                         else
                             right_index = 0
                         end if
@@ -719,7 +738,8 @@ contains
 
     ! Parse array indexing or function call postfix operator using parentheses: (...)
     ! Parse postfix operators on an expression
-    recursive function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
+    recursive function parse_postfix_ops(parser, arena, view, base_expr) &
+        result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
