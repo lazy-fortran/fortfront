@@ -38,6 +38,8 @@ module parser_dispatcher_module
                                                parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
+    use parser_type_specifications_module, only: parse_implicit_statement, &
+                                                 take_implicit_additional_indices
     use parser_statement_data_module, only: parse_data_statement, &
                                             get_data_additional_indices, &
                                             parse_namelist_statement
@@ -232,6 +234,25 @@ contains
                     stmt_index = parse_assignment_or_expression(parser, arena)
                 else
                     stmt_index = parse_call_statement(parser, arena)
+                end if
+            case ("implicit")
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_implicit_statement(parser, arena)
+                    block
+                        integer, allocatable :: extra_indices(:)
+                        extra_indices = take_implicit_additional_indices()
+                        if (size(extra_indices) > 0) then
+                            if (allocated(additional_indices)) then
+                                block
+                                    integer, allocatable :: temp(:)
+                                    call move_alloc(additional_indices, temp)
+                                end block
+                            end if
+                            call move_alloc(extra_indices, additional_indices)
+                        end if
+                    end block
                 end if
             case ("stop")
                 ! Check if this is an identifier assignment like "stop = 42"
