@@ -1,7 +1,7 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, to_lower
+                          TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
@@ -76,9 +76,9 @@ contains
         type(statement_callbacks_t) :: local_callbacks
         logical :: has_meaningful
         integer :: next_index
-        logical :: is_select_case
-        integer :: lookahead, extended_end
-        character(len=:), allocatable :: lowered_text
+        integer :: lookahead
+        character(len=:), allocatable :: trimmed_keyword
+        character(len=:), allocatable :: suffix_keyword
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -121,81 +121,61 @@ contains
                 found_end = .false.
                 if (token%kind == TK_KEYWORD) then
                     do j = 1, size(end_keywords)
-                        if (token%text == trim(end_keywords(j))) then
+                        trimmed_keyword = trim(end_keywords(j))
+                        if (len_trim(trimmed_keyword) == 0) cycle
+
+                        if (index(trimmed_keyword, "end ") == 1) then
+                            if (token%text == "end") then
+                                suffix_keyword = adjustl(trimmed_keyword(4:len_trim(trimmed_keyword)))
+                                if (len_trim(suffix_keyword) == 0) cycle
+
+                                lookahead = parser%current_token + 1
+                                do while (lookahead <= size(parser%tokens))
+                                    select case (parser%tokens(lookahead)%kind)
+                                    case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                                        lookahead = lookahead + 1
+                                        cycle
+                                    end select
+                                    exit
+                                end do
+
+                                if (lookahead <= size(parser%tokens)) then
+                                    if (parser%tokens(lookahead)%kind == TK_KEYWORD .and. &
+                                        parser%tokens(lookahead)%text == suffix_keyword) then
+                                        found_end = .true.
+                                        exit
+                                    end if
+                                end if
+                            end if
+                        else if (token%text == trimmed_keyword) then
                             found_end = .true.
                             exit
                         end if
                     end do
+
                     if (found_end) exit
                 end if
 
                 ! Parse statement until end of line
                 stmt_start = parser%current_token
-                stmt_end = stmt_start
+                stmt_end = find_statement_end(parser%tokens, stmt_start)
                 has_meaningful = .false.
-                is_select_case = .false.
 
-                if (token%kind == TK_KEYWORD) then
-                    lowered_text = to_lower(token%text)
-                    if (trim(lowered_text) == "select") then
-                        lookahead = stmt_start + 1
-                        do while (lookahead <= size(parser%tokens))
-                            select case (parser%tokens(lookahead)%kind)
-                            case (TK_WHITESPACE, TK_COMMENT)
-                                lookahead = lookahead + 1
-                                cycle
-                            end select
+                if (stmt_end < stmt_start) then
+                    stmt_end = stmt_start
+                end if
+
+                do j = stmt_start, stmt_end
+                    select case (parser%tokens(j)%kind)
+                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                        cycle
+                    case default
+                        if (len_trim(parser%tokens(j)%text) > 0) then
+                            has_meaningful = .true.
                             exit
-                        end do
-                        if (lookahead <= size(parser%tokens)) then
-                            if (parser%tokens(lookahead)%kind == TK_KEYWORD) then
-                                lowered_text = to_lower(parser%tokens(lookahead)%text)
-                                if (trim(lowered_text) == "case") then
-                                    is_select_case = .true.
-                                end if
-                            end if
                         end if
-                    end if
-                end if
-
-                if (is_select_case) then
-                    extended_end = find_statement_end(parser%tokens, stmt_start)
-                    if (extended_end >= stmt_start) then
-                        stmt_end = extended_end
-                        has_meaningful = .true.
-                    else
-                        is_select_case = .false.
-                    end if
-                end if
-
-                if (.not. is_select_case) then
-                    do j = stmt_start, size(parser%tokens)
-                        select case (parser%tokens(j)%kind)
-                        case (TK_EOF)
-                            stmt_end = j
-                            exit
-                        case (TK_NEWLINE)
-                            stmt_end = j - 1
-                            exit
-                        case (TK_OPERATOR)
-                            if (parser%tokens(j)%text == ";") then
-                                stmt_end = j - 1
-                                exit
-                            end if
-                        end select
-
-                        stmt_end = j
-                        select case (parser%tokens(j)%kind)
-                        case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                            cycle
-                        case default
-                            if (len_trim(parser%tokens(j)%text) > 0) then
-                                has_meaningful = .true.
-                            end if
-                        end select
-                    end do
-
-                end if
+                    end select
+                end do
 
                 if (.not. has_meaningful) then
                     if (stmt_end < stmt_start) then
