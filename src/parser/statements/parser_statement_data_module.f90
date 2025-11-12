@@ -164,7 +164,25 @@ contains
             token = parser%consume()
             call skip_trivia(parser)
 
-            ! Check for loop variable (must be identifier)
+            if (.not. parse_implied_do_control(var_name, start_index, end_index, &
+                                               step_index, saved_pos)) return
+
+            expr_index = create_implied_do_node_helper(object_exprs, &
+                                                       value_expr_index, var_name, &
+                                                       start_index, end_index, &
+                                                       step_index, line, column)
+
+        end function try_parse_data_implied_do
+
+        logical function parse_implied_do_control(var_name, start_index, end_index, &
+                                                  step_index, saved_pos) result(success)
+            character(len=:), allocatable, intent(out) :: var_name
+            integer, intent(out) :: start_index, end_index, step_index
+            integer, intent(in) :: saved_pos
+            type(token_t) :: token
+
+            success = .false.
+
             token = parser%peek()
             if (token%kind /= TK_IDENTIFIER) then
                 parser%current_token = saved_pos
@@ -173,7 +191,6 @@ contains
             var_name = token%text
             token = parser%consume()
 
-            ! Check for '=' (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
                 parser%current_token = saved_pos
@@ -181,14 +198,12 @@ contains
             end if
             token = parser%consume()
 
-            ! Parse start expression
             start_index = parse_comparison(parser, arena)
             if (start_index <= 0) then
                 parser%current_token = saved_pos
                 return
             end if
 
-            ! Check for comma (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
                 parser%current_token = saved_pos
@@ -196,14 +211,12 @@ contains
             end if
             token = parser%consume()
 
-            ! Parse end expression
             end_index = parse_comparison(parser, arena)
             if (end_index <= 0) then
                 parser%current_token = saved_pos
                 return
             end if
 
-            ! Check for optional step expression
             step_index = 0
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -215,7 +228,6 @@ contains
                 end if
             end if
 
-            ! Check for closing parenthesis (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
                 parser%current_token = saved_pos
@@ -223,17 +235,29 @@ contains
             end if
             token = parser%consume()
 
-            ! Create the implied-do node
+            success = .true.
+        end function parse_implied_do_control
+
+        function create_implied_do_node_helper(object_exprs, value_expr_index, &
+                                               var_name, start_index, end_index, &
+                                               step_index, line, column) result(node_index)
+            integer, allocatable, intent(in) :: object_exprs(:)
+            integer, intent(in) :: value_expr_index
+            character(len=*), intent(in) :: var_name
+            integer, intent(in) :: start_index, end_index, step_index
+            integer, intent(in) :: line, column
+            integer :: node_index
+
             if (step_index > 0) then
                 if (allocated(object_exprs)) then
-                    expr_index = push_io_implied_do(arena, value_expr_index, &
+                    node_index = push_io_implied_do(arena, value_expr_index, &
                                                     var_name, start_expr_index=start_index, &
                                                     end_expr_index=end_index, &
                                                     step_expr_index=step_index, &
                                                     line=line, column=column, &
                                                     object_indices=object_exprs)
                 else
-                    expr_index = push_io_implied_do(arena, value_expr_index, &
+                    node_index = push_io_implied_do(arena, value_expr_index, &
                                                     var_name, start_expr_index=start_index, &
                                                     end_expr_index=end_index, &
                                                     step_expr_index=step_index, &
@@ -241,20 +265,19 @@ contains
                 end if
             else
                 if (allocated(object_exprs)) then
-                    expr_index = push_io_implied_do(arena, value_expr_index, &
+                    node_index = push_io_implied_do(arena, value_expr_index, &
                                                     var_name, start_expr_index=start_index, &
                                                     end_expr_index=end_index, line=line, &
                                                     column=column, &
                                                     object_indices=object_exprs)
                 else
-                    expr_index = push_io_implied_do(arena, value_expr_index, &
+                    node_index = push_io_implied_do(arena, value_expr_index, &
                                                     var_name, start_expr_index=start_index, &
                                                     end_expr_index=end_index, line=line, &
                                                     column=column)
                 end if
             end if
-
-        end function try_parse_data_implied_do
+        end function create_implied_do_node_helper
 
         logical function parse_implied_do_object_list(object_exprs) result(success)
             integer, allocatable, intent(out) :: object_exprs(:)
