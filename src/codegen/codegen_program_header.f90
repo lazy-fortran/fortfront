@@ -1,9 +1,10 @@
 module codegen_program_header
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, literal_node
-    use ast_nodes_misc, only: comment_node, blank_line_node, implicit_statement_node, &
-                              use_statement_node, intrinsic_statement_node, &
-                              interface_block_node, namelist_statement_node
+    use ast_nodes_misc, only: comment_node, directive_node, blank_line_node, &
+                              implicit_statement_node, use_statement_node, &
+                              intrinsic_statement_node, interface_block_node, &
+                              namelist_statement_node
     use ast_nodes_data, only: derived_type_node, declaration_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_declarations_inference, only: collect_program_variable_decls
@@ -224,6 +225,14 @@ contains
                                              implicit_statements_code, &
                                              legacy_storage_code, &
                                              interface_blocks_code)
+        type is (directive_node)
+            is_header = process_directive_node(arena, body_index, ib, &
+                                               non_use_count, header_decl_count, &
+                                               use_statements_code, &
+                                               intrinsic_statements_code, &
+                                               implicit_statements_code, &
+                                               legacy_storage_code, &
+                                               interface_blocks_code)
         type is (blank_line_node)
             is_header = process_blank_line(arena, body_index, non_use_count, &
                                            header_decl_count, use_statements_code, &
@@ -294,14 +303,77 @@ contains
         character(len=:), allocatable, intent(inout) :: implicit_statements_code
         character(len=:), allocatable, intent(inout) :: legacy_storage_code
         character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        character(len=:), allocatable :: comment_text
+
+        if (allocated(ib%text)) then
+            comment_text = ib%text
+        else
+            comment_text = ""
+        end if
+
+        is_header = process_comment_like_node(arena, body_index, &
+                     is_legacy_storage_text(comment_text), non_use_count, &
+                     header_decl_count, use_statements_code, &
+                     intrinsic_statements_code, implicit_statements_code, &
+                     legacy_storage_code, interface_blocks_code)
+    end function process_comment_node
+
+    logical function process_directive_node(arena, body_index, ib, non_use_count, &
+                                            header_decl_count, use_statements_code, &
+                                            intrinsic_statements_code, &
+                                            implicit_statements_code, &
+                                            legacy_storage_code, &
+                                            interface_blocks_code) result(is_header)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        type(directive_node), intent(in) :: ib
+        integer, intent(in) :: non_use_count
+        integer, intent(in) :: header_decl_count
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
+        character(len=:), allocatable :: directive_text
+
+        if (allocated(ib%text)) then
+            directive_text = ib%text
+        else
+            directive_text = ""
+        end if
+
+        is_header = process_comment_like_node(arena, body_index, &
+                     is_legacy_storage_text(directive_text), non_use_count, &
+                     header_decl_count, use_statements_code, &
+                     intrinsic_statements_code, implicit_statements_code, &
+                     legacy_storage_code, interface_blocks_code)
+    end function process_directive_node
+
+    logical function process_comment_like_node(arena, body_index, is_legacy_storage, &
+                                               non_use_count, header_decl_count, &
+                                               use_statements_code, &
+                                               intrinsic_statements_code, &
+                                               implicit_statements_code, &
+                                               legacy_storage_code, &
+                                               interface_blocks_code) result(is_header)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_index
+        logical, intent(in) :: is_legacy_storage
+        integer, intent(in) :: non_use_count
+        integer, intent(in) :: header_decl_count
+        character(len=:), allocatable, intent(inout) :: use_statements_code
+        character(len=:), allocatable, intent(inout) :: intrinsic_statements_code
+        character(len=:), allocatable, intent(inout) :: implicit_statements_code
+        character(len=:), allocatable, intent(inout) :: legacy_storage_code
+        character(len=:), allocatable, intent(inout) :: interface_blocks_code
         character(len=:), allocatable :: stmt_code
 
         is_header = .false.
-        if (is_legacy_storage_statement(ib) .or. &
-            ((non_use_count == 0) .and. header_decl_count == 0)) then
+        if (is_legacy_storage .or. ((non_use_count == 0) .and. &
+            header_decl_count == 0)) then
             is_header = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
-            if (is_legacy_storage_statement(ib)) then
+            if (is_legacy_storage) then
                 legacy_storage_code = legacy_storage_code // "    " // &
                                       stmt_code // new_line('A')
             else
@@ -311,7 +383,7 @@ contains
                                           interface_blocks_code)
             end if
         end if
-    end function process_comment_node
+    end function process_comment_like_node
 
     logical function process_blank_line(arena, body_index, non_use_count, &
                                         header_decl_count, use_statements_code, &
@@ -477,26 +549,26 @@ contains
         end if
     end subroutine append_header_trivia
 
-    logical function is_legacy_storage_statement(node)
-        type(comment_node), intent(in) :: node
+    logical function is_legacy_storage_text(text)
+        character(len=*), intent(in) :: text
         character(len=:), allocatable :: lowered_text
 
-        is_legacy_storage_statement = .false.
-        if (.not. allocated(node%text)) return
+        is_legacy_storage_text = .false.
+        if (len(text) == 0) return
 
-        lowered_text = to_lower(adjustl(trim(node%text)))
+        lowered_text = to_lower(adjustl(trim(text)))
         if (len_trim(lowered_text) >= 11) then
             if (index(lowered_text, "equivalence") == 1) then
-                is_legacy_storage_statement = .true.
+                is_legacy_storage_text = .true.
                 return
             end if
         end if
         if (len_trim(lowered_text) >= 6) then
             if (index(lowered_text, "common") == 1) then
-                is_legacy_storage_statement = .true.
+                is_legacy_storage_text = .true.
                 return
             end if
         end if
-    end function is_legacy_storage_statement
+    end function is_legacy_storage_text
 
 end module codegen_program_header

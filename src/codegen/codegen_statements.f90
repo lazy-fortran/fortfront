@@ -38,6 +38,7 @@ module codegen_statements
     public :: generate_code_data_statement
     public :: generate_code_implicit_statement
     public :: generate_code_comment
+    public :: generate_code_directive
     public :: generate_code_blank_line
     public :: generate_code_allocate_statement
     public :: generate_code_deallocate_statement
@@ -759,6 +760,40 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_comment
+
+    ! Generate code for directive nodes (OpenMP/OpenACC)
+    function generate_code_directive(node) result(code)
+        type(directive_node), intent(in) :: node
+        character(len=:), allocatable :: code
+
+        if (allocated(node%text)) then
+            if (len(node%text) == 0 .or. len_trim(node%text) == 0) then
+                call assign_default_directive(code, node%is_openmp, node%is_openacc)
+            else if (node%text(1:1) == "!") then
+                code = trim(node%text)
+            else
+                code = "!" // trim(node%text)
+            end if
+        else
+            call assign_default_directive(code, node%is_openmp, node%is_openacc)
+        end if
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_directive
+
+    subroutine assign_default_directive(code, is_openmp, is_openacc)
+        character(len=:), allocatable, intent(out) :: code
+        logical, intent(in) :: is_openmp
+        logical, intent(in) :: is_openacc
+
+        if (is_openmp) then
+            code = "!$omp"
+        else if (is_openacc) then
+            code = "!$acc"
+        else
+            code = "!"
+        end if
+    end subroutine assign_default_directive
 
     ! Generate code for blank line nodes
     function generate_code_blank_line(node) result(code)

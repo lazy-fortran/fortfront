@@ -18,8 +18,8 @@ module fortfront_node_constants
                                NODE_CASE_DEFAULT, NODE_COMPLEX_LITERAL, &
                                NODE_INCLUDE_STATEMENT, NODE_CONTAINS, &
                                NODE_FORMAT_DESCRIPTOR, NODE_FORMAT_STATEMENT, &
-                               NODE_COMMENT, NODE_IMPLICIT_STATEMENT, NODE_CONTINUE, &
-                               NODE_UNKNOWN
+                               NODE_COMMENT, NODE_DIRECTIVE, NODE_IMPLICIT_STATEMENT, &
+                               NODE_CONTINUE, NODE_UNKNOWN
     implicit none
     public
 end module fortfront_node_constants

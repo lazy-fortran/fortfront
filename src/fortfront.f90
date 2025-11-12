@@ -65,8 +65,9 @@ module fortfront
                             read_statement_node, format_descriptor_node
     use ast_nodes_misc, only: use_statement_node, include_statement_node, &
                               allocate_statement_node, deallocate_statement_node, &
-                              comment_node, contains_node, implicit_statement_node, &
-                              interface_block_node, complex_literal_node
+                              comment_node, directive_node, contains_node, &
+                              implicit_statement_node, interface_block_node, &
+                              complex_literal_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
 

@@ -18,6 +18,18 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type comment_node
 
+    ! Directive node (OpenMP/OpenACC sentinels)
+    type, extends(ast_node), public :: directive_node
+        character(len=:), allocatable :: text
+        logical :: is_openmp = .false.
+        logical :: is_openacc = .false.
+    contains
+        procedure :: accept => directive_accept
+        procedure :: to_json => directive_to_json
+        procedure :: assign => directive_assign
+        generic :: assignment(=) => assign
+    end type directive_node
+
     ! Blank line node (for preserving source formatting)
     type, extends(ast_node), public :: blank_line_node
         integer :: count = 1  ! Number of consecutive blank lines
@@ -1256,6 +1268,49 @@ contains
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine comment_assign
+
+    ! Directive node methods
+    subroutine directive_accept(this, visitor)
+        class(directive_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! No-op placeholder for future visitor hooks
+    end subroutine directive_accept
+
+    subroutine directive_to_json(this, json, parent)
+        class(directive_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'directive')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%text)) call json%add(obj, 'text', this%text)
+        call json%add(obj, 'is_openmp', this%is_openmp)
+        call json%add(obj, 'is_openacc', this%is_openacc)
+        call json%add(parent, obj)
+    end subroutine directive_to_json
+
+    subroutine directive_assign(lhs, rhs)
+        class(directive_node), intent(inout) :: lhs
+        class(directive_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        lhs%is_openmp = rhs%is_openmp
+        lhs%is_openacc = rhs%is_openacc
+
+        if (allocated(rhs%text)) lhs%text = rhs%text
+    end subroutine directive_assign
+
 
     ! Blank line node methods
     subroutine blank_line_accept(this, visitor)

@@ -5,7 +5,7 @@ module codegen_module_generation
     use ast_nodes_misc, only: implicit_statement_node, interface_block_node, &
                               module_procedure_node, use_statement_node, &
                               import_statement_node, include_statement_node, &
-                              comment_node, blank_line_node
+                              comment_node, directive_node, blank_line_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
@@ -204,6 +204,8 @@ contains
         type is (include_statement_node)
             is_prefix = .true.
         type is (comment_node)
+            is_prefix = .true.
+        type is (directive_node)
             is_prefix = .true.
         type is (blank_line_node)
             is_prefix = .true.

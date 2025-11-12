@@ -4,11 +4,12 @@ module codegen_grouped_body
     use ast_nodes_control, only: cycle_node, exit_node, goto_node, return_node, &
                                  continue_node, stop_node, &
                                  error_stop_node
-    use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
-                              end_statement_node, data_statement_node, &
-                              use_statement_node, implicit_statement_node, &
-                              intrinsic_statement_node, namelist_statement_node, &
-                              import_statement_node, include_statement_node
+    use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
+                              contains_node, end_statement_node, &
+                              data_statement_node, use_statement_node, &
+                              implicit_statement_node, intrinsic_statement_node, &
+                              namelist_statement_node, import_statement_node, &
+                              include_statement_node
     use ast_nodes_transfer, only: entry_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                               intent_type_to_string, &
@@ -212,6 +213,8 @@ contains
 
         type is (comment_node)
             call handle_comment_entry(arena, body_indices(i), code, i)
+        type is (directive_node)
+            call handle_comment_entry(arena, body_indices(i), code, i)
 
         type is (blank_line_node)
             call handle_blank_line_entry(code, i)
@@ -335,6 +338,8 @@ contains
         type is (format_statement_node)
             is_spec = .true.
         type is (comment_node)
+            is_spec = .true.
+        type is (directive_node)
             is_spec = .true.
         type is (blank_line_node)
             is_spec = .true.
