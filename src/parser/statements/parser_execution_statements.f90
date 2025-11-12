@@ -298,12 +298,27 @@ contains
                 block
                     type(token_t) :: next_token
                     logical :: is_assignment
+                    integer :: lookahead_pos
 
                     is_assignment = .false.
-                    if (parser_ref%current_token + 1 <= size(parser_ref%tokens)) then
-                        next_token = parser_ref%tokens(parser_ref%current_token + 1)
-                        if (next_token%kind == TK_OPERATOR .and. &
-                            (next_token%text == "=" .or. next_token%text == "=>")) then
+                    next_token%kind = TK_EOF
+                    next_token%text = ""
+                    lookahead_pos = parser_ref%current_token + 1
+                    do while (lookahead_pos >= 1 .and. lookahead_pos <= &
+                              size(parser_ref%tokens))
+                        next_token = parser_ref%tokens(lookahead_pos)
+                        select case (next_token%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead_pos = lookahead_pos + 1
+                            cycle
+                        case default
+                            exit
+                        end select
+                        lookahead_pos = lookahead_pos + 1
+                    end do
+
+                    if (next_token%kind == TK_OPERATOR) then
+                        if (next_token%text == "=" .or. next_token%text == "=>") then
                             is_assignment = .true.
                         end if
                     end if
