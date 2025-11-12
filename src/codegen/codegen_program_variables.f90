@@ -7,7 +7,8 @@ module codegen_program_variables
     use ast_nodes_misc, only: contains_node, use_statement_node, &
                               allocate_statement_node, interface_block_node, &
                               module_procedure_node, implicit_statement_node, &
-                              comment_node, blank_line_node, namelist_statement_node
+                              comment_node, directive_node, blank_line_node, &
+                              namelist_statement_node
     use ast_nodes_data, only: declaration_node, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
@@ -458,6 +459,8 @@ contains
             type is (implicit_statement_node)
                 cycle
             type is (comment_node)
+                cycle
+            type is (directive_node)
                 cycle
             type is (blank_line_node)
                 cycle

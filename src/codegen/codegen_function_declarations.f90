@@ -6,7 +6,8 @@ module codegen_function_declarations
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_procedure, only: function_def_node
     use ast_nodes_misc, only: interface_block_node, implicit_statement_node, &
-                              comment_node, blank_line_node, end_statement_node
+                              comment_node, directive_node, blank_line_node, &
+                              end_statement_node
     use ast_nodes_transfer, only: entry_node
     use codegen_declarations_core, only: fix_character_len_placeholder
     use codegen_declarations_inference, only: build_parameter_map, &
@@ -523,6 +524,8 @@ contains
             type is (implicit_statement_node)
                 cycle
             type is (comment_node)
+                cycle
+            type is (directive_node)
                 cycle
             type is (blank_line_node)
                 cycle

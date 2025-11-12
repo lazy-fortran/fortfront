@@ -2,6 +2,7 @@ module codegen_program_generation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
+                              directive_node, &
                               implicit_statement_node
     use ast_nodes_procedure, only: subroutine_def_node
     use codegen_arena_interface, only: generate_code_from_arena
@@ -73,6 +74,7 @@ contains
                 found_contains = .true.
                 exit
             type is (comment_node)
+            type is (directive_node)
             type is (blank_line_node)
             class default
                 has_non_trivial_body = .true.
@@ -222,6 +224,8 @@ contains
                 select type (body => arena%entries(child_idx)%node)
                 type is (comment_node)
                     cycle
+                type is (directive_node)
+                    cycle
                 type is (blank_line_node)
                     cycle
                 type is (implicit_statement_node)
@@ -259,6 +263,8 @@ contains
                 select type (body => arena%entries(child_idx)%node)
                 type is (comment_node)
                     snippet = generate_code_from_arena(arena, child_idx)
+                type is (directive_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
                 type is (blank_line_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 class default
@@ -275,4 +281,3 @@ contains
     end function collect_trivial_program_trivia
 
 end module codegen_program_generation
-

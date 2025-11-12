@@ -47,7 +47,7 @@ module parser_dispatcher_module
     use parser_control_flow_router_module, only: route_control_flow
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_misc, only: comment_node, blank_line_node
+    use ast_nodes_misc, only: comment_node, blank_line_node, directive_node
     use uid_generator, only: generate_uid
     use ast_types, only: LITERAL_STRING
     use ast_factory, only: push_assignment, push_identifier, push_literal
@@ -400,8 +400,16 @@ contains
                 end if
             end if
         case (TK_COMMENT)
-            ! Parse comment
-            stmt_index = parse_comment(parser, arena)
+            ! Parse sentinel directives before general comments
+            if (allocated(first_token%text)) then
+                if (is_directive_comment(first_token%text)) then
+                    stmt_index = parse_directive(parser, arena)
+                else
+                    stmt_index = parse_comment(parser, arena)
+                end if
+            else
+                stmt_index = parse_comment(parser, arena)
+            end if
         case (TK_NEWLINE)
             ! Parse blank line (newline token)
             stmt_index = parse_blank_line(parser, arena)
@@ -633,6 +641,51 @@ contains
         call arena%push(comment, "comment")
         comment_index = arena%size
     end function parse_comment
+
+    ! Parse OpenMP/OpenACC sentinel directives
+    function parse_directive(parser, arena) result(directive_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: directive_index
+        type(token_t) :: token
+        type(directive_node) :: directive
+        character(len=:), allocatable :: lowered_text
+
+        token = parser%consume()
+        directive%uid = generate_uid()
+        directive%line = token%line
+        directive%column = token%column
+        if (allocated(token%text)) then
+            directive%text = token%text
+            lowered_text = to_lower(adjustl(token%text))
+        else
+            directive%text = "!"
+            lowered_text = "!"
+        end if
+
+        if (len(lowered_text) >= 5) then
+            if (lowered_text(1:5) == "!$omp") directive%is_openmp = .true.
+            if (lowered_text(1:5) == "!$acc") directive%is_openacc = .true.
+        end if
+
+        call arena%push(directive, "directive")
+        directive_index = arena%size
+    end function parse_directive
+
+    pure logical function is_directive_comment(text) result(is_directive)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: lowered
+        integer :: length_text
+
+        lowered = to_lower(adjustl(text))
+        length_text = len(lowered)
+        if (length_text < 5) then
+            is_directive = .false.
+            return
+        end if
+
+        is_directive = lowered(1:5) == "!$omp" .or. lowered(1:5) == "!$acc"
+    end function is_directive_comment
 
     ! Parse a blank line (newline token)
     function parse_blank_line(parser, arena) result(blank_index)

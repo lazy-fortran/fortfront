@@ -3,7 +3,7 @@ module standardizer_declarations_insertion
     use ast_factory, only: push_implicit_statement
     use ast_nodes_core, only: literal_node, program_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use ast_nodes_misc, only: blank_line_node, comment_node, &
+    use ast_nodes_misc, only: blank_line_node, comment_node, directive_node, &
                               implicit_statement_node, intrinsic_statement_node, &
                               use_statement_node, allocate_statement_node, &
                               namelist_statement_node
@@ -175,39 +175,40 @@ contains
         end do
     end function program_has_variable_declarations
 
-    logical function is_legacy_statement_comment(node)
-        type(comment_node), intent(in) :: node
+    logical function is_legacy_statement_text(text)
+        character(len=*), intent(in) :: text
         character(len=:), allocatable :: lowered_text
 
-        is_legacy_statement_comment = .false.
-        if (.not. allocated(node%text)) return
+        is_legacy_statement_text = .false.
+        if (len(text) == 0) return
 
-        lowered_text = to_lower(adjustl(trim(node%text)))
+        lowered_text = to_lower(adjustl(trim(text)))
         if (len_trim(lowered_text) >= 11) then
             if (index(lowered_text, "equivalence") == 1) then
-                is_legacy_statement_comment = .true.
+                is_legacy_statement_text = .true.
                 return
             end if
         end if
         if (len_trim(lowered_text) >= 6) then
             if (index(lowered_text, "common") == 1) then
-                is_legacy_statement_comment = .true.
+                is_legacy_statement_text = .true.
                 return
             end if
         end if
         if (len_trim(lowered_text) >= 5) then
             if (index(lowered_text, "block") == 1) then
-                is_legacy_statement_comment = .true.
+                is_legacy_statement_text = .true.
                 return
             end if
         end if
-    end function is_legacy_statement_comment
+    end function is_legacy_statement_text
 
     logical function is_header_separator(arena, prog, pos)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         integer, intent(in) :: pos
         integer :: node_index
+        character(len=:), allocatable :: comment_text
 
         is_header_separator = .false.
         if (.not. allocated(prog%body_indices)) return
@@ -219,7 +220,19 @@ contains
 
         select type (stmt => arena%entries(node_index)%node)
         type is (comment_node)
-            is_header_separator = .not. is_legacy_statement_comment(stmt)
+            if (allocated(stmt%text)) then
+                comment_text = stmt%text
+            else
+                comment_text = ""
+            end if
+            is_header_separator = .not. is_legacy_statement_text(comment_text)
+        type is (directive_node)
+            if (allocated(stmt%text)) then
+                comment_text = stmt%text
+            else
+                comment_text = ""
+            end if
+            is_header_separator = .not. is_legacy_statement_text(comment_text)
         type is (blank_line_node)
             is_header_separator = .true.
         class default
@@ -233,6 +246,7 @@ contains
         integer, intent(in) :: mode
         integer :: i
         logical :: keep_scanning
+        character(len=:), allocatable :: comment_text
 
         pos = 1
         if (.not. allocated(prog%body_indices)) return
@@ -247,7 +261,23 @@ contains
                     type is (intrinsic_statement_node)
                         keep_scanning = .true.
                     type is (comment_node)
-                        if (is_legacy_statement_comment(stmt)) then
+                        if (allocated(stmt%text)) then
+                            comment_text = stmt%text
+                        else
+                            comment_text = ""
+                        end if
+                        if (is_legacy_statement_text(comment_text)) then
+                            keep_scanning = (mode >= 2)
+                        else
+                            keep_scanning = (mode >= 1)
+                        end if
+                    type is (directive_node)
+                        if (allocated(stmt%text)) then
+                            comment_text = stmt%text
+                        else
+                            comment_text = ""
+                        end if
+                        if (is_legacy_statement_text(comment_text)) then
                             keep_scanning = (mode >= 2)
                         else
                             keep_scanning = (mode >= 1)

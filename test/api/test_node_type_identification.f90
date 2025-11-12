@@ -11,6 +11,7 @@ program test_node_type_identification
     call test_get_node_type_function()
     call test_get_node_type_id_function()
     call test_comment_node_support()
+    call test_directive_node_support()
 
     if (all_tests_passed) then
         print *, "All node type identification tests PASSED!"
@@ -39,6 +40,12 @@ contains
 
         if (NODE_COMMENT /= 42) then
             print *, "FAILED: NODE_COMMENT constant missing or incorrect"
+            all_tests_passed = .false.
+            return
+        end if
+
+        if (NODE_DIRECTIVE == NODE_UNKNOWN) then
+            print *, "FAILED: NODE_DIRECTIVE constant missing or incorrect"
             all_tests_passed = .false.
             return
         end if
@@ -190,5 +197,29 @@ contains
 
         print *, "PASSED: Comment node support test"
     end subroutine test_comment_node_support
+
+    subroutine test_directive_node_support()
+        use ast_nodes_misc, only: directive_node
+        type(directive_node) :: test_directive
+        integer :: type_id
+
+        print *, "Testing directive node support..."
+
+        if (NODE_DIRECTIVE == NODE_UNKNOWN) then
+            print *, "FAILED: NODE_DIRECTIVE not properly defined"
+            all_tests_passed = .false.
+            return
+        end if
+
+        test_directive%text = "!$omp barrier"
+        type_id = get_node_type_id(test_directive)
+        if (type_id /= NODE_DIRECTIVE) then
+            print *, "FAILED: get_node_type_id does not identify directive nodes"
+            all_tests_passed = .false.
+            return
+        end if
+
+        print *, "PASSED: Directive node support test"
+    end subroutine test_directive_node_support
 
 end program test_node_type_identification

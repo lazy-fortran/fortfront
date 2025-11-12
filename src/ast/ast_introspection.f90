@@ -176,6 +176,8 @@ contains
             type_id = 44  ! NODE_MODULE_PROCEDURE
         type is (continue_node)
             type_id = 45  ! NODE_CONTINUE
+        type is (directive_node)
+            type_id = 48  ! NODE_DIRECTIVE
         class default
             ! Log warning for debugging purposes
             write (error_unit, '(A)') "Warning: Unknown node type in get_node_type_id"
