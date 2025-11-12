@@ -328,8 +328,8 @@ contains
                 trim(lookahead_lower) == "complex") then
                 type_token = parser%consume()
                 lookahead_token = parser%consume()
-                type_with_kind = trim(type_token%text)//" "// &
-                                 trim(lookahead_token%text)
+                type_with_kind = trim(type_token%text) // " " // &
+                    trim(lookahead_token%text)
                 call consume_optional_kind_spec(parser, type_with_kind)
                 allocate (character(len=16) :: prefix_array(1))
                 prefix_array(1) = trim(type_with_kind)
