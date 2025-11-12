@@ -130,14 +130,19 @@ contains
     end function push_interface_block
 
     function push_module_procedure(arena, procedure_names, line, column, &
-                                   parent_index) result(proc_index)
+                                   parent_index, has_module_prefix, &
+                                   has_double_colon) result(proc_index)
         type(ast_arena_t), intent(inout) :: arena
         type(string_t), intent(in), optional :: procedure_names(:)
         integer, intent(in), optional :: line, column, parent_index
+        logical, intent(in), optional :: has_module_prefix
+        logical, intent(in), optional :: has_double_colon
         integer :: proc_index
         type(module_procedure_node) :: module_proc
 
-        module_proc = create_module_procedure(procedure_names, line, column)
+        module_proc = create_module_procedure(procedure_names, line, column, &
+                                              has_module_prefix=has_module_prefix, &
+                                              has_double_colon=has_double_colon)
         call arena%push(module_proc, "module_procedure", parent_index)
         proc_index = arena%size
     end function push_module_procedure
