@@ -602,7 +602,7 @@ contains
         type(token_t), intent(in) :: token
 
         select case (token%kind)
-        case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+        case (TK_WHITESPACE, TK_COMMENT)
             is_trivia = .true.
         case default
             is_trivia = .false.
