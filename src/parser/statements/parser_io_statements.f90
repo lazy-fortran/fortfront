@@ -51,6 +51,62 @@ contains
         end if
     end subroutine parse_format_specifier
 
+    subroutine skip_io_trivia(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                token = parser%consume()
+            case default
+                exit
+            end select
+        end do
+    end subroutine skip_io_trivia
+
+    logical function parse_keyworded_format_clause(parser, format_spec) &
+        result(found)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: format_spec
+
+        type(parser_state_t) :: checkpoint
+        type(token_t) :: token
+        integer :: clause_line
+
+        found = .false.
+        clause_line = 0
+
+        checkpoint = parser
+        call skip_io_trivia(checkpoint)
+
+        token = checkpoint%peek()
+        if (.not. is_format_specifier_keyword(token)) return
+
+        clause_line = token%line
+        token = checkpoint%consume()
+        call skip_io_trivia(checkpoint)
+
+        token = checkpoint%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "=") return
+        token = checkpoint%consume()
+
+        call skip_io_trivia(checkpoint)
+        call parse_format_specifier(checkpoint, format_spec)
+        if (.not. allocated(format_spec)) return
+        if (len(format_spec) == 0) then
+            write (error_unit, *) &
+                "Error: Expected format specifier after 'fmt=' at line ", &
+                clause_line
+            deallocate (format_spec)
+            return
+        end if
+
+        parser%current_token = checkpoint%current_token
+        found = .true.
+    end function parse_keyworded_format_clause
+
     ! Parse unit specifier (common logic for write/read)
     function parse_unit_specifier(parser) result(unit_spec)
         type(parser_state_t), intent(inout) :: parser
@@ -330,6 +386,7 @@ contains
         integer, allocatable :: arg_indices(:)
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
+        logical :: has_keyworded_format
 
         ! Check if we're at write keyword
         token = parser%peek()
@@ -363,6 +420,7 @@ contains
         end if
 
         ! Check for format specifier or namelist (optional)
+        has_keyworded_format = .false.
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
             token = parser%consume()  ! consume comma
@@ -384,15 +442,19 @@ contains
                         token = parser%consume()
                     else
                         write (error_unit, *) &
-                        "Error: Expected namelist group name after 'nml=' at line ", &
-                        token%line
+                          "Error: Expected namelist group name after 'nml=' at line ", &
+                          token%line
                     end if
                 end if
             else
-                ! Parse format specifier
-                call parse_format_specifier(parser, format_spec)
-                if (allocated(format_spec)) then
-                    if (len(format_spec) == 0) deallocate (format_spec)
+                has_keyworded_format = parse_keyworded_format_clause(parser, &
+                                                                     format_spec)
+                if (.not. has_keyworded_format) then
+                    ! Parse positional format specifier
+                    call parse_format_specifier(parser, format_spec)
+                    if (allocated(format_spec)) then
+                        if (len(format_spec) == 0) deallocate (format_spec)
+                    end if
                 end if
             end if
         end if
@@ -624,8 +686,8 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-              ! Only add space if not immediately after '=' AND if token is not &
-              ! a string literal
+                ! Only add space if not immediately after '=' AND if token is not &
+                ! a string literal
                 if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= &
                     TK_STRING) then
                     if (spec_text(len(spec_text):len(spec_text)) /= '=') then
