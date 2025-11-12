@@ -470,14 +470,16 @@ contains
             if (tokens(i)%kind == TK_KEYWORD) then
                 select case (tokens(i)%text)
                 case ("program")
-                    ! Only count as program start if NOT preceded by "end"
-                    if (i == 1) then
-                        program_count = program_count + 1
-                        has_program_start = .true.
-                    else if (i > 1 .and. tokens(i - 1)%text /= "end") then
-                        program_count = program_count + 1
-                        has_program_start = .true.
+                    ! Only treat as a new program when this token actually begins a program
+                    if (.not. is_program_statement_start(tokens, i)) cycle
+
+                    ! Skip "end program"
+                    if (i > 1) then
+                        if (tokens(i - 1)%text == "end") cycle
                     end if
+
+                    program_count = program_count + 1
+                    has_program_start = .true.
                 case ("function")
                     ! Check if this is not "end function"
                     if (i == 1) then
@@ -577,6 +579,88 @@ contains
             end select
         end do
     end function is_module_procedure_statement
+
+    logical function is_program_statement_start(tokens, idx) result(is_stmt)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        integer :: prev_idx, next_idx
+        character(len=:), allocatable :: lowered, operator_text
+
+        is_stmt = .false.
+        if (idx < 1 .or. idx > size(tokens)) return
+
+        prev_idx = find_previous_significant_token(tokens, idx - 1)
+        if (prev_idx > 0) then
+            select case (tokens(prev_idx)%kind)
+            case (TK_KEYWORD)
+                lowered = to_lower(trim(tokens(prev_idx)%text))
+                if (lowered /= "end" .and. lowered /= "endprogram") return
+            case default
+                return
+            end select
+        end if
+
+        next_idx = find_next_significant_token(tokens, idx + 1)
+        if (next_idx == 0) then
+            is_stmt = .true.
+            return
+        end if
+
+        select case (tokens(next_idx)%kind)
+        case (TK_OPERATOR)
+            operator_text = trim(tokens(next_idx)%text)
+            select case (operator_text)
+            case ("=", "=>", "::", "%", "(", ")", ",", "+", "-", "*", "/", "//")
+                return
+            end select
+        case (TK_IDENTIFIER)
+            is_stmt = .true.
+            return
+        case (TK_KEYWORD)
+            is_stmt = .true.
+            return
+        case (TK_EOF)
+            is_stmt = .true.
+            return
+        case default
+            is_stmt = .true.
+            return
+        end select
+    end function is_program_statement_start
+
+    integer function find_previous_significant_token(tokens, start_idx) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx
+
+        idx = start_idx
+        do while (idx >= 1)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx - 1
+                cycle
+            case default
+                return
+            end select
+        end do
+        idx = 0
+    end function find_previous_significant_token
+
+    integer function find_next_significant_token(tokens, start_idx) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx
+
+        idx = start_idx
+        do while (idx >= 1 .and. idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case default
+                return
+            end select
+        end do
+        idx = 0
+    end function find_next_significant_token
 
     ! Check for specifically invalid patterns that should be rejected
     logical function contains_invalid_patterns(tokens) result(is_invalid)
