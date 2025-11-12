@@ -48,6 +48,7 @@ module parser_execution_statements_module
     use parser_import_resolution_module, only: parse_use_statement, &
                                                parse_include_statement
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
@@ -485,27 +486,82 @@ contains
                 case ("deallocate")
                     stmt_index = parse_deallocate_statement(parser_ref, arena_ref)
                 case ("stop")
-                    stmt_index = parse_stop_statement(parser_ref, arena_ref)
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_stop_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("pause")
                     stmt_index = parse_pause_statement(parser_ref, arena_ref)
                 case ("go", "goto")
-                    stmt_index = parse_goto_statement(parser_ref, arena_ref)
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_goto_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("error")
                     stmt_index = parse_error_stop_statement(parser_ref, arena_ref)
                 case ("return")
-                    stmt_index = parse_return_statement(parser_ref, arena_ref)
+                    ! Check if this is an identifier assignment like "return = 42"
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_return_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("entry")
                     stmt_index = parse_entry_statement(parser_ref, arena_ref)
                 case ("continue")
                     stmt_index = parse_continue_statement(parser_ref, arena_ref)
                 case ("cycle")
-                    stmt_index = parse_cycle_statement(parser_ref, arena_ref)
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_cycle_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("exit")
-                    stmt_index = parse_exit_statement(parser_ref, arena_ref)
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_exit_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("nullify")
                     stmt_index = parse_nullify_statement(parser_ref, arena_ref)
                 case ("call")
-                    stmt_index = parse_call_statement(parser_ref, arena_ref)
+                    block
+                        type(token_t) :: current_token
+                        current_token = parser_ref%peek()
+                        if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                                           additional_execution_indices)
+                        else
+                            stmt_index = parse_call_statement(parser_ref, arena_ref)
+                        end if
+                    end block
                 case ("abstract")
                     block
                         integer :: lookahead_idx

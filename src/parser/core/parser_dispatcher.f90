@@ -39,6 +39,7 @@ module parser_dispatcher_module
                                             parse_namelist_statement
     use parser_legacy_statements_module, only: parse_legacy_statement
     use parser_control_flow_router_module, only: route_control_flow
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_misc, only: comment_node, blank_line_node
     use uid_generator, only: generate_uid
@@ -157,7 +158,12 @@ contains
                     end if
                 end block
             case ("module")
-                stmt_index = parse_module(parser, arena)
+                ! Check if this is an identifier assignment like "module = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_module(parser, arena)
+                end if
             case ("submodule")
                 stmt_index = parse_submodule_statement(parser, arena)
             case ("block")
@@ -193,7 +199,12 @@ contains
                     end if
                 end block
             case ("program")
-                stmt_index = parse_program_statement(parser, arena)
+                ! Check if this is an identifier assignment like "program = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_program_statement(parser, arena)
+                end if
             case ("type")
                 stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
             case ("real", "integer", "logical", "character", "complex", "double", &
@@ -208,23 +219,58 @@ contains
                                                            prefix_buffer)
                 end if
             case ("call")
-                stmt_index = parse_call_statement(parser, arena)
+                ! Check if this is an identifier assignment like "call = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_call_statement(parser, arena)
+                end if
             case ("stop")
-                stmt_index = parse_stop_statement(parser, arena)
+                ! Check if this is an identifier assignment like "stop = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_stop_statement(parser, arena)
+                end if
             case ("pause")
                 stmt_index = parse_pause_statement(parser, arena)
             case ("return")
-                stmt_index = parse_return_statement(parser, arena)
+                ! Check if this is an identifier assignment like "return = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_return_statement(parser, arena)
+                end if
             case ("entry")
-                stmt_index = parse_entry_statement(parser, arena)
+                ! Check if this is an identifier assignment like "entry = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_entry_statement(parser, arena)
+                end if
             case ("go", "goto")
-                stmt_index = parse_goto_statement(parser, arena)
+                ! Check if this is an identifier assignment like "goto = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_goto_statement(parser, arena)
+                end if
             case ("error")
                 stmt_index = parse_error_stop_statement(parser, arena)
             case ("cycle")
-                stmt_index = parse_cycle_statement(parser, arena)
+                ! Check if this is an identifier assignment like "cycle = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_cycle_statement(parser, arena)
+                end if
             case ("exit")
-                stmt_index = parse_exit_statement(parser, arena)
+                ! Check if this is an identifier assignment like "exit = 42"
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_exit_statement(parser, arena)
+                end if
             case ("nullify")
                 stmt_index = parse_nullify_statement(parser, arena)
             case ("end")
