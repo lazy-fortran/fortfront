@@ -270,6 +270,14 @@ contains
             character(len=*), intent(in) :: lowered
             type(parser_state_t), intent(inout) :: parser_ref
             type(ast_arena_t), intent(inout) :: arena_ref
+            type(token_t) :: keyword_token
+
+            keyword_token = parser_ref%peek()
+            if (keyword_should_parse_as_identifier(keyword_token, parser_ref)) then
+                stmt_index = handle_identifier_token(parser_ref, arena_ref, &
+                                                     keyword_token)
+                return
+            end if
 
             select case (lowered)
             case ("elemental", "pure", "impure", "recursive", "nonrecursive", &
