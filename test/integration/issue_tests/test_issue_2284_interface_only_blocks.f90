@@ -1,6 +1,6 @@
 program test_issue_2284_interface_only_blocks
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-        iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, &
+        iostat_end, iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
