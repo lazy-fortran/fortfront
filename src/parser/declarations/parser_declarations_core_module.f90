@@ -15,6 +15,7 @@ module parser_declarations_core_module
                                                     parse_array_dimensions
     use declaration_attribute_utils, only: declaration_attribute_info_t
     use parser_utilities, only: peek_next_nontrivial_token
+    use parser_keyword_disambiguation_module, only: looks_like_implicit_statement
     implicit none
     private
 
@@ -713,6 +714,7 @@ contains
         character(len=:), allocatable :: lowered
         character(len=:), allocatable :: next_lower
         integer :: index
+        type(parser_state_t) :: parser_copy
 
         promoted = .false.
         if (token%kind /= TK_KEYWORD) then
@@ -736,6 +738,14 @@ contains
             end if
         case ("in", "out", "inout", "data")
             ! Contextual keywords can act as identifiers within declarations
+        case ("implicit")
+            parser_copy = parser
+            if (parser_copy%current_token > 1) then
+                parser_copy%current_token = parser_copy%current_token - 1
+            end if
+            if (looks_like_implicit_statement(parser_copy)) then
+                return
+            end if
         case default
             return
         end select

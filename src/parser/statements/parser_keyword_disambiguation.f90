@@ -1,12 +1,13 @@
 module parser_keyword_disambiguation_module
     use lexer_core, only: token_t, TK_OPERATOR, TK_COMMENT, TK_WHITESPACE, &
-                          TK_NEWLINE, TK_EOF, to_lower
+                          TK_NEWLINE, TK_EOF, TK_KEYWORD, to_lower
     use parser_state_module, only: parser_state_t
     implicit none
     private
 
     public :: keyword_should_parse_as_identifier
     public :: looks_like_format_statement
+    public :: looks_like_implicit_statement
 
 contains
 
@@ -23,6 +24,8 @@ contains
         select case (lowered)
         case ("format")
             as_identifier = .not. looks_like_format_statement(parser)
+        case ("implicit")
+            as_identifier = .not. looks_like_implicit_statement(parser)
         end select
     end function keyword_should_parse_as_identifier
 
@@ -135,5 +138,61 @@ contains
 
         is_format = .true.
     end function looks_like_format_statement
+
+    logical function looks_like_implicit_statement(parser) result(is_implicit)
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx, token_count
+        type(token_t) :: tok
+        logical :: continuation_allowed
+        character(len=:), allocatable :: lowered
+
+        is_implicit = .false.
+        if (.not. associated(parser%tokens)) return
+
+        token_count = size(parser%tokens)
+        if (token_count == 0) return
+
+        idx = parser%current_token + 1
+        continuation_allowed = .false.
+
+        do while (idx <= token_count)
+            tok = parser%tokens(idx)
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NEWLINE)
+                if (.not. continuation_allowed) return
+                continuation_allowed = .false.
+                idx = idx + 1
+                cycle
+            case (TK_OPERATOR)
+                select case (tok%text)
+                case ("&")
+                    continuation_allowed = .true.
+                    idx = idx + 1
+                    cycle
+                case default
+                    return
+                end select
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > token_count) return
+
+        tok = parser%tokens(idx)
+        if (tok%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(tok%text))
+        select case (lowered)
+        case ("none", "integer", "real", "logical", "character", "complex", &
+              "double", "type", "class", "procedure")
+            is_implicit = .true.
+        case default
+            is_implicit = .false.
+        end select
+    end function looks_like_implicit_statement
 
 end module parser_keyword_disambiguation_module

@@ -51,7 +51,8 @@ module parser_execution_statements_module
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
     use parser_dimension_statements_module, only: parse_dimension_statement
-    use parser_keyword_disambiguation_module, only: looks_like_format_statement
+    use parser_keyword_disambiguation_module, only: looks_like_format_statement, &
+                                                    looks_like_implicit_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
@@ -306,13 +307,21 @@ contains
                         ! This is "contains" used as an identifier in assignment
                         ! Don't consume it - let it be handled as an identifier
                         stmt_index = handle_identifier_token(parser_ref, arena_ref, &
-                                                            parser_ref%peek())
+                                                             parser_ref%peek())
                     end if
                 end block
             case ("function")
                 stmt_index = parse_function_with_prefixes(parser_ref, arena_ref)
             case ("subroutine")
                 stmt_index = parse_subroutine_with_prefixes(parser_ref, arena_ref)
+            case ("implicit")
+                if (.not. looks_like_implicit_statement(parser_ref)) then
+                    stmt_index = handle_identifier_token(parser_ref, arena_ref, &
+                                                         parser_ref%peek())
+                else
+                    stmt_index = parse_general_keyword(lowered, parser_ref, &
+                                                       arena_ref)
+                end if
             case default
                 stmt_index = parse_general_keyword(lowered, parser_ref, arena_ref)
             end select
@@ -371,8 +380,8 @@ contains
                         lookahead_lower = to_lower(trim(lookahead%text))
                         if (trim(lookahead_lower) == "precision" .or. &
                             trim(lookahead_lower) == "complex") then
-                            type_with_kind = trim(lowered)//" "// &
-                                             trim(lookahead%text)
+                            type_with_kind = trim(lowered) // " " // &
+                                trim(lookahead%text)
                             block
                                 type(token_t) :: consumed_token
                                 consumed_token = parser_ref%consume()
@@ -469,7 +478,7 @@ contains
                         stmt_index = parse_format_statement(parser_ref, arena_ref)
                     else
                         stmt_index = handle_identifier_token(parser_ref, arena_ref, &
-                                                            parser_ref%peek())
+                                                             parser_ref%peek())
                     end if
                 case ("allocate")
                     stmt_index = parse_allocate_statement(parser_ref, arena_ref)

@@ -21,6 +21,7 @@ module parser_module_structures_module
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
@@ -126,7 +127,8 @@ contains
                                     rhs_token = parser%consume()
 
                                     ! Create target identifier for "contains"
-                                    target_index = push_identifier(arena, id_token%text, &
+                                    target_index = push_identifier(arena, &
+                                                                   id_token%text, &
                                                                    id_token%line, &
                                                                    id_token%column)
 
@@ -167,6 +169,12 @@ contains
             ! Parse declarations in module body (before contains)
             if (.not. in_contains_section) then
                 if (token%kind == TK_KEYWORD) then
+                    if (keyword_should_parse_as_identifier(token, parser)) then
+                        call handle_module_identifier_assignment(parser, arena, &
+                                                                 declaration_indices)
+                        cycle
+                    end if
+
                     select case (token%text)
                     case ("public", "private")
                         stmt_index = parse_visibility_statement(parser, arena)
@@ -240,77 +248,8 @@ contains
                         cycle
                     end select
                 else if (token%kind == TK_IDENTIFIER) then
-                    ! Handle assignments and other statements in module body
-                    ! For now, parse as a simple assignment statement
-                    block
-                        type(token_t) :: id_token, eq_token
-                        integer :: target_index, assign_index
-                        character(len=:), allocatable :: assignment_op
-
-                        id_token = parser%consume()  ! Get the identifier
-
-                        ! Check if it's an assignment
-                        eq_token = parser%peek()
-                        if (eq_token%kind == TK_OPERATOR .and. &
-                            (eq_token%text == "=" .or. eq_token%text == "=>")) then
-                            eq_token = parser%consume()  ! Consume '=' or '=>'
-                            assignment_op = eq_token%text
-
-                            ! Create target identifier
-                            target_index = push_identifier(arena, id_token%text, &
-                                                           id_token%line, &
-                                                           id_token%column)
-
-                            ! For simple module assignments, consume rest of line
-                            ! We'll create a simple identifier node for the RHS
-                            block
-                                type(token_t) :: rhs_token
-                                integer :: rhs_index
-
-                                rhs_token = parser%peek()
-                                if (rhs_token%kind == TK_NUMBER .or. &
-                                    rhs_token%kind == &
-                                    TK_IDENTIFIER) then
-                                    rhs_token = parser%consume()
-
-                                    ! Create identifier or literal node for RHS
-                                    if (rhs_token%kind == TK_IDENTIFIER) then
-                                        rhs_index = push_identifier(arena, &
-                                                                    rhs_token%text, &
-                                                                    rhs_token%line, &
-                                                                    rhs_token%column)
-                                    else
-                                        ! For numbers, create as literal
-                                        rhs_index = push_literal(arena, &
-                                                                 rhs_token%text, &
-                                                                 rhs_token%line, &
-                                                                 rhs_token%column, &
-                                                                 LITERAL_STRING)
-                                    end if
-
-                                    if (rhs_index > 0 .and. target_index > 0) then
-                                        ! Create assignment node
-                                        if (.not. allocated(assignment_op)) &
-                                            assignment_op = "="
-                                        assign_index = push_assignment( &
-                                                       arena, target_index, &
-                                                       rhs_index, &
-                                                       id_token%line, &
-                                                       id_token%column, &
-                                                       operator_text=assignment_op)
-                                        if (assign_index > 0) then
-                                            declaration_indices = &
-                                                [declaration_indices, &
-                                                 assign_index]
-                                        end if
-                                    end if
-                                end if
-                            end block
-                        else
-                            ! Not an assignment, just consume the identifier
-                            ! Handles other statement types not fully parsed
-                        end if
-                    end block
+                    call handle_module_identifier_assignment(parser, arena, &
+                                                             declaration_indices)
                     cycle  ! Continue to next iteration
                 end if
             end if
@@ -386,11 +325,12 @@ contains
                                 lookahead_lower = to_lower(trim(lookahead%text))
                                 select case (trim(lookahead_lower))
                                 case ("precision", "complex")
-                                    type_with_kind = trim(token%text)//" "// &
-                                                     trim(lookahead%text)
+                                    type_with_kind = trim(token%text) // " " // &
+                                        trim(lookahead%text)
                                     token = parser%consume()
                                     token = parser%consume()
-                                    call consume_optional_kind_spec(parser, type_with_kind)
+                                    call consume_optional_kind_spec(parser, &
+                                                                    type_with_kind)
                                     call append_prefix_token(stored, type_with_kind)
                                     call prefix_buffer%set(stored)
                                     if (allocated(stored)) deallocate (stored)
@@ -585,6 +525,52 @@ contains
 
         stmt_index = parse_implicit_statement(parser, arena)
     end subroutine parse_simple_implicit_in_module
+
+    subroutine handle_module_identifier_assignment(parser, arena, declaration_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        type(token_t) :: id_token, eq_token, rhs_token
+        integer :: target_index, rhs_index, assign_index
+        character(len=:), allocatable :: assignment_op
+
+        assign_index = 0
+        id_token = parser%consume()
+
+        eq_token = parser%peek()
+        if (eq_token%kind /= TK_OPERATOR) return
+        if (eq_token%text /= "=" .and. eq_token%text /= "=>") return
+
+        eq_token = parser%consume()
+        assignment_op = eq_token%text
+
+        target_index = push_identifier(arena, id_token%text, id_token%line, &
+                                       id_token%column)
+
+        rhs_token = parser%peek()
+        if (rhs_token%kind /= TK_NUMBER .and. rhs_token%kind /= TK_IDENTIFIER) then
+            return
+        end if
+
+        rhs_token = parser%consume()
+        if (rhs_token%kind == TK_IDENTIFIER) then
+            rhs_index = push_identifier(arena, rhs_token%text, rhs_token%line, &
+                                        rhs_token%column)
+        else
+            rhs_index = push_literal(arena, rhs_token%text, rhs_token%line, &
+                                     rhs_token%column, LITERAL_STRING)
+        end if
+
+        if (rhs_index <= 0 .or. target_index <= 0) return
+
+        if (.not. allocated(assignment_op)) assignment_op = "="
+        assign_index = push_assignment(arena, target_index, rhs_index, &
+                                       id_token%line, id_token%column, &
+                                       operator_text=assignment_op)
+        if (assign_index > 0) then
+            declaration_indices = [declaration_indices, assign_index]
+        end if
+    end subroutine handle_module_identifier_assignment
 
     ! Temporary helper to skip procedure bodies during refactoring
     subroutine skip_procedure_body(parser, proc_type)
