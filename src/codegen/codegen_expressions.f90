@@ -1169,9 +1169,24 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: expr_code
         character(len=:), allocatable :: start_code, end_code, step_code
+        character(len=:), allocatable :: elem_code
+        integer :: obj_idx
 
         expr_code = ""
-        if (node%expr_index > 0) then
+        if (allocated(node%object_indices)) then
+            do obj_idx = 1, size(node%object_indices)
+                if (node%object_indices(obj_idx) <= 0) cycle
+                elem_code = generate_code_from_arena(arena, &
+                                                     node%object_indices(obj_idx))
+                elem_code = trim(elem_code)
+                if (len_trim(elem_code) == 0) cycle
+                if (len_trim(expr_code) == 0) then
+                    expr_code = elem_code
+                else
+                    expr_code = trim(expr_code) // ", " // elem_code
+                end if
+            end do
+        else if (node%expr_index > 0) then
             expr_code = generate_code_from_arena(arena, node%expr_index)
             expr_code = trim(expr_code)
         end if

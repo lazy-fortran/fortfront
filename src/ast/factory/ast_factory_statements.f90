@@ -191,7 +191,7 @@ contains
     ! Create IO implied-do node and add to arena
     function push_io_implied_do(arena, expr_index, var_name, start_expr_index, &
                                 end_expr_index, step_expr_index, line, column, &
-                                parent_index) result(node_index)
+                                parent_index, object_indices) result(node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
@@ -199,6 +199,7 @@ contains
         integer, intent(in) :: end_expr_index
         integer, intent(in), optional :: step_expr_index
         integer, intent(in), optional :: line, column, parent_index
+        integer, intent(in), optional :: object_indices(:)
         integer :: node_index
         type(io_implied_do_node) :: node
 
@@ -208,6 +209,12 @@ contains
         node%start_expr_index = start_expr_index
         node%end_expr_index = end_expr_index
         if (present(step_expr_index)) node%step_expr_index = step_expr_index
+        if (present(object_indices)) then
+            if (size(object_indices) > 0) then
+                node%object_indices = object_indices
+                if (node%expr_index <= 0) node%expr_index = object_indices(1)
+            end if
+        end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
 

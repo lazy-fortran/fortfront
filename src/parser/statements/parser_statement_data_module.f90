@@ -127,10 +127,12 @@ contains
             integer :: expr_index
             type(token_t) :: token
             integer :: saved_pos
+            integer, allocatable :: object_exprs(:)
             integer :: value_expr_index
             integer :: start_index, end_index, step_index
             character(len=:), allocatable :: var_name
             integer :: line, column
+            logical :: objects_ok
 
             expr_index = 0
             saved_pos = parser%current_token
@@ -141,22 +143,46 @@ contains
             column = token%column
             token = parser%consume()  ! consume '('
 
-            ! Parse the object expression (could be a variable reference)
-            value_expr_index = parse_comparison(parser, arena)
-            if (value_expr_index <= 0) then
+            objects_ok = parse_implied_do_object_list(object_exprs)
+            if (.not. objects_ok) then
                 parser%current_token = saved_pos
                 return
             end if
 
-            ! Check for comma (required for implied-do)
+            if (.not. allocated(object_exprs) .or. size(object_exprs) == 0) then
+                parser%current_token = saved_pos
+                return
+            end if
+            value_expr_index = object_exprs(1)
+
+            call skip_trivia(parser)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
                 parser%current_token = saved_pos
                 return
             end if
             token = parser%consume()
+            call skip_trivia(parser)
 
-            ! Check for loop variable (must be identifier)
+            if (.not. parse_implied_do_control(var_name, start_index, end_index, &
+                                               step_index, saved_pos)) return
+
+            expr_index = create_implied_do_node_helper(object_exprs, &
+                                                       value_expr_index, var_name, &
+                                                       start_index, end_index, &
+                                                       step_index, line, column)
+
+        end function try_parse_data_implied_do
+
+        logical function parse_implied_do_control(var_name, start_index, end_index, &
+                                                  step_index, saved_pos) result(success)
+            character(len=:), allocatable, intent(out) :: var_name
+            integer, intent(out) :: start_index, end_index, step_index
+            integer, intent(in) :: saved_pos
+            type(token_t) :: token
+
+            success = .false.
+
             token = parser%peek()
             if (token%kind /= TK_IDENTIFIER) then
                 parser%current_token = saved_pos
@@ -165,7 +191,6 @@ contains
             var_name = token%text
             token = parser%consume()
 
-            ! Check for '=' (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
                 parser%current_token = saved_pos
@@ -173,14 +198,12 @@ contains
             end if
             token = parser%consume()
 
-            ! Parse start expression
             start_index = parse_comparison(parser, arena)
             if (start_index <= 0) then
                 parser%current_token = saved_pos
                 return
             end if
 
-            ! Check for comma (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ",") then
                 parser%current_token = saved_pos
@@ -188,14 +211,12 @@ contains
             end if
             token = parser%consume()
 
-            ! Parse end expression
             end_index = parse_comparison(parser, arena)
             if (end_index <= 0) then
                 parser%current_token = saved_pos
                 return
             end if
 
-            ! Check for optional step expression
             step_index = 0
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -207,7 +228,6 @@ contains
                 end if
             end if
 
-            ! Check for closing parenthesis (required)
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
                 parser%current_token = saved_pos
@@ -215,20 +235,118 @@ contains
             end if
             token = parser%consume()
 
-            ! Create the implied-do node
+            success = .true.
+        end function parse_implied_do_control
+
+        function create_implied_do_node_helper(object_exprs, value_expr_index, &
+                                               var_name, start_index, end_index, &
+                                               step_index, line, column) result(node_index)
+            integer, allocatable, intent(in) :: object_exprs(:)
+            integer, intent(in) :: value_expr_index
+            character(len=*), intent(in) :: var_name
+            integer, intent(in) :: start_index, end_index, step_index
+            integer, intent(in) :: line, column
+            integer :: node_index
+
             if (step_index > 0) then
-                expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
-                                                start_expr_index=start_index, &
-                                                end_expr_index=end_index, &
-                                                step_expr_index=step_index, line=line, &
-                                                column=column)
+                if (allocated(object_exprs)) then
+                    node_index = push_io_implied_do(arena, value_expr_index, &
+                                                    var_name, start_expr_index=start_index, &
+                                                    end_expr_index=end_index, &
+                                                    step_expr_index=step_index, &
+                                                    line=line, column=column, &
+                                                    object_indices=object_exprs)
+                else
+                    node_index = push_io_implied_do(arena, value_expr_index, &
+                                                    var_name, start_expr_index=start_index, &
+                                                    end_expr_index=end_index, &
+                                                    step_expr_index=step_index, &
+                                                    line=line, column=column)
+                end if
             else
-                expr_index = push_io_implied_do(arena, value_expr_index, var_name, &
-                                                start_expr_index=start_index, &
-                                                end_expr_index=end_index, line=line, &
-                                                column=column)
+                if (allocated(object_exprs)) then
+                    node_index = push_io_implied_do(arena, value_expr_index, &
+                                                    var_name, start_expr_index=start_index, &
+                                                    end_expr_index=end_index, line=line, &
+                                                    column=column, &
+                                                    object_indices=object_exprs)
+                else
+                    node_index = push_io_implied_do(arena, value_expr_index, &
+                                                    var_name, start_expr_index=start_index, &
+                                                    end_expr_index=end_index, line=line, &
+                                                    column=column)
+                end if
             end if
-        end function try_parse_data_implied_do
+        end function create_implied_do_node_helper
+
+        logical function parse_implied_do_object_list(object_exprs) result(success)
+            integer, allocatable, intent(out) :: object_exprs(:)
+            integer :: object_index
+            type(token_t) :: local_token
+
+            success = .false.
+            allocate (object_exprs(0))
+
+            do
+                call skip_trivia(parser)
+                object_index = try_parse_data_implied_do()
+                if (object_index == 0) then
+                    object_index = parse_expression_until(parser, arena, [","])
+                    if (object_index <= 0) then
+                        if (allocated(object_exprs)) then
+                            deallocate (object_exprs)
+                        end if
+                        return
+                    end if
+                end if
+                call append_index(object_exprs, object_index)
+
+                call skip_trivia(parser)
+                if (loop_control_ahead()) then
+                    success = .true.
+                    return
+                end if
+
+                local_token = parser%peek()
+                if (local_token%kind /= TK_OPERATOR .or. local_token%text /= ",") then
+                    if (allocated(object_exprs)) then
+                        deallocate (object_exprs)
+                    end if
+                    return
+                end if
+                local_token = parser%consume()
+            end do
+        end function parse_implied_do_object_list
+
+        logical function loop_control_ahead() result(is_control)
+            integer :: saved_pos_local
+            type(token_t) :: look
+
+            is_control = .false.
+            saved_pos_local = parser%current_token
+
+            look = parser%peek()
+            if (look%kind /= TK_OPERATOR .or. look%text /= ",") then
+                parser%current_token = saved_pos_local
+                return
+            end if
+            look = parser%consume()
+            call skip_trivia(parser)
+
+            look = parser%peek()
+            if (look%kind /= TK_IDENTIFIER) then
+                parser%current_token = saved_pos_local
+                return
+            end if
+            look = parser%consume()
+            call skip_trivia(parser)
+
+            look = parser%peek()
+            if (look%kind == TK_OPERATOR .and. look%text == "=") then
+                is_control = .true.
+            end if
+            parser%current_token = saved_pos_local
+        end function loop_control_ahead
 
         subroutine parse_object_list(objects, success)
             integer, allocatable, intent(out) :: objects(:)

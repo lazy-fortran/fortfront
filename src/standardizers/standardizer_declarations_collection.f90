@@ -194,10 +194,19 @@ contains
             integer, intent(inout) :: vcount
             character(len=64), intent(in) :: fnames(:)
             integer, intent(in) :: fcount
+            integer :: obj_idx
 
             call add_variable(loop%var_name, "integer", vnames, vtypes, &
                               vdecl, vcount, fnames, fcount)
-            if (loop%expr_index > 0) call push(loop%expr_index)
+            if (allocated(loop%object_indices)) then
+                do obj_idx = 1, size(loop%object_indices)
+                    if (loop%object_indices(obj_idx) > 0) then
+                        call push(loop%object_indices(obj_idx))
+                    end if
+                end do
+            else if (loop%expr_index > 0) then
+                call push(loop%expr_index)
+            end if
         end subroutine process_io_implied_do_node
 
         subroutine process_if_node_bodies(if_stmt)
