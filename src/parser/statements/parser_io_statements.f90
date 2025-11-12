@@ -442,8 +442,8 @@ contains
                         token = parser%consume()
                     else
                         write (error_unit, *) &
-                        "Error: Expected namelist group name after 'nml=' at line ", &
-                        token%line
+                          "Error: Expected namelist group name after 'nml=' at line ", &
+                          token%line
                     end if
                 end if
             else
@@ -686,8 +686,8 @@ contains
             else if (token%kind == TK_NEWLINE) then
                 exit
             else
-              ! Only add space if not immediately after '=' AND if token is not &
-              ! a string literal
+                ! Only add space if not immediately after '=' AND if token is not &
+                ! a string literal
                 if (len(spec_text) > 0 .and. token%text /= "=" .and. token%kind /= &
                     TK_STRING) then
                     if (spec_text(len(spec_text):len(spec_text)) /= '=') then
