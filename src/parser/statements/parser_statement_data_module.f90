@@ -276,7 +276,8 @@ contains
                             case ("/")
                                 exit
                             case default
-                                call parser%error("Unexpected token in DATA object list")
+                                call parser%error("Unexpected token in DATA "// &
+                                                  "object list")
                                 return
                             end select
                         else
@@ -346,6 +347,37 @@ contains
                         return
                     end if
                     exit
+                end if
+
+                ! Try parsing implied-do values before falling back to scalars
+                if (current%kind == TK_OPERATOR .and. trim(current%text) == "(") then
+                    value_index = try_parse_data_implied_do()
+                    if (value_index > 0) then
+                        call append_index(values, value_index)
+                        expect_value = .false.
+
+                        call skip_trivia(parser)
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR) then
+                            select case (trim(current%text))
+                            case (",")
+                                current = parser%consume()
+                                call skip_trivia(parser)
+                                expect_value = .true.
+                                cycle
+                            case ("/")
+                                exit
+                            case default
+                                call parser%error("Unexpected token in DATA "// &
+                                                  "statement value list")
+                                return
+                            end select
+                        else
+                            call parser%error("Unexpected token in DATA "// &
+                                              "statement value list")
+                            return
+                        end if
+                    end if
                 end if
 
                 value_index = parse_expression_until(parser, arena, [",", "/"])
