@@ -5,6 +5,8 @@ module codegen_function_declarations
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_procedure, only: function_def_node
+    use ast_nodes_misc, only: interface_block_node, implicit_statement_node, &
+                              comment_node, blank_line_node, end_statement_node
     use ast_nodes_transfer, only: entry_node
     use codegen_declarations_core, only: fix_character_len_placeholder
     use codegen_declarations_inference, only: build_parameter_map, &
@@ -21,6 +23,7 @@ module codegen_function_declarations
                                         is_parameter_name, ensure_local_var_capacity, &
                                         is_local_var_collected
     use codegen_type_utils, only: get_type_standardization
+    use codegen_grouped_body, only: generate_grouped_body
     use codegen_grouped_body_params, only: generate_grouped_body_with_params
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t
@@ -41,10 +44,18 @@ contains
         type(function_def_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        logical :: in_interface_context
+
+        in_interface_context = function_in_interface(arena, node_index) .or. &
+                               function_has_only_specs(arena, node)
 
         code = compose_function_signature(arena, node)
         code = code // new_line('A')
-        code = code // build_function_body_section(arena, node)
+        if (in_interface_context) then
+            code = code // build_interface_prototype_body(arena, node)
+        else
+            code = code // build_function_body_section(arena, node)
+        end if
         code = code // "end function " // node%name
     end function generate_code_function_def
 
@@ -251,6 +262,20 @@ contains
         call rename_result_variable_in_body(node, body, arena)
     end function build_function_body_section
 
+    function build_interface_prototype_body(arena, node) result(body)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: body
+
+        if (.not. allocated(node%body_indices)) then
+            body = ""
+            return
+        end if
+
+        body = generate_grouped_body(arena, node%body_indices, 1)
+        if (.not. allocated(body)) body = ""
+    end function build_interface_prototype_body
+
     logical function should_omit_return_type(arena, node, return_type_code) &
         result(omit)
         type(ast_arena_t), intent(in) :: arena
@@ -453,6 +478,62 @@ contains
                                            fallback='integer')
         end if
     end function get_result_type_string
+
+    logical function function_in_interface(arena, node_index) result(in_iface)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: parent_index
+
+        in_iface = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+
+        parent_index = arena%entries(node_index)%parent_index
+        do while (parent_index > 0 .and. parent_index <= arena%size)
+            if (.not. allocated(arena%entries(parent_index)%node)) then
+                parent_index = arena%entries(parent_index)%parent_index
+                cycle
+            end if
+            select type (parent_node => arena%entries(parent_index)%node)
+            type is (interface_block_node)
+                in_iface = .true.
+                return
+            class default
+                parent_index = arena%entries(parent_index)%parent_index
+            end select
+        end do
+    end function function_in_interface
+
+    logical function function_has_only_specs(arena, node) result(only_specs)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: node
+        integer :: i, idx
+
+        only_specs = .true.
+        if (.not. allocated(node%body_indices)) return
+
+        do i = 1, size(node%body_indices)
+            idx = node%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (body_node => arena%entries(idx)%node)
+            type is (declaration_node)
+                cycle
+            type is (parameter_declaration_node)
+                cycle
+            type is (implicit_statement_node)
+                cycle
+            type is (comment_node)
+                cycle
+            type is (blank_line_node)
+                cycle
+            type is (end_statement_node)
+                cycle
+            class default
+                only_specs = .false.
+                return
+            end select
+        end do
+    end function function_has_only_specs
 
     recursive function convert_array_to_deferred_shape(typ) result(deferred)
         use type_system_unified, only: create_mono_type

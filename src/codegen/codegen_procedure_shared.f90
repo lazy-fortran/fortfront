@@ -7,7 +7,7 @@ module codegen_procedure_shared
     use codegen_declarations_core, only: build_parameter_dimensions, &
                                          fix_character_len_placeholder
     use codegen_parameter_info, only: parameter_info_t
-    use string_utils_mod, only: int_to_string
+    use string_utils_mod, only: int_to_string, to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, TARRAY
     use type_array_safe, only: safe_extract_array_rank
@@ -219,6 +219,7 @@ contains
         logical :: has_intent_attr
         logical :: has_optional_attr
         logical :: has_target_attr
+        logical :: is_procedure_parameter
 
         if (len_trim(param_info%name) == 0) return
 
@@ -272,17 +273,30 @@ contains
 
         decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
 
+        is_procedure_parameter = .false.
         select type (param_node => arena%entries(param_idx)%node)
         type is (parameter_declaration_node)
-            if (param_node%is_array .or. param_node%inferred_type%kind == TARRAY) then
-                dim_clause = build_parameter_dimensions(arena, param_node)
-                if (len(dim_clause) == 0) then
-                    dim_clause = build_assumed_shape_dimensions( &
-                        param_node%inferred_type)
-                end if
-                decl_line = trim(decl_line) // trim(dim_clause)
+            if (allocated(param_node%type_name)) then
+                is_procedure_parameter = is_procedure_type(param_node%type_name)
             end if
         end select
+        if (.not. is_procedure_parameter) then
+            is_procedure_parameter = is_procedure_type(param_type)
+        end if
+
+        if (.not. is_procedure_parameter) then
+            select type (param_node => arena%entries(param_idx)%node)
+            type is (parameter_declaration_node)
+                if (param_node%is_array .or. param_node%inferred_type%kind == TARRAY) then
+                    dim_clause = build_parameter_dimensions(arena, param_node)
+                    if (len(dim_clause) == 0) then
+                        dim_clause = build_assumed_shape_dimensions( &
+                            param_node%inferred_type)
+                    end if
+                    decl_line = trim(decl_line) // trim(dim_clause)
+                end if
+            end select
+        end if
 
         decl_line = fix_character_len_placeholder(decl_line)
         block
@@ -451,5 +465,22 @@ contains
             dim_clause = dim_clause // ")"
         end if
     end function build_assumed_shape_dimensions
+
+    pure logical function is_procedure_type(type_text) result(is_proc)
+        character(len=*), intent(in) :: type_text
+        character(len=:), allocatable :: lowered
+
+        if (len_trim(type_text) == 0) then
+            is_proc = .false.
+            return
+        end if
+
+        lowered = to_lower(trim(type_text))
+        if (len(lowered) < 9) then
+            is_proc = .false.
+        else
+            is_proc = lowered(1:9) == 'procedure'
+        end if
+    end function is_procedure_type
 
 end module codegen_procedure_shared

@@ -7,8 +7,8 @@ module test_shell_commands
 
 contains
 
-    pure function build_compile_command(output_file, module_dir, temp_dir, &
-                                        is_windows) result(command)
+    function build_compile_command(output_file, module_dir, temp_dir, &
+                                   is_windows) result(command)
         character(len=*), intent(in) :: output_file
         character(len=*), intent(in) :: module_dir, temp_dir
         logical, intent(in) :: is_windows
@@ -16,6 +16,9 @@ contains
         character(len=:), allocatable :: module_arg
         character(len=:), allocatable :: output_arg
         character(len=:), allocatable :: temp_arg
+        character(len=32) :: env_value
+        integer :: env_status
+        logical :: disable_redirect
 
         command = ''
 
@@ -40,10 +43,23 @@ contains
 
         command = command // output_arg
 
-        if (is_windows) then
-            command = command // ' > nul 2>&1'
-        else
-            command = command // ' > /dev/null 2>&1'
+        env_value = ''
+        env_status = 1
+        disable_redirect = .false.
+        call get_environment_variable('FORTFRONT_SHOW_COMPILE_OUTPUT', &
+                                      env_value, status=env_status)
+        if (env_status == 0) then
+            if (len_trim(env_value) > 0) then
+                if (env_value(1:1) /= '0') disable_redirect = .true.
+            end if
+        end if
+
+        if (.not. disable_redirect) then
+            if (is_windows) then
+                command = command // ' > nul 2>&1'
+            else
+                command = command // ' > /dev/null 2>&1'
+            end if
         end if
     end function build_compile_command
 

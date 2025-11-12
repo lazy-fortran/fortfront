@@ -7,6 +7,7 @@ module standardizer_function
     use standardizer_function_result_utils, only: apply_result_variable
     use standardizer_function_result_utils, only: determine_preferred_result_name
     use standardizer_function_result_utils, only: sync_result_declaration
+    use standardizer_interface_utils, only: function_in_interface_block
     implicit none
     private
     public :: standardize_function_def
@@ -22,9 +23,16 @@ contains
         integer :: implicit_none_index, i
         character(len=:), allocatable :: return_type_str
         logical :: standardizer_type_standardization_enabled
+        logical :: skip_result_standardization
 
         call get_standardizer_type_standardization( &
             standardizer_type_standardization_enabled)
+        skip_result_standardization = function_in_interface_block(arena, &
+                                                                  func_index)
+        if (skip_result_standardization) then
+            arena%entries(func_index)%node = func_def
+            return
+        end if
 
         ! Standardize return type
         if (allocated(func_def%return_type)) then
@@ -72,7 +80,8 @@ contains
         character(len=64) :: preferred_name
 
         call get_standardizer_type_standardization(type_std_enabled)
-        call determine_preferred_result_name(arena, func_def, preferred_name)
+        call determine_preferred_result_name(arena, func_def, func_index, &
+                                             preferred_name)
         call apply_result_variable(arena, func_def, func_index, preferred_name)
 
         if (.not. allocated(func_def%result_variable)) return

@@ -1,35 +1,22 @@
-module demo_pure_interface
+module issue_2250_pure_interface_mod
     implicit none
-
-    ! Interface with pure subroutine
     interface
-        pure subroutine touch(x)
-            integer, intent(in) :: x
-        end subroutine touch
-    end interface
+        pure function double(text)
+            character(len=*), intent(in) :: text
+            character(len=len(text)*2) :: double
+        end function double
 
-    ! Interface with elemental function
-    interface
-        elemental function square(x)
-            real, intent(in) :: x
-            real :: square
-        end function square
+        pure subroutine consume_value(length)
+            integer, intent(in) :: length
+        end subroutine consume_value
     end interface
+contains
+    subroutine invoke_callback(callback, value)
+        procedure(double) :: callback
+        character(len=*), intent(in) :: value
+        character(len=:), allocatable :: doubled
 
-    ! Interface with pure elemental function
-    interface
-        pure elemental function add(x, y)
-            integer, intent(in) :: x, y
-            integer :: add
-        end function add
-    end interface
-
-    ! Interface with recursive function
-    interface
-        recursive function factorial(n) result(res)
-            integer, intent(in) :: n
-            integer :: res
-        end function factorial
-    end interface
-
-end module demo_pure_interface
+        doubled = callback(value)
+        call consume_value(len(doubled))
+    end subroutine invoke_callback
+end module issue_2250_pure_interface_mod
