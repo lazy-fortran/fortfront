@@ -4,6 +4,7 @@ module parser_interface_blocks_module
                           TK_NEWLINE, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_procedure_shared_module, only: consume_optional_kind_spec
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_interface_block, push_module_procedure, &
                            push_import_statement
@@ -245,6 +246,10 @@ contains
                 consumed_token = parser%consume()
                 handled = .true.
                 return
+            else if (is_interface_return_type_keyword(lowered_text)) then
+                call collect_interface_return_type(parser, prefix_buffer, lowered_text)
+                handled = .true.
+                return
             end if
         end if
 
@@ -268,6 +273,52 @@ contains
                     trim(lowered_text) == "nonrecursive" .or. &
                     trim(lowered_text) == "non_recursive"
     end function is_procedure_prefix
+
+    logical function is_interface_return_type_keyword(lowered_text) result(is_type)
+        character(len=*), intent(in) :: lowered_text
+
+        is_type = trim(lowered_text) == "integer" .or. &
+                  trim(lowered_text) == "real" .or. &
+                  trim(lowered_text) == "logical" .or. &
+                  trim(lowered_text) == "character" .or. &
+                  trim(lowered_text) == "complex" .or. &
+                  trim(lowered_text) == "double"
+    end function is_interface_return_type_keyword
+
+    subroutine collect_interface_return_type(parser, prefix_buffer, lowered_text)
+        type(parser_state_t), intent(inout) :: parser
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: lowered_text
+
+        type(token_t) :: type_token, lookahead_token
+        character(len=:), allocatable :: type_with_kind
+        character(len=:), allocatable :: lookahead_lower
+        character(len=16), allocatable :: prefix_array(:)
+
+        if (trim(lowered_text) == "double") then
+            lookahead_token = parser%get_token_at_index(parser%current_token + 1)
+            lookahead_lower = to_lower(trim(lookahead_token%text))
+            if (trim(lookahead_lower) == "precision" .or. &
+                trim(lookahead_lower) == "complex") then
+                type_token = parser%consume()
+                lookahead_token = parser%consume()
+                type_with_kind = trim(type_token%text)//" "// &
+                                 trim(lookahead_token%text)
+                call consume_optional_kind_spec(parser, type_with_kind)
+                allocate (character(len=16) :: prefix_array(1))
+                prefix_array(1) = trim(type_with_kind)
+                call prefix_buffer%append_all(prefix_array)
+                return
+            end if
+        end if
+
+        type_token = parser%consume()
+        type_with_kind = trim(type_token%text)
+        call consume_optional_kind_spec(parser, type_with_kind)
+        allocate (character(len=16) :: prefix_array(1))
+        prefix_array(1) = trim(type_with_kind)
+        call prefix_buffer%append_all(prefix_array)
+    end subroutine collect_interface_return_type
 
     function parse_module_procedure_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
