@@ -5,6 +5,7 @@ module codegen_subroutine_declarations
     use ast_nodes_io, only: print_statement_node, read_statement_node
     use ast_nodes_loops, only: do_loop_node
     use ast_nodes_procedure, only: subroutine_def_node
+    use ast_nodes_misc, only: use_statement_node
     use codegen_declarations_inference, only: build_parameter_map
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
                                         copy_indices, apply_default_intents, &
@@ -17,6 +18,7 @@ module codegen_subroutine_declarations
     use codegen_grouped_body_params, only: generate_grouped_body_with_params
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t
+    use codegen_arena_interface, only: generate_code_from_arena
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
@@ -87,16 +89,24 @@ contains
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
         integer, allocatable :: filtered_body_indices(:)
+        character(len=:), allocatable :: use_section
+        integer, allocatable :: trimmed_indices(:)
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
+
+        call extract_use_statements(arena, body_indices, trimmed_indices, use_section)
+        call move_alloc(trimmed_indices, body_indices)
 
         call build_parameter_map(arena, param_indices, body_indices, param_map, node)
         if (allocated(node%prefix_keywords)) then
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
 
-        body = maybe_add_procedure_implicit_none(arena, body_indices)
+        body = ""
+        if (len_trim(use_section) > 0) body = body // use_section
+
+        body = body // maybe_add_procedure_implicit_none(arena, body_indices)
         body = body // collect_subroutine_parameter_decls(arena, node, param_map)
         body = body // collect_subroutine_local_variable_decls(arena, node, param_map)
 
@@ -415,5 +425,60 @@ contains
             end if
         end select
     end subroutine collect_vars_from_assignment_sub
+
+    subroutine extract_use_statements(arena, original_indices, remaining_indices, &
+                                      use_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: original_indices(:)
+        integer, allocatable, intent(out) :: remaining_indices(:)
+        character(len=:), allocatable, intent(out) :: use_code
+        integer :: i, count
+        logical :: is_use_stmt
+        character(len=:), allocatable :: stmt_text
+
+        if (size(original_indices) == 0) then
+            allocate (remaining_indices(0))
+            use_code = ""
+            return
+        end if
+
+        allocate (remaining_indices(size(original_indices)))
+        count = 0
+        use_code = ""
+
+        do i = 1, size(original_indices)
+            is_use_stmt = .false.
+            if (original_indices(i) > 0 .and. original_indices(i) <= arena%size) then
+                if (allocated(arena%entries(original_indices(i))%node)) then
+                    select type (node => arena%entries(original_indices(i))%node)
+                    type is (use_statement_node)
+                        is_use_stmt = .true.
+                        stmt_text = generate_code_from_arena(arena, original_indices(i))
+                        if (len_trim(stmt_text) > 0) then
+                            use_code = use_code // "    " // trim(stmt_text) // &
+                                       new_line('A')
+                        end if
+                    end select
+                end if
+            end if
+
+            if (.not. is_use_stmt) then
+                count = count + 1
+                remaining_indices(count) = original_indices(i)
+            end if
+        end do
+
+        if (count == 0) then
+            deallocate (remaining_indices)
+            allocate (remaining_indices(0))
+        else if (count < size(original_indices)) then
+            block
+                integer, allocatable :: trimmed(:)
+                allocate (trimmed(count))
+                trimmed = remaining_indices(1:count)
+                call move_alloc(trimmed, remaining_indices)
+            end block
+        end if
+    end subroutine extract_use_statements
 
 end module codegen_subroutine_declarations
