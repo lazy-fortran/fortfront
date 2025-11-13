@@ -526,12 +526,36 @@ contains
         logical :: is_start
         integer :: lookahead
         integer :: keyword_idx
+        integer :: prev_idx
+        logical :: label_allowed
 
         is_start = .false.
         if (i > size(tokens)) return
         keyword_idx = i
 
         if (tokens(keyword_idx)%kind == TK_NUMBER) then
+            label_allowed = .true.
+            prev_idx = keyword_idx - 1
+            do while (prev_idx >= 1)
+                select case (tokens(prev_idx)%kind)
+                case (TK_WHITESPACE)
+                    prev_idx = prev_idx - 1
+                    cycle
+                case default
+                    exit
+                end select
+            end do
+
+            if (prev_idx >= 1) then
+                select case (tokens(prev_idx)%kind)
+                case (TK_NEWLINE, TK_COMMENT)
+                    label_allowed = .true.
+                case default
+                    label_allowed = .false.
+                end select
+            end if
+
+            if (.not. label_allowed) return
             keyword_idx = keyword_idx + 1
         end if
 
@@ -802,6 +826,8 @@ contains
         logical :: preceded_by_end
         logical :: is_interface_unit
 
+        integer :: effective_start
+
         unit_start = start_pos
         unit_end = start_pos
         nesting_level = 0
@@ -811,14 +837,34 @@ contains
 
         is_interface_unit = .false.
 
+        ! Skip leading trivia to locate the first meaningful token
+        effective_start = start_pos
+        do while (effective_start <= size(tokens))
+            select case (tokens(effective_start)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                effective_start = effective_start + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (effective_start > size(tokens)) then
+            unit_start = start_pos
+            unit_end = start_pos
+            return
+        end if
+
+        unit_start = effective_start
+
         ! Determine the unit type from the first keyword
-        if (start_pos <= size(tokens)) then
-            select case (tokens(start_pos)%kind)
+        if (unit_start <= size(tokens)) then
+            select case (tokens(unit_start)%kind)
             case (TK_KEYWORD)
-                unit_type = to_lower(trim(tokens(start_pos)%text))
-                if (unit_type == "block") block_keyword_pos = start_pos
+                unit_type = to_lower(trim(tokens(unit_start)%text))
+                if (unit_type == "block") block_keyword_pos = unit_start
             case (TK_NUMBER)
-                next_pos = start_pos + 1
+                next_pos = unit_start + 1
                 do while (next_pos <= size(tokens))
                     select case (tokens(next_pos)%kind)
                     case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
@@ -852,7 +898,7 @@ contains
                 end select
             end do
         else if (unit_type == "abstract") then
-            next_pos = start_pos + 1
+            next_pos = unit_start + 1
             do while (next_pos <= size(tokens))
                 select case (tokens(next_pos)%kind)
                 case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
@@ -875,7 +921,7 @@ contains
         ! For interface blocks, find the matching END INTERFACE
         if (is_interface_unit) then
             nesting_level = 1
-            do i = start_pos + 1, size(tokens)
+            do i = unit_start + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -918,7 +964,7 @@ contains
             ! For modules, we need to find the matching "end module"
         else if (unit_type == "module") then
             nesting_level = 1
-            do i = start_pos + 1, size(tokens)
+            do i = unit_start + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -959,7 +1005,7 @@ contains
             end do
         else if (unit_type == "submodule") then
             nesting_level = 1
-            do i = start_pos + 1, size(tokens)
+            do i = unit_start + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -1006,7 +1052,7 @@ contains
             ! For standalone subroutines and functions, find the matching "end"
             ! Note: We only handle standalone procedures here.
             ! Internal procedures are handled by the default logic below
-            do i = start_pos + 1, size(tokens)
+            do i = unit_start + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -1040,7 +1086,7 @@ contains
         else if (unit_type == "program") then
             ! For explicit programs, locate the matching end program and include body
             nesting_level = 1
-            do i = start_pos + 1, size(tokens)
+            do i = unit_start + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -1129,7 +1175,7 @@ contains
             end do
         else
             ! Original logic for other units
-            do i = start_pos, size(tokens)
+            do i = unit_start, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
@@ -1141,7 +1187,7 @@ contains
                             preceded_by_end = .true.
                         end if
                     end if
-                    if (i > start_pos .and. is_program_unit_start(tokens, i) .and. &
+                    if (i > unit_start .and. is_program_unit_start(tokens, i) .and. &
                         .not. preceded_by_end) then
                         unit_end = i - 1
                         exit

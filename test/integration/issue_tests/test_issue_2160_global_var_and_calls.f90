@@ -83,7 +83,7 @@ contains
             test_global_var_with_function = .false.
         end if
 
-        program_count = count_substring(output, 'program main')
+        program_count = count_program_main_wrappers(output)
         if (program_count /= 1) then
             print *, '  FAIL: Expected exactly one program main wrapper'
             test_global_var_with_function = .false.
@@ -139,23 +139,33 @@ contains
         end if
     end subroutine read_example
 
-    integer function count_substring(text, pattern)
+    integer function count_program_main_wrappers(text)
         character(len=*), intent(in) :: text
-        character(len=*), intent(in) :: pattern
-        integer :: start_pos
-        integer :: hit
+        integer :: start_pos, newline_pos
+        character(len=:), allocatable :: line
+        character(len=*), parameter :: prefix = 'program main'
 
-        count_substring = 0
-        if (len(pattern) == 0) return
-
+        count_program_main_wrappers = 0
         start_pos = 1
+
         do
             if (start_pos > len(text)) exit
-            hit = index(text(start_pos:), pattern)
-            if (hit == 0) exit
-            count_substring = count_substring + 1
-            start_pos = start_pos + hit
+            newline_pos = index(text(start_pos:), new_line('a'))
+            if (newline_pos == 0) then
+                line = text(start_pos:)
+                start_pos = len(text) + 1
+            else
+                line = text(start_pos:start_pos + newline_pos - 2)
+                start_pos = start_pos + newline_pos
+            end if
+
+            line = adjustl(line)
+            if (len(line) >= len(prefix)) then
+                if (line(1:len(prefix)) == prefix) then
+                    count_program_main_wrappers = count_program_main_wrappers + 1
+                end if
+            end if
         end do
-    end function count_substring
+    end function count_program_main_wrappers
 
 end program test_issue_2160_global_var_and_calls

@@ -26,7 +26,9 @@ module frontend_transformation
     use codegen_indent, only: set_indent_config, get_indent_config, &
                               set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
-    use ast_nodes_core, only: program_node, assignment_node
+    use ast_nodes_core, only: program_node, assignment_node, &
+                              identifier_node, call_or_subscript_node, &
+                              component_access_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, module_node, &
@@ -2329,6 +2331,8 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         integer :: i, idx
+        character(len=64), allocatable :: host_names(:)
+        character(len=64), allocatable :: proc_names(:)
 
         needs_wrapping = .false.
         if (prog_index <= 0 .or. prog_index > arena%size) return
@@ -2336,24 +2340,33 @@ contains
 
         select type (root => arena%entries(prog_index)%node)
         type is (program_node)
-            if (trim(root%name) == "__MULTI_UNIT__") then
-                if (.not. allocated(root%body_indices)) return
-                needs_wrapping = .true.
-                do i = 1, size(root%body_indices)
-                    idx = root%body_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
-                    select type (child => arena%entries(idx)%node)
-                    type is (program_node)
-                        if (.not. is_implicit_program_name(child%name)) then
-                            needs_wrapping = .false.
-                            return
-                        end if
-                    end select
-                end do
-            else
-                needs_wrapping = is_implicit_program_name(root%name)
-            end if
+            if (trim(root%name) /= "__MULTI_UNIT__") return
+            if (.not. allocated(root%body_indices)) return
+
+            needs_wrapping = .true.
+            call collect_host_assignment_names(arena, root, host_names)
+            do i = 1, size(root%body_indices)
+                idx = root%body_indices(i)
+                if (idx <= 0 .or. idx > arena%size) cycle
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (child => arena%entries(idx)%node)
+                type is (program_node)
+                    if (.not. is_implicit_program_name(child%name)) then
+                        needs_wrapping = .false.
+                        return
+                    end if
+                type is (function_def_node)
+                    call collect_procedure_assignment_names(arena, idx, proc_names)
+                    if (has_name_intersection(host_names, proc_names)) return
+                type is (subroutine_def_node)
+                    call collect_procedure_assignment_names(arena, idx, proc_names)
+                    if (has_name_intersection(host_names, proc_names)) return
+                class default
+                    needs_wrapping = .false.
+                    return
+                end select
+            end do
+            needs_wrapping = .false.
         class default
             needs_wrapping = .false.
         end select
@@ -2369,6 +2382,181 @@ contains
             is_implicit = .false.
         end select
     end function is_implicit_program_name
+
+    subroutine collect_host_assignment_names(arena, root_prog, host_names)
+        type(ast_arena_t), intent(in) :: arena
+        class(program_node), intent(in) :: root_prog
+        character(len=64), allocatable, intent(inout) :: host_names(:)
+        integer :: i, child_idx
+
+        if (.not. allocated(root_prog%body_indices)) return
+
+        do i = 1, size(root_prog%body_indices)
+            child_idx = root_prog%body_indices(i)
+            if (child_idx <= 0 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            select type (child => arena%entries(child_idx)%node)
+            type is (program_node)
+                if (is_implicit_program_name(child%name)) then
+                    call collect_program_assignment_names(arena, child_idx, &
+                                                          host_names)
+                end if
+            end select
+        end do
+    end subroutine collect_host_assignment_names
+
+    subroutine collect_program_assignment_names(arena, prog_idx, names)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_idx
+        character(len=64), allocatable, intent(inout) :: names(:)
+        integer :: i, stmt_idx
+
+        if (prog_idx <= 0 .or. prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(prog_idx)%node)) return
+        select type (prog => arena%entries(prog_idx)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            do i = 1, size(prog%body_indices)
+                stmt_idx = prog%body_indices(i)
+                call collect_assignment_from_node(arena, stmt_idx, names, &
+                                                  skip_procedures=.true.)
+            end do
+        end select
+    end subroutine collect_program_assignment_names
+
+    subroutine collect_procedure_assignment_names(arena, proc_idx, names)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_idx
+        character(len=64), allocatable, intent(inout) :: names(:)
+        integer :: i, stmt_idx
+
+        if (proc_idx <= 0 .or. proc_idx > arena%size) return
+        if (.not. allocated(arena%entries(proc_idx)%node)) return
+
+        select type (proc => arena%entries(proc_idx)%node)
+        type is (function_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            do i = 1, size(proc%body_indices)
+                stmt_idx = proc%body_indices(i)
+                call collect_assignment_from_node(arena, stmt_idx, names, &
+                                                  skip_procedures=.false.)
+            end do
+        type is (subroutine_def_node)
+            if (.not. allocated(proc%body_indices)) return
+            do i = 1, size(proc%body_indices)
+                stmt_idx = proc%body_indices(i)
+                call collect_assignment_from_node(arena, stmt_idx, names, &
+                                                  skip_procedures=.false.)
+            end do
+        end select
+    end subroutine collect_procedure_assignment_names
+
+    recursive subroutine collect_assignment_from_node(arena, node_index, names, &
+                                                      skip_procedures)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=64), allocatable, intent(inout) :: names(:)
+        logical, intent(in) :: skip_procedures
+        integer :: child_i
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (assignment_node)
+            call record_identifier_name(arena, node%target_index, names)
+            if (node%value_index > 0) then
+                call collect_assignment_from_node(arena, node%value_index, &
+                                                  names, skip_procedures)
+            end if
+            return
+        type is (function_def_node)
+            if (skip_procedures) return
+        type is (subroutine_def_node)
+            if (skip_procedures) return
+        type is (program_node)
+            if (.not. allocated(node%body_indices)) return
+            do child_i = 1, size(node%body_indices)
+                call collect_assignment_from_node(arena, &
+                                                  node%body_indices(child_i), &
+                                                  names, skip_procedures)
+            end do
+            return
+        end select
+
+        if (allocated(arena%entries(node_index)%child_indices)) then
+            do child_i = 1, size(arena%entries(node_index)%child_indices)
+                call collect_assignment_from_node(arena, &
+                    arena%entries(node_index)%child_indices(child_i), names, &
+                    skip_procedures)
+            end do
+        end if
+    end subroutine collect_assignment_from_node
+
+    recursive subroutine record_identifier_name(arena, node_index, names)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=64), allocatable, intent(inout) :: names(:)
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (id => arena%entries(node_index)%node)
+        type is (identifier_node)
+            call append_unique_name(names, trim(to_lower(id%name)))
+        type is (call_or_subscript_node)
+            if (id%base_expr_index > 0) then
+                call record_identifier_name(arena, id%base_expr_index, names)
+            end if
+        type is (component_access_node)
+            if (id%base_expr_index > 0) then
+                call record_identifier_name(arena, id%base_expr_index, names)
+            end if
+        end select
+    end subroutine record_identifier_name
+
+    subroutine append_unique_name(names, candidate)
+        character(len=64), allocatable, intent(inout) :: names(:)
+        character(len=*), intent(in) :: candidate
+        character(len=64) :: lowered
+        integer :: n
+
+        lowered = adjustl(candidate)
+        if (len_trim(lowered) == 0) return
+
+        lowered = to_lower(lowered)
+
+        if (.not. allocated(names)) then
+            allocate (names(1))
+            names(1) = lowered
+            return
+        end if
+
+        do n = 1, size(names)
+            if (names(n) == lowered) return
+        end do
+
+        names = [names, lowered]
+    end subroutine append_unique_name
+
+    logical function has_name_intersection(left, right) result(has_common)
+        character(len=64), allocatable, intent(in) :: left(:)
+        character(len=64), allocatable, intent(in) :: right(:)
+        integer :: i, j
+
+        has_common = .false.
+        if (.not. allocated(left)) return
+        if (.not. allocated(right)) return
+
+        do i = 1, size(left)
+            do j = 1, size(right)
+                if (left(i) == right(j)) then
+                    has_common = .true.
+                    return
+                end if
+            end do
+        end do
+    end function has_name_intersection
 
     subroutine collect_procedure_indices(arena, proc_indices)
         type(ast_arena_t), intent(in) :: arena
