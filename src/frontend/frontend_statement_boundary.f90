@@ -429,7 +429,7 @@ contains
         result(is_select_construct)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: select_index
-        integer :: idx
+        integer :: idx, max_idx
         logical :: pending_continuation
         character(len=:), allocatable :: lowered
 
@@ -437,22 +437,18 @@ contains
         if (select_index < 1 .or. select_index > size(tokens)) return
 
         idx = select_index + 1
+        max_idx = min(size(tokens), select_index + 100)
         pending_continuation = .false.
-        do while (idx <= size(tokens))
+        do while (idx <= max_idx)
             select case (tokens(idx)%kind)
-            case (TK_WHITESPACE, TK_COMMENT)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
                 idx = idx + 1
             case (TK_OPERATOR)
                 if (tokens(idx)%text == "&") then
-                    pending_continuation = .true.
                     idx = idx + 1
                 else
                     return
                 end if
-            case (TK_NEWLINE)
-                if (.not. pending_continuation) return
-                pending_continuation = .false.
-                idx = idx + 1
             case (TK_KEYWORD)
                 lowered = to_lower(tokens(idx)%text)
                 if (lowered == "case" .or. lowered == "type" .or. &

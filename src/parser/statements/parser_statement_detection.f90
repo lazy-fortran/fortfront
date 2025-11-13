@@ -211,18 +211,18 @@ contains
                         end if
                     end if
                 case ("select")
-                    if (.not. is_select_construct(tokens, idx)) then
+                    if (is_select_construct(tokens, idx)) then
+                        if (.not. first_processed) then
+                            first_processed = .true.
+                            first_keyword = "select"
+                        end if
+                        select_depth = select_depth + 1
+                    else
                         if (.not. first_processed) then
                             first_processed = .true.
                             first_keyword = to_lower(token%text)
                         end if
-                        cycle
                     end if
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "select"
-                    end if
-                    select_depth = select_depth + 1
                 case ("do")
                     if (.not. first_processed) then
                         first_processed = .true.
@@ -488,7 +488,7 @@ contains
         result(is_select)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: select_index
-        integer :: idx
+        integer :: idx, max_idx
         logical :: pending_continuation
         character(len=:), allocatable :: lowered
 
@@ -496,22 +496,18 @@ contains
         if (select_index < 1 .or. select_index > size(tokens)) return
 
         idx = select_index + 1
+        max_idx = min(size(tokens), select_index + 100)
         pending_continuation = .false.
-        do while (idx <= size(tokens))
+        do while (idx <= max_idx)
             select case (tokens(idx)%kind)
-            case (TK_WHITESPACE, TK_COMMENT)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
                 idx = idx + 1
             case (TK_OPERATOR)
                 if (tokens(idx)%text == "&") then
-                    pending_continuation = .true.
                     idx = idx + 1
                 else
                     return
                 end if
-            case (TK_NEWLINE)
-                if (.not. pending_continuation) return
-                pending_continuation = .false.
-                idx = idx + 1
             case (TK_KEYWORD)
                 lowered = to_lower(tokens(idx)%text)
                 if (lowered == "case" .or. lowered == "type" .or. &
