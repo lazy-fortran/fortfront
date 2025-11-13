@@ -216,15 +216,15 @@ contains
                     if (procedure_has_entry(arena, unit_indices(1))) then
                         prog_index = unit_indices(1)
                     else
-                        prog_index = push_program(arena, "main", &
-                                                  unit_indices(1:1), 1, 1)
+                        prog_index = create_multi_unit_container(arena, &
+                                                                 unit_indices(1:1))
                     end if
                 type is (subroutine_def_node)
                     if (procedure_has_entry(arena, unit_indices(1))) then
                         prog_index = unit_indices(1)
                     else
-                        prog_index = push_program(arena, "main", &
-                                                  unit_indices(1:1), 1, 1)
+                        prog_index = create_multi_unit_container(arena, &
+                                                                 unit_indices(1:1))
                     end if
                 type is (interface_block_node)
                     prog_index = push_program(arena, "__MULTI_UNIT__", &
@@ -583,8 +583,87 @@ contains
                     exit
                 end select
             end do
+        case default
+            lookahead = find_procedure_keyword_after_prefix(tokens, keyword_idx)
+            if (lookahead > 0) is_start = .true.
         end select
     end function is_program_unit_start
+
+    integer function find_procedure_keyword_after_prefix(tokens, start_idx) &
+        result(proc_idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_idx
+        integer :: idx
+        character(len=:), allocatable :: lowered
+
+        proc_idx = 0
+        idx = start_idx
+
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER)
+                idx = idx + 1
+                cycle
+            case (TK_KEYWORD)
+                lowered = to_lower(trim(tokens(idx)%text))
+                if (lowered == "function" .or. lowered == "subroutine") then
+                    proc_idx = idx
+                    return
+                else if (is_procedure_attribute_keyword(lowered)) then
+                    idx = idx + 1
+                    cycle
+                else if (is_intrinsic_type_keyword(lowered)) then
+                    idx = idx + 1
+                    cycle
+                else if ((lowered == "type" .or. lowered == "class") .and. &
+                         is_type_spec_prefix(tokens, idx)) then
+                    idx = idx + 1
+                    cycle
+                else
+                    return
+                end if
+            case default
+                return
+            end select
+        end do
+    end function find_procedure_keyword_after_prefix
+
+    logical function is_intrinsic_type_keyword(word) result(is_type_kw)
+        character(len=*), intent(in) :: word
+
+        select case (trim(word))
+        case ("integer", "real", "double", "precision", "logical", "character", &
+              "complex")
+            is_type_kw = .true.
+        case default
+            is_type_kw = .false.
+        end select
+    end function is_intrinsic_type_keyword
+
+    logical function is_procedure_attribute_keyword(word) result(is_attr)
+        character(len=*), intent(in) :: word
+
+        select case (trim(word))
+        case ("pure", "impure", "elemental", "recursive", "nonrecursive", &
+              "non_recursive", "module")
+            is_attr = .true.
+        case default
+            is_attr = .false.
+        end select
+    end function is_procedure_attribute_keyword
+
+    logical function is_type_spec_prefix(tokens, idx) result(is_spec)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        integer :: next_idx
+
+        is_spec = .false.
+        next_idx = find_next_nontrivial_index(tokens, idx)
+        if (next_idx <= 0) return
+        if (tokens(next_idx)%kind == TK_OPERATOR) then
+            if (trim(tokens(next_idx)%text) == "(") is_spec = .true.
+        end if
+    end function is_type_spec_prefix
 
     ! Check if unit has meaningful content
     function unit_has_meaningful_content(tokens, unit_start, unit_end) &

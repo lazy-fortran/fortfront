@@ -92,7 +92,7 @@ contains
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
-        apply_ast_wrapping = .true.
+        apply_ast_wrapping = .false.
         if (present(enable_ast_wrapping)) then
             apply_ast_wrapping = enable_ast_wrapping
         end if
@@ -347,7 +347,7 @@ contains
         ! Run monomorphization (AST transformation)
         call run_monomorphization_phase(shared_arena, prog_index, signatures)
 
-        call run_standardization_phase(shared_arena, prog_index)
+        call run_standardization_phase(shared_arena, prog_index, .true.)
 
         ! AST-BASED WRAPPING: Analyze and modify AST directly
         call analyze_ast_content(shared_arena%ast, prog_index, has_functions, &
@@ -690,6 +690,7 @@ contains
         type(signatures_map_t) :: signatures
         logical, intent(in) :: enable_ast_wrapping
         logical :: has_functions, has_subroutines, has_main_code
+        logical :: force_internal_wrapping
         type(transform_context_t) :: context
 
         ! Phase 3: Semantic Analysis
@@ -707,14 +708,16 @@ contains
         end if
 
         ! Phase 3.5: Standardization (normalize structure before specialization)
-        call run_standardization_phase(compiler_arena, prog_index)
+        call run_standardization_phase(compiler_arena, prog_index, .true.)
 
         ! Phase 4: Monomorphization (AST transformation)
         call run_monomorphization_phase(compiler_arena, prog_index, signatures)
 
-        ! Phase 4.5: AST-based wrapping (convert mixed constructs to proper structure)
         call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
                                  has_subroutines, has_main_code)
+
+        force_internal_wrapping = requires_lazy_internalization( &
+                                compiler_arena%ast, prog_index)
 
         ! Initialize default context for wrapping
         context%source_name = "main"
@@ -723,14 +726,14 @@ contains
         context%has_filename = .false.
         context%input_mode = INPUT_MODE_LAZY
 
-        ! Check if there's already a module in the AST - if so, no wrapping needed
         if (.not. has_existing_module_in_ast(compiler_arena%ast)) then
             if ((has_functions .or. has_subroutines) .and. has_main_code) then
-                call promote_functions_to_internal_program(compiler_arena%ast, &
-                                                           prog_index)
+                if (enable_ast_wrapping .or. force_internal_wrapping) then
+                    call promote_functions_to_internal_program(compiler_arena%ast, &
+                                                               prog_index)
+                end if
             else if (enable_ast_wrapping .and. (has_functions .or. &
-                                                has_subroutines) .and. .not. &
-                     has_main_code) then
+                     has_subroutines) .and. .not. has_main_code) then
                 call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
             end if
         end if
@@ -958,12 +961,16 @@ contains
     end function get_detailed_semantic_errors
 
     ! Run standardization phase
-    subroutine run_standardization_phase(compiler_arena, prog_index)
+    subroutine run_standardization_phase(compiler_arena, prog_index, &
+                                         enable_multi_unit_normalization)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
+        logical, intent(in) :: enable_multi_unit_normalization
 
         call compiler_arena%next_phase("standardization")
-        call normalize_multi_unit_container(compiler_arena%ast, prog_index)
+        if (enable_multi_unit_normalization) then
+            call normalize_multi_unit_container(compiler_arena%ast, prog_index)
+        end if
         ! Skip standardization for multi-unit containers
         if (should_skip_standardization(compiler_arena, prog_index)) then
             call mark_pointer_targets(compiler_arena%ast)
@@ -1184,11 +1191,143 @@ contains
         target%body_indices = compressed
     end subroutine clean_external_declarations
 
+    subroutine merge_additional_main_programs(arena, root_prog, target_prog_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        class(program_node), intent(inout) :: root_prog
+        integer, intent(in) :: target_prog_idx
+        integer, allocatable :: new_body(:)
+        integer :: i, child_idx
+        class(program_node), pointer :: target_prog => null()
+
+        if (.not. allocated(root_prog%body_indices)) return
+        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            target_prog => target
+        class default
+            return
+        end select
+        if (.not. associated(target_prog)) return
+
+        allocate (new_body(0))
+        do i = 1, size(root_prog%body_indices)
+            child_idx = root_prog%body_indices(i)
+            if (child_idx == target_prog_idx) then
+                new_body = [new_body, child_idx]
+                cycle
+            end if
+            if (child_idx <= 0 .or. child_idx > arena%size) then
+                new_body = [new_body, child_idx]
+                cycle
+            end if
+            if (.not. allocated(arena%entries(child_idx)%node)) then
+                new_body = [new_body, child_idx]
+                cycle
+            end if
+            select type (child => arena%entries(child_idx)%node)
+            type is (program_node)
+                if (trim(child%name) == "main" .or. &
+                    trim(child%name) == "__IMPLICIT_MAIN__") then
+                    call append_program_body_to_target(arena, target_prog_idx, &
+                                                       child_idx)
+                    cycle
+                end if
+            end select
+            new_body = [new_body, child_idx]
+        end do
+        root_prog%body_indices = new_body
+    end subroutine merge_additional_main_programs
+
+    subroutine append_program_body_to_target(arena, target_prog_idx, &
+                                             source_prog_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: target_prog_idx
+        integer, intent(in) :: source_prog_idx
+        integer :: i, child_idx
+
+        if (source_prog_idx <= 0 .or. source_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(source_prog_idx)%node)) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            select type (source => arena%entries(source_prog_idx)%node)
+            type is (program_node)
+                if (.not. allocated(source%body_indices)) return
+                if (.not. allocated(target%body_indices)) then
+                    target%body_indices = source%body_indices
+                else
+                    target%body_indices = [target%body_indices, &
+                                           source%body_indices]
+                end if
+                do i = 1, size(source%body_indices)
+                    child_idx = source%body_indices(i)
+                    if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                    arena%entries(child_idx)%parent_index = target_prog_idx
+                end do
+                deallocate (source%body_indices)
+            end select
+        end select
+    end subroutine append_program_body_to_target
+
+    function collect_target_procedures(arena, target_prog_idx) result(proc_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: target_prog_idx
+        integer, allocatable :: proc_indices(:)
+        integer :: i, child_idx
+
+        allocate (proc_indices(0))
+        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            if (.not. allocated(target%body_indices)) return
+            do i = 1, size(target%body_indices)
+                child_idx = target%body_indices(i)
+                if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                select type (child => arena%entries(child_idx)%node)
+                type is (function_def_node)
+                    proc_indices = [proc_indices, child_idx]
+                type is (subroutine_def_node)
+                    proc_indices = [proc_indices, child_idx]
+                end select
+            end do
+        end select
+    end function collect_target_procedures
+
+    subroutine remove_target_procedures_from_body(arena, target_prog_idx, &
+                                                  procedures)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: target_prog_idx
+        integer, intent(in) :: procedures(:)
+        integer, allocatable :: new_body(:)
+        integer :: i
+
+        if (size(procedures) == 0) return
+        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            if (.not. allocated(target%body_indices)) return
+            allocate (new_body(0))
+            do i = 1, size(target%body_indices)
+                if (any(target%body_indices(i) == procedures)) cycle
+                new_body = [new_body, target%body_indices(i)]
+            end do
+            target%body_indices = new_body
+        end select
+    end subroutine remove_target_procedures_from_body
+
     subroutine normalize_multi_unit_container(arena, root_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
         integer :: i, target_prog_idx, contains_pos
         integer, allocatable :: procedures(:), all_procedures(:)
+        integer, allocatable :: embedded_procs(:), lifted_procs(:)
         class(program_node), pointer :: root_prog => null()
         integer :: first_main_idx
 
@@ -1210,12 +1349,32 @@ contains
         if (target_prog_idx == 0) return
         if (size(all_procedures) == 0) return
 
+        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        select type (target_prog => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            if (trim(target_prog%name) /= "main" .and. &
+                trim(target_prog%name) /= "__IMPLICIT_MAIN__") return
+        class default
+            return
+        end select
+
+        call merge_additional_main_programs(arena, root_prog, target_prog_idx)
+
+        embedded_procs = collect_target_procedures(arena, target_prog_idx)
         call filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
-                                         procedures)
+                                         lifted_procs)
 
-        if (size(procedures) == 0) return
+        if (size(embedded_procs) == 0 .and. size(lifted_procs) == 0) return
 
-        call remove_procedures_from_body(root_prog, procedures)
+        call remove_target_procedures_from_body(arena, target_prog_idx, &
+                                                embedded_procs)
+        call remove_procedures_from_body(root_prog, lifted_procs)
+
+        procedures = embedded_procs
+        if (size(lifted_procs) > 0) then
+            procedures = [procedures, lifted_procs]
+        end if
 
         if (.not. allocated(arena%entries(target_prog_idx)%node)) return
         select type (target => arena%entries(target_prog_idx)%node)
@@ -2156,6 +2315,52 @@ contains
             end select
         end do
     end function has_existing_module_in_ast
+
+    logical function requires_lazy_internalization(arena, prog_index) &
+        result(needs_wrapping)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        integer :: i, idx
+
+        needs_wrapping = .false.
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+
+        select type (root => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (trim(root%name) == "__MULTI_UNIT__") then
+                if (.not. allocated(root%body_indices)) return
+                needs_wrapping = .true.
+                do i = 1, size(root%body_indices)
+                    idx = root%body_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (child => arena%entries(idx)%node)
+                    type is (program_node)
+                        if (.not. is_implicit_program_name(child%name)) then
+                            needs_wrapping = .false.
+                            return
+                        end if
+                    end select
+                end do
+            else
+                needs_wrapping = is_implicit_program_name(root%name)
+            end if
+        class default
+            needs_wrapping = .false.
+        end select
+    end function requires_lazy_internalization
+
+    logical function is_implicit_program_name(name) result(is_implicit)
+        character(len=*), intent(in) :: name
+
+        select case (trim(name))
+        case ("main", "__IMPLICIT_MAIN__")
+            is_implicit = .true.
+        case default
+            is_implicit = .false.
+        end select
+    end function is_implicit_program_name
 
     subroutine collect_procedure_indices(arena, proc_indices)
         type(ast_arena_t), intent(in) :: arena
