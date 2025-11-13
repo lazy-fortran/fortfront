@@ -1279,7 +1279,8 @@ contains
         integer, intent(in) :: prog_index
         character(len=8) :: flag
         integer :: status
-        integer :: i
+        integer :: i, j
+        character(len=:), allocatable :: child_type
 
         call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', flag, status=status)
         if (status /= 0) return
@@ -1294,6 +1295,17 @@ contains
                 if (allocated(node%body_indices)) then
                     write (error_unit, '(A,I0,2X,A,2X,I0)') &
                         '  program idx', i, trim(node%name), size(node%body_indices)
+                    do j = 1, size(node%body_indices)
+                        if (node%body_indices(j) <= 0) cycle
+                        if (node%body_indices(j) > arena%size) cycle
+                        if (allocated(arena%entries(node%body_indices(j))%node_type)) then
+                            child_type = trim(arena%entries(node%body_indices(j))%node_type)
+                        else
+                            child_type = '<unknown>'
+                        end if
+                        write (error_unit, '(A,1X,I0,2X,A)') '    body', &
+                            node%body_indices(j), child_type
+                    end do
                 else
                     write (error_unit, '(A,I0,2X,A,2X,A)') &
                         '  program idx', i, trim(node%name), 'no body'
