@@ -430,7 +430,6 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: select_index
         integer :: idx, max_idx
-        logical :: pending_continuation
         character(len=:), allocatable :: lowered
 
         is_select_construct = .false.
@@ -438,7 +437,6 @@ contains
 
         idx = select_index + 1
         max_idx = min(size(tokens), select_index + 100)
-        pending_continuation = .false.
         do while (idx <= max_idx)
             select case (tokens(idx)%kind)
             case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
