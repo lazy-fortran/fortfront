@@ -836,7 +836,7 @@ contains
                 end if
                 unit_end = i
             end do
-        ! For modules, we need to find the matching "end module"
+            ! For modules, we need to find the matching "end module"
         else if (unit_type == "module") then
             nesting_level = 1
             do i = start_pos + 1, size(tokens)

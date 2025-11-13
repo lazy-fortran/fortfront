@@ -64,16 +64,19 @@ module frontend_transformation
 
     ! Context for transformation (source name, wrapping strategy)
     type :: transform_context_t
-        character(len=:), allocatable :: source_name  ! filename without extension or "stdin"
+        character(len=:), allocatable :: source_name
+        ! filename without extension or "stdin"
         character(len=:), allocatable :: module_name  ! for wrapping functions
         character(len=:), allocatable :: program_name  ! for wrapping main code
         logical :: has_filename = .false.  ! true if from file, false if stdin
-        integer :: input_mode = INPUT_MODE_LAZY  ! INPUT_MODE_LAZY or INPUT_MODE_STANDARD
+        integer :: input_mode = INPUT_MODE_LAZY
+        ! INPUT_MODE_LAZY or INPUT_MODE_STANDARD
     end type transform_context_t
 
 contains
     ! String-based transformation function for CLI usage
-    subroutine transform_lazy_fortran_string(input, output, error_msg, enable_ast_wrapping)
+    subroutine transform_lazy_fortran_string(input, output, error_msg, &
+                                             enable_ast_wrapping)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
@@ -89,7 +92,7 @@ contains
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
-        apply_ast_wrapping = .false.
+        apply_ast_wrapping = .true.
         if (present(enable_ast_wrapping)) then
             apply_ast_wrapping = enable_ast_wrapping
         end if
@@ -151,7 +154,7 @@ contains
             return
         end if
 
-        ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
+ ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(source, tokens, error_msg, output, &
             & shared_arena)
@@ -560,7 +563,7 @@ contains
         call validate_basic_syntax(input, tokens, error_msg)
         if (error_msg /= "") then
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
-            ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "    ! COMPILATION FAILED" // new_line('A') // &
@@ -709,25 +712,25 @@ contains
         ! Phase 4: Monomorphization (AST transformation)
         call run_monomorphization_phase(compiler_arena, prog_index, signatures)
 
-        if (enable_ast_wrapping) then
-            ! Phase 4.5: AST-based wrapping (convert mixed constructs to proper structure)
-            call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
-                                     has_subroutines, has_main_code)
+        ! Phase 4.5: AST-based wrapping (convert mixed constructs to proper structure)
+        call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
+                                 has_subroutines, has_main_code)
 
-            ! Initialize default context for wrapping
-            context%source_name = "main"
-            context%module_name = "main_module"
-            context%program_name = "main"
-            context%has_filename = .false.
-            context%input_mode = INPUT_MODE_LAZY
+        ! Initialize default context for wrapping
+        context%source_name = "main"
+        context%module_name = "main_module"
+        context%program_name = "main"
+        context%has_filename = .false.
+        context%input_mode = INPUT_MODE_LAZY
 
-            ! Check if there's already a module in the AST - if so, no wrapping needed
-            if (has_existing_module_in_ast(compiler_arena%ast)) then
-                ! Don't wrap - preserve existing module structure
-            else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-                call promote_functions_to_internal_program(compiler_arena%ast, prog_index)
-            else if ((has_functions .or. has_subroutines) .and. &
-                     .not. has_main_code) then
+        ! Check if there's already a module in the AST - if so, no wrapping needed
+        if (.not. has_existing_module_in_ast(compiler_arena%ast)) then
+            if ((has_functions .or. has_subroutines) .and. has_main_code) then
+                call promote_functions_to_internal_program(compiler_arena%ast, &
+                                                           prog_index)
+            else if (enable_ast_wrapping .and. (has_functions .or. &
+                                                has_subroutines) .and. .not. &
+                     has_main_code) then
                 call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
             end if
         end if
@@ -1202,13 +1205,13 @@ contains
         if (.not. associated(root_prog)) return
 
         call collect_procedures_and_target(arena, root_prog, all_procedures, &
-                                          target_prog_idx)
+                                           target_prog_idx)
 
         if (target_prog_idx == 0) return
         if (size(all_procedures) == 0) return
 
         call filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
-                                        procedures)
+                                         procedures)
 
         if (size(procedures) == 0) return
 
@@ -1499,7 +1502,7 @@ contains
         if (child_count == 0) return
         do child_idx = 1, child_count
             call mark_procedure_subtree(arena, &
-                                        arena%entries(node_index)%child_indices(child_idx), &
+                                   arena%entries(node_index)%child_indices(child_idx), &
                                         membership)
         end do
     end subroutine mark_procedure_subtree
@@ -1670,7 +1673,8 @@ contains
     subroutine promote_functions_to_internal_program(arena, root_index)
         use ast_nodes_core, only: program_node
         use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-        use ast_nodes_misc, only: contains_node
+        use ast_nodes_misc, only: contains_node, implicit_statement_node, &
+                                  end_statement_node
         use ast_nodes_data, only: mixed_construct_container_node
         use standardizer_program, only: insert_contains_statement
         use ast_factory, only: push_implicit_statement
@@ -1681,6 +1685,7 @@ contains
         integer, allocatable :: proc_indices(:)
         integer, allocatable :: new_body(:)
         integer, allocatable :: main_stmts(:)
+        integer, allocatable :: filtered_body(:)
         logical :: has_contains
         integer :: contains_index, implicit_none_index, prog_index
 
@@ -1693,7 +1698,7 @@ contains
 
         select type (root => arena%entries(root_index)%node)
         type is (mixed_construct_container_node)
-            ! Handle mixed constructs: implicit declarations (main code) + explicit programs (functions)
+! Handle mixed constructs: implicit declarations (main code) + explicit programs (functions)
             if (allocated(root%implicit_declaration_indices)) then
                 main_stmts = root%implicit_declaration_indices
             end if
@@ -1714,12 +1719,12 @@ contains
             ! Create a program with main code and internal procedures
             ! Handle case where we have procedures (with or without main code)
             if (size(proc_indices) > 0) then
-                ! Create program structure: implicit none + main statements + contains + procedures
+     ! Create program structure: implicit none + main statements + contains + procedures
                 implicit_none_index = push_implicit_statement(arena, .true., &
                                                               line=1, column=1, &
                                                               parent_index=0)
 
-                ! Build program body: implicit none + main statements + contains + procedures
+           ! Build program body: implicit none + main statements + contains + procedures
                 body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
                 allocate (new_body(body_size))
                 new_body(1) = implicit_none_index
@@ -1778,10 +1783,24 @@ contains
 
                 select type (child => arena%entries(child_index)%node)
                 type is (program_node)
+                    print *, 'child program', child_index, trim(child%name)
+                type is (function_def_node)
+                    print *, 'child function', child_index, trim(child%name)
+                type is (subroutine_def_node)
+                    print *, 'child subroutine', child_index, trim(child%name)
+                class default
+                    print *, 'child other', child_index
+                end select
+
+                select type (child => arena%entries(child_index)%node)
+                type is (program_node)
+                    call collect_program_procedures(child_index)
                     if (main_prog_index == 0) then
                         if (trim(child%name) /= "__MULTI_UNIT__") then
                             main_prog_index = child_index
                         end if
+                    else
+                        call append_program_statements(child_index)
                     end if
                 type is (function_def_node)
                     proc_indices = [proc_indices, child_index]
@@ -1885,11 +1904,30 @@ contains
             end if
 
             ! Merge: existing program body + bare statements + procedures
-            body_size = size(main_prog%body_indices)
+            if (allocated(main_prog%body_indices)) then
+                allocate (filtered_body(0))
+                do i = 1, size(main_prog%body_indices)
+                    idx = main_prog%body_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (body_node => arena%entries(idx)%node)
+                    type is (function_def_node)
+                        cycle
+                    type is (subroutine_def_node)
+                        cycle
+                    class default
+                        filtered_body = [filtered_body, idx]
+                    end select
+                end do
+            else
+                allocate (filtered_body(0))
+            end if
+
+            body_size = size(filtered_body)
             n_proc = size(proc_indices)
             allocate (new_body(body_size + size(main_stmts) + n_proc))
             if (body_size > 0) then
-                new_body(1:body_size) = main_prog%body_indices
+                new_body(1:body_size) = filtered_body
             end if
             ! Add bare statements that weren't in the program yet
             do i = 1, size(main_stmts)
@@ -1912,6 +1950,64 @@ contains
         end do
 
         root_index = main_prog_index
+
+    contains
+
+        subroutine collect_program_procedures(program_idx)
+            integer, intent(in) :: program_idx
+            integer :: j, stmt_idx
+
+            if (program_idx <= 0 .or. program_idx > arena%size) return
+            if (.not. allocated(arena%entries(program_idx)%node)) return
+
+            select type (prog => arena%entries(program_idx)%node)
+            type is (program_node)
+                if (.not. allocated(prog%body_indices)) return
+                do j = 1, size(prog%body_indices)
+                    stmt_idx = prog%body_indices(j)
+                    if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                    select type (stmt => arena%entries(stmt_idx)%node)
+                    type is (function_def_node)
+                        proc_indices = [proc_indices, stmt_idx]
+                    type is (subroutine_def_node)
+                        proc_indices = [proc_indices, stmt_idx]
+                    end select
+                end do
+            end select
+        end subroutine collect_program_procedures
+
+        subroutine append_program_statements(program_idx)
+            integer, intent(in) :: program_idx
+            integer :: j, stmt_idx
+
+            if (program_idx <= 0 .or. program_idx > arena%size) return
+            if (.not. allocated(arena%entries(program_idx)%node)) return
+
+            select type (prog => arena%entries(program_idx)%node)
+            type is (program_node)
+                if (.not. allocated(prog%body_indices)) return
+                do j = 1, size(prog%body_indices)
+                    stmt_idx = prog%body_indices(j)
+                    if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                    select type (stmt => arena%entries(stmt_idx)%node)
+                    type is (function_def_node)
+                        cycle
+                    type is (subroutine_def_node)
+                        cycle
+                    type is (implicit_statement_node)
+                        cycle
+                    type is (contains_node)
+                        cycle
+                    type is (end_statement_node)
+                        cycle
+                    class default
+                        main_stmts = [main_stmts, stmt_idx]
+                    end select
+                end do
+            end select
+        end subroutine append_program_statements
     end subroutine promote_functions_to_internal_program
 
     ! Check if AST already contains a module node
