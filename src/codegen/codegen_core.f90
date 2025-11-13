@@ -26,7 +26,7 @@ module codegen_core
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
                               intrinsic_statement_node, import_statement_node, &
-                              include_statement_node, &
+                              include_statement_node, statement_function_node, &
                               visibility_statement_node, namelist_statement_node, &
                               data_statement_node, contains_node, directive_node, &
                               end_statement_node, &
@@ -92,6 +92,8 @@ contains
             code = generate_code_assignment(arena, node, node_index)
         type is (pointer_assignment_node)
             code = generate_code_pointer_assignment(arena, node, node_index)
+        type is (statement_function_node)
+            code = generate_code_statement_function(arena, node, node_index)
         type is (subroutine_call_node)
             code = generate_code_subroutine_call(arena, node, node_index)
         type is (print_statement_node)
