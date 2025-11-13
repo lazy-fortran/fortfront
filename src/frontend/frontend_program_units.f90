@@ -86,6 +86,9 @@ contains
                 ! Type definitions should be parsed as structured constructs
                 unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
                                                         prefix_buffer)
+            else if (is_interface_start(trimmed_tokens, 1)) then
+                unit_index = parse_interface_unit(trimmed_tokens, arena, &
+                                                  parse_error)
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
@@ -210,6 +213,23 @@ contains
         ! Extract parser errors from dispatcher
         if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_block_data_unit
+
+    function parse_interface_unit(tokens, arena, error_msg) result(unit_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
+        integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
+
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+
+        if (present(error_msg)) then
+            if (.not. allocated(error_msg)) then
+                allocate (character(len=0) :: error_msg)
+            end if
+            error_msg = ""
+        end if
+    end function parse_interface_unit
 
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program, &
@@ -370,6 +390,55 @@ contains
             end if
         end if
     end function is_program_start
+
+    function is_interface_start(tokens, pos) result(is_start)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: is_start
+        integer :: idx
+        integer :: next_idx
+
+        is_start = .false.
+        idx = pos
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NUMBER)
+                idx = idx + 1
+                cycle
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > size(tokens)) return
+        if (tokens(idx)%kind /= TK_KEYWORD) return
+
+        select case (to_lower(trim(tokens(idx)%text)))
+        case ("interface")
+            is_start = .true.
+        case ("abstract")
+            next_idx = idx + 1
+            do while (next_idx <= size(tokens))
+                select case (tokens(next_idx)%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    next_idx = next_idx + 1
+                    cycle
+                case default
+                    exit
+                end select
+            end do
+            if (next_idx <= size(tokens)) then
+                if (tokens(next_idx)%kind == TK_KEYWORD) then
+                    if (to_lower(trim(tokens(next_idx)%text)) == "interface") then
+                        is_start = .true.
+                    end if
+                end if
+            end if
+        end select
+    end function is_interface_start
 
     function is_block_data_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
