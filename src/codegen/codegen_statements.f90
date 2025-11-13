@@ -16,6 +16,7 @@ module codegen_statements
 
     public :: generate_code_assignment
     public :: generate_code_pointer_assignment
+    public :: generate_code_statement_function
     public :: generate_code_subroutine_call
     public :: generate_code_print_statement
     public :: generate_code_write_statement
@@ -135,6 +136,40 @@ contains
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_pointer_assignment
+
+    ! Generate code for statement functions
+    function generate_code_statement_function(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(statement_function_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: args_code, rhs_code
+        integer :: i
+
+        args_code = ""
+        if (allocated(node%arg_names)) then
+            do i = 1, size(node%arg_names)
+                if (i > 1) args_code = args_code // ", "
+                args_code = args_code // trim(node%arg_names(i))
+            end do
+        end if
+
+        if (node%body_expr_index > 0 .and. node%body_expr_index <= arena%size) then
+            rhs_code = generate_code_from_arena(arena, node%body_expr_index)
+        else
+            rhs_code = ""
+        end if
+
+        if (allocated(node%name)) then
+            code = trim(node%name)
+        else
+            code = ""
+        end if
+
+        code = code // "(" // args_code // ") = " // rhs_code
+
+        call prepend_stmt_label(code, node%stmt_label)
+    end function generate_code_statement_function
 
     ! Generate code for subroutine calls
     function generate_code_subroutine_call(arena, node, node_index) result(code)

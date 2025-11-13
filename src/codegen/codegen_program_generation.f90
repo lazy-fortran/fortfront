@@ -3,7 +3,8 @@ module codegen_program_generation
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
                               directive_node, end_statement_node, &
-                              implicit_statement_node, interface_block_node
+                              implicit_statement_node, interface_block_node, &
+                              statement_function_node
     use ast_nodes_procedure, only: subroutine_def_node, function_def_node
     use ast_nodes_data, only: module_node
     use codegen_arena_interface, only: generate_code_from_arena
@@ -441,6 +442,8 @@ contains
                     if (body%is_none) cycle
                     is_trivial = .false.
                     return
+                type is (statement_function_node)
+                    cycle
                 type is (end_statement_node)
                     cycle
                 class default
@@ -479,6 +482,8 @@ contains
                 type is (blank_line_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 type is (end_statement_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
+                type is (statement_function_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 class default
                     cycle

@@ -169,6 +169,18 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type import_statement_node
 
+    ! Statement function node
+    type, extends(ast_node), public :: statement_function_node
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: arg_names(:)
+        integer :: body_expr_index = 0
+    contains
+        procedure :: accept => statement_function_accept
+        procedure :: to_json => statement_function_to_json
+        procedure :: assign => statement_function_assign
+        generic :: assignment(=) => assign
+    end type statement_function_node
+
     ! Contains node
     type, extends(ast_node), public :: contains_node
     contains
@@ -1053,6 +1065,53 @@ contains
         end if
     end subroutine import_statement_assign
 
+    subroutine statement_function_accept(this, visitor)
+        class(statement_function_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! Implementation handled by visitor dispatchers
+    end subroutine statement_function_accept
+
+    subroutine statement_function_to_json(this, json, parent)
+        class(statement_function_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'statement_function')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%arg_names)) then
+            do i = 1, size(this%arg_names)
+                call json%add(obj, 'arg_'//trim(adjustl(int_to_string(i))), &
+                              this%arg_names(i))
+            end do
+        end if
+        call json%add(obj, 'body_expr_index', this%body_expr_index)
+        call json%add(parent, obj)
+    end subroutine statement_function_to_json
+
+    subroutine statement_function_assign(lhs, rhs)
+        class(statement_function_node), intent(inout) :: lhs
+        class(statement_function_node), intent(in) :: rhs
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%arg_names)) lhs%arg_names = rhs%arg_names
+        lhs%body_expr_index = rhs%body_expr_index
+        if (allocated(rhs%stmt_label)) lhs%stmt_label = rhs%stmt_label
+    end subroutine statement_function_assign
+
     ! Contains node implementations
     subroutine contains_accept(this, visitor)
         class(contains_node), intent(in) :: this
@@ -1310,7 +1369,6 @@ contains
 
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine directive_assign
-
 
     ! Blank line node methods
     subroutine blank_line_accept(this, visitor)
