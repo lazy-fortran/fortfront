@@ -223,9 +223,6 @@ contains
     logical function looks_like_format_statement(parser) result(is_format)
         type(parser_state_t), intent(in) :: parser
         integer :: idx, depth, token_count
-        type(token_t) :: tok
-        logical :: continuation_allowed
-        logical :: trailing_continuation
 
         is_format = .false.
         if (.not. associated(parser%tokens)) return
@@ -234,9 +231,26 @@ contains
         if (token_count == 0) return
 
         idx = parser%current_token + 1
+        if (.not. find_format_opening_paren(parser, idx, token_count)) return
+
+        depth = 1
+        idx = idx + 1
+        if (.not. walk_format_specifier(parser, idx, depth, token_count)) return
+
+        is_format = check_format_statement_end(parser, idx, token_count)
+    end function looks_like_format_statement
+
+    logical function find_format_opening_paren(parser, idx, token_count) &
+        result(found)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(inout) :: idx
+        integer, intent(in) :: token_count
+        type(token_t) :: tok
+        logical :: continuation_allowed
+
+        found = .false.
         continuation_allowed = .false.
 
-        ! Look for the required opening parenthesis after FORMAT
         do while (idx <= token_count)
             tok = parser%tokens(idx)
             select case (tok%kind)
@@ -255,7 +269,8 @@ contains
                     idx = idx + 1
                     cycle
                 case ("(")
-                    exit
+                    found = .true.
+                    return
                 case default
                     return
                 end select
@@ -263,14 +278,20 @@ contains
                 return
             end select
         end do
+    end function find_format_opening_paren
 
-        if (idx > token_count) return
+    logical function walk_format_specifier(parser, idx, depth, token_count) &
+        result(valid)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(inout) :: idx
+        integer, intent(inout) :: depth
+        integer, intent(in) :: token_count
+        type(token_t) :: tok
+        logical :: continuation_allowed
 
-        depth = 1
-        idx = idx + 1
+        valid = .false.
         continuation_allowed = .false.
 
-        ! Walk the parenthesized format specifier
         do while (idx <= token_count .and. depth > 0)
             tok = parser%tokens(idx)
             select case (tok%kind)
@@ -290,9 +311,20 @@ contains
             idx = idx + 1
         end do
 
-        if (depth /= 0) return
+        valid = (depth == 0)
+    end function walk_format_specifier
 
+    logical function check_format_statement_end(parser, idx, token_count) &
+        result(is_valid)
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(inout) :: idx
+        integer, intent(in) :: token_count
+        type(token_t) :: tok
+        logical :: trailing_continuation
+
+        is_valid = .false.
         trailing_continuation = .false.
+
         do while (idx <= token_count)
             tok = parser%tokens(idx)
             select case (tok%kind)
@@ -305,15 +337,15 @@ contains
                     idx = idx + 1
                     cycle
                 end if
-                is_format = .true.
+                is_valid = .true.
                 return
             case (TK_EOF)
-                is_format = .true.
+                is_valid = .true.
                 return
             case (TK_OPERATOR)
                 select case (tok%text)
                 case (";")
-                    is_format = .true.
+                    is_valid = .true.
                     return
                 case ("&")
                     trailing_continuation = .true.
@@ -327,8 +359,8 @@ contains
             end select
         end do
 
-        is_format = .true.
-    end function looks_like_format_statement
+        is_valid = .true.
+    end function check_format_statement_end
 
     logical function looks_like_implicit_statement(parser) result(is_implicit)
         type(parser_state_t), intent(in) :: parser
