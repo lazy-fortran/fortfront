@@ -57,22 +57,13 @@ contains
             end if
         end if
 
-        ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
+        ! Handle "goto" specially: treat as identifier when assignment is present
         lowered_text = trim(to_lower(token%text))
         if (lowered_text == "goto") then
-            ! Parser is pointing AT the goto token (caller peeked but didn't consume)
-            ! Consume it here, then parse the label
-            next_token = parser%consume()  ! Consume "goto"
-            next_token = parser%peek()
-            if (next_token%kind == TK_NUMBER .or. next_token%kind == &
-                TK_IDENTIFIER) then
-                stmt_index = push_goto(arena, label=trim(next_token%text), &
-                                       line=token%line, column=token%column)
-                next_token = parser%consume()  ! Consume the label
+            if (keyword_should_parse_as_identifier(token, parser)) then
+                stmt_index = parse_assignment_simple(parser, arena)
             else
-                ! Invalid goto - missing label
-                stmt_index = push_goto(arena, label="INVALID_LABEL", &
-                                       line=token%line, column=token%column)
+                stmt_index = parse_goto_statement(parser, arena)
             end if
             return
         end if
