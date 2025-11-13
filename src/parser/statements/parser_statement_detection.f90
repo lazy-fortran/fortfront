@@ -211,6 +211,13 @@ contains
                         end if
                     end if
                 case ("select")
+                    if (.not. is_select_construct(tokens, idx)) then
+                        if (.not. first_processed) then
+                            first_processed = .true.
+                            first_keyword = to_lower(token%text)
+                        end if
+                        cycle
+                    end if
                     if (.not. first_processed) then
                         first_processed = .true.
                         first_keyword = "select"
@@ -476,6 +483,47 @@ contains
             idx = idx + 1
         end do
     end function find_statement_end
+
+    pure logical function is_select_construct(tokens, select_index) &
+        result(is_select)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: select_index
+        integer :: idx
+        logical :: pending_continuation
+        character(len=:), allocatable :: lowered
+
+        is_select = .false.
+        if (select_index < 1 .or. select_index > size(tokens)) return
+
+        idx = select_index + 1
+        pending_continuation = .false.
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+            case (TK_OPERATOR)
+                if (tokens(idx)%text == "&") then
+                    pending_continuation = .true.
+                    idx = idx + 1
+                else
+                    return
+                end if
+            case (TK_NEWLINE)
+                if (.not. pending_continuation) return
+                pending_continuation = .false.
+                idx = idx + 1
+            case (TK_KEYWORD)
+                lowered = to_lower(tokens(idx)%text)
+                if (lowered == "case" .or. lowered == "type" .or. &
+                    lowered == "rank") then
+                    is_select = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_select_construct
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
         result(end_index)

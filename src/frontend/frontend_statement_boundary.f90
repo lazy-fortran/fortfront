@@ -3,7 +3,8 @@ module frontend_statement_boundary
     ! Handles finding statement boundaries and inline construct detection
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_NEWLINE, &
-                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, TK_IDENTIFIER
+                          TK_OPERATOR, TK_WHITESPACE, TK_COMMENT, &
+                          TK_IDENTIFIER, to_lower
 
     implicit none
     private
@@ -167,8 +168,10 @@ contains
                 is_multiline_construct = .true.
                 nesting_level = 1
             case ("select")
-                is_multiline_construct = .true.
-                nesting_level = 1
+                if (begins_select_construct(tokens, stmt_start)) then
+                    is_multiline_construct = .true.
+                    nesting_level = 1
+                end if
             case ("where")
                 if (.not. is_inline_where_statement(tokens, stmt_start)) then
                     do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
@@ -253,7 +256,9 @@ contains
                         end if
                     case ("select")
                         if (i > stmt_start) then
-                            nesting_level = nesting_level + 1
+                            if (begins_select_construct(tokens, i)) then
+                                nesting_level = nesting_level + 1
+                            end if
                         end if
                     case ("submodule")
                         if (tokens(stmt_start)%text == "submodule" .and. &
@@ -267,7 +272,8 @@ contains
                         ! But only exit if this matches our starting construct
                         if (tokens(i)%text == "endif") then
                             nesting_level = nesting_level - 1
-                            if (nesting_level == 0 .and. tokens(stmt_start)%text == "if") then
+                            if (nesting_level == 0 .and. tokens(stmt_start)%text &
+                                == "if") then
                                 stmt_end = i
                                 exit
                             end if
@@ -276,7 +282,8 @@ contains
                                 if (tokens(i + 1)%kind == TK_KEYWORD .and. &
                                     tokens(i + 1)%text == "if") then
                                     nesting_level = nesting_level - 1
-                                    if (nesting_level == 0 .and. tokens(stmt_start)%text == "if") then
+                                    if (nesting_level == 0 .and. &
+                                        tokens(stmt_start)%text == "if") then
                                         stmt_end = i + 1
                                         exit
                                     end if
@@ -313,8 +320,8 @@ contains
                             kw_pos = i + 1
                             ! Skip whitespace between end and next keyword
                             do while (kw_pos <= size(tokens) .and. &
-                                (tokens(kw_pos)%kind == TK_WHITESPACE .or. &
-                                 tokens(kw_pos)%kind == TK_COMMENT))
+                                      (tokens(kw_pos)%kind == TK_WHITESPACE .or. &
+                                       tokens(kw_pos)%kind == TK_COMMENT))
                                 kw_pos = kw_pos + 1
                             end do
                             if (kw_pos <= size(tokens) .and. &
@@ -340,8 +347,7 @@ contains
                                     exit
                                 end if
                             else if (tokens(i + 1)%text == "select" .and. &
-                                     tokens(stmt_start)%text == &
-                                     "select") then
+                                     tokens(stmt_start)%text == "select") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
@@ -418,5 +424,46 @@ contains
         if (stmt_end > size(tokens)) stmt_end = size(tokens)
         if (stmt_end < stmt_start) stmt_end = stmt_start
     end subroutine find_statement_boundary
+
+    pure logical function begins_select_construct(tokens, select_index) &
+        result(is_select_construct)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: select_index
+        integer :: idx
+        logical :: pending_continuation
+        character(len=:), allocatable :: lowered
+
+        is_select_construct = .false.
+        if (select_index < 1 .or. select_index > size(tokens)) return
+
+        idx = select_index + 1
+        pending_continuation = .false.
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+            case (TK_OPERATOR)
+                if (tokens(idx)%text == "&") then
+                    pending_continuation = .true.
+                    idx = idx + 1
+                else
+                    return
+                end if
+            case (TK_NEWLINE)
+                if (.not. pending_continuation) return
+                pending_continuation = .false.
+                idx = idx + 1
+            case (TK_KEYWORD)
+                lowered = to_lower(tokens(idx)%text)
+                if (lowered == "case" .or. lowered == "type" .or. &
+                    lowered == "rank") then
+                    is_select_construct = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function begins_select_construct
 
 end module frontend_statement_boundary
