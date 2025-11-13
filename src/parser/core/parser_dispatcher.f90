@@ -326,7 +326,12 @@ contains
             case ("namelist")
                 stmt_index = parse_namelist_statement(parser, arena)
             case ("equivalence", "common")
-                stmt_index = parse_legacy_statement(lowered_keyword, parser, arena)
+                if (keyword_should_parse_as_identifier(first_token, parser)) then
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                else
+                    stmt_index = parse_legacy_statement(lowered_keyword, parser, &
+                                                        arena)
+                end if
             case ("enum", "enumerator")
                 stmt_index = parse_unsupported_statement(lowered_keyword, &
                                                          parser, arena)
