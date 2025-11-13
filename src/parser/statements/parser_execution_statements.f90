@@ -291,6 +291,13 @@ contains
             select case (lowered)
             case ("elemental", "pure", "impure", "recursive", "nonrecursive", &
                   "non_recursive", "module")
+                if (lowered == "module") then
+                    if (.not. module_keyword_starts_procedure(parser_ref)) then
+                        stmt_index = handle_identifier_token(parser_ref, arena_ref, &
+                                                             keyword_token)
+                        return
+                    end if
+                end if
                 call append_prefix_token(pending_prefixes, lowered)
                 block
                     type(token_t) :: ignored_token
@@ -377,6 +384,38 @@ contains
             end if
             call prefix_buffer%clear()
         end function parse_function_with_prefixes
+
+        logical function module_keyword_starts_procedure(parser_ref) &
+            result(is_prefix)
+            type(parser_state_t), intent(in) :: parser_ref
+            integer :: lookahead_idx
+            type(token_t) :: lookahead_token
+
+            is_prefix = .false.
+            lookahead_idx = parser_ref%current_token + 1
+
+            do while (lookahead_idx <= size(parser_ref%tokens))
+                lookahead_token = parser_ref%tokens(lookahead_idx)
+                select case (lookahead_token%kind)
+                case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                    lookahead_idx = lookahead_idx + 1
+                    cycle
+                case (TK_OPERATOR)
+                    if (trim(lookahead_token%text) == "&") then
+                        lookahead_idx = lookahead_idx + 1
+                        cycle
+                    end if
+                    return
+                case (TK_KEYWORD)
+                    if (trim(to_lower(lookahead_token%text)) == "procedure") then
+                        is_prefix = .true.
+                    end if
+                    return
+                case default
+                    return
+                end select
+            end do
+        end function module_keyword_starts_procedure
 
         integer function parse_subroutine_with_prefixes(parser_ref, arena_ref) &
             result(stmt_index)
