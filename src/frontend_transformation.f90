@@ -1363,8 +1363,7 @@ contains
         if (.not. allocated(arena%entries(target_prog_idx)%node)) return
         select type (target_prog => arena%entries(target_prog_idx)%node)
         type is (program_node)
-            if (trim(target_prog%name) /= "main" .and. &
-                trim(target_prog%name) /= "__IMPLICIT_MAIN__") return
+            ! Accept explicit program names as valid hoist targets
         class default
             return
         end select
@@ -2465,10 +2464,6 @@ contains
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
             call record_identifier_name(arena, node%target_index, names)
-            if (node%value_index > 0) then
-                call collect_assignment_from_node(arena, node%value_index, &
-                                                  names, skip_procedures)
-            end if
             return
         type is (function_def_node)
             if (skip_procedures) return
