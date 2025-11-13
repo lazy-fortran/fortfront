@@ -163,10 +163,14 @@ contains
             expr_index = parse_number_literal(token, arena)
 
         case (TK_STRING)
+            expr_index = try_parse_postfix_boz_literal(parser, arena, view)
+            if (expr_index > 0) return
             token = view_consume_token(view, parser)
             expr_index = parse_string_literal(token, arena)
 
         case (TK_IDENTIFIER)
+            expr_index = try_parse_prefix_boz_literal(parser, arena, view)
+            if (expr_index > 0) return
             token = view_consume_token(view, parser)
             lowered = to_lower(token%text)
             if (lowered == "true" .or. lowered == "false") then
@@ -207,6 +211,86 @@ contains
             token = view_consume_token(view, parser)
         end select
     end function parse_operand_base
+
+    integer function try_parse_prefix_boz_literal(parser, arena, view) &
+        result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        type(token_t) :: prefix_token
+        type(token_t) :: literal_token
+        type(token_t) :: lookahead
+        character(len=:), allocatable :: literal_text
+
+        expr_index = 0
+
+        prefix_token = view_peek_token(view, parser)
+        if (.not. is_boz_designator_token(prefix_token)) return
+
+        lookahead = view_lookahead_token(view, parser, 1)
+        if (lookahead%kind /= TK_STRING) return
+
+        prefix_token = view_consume_token(view, parser)
+        literal_token = view_consume_token(view, parser)
+
+        literal_text = combine_boz_literal_text(prefix_token%text, &
+                                                literal_token%text)
+        expr_index = push_literal(arena, literal_text, LITERAL_INTEGER, &
+                                  prefix_token%line, prefix_token%column)
+    end function try_parse_prefix_boz_literal
+
+    integer function try_parse_postfix_boz_literal(parser, arena, view) &
+        result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        type(token_t) :: literal_token
+        type(token_t) :: suffix_token
+        type(token_t) :: lookahead
+        character(len=:), allocatable :: literal_text
+
+        expr_index = 0
+
+        literal_token = view_peek_token(view, parser)
+        if (literal_token%kind /= TK_STRING) return
+
+        lookahead = view_lookahead_token(view, parser, 1)
+        if (.not. is_boz_designator_token(lookahead)) return
+
+        literal_token = view_consume_token(view, parser)
+        suffix_token = view_consume_token(view, parser)
+
+        literal_text = combine_boz_literal_text(literal_token%text, &
+                                                suffix_token%text)
+        expr_index = push_literal(arena, literal_text, LITERAL_INTEGER, &
+                                  literal_token%line, literal_token%column)
+    end function try_parse_postfix_boz_literal
+
+    logical function is_boz_designator_token(token) result(is_boz)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        is_boz = .false.
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(token%text))
+        if (len_trim(lowered) /= 1) return
+
+        select case (lowered(1:1))
+        case ("b", "o", "z", "x")
+            is_boz = .true.
+        case default
+            is_boz = .false.
+        end select
+    end function is_boz_designator_token
+
+    function combine_boz_literal_text(first_text, second_text) result(literal)
+        character(len=*), intent(in) :: first_text
+        character(len=*), intent(in) :: second_text
+        character(len=:), allocatable :: literal
+
+        literal = trim(first_text)//trim(second_text)
+    end function combine_boz_literal_text
 
     subroutine handle_closing_paren(parser, arena, view, operators, operands, &
                                     prefix_stack, token, expect_operand)
