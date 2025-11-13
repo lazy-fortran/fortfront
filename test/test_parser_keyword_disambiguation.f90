@@ -12,6 +12,7 @@ program test_parser_keyword_disambiguation
     call test_program_assignment_detection()
     call test_program_assignment_in_context()
     call test_module_assignment_in_context()
+    call test_common_assignment_detection()
 
     print *, 'PASS: parser keyword disambiguation honors implicit statements'
 
@@ -192,5 +193,25 @@ contains
             error stop 1
         end if
     end subroutine test_module_assignment_in_context
+
+    subroutine test_common_assignment_detection()
+        character(len=:), allocatable :: source
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(token_t) :: first_token
+        logical :: as_identifier
+
+        source = 'common = 1' // new_line('a') // 'end'
+        call tokenize_core(source, tokens)
+        parser = create_parser_state(tokens)
+        first_token = parser%peek()
+        as_identifier = keyword_should_parse_as_identifier(first_token, parser)
+
+        if (.not. as_identifier) then
+            write (error_unit, '(A)') &
+                'FAIL: identifier COMMON assignment was not preserved'
+            error stop 1
+        end if
+    end subroutine test_common_assignment_detection
 
 end program test_parser_keyword_disambiguation
