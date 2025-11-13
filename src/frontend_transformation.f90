@@ -1896,7 +1896,7 @@ contains
             if (allocated(root%implicit_declaration_indices)) then
                 do i = 1, size(root%implicit_declaration_indices)
                     if (is_host_level_statement(arena, &
-                                                root%implicit_declaration_indices(i))) then
+                        root%implicit_declaration_indices(i))) then
                         main_stmts = [main_stmts, root%implicit_declaration_indices(i)]
                     end if
                 end do
