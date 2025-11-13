@@ -26,6 +26,7 @@ module ast_monomorphization
     use standardizer_subroutine_intent, only: infer_subroutine_parameter_intents
     use standardizer_parameter, only: param_metadata_t, init_param_metadata
     use standardizer_parameter, only: metadata_find_param
+    use procedure_classification, only: procedure_has_explicit_types
     implicit none
     private
 
@@ -275,7 +276,7 @@ contains
         integer, allocatable :: variant_indices(:)
         integer :: mod_idx
 
-        if (procedure_has_explicit_types(arena, proc_idx, is_function)) then
+        if (procedure_has_explicit_types(arena, proc_idx)) then
             handled = .false.
             return
         end if
@@ -2529,46 +2530,6 @@ contains
         end do
         call move_alloc(temp, arr)
     end subroutine resize_character_array
-
-    logical function procedure_has_explicit_types(arena, proc_idx, is_function) &
-        result(has_types)
-        use ast_nodes_data, only: parameter_declaration_node
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: proc_idx
-        logical, intent(in) :: is_function
-        type(function_def_node), pointer :: func
-        type(subroutine_def_node), pointer :: subr
-        type(parameter_declaration_node), pointer :: param
-        integer, allocatable :: param_indices(:)
-        integer :: i
-
-        has_types = .false.
-
-        if (is_function) then
-            call get_function_node(arena, proc_idx, func)
-            if (.not. associated(func)) return
-            if (.not. allocated(func%param_indices)) return
-            if (size(func%param_indices) == 0) return
-            param_indices = func%param_indices
-        else
-            call get_subroutine_node(arena, proc_idx, subr)
-            if (.not. associated(subr)) return
-            if (.not. allocated(subr%param_indices)) return
-            if (size(subr%param_indices) == 0) return
-            param_indices = subr%param_indices
-        end if
-
-        ! Check if all parameters have explicit type declarations
-        do i = 1, size(param_indices)
-            call get_parameter_node(arena, param_indices(i), param)
-            if (.not. associated(param)) return
-            if (.not. allocated(param%type_name)) return
-            if (len_trim(param%type_name) == 0) return
-        end do
-
-        ! All parameters have explicit types - this is standard Fortran
-        has_types = .true.
-    end function procedure_has_explicit_types
 
     ! Strip dimension() attribute from type string
     ! e.g., "integer, dimension(5), intent(in)" -> "integer, intent(in)"

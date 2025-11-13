@@ -2,12 +2,13 @@ module codegen_program_generation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
-                              directive_node, &
-                              implicit_statement_node
+                              directive_node, end_statement_node, &
+                              implicit_statement_node, interface_block_node
     use ast_nodes_procedure, only: subroutine_def_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_program_body, only: append_program_body
     use codegen_program_header, only: assemble_program_header
+
     implicit none
     private
     public :: generate_code_program
@@ -84,14 +85,95 @@ contains
         has_exec = has_non_trivial_body .and. found_contains
     end function has_executable_before_contains
 
+    logical function program_contains_only_interfaces(arena, prog_index) &
+        result(has_only_interfaces)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        integer :: j, child_idx
+        logical :: found_interface
+
+        has_only_interfaces = .false.
+        found_interface = .false.
+
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            has_only_interfaces = .true.
+            do j = 1, size(prog%body_indices)
+                child_idx = prog%body_indices(j)
+                if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                select type (body => arena%entries(child_idx)%node)
+                type is (interface_block_node)
+                    found_interface = .true.
+                type is (comment_node)
+                type is (directive_node)
+                type is (blank_line_node)
+                type is (implicit_statement_node)
+                type is (end_statement_node)
+                    cycle
+                class default
+                    has_only_interfaces = .false.
+                    return
+                end select
+            end do
+            has_only_interfaces = has_only_interfaces .and. found_interface
+        class default
+            has_only_interfaces = .false.
+        end select
+    end function program_contains_only_interfaces
+
+    function emit_interface_only_program(arena, prog_index) result(snippet)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        character(len=:), allocatable :: snippet
+        integer :: j, child_idx
+        character(len=:), allocatable :: statement_code
+
+        snippet = ""
+        if (.not. program_contains_only_interfaces(arena, prog_index)) return
+
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            do j = 1, size(prog%body_indices)
+                child_idx = prog%body_indices(j)
+                if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                select type (body => arena%entries(child_idx)%node)
+                type is (interface_block_node)
+                type is (comment_node)
+                type is (directive_node)
+                type is (blank_line_node)
+                type is (implicit_statement_node)
+                type is (end_statement_node)
+                class default
+                    cycle
+                end select
+                statement_code = generate_code_from_arena(arena, child_idx)
+                if (len(statement_code) == 0) cycle
+                if (len(snippet) > 0) snippet = snippet // new_line('A')
+                snippet = snippet // statement_code
+            end do
+        end select
+    end function emit_interface_only_program
+
     function generate_multi_unit_program(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable :: code
         integer :: i, child_index
+        logical :: has_interface_child
+        logical :: has_non_interface_child
+        character(len=:), allocatable :: child_code
 
         code = ""
         if (.not. allocated(node%body_indices)) return
+        has_interface_child = .false.
+        has_non_interface_child = .false.
 
         do i = 1, size(node%body_indices)
             child_index = node%body_indices(i)
@@ -100,14 +182,37 @@ contains
 
             select type (child => arena%entries(child_index)%node)
             type is (program_node)
-                if (append_trivial_program(arena, code, child_index, child%name)) cycle
+                if (program_contains_only_interfaces(arena, child_index)) then
+                    child_code = emit_interface_only_program(arena, child_index)
+                    if (len(child_code) > 0) then
+                        if (len(code) > 0) code = code // new_line('A') // &
+                                                  new_line('A')
+                        code = code // child_code
+                    end if
+                    has_interface_child = .true.
+                    cycle
+                end if
+                if (append_trivial_program(arena, code, child_index, &
+                                           child%name)) cycle
+                has_non_interface_child = .true.
             type is (subroutine_def_node)
-                if (skip_duplicate_empty_subroutine(arena, node, child, i)) cycle
+                if (skip_duplicate_empty_subroutine(arena, node, child, &
+                                                    child_index, i)) cycle
+                has_non_interface_child = .true.
+            type is (interface_block_node)
+                has_interface_child = .true.
+            class default
+                has_non_interface_child = .true.
             end select
 
             if (len(code) > 0) code = code // new_line('A') // new_line('A')
             code = code // generate_code_from_arena(arena, child_index)
         end do
+
+        if (has_interface_child .and. .not. has_non_interface_child) then
+            if (len_trim(code) > 0) code = code // new_line('A')
+            code = code // "end"
+        end if
     end function generate_multi_unit_program
 
     logical function append_trivial_program(arena, code, program_index, name)
@@ -117,39 +222,37 @@ contains
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: snippet
 
-        snippet = gather_trivial_program_trivia(arena, program_index, name)
-        if (len_trim(snippet) == 0) then
+        if (.not. program_is_trivial_wrapper(arena, program_index, name)) then
             append_trivial_program = .false.
             return
         end if
 
-        if (len(code) > 0) code = code // new_line('A') // new_line('A')
-        code = code // snippet
+        snippet = collect_trivial_program_trivia(arena, program_index)
+        if (len_trim(snippet) > 0) then
+            if (len(code) > 0) code = code // new_line('A') // new_line('A')
+            code = code // snippet
+        end if
+
         append_trivial_program = .true.
     end function append_trivial_program
 
-    function gather_trivial_program_trivia(arena, body_index, name) result(snippet)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_index
-        character(len=*), intent(in) :: name
-        character(len=:), allocatable :: snippet
-
-        snippet = ""
-        if (.not. program_is_trivial_wrapper(arena, body_index, name)) return
-
-        snippet = collect_trivial_program_trivia(arena, body_index)
-    end function gather_trivial_program_trivia
-
-    logical function skip_duplicate_empty_subroutine(arena, node, child, position) &
+    logical function skip_duplicate_empty_subroutine(arena, node, child, &
+                                                     child_index, position) &
         result(skip)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         type(subroutine_def_node), intent(in) :: child
+        integer, intent(in) :: child_index
         integer, intent(in) :: position
 
         if (subroutine_has_body_or_params(child)) then
             skip = .false.
         else
+            if (declared_in_prior_interface(arena, node, child_index, &
+                                            position)) then
+                skip = .true.
+                return
+            end if
             skip = has_prior_subroutine_with_name(arena, node, child%name, position)
         end if
     end function skip_duplicate_empty_subroutine
@@ -195,6 +298,41 @@ contains
         end do
     end function has_prior_subroutine_with_name
 
+    logical function declared_in_prior_interface(arena, node, child_index, &
+                                                 position) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        integer, intent(in) :: child_index
+        integer, intent(in) :: position
+        integer :: j, idx
+
+        found = .false.
+        if (.not. allocated(node%body_indices)) return
+
+        do j = 1, position - 1
+            idx = node%body_indices(j)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (prev => arena%entries(idx)%node)
+            type is (interface_block_node)
+                if (interface_declares_procedure(prev, child_index)) then
+                    found = .true.
+                    return
+                end if
+            end select
+        end do
+    end function declared_in_prior_interface
+
+    logical function interface_declares_procedure(interface_node, proc_index) &
+        result(found)
+        type(interface_block_node), intent(in) :: interface_node
+        integer, intent(in) :: proc_index
+
+        found = .false.
+        if (.not. allocated(interface_node%procedure_indices)) return
+        if (any(interface_node%procedure_indices == proc_index)) found = .true.
+    end function interface_declares_procedure
+
     logical function program_is_trivial_wrapper(arena, prog_index, name) &
         result(is_trivial)
         type(ast_arena_t), intent(in) :: arena
@@ -232,6 +370,8 @@ contains
                     if (body%is_none) cycle
                     is_trivial = .false.
                     return
+                type is (end_statement_node)
+                    cycle
                 class default
                     is_trivial = .false.
                     return
@@ -266,6 +406,8 @@ contains
                 type is (directive_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 type is (blank_line_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
+                type is (end_statement_node)
                     snippet = generate_code_from_arena(arena, child_idx)
                 class default
                     cycle
