@@ -6,7 +6,6 @@
 issue_1774_user_defined_operator.f90  # type constructors incorrectly declared as external functions (#1774 - PR #1801 incomplete)
 
 # Unsupported language features
-issue_1827_submodule_with_contents.f90  # submodules unsupported; expect diagnostic only (F2008 feature) #1827
 
 # Lazy Fortran - Partial fixes still need work
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
