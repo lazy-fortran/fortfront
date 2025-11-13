@@ -1305,8 +1305,7 @@ contains
                     trim(node%name)
             type is (declaration_node)
                 write (error_unit, '(A,I0,2X,A,2X,A)') '  decl idx', i, &
-                    & trim(node%type_name), &
-                    trim(node%var_name)
+                    trim(node%type_name), trim(node%var_name)
             end select
         end do
     end subroutine maybe_dump_program_overview
@@ -1672,21 +1671,25 @@ contains
 
     subroutine promote_functions_to_internal_program(arena, root_index)
         use ast_nodes_core, only: program_node
-        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                        subroutine_call_node
         use ast_nodes_misc, only: contains_node, implicit_statement_node, &
-                                  end_statement_node
-        use ast_nodes_data, only: mixed_construct_container_node
+                                  end_statement_node, comment_node, &
+                                  directive_node, blank_line_node
+        use ast_nodes_io, only: print_statement_node
+        use ast_nodes_control, only: if_node, do_loop_node
+        use ast_nodes_data, only: mixed_construct_container_node, declaration_node
         use standardizer_program, only: insert_contains_statement
         use ast_factory, only: push_implicit_statement
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
-        integer :: i, child_index, main_prog_index
-        integer :: idx, body_size, n_proc
+        integer :: i, child_index, main_prog_index, candidate_prog_index
+        integer :: idx, body_size, n_proc, contains_pos, pos
         integer, allocatable :: proc_indices(:)
         integer, allocatable :: new_body(:)
         integer, allocatable :: main_stmts(:)
         integer, allocatable :: filtered_body(:)
-        logical :: has_contains
+        logical :: has_contains, child_is_main_candidate, has_exec, has_procs
         integer :: contains_index, implicit_none_index, prog_index
 
         if (root_index <= 0 .or. root_index > arena%size) return
@@ -1695,6 +1698,7 @@ contains
         allocate (proc_indices(0))
         allocate (main_stmts(0))
         main_prog_index = 0
+        candidate_prog_index = 0
 
         select type (root => arena%entries(root_index)%node)
         type is (mixed_construct_container_node)
@@ -1783,24 +1787,29 @@ contains
 
                 select type (child => arena%entries(child_index)%node)
                 type is (program_node)
-                    print *, 'child program', child_index, trim(child%name)
-                type is (function_def_node)
-                    print *, 'child function', child_index, trim(child%name)
-                type is (subroutine_def_node)
-                    print *, 'child subroutine', child_index, trim(child%name)
-                class default
-                    print *, 'child other', child_index
-                end select
-
-                select type (child => arena%entries(child_index)%node)
-                type is (program_node)
-                    call collect_program_procedures(child_index)
+                    child_is_main_candidate = .false.
+                    has_exec = program_has_executable_statements(arena, &
+                                                                child_index)
+                    has_procs = program_contains_procedures(arena, child_index)
                     if (main_prog_index == 0) then
                         if (trim(child%name) /= "__MULTI_UNIT__") then
-                            main_prog_index = child_index
+                            if (has_exec .and. .not. has_procs) then
+                                main_prog_index = child_index
+                                child_is_main_candidate = .true.
+                            else if (has_exec .and. candidate_prog_index == 0) then
+                                candidate_prog_index = child_index
+                            end if
+                        end if
+                    else if (child_index == main_prog_index) then
+                        child_is_main_candidate = .true.
+                    end if
+                    call collect_program_procedures(child_index)
+                    if (.not. child_is_main_candidate) then
+                        if (.not. has_procs) then
+                            call append_program_statements(child_index)
                         end if
                     else
-                        call append_program_statements(child_index)
+                        cycle
                     end if
                 type is (function_def_node)
                     proc_indices = [proc_indices, child_index]
@@ -1812,6 +1821,10 @@ contains
                     main_stmts = [main_stmts, child_index]
                 end select
             end do
+
+            if (main_prog_index == 0 .and. candidate_prog_index > 0) then
+                main_prog_index = candidate_prog_index
+            end if
         class default
             return
         end select
@@ -1926,17 +1939,47 @@ contains
             body_size = size(filtered_body)
             n_proc = size(proc_indices)
             allocate (new_body(body_size + size(main_stmts) + n_proc))
-            if (body_size > 0) then
-                new_body(1:body_size) = filtered_body
+            pos = 0
+            contains_pos = 0
+            do i = 1, body_size
+                idx = filtered_body(i)
+                if (idx <= 0 .or. idx > arena%size) cycle
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (body_node => arena%entries(idx)%node)
+                type is (contains_node)
+                    contains_pos = i
+                    exit
+                end select
+            end do
+            if (contains_pos > 0) then
+                if (contains_pos > 1) then
+                    new_body(1:contains_pos - 1) = filtered_body(1:contains_pos - 1)
+                    pos = contains_pos - 1
+                end if
+                if (size(main_stmts) > 0) then
+                    new_body(pos + 1:pos + size(main_stmts)) = main_stmts
+                    pos = pos + size(main_stmts)
+                end if
+                new_body(pos + 1) = filtered_body(contains_pos)
+                pos = pos + 1
+                if (contains_pos < body_size) then
+                    new_body(pos + 1:pos + (body_size - contains_pos)) = &
+                        filtered_body(contains_pos + 1:body_size)
+                    pos = pos + (body_size - contains_pos)
+                end if
+            else
+                if (body_size > 0) then
+                    new_body(1:body_size) = filtered_body
+                    pos = body_size
+                end if
+                if (size(main_stmts) > 0) then
+                    new_body(pos + 1:pos + size(main_stmts)) = main_stmts
+                    pos = pos + size(main_stmts)
+                end if
             end if
-            ! Add bare statements that weren't in the program yet
-            do i = 1, size(main_stmts)
-                new_body(body_size + i) = main_stmts(i)
-            end do
-            ! Add procedures after the contains statement
-            do i = 1, n_proc
-                new_body(body_size + size(main_stmts) + i) = proc_indices(i)
-            end do
+            if (n_proc > 0) then
+                new_body(pos + 1:pos + n_proc) = proc_indices
+            end if
             main_prog%body_indices = new_body
 
             ! Update parent indices for the newly added bare statements
@@ -2008,6 +2051,79 @@ contains
                 end do
             end select
         end subroutine append_program_statements
+
+        logical function program_has_executable_statements(arena, program_idx) &
+            result(has_exec)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: program_idx
+            integer :: j, stmt_idx
+
+            has_exec = .false.
+            if (program_idx <= 0 .or. program_idx > arena%size) return
+            if (.not. allocated(arena%entries(program_idx)%node)) return
+
+            select type (prog => arena%entries(program_idx)%node)
+            type is (program_node)
+                if (.not. allocated(prog%body_indices)) return
+                do j = 1, size(prog%body_indices)
+                    stmt_idx = prog%body_indices(j)
+                    if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                    select type (stmt => arena%entries(stmt_idx)%node)
+                    type is (function_def_node)
+                        cycle
+                    type is (subroutine_def_node)
+                        cycle
+                    type is (implicit_statement_node)
+                        cycle
+                    type is (contains_node)
+                        exit
+                    type is (end_statement_node)
+                        cycle
+                    type is (comment_node)
+                        cycle
+                    type is (directive_node)
+                        cycle
+                    type is (blank_line_node)
+                        cycle
+                    type is (declaration_node)
+                        cycle
+                    class default
+                        has_exec = .true.
+                        return
+                    end select
+                end do
+            end select
+        end function program_has_executable_statements
+
+        logical function program_contains_procedures(arena, program_idx) &
+            result(has_procs)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: program_idx
+            integer :: j, stmt_idx
+
+            has_procs = .false.
+            if (program_idx <= 0 .or. program_idx > arena%size) return
+            if (.not. allocated(arena%entries(program_idx)%node)) return
+
+            select type (prog => arena%entries(program_idx)%node)
+            type is (program_node)
+                if (.not. allocated(prog%body_indices)) return
+                do j = 1, size(prog%body_indices)
+                    stmt_idx = prog%body_indices(j)
+                    if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                    select type (stmt => arena%entries(stmt_idx)%node)
+                    type is (function_def_node)
+                        has_procs = .true.
+                        return
+                    type is (subroutine_def_node)
+                        has_procs = .true.
+                        return
+                    end select
+                end do
+            end select
+        end function program_contains_procedures
     end subroutine promote_functions_to_internal_program
 
     ! Check if AST already contains a module node
