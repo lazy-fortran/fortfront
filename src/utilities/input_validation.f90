@@ -7,6 +7,8 @@ module input_validation
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING, &
                           TK_WHITESPACE, to_lower
+    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
 
     implicit none
     private
@@ -445,7 +447,9 @@ contains
         integer :: i, program_count, function_count, subroutine_count, module_count
         integer :: end_program_count, end_function_count, end_subroutine_count, end_module_count
         integer :: last_line, last_col
-        logical :: has_program_start
+        logical :: has_program_start, module_as_identifier
+        type(token_t), allocatable, target :: parser_tokens(:)
+        type(parser_state_t) :: parser_state
 
         error_msg = ""
         program_count = 0
@@ -459,6 +463,8 @@ contains
         has_program_start = .false.
         last_line = 1
         last_col = 1
+        parser_tokens = tokens
+        parser_state = create_parser_state(parser_tokens)
 
         ! Count constructs and their endings
         do i = 1, size(tokens)
@@ -495,7 +501,14 @@ contains
                         subroutine_count = subroutine_count + 1
                     end if
                 case ("module")
+                    if (.not. is_module_statement_start(tokens, i)) cycle
                     if (is_module_procedure_statement(tokens, i)) cycle
+                    parser_state%current_token = i
+                    module_as_identifier = keyword_should_parse_as_identifier( &
+                        tokens(i), parser_state)
+                    if (module_as_identifier) then
+                        cycle
+                    end if
                     ! Check if this is not "end module"
                     if (i == 1) then
                         module_count = module_count + 1
@@ -527,6 +540,9 @@ contains
                 end select
             end if
         end do
+
+        ! Release parser state resources
+        call parser_state%cleanup()
 
         ! Check for missing end constructs
         if (program_count > end_program_count) then
@@ -579,6 +595,55 @@ contains
             end select
         end do
     end function is_module_procedure_statement
+
+    logical function is_module_statement_start(tokens, idx) result(is_stmt)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        integer :: prev_idx, next_idx
+        character(len=:), allocatable :: lowered, operator_text
+
+        is_stmt = .false.
+        if (idx < 1 .or. idx > size(tokens)) return
+
+        prev_idx = find_previous_significant_token(tokens, idx - 1)
+        if (prev_idx > 0) then
+            select case (tokens(prev_idx)%kind)
+            case (TK_KEYWORD)
+                lowered = to_lower(trim(tokens(prev_idx)%text))
+                if (lowered /= "end" .and. lowered /= "endmodule") return
+            case default
+                return
+            end select
+        end if
+
+        next_idx = find_next_significant_token(tokens, idx + 1)
+        if (next_idx == 0) then
+            is_stmt = .true.
+            return
+        end if
+
+        select case (tokens(next_idx)%kind)
+        case (TK_OPERATOR)
+            operator_text = trim(tokens(next_idx)%text)
+            select case (operator_text)
+            case ("=", "=>", "::", "%", "(", ")", ",", "+", "-", "*", "/", "//")
+                return
+            end select
+        case (TK_IDENTIFIER)
+            is_stmt = .true.
+            return
+        case (TK_KEYWORD)
+            is_stmt = .true.
+            return
+        case (TK_EOF)
+            is_stmt = .true.
+            return
+        case default
+            is_stmt = .true.
+            return
+        end select
+    end function is_module_statement_start
+
 
     logical function is_program_statement_start(tokens, idx) result(is_stmt)
         type(token_t), intent(in) :: tokens(:)
