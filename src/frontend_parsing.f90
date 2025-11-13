@@ -89,6 +89,7 @@ contains
 
         type(mixed_construct_result_t) :: mixed_result
         logical :: has_explicit_program
+        logical :: declaration_only_file
         integer, allocatable :: unit_indices(:)
         integer :: i, unit_start, unit_end, unit_index, unit_count
         character(len=8) :: debug_flag
@@ -116,7 +117,9 @@ contains
 
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
-        if (mixed_result%has_mixed_constructs) then
+        declaration_only_file = (mixed_result%num_implicit_ranges > 0 .and. &
+                                 mixed_result%num_explicit_ranges == 0)
+        if (mixed_result%has_mixed_constructs .or. declaration_only_file) then
             block
                 character(len=500) :: mixed_error
                 call parse_mixed_constructs(tokens_local, arena, mixed_result, &

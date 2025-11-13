@@ -806,10 +806,16 @@ contains
         integer :: i, child_idx
         character(len=:), allocatable :: local_error
         logical :: have_error
+        character(len=8) :: dump_flag
+        integer :: dump_status
+        logical :: debug_enabled
 
         combined = create_signatures_map()
         error_msg = ""
         have_error = .false.
+        call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', dump_flag, &
+                                       status=dump_status)
+        debug_enabled = (dump_status == 0 .and. len_trim(dump_flag) > 0)
 
         if (allocated(container%implicit_declaration_indices)) then
             do i = 1, size(container%implicit_declaration_indices)
@@ -831,11 +837,13 @@ contains
             if (node_idx < 1 .or. node_idx > arena%size) return
             if (.not. allocated(arena%entries(node_idx)%node)) return
 
-            write (error_unit, '(A,1X,I0)') 'DEBUG semantic container child', &
-                node_idx
-            if (allocated(arena%entries(node_idx)%node_type)) then
-                write (error_unit, '(A,1X,A)') 'DEBUG node_type', &
-                    trim(arena%entries(node_idx)%node_type)
+            if (debug_enabled) then
+                write (error_unit, '(A,1X,I0)') &
+                    'DEBUG semantic container child', node_idx
+                if (allocated(arena%entries(node_idx)%node_type)) then
+                    write (error_unit, '(A,1X,A)') 'DEBUG node_type', &
+                        trim(arena%entries(node_idx)%node_type)
+                end if
             end if
 
             call create_semantic_context(local_ctx)
@@ -845,8 +853,10 @@ contains
             call analyze_program(local_ctx, arena, node_idx)
             call trace_leave('semantic:analyze_program')
 
-            write (error_unit, '(A,1X,I0)') 'DEBUG local signatures count', &
-                local_ctx%signatures%proc_count
+            if (debug_enabled) then
+                write (error_unit, '(A,1X,I0)') 'DEBUG local signatures count', &
+                    local_ctx%signatures%proc_count
+            end if
 
             call merge_signature_maps(combined, local_ctx%signatures)
 
