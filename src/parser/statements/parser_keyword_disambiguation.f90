@@ -31,7 +31,11 @@ contains
             as_identifier = should_parse_if_as_identifier(parser)
         case default
             if (keyword_supports_assignment_disambiguation(lowered)) then
-                as_identifier = statement_contains_assignment(parser)
+                if (assignment_operator_immediately_follows(parser)) then
+                    as_identifier = .true.
+                else
+                    as_identifier = statement_contains_assignment(parser)
+                end if
             end if
         end select
     end function keyword_should_parse_as_identifier
@@ -183,6 +187,38 @@ contains
             idx = idx + 1
         end do
     end function statement_contains_assignment
+
+    logical function assignment_operator_immediately_follows(parser) &
+        result(has_assignment)
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx, token_count
+        type(token_t) :: tok
+
+        has_assignment = .false.
+        if (.not. associated(parser%tokens)) return
+
+        token_count = size(parser%tokens)
+        if (token_count < parser%current_token) return
+
+        idx = parser%current_token + 1
+        do while (idx <= token_count)
+            tok = parser%tokens(idx)
+            select case (tok%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_NEWLINE)
+                return
+            case default
+                if (tok%kind == TK_OPERATOR) then
+                    if (trim(tok%text) == "=" .or. trim(tok%text) == "=>") then
+                        has_assignment = .true.
+                    end if
+                end if
+                return
+            end select
+        end do
+    end function assignment_operator_immediately_follows
 
     logical function looks_like_format_statement(parser) result(is_format)
         type(parser_state_t), intent(in) :: parser
