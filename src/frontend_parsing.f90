@@ -18,7 +18,8 @@ module frontend_parsing
     use frontend_utilities, only: int_to_str, is_type_start
     use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, &
-                                        mixed_construct_result_t
+                                        mixed_construct_result_t, &
+                                        is_top_level_declaration
     use error_handling, only: result_t
     use parser_dispatcher_module, only: clear_parser_errors
 
@@ -89,8 +90,10 @@ contains
 
         type(mixed_construct_result_t) :: mixed_result
         logical :: has_explicit_program
+        logical :: declaration_only_file
         integer, allocatable :: unit_indices(:)
         integer :: i, unit_start, unit_end, unit_index, unit_count
+        integer :: token_idx
         character(len=8) :: debug_flag
         integer :: debug_status
         logical :: debug_units
@@ -116,7 +119,17 @@ contains
 
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
-        if (mixed_result%has_mixed_constructs) then
+        declaration_only_file = .false.
+        if (mixed_result%num_explicit_ranges == 0 .and. &
+            .not. has_executable_statements(tokens_local)) then
+            do token_idx = 1, size(tokens_local)
+                if (is_top_level_declaration(tokens_local, token_idx)) then
+                    declaration_only_file = .true.
+                    exit
+                end if
+            end do
+        end if
+        if (mixed_result%has_mixed_constructs .or. declaration_only_file) then
             block
                 character(len=500) :: mixed_error
                 call parse_mixed_constructs(tokens_local, arena, mixed_result, &
