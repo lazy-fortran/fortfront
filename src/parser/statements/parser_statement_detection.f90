@@ -211,11 +211,18 @@ contains
                         end if
                     end if
                 case ("select")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "select"
+                    if (is_select_construct(tokens, idx)) then
+                        if (.not. first_processed) then
+                            first_processed = .true.
+                            first_keyword = "select"
+                        end if
+                        select_depth = select_depth + 1
+                    else
+                        if (.not. first_processed) then
+                            first_processed = .true.
+                            first_keyword = to_lower(token%text)
+                        end if
                     end if
-                    select_depth = select_depth + 1
                 case ("do")
                     if (.not. first_processed) then
                         first_processed = .true.
@@ -476,6 +483,41 @@ contains
             idx = idx + 1
         end do
     end function find_statement_end
+
+    pure logical function is_select_construct(tokens, select_index) &
+        result(is_select)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: select_index
+        integer :: idx, max_idx
+        character(len=:), allocatable :: lowered
+
+        is_select = .false.
+        if (select_index < 1 .or. select_index > size(tokens)) return
+
+        idx = select_index + 1
+        max_idx = min(size(tokens), select_index + 100)
+        do while (idx <= max_idx)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                idx = idx + 1
+            case (TK_OPERATOR)
+                if (tokens(idx)%text == "&") then
+                    idx = idx + 1
+                else
+                    return
+                end if
+            case (TK_KEYWORD)
+                lowered = to_lower(tokens(idx)%text)
+                if (lowered == "case" .or. lowered == "type" .or. &
+                    lowered == "rank") then
+                    is_select = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_select_construct
 
     integer function extend_if_statement_end(tokens, start_index, initial_end) &
         result(end_index)
