@@ -16,5 +16,6 @@ f90/ast_coverage_control_flow.f90
 f90/ast_forall_pointer.f90
 f90/call_graph_internal_procedures.f90
 f90/call_graph_module_program_scopes.f90
+f90/issue_2283_nested_modules.f90
 f90/issue_2078_include_statement_silently_dropped.f90
 f90/issue_2252_data_value_implied_do.f90

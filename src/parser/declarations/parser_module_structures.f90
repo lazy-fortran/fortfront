@@ -31,7 +31,7 @@ module parser_module_structures_module
 
 contains
 
-    function parse_module(parser, arena) result(module_index)
+    recursive function parse_module(parser, arena) result(module_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: module_index
@@ -217,6 +217,15 @@ contains
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
                         cycle
+                    case ("module")
+                        if (.not. is_module_procedure_statement(parser)) then
+                            stmt_index = parse_module(parser, arena)
+                            if (stmt_index > 0) then
+                                declaration_indices = [declaration_indices, &
+                                                       stmt_index]
+                            end if
+                            cycle
+                        end if
                     case ("implicit")
                         ! Parse implicit statement
                         call parse_simple_implicit_in_module(parser, arena, stmt_index)
@@ -365,6 +374,41 @@ contains
                                               procedure_indices, has_contains, &
                                               line, column)
     end function parse_module
+
+    logical function is_module_procedure_statement(parser) result(is_mod_proc)
+        type(parser_state_t), intent(in) :: parser
+        logical :: found_token
+        type(token_t) :: lookahead
+        integer :: next_index
+        integer :: token_count
+        character(len=:), allocatable :: lowered
+
+        is_mod_proc = .false.
+        found_token = .false.
+        token_count = parser%get_token_count()
+        next_index = parser%current_token + 1
+
+        do while (next_index <= token_count)
+            lookahead = parser%get_token_at_index(next_index)
+            select case (lookahead%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                next_index = next_index + 1
+                cycle
+            case default
+                found_token = .true.
+                exit
+            end select
+        end do
+
+        if (.not. found_token) return
+
+        lowered = to_lower(trim(lookahead%text))
+        if (lookahead%kind == TK_KEYWORD) then
+            if (lowered == "procedure") then
+                is_mod_proc = .true.
+            end if
+        end if
+    end function is_module_procedure_statement
 
     integer function handle_enum_construct(parser, arena, keyword) &
         result(stmt_index)
