@@ -758,63 +758,61 @@ contains
             if (lowered_identifier == "class") then
                 call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
             else if (lowered_identifier == "goto") then
-                ! Handle "goto" as identifier (Fortran allows both "go to" and "goto")
-                ! Parser is at the goto token; caller already
-                ! peeked without consuming it
-                next_token = parser_ref%consume()  ! Consume "goto"
-                next_token = parser_ref%peek()
-                if (next_token%kind == TK_NUMBER .or. &
-                    next_token%kind == TK_IDENTIFIER) then
-                    stmt_index = push_goto(arena_ref, label=trim(next_token%text), &
-                                           line=current_token%line, &
-                                           column=current_token%column)
-                    next_token = parser_ref%consume()  ! Consume the label
+                if (keyword_should_parse_as_identifier(current_token, parser_ref)) then
+                    stmt_index = parse_identifier_assignment(parser_ref, arena_ref)
                 else
-                    ! Invalid goto - missing label
-                    stmt_index = push_goto(arena_ref, label="INVALID_LABEL", &
-                                           line=current_token%line, &
-                                           column=current_token%column)
+                    stmt_index = parse_goto_statement(parser_ref, arena_ref)
                 end if
             else if (lowered_identifier == "continue") then
                 stmt_index = parse_continue_statement(parser_ref, arena_ref)
             else
-                ! Check for labeled construct: identifier : keyword
-                next_token = parser_ref%consume()  ! Consume identifier
-                next_token = parser_ref%peek()
-                if (next_token%kind == TK_OPERATOR .and. next_token%text == ":") then
-                    next_token = parser_ref%consume()  ! Consume colon
-                    next_token = parser_ref%peek()
-                    if (next_token%kind == TK_KEYWORD) then
-                        block
-                            character(len=:), allocatable :: keyword_text
-                            keyword_text = trim(to_lower(next_token%text))
-                            if (keyword_text == "do") then
-                                ! Rewind to label for do loop parser
-                                parser_ref%current_token = parser_ref%current_token - 2
-                                stmt_index = parse_do_loop(parser_ref, arena_ref)
-                                return
-                            else if (is_control_flow_keyword(keyword_text)) then
-                                ! Other control flow keywords - rewind and route
-                                parser_ref%current_token = parser_ref%current_token - 2
-                                stmt_index = route_control_flow(parser_ref, arena_ref)
-                                return
-                            else
-                                ! Not control flow, rewind and parse as assignment
-                                parser_ref%current_token = parser_ref%current_token - 2
-                            end if
-                        end block
-                    else
-                        ! Not a keyword, rewind and parse as assignment
-                        parser_ref%current_token = parser_ref%current_token - 2
-                    end if
-                else
-                    ! Rewind for assignment parsing
-                    parser_ref%current_token = parser_ref%current_token - 1
-                end if
-                call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
-                                                additional_execution_indices)
+                stmt_index = parse_identifier_assignment(parser_ref, arena_ref)
             end if
         end function handle_identifier_token
+
+        integer function parse_identifier_assignment(parser_ref, arena_ref) &
+            result(stmt_index)
+            type(parser_state_t), intent(inout) :: parser_ref
+            type(ast_arena_t), intent(inout) :: arena_ref
+            type(token_t) :: next_token
+
+            ! Check for labeled construct: identifier : keyword
+            next_token = parser_ref%consume()  ! Consume identifier
+            next_token = parser_ref%peek()
+            if (next_token%kind == TK_OPERATOR .and. next_token%text == ":") then
+                next_token = parser_ref%consume()  ! Consume colon
+                next_token = parser_ref%peek()
+                if (next_token%kind == TK_KEYWORD) then
+                    block
+                        character(len=:), allocatable :: keyword_text
+                        keyword_text = trim(to_lower(next_token%text))
+                        if (keyword_text == "do") then
+                            ! Rewind to label for do loop parser
+                            parser_ref%current_token = parser_ref%current_token - 2
+                            stmt_index = parse_do_loop(parser_ref, arena_ref)
+                            return
+                        else if (is_control_flow_keyword(keyword_text)) then
+                            ! Other control flow keywords - rewind and route
+                            parser_ref%current_token = parser_ref%current_token - 2
+                            stmt_index = route_control_flow(parser_ref, arena_ref)
+                            return
+                        else
+                            ! Not control flow, rewind and parse as assignment
+                            parser_ref%current_token = parser_ref%current_token - 2
+                        end if
+                    end block
+                else
+                    ! Not a keyword, rewind and parse as assignment
+                    parser_ref%current_token = parser_ref%current_token - 2
+                end if
+            else
+                ! Rewind for assignment parsing
+                parser_ref%current_token = parser_ref%current_token - 1
+            end if
+
+            call parse_assignment_statement(parser_ref, arena_ref, stmt_index, &
+                                            additional_execution_indices)
+        end function parse_identifier_assignment
 
         subroutine consume_trivia(parser_ref)
             type(parser_state_t), intent(inout) :: parser_ref
