@@ -4,7 +4,8 @@ module codegen_program_generation
     use ast_nodes_misc, only: blank_line_node, comment_node, contains_node, &
                               directive_node, end_statement_node, &
                               implicit_statement_node, interface_block_node
-    use ast_nodes_procedure, only: subroutine_def_node
+    use ast_nodes_procedure, only: subroutine_def_node, function_def_node
+    use ast_nodes_data, only: module_node
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_program_body, only: append_program_body
     use codegen_program_header, only: assemble_program_header
@@ -161,6 +162,72 @@ contains
         end select
     end function emit_interface_only_program
 
+    logical function program_is_module_wrapper(arena, node) result(is_wrapper)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        integer :: j, child_idx
+
+        is_wrapper = .false.
+
+        if (trim(node%name) /= 'main' .and. trim(node%name) /= '__IMPLICIT_MAIN__') &
+            return
+        if (.not. allocated(node%body_indices)) return
+
+        do j = 1, size(node%body_indices)
+            child_idx = node%body_indices(j)
+            if (child_idx <= 0 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            select type (body => arena%entries(child_idx)%node)
+            type is (module_node)
+                is_wrapper = .true.
+            type is (interface_block_node)
+                cycle
+            type is (function_def_node)
+                cycle
+            type is (subroutine_def_node)
+                cycle
+            type is (implicit_statement_node)
+                cycle
+            type is (contains_node)
+                cycle
+            type is (end_statement_node)
+                cycle
+            type is (comment_node)
+                cycle
+            type is (directive_node)
+                cycle
+            type is (blank_line_node)
+                cycle
+            class default
+                return
+            end select
+        end do
+    end function program_is_module_wrapper
+
+    subroutine append_module_wrapper(arena, node, code)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: node
+        character(len=:), allocatable, intent(inout) :: code
+        integer :: j, child_idx
+        character(len=:), allocatable :: module_code
+
+        if (.not. allocated(node%body_indices)) return
+
+        do j = 1, size(node%body_indices)
+            child_idx = node%body_indices(j)
+            if (child_idx <= 0 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            select type (mod_node => arena%entries(child_idx)%node)
+            type is (module_node)
+                module_code = generate_code_from_arena(arena, child_idx)
+                if (len(module_code) == 0) cycle
+                if (len(code) > 0) code = code // new_line('A') // &
+                                          new_line('A')
+                code = code // module_code
+            end select
+        end do
+    end subroutine append_module_wrapper
+
     function generate_multi_unit_program(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
@@ -182,6 +249,10 @@ contains
 
             select type (child => arena%entries(child_index)%node)
             type is (program_node)
+                if (program_is_module_wrapper(arena, child)) then
+                    call append_module_wrapper(arena, child, code)
+                    cycle
+                end if
                 if (program_contains_only_interfaces(arena, child_index)) then
                     child_code = emit_interface_only_program(arena, child_index)
                     if (len(child_code) > 0) then
