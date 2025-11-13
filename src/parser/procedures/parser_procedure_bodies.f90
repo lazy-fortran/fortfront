@@ -54,20 +54,33 @@ contains
         end select
     end function token_is_identifier_like
 
-    function try_parse_keyword_assignment(parser, arena) result(stmt_index)
+    function try_parse_keyword_assignment(parser, arena, allow_keyword_tokens) &
+        result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in), optional :: allow_keyword_tokens
         integer :: stmt_index
         type(token_t) :: token, assign_token
         integer :: lhs_index, rhs_index
         integer :: saved_token
+        logical :: accept_keyword_tokens
 
         stmt_index = 0
         saved_token = parser%current_token
+        accept_keyword_tokens = .false.
+        if (present(allow_keyword_tokens)) then
+            accept_keyword_tokens = allow_keyword_tokens
+        end if
 
         token = parser%peek()
-        if (.not. token_is_identifier_like(token)) then
-            return
+        if (accept_keyword_tokens) then
+            if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
+                return
+            end if
+        else
+            if (.not. token_is_identifier_like(token)) then
+                return
+            end if
         end if
 
         lhs_index = push_identifier(arena, token%text, token%line, token%column)
@@ -130,7 +143,7 @@ contains
         integer :: sub_index
         type(token_t) :: token
         character(len=:), allocatable :: subroutine_name
-        integer :: line, column
+        integer :: line, column, stmt_index_local
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
         logical :: has_recursive_keyword
@@ -332,9 +345,14 @@ contains
                 end if
             end if
 
-            if (token_is_identifier_like(token)) then
-                integer :: stmt_index_local
-
+            if (token%kind == TK_KEYWORD) then
+                stmt_index_local = try_parse_keyword_assignment(parser, arena, &
+                                                                .true.)
+                if (stmt_index_local > 0) then
+                    body_indices = [body_indices, stmt_index_local]
+                    cycle
+                end if
+            else if (token_is_identifier_like(token)) then
                 stmt_index_local = try_parse_keyword_assignment(parser, arena)
                 if (stmt_index_local > 0) then
                     body_indices = [body_indices, stmt_index_local]
@@ -367,6 +385,10 @@ contains
 
         select case (token%kind)
         case (TK_KEYWORD)
+            stmt_index = try_parse_keyword_assignment(parser, arena, .true.)
+            if (stmt_index > 0) then
+                return
+            end if
             select case (trim(to_lower(token%text)))
             case ("print")
                 stmt_index = parse_print_statement(parser, arena)
@@ -414,16 +436,8 @@ contains
                 ! Handle ENTRY statements
                 stmt_index = parse_entry_statement(parser, arena)
             case default
-                if (token_is_identifier_like(token)) then
-                    stmt_index = try_parse_keyword_assignment(parser, arena)
-                    if (stmt_index == 0) then
-                        token = parser%consume()
-                        stmt_index = 0
-                    end if
-                else
-                    token = parser%consume()
-                    stmt_index = 0
-                end if
+                token = parser%consume()
+                stmt_index = 0
             end select
         case (TK_IDENTIFIER)
             ! Likely assignment statement
@@ -460,12 +474,15 @@ contains
                 body_indices = [body_indices, stmt_index]
             end if
         else if (token%kind /= TK_NEWLINE) then
-            if (token_is_identifier_like(token)) then
+            if (token%kind == TK_KEYWORD) then
+                stmt_index = try_parse_keyword_assignment(parser, arena, .true.)
+            else if (token_is_identifier_like(token)) then
                 stmt_index = try_parse_keyword_assignment(parser, arena)
-                if (stmt_index == 0) then
-                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
-                end if
             else
+                stmt_index = 0
+            end if
+
+            if (stmt_index == 0) then
                 stmt_index = parse_basic_statement_in_subroutine(parser, arena)
             end if
             if (stmt_index > 0) then
