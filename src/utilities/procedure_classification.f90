@@ -1,5 +1,6 @@
 module procedure_classification
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: program_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         & get_procedure_params, get_procedure_name
@@ -8,6 +9,7 @@ module procedure_classification
     private
 
     public :: should_hoist_procedure
+    public :: procedure_has_explicit_types
 
 contains
 
@@ -32,7 +34,11 @@ contains
             return
         end if
 
-        should_hoist = .true.
+        if (procedure_declared_external(arena, proc_idx, target_prog_idx)) then
+            should_hoist = .false.
+            return
+        end if
+
     end function should_hoist_procedure
 
     logical function procedure_has_optional_arguments(arena, proc_idx) &
@@ -180,5 +186,130 @@ contains
             end select
         end do
     end function body_has_optional_declaration
+
+    logical function procedure_has_explicit_types(arena, proc_idx) &
+        result(has_types)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_idx
+        type(function_def_node), pointer :: func
+        type(subroutine_def_node), pointer :: subr
+        type(parameter_declaration_node), pointer :: param
+        integer, allocatable :: param_indices(:)
+        integer :: i
+
+        has_types = .false.
+        if (proc_idx <= 0) return
+        if (proc_idx > arena%size) return
+        if (.not. allocated(arena%entries(proc_idx)%node)) return
+
+        select type (node => arena%entries(proc_idx)%node)
+        type is (function_def_node)
+            func => node
+            if (.not. allocated(func%param_indices)) return
+            if (size(func%param_indices) == 0) return
+            param_indices = func%param_indices
+        type is (subroutine_def_node)
+            subr => node
+            if (.not. allocated(subr%param_indices)) return
+            if (size(subr%param_indices) == 0) return
+            param_indices = subr%param_indices
+        class default
+            return
+        end select
+
+        do i = 1, size(param_indices)
+            call get_parameter_node_from_arena(param_indices(i), param)
+            if (.not. associated(param)) return
+            if (.not. allocated(param%type_name)) return
+            if (len_trim(param%type_name) == 0) return
+        end do
+
+        has_types = .true.
+    contains
+        subroutine get_parameter_node_from_arena(idx, param_node)
+            integer, intent(in) :: idx
+            type(parameter_declaration_node), pointer :: param_node
+
+            nullify (param_node)
+            if (idx <= 0) return
+            if (idx > arena%size) return
+            if (.not. allocated(arena%entries(idx)%node)) return
+            select type (decl => arena%entries(idx)%node)
+            type is (parameter_declaration_node)
+                param_node => decl
+            end select
+        end subroutine get_parameter_node_from_arena
+    end function procedure_has_explicit_types
+
+    logical function procedure_declared_external(arena, proc_idx, target_prog_idx) &
+        result(is_external_proc)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: proc_idx
+        integer, intent(in) :: target_prog_idx
+        character(len=:), allocatable :: proc_name
+
+        is_external_proc = .false.
+        if (target_prog_idx <= 0) return
+        if (target_prog_idx > arena%size) return
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        if (proc_idx <= 0) return
+        if (proc_idx > arena%size) return
+        if (.not. allocated(arena%entries(proc_idx)%node)) return
+
+        proc_name = get_procedure_name(arena%entries(proc_idx)%node)
+        if (.not. allocated(proc_name)) return
+        proc_name = trim(to_lower(proc_name))
+        if (len(proc_name) == 0) return
+
+        select type (target => arena%entries(target_prog_idx)%node)
+        type is (program_node)
+            if (.not. allocated(target%body_indices)) return
+            if (body_declares_external_with_name(arena, target%body_indices, &
+                                                 proc_name)) then
+                is_external_proc = .true.
+            end if
+        class default
+        end select
+    end function procedure_declared_external
+
+    logical function body_declares_external_with_name(arena, body_indices, name) &
+        & result(has_match)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: name
+        integer :: i, idx, j
+        character(len=:), allocatable :: candidate
+
+        has_match = .false.
+
+        do i = 1, size(body_indices)
+            idx = body_indices(i)
+            if (idx <= 0) cycle
+            if (idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (decl => arena%entries(idx)%node)
+            type is (declaration_node)
+                if (.not. decl%is_external) cycle
+                if (allocated(decl%var_name)) then
+                    candidate = trim(to_lower(decl%var_name))
+                    if (candidate == name) then
+                        has_match = .true.
+                        return
+                    end if
+                end if
+                if (decl%is_multi_declaration) then
+                    if (allocated(decl%var_names)) then
+                        do j = 1, size(decl%var_names)
+                            candidate = trim(to_lower(decl%var_names(j)))
+                            if (candidate == name) then
+                                has_match = .true.
+                                return
+                            end if
+                        end do
+                    end if
+                end if
+            end select
+        end do
+    end function body_declares_external_with_name
 
 end module procedure_classification

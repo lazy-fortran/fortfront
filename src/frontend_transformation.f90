@@ -1039,6 +1039,8 @@ contains
         end do
 
         if (target_prog_idx == 0) target_prog_idx = first_main_idx
+        write (error_unit, '(A,1X,I0)') 'DEBUG root procedures', &
+            size(all_procedures)
     end subroutine collect_procedures_and_target
 
     subroutine filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
@@ -1052,6 +1054,8 @@ contains
         allocate (procedures(0))
         do i = 1, size(all_procedures)
             if (should_hoist_procedure(arena, all_procedures(i), target_prog_idx)) then
+                write (error_unit, '(A,1X,I0)') 'DEBUG hoist proc idx', &
+                    all_procedures(i)
                 procedures = [procedures, all_procedures(i)]
             end if
         end do
@@ -1291,8 +1295,12 @@ contains
                 select type (child => arena%entries(child_idx)%node)
                 type is (function_def_node)
                     proc_indices = [proc_indices, child_idx]
+                    write (error_unit, '(A,1X,A)') 'DEBUG embedded function', &
+                        trim(child%name)
                 type is (subroutine_def_node)
                     proc_indices = [proc_indices, child_idx]
+                    write (error_unit, '(A,1X,A)') 'DEBUG embedded subroutine', &
+                        trim(child%name)
                 end select
             end do
         end select
