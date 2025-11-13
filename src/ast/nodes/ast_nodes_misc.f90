@@ -1370,7 +1370,6 @@ contains
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine directive_assign
 
-
     ! Blank line node methods
     subroutine blank_line_accept(this, visitor)
         class(blank_line_node), intent(in) :: this
