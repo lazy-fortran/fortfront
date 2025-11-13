@@ -57,8 +57,7 @@ module parser_execution_statements_module
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
-    use ast_nodes_misc, only: directive_node, comment_node
-    use uid_generator, only: generate_uid
+    use parser_statement_utilities_module, only: parse_comment_or_directive
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_legacy_statements_module, only: parse_legacy_statement
     implicit none
@@ -869,51 +868,6 @@ contains
                 ignored_token = parser_ref%consume()
             end block
         end subroutine consume_misc
-
-        integer function parse_comment_or_directive(parser_ref, arena_ref, &
-                                                    comment_token) result(node_index)
-            type(parser_state_t), intent(inout) :: parser_ref
-            type(ast_arena_t), intent(inout) :: arena_ref
-            type(token_t), intent(in) :: comment_token
-            type(directive_node) :: directive
-            type(comment_node) :: comment
-            character(len=:), allocatable :: lowered_text
-
-            ! Check if this is a directive (!$omp or !$acc)
-            if (allocated(comment_token%text)) then
-                lowered_text = to_lower(adjustl(comment_token%text))
-                if (len(lowered_text) >= 5) then
-                    if (lowered_text(1:5) == "!$omp" .or. lowered_text(1:5) == "!$acc") then
-                        ! This is a directive
-                        directive%uid = generate_uid()
-                        directive%line = comment_token%line
-                        directive%column = comment_token%column
-                        directive%text = comment_token%text
-                        if (lowered_text(1:5) == "!$omp") directive%is_openmp = .true.
-                        if (lowered_text(1:5) == "!$acc") directive%is_openacc = .true.
-                        call arena_ref%push(directive, "directive")
-                        node_index = arena_ref%size
-                        block
-                            type(token_t) :: ignored_token
-                            ignored_token = parser_ref%consume()
-                        end block
-                        return
-                    end if
-                end if
-            end if
-
-            ! This is a regular comment
-            comment%uid = generate_uid()
-            comment%text = comment_token%text
-            comment%line = comment_token%line
-            comment%column = comment_token%column
-            call arena_ref%push(comment, "comment")
-            node_index = arena_ref%size
-            block
-                type(token_t) :: ignored_token
-                ignored_token = parser_ref%consume()
-            end block
-        end function parse_comment_or_directive
 
         subroutine append_statement(stmt_index, indices)
             integer, intent(in) :: stmt_index

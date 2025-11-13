@@ -33,11 +33,13 @@ module parser_statement_utilities_module
                            push_import_statement
     use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t
+    use ast_nodes_misc, only: directive_node, comment_node
     use parser_legacy_statements_module, only: parse_legacy_statement
+    use uid_generator, only: generate_uid
     implicit none
     private
 
-    public :: parse_statement_in_if_block
+    public :: parse_statement_in_if_block, parse_comment_or_directive
 
 contains
 
@@ -147,6 +149,60 @@ contains
             stmt_index = parse_assignment_simple(parser, arena)
         end select
     end function parse_statement_in_if_block
+
+    ! Shared handling for OpenMP/OpenACC directives and regular comments
+    function parse_comment_or_directive(parser, arena, comment_token) &
+        result(node_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: comment_token
+        integer :: node_index
+        type(directive_node) :: directive
+        type(comment_node) :: comment
+        character(len=:), allocatable :: lowered_text
+
+        node_index = 0
+
+        if (allocated(comment_token%text)) then
+            lowered_text = to_lower(adjustl(comment_token%text))
+            if (len(lowered_text) >= 5) then
+                if (lowered_text(1:5) == "!$omp" .or. lowered_text(1:5) == "!$acc") then
+                    directive%uid = generate_uid()
+                    directive%line = comment_token%line
+                    directive%column = comment_token%column
+                    if (allocated(comment_token%text)) then
+                        directive%text = comment_token%text
+                    else
+                        directive%text = "!"
+                    end if
+                    if (lowered_text(1:5) == "!$omp") directive%is_openmp = .true.
+                    if (lowered_text(1:5) == "!$acc") directive%is_openacc = .true.
+                    call arena%push(directive, "directive")
+                    node_index = arena%size
+                    block
+                        type(token_t) :: ignored_token
+                        ignored_token = parser%consume()
+                    end block
+                    return
+                end if
+            end if
+        end if
+
+        comment%uid = generate_uid()
+        if (allocated(comment_token%text)) then
+            comment%text = comment_token%text
+        else
+            comment%text = "!"
+        end if
+        comment%line = comment_token%line
+        comment%column = comment_token%column
+        call arena%push(comment, "comment")
+        node_index = arena%size
+        block
+            type(token_t) :: ignored_token
+            ignored_token = parser%consume()
+        end block
+    end function parse_comment_or_directive
 
     ! Simple assignment parser (utility function)
     function parse_assignment_simple(parser, arena) result(assign_index)

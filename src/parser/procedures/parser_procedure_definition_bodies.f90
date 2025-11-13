@@ -6,7 +6,8 @@ module parser_procedure_definition_bodies_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
-    use parser_statement_utilities_module, only: parse_statement_in_if_block
+    use parser_statement_utilities_module, only: parse_statement_in_if_block, &
+                                                 parse_comment_or_directive
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
                                            append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
@@ -70,6 +71,14 @@ contains
 
             if (token%kind == TK_NEWLINE) then
                 token = parser%consume()
+                cycle
+            end if
+
+            if (token%kind == TK_COMMENT) then
+                stmt_index = parse_comment_or_directive(parser, arena, token)
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
                 cycle
             end if
 
