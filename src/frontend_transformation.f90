@@ -1894,7 +1894,12 @@ contains
         type is (mixed_construct_container_node)
 ! Handle mixed constructs: implicit declarations (main code) + explicit programs (functions)
             if (allocated(root%implicit_declaration_indices)) then
-                main_stmts = root%implicit_declaration_indices
+                do i = 1, size(root%implicit_declaration_indices)
+                    if (is_host_level_statement(arena, &
+                                                root%implicit_declaration_indices(i))) then
+                        main_stmts = [main_stmts, root%implicit_declaration_indices(i)]
+                    end if
+                end do
             end if
             if (allocated(root%explicit_program_indices)) then
                 do i = 1, size(root%explicit_program_indices)
@@ -1911,8 +1916,11 @@ contains
             end if
 
             ! Create a program with main code and internal procedures
-            ! Handle case where we have procedures (with or without main code)
             if (size(proc_indices) > 0) then
+                if (size(main_stmts) == 0) then
+                    ! No bare statements to wrap; keep procedures external
+                    return
+                end if
      ! Create program structure: implicit none + main statements + contains + procedures
                 implicit_none_index = push_implicit_statement(arena, .true., &
                                                               line=1, column=1, &
@@ -1966,6 +1974,8 @@ contains
                 return
             end if
 
+            return
+
         type is (program_node)
             if (trim(root%name) /= "__MULTI_UNIT__") return
             if (.not. allocated(root%body_indices)) return
@@ -2007,8 +2017,9 @@ contains
                     proc_indices = [proc_indices, child_index]
                 class default
                     ! Non-procedure, non-program statements (bare statements)
-                    ! Always collect them - we'll merge with program node if one exists
-                    main_stmts = [main_stmts, child_index]
+                    if (is_host_level_statement(arena, child_index)) then
+                        main_stmts = [main_stmts, child_index]
+                    end if
                 end select
             end do
 
@@ -2021,6 +2032,7 @@ contains
 
         ! If we have procedures but no program node, create one from bare statements
         if (main_prog_index == 0 .and. size(proc_indices) > 0) then
+            if (size(main_stmts) == 0) return
             ! Create program structure with bare statements + contains + procedures
             implicit_none_index = push_implicit_statement(arena, .true., &
                                                           line=1, column=1, &
@@ -2236,7 +2248,9 @@ contains
                     type is (end_statement_node)
                         cycle
                     class default
-                        main_stmts = [main_stmts, stmt_idx]
+                        if (is_host_level_statement(arena, stmt_idx)) then
+                            main_stmts = [main_stmts, stmt_idx]
+                        end if
                     end select
                 end do
             end select
@@ -2314,6 +2328,28 @@ contains
                 end do
             end select
         end function program_contains_procedures
+
+        logical function is_host_level_statement(arena, node_idx) result(is_host)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_idx
+
+            is_host = .false.
+            if (node_idx <= 0 .or. node_idx > arena%size) return
+            if (.not. allocated(arena%entries(node_idx)%node)) return
+
+            select type (stmt => arena%entries(node_idx)%node)
+            type is (assignment_node)
+                is_host = .true.
+            type is (print_statement_node)
+                is_host = .true.
+            type is (if_node)
+                is_host = .true.
+            type is (do_loop_node)
+                is_host = .true.
+            type is (subroutine_call_node)
+                is_host = .true.
+            end select
+        end function is_host_level_statement
     end subroutine promote_functions_to_internal_program
 
     ! Check if AST already contains a module node
