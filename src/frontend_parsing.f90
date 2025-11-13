@@ -90,8 +90,10 @@ contains
         type(mixed_construct_result_t) :: mixed_result
         logical :: has_explicit_program
         logical :: declaration_only_file
+        logical :: in_decl_range
         integer, allocatable :: unit_indices(:)
         integer :: i, unit_start, unit_end, unit_index, unit_count
+        integer :: token_idx, range_idx
         character(len=8) :: debug_flag
         integer :: debug_status
         logical :: debug_units
@@ -117,8 +119,30 @@ contains
 
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens_local, mixed_result)
-        declaration_only_file = (mixed_result%num_implicit_ranges > 0 .and. &
-                                 mixed_result%num_explicit_ranges == 0)
+        declaration_only_file = .false.
+        if (mixed_result%num_implicit_ranges > 0 .and. &
+            mixed_result%num_explicit_ranges == 0) then
+            declaration_only_file = .true.
+            token_loop: do token_idx = 1, size(tokens_local)
+                select case (tokens_local(token_idx)%kind)
+                case (TK_COMMENT, TK_WHITESPACE, TK_NEWLINE, TK_EOF)
+                    cycle token_loop
+                end select
+
+                in_decl_range = .false.
+                do range_idx = 1, mixed_result%num_implicit_ranges
+                    if (token_idx >= mixed_result%implicit_ranges(range_idx, 1) .and. &
+                        token_idx <= mixed_result%implicit_ranges(range_idx, 2)) then
+                        in_decl_range = .true.
+                        exit
+                    end if
+                end do
+                if (.not. in_decl_range) then
+                    declaration_only_file = .false.
+                    exit token_loop
+                end if
+            end do token_loop
+        end if
         if (mixed_result%has_mixed_constructs .or. declaration_only_file) then
             block
                 character(len=500) :: mixed_error
