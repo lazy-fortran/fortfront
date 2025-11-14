@@ -15,38 +15,18 @@ Supports multiple traversal orders (pre-order, post-order, level-order) and type
 
 ## Key Concepts
 
-**Visitor Pattern**
-- Callbacks receive node reference, never copy nodes
-- Type-safe dispatch based on node kind
-- Visitor state maintained across traversal
-- Supports early termination and conditional traversal
+For complete visitor pattern design, see [AST README](../README.md#key-concepts).
 
-**Traversal Orders**
-- **Pre-order**: Visit parent before children (useful for scope setup)
-- **Post-order**: Visit children before parent (useful for type inference)
-- **Level-order**: Visit nodes level-by-level (useful for dependency analysis)
+**This Directory's Specifics**:
+- **ast_traversal.f90**: High-level orchestration, traversal order control (pre/post/level-order)
+- **ast_visitor.f90**: Visitor pattern implementation, type-safe dispatch, callbacks
 
-**Safe Node Access**
-- All access via `visit_node_at(arena, index, visitor)`
-- Arena reference ensures valid memory access
-- Index-based references prevent dangling pointers
-- No manual pointer management required
+**Traversal Orders**:
+- **Pre-order**: Parent before children (scope setup)
+- **Post-order**: Children before parent (type inference)
+- **Level-order**: Level-by-level (dependency analysis)
 
-**Visitor Interface**
-```fortran
-type :: visitor_t
-    procedure(visit_node), pointer :: visit => null()
-end type
-
-interface
-    subroutine visit_node(visitor, arena, node_index)
-        import :: visitor_t, ast_arena_t
-        type(visitor_t), intent(inout) :: visitor
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-    end subroutine
-end interface
-```
+**Usage**: `call visit_node_at(arena, index, visitor)` - safe, index-based, no pointer management
 
 **Traversal Utilities**
 - Child node enumeration

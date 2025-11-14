@@ -19,45 +19,18 @@ This directory implements the type system for semantic analysis: type representa
 
 ## Key Concepts
 
-**Mono Types (Monomorphic Types)**
-- Concrete, specific types
-- Examples:
-  - `integer(kind=4)` - 32-bit integer
-  - `real(kind=8)` - 64-bit real
-  - `character(len=10)` - 10-character string
-  - `logical` - Boolean type
-  - `type(my_type)` - Derived type
-- Used for standard Fortran (all types explicit)
-- Result of type inference for lazy Fortran
+For complete type system design and type inference concepts, see [Semantic README](../README.md#key-concepts) and [docs/TYPE_SAFETY_GUIDE.md](../../../docs/TYPE_SAFETY_GUIDE.md).
 
-**Poly Types (Polymorphic Types)**
-- Generic types with type variables
-- Example: `forall a. a -> a` (identity function)
-- Represent unresolved types during inference
-- Instantiated to mono types when constraints known
+**This Directory's Specifics**:
+- **Type representations**: Mono types (concrete), poly types (generic), type variables
+- **Type operations**: Unification, substitution, compatibility checking
+- **Type arena**: Efficient type allocation and management
+- **Type constants**: Built-in types (integer, real, character, logical)
 
-**Type Variables**
-- Placeholders for unknown types during inference
-- Represented by unique identifiers
-- Unified with concrete types as constraints discovered
-- Support parametric polymorphism
-
-**Type Unification**
-- Solve type equations to determine concrete types
-- Example: `x + 5` where `x` unknown
-  - `type(x) + integer = integer`
-  - Unify: `type(x) = integer`
-- Handles type variables, concrete types, function types
-- Reports unification failures as type errors
-
-**Type Substitution**
-- Replace type variables with concrete types
-- Apply throughout type environment after unification
-- Ensures consistency across entire AST
-- Example: `a` → `integer(4)` everywhere
-
-**Type Environment**
-- Maps identifiers to types
+**Key Files**:
+- `type_system_unified.f90` - Core type system
+- `type_checker.f90` - Type compatibility and validation
+- `type_system_arena.f90` - Arena-based type allocation
 - Separate environment for each scope
 - Nested environments for nested scopes
 - Supports shadowing and lookup
