@@ -278,10 +278,23 @@ contains
         type(token_t), allocatable, target :: all_tokens(:)
         integer :: next_idx
         type(token_t) :: token_local
+        character(len=:), allocatable :: lowered_token
+        character(len=:), allocatable :: combined_keyword
 
         is_end = .false.
         if (first_token%kind /= TK_KEYWORD) return
-        if (first_token%text /= "end") return
+
+        lowered_token = to_lower(trim(first_token%text))
+        combined_keyword = "end" // trim(end_keyword)
+
+        if (lowered_token == combined_keyword) then
+            token_local = parser%consume()
+            call consume_optional_identifier_token(parser)
+            is_end = .true.
+            return
+        end if
+
+        if (lowered_token /= "end") return
 
         if (associated(parser%tokens)) then
             allocate (all_tokens(size(parser%tokens)))
@@ -291,22 +304,37 @@ contains
         end if
 
         next_idx = parser%current_token + 1
-        if (next_idx > size(all_tokens)) return
-
-        if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
-            all_tokens(next_idx)%text == end_keyword) then
+        if (next_idx > size(all_tokens)) then
             token_local = parser%consume()
-            token_local = parser%consume()
-            if (.not. parser%is_at_end()) then
-                token_local = parser%peek()
-                if ((token_local%kind == TK_IDENTIFIER .or. &
-                     token_local%kind == TK_KEYWORD) .and. &
-                    token_local%text == procedure_name) then
-                    token_local = parser%consume()
-                end if
-            end if
             is_end = .true.
+            return
         end if
+
+        select case (all_tokens(next_idx)%kind)
+        case (TK_KEYWORD)
+            if (to_lower(trim(all_tokens(next_idx)%text)) == trim(end_keyword)) then
+                token_local = parser%consume()
+                token_local = parser%consume()
+                if (.not. parser%is_at_end()) then
+                    token_local = parser%peek()
+                    if ((token_local%kind == TK_IDENTIFIER .or. &
+                         token_local%kind == TK_KEYWORD) .and. &
+                        token_local%text == procedure_name) then
+                        token_local = parser%consume()
+                    end if
+                end if
+                is_end = .true.
+                return
+            else
+                return
+            end if
+        case (TK_NEWLINE, TK_COMMENT, TK_EOF)
+            token_local = parser%consume()
+            is_end = .true.
+            return
+        case default
+            return
+        end select
     end function check_procedure_end
 
     subroutine parse_body_statement(parser, arena, first_token, procedure_name, &

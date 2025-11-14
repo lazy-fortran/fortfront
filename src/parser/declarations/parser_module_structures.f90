@@ -69,18 +69,32 @@ contains
             token = parser%peek()
 
             ! Check for end of module
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                ! Look ahead for "module"
-                if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "module") then
-                        ! Consume "end module"
-                        token = parser%consume()  ! consume "end"
-                        token = parser%consume()  ! consume "module"
+            if (token%kind == TK_KEYWORD) then
+                lookahead_lower = to_lower(trim(token%text))
+                select case (trim(lookahead_lower))
+                case ("endmodule")
+                    token = parser%consume()
+                    exit
+                case ("end")
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        lookahead = parser%tokens(parser%current_token + 1)
+                        lookahead_lower = to_lower(trim(lookahead%text))
+                        if (lookahead%kind == TK_KEYWORD .and. &
+                            lookahead_lower == "module") then
+                            token = parser%consume()
+                            token = parser%consume()
+                            exit
+                        else if (lookahead%kind == TK_NEWLINE .or. &
+                                 lookahead%kind == TK_COMMENT .or. &
+                                 lookahead%kind == TK_EOF) then
+                            token = parser%consume()
+                            exit
+                        end if
+                    else
+                        token = parser%consume()
                         exit
                     end if
-                end if
+                end select
             end if
 
             ! Check for contains keyword (but not if it's a variable assignment)
