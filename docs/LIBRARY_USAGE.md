@@ -9,9 +9,10 @@ This guide provides complete, working examples of using FortFront as a library i
 3. Example 2: Code Formatter
 4. Example 3: Custom Compiler Backend
 5. Example 4: AST Analysis Tool
-6. Error Handling Best Practices
-7. Performance Optimization
-8. FAQ
+6. Structured Diagnostics API
+7. Error Handling Best Practices
+8. Performance Optimization
+9. FAQ
 
 ## Quick Start
 
@@ -409,6 +410,103 @@ contains
     end function count_node_type
 
 end program ast_statistics
+```
+
+## Structured Diagnostics API
+
+FortFront provides a structured diagnostic system for consistent error reporting across all frontend phases. This mirrors the approach used in GCC's diagnostic framework.
+
+### Basic Usage
+
+```fortran
+use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
+    DIAG_BINARY_DATA, DIAGNOSTIC_ERROR
+use fortfront_types, only: diagnostic_t, source_range_t
+
+type(diagnostic_t) :: diag
+character(len=:), allocatable :: formatted
+
+diag = make_diagnostic(DIAG_BINARY_DATA, DIAGNOSTIC_ERROR, &
+    "Input appears to be binary data")
+formatted = format_diagnostic(diag)
+
+print '(a)', formatted
+! Output: [F002] ERROR at line 1:1: Input appears to be binary data
+```
+
+### Diagnostic with Source Location
+
+```fortran
+use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
+    DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR
+use fortfront_types, only: diagnostic_t, source_range_t, source_location_t
+
+type(diagnostic_t) :: diag
+type(source_range_t) :: location
+character(len=:), allocatable :: formatted
+
+location%start%line = 42
+location%start%column = 15
+location%end%line = 42
+location%end%column = 20
+
+diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
+    "Unexpected token", location)
+formatted = format_diagnostic(diag)
+
+print '(a)', formatted
+! Output: [F004] ERROR at line 42:15: Unexpected token
+```
+
+### Available Diagnostic Codes
+
+Diagnostic codes follow GCC-style conventions:
+
+- **F001**: DIAG_EMPTY_INPUT - Empty or whitespace-only input
+- **F002**: DIAG_BINARY_DATA - Input appears to be binary data
+- **F003**: DIAG_LEXICAL_ERROR - Lexical analysis error
+- **F004**: DIAG_SYNTAX_ERROR - Syntax error during parsing
+- **F005**: DIAG_SEMANTIC_ERROR - Semantic analysis error
+- **F006**: DIAG_PARSE_ERROR - Parse error
+- **F007**: DIAG_NO_PROGRAM_UNIT - No valid program unit created
+
+### Severity Levels
+
+- **DIAGNOSTIC_ERROR**: Fatal error, transformation cannot continue
+- **DIAGNOSTIC_WARNING**: Non-fatal issue, transformation can continue
+- **DIAGNOSTIC_INFO**: Informational message
+- **DIAGNOSTIC_HINT**: Suggestion for improvement
+
+### Custom Diagnostics in Tools
+
+Tools built on FortFront can define their own diagnostic codes following the same pattern:
+
+```fortran
+module my_tool_diagnostics
+    use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
+        DIAGNOSTIC_WARNING
+    use fortfront_types, only: diagnostic_t
+    implicit none
+    private
+
+    public :: DIAG_UNUSED_VAR, emit_unused_var_warning
+
+    character(len=*), parameter :: DIAG_UNUSED_VAR = "T001"
+
+contains
+
+    subroutine emit_unused_var_warning(var_name, location)
+        character(len=*), intent(in) :: var_name
+        type(source_range_t), intent(in) :: location
+        type(diagnostic_t) :: diag
+        character(len=:), allocatable :: msg
+
+        msg = "Variable '" // trim(var_name) // "' declared but never used"
+        diag = make_diagnostic(DIAG_UNUSED_VAR, DIAGNOSTIC_WARNING, msg, location)
+        print '(a)', format_diagnostic(diag)
+    end subroutine emit_unused_var_warning
+
+end module my_tool_diagnostics
 ```
 
 ## Error Handling Best Practices

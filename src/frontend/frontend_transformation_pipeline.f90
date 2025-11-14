@@ -76,6 +76,10 @@ module frontend_transformation_pipeline
                                                  merge_signature_maps, &
                                                      add_signature_from_entry, &
                                                  get_detailed_semantic_errors
+    use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
+                                     DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
+                                     DIAGNOSTIC_ERROR
+    use fortfront_types, only: diagnostic_t, source_range_t
 
     implicit none
     private
@@ -142,9 +146,14 @@ contains
         end if
 
         if (contains_binary_data(source)) then
-            error_msg = '[INVALID_INPUT] Input appears to be binary data' // &
-     &                new_line('A') // '  Source: <binary data omitted>' // &
-     &                new_line('A') // '  Suggestion: Provide plain-text Fortran source'
+            block
+                type(diagnostic_t) :: diag
+                diag = make_diagnostic(DIAG_BINARY_DATA, DIAGNOSTIC_ERROR, &
+                    "Input appears to be binary data" // new_line('A') // &
+                    "  Source: <binary data omitted>" // new_line('A') // &
+                    "  Suggestion: Provide plain-text Fortran source")
+                error_msg = format_diagnostic(diag)
+            end block
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
             return
@@ -682,8 +691,11 @@ contains
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
         type(compiler_arena_t), intent(inout) :: compiler_arena
+        type(diagnostic_t) :: diag
 
-        error_msg = "Parsing succeeded but no valid program unit was created"
+        diag = make_diagnostic(DIAG_NO_PROGRAM_UNIT, DIAGNOSTIC_ERROR, &
+            "Parsing succeeded but no valid program unit was created")
+        error_msg = format_diagnostic(diag)
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main" // new_line('A') // &

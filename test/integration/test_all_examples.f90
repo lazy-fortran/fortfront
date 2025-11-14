@@ -701,7 +701,8 @@ contains
                 timeout_requires_command_string = .false.
                 return
             end if
-            call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=ec)
+            call execute_command_line('sh -c "command -v timeout >/dev/null 2>&1"', &
+                                      exitstat=ec)
             if (ec == 0) then
                 example_timeout_launcher = 'timeout'
                 timeout_requires_command_string = .false.
