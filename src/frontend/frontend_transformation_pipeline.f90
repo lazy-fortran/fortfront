@@ -80,6 +80,12 @@ module frontend_transformation_pipeline
                                      DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
                                      DIAGNOSTIC_ERROR
     use fortfront_types, only: diagnostic_t, source_range_t
+    use frontend_pass_manager, only: pass_manager_t, pass_context_t, &
+                                     pass_config_t, create_pass_manager, &
+                                     PASS_SEMANTIC, PASS_STANDARDIZATION, &
+                                     PASS_MONOMORPHIZATION, PASS_CODEGEN
+    use frontend_final_passes, only: semantic_pass, standardization_pass, &
+                                     monomorphization_pass, codegen_pass
 
     implicit none
     private
@@ -88,7 +94,8 @@ module frontend_transformation_pipeline
               transform_lazy_fortran_string_with_format, &
               transform_with_context, &
               INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
-              detect_input_mode_from_content
+              detect_input_mode_from_content, &
+              pass_config_t, create_pass_manager
 
 contains
     ! String-based transformation function for CLI usage
@@ -708,70 +715,67 @@ contains
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
 
-    ! Run final phases (semantic, standardization, codegen)
+    ! Run final phases (semantic, standardization, codegen) using pass manager
     subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, &
                                 enable_ast_wrapping)
-        type(compiler_arena_t), intent(inout) :: compiler_arena
+        type(compiler_arena_t), target, intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
-        type(signatures_map_t) :: signatures
         logical, intent(in) :: enable_ast_wrapping
-        logical :: has_functions, has_subroutines, has_main_code
-        logical :: force_internal_wrapping
-        type(transform_context_t) :: context
+        type(pass_manager_t) :: manager
+        type(pass_context_t) :: pass_ctx
 
-        ! Phase 3: Semantic Analysis
-        call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
-                                         signatures)
-        if (allocated(error_msg) .and. len(error_msg) > 0) then
-            ! CRITICAL FIX for Issue #1120: Generate output even with semantic errors
-            ! Continue to code generation to provide useful output to user
-            call run_code_generation_phase(compiler_arena, prog_index, output)
-            ! If code generation fails, provide minimal program
-            if (.not. allocated(output) .or. len(output) == 0) then
-                call create_minimal_program(output)
-            end if
-            return  ! Error message already set, output generated
+        ! Create and configure pass manager with default pipeline
+        manager = create_pass_manager()
+
+        ! Register passes in order
+        call manager%add_pass(PASS_SEMANTIC, "Semantic Analysis", &
+                             "phase:semantic", .true., semantic_pass)
+
+        call manager%add_pass(PASS_STANDARDIZATION, "Standardization", &
+                             "phase:standardization", .true., &
+                             standardization_pass)
+
+        call manager%add_pass(PASS_MONOMORPHIZATION, "Monomorphization", &
+                             "phase:monomorphization", .true., &
+                             monomorphization_pass)
+
+        call manager%add_pass(PASS_CODEGEN, "Code Generation", &
+                             "phase:codegen", .true., codegen_pass)
+
+        ! Initialize pass context
+        pass_ctx%compiler_arena => compiler_arena
+        pass_ctx%prog_index = prog_index
+        allocate (character(len=0) :: pass_ctx%error_msg)
+        pass_ctx%enable_ast_wrapping = enable_ast_wrapping
+        pass_ctx%has_functions = .false.
+        pass_ctx%has_subroutines = .false.
+        pass_ctx%has_main_code = .false.
+
+        ! Run the pipeline
+        call manager%run(pass_ctx)
+
+        ! Extract results
+        if (allocated(pass_ctx%output)) then
+            output = pass_ctx%output
+        else
+            call create_minimal_program(output)
         end if
 
-        ! Phase 3.5: Standardization (normalize structure before specialization)
-        call run_standardization_phase(compiler_arena, prog_index, .true.)
+        if (allocated(pass_ctx%error_msg)) then
+            error_msg = pass_ctx%error_msg
+        else
+            allocate (character(len=0) :: error_msg)
+        end if
+
+        prog_index = pass_ctx%prog_index
 
         ! Optional: Validate AST locations after standardization
         call validate_locations_if_enabled(compiler_arena%ast, 'post-standardize')
 
-        ! Phase 4: Monomorphization (AST transformation)
-        call run_monomorphization_phase(compiler_arena, prog_index, signatures)
-
-        call analyze_ast_content(compiler_arena%ast, prog_index, has_functions, &
-                                 has_subroutines, has_main_code)
-
-        force_internal_wrapping = requires_lazy_internalization( &
-                                  compiler_arena%ast, prog_index)
-
-        ! Initialize default context for wrapping
-        context%source_name = "main"
-        context%module_name = "main_module"
-        context%program_name = "main"
-        context%has_filename = .false.
-        context%input_mode = INPUT_MODE_LAZY
-
-        if (.not. has_existing_module_in_ast(compiler_arena%ast)) then
-            if ((has_functions .or. has_subroutines) .and. has_main_code) then
-                if (enable_ast_wrapping .or. force_internal_wrapping) then
-                    call promote_functions_to_internal_program(compiler_arena%ast, &
-                                                               prog_index)
-                end if
-            else if (enable_ast_wrapping .and. (has_functions .or. &
-                                                has_subroutines) .and. .not. &
-                                                    has_main_code) then
-                call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
-            end if
-        end if
-
-        ! Phase 5: Code Generation
-        call run_code_generation_phase(compiler_arena, prog_index, output)
+        ! Clean up
+        call manager%clear()
     end subroutine run_final_phases
 
     ! Run semantic analysis phase

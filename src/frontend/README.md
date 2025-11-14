@@ -12,6 +12,8 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 |------|-------------|
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
+| frontend_pass_manager.f90 | Configurable pass manager for transformation phases |
+| frontend_final_passes.f90 | Pass implementations for semantic, standardization, monomorphization, codegen |
 | frontend_transformation_structure.f90 | Program structure transformation (wrap bare statements in program) |
 | frontend_transformation_analysis.f90 | Semantic analysis integration and coordination |
 | frontend_transformation_semantics.f90 | Semantic phase coordination |
@@ -23,14 +25,83 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | frontend_statement_boundary.f90 | Statement boundary detection across program units |
 | frontend_statement_processing.f90 | Statement-level processing and normalization |
 | frontend_token_normalization.f90 | Token stream normalization before parsing |
+| frontend_diagnostics.f90 | Diagnostic message formatting and error reporting |
+| frontend_location_validation.f90 | AST source location validation |
+| frontend_analysis_helpers.f90 | Analysis helper functions |
+| frontend_program_builders.f90 | Program structure building utilities |
 
 ## Key Concepts
 
 **Transformation Pipeline**
+
+The transformation pipeline uses a configurable pass manager system (inspired by GCC's `gfc_run_passes`) to orchestrate the transformation phases:
+
 1. **Lexing**: Tokenize source text
 2. **Parsing**: Build AST from tokens
 3. **Semantic Analysis**: Type inference, scope resolution
-4. **Code Generation**: Emit standardized Fortran
+4. **Standardization**: Normalize AST structure
+5. **Monomorphization**: Specialize generic procedures
+6. **Code Generation**: Emit standardized Fortran
+
+**Pass Manager Architecture**
+
+The pass manager (`frontend_pass_manager.f90`) provides a flexible framework for orchestrating transformation phases:
+
+- **Configurable Pipeline**: Passes can be enabled/disabled individually
+- **Early Stopping**: Support for stopping after specific passes (e.g., stop_after_semantic)
+- **Named Passes**: Each pass has metadata (name, trace key) for debugging
+- **Extensible**: New passes can be registered without modifying core pipeline
+- **Traceability**: Automatic tracing integration for performance analysis
+
+Example configuration:
+```fortran
+use frontend_pass_manager, only: pass_config_t, create_default_config
+
+! Create custom configuration
+type(pass_config_t) :: config
+config = create_default_config()
+config%stop_after_semantic = .true.  ! Stop after type inference
+config%enable_monomorphization = .false.  ! Skip generic specialization
+```
+
+**Registering Custom Passes**
+
+Tools can extend the pipeline by registering custom passes:
+
+```fortran
+use frontend_pass_manager, only: pass_manager_t, pass_context_t
+use frontend_pass_manager, only: PASS_SEMANTIC, PASS_CODEGEN
+
+! Create pass manager
+manager = create_pass_manager()
+
+! Register standard passes
+call manager%add_pass(PASS_SEMANTIC, "Semantic Analysis", &
+                     "phase:semantic", .true., semantic_pass)
+
+! Register custom warning pass
+call manager%add_pass(100, "Loop Warnings", "phase:loop_warn", &
+                     .false., custom_loop_warning_pass)
+
+! Register codegen last
+call manager%add_pass(PASS_CODEGEN, "Code Generation", &
+                     "phase:codegen", .true., codegen_pass)
+
+! Run pipeline
+call manager%run(context)
+```
+
+Custom passes must implement the `pass_proc` interface:
+```fortran
+subroutine custom_loop_warning_pass(context)
+    use frontend_pass_manager, only: pass_context_t
+    type(pass_context_t), intent(inout) :: context
+
+    ! Access AST via context%compiler_arena%ast
+    ! Set context%error_msg on fatal errors
+    ! Write warnings to error_unit for non-fatal issues
+end subroutine
+```
 
 **Mixed Construct Handling**
 - `.lf` files may contain both lazy and standard Fortran
