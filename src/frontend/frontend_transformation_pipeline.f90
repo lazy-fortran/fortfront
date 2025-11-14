@@ -906,15 +906,20 @@ contains
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: phase_name
         character(len=256) :: env_value
+        character(len=:), allocatable :: normalized
         integer :: status, violations
+        logical :: strict_mode_enabled
 
         call get_environment_variable('FORTFRONT_VALIDATE_LOCATIONS', &
                                       env_value, status=status)
         if (status /= 0) return
         if (len_trim(env_value) == 0) return
 
+        normalized = to_lower(trim(adjustl(env_value)))
+        strict_mode_enabled = normalized == 'strict'
+
         ! Run validation and report violations
-        call validate_ast_locations(arena, strict_mode=.false., &
+        call validate_ast_locations(arena, strict_mode=strict_mode_enabled, &
                                     violations_count=violations)
         if (violations > 0) then
             write (error_unit, '(A,A,A,I0,A)') &

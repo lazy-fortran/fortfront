@@ -7,13 +7,18 @@ module frontend_location_validation
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
     use ast_visitor, only: ast_visitor_t
-    use ast_nodes_core
-    use ast_nodes_procedure
-    use ast_nodes_control
-    use ast_nodes_loops
-    use ast_nodes_io
-    use ast_nodes_data
-    use ast_nodes_misc
+    use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
+                              identifier_node, literal_node, &
+                              call_or_subscript_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   subroutine_call_node
+    use ast_nodes_control, only: if_node, select_case_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node
+    use ast_nodes_io, only: print_statement_node
+    use ast_nodes_data, only: declaration_node, derived_type_node, module_node
+    use ast_nodes_misc, only: interface_block_node, use_statement_node, &
+                              visibility_statement_node, &
+                              include_statement_node
     use ast_introspection, only: visit_node_at
     implicit none
     private
@@ -28,6 +33,8 @@ module frontend_location_validation
         logical :: report_violations = .true.
         ! Allow synthesized nodes to skip validation
         logical :: allow_synthesized = .true.
+        ! Flag nodes that keep default positions (line=1, column=1)
+        logical :: detect_default_positions = .false.
     contains
         procedure :: visit_program => validate_visit_program
         procedure :: visit_assignment => validate_visit_assignment
@@ -73,6 +80,7 @@ contains
         visitor%violations = 0
         visitor%nodes_checked = 0
         visitor%allow_synthesized = .not. strict
+        visitor%detect_default_positions = strict
 
         ! Walk all nodes in arena
         do i = 1, arena%size
@@ -105,16 +113,26 @@ contains
             return
         end if
 
-        ! Check for default/invalid location (line=1, column=1 is suspicious)
-        ! Valid source code typically doesn't start at exactly 1:1 due to
-        ! leading whitespace/comments
+        ! Check for default/invalid location values (line/column must be > 0)
         is_valid = node%line > 0 .and. node%column > 0
-        if (.not. is_valid .or. (node%line == 1 .and. node%column == 1)) then
+        if (.not. is_valid) then
             this%violations = this%violations + 1
             if (this%report_violations) then
                 write (error_unit, '(A,A,A,I0,A,I0)') &
                     "Missing/default location in ", node_kind, " at ", &
                     node%line, ":", node%column
+            end if
+            return
+        end if
+
+        if (this%detect_default_positions) then
+            if (node%line == 1 .and. node%column == 1) then
+                this%violations = this%violations + 1
+                if (this%report_violations) then
+                    write (error_unit, '(A,A,A,I0,A,I0)') &
+                        "Missing/default location in ", node_kind, " at ", &
+                        node%line, ":", node%column
+                end if
             end if
         end if
     end subroutine check_location
