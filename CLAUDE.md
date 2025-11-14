@@ -540,22 +540,114 @@ fprettify -c .fprettify <file.f90>        # Uses project .fprettify config
 - `auto-tests = true` - All `test/*.f90` discovered automatically
 - Depends on `stdlib` (Fortran standard library)
 
-## Key Documentation
+## Documentation & Navigation
 
-### Essential Docs (read these first)
+### Finding Your Way Around
+
+**Quick Navigation by Task**:
+- **Understanding the pipeline**: `src/README.md` → pipeline diagram
+- **Adding parser features**: `src/parser/README.md` → relevant subdir README
+- **Type inference work**: `src/semantic/README.md` → `semantic/analyzers/README.md`
+- **AST modifications**: `src/ast/README.md` → `ast/nodes/README.md`
+- **Debugging issues**: `src/<subsystem>/README.md` → check dependencies
+
+**Directory README Coverage** (All directories documented):
+
+Core Pipeline:
+- `src/README.md` - Overall architecture, pipeline stages, dependency flow
+- `src/lexer/README.md` - Tokenization
+- `src/parser/README.md` - Parsing (+ subdirs: core, declarations, expressions, statements, procedures, control_flow)
+- `src/semantic/README.md` - Type inference and validation (+ subdirs: analyzers, types)
+- `src/codegen/README.md` - Standard Fortran emission
+
+AST Infrastructure:
+- `src/ast/README.md` - AST overview (+ subdirs: nodes, traversal, arena, factory)
+
+Supporting Subsystems:
+- `src/analysis/README.md` - Call graph, variable usage
+- `src/standardizers/README.md` - AST standardization passes
+- `src/frontend/README.md` - Pipeline orchestration
+
+Utilities:
+- `src/memory/README.md` - Arena allocators
+- `src/common/README.md` - Shared utilities (identifiers, UIDs)
+- `src/utilities/README.md` - String handling, debug tracing
+- `src/interfaces/README.md` - C API bindings
+- `src/performance/README.md` - Performance metrics
+- `src/cst/README.md` - Concrete syntax tree
+- `src/shims/README.md` - Compatibility shims
+
+Application & Tests:
+- `app/README.md` - CLI application
+- `test/README.md` - Test suite organization, zero-duplication policy
+- `examples/README.md` - Canonical example files
+
+**Navigation Decision Tree**:
+```
+What are you doing?
+├─ Adding a feature
+│  ├─ Identify affected subsystems (lexer, parser, semantic, codegen)
+│  ├─ Read src/<subsystem>/README.md
+│  ├─ Check subdirectory READMEs for specific area
+│  └─ Follow patterns documented in README
+│
+├─ Debugging an issue
+│  ├─ Start at src/<subsystem>/README.md
+│  ├─ Check "Dependencies" section
+│  ├─ Follow dependency chain READMEs
+│  └─ Review docs/ for implementation details
+│
+├─ Understanding architecture
+│  ├─ Read src/README.md (pipeline overview)
+│  ├─ Read docs/LIBRARY_USAGE.md (API guide)
+│  ├─ Follow pipeline: lexer → parser → semantic → codegen
+│  └─ Check subsystem READMEs for details
+│
+└─ Finding specific code
+   ├─ Guess subsystem, read its README.md
+   ├─ Check "File Index" table in README
+   ├─ Navigate to specific file
+   └─ If wrong subsystem, check "Dependencies" for hints
+```
+
+### Directory README Structure
+
+**EVERY directory** has a README.md following **Chromium directory documentation pattern**:
+
+**Standard Sections**:
+- **Purpose**: What the directory contains and its role in the system
+- **File Index**: Table listing all files with descriptions
+- **Key Concepts**: Important patterns and design decisions
+- **Dependencies**: Module and external dependencies
+
+**When making changes**:
+- Update the relevant directory README.md when adding/removing files
+- Update file descriptions when changing module purpose
+- Ensure README stays synchronized with actual code
+- If adding a new directory, create a README following the pattern
+
+**README Maintenance**:
+- Part of code review - check README changes when files added/removed
+- READMEs are code documentation - keep them accurate
+- File index tables must match actual directory contents
+- Update before committing structural changes
+
+### Key Documentation
+
+#### Essential Docs (read these first)
 - `docs/MONOMORPHIZATION.md` - Type inference and specialization strategy
 - `docs/LIBRARY_USAGE.md` - API usage examples for tool developers
 - `docs/MEMORY_SAFETY_ANALYSIS.md` - Arena allocation and AST safety rules
 - `docs/TYPE_SAFETY_GUIDE.md` - Type system implementation details
 
-### Implementation Guides
+#### Implementation Guides
 - `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md` - Semantic analysis design
 - `docs/PRATT_PIPELINE_ARCHITECTURE.md` - Parser implementation (Pratt parsing)
 - `docs/MIXED_CONSTRUCTS_GUIDE.md` - Handling `.lf` files with embedded Fortran
 - `docs/NODE_TYPE_IDENTIFICATION.md` - AST node type patterns
 - `docs/CHARACTER_TYPE_GUIDE.md` - String handling in Fortran
 
-### Reference
+#### Reference
 - `docs/AST_MIGRATION.md` - AST architecture evolution
 - `docs/PARSE_DECLARATION_REFACTORING.md` - Parser refactoring history
 - `docs/ECOSYSTEM.md` - Integration with fortrun and package managers
