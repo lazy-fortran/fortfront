@@ -3,8 +3,15 @@ module frontend_transformation_analysis
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: mixed_construct_container_node, module_node
-    use frontend_analysis_helpers
-    use frontend_program_builders
+    use frontend_analysis_helpers, only: build_procedure_membership, &
+        analyze_ast_content, analyze_single_unit, &
+        collect_host_assignment_names, collect_program_assignment_names, &
+        collect_procedure_assignment_names, collect_assignment_from_node, &
+        record_identifier_name, append_unique_name, &
+        requires_lazy_internalization, has_existing_module_in_ast
+    use frontend_program_builders, only: handle_mixed_construct_container, &
+        scan_multi_unit_program, create_program_from_bare_statements, &
+        merge_procedures_into_program
     implicit none
     private
 
