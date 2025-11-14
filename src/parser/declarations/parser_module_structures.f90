@@ -31,156 +31,262 @@ module parser_module_structures_module
 
 contains
 
-    recursive function parse_module(parser, arena) result(module_index)
+    function handle_contains_keyword_in_module(parser, arena, has_contains, &
+                                              in_contains_section, declaration_indices) &
+        result(should_cycle)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        integer :: module_index
-        type(parser_prefix_buffer_t) :: prefix_buffer
-        type(token_t) :: token, lookahead
-        character(len=:), allocatable :: module_name
-        integer :: line, column
-        integer, allocatable :: declaration_indices(:), procedure_indices(:)
-        logical :: has_contains, in_contains_section
-        integer :: stmt_index
-        character(len=:), allocatable :: lookahead_lower
+        logical, intent(inout) :: has_contains, in_contains_section
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        logical :: should_cycle
+        type(token_t) :: token, next_token
+        logical :: is_assignment
 
-        ! Consume 'module' keyword
-        token = parser%consume()
-        line = token%line
-        column = token%column
-
-        ! Get module name
+        should_cycle = .false.
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            module_name = token%text
-        else
-            module_name = "unnamed_module"
+
+        is_assignment = .false.
+        if (parser%current_token + 1 <= size(parser%tokens)) then
+            next_token = parser%tokens(parser%current_token + 1)
+            if (next_token%kind == TK_OPERATOR .and. &
+                (next_token%text == "=" .or. next_token%text == "=>")) then
+                is_assignment = .true.
+            end if
         end if
 
-        ! Initialize arrays
-        allocate (declaration_indices(0))
-        allocate (procedure_indices(0))
-        has_contains = .false.
-        in_contains_section = .false.
-
-        ! Minimal parsing to detect structure and consume tokens
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-
-            ! Check for end of module
-            if (token%kind == TK_KEYWORD) then
-                lookahead_lower = to_lower(trim(token%text))
-                select case (trim(lookahead_lower))
-                case ("endmodule")
-                    token = parser%consume()
-                    exit
-                case ("end")
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        lookahead = parser%tokens(parser%current_token + 1)
-                        lookahead_lower = to_lower(trim(lookahead%text))
-                        if (lookahead%kind == TK_KEYWORD .and. &
-                            lookahead_lower == "module") then
-                            token = parser%consume()
-                            token = parser%consume()
-                            exit
-                        else if (lookahead%kind == TK_NEWLINE .or. &
-                                 lookahead%kind == TK_COMMENT .or. &
-                                 lookahead%kind == TK_EOF) then
-                            token = parser%consume()
-                            exit
-                        end if
-                    else
-                        token = parser%consume()
-                        exit
-                    end if
-                end select
-            end if
-
-            ! Check for contains keyword (but not if it's a variable assignment)
-            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
-                ! Look ahead to see if this is an assignment (e.g., "contains = value")
-                ! If so, it's an identifier, not the structural keyword
+        if (.not. is_assignment) then
+            has_contains = .true.
+            in_contains_section = .true.
+            token = parser%consume()
+            should_cycle = .true.
+        else
+            if (.not. in_contains_section) then
                 block
-                    type(token_t) :: next_token
-                    logical :: is_assignment
+                    type(token_t) :: id_token, eq_token, rhs_token
+                    integer :: target_index, rhs_index, assign_index
+                    character(len=:), allocatable :: assignment_op
 
-                    is_assignment = .false.
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        next_token = parser%tokens(parser%current_token + 1)
-                        if (next_token%kind == TK_OPERATOR .and. &
-                            (next_token%text == "=" .or. next_token%text == "=>")) then
-                            is_assignment = .true.
+                    id_token = parser%consume()
+                    eq_token = parser%consume()
+                    assignment_op = eq_token%text
+
+                    rhs_token = parser%peek()
+                    if (rhs_token%kind == TK_NUMBER .or. &
+                        rhs_token%kind == TK_IDENTIFIER) then
+                        rhs_token = parser%consume()
+
+                        target_index = push_identifier(arena, id_token%text, &
+                                                       id_token%line, id_token%column)
+
+                        if (rhs_token%kind == TK_IDENTIFIER) then
+                            rhs_index = push_identifier(arena, rhs_token%text, &
+                                                        rhs_token%line, rhs_token%column)
+                        else
+                            rhs_index = push_literal(arena, rhs_token%text, &
+                                                     rhs_token%line, rhs_token%column, &
+                                                     LITERAL_STRING)
                         end if
-                    end if
 
-                    if (.not. is_assignment) then
-                        ! This is the structural "contains" keyword
-                        has_contains = .true.
-                        in_contains_section = .true.
-                        token = parser%consume()  ! consume "contains"
-                        cycle  ! Continue to next iteration
-                    else
-                        ! Handle "contains" as an identifier in assignment
-                        ! (e.g., "contains = 2.0")
-                        if (.not. in_contains_section) then
-                            block
-                                type(token_t) :: id_token, eq_token, rhs_token
-                                integer :: target_index, rhs_index, assign_index
-                                character(len=:), allocatable :: assignment_op
-
-                                id_token = parser%consume()  ! Get "contains"
-
-                                eq_token = parser%consume()  ! Consume '=' or '=>'
-                                assignment_op = eq_token%text
-
-                                ! Get RHS token
-                                rhs_token = parser%peek()
-                                if (rhs_token%kind == TK_NUMBER .or. &
-                                    rhs_token%kind == TK_IDENTIFIER) then
-                                    rhs_token = parser%consume()
-
-                                    ! Create target identifier for "contains"
-                                    target_index = push_identifier(arena, &
-                                                                   id_token%text, &
-                                                                   id_token%line, &
-                                                                   id_token%column)
-
-                                    ! Create RHS node
-                                    if (rhs_token%kind == TK_IDENTIFIER) then
-                                        rhs_index = push_identifier(arena, &
-                                                                    rhs_token%text, &
-                                                                    rhs_token%line, &
-                                                                    rhs_token%column)
-                                    else
-                                        rhs_index = push_literal(arena, &
-                                                                 rhs_token%text, &
-                                                                 rhs_token%line, &
-                                                                 rhs_token%column, &
-                                                                 LITERAL_STRING)
-                                    end if
-
-                                    if (rhs_index > 0 .and. target_index > 0) then
-                                        assign_index = push_assignment( &
-                                                       arena, target_index, &
-                                                       rhs_index, &
-                                                       id_token%line, &
-                                                       id_token%column, &
-                                                       operator_text=assignment_op)
-                                        if (assign_index > 0) then
-                                            declaration_indices = &
-                                                [declaration_indices, assign_index]
-                                        end if
-                                    end if
-                                end if
-                            end block
-                            cycle  ! Continue to next iteration
+                        if (rhs_index > 0 .and. target_index > 0) then
+                            assign_index = push_assignment(arena, target_index, &
+                                                           rhs_index, id_token%line, &
+                                                           id_token%column, &
+                                                           operator_text=assignment_op)
+                            if (assign_index > 0) then
+                                declaration_indices = [declaration_indices, assign_index]
+                            end if
                         end if
                     end if
                 end block
+                should_cycle = .true.
+            end if
+        end if
+    end function handle_contains_keyword_in_module
+
+    function parse_module_declaration_statement(parser, arena, &
+                                                prefix_buffer) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer :: stmt_index
+        type(token_t) :: token
+        integer, allocatable :: extra_indices(:)
+
+        stmt_index = 0
+        token = parser%peek()
+
+        if (keyword_should_parse_as_identifier(token, parser)) then
+            return
+        end if
+
+        select case (token%text)
+        case ("public", "private")
+            stmt_index = parse_visibility_statement(parser, arena)
+        case ("use")
+            stmt_index = parse_use_statement(parser, arena)
+        case ("namelist")
+            stmt_index = parse_namelist_statement(parser, arena)
+        case ("integer", "real", "logical", "character", "complex", "procedure")
+            stmt_index = parse_declaration(parser, arena)
+        case ("type")
+            if (parser_is_at_type_definition(parser)) then
+                stmt_index = parse_derived_type_def(parser, arena)
+            else
+                stmt_index = parse_declaration(parser, arena)
+            end if
+        case ("class")
+            stmt_index = parse_declaration(parser, arena)
+        case ("module")
+            if (.not. is_module_procedure_statement(parser)) then
+                stmt_index = parse_module(parser, arena)
+            end if
+        case ("implicit")
+            call parse_simple_implicit_in_module(parser, arena, stmt_index)
+            if (stmt_index > 0) then
+                extra_indices = take_implicit_additional_indices()
+                if (size(extra_indices) > 0) then
+                    stmt_index = -1
+                end if
+            end if
+        case ("interface")
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+        case ("enum", "enumerator")
+            stmt_index = handle_enum_construct(parser, arena, to_lower(token%text))
+        end select
+    end function parse_module_declaration_statement
+
+    function parse_contains_section_item(parser, arena, prefix_buffer) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer :: stmt_index
+        type(token_t) :: token, lookahead
+        character(len=:), allocatable :: lowered, lookahead_lower, type_with_kind
+        character(len=16), allocatable :: stored(:)
+
+        stmt_index = 0
+        token = parser%peek()
+
+        if (token%kind == TK_KEYWORD .and. token%text == "interface") then
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+            return
+        end if
+
+        if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+            stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+            return
+        end if
+
+        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+            stmt_index = parse_function_definition(parser, arena, prefix_buffer)
+            return
+        end if
+
+        if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+            lowered = to_lower(token%text)
+            select case (trim(lowered))
+            case ("pure", "elemental", "impure", "recursive", &
+                  "nonrecursive", "non_recursive", "module")
+                call prefix_buffer%get_all(stored)
+                call append_prefix_token(stored, trim(lowered))
+                call prefix_buffer%set(stored)
+                if (allocated(stored)) deallocate (stored)
+                token = parser%consume()
+                stmt_index = -1
+            case ("integer", "real", "logical", "character", "complex", &
+                  "double", "procedure")
+                call prefix_buffer%get_all(stored)
+                if (trim(lowered) == "double") then
+                    lookahead = parser%get_token_at_index(parser%current_token + 1)
+                    lookahead_lower = to_lower(trim(lookahead%text))
+                    select case (trim(lookahead_lower))
+                    case ("precision", "complex")
+                        type_with_kind = trim(token%text) // " " // trim(lookahead%text)
+                        token = parser%consume()
+                        token = parser%consume()
+                        call consume_optional_kind_spec(parser, type_with_kind)
+                        call append_prefix_token(stored, type_with_kind)
+                        call prefix_buffer%set(stored)
+                        if (allocated(stored)) deallocate (stored)
+                        stmt_index = -1
+                        return
+                    end select
+                end if
+                type_with_kind = trim(token%text)
+                token = parser%consume()
+                call consume_optional_kind_spec(parser, type_with_kind)
+                call append_prefix_token(stored, type_with_kind)
+                call prefix_buffer%set(stored)
+                if (allocated(stored)) deallocate (stored)
+                stmt_index = -1
+            end select
+        end if
+    end function parse_contains_section_item
+
+    function check_module_end(parser) result(at_end)
+        type(parser_state_t), intent(inout) :: parser
+        logical :: at_end
+        type(token_t) :: token, lookahead
+        character(len=:), allocatable :: lookahead_lower
+
+        at_end = .false.
+        token = parser%peek()
+
+        if (token%kind == TK_KEYWORD) then
+            lookahead_lower = to_lower(trim(token%text))
+            select case (trim(lookahead_lower))
+            case ("endmodule")
+                token = parser%consume()
+                at_end = .true.
+            case ("end")
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    lookahead = parser%tokens(parser%current_token + 1)
+                    lookahead_lower = to_lower(trim(lookahead%text))
+                    if (lookahead%kind == TK_KEYWORD .and. &
+                        lookahead_lower == "module") then
+                        token = parser%consume()
+                        token = parser%consume()
+                        at_end = .true.
+                    else if (lookahead%kind == TK_NEWLINE .or. &
+                             lookahead%kind == TK_COMMENT .or. &
+                             lookahead%kind == TK_EOF) then
+                        token = parser%consume()
+                        at_end = .true.
+                    end if
+                else
+                    token = parser%consume()
+                    at_end = .true.
+                end if
+            end select
+        end if
+    end function check_module_end
+
+    subroutine parse_module_body(parser, arena, prefix_buffer, &
+                                has_contains, in_contains_section, &
+                                declaration_indices, procedure_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        logical, intent(inout) :: has_contains, in_contains_section
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        integer, allocatable, intent(inout) :: procedure_indices(:)
+        type(token_t) :: token
+        integer :: stmt_index
+
+        do while (.not. parser%is_at_end())
+            if (check_module_end(parser)) exit
+
+            token = parser%peek()
+
+            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
+                if (handle_contains_keyword_in_module(parser, arena, has_contains, &
+                                                     in_contains_section, &
+                                                     declaration_indices)) then
+                    cycle
+                end if
             end if
 
-            ! Parse declarations in module body (before contains)
             if (.not. in_contains_section) then
                 if (token%kind == TK_KEYWORD) then
                     if (keyword_should_parse_as_identifier(token, parser)) then
@@ -189,200 +295,84 @@ contains
                         cycle
                     end if
 
-                    select case (token%text)
-                    case ("public", "private")
-                        stmt_index = parse_visibility_statement(parser, arena)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
+                    stmt_index = parse_module_declaration_statement(parser, arena, &
+                                                                    prefix_buffer)
+                    if (stmt_index > 0) then
+                        declaration_indices = [declaration_indices, stmt_index]
                         cycle
-                    case ("use")
-                        stmt_index = parse_use_statement(parser, arena)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle
-                    case ("namelist")
-                        stmt_index = parse_namelist_statement(parser, arena)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle
-                    case ("integer", "real", "logical", "character", "complex", &
-                          "procedure")
-                        stmt_index = parse_declaration(parser, arena)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle  ! Continue to next iteration
-                    case ("type")
-                        if (parser_is_at_type_definition(parser)) then
-                            stmt_index = parse_derived_type_def(parser, arena)
-                        else
-                            stmt_index = parse_declaration(parser, arena)
-                        end if
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle
-                    case ("class")
-                        stmt_index = parse_declaration(parser, arena)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle
-                    case ("module")
-                        if (.not. is_module_procedure_statement(parser)) then
-                            stmt_index = parse_module(parser, arena)
-                            if (stmt_index > 0) then
-                                declaration_indices = [declaration_indices, &
-                                                       stmt_index]
+                    else if (stmt_index == -1) then
+                        block
+                            integer, allocatable :: extra_indices(:)
+                            extra_indices = take_implicit_additional_indices()
+                            if (size(extra_indices) > 0) then
+                                declaration_indices = [declaration_indices, extra_indices]
                             end if
-                            cycle
-                        end if
-                    case ("implicit")
-                        ! Parse implicit statement
-                        call parse_simple_implicit_in_module(parser, arena, stmt_index)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                            block
-                                integer, allocatable :: extra_indices(:)
-                                extra_indices = take_implicit_additional_indices()
-                                if (size(extra_indices) > 0) then
-                                    declaration_indices = [declaration_indices, &
-                                                           extra_indices]
-                                end if
-                            end block
-                        end if
-                        cycle  ! Continue to next iteration
-                    case ("interface")
-                        stmt_index = parse_interface_block(parser, arena, &
-                                                           prefix_buffer)
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
+                        end block
                         cycle
-                    case ("enum", "enumerator")
-                        stmt_index = handle_enum_construct(parser, arena, &
-                                                           to_lower(token%text))
-                        if (stmt_index > 0) then
-                            declaration_indices = [declaration_indices, stmt_index]
-                        end if
-                        cycle
-                    end select
+                    end if
                 else if (token%kind == TK_IDENTIFIER) then
                     call handle_module_identifier_assignment(parser, arena, &
                                                              declaration_indices)
-                    cycle  ! Continue to next iteration
+                    cycle
                 end if
             end if
 
-            if (in_contains_section .and. token%kind == TK_KEYWORD .and. &
-                token%text == "interface") then
-                stmt_index = parse_interface_block(parser, arena, prefix_buffer)
-                if (stmt_index > 0) then
-                    procedure_indices = [procedure_indices, stmt_index]
-                end if
-                cycle
-            end if
-
-            ! Parse subroutine definitions for contains section
-            if (in_contains_section .and. token%kind == TK_KEYWORD .and. &
-                token%text == &
-                "subroutine") then
-                ! Parse the subroutine and add to procedure list
-                block
-                    integer :: proc_index
-                    proc_index = parse_subroutine_definition(parser, arena, &
-                                                             prefix_buffer)
-                    if (proc_index > 0) then
-                        procedure_indices = [procedure_indices, proc_index]
-                    end if
-                end block
-                cycle
-            end if
-
-            ! Parse function definitions for contains section
-            if (in_contains_section .and. token%kind == TK_KEYWORD .and. &
-                token%text == "function") then
-                ! Parse the function and add to procedure list
-                block
-                    integer :: proc_index
-                    proc_index = parse_function_definition(parser, arena, &
-                                                           prefix_buffer)
-                    if (proc_index > 0) then
-                        procedure_indices = [procedure_indices, proc_index]
-                    end if
-                end block
-                cycle
-            end if
-
-            ! Handle comments specially - skip them without disrupting module parsing
             if (token%kind == TK_COMMENT .or. token%kind == TK_NEWLINE) then
-                token = parser%consume()  ! Skip comment/newline
-                cycle  ! Continue to next iteration
+                token = parser%consume()
+                cycle
             end if
 
             if (in_contains_section) then
-                if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                    block
-                        character(len=:), allocatable :: lowered, type_with_kind
-                        character(len=16), allocatable :: stored(:)
-                        lowered = to_lower(token%text)
-                        select case (trim(lowered))
-                        case ("pure", "elemental", "impure", "recursive", &
-                              "nonrecursive", "non_recursive", "module")
-                            call prefix_buffer%get_all(stored)
-                            call append_prefix_token(stored, trim(lowered))
-                            call prefix_buffer%set(stored)
-                            if (allocated(stored)) deallocate (stored)
-                            token = parser%consume()
-                            cycle
-                        case ("integer", "real", "logical", "character", "complex", &
-                              "double", "procedure")
-                            ! Type keyword - might be function return type
-                            call prefix_buffer%get_all(stored)
-                            if (trim(lowered) == "double") then
-                                lookahead = parser%get_token_at_index( &
-                                            parser%current_token + 1)
-                                lookahead_lower = to_lower(trim(lookahead%text))
-                                select case (trim(lookahead_lower))
-                                case ("precision", "complex")
-                                    type_with_kind = trim(token%text) // " " // &
-                                        trim(lookahead%text)
-                                    token = parser%consume()
-                                    token = parser%consume()
-                                    call consume_optional_kind_spec(parser, &
-                                                                    type_with_kind)
-                                    call append_prefix_token(stored, type_with_kind)
-                                    call prefix_buffer%set(stored)
-                                    if (allocated(stored)) deallocate (stored)
-                                    cycle
-                                end select
-                            end if
-                            type_with_kind = trim(token%text)
-                            token = parser%consume()
-                            call consume_optional_kind_spec(parser, type_with_kind)
-                            call append_prefix_token(stored, type_with_kind)
-                            call prefix_buffer%set(stored)
-                            if (allocated(stored)) deallocate (stored)
-                            cycle
-                        end select
-                    end block
+                stmt_index = parse_contains_section_item(parser, arena, prefix_buffer)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
+                    cycle
+                else if (stmt_index == -1) then
+                    cycle
                 end if
-                ! Don't consume function/subroutine - handled by checks above
+
                 if (.not. (token%kind == TK_KEYWORD .and. &
-                           (token%text == "function" .or. token%text == &
-                            "subroutine"))) then
+                           (token%text == "function" .or. token%text == "subroutine"))) then
                     token = parser%consume()
                 end if
             else
-                ! Default: consume unhandled token in module body
                 token = parser%consume()
             end if
         end do
+    end subroutine parse_module_body
 
-        ! Create module node with proper structure
+    recursive function parse_module(parser, arena) result(module_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: module_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
+        type(token_t) :: token
+        character(len=:), allocatable :: module_name
+        integer :: line, column
+        integer, allocatable :: declaration_indices(:), procedure_indices(:)
+        logical :: has_contains, in_contains_section
+
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            module_name = token%text
+        else
+            module_name = "unnamed_module"
+        end if
+
+        allocate (declaration_indices(0))
+        allocate (procedure_indices(0))
+        has_contains = .false.
+        in_contains_section = .false.
+
+        call parse_module_body(parser, arena, prefix_buffer, &
+                              has_contains, in_contains_section, &
+                              declaration_indices, procedure_indices)
+
         module_index = push_module_structured(arena, module_name, &
                                               declaration_indices, &
                                               procedure_indices, has_contains, &
