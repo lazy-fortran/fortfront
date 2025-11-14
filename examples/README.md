@@ -1,57 +1,117 @@
-# Fortfront Examples
+# Examples
 
-This directory contains curated examples of lazy Fortran (.lf) files that demonstrate the capabilities of the fortfront compiler.
+## Purpose
 
-## Current Status
-As of September 2025 the Pratt-based expression parser drives fortfront.
-The precedence regression samples now compile end-to-end, and the remaining
-known gaps align with the examples marked as expected failures in
-`tests/test_lazy_fortran_examples.py` (issues #1234-#1243).
+This directory contains canonical example source files for both lazy Fortran (`.lf`) and standard Fortran (`.f90`). Examples serve a dual purpose:
+1. **Documentation**: Demonstrate features, syntax, and capabilities
+2. **Test inputs**: Referenced by end-to-end tests (zero-duplication policy)
+
+**CRITICAL**: Examples are the ONLY source of truth for full program code. End-to-end tests MUST reference these files, not duplicate them inline.
+
+## Directory Structure
+
+- `f90/` - Standard Fortran examples (round-trip validation)
+- `lf/` - Lazy Fortran examples (transformation testing)
+- `hello/` - Simple hello world examples
+
+## File Naming Convention
+
+- **Feature-based**: `generic_functions.lf`, `array_syntax.lf`, `module_procedures.f90`
+- **Issue-based**: `issue_NNNN_description.lf` (keep issue number for traceability)
+- **NOT test-based**: Avoid names like `test_*.lf` (these are examples, not tests)
+
+## Key Concepts
+
+**Lazy Fortran Examples**
+- Demonstrate type inference capabilities
+- Show minimal syntax → full standard Fortran transformation
+- Examples of: function inference, array inference, intent inference
+- Used by transformation pipeline tests
+
+**Standard Fortran Examples**
+- Demonstrate round-trip validation (parse → emit → parse)
+- Show standard Fortran constructs fortfront can handle
+- Examples of: modules, derived types, interfaces, legacy features
+- Used by parser correctness tests
+
+**Issue-Specific Examples**
+- Document resolved issues with working code
+- Serve as regression tests
+- Keep issue number for traceability: `issue_1234_array_bounds.lf`
+- Referenced by `test_issue_1234_*.f90` tests
+
+**Example Quality Standards**
+- **Standalone**: Each example should be complete and runnable
+- **Focused**: Demonstrate one primary feature clearly
+- **Documented**: Comments explain what's being demonstrated
+- **Realistic**: Real-world patterns, not contrived cases
+- **Concise**: As short as possible while demonstrating the feature
+
+**Zero-Duplication Enforcement**
+- CI checks test files for inline code violations
+- End-to-end tests MUST use `read_example()` to load these files
+- See `CLAUDE.md` for complete zero-duplication policy
+- Current status: Migration in progress (see `make check-duplication`)
 
 ## Testing Examples
+
 Run the test suite on all examples:
 ```bash
 ./test_examples.sh
 ```
 
-## Individual Testing
 Test a single example:
 ```bash
-fpm run fortfront -- < examples/function_test.lf > output.f90
+fpm run fortfront -- < examples/lf/function_test.lf > output.f90
+gfortran output.f90 -o test
+./test
 ```
 
-## Examples Description
+## Example Organization
 
-### Working Examples
-These examples are validated end-to-end:
+### Lazy Fortran Examples (`lf/`)
+- `function_*.lf` - Function type inference examples
+- `array_*.lf` - Array type inference examples
+- `intent_*.lf` - Intent inference examples
+- `generic_*.lf` - Generic procedure examples
+- `issue_*.lf` - Issue-specific regression examples
 
-- `function_test.lf` - Basic function definitions and calls
-- `test_sem_intrinsic.lf` - Semantic intrinsic handling
-- `test_sem_scope.lf` - Variable scoping validation
-- `test_sem_ctor.lf` - Array constructor handling
+### Standard Fortran Examples (`f90/`)
+- `module_*.f90` - Module examples
+- `interface_*.f90` - Interface block examples
+- `derived_type_*.f90` - Derived type examples
+- `legacy_*.f90` - Legacy Fortran features
+- `issue_*.f90` - Issue-specific standard Fortran examples
 
-### Expression Regression Suite
-- `test_comparison_associativity.lf`, `test_unary_precedence.lf`, and
-  `test_comprehensive_precedence.lf` cover the Pratt parser precedence matrix
-  and now pass end-to-end.
+## Adding New Examples
 
-### Example Categories
-
-#### Functions
-- `function_test.lf` - Function definition and calling
-
-#### Arrays
-- `test_sem_arr.lf` - Semantic array analysis
-
-#### String Operations
-- `test_std_concat.lf` - String concatenation
-
-#### Type System
-- `test_sem_intrinsic.lf` - Intrinsic function handling
-- `test_sem_scope.lf` - Variable scoping
-
-## Contributing
 When adding new examples:
-1. Test with `fpm run fortfront -- < your_example.lf`
-2. Verify the generated Fortran compiles with gfortran
-3. Add documentation to this README
+1. Place in appropriate subdirectory (`f90/` or `lf/`)
+2. Use descriptive name: `feature_description.lf` or `issue_NNNN_description.lf`
+3. Add comment header explaining what's demonstrated
+4. Test: `fpm run fortfront -- < examples/lf/filename.lf > output.f90`
+5. Verify: `gfortran output.f90 && ./a.out`
+6. Reference from test: `call read_example('examples/lf/filename.lf', source)`
+
+## Usage in Tests
+
+```fortran
+! End-to-end test using example
+program test_function_inference
+    use transformation_api, only: transform_lazy_fortran_string
+    character(len=:), allocatable :: source, output
+
+    ! Load canonical example
+    call read_example('examples/lf/function_integer_inference.lf', source)
+
+    ! Transform
+    call transform_lazy_fortran_string(source, output, errors)
+
+    ! Validate
+    call assert_no_errors(errors)
+end program
+```
+
+## Dependencies
+
+None - examples are standalone source files.
