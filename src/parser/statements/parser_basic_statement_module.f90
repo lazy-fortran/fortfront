@@ -163,7 +163,8 @@ contains
 
             if (index(trimmed_keyword, "end ") == 1) then
                 if (token%text == "end") then
-                    suffix_keyword = adjustl(trimmed_keyword(4:len_trim(trimmed_keyword)))
+                    suffix_keyword = &
+                        adjustl(trimmed_keyword(4:len_trim(trimmed_keyword)))
                     if (len_trim(suffix_keyword) == 0) cycle
 
                     lookahead = parser%current_token + 1
