@@ -2,21 +2,18 @@
 
 ## Executive Summary
 
-**Total .inc files analyzed:** 29 (24 active, 5 orphaned)
-**Orphaned files removed:** 5 (2,218 lines of dead code eliminated)
-**Active .inc files remaining:** 24 files across 12 parent modules
-**Total lines in active .inc files:** ~16,000 lines
+**Total .inc files analyzed:** 29 (27 active, 2 orphaned)
+**Orphaned files removed:** 2 (1,151 lines of dead code eliminated)
+**Active .inc files remaining:** 27 files across 12 parent modules
+**Total lines in active .inc files:** ~17,000 lines
 
 ## Key Findings
 
 ### 1. Orphaned Files (REMOVED - Dead Code)
 - `src/frontend_parsing_boundary_detection.inc` (816 lines)
 - `src/frontend_parsing_unit_detection.inc` (335 lines)
-- `src/semantic/analyzers/semantic_analyzer_infer_type_locals_part1.inc` (494 lines)
-- `src/semantic/analyzers/semantic_analyzer_infer_type_locals_part2.inc` (495 lines)
-- `src/semantic/analyzers/semantic_analyzer_infer_type_locals_part3.inc` (78 lines)
 
-**Total dead code removed: 2,218 lines**
+**Total dead code removed: 1,151 lines**
 
 These files were created in commit 0b86ac3e but never actually included in any parent module.
 
@@ -88,6 +85,9 @@ These files were created in commit 0b86ac3e but never actually included in any p
   - `semantic_analyzer_infer_impl_part1.inc` (22 lines) - Type inference implementation part 1
   - `semantic_analyzer_infer_impl_part2.inc` (53 lines) - Type inference implementation part 2
   - `semantic_analyzer_infer_impl_part3.inc` (150 lines) - Type inference implementation part 3
+  - `semantic_analyzer_infer_type_locals_part1.inc` (494 lines) - Frame management helpers
+  - `semantic_analyzer_infer_type_locals_part2.inc` (495 lines) - AST local type propagation
+  - `semantic_analyzer_infer_type_locals_part3.inc` (78 lines) - Association handling helpers
 
 **Characteristics:** Already a submodule but still using .inc for internal split
 
