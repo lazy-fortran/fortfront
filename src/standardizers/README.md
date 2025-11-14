@@ -8,63 +8,90 @@ Standardizers modify the AST in-place to make it fully conformant with standard 
 
 ## File Index
 
-### Core Orchestration
-- `standardizer.f90` - Public facade for standardization operations
-- `standardizer_core.f90` - Core standardization orchestration
-- `standardizer_driver.f90` - Main driver, multi-pass coordination
+### Core Orchestration (3 files)
+
+| File | Description |
+|------|-------------|
+| `standardizer.f90` | Public facade for standardization operations |
+| `standardizer_core.f90` | Core standardization orchestration |
+| `standardizer_driver.f90` | Main driver coordinating multi-pass execution |
 
 ### Type Standardization (3 files)
 Transform type declarations to standard Fortran including derived types.
-- `standardizer_types.f90` - Type standardization facade
-- `standardizer_types_part1.inc` - Type declarations
-- `standardizer_types_part2.inc` - Derived types
+
+| File | Description |
+|------|-------------|
+| `standardizer_types.f90` | Type standardization facade |
+| `standardizer_types_part1.inc` | Type declarations |
+| `standardizer_types_part2.inc` | Derived types |
 
 ### Program & Module Structure (3 files)
 Add program/module wrappers to bare statements and procedures.
-- `standardizer_program.f90` - Program structure (wrap bare statements)
-- `standardizer_module.f90` - Module structure standardization
-- `standardizer_wrapping.f90` - Wrap bare code in program structure
+
+| File | Description |
+|------|-------------|
+| `standardizer_program.f90` | Program structure (wrap bare statements) |
+| `standardizer_module.f90` | Module structure standardization |
+| `standardizer_wrapping.f90` | Wrap bare code in program structure |
 
 ### Function Standardization (5 files)
-Add result types, infer intents, standardize parameters.
-- `standardizer_function.f90` - Function standardization
-- `standardizer_function_parameters.f90` - Parameter standardization
-- `standardizer_function_parameter_builders.f90` - Build parameter declarations
-- `standardizer_function_param_scanner.f90` - Scan parameters for inference
-- `standardizer_function_result_utils.f90` - Result type utilities
+Add result types, infer intents, and standardize parameters.
+
+| File | Description |
+|------|-------------|
+| `standardizer_function.f90` | Function standardization |
+| `standardizer_function_parameters.f90` | Parameter standardization |
+| `standardizer_function_parameter_builders.f90` | Build parameter declarations |
+| `standardizer_function_param_scanner.f90` | Scan parameters for inference |
+| `standardizer_function_result_utils.f90` | Result type utilities |
 
 ### Subroutine Standardization (2 files)
 Infer and insert intent attributes for subroutine parameters.
-- `standardizer_subroutine.f90` - Subroutine standardization
-- `standardizer_subroutine_intent.f90` - Intent inference and insertion
 
-### Subprogram & Parameter Handling
-- `standardizer_parameter.f90` - Parameter declaration standardization
-- `standardizer_subprograms.f90` - Subprogram standardization utilities
+| File | Description |
+|------|-------------|
+| `standardizer_subroutine.f90` | Subroutine standardization |
+| `standardizer_subroutine_intent.f90` | Intent inference and insertion |
 
-### Declarations (8 files)
-Infer, collect, and insert variable declarations into AST.
-- `standardizer_declarations.f90` - Declaration standardization facade
-- `standardizer_declarations_core.f90` - Core declaration logic
-- `standardizer_declarations_collection.f90` - Collect declarations
-- `standardizer_declarations_insertion.f90` - Insert into AST
-- `standardizer_declarations_inference.f90` - Inference from semantic context
-- `standardizer_declarations_parsing.f90` - Parse existing declarations
-- `standardizer_declarations_variables.f90` - Variable declarations
-- `standardizer_declarations_array.f90` - Array declarations
-- `standardizer_declarations_state.f90` - State management
+### Subprogram & Parameter Handling (2 files)
 
-### Attribute Handling
-- `standardizer_allocatable.f90` - Allocatable attribute handling
-- `standardizer_pointer_targets.f90` - Pointer and target attributes
-- `standardizer_interface_utils.f90` - Interface block utilities
+| File | Description |
+|------|-------------|
+| `standardizer_parameter.f90` | Parameter declaration standardization |
+| `standardizer_subprograms.f90` | Subprogram standardization utilities |
+
+### Declarations (9 files)
+Infer, collect, and insert variable declarations into the AST.
+
+| File | Description |
+|------|-------------|
+| `standardizer_declarations.f90` | Declaration standardization facade |
+| `standardizer_declarations_core.f90` | Core declaration logic |
+| `standardizer_declarations_collection.f90` | Collect declarations |
+| `standardizer_declarations_insertion.f90` | Insert declarations into AST |
+| `standardizer_declarations_inference.f90` | Inference from semantic context |
+| `standardizer_declarations_parsing.f90` | Parse existing declarations |
+| `standardizer_declarations_variables.f90` | Variable declarations |
+| `standardizer_declarations_array.f90` | Array declarations |
+| `standardizer_declarations_state.f90` | State management |
+
+### Attribute Handling (3 files)
+
+| File | Description |
+|------|-------------|
+| `standardizer_allocatable.f90` | Allocatable attribute handling |
+| `standardizer_pointer_targets.f90` | Pointer and target attributes |
+| `standardizer_interface_utils.f90` | Interface block utilities |
 
 ### Monomorphization (4 files)
 Generate type-specialized procedure variants and rewrite call sites.
-- `ast_monomorphization.f90` - Monomorphization facade
-- `ast_monomorphization_part1.inc` - Signature analysis
-- `ast_monomorphization_part2.inc` - Specialization generation
-- `ast_monomorphization_part3.inc` - Call site rewriting
+
+| File | Description |
+|------|-------------|
+| `ast_monomorphization.f90` | Monomorphization facade |
+| `ast_monomorphization_part1.inc` | Signature analysis |
+| `ast_monomorphization_part2.inc` | Specialization generation |
+| `ast_monomorphization_part3.inc` | Call site rewriting |
 
 ## Key Concepts
 

@@ -5,6 +5,7 @@ module test_filesystem_helpers
     public :: check_if_windows
     public :: cleanup_file
     public :: create_temp_directory
+    public :: ensure_directory_exists
     public :: cleanup_temp_directory
     public :: extract_example_basename
     public :: extract_relative_example_path
@@ -253,6 +254,33 @@ contains
         call execute_command_line(trim(mkdir_cmd), exitstat=ios)
         if (ios /= 0) temp_dir = ''
     end subroutine create_temp_directory
+
+    logical function ensure_directory_exists(path, is_windows)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: mkdir_cmd
+        integer :: ios
+        logical :: exists
+
+        ensure_directory_exists = .false.
+        if (len_trim(path) == 0) return
+
+        inquire (file=trim(path), exist=exists)
+        if (exists) then
+            ensure_directory_exists = .true.
+            return
+        end if
+
+        if (is_windows) then
+            mkdir_cmd = 'cmd /C "if not exist "' // trim(path) // &
+                        '" mkdir "' // trim(path) // '""'
+        else
+            mkdir_cmd = 'mkdir -p "' // trim(path) // '"'
+        end if
+
+        call execute_command_line(trim(mkdir_cmd), exitstat=ios)
+        ensure_directory_exists = (ios == 0)
+    end function ensure_directory_exists
 
     subroutine generate_temp_suffix(suffix)
         character(len=*), intent(out) :: suffix
