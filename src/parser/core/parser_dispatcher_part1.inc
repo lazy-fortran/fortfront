@@ -6,360 +6,589 @@
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         integer :: stmt_index
-        character(len=:), allocatable :: lowered_keyword
         type(parser_state_t) :: parser
-        type(token_t) :: first_token, second_token, next_token
-        integer :: target_index, value_index
+        type(token_t) :: first_token
 
         call init_interface_procedure_parser()
-
         parser = create_parser_state(tokens)
         first_token = parser%peek()
-        ! Dispatch based on first token
+
         select case (first_token%kind)
         case (TK_KEYWORD)
-            lowered_keyword = to_lower(trim(first_token%text))
-            select case (lowered_keyword)
-            case ("use")
-                stmt_index = parse_use_statement(parser, arena)
-            case ("intrinsic")
-                stmt_index = parse_intrinsic_statement(parser, arena)
-            case ("include")
-                stmt_index = parse_include_statement(parser, arena)
-            case ("print")
-                stmt_index = parse_print_statement(parser, arena)
-            case ("write")
-                stmt_index = parse_write_statement(parser, arena)
-            case ("read")
-                stmt_index = parse_read_statement(parser, arena)
-            case ("open")
-                stmt_index = parse_open_statement(parser, arena)
-            case ("close")
-                stmt_index = parse_close_statement(parser, arena)
-            case ("format")
-                stmt_index = parse_format_statement(parser, arena)
-            case ("inquire")
-                stmt_index = parse_inquire_statement(parser, arena)
-            case ("backspace")
-                stmt_index = parse_backspace_statement(parser, arena)
-            case ("rewind")
-                stmt_index = parse_rewind_statement(parser, arena)
-            case ("endfile")
-                stmt_index = parse_endfile_statement(parser, arena)
-            case ("allocate")
-                stmt_index = parse_allocate_statement(parser, arena)
-            case ("deallocate")
-                stmt_index = parse_deallocate_statement(parser, arena)
-            case ("if", "do", "where", "select", "forall", "associate")
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = route_control_flow(parser, arena)
-                end if
-            case ("function")
-                stmt_index = parse_function_definition(parser, arena, prefix_buffer)
-            case ("subroutine")
-                stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
-            case ("interface")
-                stmt_index = parse_interface_block(parser, arena, prefix_buffer)
-            case ("abstract")
-                block
-                    integer :: lookahead_idx
-                    type(token_t) :: next_token
-                    logical :: is_abstract_interface
-
-                    is_abstract_interface = .false.
-                    lookahead_idx = parser%current_token + 1
-                    do while (lookahead_idx <= size(parser%tokens))
-                        next_token = parser%tokens(lookahead_idx)
-                        select case (next_token%kind)
-                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                            lookahead_idx = lookahead_idx + 1
-                            cycle
-                        case (TK_KEYWORD, TK_IDENTIFIER)
-                            if (to_lower(trim(next_token%text)) == "interface") then
-                                is_abstract_interface = .true.
-                            end if
-                            exit
-                        case default
-                            exit
-                        end select
-                    end do
-
-                    if (is_abstract_interface) then
-                        next_token = parser%consume()
-                        stmt_index = parse_interface_block(parser, arena, &
-                                                           prefix_buffer, &
-                                                           is_abstract=.true.)
-                    else
-                        stmt_index = parse_type_or_declaration(parser, arena, &
-                                                               prefix_buffer)
-                    end if
-                end block
-            case ("module")
-                ! Check if this is an identifier assignment like "module = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_module(parser, arena)
-                end if
-            case ("submodule")
-                stmt_index = parse_submodule_statement(parser, arena)
-            case ("block")
-                block
-                    integer :: lookahead
-                    logical :: is_block_data
-                    type(token_t) :: lookahead_token
-
-                    is_block_data = .false.
-                    lookahead = parser%current_token + 1
-
-                    do while (lookahead <= size(parser%tokens))
-                        lookahead_token = parser%tokens(lookahead)
-                        select case (lookahead_token%kind)
-                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                            lookahead = lookahead + 1
-                            cycle
-                        case (TK_KEYWORD, TK_IDENTIFIER)
-                            if (to_lower(trim(lookahead_token%text)) == "data") then
-                                is_block_data = .true.
-                            end if
-                            exit
-                        case default
-                            exit
-                        end select
-                        lookahead = lookahead + 1
-                    end do
-
-                    if (is_block_data) then
-                        stmt_index = parse_block_data(parser, arena)
-                    else
-                        stmt_index = route_control_flow(parser, arena)
-                    end if
-                end block
-            case ("program")
-                ! Check if this is an identifier assignment like "program = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_program_statement(parser, arena)
-                end if
-            case ("type")
-                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
-            case ("real", "integer", "logical", "character", "complex", "double", &
-                  "class", "procedure")
-                ! Check if this is actually an assignment like "double = 5"
-                next_token = parser%get_token_at_index(parser%current_token + 1)
-                if (next_token%kind == TK_OPERATOR .and. &
-                    (next_token%text == "=" .or. next_token%text == "=>")) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_type_or_declaration(parser, arena, &
-                                                           prefix_buffer)
-                end if
-            case ("call")
-                ! Check if this is an identifier assignment like "call = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_call_statement(parser, arena)
-                end if
-            case ("implicit")
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_implicit_statement(parser, arena)
-                    block
-                        integer, allocatable :: extra_indices(:)
-                        extra_indices = take_implicit_additional_indices()
-                        if (size(extra_indices) > 0) then
-                            if (allocated(additional_indices)) then
-                                block
-                                    integer, allocatable :: temp(:)
-                                    call move_alloc(additional_indices, temp)
-                                end block
-                            end if
-                            call move_alloc(extra_indices, additional_indices)
-                        end if
-                    end block
-                end if
-            case ("stop")
-                ! Check if this is an identifier assignment like "stop = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_stop_statement(parser, arena)
-                end if
-            case ("pause")
-                stmt_index = parse_pause_statement(parser, arena)
-            case ("return")
-                ! Check if this is an identifier assignment like "return = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_return_statement(parser, arena)
-                end if
-            case ("entry")
-                ! Check if this is an identifier assignment like "entry = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_entry_statement(parser, arena)
-                end if
-            case ("go", "goto")
-                ! Check if this is an identifier assignment like "goto = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_goto_statement(parser, arena)
-                end if
-            case ("error")
-                stmt_index = parse_error_stop_statement(parser, arena)
-            case ("cycle")
-                ! Check if this is an identifier assignment like "cycle = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_cycle_statement(parser, arena)
-                end if
-            case ("exit")
-                ! Check if this is an identifier assignment like "exit = 42"
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_exit_statement(parser, arena)
-                end if
-            case ("nullify")
-                stmt_index = parse_nullify_statement(parser, arena)
-            case ("end")
-                stmt_index = parse_end_statement(parser, arena)
-            case ("data")
-                if (looks_like_data_statement(parser%tokens, parser%current_token)) then
-                    stmt_index = parse_data_statement(parser, arena)
-                    block
-                        integer, allocatable :: extra_indices(:)
-                        extra_indices = get_data_additional_indices()
-                        if (size(extra_indices) > 0) then
-                            if (allocated(additional_indices)) then
-                                block
-                                    integer, allocatable :: temp(:)
-                                    call move_alloc(additional_indices, temp)
-                                end block
-                            end if
-                            call move_alloc(extra_indices, additional_indices)
-                        end if
-                    end block
-                else
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                end if
-            case ("namelist")
-                stmt_index = parse_namelist_statement(parser, arena)
-            case ("equivalence", "common")
-                if (keyword_should_parse_as_identifier(first_token, parser)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                else
-                    stmt_index = parse_legacy_statement(lowered_keyword, parser, &
-                                                        arena)
-                end if
-            case ("enum", "enumerator")
-                stmt_index = parse_unsupported_statement(lowered_keyword, &
-                                                         parser, arena)
-            case default
-                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
-                                                     stmt_index)) then
-                    stmt_index = parse_as_expression(tokens, arena)
-                end if
-            end select
+            call dispatch_keyword(parser, arena, prefix_buffer, tokens, &
+                                 first_token, stmt_index)
         case (TK_NUMBER)
-            block
-                integer :: lookahead_idx
-                logical :: matched_block_data
-
-                matched_block_data = .false.
-                lookahead_idx = parser%current_token + 1
-                do while (lookahead_idx <= size(parser%tokens))
-                    next_token = parser%tokens(lookahead_idx)
-                    select case (next_token%kind)
-                    case (TK_WHITESPACE, TK_COMMENT)
-                        lookahead_idx = lookahead_idx + 1
-                        cycle
-                    case (TK_NEWLINE)
-                        exit
-                    case (TK_KEYWORD)
-                        if (to_lower(trim(next_token%text)) == "block") then
-                            lookahead_idx = lookahead_idx + 1
-                            do while (lookahead_idx <= size(parser%tokens))
-                                next_token = parser%tokens(lookahead_idx)
-                                select case (next_token%kind)
-                                case (TK_WHITESPACE, TK_COMMENT)
-                                    lookahead_idx = lookahead_idx + 1
-                                    cycle
-                                case (TK_KEYWORD, TK_IDENTIFIER)
-                                    if (to_lower(trim(next_token%text)) == &
-                                        "data") then
-                                        matched_block_data = .true.
-                                    end if
-                                    exit
-                                case default
-                                    exit
-                                end select
-                            end do
-                        end if
-                        exit
-                    case default
-                        exit
-                    end select
-                end do
-
-                if (matched_block_data) then
-                    stmt_index = parse_block_data(parser, arena)
-                else
-                    if (.not. try_handle_prefix_sequence(parser, arena, &
-                                                         prefix_buffer, &
-                                                         stmt_index)) then
-                        stmt_index = parse_as_expression(tokens, arena)
-                    end if
-                end if
-            end block
+            call dispatch_number_token(parser, arena, prefix_buffer, tokens, &
+                                      stmt_index)
         case (TK_IDENTIFIER)
-            lowered_keyword = to_lower(trim(first_token%text))
-            if (lowered_keyword == "class") then
-                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
-            else if (lowered_keyword == "goto") then
-                stmt_index = parse_goto_statement(parser, arena)
-            else
-                if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
-                                                     stmt_index)) then
-                    stmt_index = parse_assignment_or_expression(parser, arena)
-                end if
-            end if
+            call dispatch_identifier_token(parser, arena, prefix_buffer, &
+                                          first_token, stmt_index)
         case (TK_COMMENT)
-            ! Parse sentinel directives before general comments
-            if (allocated(first_token%text)) then
-                if (is_directive_comment(first_token%text)) then
-                    stmt_index = parse_directive(parser, arena)
-                else
-                    stmt_index = parse_comment(parser, arena)
-                end if
-            else
-                stmt_index = parse_comment(parser, arena)
-            end if
+            call dispatch_comment_token(parser, arena, first_token, stmt_index)
         case (TK_NEWLINE)
-            ! Parse blank line (newline token)
             stmt_index = parse_blank_line(parser, arena)
         case default
-            ! Parse as expression
             stmt_index = parse_as_expression(tokens, arena)
         end select
 
-        ! Extract parser errors before parser goes out of scope
-        ! Only overwrite if there are new errors (preserve previous errors)
         if (parser%has_errors()) then
             last_parser_errors = parser%get_error_messages()
         end if
-        ! Don't clear errors if this call didn't have any - preserve previous errors
-
     end function parse_statement_dispatcher
+
+    subroutine dispatch_keyword(parser, arena, prefix_buffer, tokens, &
+                                first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: tokens(:), first_token
+        integer, intent(out) :: stmt_index
+        character(len=:), allocatable :: lowered_keyword
+
+        lowered_keyword = to_lower(trim(first_token%text))
+        if (try_dispatch_io_keyword(parser, arena, lowered_keyword, stmt_index)) &
+            return
+        if (try_dispatch_control_keyword(parser, arena, first_token, &
+            lowered_keyword, stmt_index)) return
+        if (try_dispatch_definition_keyword(parser, arena, prefix_buffer, &
+            first_token, lowered_keyword, stmt_index)) return
+        if (try_dispatch_declaration_keyword(parser, arena, prefix_buffer, &
+            lowered_keyword, stmt_index)) return
+        if (try_dispatch_execution_keyword(parser, arena, first_token, &
+            lowered_keyword, stmt_index)) return
+        if (try_dispatch_data_keyword(parser, arena, first_token, &
+            lowered_keyword, stmt_index)) return
+        if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+            stmt_index)) then
+            stmt_index = parse_as_expression(tokens, arena)
+        end if
+    end subroutine dispatch_keyword
+
+    logical function try_dispatch_io_keyword(parser, arena, keyword, &
+        stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        handled = .true.
+        select case (keyword)
+        case ("print")
+            stmt_index = parse_print_statement(parser, arena)
+        case ("write")
+            stmt_index = parse_write_statement(parser, arena)
+        case ("read")
+            stmt_index = parse_read_statement(parser, arena)
+        case ("open")
+            stmt_index = parse_open_statement(parser, arena)
+        case ("close")
+            stmt_index = parse_close_statement(parser, arena)
+        case ("format")
+            stmt_index = parse_format_statement(parser, arena)
+        case ("inquire")
+            stmt_index = parse_inquire_statement(parser, arena)
+        case ("backspace")
+            stmt_index = parse_backspace_statement(parser, arena)
+        case ("rewind")
+            stmt_index = parse_rewind_statement(parser, arena)
+        case ("endfile")
+            stmt_index = parse_endfile_statement(parser, arena)
+        case ("allocate")
+            stmt_index = parse_allocate_statement(parser, arena)
+        case ("deallocate")
+            stmt_index = parse_deallocate_statement(parser, arena)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_io_keyword
+
+    logical function try_dispatch_control_keyword(parser, arena, first_token, &
+        keyword, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        handled = .true.
+        select case (keyword)
+        case ("if", "do", "where", "select", "forall", "associate")
+            if (keyword_should_parse_as_identifier(first_token, parser)) then
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            else
+                stmt_index = route_control_flow(parser, arena)
+            end if
+        case ("block")
+            call handle_block_keyword(parser, arena, stmt_index)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_control_keyword
+
+    logical function try_dispatch_definition_keyword(parser, arena, &
+        prefix_buffer, first_token, keyword, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        handled = .true.
+        select case (keyword)
+        case ("use")
+            stmt_index = parse_use_statement(parser, arena)
+        case ("intrinsic")
+            stmt_index = parse_intrinsic_statement(parser, arena)
+        case ("include")
+            stmt_index = parse_include_statement(parser, arena)
+        case ("function")
+            stmt_index = parse_function_definition(parser, arena, prefix_buffer)
+        case ("subroutine")
+            stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+        case ("interface")
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+        case ("abstract")
+            call handle_abstract_keyword(parser, arena, prefix_buffer, stmt_index)
+        case ("module")
+            call handle_module_keyword(parser, arena, first_token, stmt_index)
+        case ("submodule")
+            stmt_index = parse_submodule_statement(parser, arena)
+        case ("program")
+            call handle_program_keyword(parser, arena, first_token, stmt_index)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_definition_keyword
+
+    logical function try_dispatch_declaration_keyword(parser, arena, &
+        prefix_buffer, keyword, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+        type(token_t) :: next_token
+
+        handled = .true.
+        select case (keyword)
+        case ("type")
+            stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+        case ("real", "integer", "logical", "character", "complex", "double", &
+              "class", "procedure")
+            next_token = parser%get_token_at_index(parser%current_token + 1)
+            if (next_token%kind == TK_OPERATOR .and. &
+                (next_token%text == "=" .or. next_token%text == "=>")) then
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            else
+                stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+            end if
+        case ("implicit")
+            call handle_implicit_keyword(parser, arena, stmt_index)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_declaration_keyword
+
+    logical function try_dispatch_execution_keyword(parser, arena, first_token, &
+        keyword, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        handled = .true.
+        select case (keyword)
+        case ("call")
+            call handle_call_keyword(parser, arena, first_token, stmt_index)
+        case ("stop")
+            call handle_stop_keyword(parser, arena, first_token, stmt_index)
+        case ("pause")
+            stmt_index = parse_pause_statement(parser, arena)
+        case ("return")
+            call handle_return_keyword(parser, arena, first_token, stmt_index)
+        case ("entry")
+            call handle_entry_keyword(parser, arena, first_token, stmt_index)
+        case ("go", "goto")
+            call handle_goto_keyword(parser, arena, first_token, stmt_index)
+        case ("error")
+            stmt_index = parse_error_stop_statement(parser, arena)
+        case ("cycle")
+            call handle_cycle_keyword(parser, arena, first_token, stmt_index)
+        case ("exit")
+            call handle_exit_keyword(parser, arena, first_token, stmt_index)
+        case ("nullify")
+            stmt_index = parse_nullify_statement(parser, arena)
+        case ("end")
+            stmt_index = parse_end_statement(parser, arena)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_execution_keyword
+
+    logical function try_dispatch_data_keyword(parser, arena, first_token, &
+        keyword, stmt_index) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        handled = .true.
+        select case (keyword)
+        case ("data")
+            call handle_data_keyword(parser, arena, stmt_index)
+        case ("namelist")
+            stmt_index = parse_namelist_statement(parser, arena)
+        case ("equivalence", "common")
+            call handle_legacy_keyword(parser, arena, first_token, keyword, &
+                                      stmt_index)
+        case ("enum", "enumerator")
+            stmt_index = parse_unsupported_statement(keyword, parser, arena)
+        case default
+            handled = .false.
+        end select
+    end function try_dispatch_data_keyword
+
+    subroutine handle_abstract_keyword(parser, arena, prefix_buffer, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, intent(out) :: stmt_index
+        integer :: lookahead_idx
+        type(token_t) :: next_token
+        logical :: is_abstract_interface
+
+        is_abstract_interface = .false.
+        lookahead_idx = parser%current_token + 1
+        do while (lookahead_idx <= size(parser%tokens))
+            next_token = parser%tokens(lookahead_idx)
+            select case (next_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                lookahead_idx = lookahead_idx + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (to_lower(trim(next_token%text)) == "interface") then
+                    is_abstract_interface = .true.
+                end if
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (is_abstract_interface) then
+            next_token = parser%consume()
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
+                                              is_abstract=.true.)
+        else
+            stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+        end if
+    end subroutine handle_abstract_keyword
+
+    subroutine handle_block_keyword(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        integer :: lookahead
+        logical :: is_block_data
+        type(token_t) :: lookahead_token
+
+        is_block_data = .false.
+        lookahead = parser%current_token + 1
+        do while (lookahead <= size(parser%tokens))
+            lookahead_token = parser%tokens(lookahead)
+            select case (lookahead_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                lookahead = lookahead + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (to_lower(trim(lookahead_token%text)) == "data") then
+                    is_block_data = .true.
+                end if
+                exit
+            case default
+                exit
+            end select
+            lookahead = lookahead + 1
+        end do
+
+        if (is_block_data) then
+            stmt_index = parse_block_data(parser, arena)
+        else
+            stmt_index = route_control_flow(parser, arena)
+        end if
+    end subroutine handle_block_keyword
+
+    subroutine handle_module_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_module(parser, arena)
+        end if
+    end subroutine handle_module_keyword
+
+    subroutine handle_program_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_program_statement(parser, arena)
+        end if
+    end subroutine handle_program_keyword
+
+    subroutine handle_implicit_keyword(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        integer, allocatable :: extra_indices(:)
+
+        stmt_index = parse_implicit_statement(parser, arena)
+        extra_indices = take_implicit_additional_indices()
+        if (size(extra_indices) > 0) then
+            if (allocated(additional_indices)) then
+                block
+                    integer, allocatable :: temp(:)
+                    call move_alloc(additional_indices, temp)
+                end block
+            end if
+            call move_alloc(extra_indices, additional_indices)
+        end if
+    end subroutine handle_implicit_keyword
+
+    subroutine handle_call_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_call_statement(parser, arena)
+        end if
+    end subroutine handle_call_keyword
+
+    subroutine handle_stop_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_stop_statement(parser, arena)
+        end if
+    end subroutine handle_stop_keyword
+
+    subroutine handle_return_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_return_statement(parser, arena)
+        end if
+    end subroutine handle_return_keyword
+
+    subroutine handle_entry_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_entry_statement(parser, arena)
+        end if
+    end subroutine handle_entry_keyword
+
+    subroutine handle_goto_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_goto_statement(parser, arena)
+        end if
+    end subroutine handle_goto_keyword
+
+    subroutine handle_cycle_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_cycle_statement(parser, arena)
+        end if
+    end subroutine handle_cycle_keyword
+
+    subroutine handle_exit_keyword(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_exit_statement(parser, arena)
+        end if
+    end subroutine handle_exit_keyword
+
+    subroutine handle_data_keyword(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        integer, allocatable :: extra_indices(:)
+
+        if (looks_like_data_statement(parser%tokens, parser%current_token)) then
+            stmt_index = parse_data_statement(parser, arena)
+            extra_indices = get_data_additional_indices()
+            if (size(extra_indices) > 0) then
+                if (allocated(additional_indices)) then
+                    block
+                        integer, allocatable :: temp(:)
+                        call move_alloc(additional_indices, temp)
+                    end block
+                end if
+                call move_alloc(extra_indices, additional_indices)
+            end if
+        else
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        end if
+    end subroutine handle_data_keyword
+
+    subroutine handle_legacy_keyword(parser, arena, first_token, keyword, &
+                                     stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: keyword
+        integer, intent(out) :: stmt_index
+
+        if (keyword_should_parse_as_identifier(first_token, parser)) then
+            stmt_index = parse_assignment_or_expression(parser, arena)
+        else
+            stmt_index = parse_legacy_statement(keyword, parser, arena)
+        end if
+    end subroutine handle_legacy_keyword
+
+    subroutine dispatch_number_token(parser, arena, prefix_buffer, tokens, &
+                                    stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(out) :: stmt_index
+        integer :: lookahead_idx
+        logical :: matched_block_data
+        type(token_t) :: next_token
+
+        matched_block_data = .false.
+        lookahead_idx = parser%current_token + 1
+        do while (lookahead_idx <= size(parser%tokens))
+            next_token = parser%tokens(lookahead_idx)
+            select case (next_token%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                lookahead_idx = lookahead_idx + 1
+                cycle
+            case (TK_NEWLINE)
+                exit
+            case (TK_KEYWORD)
+                if (to_lower(trim(next_token%text)) == "block") then
+                    lookahead_idx = lookahead_idx + 1
+                    do while (lookahead_idx <= size(parser%tokens))
+                        next_token = parser%tokens(lookahead_idx)
+                        select case (next_token%kind)
+                        case (TK_WHITESPACE, TK_COMMENT)
+                            lookahead_idx = lookahead_idx + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            if (to_lower(trim(next_token%text)) == "data") then
+                                matched_block_data = .true.
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                    end do
+                end if
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (matched_block_data) then
+            stmt_index = parse_block_data(parser, arena)
+        else
+            if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+                                                 stmt_index)) then
+                stmt_index = parse_as_expression(tokens, arena)
+            end if
+        end if
+    end subroutine dispatch_number_token
+
+    subroutine dispatch_identifier_token(parser, arena, prefix_buffer, &
+                                        first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+        character(len=:), allocatable :: lowered_keyword
+
+        lowered_keyword = to_lower(trim(first_token%text))
+        if (lowered_keyword == "class") then
+            stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
+        else if (lowered_keyword == "goto") then
+            stmt_index = parse_goto_statement(parser, arena)
+        else
+            if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
+                                                 stmt_index)) then
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            end if
+        end if
+    end subroutine dispatch_identifier_token
+
+    subroutine dispatch_comment_token(parser, arena, first_token, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: first_token
+        integer, intent(out) :: stmt_index
+
+        if (allocated(first_token%text)) then
+            if (is_directive_comment(first_token%text)) then
+                stmt_index = parse_directive(parser, arena)
+            else
+                stmt_index = parse_comment(parser, arena)
+            end if
+        else
+            stmt_index = parse_comment(parser, arena)
+        end if
+    end subroutine dispatch_comment_token
 
     ! Parse type declaration or derived type definition
     function parse_type_or_declaration(parser, arena, prefix_buffer) result(stmt_index)
@@ -379,59 +608,47 @@
                 stmt_index = parse_declaration(parser, arena)
             end if
         else
-            ! Other type keywords - assume it's a declaration unless proven otherwise
-            ! This handles cases like "real(kind=real64) :: x" where kind parameters
-            ! might interfere with double colon detection
             if (has_double_colon(parser)) then
-                ! Confirmed declaration with :: - check if single or multi-variable
-                block
-                    logical :: has_initializer, has_comma
-                    integer, allocatable :: decl_indices(:)
-
-                    call analyze_declaration_structure(parser, &
-                                                       has_initializer, has_comma)
-
-                    if (has_initializer .and. .not. has_comma) then
-                        ! Single variable with initializer - use parse_declaration
-                        stmt_index = parse_declaration(parser, arena)
-                    else if (has_comma) then
-                        ! Multi-variable declaration - use parse_multi_declaration
-                        decl_indices = parse_multi_declaration(parser, arena)
-                        if (allocated(decl_indices)) then
-                            if (size(decl_indices) > 0) then
-                                ! Return first declaration index
-                                stmt_index = decl_indices(1)
-
-                                ! Store additional indices if any
-                                if (size(decl_indices) > 1) then
-                                    additional_indices = decl_indices(2:)
-                                end if
-                            else
-                                stmt_index = parse_declaration(parser, arena)
-                                ! Fallback
-                            end if
-                        else
-                            stmt_index = parse_declaration(parser, arena)  ! Fallback
-                        end if
-                    else
-                        ! Single variable without initializer - use parse_declaration
-                        stmt_index = parse_declaration(parser, arena)
-                    end if
-                end block
+                call handle_declaration_with_colon(parser, arena, stmt_index)
             else
-                ! Check if this looks like a function definition
                 if (looks_like_function_definition(parser)) then
                     stmt_index = parse_function_or_expression(parser, arena, &
                                                               prefix_buffer)
                 else
-                    ! Default to declaration parsing for type keywords
-                    ! This handles "real(kind=real64) :: x" where :: detection fails
                     stmt_index = parse_declaration(parser, arena)
                 end if
             end if
         end if
-
     end function parse_type_or_declaration
+
+    subroutine handle_declaration_with_colon(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        logical :: has_initializer, has_comma
+        integer, allocatable :: decl_indices(:)
+
+        call analyze_declaration_structure(parser, has_initializer, has_comma)
+        if (has_initializer .and. .not. has_comma) then
+            stmt_index = parse_declaration(parser, arena)
+        else if (has_comma) then
+            decl_indices = parse_multi_declaration(parser, arena)
+            if (allocated(decl_indices)) then
+                if (size(decl_indices) > 0) then
+                    stmt_index = decl_indices(1)
+                    if (size(decl_indices) > 1) then
+                        additional_indices = decl_indices(2:)
+                    end if
+                else
+                    stmt_index = parse_declaration(parser, arena)
+                end if
+            else
+                stmt_index = parse_declaration(parser, arena)
+            end if
+        else
+            stmt_index = parse_declaration(parser, arena)
+        end if
+    end subroutine handle_declaration_with_colon
 
     ! Parse assignment or expression
     function parse_assignment_or_expression(parser, arena) result(stmt_index)
@@ -440,10 +657,7 @@
         integer :: stmt_index
         integer, allocatable :: extra_indices(:)
 
-        ! Delegate to full assignment parser which handles subscripts, components, etc
         call parse_assignment_statement(parser, arena, stmt_index, extra_indices)
-
-        ! Store additional indices from multi-assignment if any
         if (allocated(extra_indices)) then
             if (size(extra_indices) > 0) then
                 if (allocated(additional_indices)) then
@@ -455,7 +669,6 @@
                 additional_indices = extra_indices
             end if
         end if
-
     end function parse_assignment_or_expression
 
     ! Parse function definition or expression
@@ -468,8 +681,6 @@
         type(token_t) :: first_token, second_token
 
         first_token = parser%peek()
-
-        ! Look ahead to see if next token is "function"
         if (parser%current_token + 1 <= size(parser%tokens)) then
             second_token = parser%tokens(parser%current_token + 1)
             if (second_token%kind == TK_KEYWORD .and. second_token%text == &
@@ -478,10 +689,7 @@
                 return
             end if
         end if
-
-        ! Not a function definition, parse as expression
         stmt_index = parse_as_expression(parser%tokens, arena)
-
     end function parse_function_or_expression
 
     ! Parse as expression
@@ -500,7 +708,6 @@
 
         has_double_colon = .false.
         paren_depth = 0
-
         do i = parser%current_token + 1, min(parser%current_token + 50, &
                                              size(parser%tokens))
             if (parser%tokens(i)%kind == TK_OPERATOR) then
@@ -513,10 +720,8 @@
                     exit
                 end if
             else if (parser%tokens(i)%kind == TK_EOF) then
-                exit  ! Stop on EOF
+                exit
             else if (parser%tokens(i)%kind == TK_KEYWORD .and. paren_depth == 0) then
-                ! Only stop on keywords outside of parentheses
-                ! Allow declaration attribute keywords to continue search
                 if (parser%tokens(i)%text == "parameter" .or. &
                     parser%tokens(i)%text == "optional" .or. &
                     parser%tokens(i)%text == "intent" .or. &
@@ -527,9 +732,9 @@
                     parser%tokens(i)%text == "in" .or. &
                     parser%tokens(i)%text == "out" .or. &
                     parser%tokens(i)%text == "inout") then
-                    cycle  ! Continue searching
+                    cycle
                 else
-                    exit  ! Stop on other keywords outside parentheses
+                    exit
                 end if
             end if
         end do
@@ -541,8 +746,6 @@
         integer :: i
 
         looks_like_function_definition = .false.
-
-        ! Look for "function" keyword within the next few tokens
         do i = parser%current_token + 1, min(parser%current_token + 10, &
                                              size(parser%tokens))
             if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == &
@@ -551,7 +754,6 @@
                 exit
             else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text &
                      == "::") then
-                ! Found :: before function - this is a declaration
                 exit
             else if (parser%tokens(i)%kind == TK_EOF) then
                 exit
@@ -630,7 +832,6 @@
         type(blank_line_node) :: blank_line
         integer :: count
 
-        ! Count consecutive newlines
         count = 0
         do while (parser%current_token <= size(parser%tokens))
             token = parser%peek()
@@ -639,7 +840,6 @@
             token = parser%consume()
         end do
 
-        ! Create blank line node with count of consecutive lines
         blank_line%uid = generate_uid()
         blank_line%count = count
         blank_line%line = token%line
