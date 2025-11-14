@@ -39,27 +39,43 @@ module frontend_transformation_pipeline
     use procedure_classification, only: should_hoist_procedure
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use frontend_transformation_common, only: format_options_t, transform_context_t, &
-        shared_arena, shared_arena_initialized
+                                              shared_arena, shared_arena_initialized
     use frontend_transformation_structure, only: collect_procedures_and_target, &
-        filter_hoistable_procedures, remove_procedures_from_body, &
-        ensure_contains_exists, insert_procedures_after_contains, &
-        clean_external_declarations, merge_additional_main_programs, &
-        append_program_body_to_target, remove_target_procedures_from_body, &
-        normalize_multi_unit_container, collect_procedure_indices, &
-        create_module_with_procedures, wrap_ast_in_module_only, &
-        wrap_ast_in_module_and_program, run_code_generation_phase, &
-        is_whitespace_only, has_leading_comment, extract_leading_comment_block, &
-        contains_binary_data, save_current_configuration, &
-        restore_configuration, apply_format_options
+                                                 filter_hoistable_procedures, &
+                                                     remove_procedures_from_body, &
+                             ensure_contains_exists, insert_procedures_after_contains, &
+                                                 clean_external_declarations, &
+                                                     merge_additional_main_programs, &
+                    append_program_body_to_target, remove_target_procedures_from_body, &
+                                                 normalize_multi_unit_container, &
+                                                     collect_procedure_indices, &
+                                                 create_module_with_procedures, &
+                                                     wrap_ast_in_module_only, &
+                                                 wrap_ast_in_module_and_program, &
+                                                     run_code_generation_phase, &
+                                                 is_whitespace_only, &
+                                                     has_leading_comment, &
+                                                     extract_leading_comment_block, &
+                                                 contains_binary_data, &
+                                                     save_current_configuration, &
+                                                 restore_configuration, &
+                                                     apply_format_options
     use frontend_transformation_analysis, only: build_procedure_membership, &
-        analyze_ast_content, analyze_single_unit, collect_host_assignment_names, &
-        collect_program_assignment_names, collect_procedure_assignment_names, &
-        collect_assignment_from_node, record_identifier_name, append_unique_name, &
-        promote_functions_to_internal_program, requires_lazy_internalization, &
-        has_existing_module_in_ast
+                                                analyze_ast_content, &
+                                                    analyze_single_unit, &
+                                                    collect_host_assignment_names, &
+                 collect_program_assignment_names, collect_procedure_assignment_names, &
+                                                collect_assignment_from_node, &
+                                                    record_identifier_name, &
+                                                    append_unique_name, &
+                                                promote_functions_to_internal_program, &
+                                                    requires_lazy_internalization, &
+                                                has_existing_module_in_ast
+    use frontend_location_validation, only: validate_ast_locations
     use frontend_transformation_semantics, only: analyze_container_semantics, &
-        merge_signature_maps, add_signature_from_entry, &
-        get_detailed_semantic_errors
+                                                 merge_signature_maps, &
+                                                     add_signature_from_entry, &
+                                                 get_detailed_semantic_errors
 
     implicit none
     private
@@ -176,6 +192,9 @@ contains
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
+
+        ! Optional: Validate AST locations after parsing
+        call validate_locations_if_enabled(shared_arena%ast, 'post-parse')
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
@@ -707,6 +726,9 @@ contains
         ! Phase 3.5: Standardization (normalize structure before specialization)
         call run_standardization_phase(compiler_arena, prog_index, .true.)
 
+        ! Optional: Validate AST locations after standardization
+        call validate_locations_if_enabled(compiler_arena%ast, 'post-standardize')
+
         ! Phase 4: Monomorphization (AST transformation)
         call run_monomorphization_phase(compiler_arena, prog_index, signatures)
 
@@ -714,7 +736,7 @@ contains
                                  has_subroutines, has_main_code)
 
         force_internal_wrapping = requires_lazy_internalization( &
-                                compiler_arena%ast, prog_index)
+                                  compiler_arena%ast, prog_index)
 
         ! Initialize default context for wrapping
         context%source_name = "main"
@@ -730,7 +752,8 @@ contains
                                                                prog_index)
                 end if
             else if (enable_ast_wrapping .and. (has_functions .or. &
-                     has_subroutines) .and. .not. has_main_code) then
+                                                has_subroutines) .and. .not. &
+                                                    has_main_code) then
                 call wrap_ast_in_module_only(compiler_arena%ast, prog_index, context)
             end if
         end if
@@ -877,5 +900,27 @@ contains
         ! Transform AST to add monomorphized variants
         call transform_monomorphization(compiler_arena%ast, prog_index, signatures)
     end subroutine run_monomorphization_phase
+
+    ! Helper: Run location validation if enabled via environment variable
+    subroutine validate_locations_if_enabled(arena, phase_name)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: phase_name
+        character(len=256) :: env_value
+        integer :: status, violations
+
+        call get_environment_variable('FORTFRONT_VALIDATE_LOCATIONS', &
+                                      env_value, status=status)
+        if (status /= 0) return
+        if (len_trim(env_value) == 0) return
+
+        ! Run validation and report violations
+        call validate_ast_locations(arena, strict_mode=.false., &
+                                    violations_count=violations)
+        if (violations > 0) then
+            write (error_unit, '(A,A,A,I0,A)') &
+                'Location validation (', trim(phase_name), '): ', &
+                violations, ' violations detected'
+        end if
+    end subroutine validate_locations_if_enabled
 
 end module frontend_transformation_pipeline

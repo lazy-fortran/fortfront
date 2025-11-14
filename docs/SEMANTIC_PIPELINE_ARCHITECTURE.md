@@ -46,6 +46,15 @@
 - Standardization and code generation read the diagnostic collection to decide
   whether to continue emitting Fortran code.
 
+## AST Location Validation (Issue #2383)
+- `frontend_location_validation` module walks the AST after parsing and standardization
+  to verify all nodes have valid source locations (`line` > 0, `column` > 0).
+- Enabled via `FORTFRONT_VALIDATE_LOCATIONS` environment variable (debug/test builds).
+- Missing locations result in degraded diagnostics (errors appear at "line 1").
+- Synthesized nodes (e.g., `contains` wrappers, `implicit none` statements) are
+  allowed to have default locations in non-strict mode.
+- Validation reports violations to stderr but does not abort compilation.
+
 ## Remaining Work
 - Nested procedure scoping still depends on post-walk fixups in
   `call_graph_module::build_call_graph`; unscoped procedure bodies can hide free variables

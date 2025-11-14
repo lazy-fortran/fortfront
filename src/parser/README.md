@@ -68,3 +68,10 @@ The parser is the second phase of compilation, bridging the lexer and semantic a
 **Error Handling**
 - `error_handling` - Parse error reporting
 - `error_reporting` - Structured error messages
+
+**Location Tracking**
+- All parser functions must populate `line` and `column` fields on AST nodes
+- Source locations are validated by `frontend_location_validation` module
+- Missing locations degrade diagnostic quality (appear as "line 1")
+- Enable validation: `export FORTFRONT_VALIDATE_LOCATIONS=1`
+- See issue #2383 for location validation architecture
