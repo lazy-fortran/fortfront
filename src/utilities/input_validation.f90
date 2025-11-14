@@ -450,6 +450,10 @@ contains
         logical :: has_program_start, module_as_identifier
         type(token_t), allocatable, target :: parser_tokens(:)
         type(parser_state_t) :: parser_state
+        integer, allocatable :: construct_stack(:)
+        integer, parameter :: UNIT_NONE = 0, UNIT_PROGRAM = 1, UNIT_FUNCTION = 2
+        integer, parameter :: UNIT_SUBROUTINE = 3, UNIT_MODULE = 4
+        integer :: popped_unit
 
         error_msg = ""
         program_count = 0
@@ -486,19 +490,24 @@ contains
 
                     program_count = program_count + 1
                     has_program_start = .true.
+                    call push_construct(UNIT_PROGRAM)
                 case ("function")
                     ! Check if this is not "end function"
                     if (i == 1) then
                         function_count = function_count + 1
+                        call push_construct(UNIT_FUNCTION)
                     else if (i > 1 .and. tokens(i - 1)%text /= "end") then
                         function_count = function_count + 1
+                        call push_construct(UNIT_FUNCTION)
                     end if
                 case ("subroutine")
                     ! Check if this is not "end subroutine"
                     if (i == 1) then
                         subroutine_count = subroutine_count + 1
+                        call push_construct(UNIT_SUBROUTINE)
                     else if (i > 1 .and. tokens(i - 1)%text /= "end") then
                         subroutine_count = subroutine_count + 1
+                        call push_construct(UNIT_SUBROUTINE)
                     end if
                 case ("module")
                     if (.not. is_module_statement_start(tokens, i)) cycle
@@ -512,8 +521,10 @@ contains
                     ! Check if this is not "end module"
                     if (i == 1) then
                         module_count = module_count + 1
+                        call push_construct(UNIT_MODULE)
                     else if (i > 1 .and. tokens(i - 1)%text /= "end") then
                         module_count = module_count + 1
+                        call push_construct(UNIT_MODULE)
                     end if
                 case ("end")
                     ! Check what kind of end this is
@@ -521,22 +532,42 @@ contains
                         select case (tokens(i + 1)%text)
                         case ("program")
                             end_program_count = end_program_count + 1
+                            call pop_construct(UNIT_PROGRAM, popped_unit)
                         case ("function")
                             end_function_count = end_function_count + 1
+                            call pop_construct(UNIT_FUNCTION, popped_unit)
                         case ("subroutine")
                             end_subroutine_count = end_subroutine_count + 1
+                            call pop_construct(UNIT_SUBROUTINE, popped_unit)
                         case ("module")
+                            end_module_count = end_module_count + 1
+                            call pop_construct(UNIT_MODULE, popped_unit)
+                        end select
+                    else
+                        call pop_construct(popped_unit=popped_unit)
+                        select case (popped_unit)
+                        case (UNIT_PROGRAM)
+                            end_program_count = end_program_count + 1
+                        case (UNIT_FUNCTION)
+                            end_function_count = end_function_count + 1
+                        case (UNIT_SUBROUTINE)
+                            end_subroutine_count = end_subroutine_count + 1
+                        case (UNIT_MODULE)
                             end_module_count = end_module_count + 1
                         end select
                     end if
                 case ("endprogram")
                     end_program_count = end_program_count + 1
+                    call pop_construct(UNIT_PROGRAM, popped_unit)
                 case ("endfunction")
                     end_function_count = end_function_count + 1
+                    call pop_construct(UNIT_FUNCTION, popped_unit)
                 case ("endsubroutine")
                     end_subroutine_count = end_subroutine_count + 1
+                    call pop_construct(UNIT_SUBROUTINE, popped_unit)
                 case ("endmodule")
                     end_module_count = end_module_count + 1
+                    call pop_construct(UNIT_MODULE, popped_unit)
                 end select
             end if
         end do
@@ -566,6 +597,51 @@ contains
                                               "Add 'end module' to close the module definition", &
                                               "MISSING_END")
         end if
+
+    contains
+
+        subroutine push_construct(unit_type)
+            integer, intent(in) :: unit_type
+            integer, allocatable :: tmp(:)
+            integer :: n
+
+            if (.not. allocated(construct_stack)) then
+                allocate (construct_stack(1))
+                construct_stack(1) = unit_type
+                return
+            end if
+
+            n = size(construct_stack)
+            allocate (tmp(n + 1))
+            if (n > 0) tmp(1:n) = construct_stack
+            tmp(n + 1) = unit_type
+            call move_alloc(tmp, construct_stack)
+        end subroutine push_construct
+
+        subroutine pop_construct(expected_unit, popped_unit)
+            integer, intent(in), optional :: expected_unit
+            integer, intent(out) :: popped_unit
+            integer :: n
+
+            popped_unit = UNIT_NONE
+            if (.not. allocated(construct_stack)) return
+            n = size(construct_stack)
+            if (n <= 0) return
+
+            popped_unit = construct_stack(n)
+            if (n == 1) then
+                deallocate (construct_stack)
+            else
+                construct_stack = construct_stack(:n - 1)
+            end if
+
+            if (present(expected_unit)) then
+                if (popped_unit /= expected_unit) then
+                    popped_unit = expected_unit
+                end if
+            end if
+        end subroutine pop_construct
+
     end subroutine check_missing_end_constructs
 
     logical function is_module_procedure_statement(tokens, pos) result(is_module_proc)
