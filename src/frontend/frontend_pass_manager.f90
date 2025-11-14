@@ -189,8 +189,8 @@ contains
         case (PASS_CODEGEN)
             should_run = config%enable_codegen
         case default
-            ! Unknown pass - run if required
-            should_run = pass%required
+            ! Unknown/custom pass - run by default
+            should_run = .true.
         end select
     end function pass_should_run
 
