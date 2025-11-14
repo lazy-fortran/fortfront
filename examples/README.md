@@ -48,10 +48,10 @@ This directory contains canonical example source files for both lazy Fortran (`.
 - **Concise**: As short as possible while demonstrating the feature
 
 **Zero-Duplication Enforcement**
-- CI checks test files for inline code violations
+- For complete policy details, see [CLAUDE.md Examples & Tests Organization](../CLAUDE.md#examples--tests-organization)
+- CI checks test files for inline code violations (see `make check-duplication`)
 - End-to-end tests MUST use `read_example()` to load these files
-- See `CLAUDE.md` for complete zero-duplication policy
-- Current status: Migration in progress (see `make check-duplication`)
+- Unit tests use inline code (encouraged), end-to-end tests reference examples/ (required)
 
 ## Testing Examples
 

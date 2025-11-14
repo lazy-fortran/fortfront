@@ -40,10 +40,9 @@ Node types cover the complete Fortran language: programs, modules, procedures, e
 - Optional type annotation (from semantic analysis)
 
 **Memory Layout**
-- All nodes allocated in contiguous arena memory
+- For arena allocation details, see [AST Arena README](../arena/README.md)
 - Fixed-size node types for predictable allocation
 - No dynamic memory within nodes (use indices)
-- Cache-friendly layout for traversal
 
 **Modularization Strategy**
 - Files split when approaching 500-line target

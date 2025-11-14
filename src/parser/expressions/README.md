@@ -22,11 +22,9 @@ This directory implements expression parsing using a Pratt parser (precedence cl
 ## Key Concepts
 
 **Pratt Parsing (Precedence Climbing)**
-- Elegant handling of operator precedence
-- Left and right binding power for each operator
-- Naturally handles associativity
-- Supports prefix, infix, and postfix operators
-- See `docs/PRATT_PIPELINE_ARCHITECTURE.md` for implementation details
+- For complete Pratt parser design, see [Parser README](../README.md#key-concepts) and [docs/PRATT_PIPELINE_ARCHITECTURE.md](../../../docs/PRATT_PIPELINE_ARCHITECTURE.md)
+- Elegant operator precedence via left/right binding power
+- Naturally handles associativity and prefix/infix/postfix operators
 
 **Operator Precedence (Highest to Lowest)**
 1. **Primary**: Literals, identifiers, parentheses

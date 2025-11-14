@@ -6,20 +6,11 @@ This directory contains the complete implementation of the fortfront compiler fr
 
 ## Architecture Overview
 
-Fortfront transforms both standard and lazy Fortran through a multi-stage pipeline:
+For the complete architecture overview including pipeline stages, core subsystems, and design patterns, see [CLAUDE.md Architecture Overview](../CLAUDE.md#architecture-overview).
 
+**Quick Pipeline Summary**:
 ```
-Source Text
-    ↓
-[Lexer] → Tokens
-    ↓
-[Parser] → AST (Abstract Syntax Tree)
-    ↓
-[Semantic Analysis] → Typed AST
-    ↓
-[Standardizers] → Standard Fortran AST
-    ↓
-[Code Generation] → Standard Fortran Source
+Source Text → [Lexer] → [Parser] → [Semantic] → [Standardizers] → [Codegen] → Standard Fortran
 ```
 
 ## Subsystem Organization
@@ -214,30 +205,10 @@ Each subdirectory has a `README.md` with:
 
 ## Key Design Decisions
 
-**Arena Allocation**:
-- All AST nodes in arena memory
-- No manual deallocation
-- Prevents memory leaks and dangling pointers
-- See `memory/README.md` and `docs/MEMORY_SAFETY_ANALYSIS.md`
+For complete design patterns and implementation details, see [CLAUDE.md Architecture Overview](../CLAUDE.md#architecture-overview) and the following documentation:
 
-**Visitor Pattern**:
-- All AST traversal via visitors
-- Never copy nodes, only reference via indices
-- Type-safe dispatch
-- See `ast/traversal/README.md`
-
-**Pratt Parser**:
-- Expression parsing via precedence climbing
-- Elegant operator precedence handling
-- See `parser/expressions/README.md` and `docs/PRATT_PIPELINE_ARCHITECTURE.md`
-
-**Type Inference**:
-- Multi-pass inference until convergence
-- Call graph drives procedure type inference
-- See `semantic/README.md` and `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md`
-
-**Monomorphization**:
-- Type specialization for generic procedures
-- Name mangling for specialized versions
-- Standard Fortran generic interfaces
-- See `standardizers/README.md` and `docs/MONOMORPHIZATION.md`
+- **Arena Allocation**: `memory/README.md`, `docs/MEMORY_SAFETY_ANALYSIS.md`
+- **Visitor Pattern**: `ast/traversal/README.md`
+- **Pratt Parser**: `parser/expressions/README.md`, `docs/PRATT_PIPELINE_ARCHITECTURE.md`
+- **Type Inference**: `semantic/README.md`, `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md`
+- **Monomorphization**: `standardizers/README.md`, `docs/MONOMORPHIZATION.md`
