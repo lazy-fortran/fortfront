@@ -8,42 +8,63 @@ Standardizers modify the AST in-place to make it fully conformant with standard 
 
 ## File Index
 
-| File | Description |
-|------|-------------|
-| standardizer.f90 | Public facade for standardization operations |
-| standardizer_core.f90 | Core standardization orchestration |
-| standardizer_driver.f90 | Main standardization driver, multi-pass coordination |
-| standardizer_types.f90 | Type standardization facade (includes two parts) |
-| standardizer_types_part1.inc | Type standardization part 1: type declarations |
-| standardizer_types_part2.inc | Type standardization part 2: derived types |
-| standardizer_program.f90 | Program structure standardization (wrap bare statements) |
-| standardizer_module.f90 | Module structure standardization |
-| standardizer_function.f90 | Function standardization (add result type, intents) |
-| standardizer_function_parameters.f90 | Function parameter standardization |
-| standardizer_function_parameter_builders.f90 | Build standardized parameter declarations |
-| standardizer_function_param_scanner.f90 | Scan function parameters for inference |
-| standardizer_function_result_utils.f90 | Function result type utilities |
-| standardizer_subroutine.f90 | Subroutine standardization (add intents) |
-| standardizer_subroutine_intent.f90 | Subroutine intent inference and insertion |
-| standardizer_parameter.f90 | Parameter declaration standardization |
-| standardizer_subprograms.f90 | Subprogram standardization utilities |
-| standardizer_wrapping.f90 | Wrap bare code in program structure |
-| standardizer_declarations.f90 | Declaration standardization facade |
-| standardizer_declarations_core.f90 | Core declaration standardization logic |
-| standardizer_declarations_collection.f90 | Collect declarations for insertion |
-| standardizer_declarations_insertion.f90 | Insert inferred declarations into AST |
-| standardizer_declarations_inference.f90 | Declaration inference from semantic context |
-| standardizer_declarations_parsing.f90 | Parse existing declarations |
-| standardizer_declarations_variables.f90 | Variable declaration standardization |
-| standardizer_declarations_array.f90 | Array declaration standardization |
-| standardizer_declarations_state.f90 | State management for declaration processing |
-| standardizer_allocatable.f90 | Allocatable attribute handling |
-| standardizer_pointer_targets.f90 | Pointer and target attribute handling |
-| standardizer_interface_utils.f90 | Interface block utilities |
-| ast_monomorphization.f90 | Monomorphization facade (includes three parts) |
-| ast_monomorphization_part1.inc | Monomorphization part 1: signature analysis |
-| ast_monomorphization_part2.inc | Monomorphization part 2: specialization generation |
-| ast_monomorphization_part3.inc | Monomorphization part 3: call site rewriting |
+### Core Orchestration
+- `standardizer.f90` - Public facade for standardization operations
+- `standardizer_core.f90` - Core standardization orchestration
+- `standardizer_driver.f90` - Main driver, multi-pass coordination
+
+### Type Standardization (3 files)
+Transform type declarations to standard Fortran including derived types.
+- `standardizer_types.f90` - Type standardization facade
+- `standardizer_types_part1.inc` - Type declarations
+- `standardizer_types_part2.inc` - Derived types
+
+### Program & Module Structure (3 files)
+Add program/module wrappers to bare statements and procedures.
+- `standardizer_program.f90` - Program structure (wrap bare statements)
+- `standardizer_module.f90` - Module structure standardization
+- `standardizer_wrapping.f90` - Wrap bare code in program structure
+
+### Function Standardization (5 files)
+Add result types, infer intents, standardize parameters.
+- `standardizer_function.f90` - Function standardization
+- `standardizer_function_parameters.f90` - Parameter standardization
+- `standardizer_function_parameter_builders.f90` - Build parameter declarations
+- `standardizer_function_param_scanner.f90` - Scan parameters for inference
+- `standardizer_function_result_utils.f90` - Result type utilities
+
+### Subroutine Standardization (2 files)
+Infer and insert intent attributes for subroutine parameters.
+- `standardizer_subroutine.f90` - Subroutine standardization
+- `standardizer_subroutine_intent.f90` - Intent inference and insertion
+
+### Subprogram & Parameter Handling
+- `standardizer_parameter.f90` - Parameter declaration standardization
+- `standardizer_subprograms.f90` - Subprogram standardization utilities
+
+### Declarations (8 files)
+Infer, collect, and insert variable declarations into AST.
+- `standardizer_declarations.f90` - Declaration standardization facade
+- `standardizer_declarations_core.f90` - Core declaration logic
+- `standardizer_declarations_collection.f90` - Collect declarations
+- `standardizer_declarations_insertion.f90` - Insert into AST
+- `standardizer_declarations_inference.f90` - Inference from semantic context
+- `standardizer_declarations_parsing.f90` - Parse existing declarations
+- `standardizer_declarations_variables.f90` - Variable declarations
+- `standardizer_declarations_array.f90` - Array declarations
+- `standardizer_declarations_state.f90` - State management
+
+### Attribute Handling
+- `standardizer_allocatable.f90` - Allocatable attribute handling
+- `standardizer_pointer_targets.f90` - Pointer and target attributes
+- `standardizer_interface_utils.f90` - Interface block utilities
+
+### Monomorphization (4 files)
+Generate type-specialized procedure variants and rewrite call sites.
+- `ast_monomorphization.f90` - Monomorphization facade
+- `ast_monomorphization_part1.inc` - Signature analysis
+- `ast_monomorphization_part2.inc` - Specialization generation
+- `ast_monomorphization_part3.inc` - Call site rewriting
 
 ## Key Concepts
 
