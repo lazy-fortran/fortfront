@@ -52,8 +52,6 @@ contains
             init_indices, var_count, has_any_initializer, decl_indices)
     end function parse_multi_declaration
 
-
-
     subroutine initialize_multi_state(var_names, per_var_dims, has_dims, &
                                       init_indices)
         character(len=64), allocatable, intent(out) :: var_names(:)
@@ -374,6 +372,5 @@ contains
         allocate (var_dims(dim_count))
         var_dims = per_var_dims(index, 1:dim_count)
     end subroutine extract_variable_dimensions
-
 
 end module parser_declarations_multi_module
