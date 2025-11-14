@@ -74,7 +74,8 @@ contains
 
         call parse_function_prefix_keywords(parser, prefix_buffer, &
                                             prefix_keywords=prefix_keywords, &
-                                            has_recursive_keyword=has_recursive_keyword)
+                                            has_recursive_keyword= &
+                                            has_recursive_keyword)
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
         call parse_bind_c_clause(parser, bind_c_clause)
