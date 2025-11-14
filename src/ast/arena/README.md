@@ -17,36 +17,17 @@ The arena implementation provides multiple interfaces for compatibility with dif
 
 ## Key Concepts
 
-**Arena Allocation Model**
-- Stack-like allocation in contiguous memory blocks
-- No individual deallocation - entire arena freed at once
-- Automatic lifetime management tied to scope
-- Predictable memory layout for cache efficiency
+For complete arena allocation design principles, see [AST README](../README.md#key-concepts) and [docs/MEMORY_SAFETY_ANALYSIS.md](../../../docs/MEMORY_SAFETY_ANALYSIS.md).
 
-**Memory Safety**
-- Bounds checking in debug builds
-- Index-based node references (not pointers)
-- Prevents use-after-free errors
-- Prevents memory leaks (automatic cleanup)
+**This Directory's Specifics**:
+- **Core allocator**: `ast_arena_core.f90` - block management, allocation tracking
+- **Compatibility layer**: `ast_arena_compat.f90` - legacy patterns
+- **Modern interface**: `ast_arena_modern.f90` - type-safe allocation
+- **Safety checks**: `ast_arena_safe.f90` - bounds verification
 
-**Allocation Strategies**
-- **Block-based**: Allocate large blocks, serve allocations from current block
-- **Growth**: Allocate larger blocks when current block exhausted
-- **Alignment**: Ensure proper alignment for performance
-- **Tracking**: Record allocation metadata for debugging
+**Performance**: O(1) allocation, O(1) bulk deallocation, cache-friendly layout
 
-**Performance Characteristics**
-- O(1) allocation (bump pointer)
-- O(1) bulk deallocation (free entire arena)
-- No fragmentation (contiguous allocation)
-- Cache-friendly (predictable memory layout)
-
-**Stack Size Considerations**
-- Large programs may exceed default stack limits
-- Windows: 1-2 MB default stack
-- Linux: 8 MB default stack
-- Test target: `make test-small-stack` simulates Windows limits
-- See `docs/MEMORY_SAFETY_ANALYSIS.md` for mitigation strategies
+**Stack limits**: Test with `make test-small-stack` to simulate Windows 1-2 MB limits
 
 **Interface Variants**
 - **Core**: Low-level allocation primitives

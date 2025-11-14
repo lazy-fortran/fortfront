@@ -26,10 +26,10 @@ Factory methods handle arena allocation, node initialization, field assignment, 
 ## Key Concepts
 
 **Factory Method Pattern**
+- For arena allocation details, see [AST Arena README](../arena/README.md)
 - Encapsulates node allocation and initialization
 - Provides type-safe construction interface
-- Hides arena allocation details from callers
-- Ensures all nodes properly registered
+- Hides arena details from callers
 
 **Typical Factory Signature**
 ```fortran

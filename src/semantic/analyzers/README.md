@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This directory contains specialized semantic analyzers for different AST node types and analysis tasks. Each analyzer focuses on a specific aspect of semantic analysis: expressions, assignments, function calls, arrays, parameters, literals, etc. Analyzers are organized by syntactic category and analysis concern.
+This directory contains specialized semantic analyzers for different AST node types and analysis tasks. Each analyzer focuses on a specific aspect of semantic analysis: expressions, assignments, function calls, arrays, parameters, literals, etc.
+
+For complete semantic analysis concepts including type inference, scope management, and convergence, see [Semantic README](../README.md#key-concepts).
 
 ## File Index
 

@@ -32,31 +32,26 @@ This directory contains the complete test suite for fortfront, organized by subs
 
 ## Key Concepts
 
-**Test Hierarchy**
-1. **Unit tests**: Test individual functions/modules in isolation (inline code ENCOURAGED)
-2. **Integration tests**: Test interactions between components (use judgment)
-3. **End-to-end tests**: Test complete transformation pipeline (MUST use `examples/`)
+**Test Hierarchy and Zero-Duplication Policy**
 
-**Zero-Duplication Policy**
-- **Unit tests**: Small, focused inline code is PERFECT ✅
-- **End-to-end tests**: MUST reference `examples/` directory ❌ no full programs inline
-- **ONE canonical example, many references**
-- See `CLAUDE.md` for complete policy
+For complete test organization policy, see [CLAUDE.md Examples & Tests Organization](../CLAUDE.md#examples--tests-organization).
 
-**Example Usage in Tests**
+**Quick Summary**:
+- **Unit tests**: Inline code encouraged (test individual functions)
+- **Integration tests**: Use judgment (small inline OK, large use examples/)
+- **End-to-end tests**: MUST reference `examples/` directory
+
+**Example Usage**:
 ```fortran
 ! UNIT TEST - inline code is PERFECT
 program test_parse_assignment
-    use parser, only: parse_assignment
     node = parse_assignment("x = 42")
-    call assert_equal(node%value, 42)
 end program
 
 ! END-TO-END TEST - MUST use examples/
 program test_transform_lazy_fortran
     call read_example('examples/lf/square_function.lf', source)
     call transform_lazy_fortran_string(source, output, errors)
-    call assert_no_errors(errors)
 end program
 ```
 
