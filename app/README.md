@@ -21,9 +21,8 @@ fortfront input.lf > output.f90
 # Transform from stdin
 echo "x = 5" | fortfront > output.f90
 
-# With options (future)
-fortfront --trace input.lf > output.f90  # Enable tracing
-fortfront --format input.lf > output.f90  # Format output
+# With options
+fortfront --trace input.lf > output.f90  # Enable debug tracing
 ```
 
 **Command-Line Interface**
@@ -56,8 +55,13 @@ fortfront --format input.lf > output.f90  # Format output
 - Helpful suggestions for fixes
 - Exit with appropriate error code
 
+**CLI Options**
+- `-h, --help` - Show help message
+- `-v, --version` - Show version information
+- `--trace[=on|off]` - Enable/disable debug tracing (overrides FORTFRONT_TRACE env)
+- `--trace-file <path>` - Trace output file path (overrides FORTFRONT_TRACE_FILE env)
+
 **Future CLI Features**
-- `--trace` - Enable debug tracing
 - `--format` - Pretty-print output
 - `--check` - Validate without generating output
 - `--ast` - Print AST in JSON format
