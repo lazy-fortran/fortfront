@@ -1,0 +1,2 @@
+! Lazy Fortran func shorthand used to exercise CLI error path
+func add(x, y) = x + y

@@ -1,9 +1,18 @@
 program test_cli_integration
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+        & iostat_eor
     implicit none
     integer :: test_count, pass_count
     logical :: is_windows
     logical :: run_system
+    character(len=*), parameter :: EXAMPLE_CLI_BASIC = &
+        'examples/lf/cli_basic_print.lf'
+    character(len=*), parameter :: EXAMPLE_CLI_OK = &
+        'examples/lf/cli_print_ok.lf'
+    character(len=*), parameter :: EXAMPLE_CLI_INVALID = &
+        'examples/lf/cli_invalid_source.lf'
+    character(len=*), parameter :: EXAMPLE_CLI_FUNC = &
+        'examples/lf/cli_func_add.lf'
 
     test_count = 0
     pass_count = 0
@@ -101,6 +110,29 @@ program test_cli_integration
     end if
 
 contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine copy_example_to_file(example_path, dest_path)
+        character(len=*), intent(in) :: example_path, dest_path
+        character(len=:), allocatable :: content
+
+        call read_example_file(example_path, content)
+        call write_text_file(dest_path, content)
+    end subroutine copy_example_to_file
+
+    subroutine read_example_file(example_path, content)
+        character(len=*), intent(in) :: example_path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., trim(example_path), content, status)
+        if (status /= 0) then
+            write (error_unit, '(A,A)') 'Failed to read example: ', &
+                & trim(example_path)
+            error stop 1
+        end if
+    end subroutine read_example_file
 
     subroutine cleanup_file(file)
         character(len=*), intent(in) :: file
@@ -361,7 +393,7 @@ contains
         end if
 
         ! Prepare input file for cross-platform piping
-        call write_text_file('test_input.lf', 'print *, ''test'''//new_line('a'))
+        call copy_example_to_file(EXAMPLE_CLI_BASIC, 'test_input.lf')
 
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
@@ -471,8 +503,7 @@ contains
         end if
 
         ! Prepare a CRLF-ended input file (convert from LF)
-        call write_text_file('test_input_crlf_src.lf', &
-                             'print *, ''test'''//new_line('a'))
+        call copy_example_to_file(EXAMPLE_CLI_BASIC, 'test_input_crlf_src.lf')
         call execute_command_line('bash -lc "sed ''s/$/\\r/'' test_input_crlf_src.lf > test_input_crlf.lf"', &
                                   exitstat=exit_code)
         if (exit_code /= 0) then
@@ -555,8 +586,7 @@ contains
             return
         end if
 
-        call write_text_file('test_input_pipe_win.lf', &
-                             'print *, ''test'''//new_line('a'))
+        call copy_example_to_file(EXAMPLE_CLI_BASIC, 'test_input_pipe_win.lf')
         command = build_pipe_command(executable_path, 'test_input_pipe_win.lf', &
                                      'test_output_pipe_win.txt', &
                                          & 'test_error_pipe_win.txt', .true.)
@@ -624,8 +654,7 @@ contains
         end if
 
         ! Run with invalid input (cross-platform piping)
-        call write_text_file('test_invalid.lf', &
-            & 'invalid fortran code @#$%'//new_line('a'))
+        call copy_example_to_file(EXAMPLE_CLI_INVALID, 'test_invalid.lf')
         command = build_pipe_command(executable_path, 'test_invalid.lf', &
                                      'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
@@ -772,7 +801,7 @@ contains
         end if
 
         ! Create a file whose name begins with a hyphen
-        call write_text_file('-input_test.lf', 'print *, ''ok'''//new_line('a'))
+        call copy_example_to_file(EXAMPLE_CLI_OK, '-input_test.lf')
 
         if (is_windows) then
             command = 'cmd /C "set FORTFRONT_TRACE=0 && "' // executable_path // &
@@ -849,7 +878,7 @@ contains
 
         ! Run with lazy function syntax which is not supported
         if (is_windows) then
-            call write_text_file('test_func.lf', 'func add(x, y) = x + y'//new_line('a'))
+            call copy_example_to_file(EXAMPLE_CLI_FUNC, 'test_func.lf')
             command = build_pipe_command(executable_path, 'test_func.lf', &
                                          'test_out_func.txt', &
                                          'test_err_func.txt', .true.)

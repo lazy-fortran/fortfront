@@ -1,0 +1,2 @@
+! Hyphenated filename CLI test sample
+print *, 'ok'

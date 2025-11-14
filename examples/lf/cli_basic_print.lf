@@ -1,0 +1,2 @@
+! Basic Lazy Fortran program used by CLI integration tests
+print *, 'test'
