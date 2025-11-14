@@ -7,6 +7,7 @@ program test_all_examples
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
                                        cleanup_temp_directory
     use test_filesystem_helpers, only: create_temp_directory, &
+                                       ensure_directory_exists, &
                                        extract_example_basename
     use test_filesystem_helpers, only: extract_relative_example_path
     use test_filesystem_helpers, only: find_fortfront_executable
@@ -498,6 +499,16 @@ contains
         character(len=:), allocatable :: command
         integer :: exit_code
 
+        if (len_trim(module_cache_dir) == 0) then
+            compile_generated_output = .false.
+            return
+        end if
+
+        if (.not. ensure_directory_exists(module_cache_dir, is_windows)) then
+            compile_generated_output = .false.
+            return
+        end if
+
         command = build_compile_command(output_file, module_dir, module_cache_dir, &
                                         is_windows)
         if (len_trim(command) == 0) then
@@ -645,6 +656,16 @@ contains
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: command
         integer :: exit_code
+
+        if (len_trim(temp_dir) == 0) then
+            compile_f90_example = .false.
+            return
+        end if
+
+        if (.not. ensure_directory_exists(temp_dir, is_windows)) then
+            compile_f90_example = .false.
+            return
+        end if
 
         command = build_compile_command(filepath, module_dir, temp_dir, is_windows)
         if (len_trim(command) == 0) then
