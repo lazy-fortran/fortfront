@@ -395,9 +395,12 @@ contains
         logical, intent(in) :: include_identifier
 
         found_end = .false.
-        if (tokens(stmt_start)%text /= construct_name) return
 
+        ! Always decrement nesting for closing constructs
         nesting_level = nesting_level - 1
+
+        ! Only mark as found if this matches our starting construct AND nesting is 0
+        if (tokens(stmt_start)%text /= construct_name) return
         if (nesting_level /= 0) return
 
         stmt_end = closing_idx
