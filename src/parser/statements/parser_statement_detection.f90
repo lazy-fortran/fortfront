@@ -4,6 +4,18 @@ module parser_statement_detection_module
     implicit none
     private
 
+    type :: statement_tracker_t
+        integer :: if_depth = 0
+        integer :: select_depth = 0
+        integer :: do_depth = 0
+        integer :: where_depth = 0
+        integer :: assoc_depth = 0
+        integer :: forall_depth = 0
+        logical :: first_processed = .false.
+        logical :: block_if = .false.
+        character(len=16) :: first_keyword = ""
+    end type statement_tracker_t
+
     public :: is_block_if, at_top_level, next_significant_index
     public :: inline_where_parenthetical, inline_where_colon, is_inline_where
     public :: find_statement_end, extend_if_statement_end
@@ -151,338 +163,328 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_index
 
+        type(statement_tracker_t) :: tracker
         integer :: idx
-        integer :: if_depth, select_depth, do_depth, where_depth, assoc_depth
-        integer :: forall_depth
-        logical :: first_processed, block_if
-        character(len=16) :: first_keyword
-        type(token_t) :: token, next_token
+        type(token_t) :: token
+        logical :: done, restart_iteration
 
         end_index = start_index
         if (start_index > size(tokens)) return
 
-        if_depth = 0
-        select_depth = 0
-        do_depth = 0
-        where_depth = 0
-        assoc_depth = 0
-        forall_depth = 0
-        first_processed = .false.
-        block_if = .false.
-        first_keyword = ""
-
         idx = start_index
         do while (idx <= size(tokens))
             token = tokens(idx)
+            done = .false.
+            restart_iteration = .false.
 
             select case (token%kind)
             case (TK_EOF)
                 end_index = idx - 1
                 exit
             case (TK_NEWLINE)
-                if (at_top_level( &
-                    if_depth, select_depth, do_depth, where_depth, &
-                    assoc_depth, forall_depth)) then
+                if (tracker_at_top_level(tracker)) then
                     end_index = idx - 1
                     exit
                 end if
             case (TK_OPERATOR)
-                if (token%text == ";") then
-                    if (at_top_level( &
-                        if_depth, select_depth, do_depth, where_depth, &
-                        assoc_depth, forall_depth)) then
-                        end_index = idx - 1
-                        exit
-                    end if
+                if (token%text == ";" .and. tracker_at_top_level(tracker)) then
+                    end_index = idx - 1
+                    exit
                 end if
             case (TK_COMMENT, TK_WHITESPACE)
-                ! Ignore spacing tokens
+                ! Skip insignificant tokens
             case (TK_KEYWORD)
-                select case (token%text)
-                case ("if")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        block_if = is_block_if(tokens, idx)
-                        if (block_if) if_depth = if_depth + 1
-                        first_keyword = "if"
-                    else
-                        if (is_block_if(tokens, idx)) then
-                            if_depth = if_depth + 1
-                        end if
-                    end if
-                case ("select")
-                    if (is_select_construct(tokens, idx)) then
-                        if (.not. first_processed) then
-                            first_processed = .true.
-                            first_keyword = "select"
-                        end if
-                        select_depth = select_depth + 1
-                    else
-                        if (.not. first_processed) then
-                            first_processed = .true.
-                            first_keyword = to_lower(token%text)
-                        end if
-                    end if
-                case ("do")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "do"
-                    end if
-                    do_depth = do_depth + 1
-                case ("where")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "where"
-                    end if
-                    block
-                        logical :: inline_where_stmt
-                        inline_where_stmt = is_inline_where(tokens, idx)
-                        if (.not. inline_where_stmt) then
-                            where_depth = where_depth + 1
-                        end if
-                    end block
-                case ("forall")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "forall"
-                    end if
-                    forall_depth = forall_depth + 1
-                case ("associate")
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = "associate"
-                    end if
-                    assoc_depth = assoc_depth + 1
-                case ("else")
-                    if (block_if) then
-                        if (idx + 1 <= size(tokens)) then
-                            if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
-                                tokens(idx + 1)%text == "if") then
-                                if (if_depth == 1) then
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                            else
-                                if (if_depth == 1) then
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                            end if
-                        else
-                            if (if_depth == 1) then
-                                end_index = idx - 1
-                                exit
-                            end if
-                        end if
-                    else if (at_top_level( &
-                             if_depth, select_depth, do_depth, where_depth, &
-                             assoc_depth, forall_depth)) then
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("elseif", "else if")
-                    if (block_if .and. if_depth == 1) then
-                        end_index = idx - 1
-                        exit
-                    else if (at_top_level( &
-                             if_depth, select_depth, do_depth, where_depth, &
-                             assoc_depth, forall_depth)) then
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("endif")
-                    if (if_depth > 0) then
-                        if_depth = if_depth - 1
-                        if (if_depth == 0 .and. block_if) then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("endselect")
-                    if (select_depth > 0) then
-                        select_depth = select_depth - 1
-                        if (select_depth == 0 .and. first_keyword == "select") then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("enddo")
-                    if (do_depth > 0) then
-                        do_depth = do_depth - 1
-                        if (do_depth == 0 .and. first_keyword == "do") then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("endwhere")
-                    if (where_depth > 0) then
-                        where_depth = where_depth - 1
-                        if (where_depth == 0 .and. first_keyword == "where") then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("endforall")
-                    if (forall_depth > 0) then
-                        forall_depth = forall_depth - 1
-                        if (forall_depth == 0 .and. first_keyword == "forall") then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("endassociate")
-                    if (assoc_depth > 0) then
-                        assoc_depth = assoc_depth - 1
-                        if (assoc_depth == 0 .and. first_keyword == "associate") then
-                            end_index = idx
-                            exit
-                        end if
-                    else
-                        end_index = idx - 1
-                        exit
-                    end if
-                case ("end")
-                    if (idx + 1 <= size(tokens)) then
-                        if (tokens(idx + 1)%kind == TK_KEYWORD) then
-                            next_token = tokens(idx + 1)
-                            select case (next_token%text)
-                            case ("if")
-                                if (if_depth > 0) then
-                                    if_depth = if_depth - 1
-                                    if (if_depth == 0 .and. block_if) then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case ("select")
-                                if (select_depth > 0) then
-                                    select_depth = select_depth - 1
-                                    if (select_depth == 0 .and. &
-                                        first_keyword == "select") then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case ("do")
-                                if (do_depth > 0) then
-                                    do_depth = do_depth - 1
-                                    if (do_depth == 0 .and. first_keyword == "do") then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case ("associate")
-                                if (assoc_depth > 0) then
-                                    assoc_depth = assoc_depth - 1
-                                    if (assoc_depth == 0 .and. &
-                                        first_keyword == "associate") then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case ("where")
-                                if (where_depth > 0) then
-                                    where_depth = where_depth - 1
-                                    if (where_depth == 0 .and. &
-                                        first_keyword == "where") then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case ("forall")
-                                if (forall_depth > 0) then
-                                    forall_depth = forall_depth - 1
-                                    if (forall_depth == 0 .and. &
-                                        first_keyword == "forall") then
-                                        end_index = idx + 1
-                                        exit
-                                    end if
-                                else
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                                idx = idx + 1
-                                cycle
-                            case default
-                                if (at_top_level( &
-                                    if_depth, select_depth, do_depth, where_depth, &
-                                    assoc_depth, forall_depth)) then
-                                    end_index = idx - 1
-                                    exit
-                                end if
-                            end select
-                        else
-                            if (at_top_level( &
-                                if_depth, select_depth, do_depth, where_depth, &
-                                assoc_depth, forall_depth)) then
-                                end_index = idx - 1
-                                exit
-                            end if
-                        end if
-                    else
-                        if (at_top_level( &
-                            if_depth, select_depth, do_depth, where_depth, &
-                            assoc_depth, forall_depth)) then
-                            end_index = idx - 1
-                            exit
-                        end if
-                    end if
-                case default
-                    if (.not. first_processed) then
-                        first_processed = .true.
-                        first_keyword = to_lower(token%text)
-                    end if
-                end select
-            case default
-                if (.not. first_processed) then
-                    first_processed = .true.
+                if (token%text == "end") then
+                    call process_end_keyword(tokens, idx, tracker, end_index, &
+                                             done, restart_iteration)
+                else
+                    done = handle_regular_keyword(tokens, idx, tracker, end_index)
                 end if
+            case default
+                call mark_first_processed(tracker)
             end select
+
+            if (done) exit
+            if (restart_iteration) cycle
 
             end_index = idx
             idx = idx + 1
         end do
     end function find_statement_end
+
+    pure logical function tracker_at_top_level(tracker) result(is_top_level)
+        type(statement_tracker_t), intent(in) :: tracker
+
+        is_top_level = at_top_level(tracker%if_depth, tracker%select_depth, &
+            tracker%do_depth, tracker%where_depth, tracker%assoc_depth, &
+            tracker%forall_depth)
+    end function tracker_at_top_level
+
+    subroutine mark_first_processed(tracker)
+        type(statement_tracker_t), intent(inout) :: tracker
+
+        if (.not. tracker%first_processed) then
+            tracker%first_processed = .true.
+        end if
+    end subroutine mark_first_processed
+
+    subroutine set_first_keyword(tracker, keyword)
+        type(statement_tracker_t), intent(inout) :: tracker
+        character(len=*), intent(in) :: keyword
+
+        if (.not. tracker%first_processed) then
+            tracker%first_processed = .true.
+            tracker%first_keyword = keyword
+        end if
+    end subroutine set_first_keyword
+
+    subroutine record_generic_keyword(tracker, text)
+        type(statement_tracker_t), intent(inout) :: tracker
+        character(len=*), intent(in) :: text
+
+        call set_first_keyword(tracker, to_lower(text))
+    end subroutine record_generic_keyword
+
+    subroutine handle_if_keyword(tokens, idx, tracker)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        type(statement_tracker_t), intent(inout) :: tracker
+        logical :: block_if_stmt
+
+        block_if_stmt = is_block_if(tokens, idx)
+        if (.not. tracker%first_processed) then
+            tracker%first_processed = .true.
+            tracker%block_if = block_if_stmt
+            if (block_if_stmt) tracker%if_depth = tracker%if_depth + 1
+            tracker%first_keyword = "if"
+        else
+            if (block_if_stmt) tracker%if_depth = tracker%if_depth + 1
+        end if
+    end subroutine handle_if_keyword
+
+    subroutine handle_select_keyword(tokens, idx, tracker)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        type(statement_tracker_t), intent(inout) :: tracker
+        logical :: select_stmt
+
+        select_stmt = is_select_construct(tokens, idx)
+        if (select_stmt) then
+            call set_first_keyword(tracker, "select")
+            tracker%select_depth = tracker%select_depth + 1
+        else
+            call record_generic_keyword(tracker, tokens(idx)%text)
+        end if
+    end subroutine handle_select_keyword
+
+    subroutine push_construct(tracker, keyword, depth)
+        type(statement_tracker_t), intent(inout) :: tracker
+        character(len=*), intent(in) :: keyword
+        integer, intent(inout) :: depth
+
+        call set_first_keyword(tracker, keyword)
+        depth = depth + 1
+    end subroutine push_construct
+
+    subroutine handle_where_keyword(tokens, idx, tracker)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        type(statement_tracker_t), intent(inout) :: tracker
+        logical :: inline_where_stmt
+
+        call set_first_keyword(tracker, "where")
+        inline_where_stmt = is_inline_where(tokens, idx)
+        if (.not. inline_where_stmt) tracker%where_depth = tracker%where_depth + 1
+    end subroutine handle_where_keyword
+
+    logical function handle_else_keyword(tracker, idx, end_index) result(done)
+        type(statement_tracker_t), intent(in) :: tracker
+        integer, intent(in) :: idx
+        integer, intent(inout) :: end_index
+
+        done = .false.
+        if (tracker%block_if) then
+            if (tracker%if_depth == 1) then
+                end_index = idx - 1
+                done = .true.
+            end if
+        else if (tracker_at_top_level(tracker)) then
+            end_index = idx - 1
+            done = .true.
+        end if
+    end function handle_else_keyword
+
+    logical function handle_elseif_keyword(tracker, idx, end_index) result(done)
+        type(statement_tracker_t), intent(in) :: tracker
+        integer, intent(in) :: idx
+        integer, intent(inout) :: end_index
+
+        done = .false.
+        if (tracker%block_if .and. tracker%if_depth == 1) then
+            end_index = idx - 1
+            done = .true.
+        else if (tracker_at_top_level(tracker)) then
+            end_index = idx - 1
+            done = .true.
+        end if
+    end function handle_elseif_keyword
+
+    logical function close_if_construct(tracker, idx, end_index) result(done)
+        type(statement_tracker_t), intent(inout) :: tracker
+        integer, intent(in) :: idx
+        integer, intent(inout) :: end_index
+
+        done = .false.
+        if (tracker%if_depth > 0) then
+            tracker%if_depth = tracker%if_depth - 1
+            if (tracker%if_depth == 0 .and. tracker%block_if) then
+                end_index = idx
+                done = .true.
+            end if
+        else
+            end_index = idx - 1
+            done = .true.
+        end if
+    end function close_if_construct
+
+    logical function try_close_depth(depth, expected_keyword, first_keyword, idx, &
+                                     end_index) result(done)
+        integer, intent(inout) :: depth
+        character(len=*), intent(in) :: expected_keyword
+        character(len=*), intent(in) :: first_keyword
+        integer, intent(in) :: idx
+        integer, intent(inout) :: end_index
+
+        done = .false.
+        if (depth > 0) then
+            depth = depth - 1
+            if (depth == 0 .and. first_keyword == expected_keyword) then
+                end_index = idx
+                done = .true.
+            end if
+        else
+            end_index = idx - 1
+            done = .true.
+        end if
+    end function try_close_depth
+
+    logical function handle_regular_keyword(tokens, idx, tracker, end_index) &
+        result(done)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: idx
+        type(statement_tracker_t), intent(inout) :: tracker
+        integer, intent(inout) :: end_index
+        type(token_t) :: token
+
+        token = tokens(idx)
+        done = .false.
+        select case (token%text)
+        case ("if")
+            call handle_if_keyword(tokens, idx, tracker)
+        case ("select")
+            call handle_select_keyword(tokens, idx, tracker)
+        case ("do")
+            call push_construct(tracker, "do", tracker%do_depth)
+        case ("where")
+            call handle_where_keyword(tokens, idx, tracker)
+        case ("forall")
+            call push_construct(tracker, "forall", tracker%forall_depth)
+        case ("associate")
+            call push_construct(tracker, "associate", tracker%assoc_depth)
+        case ("else")
+            done = handle_else_keyword(tracker, idx, end_index)
+        case ("elseif", "else if")
+            done = handle_elseif_keyword(tracker, idx, end_index)
+        case ("endif")
+            done = close_if_construct(tracker, idx, end_index)
+        case ("endselect")
+            done = try_close_depth(tracker%select_depth, "select", &
+                tracker%first_keyword, idx, end_index)
+        case ("enddo")
+            done = try_close_depth(tracker%do_depth, "do", tracker%first_keyword, &
+                idx, end_index)
+        case ("endwhere")
+            done = try_close_depth(tracker%where_depth, "where", &
+                tracker%first_keyword, idx, end_index)
+        case ("endforall")
+            done = try_close_depth(tracker%forall_depth, "forall", &
+                tracker%first_keyword, idx, end_index)
+        case ("endassociate")
+            done = try_close_depth(tracker%assoc_depth, "associate", &
+                tracker%first_keyword, idx, end_index)
+        case default
+            call record_generic_keyword(tracker, token%text)
+        end select
+    end function handle_regular_keyword
+
+    subroutine process_end_keyword(tokens, idx, tracker, end_index, done, &
+                                   restart_iteration)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(inout) :: idx
+        type(statement_tracker_t), intent(inout) :: tracker
+        integer, intent(inout) :: end_index
+        logical, intent(out) :: done
+        logical, intent(out) :: restart_iteration
+        integer :: next_idx
+        type(token_t) :: next_token
+
+        done = .false.
+        restart_iteration = .false.
+        next_idx = idx + 1
+        if (next_idx > size(tokens)) then
+            if (tracker_at_top_level(tracker)) then
+                end_index = idx - 1
+                done = .true.
+            end if
+            return
+        end if
+
+        next_token = tokens(next_idx)
+        if (next_token%kind /= TK_KEYWORD) then
+            if (tracker_at_top_level(tracker)) then
+                end_index = idx - 1
+                done = .true.
+            end if
+            return
+        end if
+
+        select case (next_token%text)
+        case ("if")
+            idx = next_idx
+            restart_iteration = .true.
+            done = close_if_construct(tracker, idx, end_index)
+        case ("select")
+            idx = next_idx
+            restart_iteration = .true.
+            done = try_close_depth(tracker%select_depth, "select", &
+                tracker%first_keyword, idx, end_index)
+        case ("do")
+            idx = next_idx
+            restart_iteration = .true.
+            done = try_close_depth(tracker%do_depth, "do", tracker%first_keyword, &
+                idx, end_index)
+        case ("associate")
+            idx = next_idx
+            restart_iteration = .true.
+            done = try_close_depth(tracker%assoc_depth, "associate", &
+                tracker%first_keyword, idx, end_index)
+        case ("where")
+            idx = next_idx
+            restart_iteration = .true.
+            done = try_close_depth(tracker%where_depth, "where", &
+                tracker%first_keyword, idx, end_index)
+        case ("forall")
+            idx = next_idx
+            restart_iteration = .true.
+            done = try_close_depth(tracker%forall_depth, "forall", &
+                tracker%first_keyword, idx, end_index)
+        case default
+            if (tracker_at_top_level(tracker)) then
+                end_index = idx - 1
+                done = .true.
+            end if
+        end select
+    end subroutine process_end_keyword
 
     pure logical function is_select_construct(tokens, select_index) &
         result(is_select)
