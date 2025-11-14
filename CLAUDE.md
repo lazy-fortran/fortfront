@@ -540,25 +540,51 @@ fprettify -c .fprettify <file.f90>        # Uses project .fprettify config
 - `auto-tests = true` - All `test/*.f90` discovered automatically
 - Depends on `stdlib` (Fortran standard library)
 
-## Key Documentation
+## Documentation & Navigation
 
-### Essential Docs (read these first)
+### Directory README Structure
+
+**EVERY directory** in the codebase has a README.md file documenting its purpose and contents:
+
+- **Purpose**: What the directory contains and its role in the system
+- **File Index**: Table listing all files with descriptions
+- **Key Concepts**: Important patterns and design decisions
+- **Dependencies**: Module and external dependencies
+
+**Master navigation guide:** `DIRECTORY_STRUCTURE.md` - Complete codebase roadmap
+
+**When making changes:**
+- Update the relevant directory README.md when adding/removing files
+- Update file descriptions when changing module purpose
+- Ensure README stays synchronized with actual code
+
+**Coverage:**
+- All `src/` subdirectories have READMEs (analysis, ast, codegen, parser, semantic, etc.)
+- Top-level directories documented (app/, test/, examples/, docs/, scripts/)
+- Parser subsystems (declarations, expressions, statements, procedures, control_flow)
+- AST subsystems (nodes, traversal, arena, factory)
+- Semantic subsystems (analyzers, types)
+
+### Key Documentation
+
+#### Essential Docs (read these first)
 - `docs/MONOMORPHIZATION.md` - Type inference and specialization strategy
 - `docs/LIBRARY_USAGE.md` - API usage examples for tool developers
 - `docs/MEMORY_SAFETY_ANALYSIS.md` - Arena allocation and AST safety rules
 - `docs/TYPE_SAFETY_GUIDE.md` - Type system implementation details
 
-### Implementation Guides
+#### Implementation Guides
 - `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md` - Semantic analysis design
 - `docs/PRATT_PIPELINE_ARCHITECTURE.md` - Parser implementation (Pratt parsing)
 - `docs/MIXED_CONSTRUCTS_GUIDE.md` - Handling `.lf` files with embedded Fortran
 - `docs/NODE_TYPE_IDENTIFICATION.md` - AST node type patterns
 - `docs/CHARACTER_TYPE_GUIDE.md` - String handling in Fortran
 
-### Reference
+#### Reference
 - `docs/AST_MIGRATION.md` - AST architecture evolution
 - `docs/PARSE_DECLARATION_REFACTORING.md` - Parser refactoring history
 - `docs/ECOSYSTEM.md` - Integration with fortrun and package managers
+- `DIRECTORY_STRUCTURE.md` - Codebase navigation and directory READMEs
 
 ## Common Development Workflows
 
