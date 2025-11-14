@@ -238,38 +238,72 @@ contains
 
         logical function end_program_encountered(current_token) result(is_end)
             type(token_t), intent(in) :: current_token
+            character(len=:), allocatable :: lowered
+            integer :: next_idx
+            type(token_t) :: lookahead
+
             is_end = .false.
             if (current_token%kind /= TK_KEYWORD) return
 
-            ! Handle "endprogram" (single keyword)
-            if (current_token%text == "endprogram") then
+            lowered = to_lower(trim(current_token%text))
+
+            select case (trim(lowered))
+            case ("endprogram")
                 is_end = .true.
                 return
-            end if
+            case ("end")
+                next_idx = parser%current_token + 1
+                if (next_idx > size(parser%tokens)) then
+                    is_end = .true.
+                    return
+                end if
 
-            ! Handle "end program" (two keywords)
-            if (current_token%text /= "end") return
-            if (parser%current_token + 1 > size(parser%tokens)) return
-            if (parser%tokens(parser%current_token + 1)%kind /= TK_KEYWORD) return
-            if (parser%tokens(parser%current_token + 1)%text /= "program") return
-            is_end = .true.
+                lookahead = parser%tokens(next_idx)
+                if (lookahead%kind == TK_KEYWORD) then
+                    lowered = to_lower(trim(lookahead%text))
+                    if (lowered == "program") then
+                        is_end = .true.
+                        return
+                    else
+                        return
+                    end if
+                else if (lookahead%kind == TK_NEWLINE .or. &
+                         lookahead%kind == TK_COMMENT .or. &
+                         lookahead%kind == TK_EOF) then
+                    is_end = .true.
+                    return
+                end if
+            end select
         end function end_program_encountered
 
         subroutine consume_end_program(parser_ref)
             type(parser_state_t), intent(inout) :: parser_ref
             type(token_t) :: local_token
+            character(len=:), allocatable :: lowered
 
-            ! Consume "endprogram" or "end" "program"
             local_token = parser_ref%consume()
-            if (local_token%text /= "endprogram") then
-                ! Must be "end", consume "program" next
-                local_token = parser_ref%consume()
-            end if
+            lowered = to_lower(trim(local_token%text))
 
-            ! Check for optional program name
-            local_token = parser_ref%peek()
-            if (local_token%kind == TK_IDENTIFIER) then
-                local_token = parser_ref%consume()
+            select case (trim(lowered))
+            case ("endprogram")
+                ! Already consumed entire statement
+            case ("end")
+                if (.not. parser_ref%is_at_end()) then
+                    local_token = parser_ref%peek()
+                    if (local_token%kind == TK_KEYWORD .and. &
+                        to_lower(trim(local_token%text)) == "program") then
+                        local_token = parser_ref%consume()
+                    end if
+                end if
+            case default
+                ! Unexpected token, nothing else to consume
+            end select
+
+            if (.not. parser_ref%is_at_end()) then
+                local_token = parser_ref%peek()
+                if (local_token%kind == TK_IDENTIFIER) then
+                    local_token = parser_ref%consume()
+                end if
             end if
         end subroutine consume_end_program
 
