@@ -68,17 +68,12 @@ contains
         integer, intent(in), optional :: parent_index
         integer, allocatable :: body_indices(:)
 
-        type(token_t) :: token
-        integer :: stmt_count, stmt_index
-        integer :: stmt_start, stmt_end, j
         type(token_t), allocatable, target :: stmt_tokens(:)
-        logical :: found_end
+        type(token_t) :: token
+        integer :: stmt_start, stmt_end
         type(statement_callbacks_t) :: local_callbacks
         logical :: has_meaningful
-        integer :: next_index
-        integer :: lookahead
-        character(len=:), allocatable :: trimmed_keyword
-        character(len=:), allocatable :: suffix_keyword
+        integer :: stmt_count
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -94,149 +89,204 @@ contains
             safety_counter = 0
             do while (.not. parser%is_at_end() .and. safety_counter < 10000)
                 safety_counter = safety_counter + 1
-                token = parser%peek()
-
-                ! Skip whitespace, comments, and standalone semicolons
-                do while (.not. parser%is_at_end())
-                    select case (token%kind)
-                    case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                        token = parser%consume()
-                    case (TK_OPERATOR)
-                        if (token%text == ";") then
-                            token = parser%consume()
-                        else
-                            exit
-                        end if
-                    case default
-                        exit
-                    end select
-                    if (parser%is_at_end()) exit
-                    token = parser%peek()
-                end do
-
+                call skip_nonstatements(parser)
                 if (parser%is_at_end()) exit
+
                 token = parser%peek()
+                if (check_end_keyword_match(token, parser, end_keywords)) exit
 
-                ! Check for end keywords
-                found_end = .false.
-                if (token%kind == TK_KEYWORD) then
-                    do j = 1, size(end_keywords)
-                        trimmed_keyword = trim(end_keywords(j))
-                        if (len_trim(trimmed_keyword) == 0) cycle
-
-                        if (index(trimmed_keyword, "end ") == 1) then
-                            if (token%text == "end") then
-                                suffix_keyword = adjustl(trimmed_keyword(4:len_trim(trimmed_keyword)))
-                                if (len_trim(suffix_keyword) == 0) cycle
-
-                                lookahead = parser%current_token + 1
-                                do while (lookahead <= size(parser%tokens))
-                                    select case (parser%tokens(lookahead)%kind)
-                                    case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
-                                        lookahead = lookahead + 1
-                                        cycle
-                                    end select
-                                    exit
-                                end do
-
-                                if (lookahead <= size(parser%tokens)) then
-                                    if (parser%tokens(lookahead)%kind == TK_KEYWORD .and. &
-                                        parser%tokens(lookahead)%text == suffix_keyword) then
-                                        found_end = .true.
-                                        exit
-                                    end if
-                                end if
-                            end if
-                        else if (token%text == trimmed_keyword) then
-                            found_end = .true.
-                            exit
-                        end if
-                    end do
-
-                    if (found_end) exit
-                end if
-
-                ! Parse statement until end of line
                 stmt_start = parser%current_token
                 stmt_end = find_statement_end(parser%tokens, stmt_start)
-                has_meaningful = .false.
+                if (stmt_end < stmt_start) stmt_end = stmt_start
 
-                if (stmt_end < stmt_start) then
-                    stmt_end = stmt_start
-                end if
-
-                do j = stmt_start, stmt_end
-                    select case (parser%tokens(j)%kind)
-                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                        cycle
-                    case default
-                        if (len_trim(parser%tokens(j)%text) > 0) then
-                            has_meaningful = .true.
-                            exit
-                        end if
-                    end select
-                end do
-
+                has_meaningful = has_meaningful_tokens(parser%tokens, stmt_start, &
+                                                       stmt_end)
                 if (.not. has_meaningful) then
-                    if (stmt_end < stmt_start) then
-                        parser%current_token = parser%current_token + 1
-                    else
-                        parser%current_token = stmt_end + 1
-                    end if
+                    call advance_past_empty_statement(parser, stmt_start, stmt_end)
                     cycle
                 end if
 
-                ! Extract and parse statement tokens
-                if (stmt_end >= stmt_start) then
-                    allocate (stmt_tokens(stmt_end - stmt_start + 2))
-                    stmt_tokens(1:stmt_end - stmt_start + 1) = &
-                        parser%tokens(stmt_start:stmt_end)
-                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                    stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-                    stmt_tokens(stmt_end - stmt_start + 2)%line = &
-                        parser%tokens(stmt_end)%line
-                    stmt_tokens(stmt_end - stmt_start + 2)%column = &
-                        parser%tokens(stmt_end)%column + 1
+                call extract_statement_tokens(parser%tokens, stmt_start, stmt_end, &
+                                              stmt_tokens)
+                call parse_and_add_statement(stmt_tokens, arena, parent_index, &
+                                             local_callbacks, body_indices, &
+                                             stmt_count)
+                call release_statement_tokens(stmt_tokens)
 
-                    ! Parse statement; multi-variable declarations may expand results
-                    block
-                        integer, allocatable :: stmt_indices(:)
-                        integer :: k
-                        if (present(parent_index)) then
-                            stmt_indices = parse_basic_statement_multi( &
-                                           stmt_tokens, arena, parent_index, &
-                                           local_callbacks)
-                        else
-                            stmt_indices = parse_basic_statement_multi( &
-                                           stmt_tokens, arena, callbacks=local_callbacks)
-                        end if
-
-                        ! Add all parsed statements to body
-                        do k = 1, size(stmt_indices)
-                            if (stmt_indices(k) > 0) then
-                                body_indices = [body_indices, stmt_indices(k)]
-                                stmt_count = stmt_count + 1
-                            end if
-                        end do
-                    end block
-
-                    block
-                        type(token_t), allocatable, target :: temp(:)
-                        call move_alloc(stmt_tokens, temp)
-                    end block
-                end if
-
-                next_index = stmt_end + 1
-                if (next_index <= size(parser%tokens)) then
-                    if (parser%tokens(next_index)%kind == TK_OPERATOR .and. &
-                        parser%tokens(next_index)%text == ";") then
-                        next_index = next_index + 1
-                    end if
-                end if
-                parser%current_token = next_index
+                parser%current_token = next_statement_start(parser%tokens, stmt_end)
             end do
         end block
     end function parse_statement_body
+
+    subroutine skip_nonstatements(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        if (parser%is_at_end()) return
+        token = parser%peek()
+
+        do while (.not. parser%is_at_end())
+            select case (token%kind)
+            case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                if (token%text == ";") then
+                    token = parser%consume()
+                else
+                    exit
+                end if
+            case default
+                exit
+            end select
+            if (parser%is_at_end()) exit
+            token = parser%peek()
+        end do
+    end subroutine skip_nonstatements
+
+    logical function check_end_keyword_match(token, parser, end_keywords) &
+        result(found_end)
+        type(token_t), intent(in) :: token
+        type(parser_state_t), intent(in) :: parser
+        character(len=*), intent(in) :: end_keywords(:)
+
+        integer :: j
+        integer :: lookahead
+        character(len=:), allocatable :: trimmed_keyword
+        character(len=:), allocatable :: suffix_keyword
+
+        found_end = .false.
+        if (token%kind /= TK_KEYWORD) return
+
+        do j = 1, size(end_keywords)
+            trimmed_keyword = trim(end_keywords(j))
+            if (len_trim(trimmed_keyword) == 0) cycle
+
+            if (index(trimmed_keyword, "end ") == 1) then
+                if (token%text == "end") then
+                    suffix_keyword = &
+                        adjustl(trimmed_keyword(4:len_trim(trimmed_keyword)))
+                    if (len_trim(suffix_keyword) == 0) cycle
+
+                    lookahead = parser%current_token + 1
+                    do while (lookahead <= size(parser%tokens))
+                        select case (parser%tokens(lookahead)%kind)
+                        case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                            lookahead = lookahead + 1
+                            cycle
+                        end select
+                        exit
+                    end do
+
+                    if (lookahead <= size(parser%tokens)) then
+                        if (parser%tokens(lookahead)%kind == TK_KEYWORD .and. &
+                            parser%tokens(lookahead)%text == suffix_keyword) then
+                            found_end = .true.
+                            return
+                        end if
+                    end if
+                end if
+            else if (token%text == trimmed_keyword) then
+                found_end = .true.
+                return
+            end if
+        end do
+    end function check_end_keyword_match
+
+    logical function has_meaningful_tokens(tokens, stmt_start, stmt_end) &
+        result(has_meaningful)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        integer :: j
+
+        has_meaningful = .false.
+        if (stmt_end < stmt_start) return
+
+        do j = stmt_start, stmt_end
+            select case (tokens(j)%kind)
+            case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                cycle
+            case default
+                if (len_trim(tokens(j)%text) > 0) then
+                    has_meaningful = .true.
+                    return
+                end if
+            end select
+        end do
+    end function has_meaningful_tokens
+
+    subroutine advance_past_empty_statement(parser, stmt_start, stmt_end)
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(in) :: stmt_start, stmt_end
+
+        if (stmt_end < stmt_start) then
+            parser%current_token = parser%current_token + 1
+        else
+            parser%current_token = stmt_end + 1
+        end if
+    end subroutine advance_past_empty_statement
+
+    subroutine extract_statement_tokens(tokens, stmt_start, stmt_end, stmt_tokens)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
+        integer :: token_count
+
+        token_count = stmt_end - stmt_start + 1
+        allocate (stmt_tokens(token_count + 1))
+        stmt_tokens(1:token_count) = tokens(stmt_start:stmt_end)
+        stmt_tokens(token_count + 1)%kind = TK_EOF
+        stmt_tokens(token_count + 1)%text = ""
+        stmt_tokens(token_count + 1)%line = tokens(stmt_end)%line
+        stmt_tokens(token_count + 1)%column = tokens(stmt_end)%column + 1
+    end subroutine extract_statement_tokens
+
+    subroutine parse_and_add_statement(stmt_tokens, arena, parent_index, &
+                                       callbacks, body_indices, stmt_count)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        type(statement_callbacks_t), intent(in) :: callbacks
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(inout) :: stmt_count
+
+        integer, allocatable :: stmt_indices(:)
+        integer :: k
+
+        if (present(parent_index)) then
+            stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
+                                                       parent_index, callbacks)
+        else
+            stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
+                                                       callbacks=callbacks)
+        end if
+
+        do k = 1, size(stmt_indices)
+            if (stmt_indices(k) > 0) then
+                body_indices = [body_indices, stmt_indices(k)]
+                stmt_count = stmt_count + 1
+            end if
+        end do
+    end subroutine parse_and_add_statement
+
+    subroutine release_statement_tokens(stmt_tokens)
+        type(token_t), allocatable, intent(inout), target :: stmt_tokens(:)
+        type(token_t), allocatable, target :: temp(:)
+
+        call move_alloc(stmt_tokens, temp)
+    end subroutine release_statement_tokens
+
+    integer function next_statement_start(tokens, stmt_end) result(next_index)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_end
+
+        next_index = stmt_end + 1
+        if (next_index <= size(tokens)) then
+            if (tokens(next_index)%kind == TK_OPERATOR .and. &
+                tokens(next_index)%text == ";") then
+                next_index = next_index + 1
+            end if
+        end if
+    end function next_statement_start
 
     ! Helper function to determine how many tokens an expression consumes
     function parse_expression_length(parser, arena) result(length)
