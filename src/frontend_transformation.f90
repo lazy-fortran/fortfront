@@ -156,7 +156,7 @@ contains
             return
         end if
 
- ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
+        ! Phase 1.5: Enhanced syntax validation with detailed reporting (Issue #256)
         call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(source, tokens, error_msg, output, &
             & shared_arena)
@@ -565,7 +565,7 @@ contains
         call validate_basic_syntax(input, tokens, error_msg)
         if (error_msg /= "") then
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
-        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+            ! Keep stderr for diagnostics and stdout for usable Fortran output
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "    ! COMPILATION FAILED" // new_line('A') // &
@@ -886,8 +886,8 @@ contains
             if (source%proc_sigs(i)%sig_count <= 0) cycle
             do j = 1, source%proc_sigs(i)%sig_count
                 call add_signature_from_entry(target, &
-                                             trim(source%proc_sigs(i)%procedure_name), &
-                                              source%proc_sigs(i)%signatures(j))
+     &                 trim(source%proc_sigs(i)%procedure_name), &
+     &                 source%proc_sigs(i)%signatures(j))
             end do
         end do
     end subroutine merge_signature_maps
@@ -1457,7 +1457,7 @@ contains
         integer, intent(in) :: prog_index
         character(len=8) :: flag
         integer :: status
-        integer :: i, j
+        integer :: i, j, child_idx, member_idx
         character(len=:), allocatable :: child_type
 
         call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', flag, status=status)
@@ -1474,15 +1474,16 @@ contains
                     write (error_unit, '(A,I0,2X,A,2X,I0)') &
                         '  program idx', i, trim(node%name), size(node%body_indices)
                     do j = 1, size(node%body_indices)
-                        if (node%body_indices(j) <= 0) cycle
-                        if (node%body_indices(j) > arena%size) cycle
-                        if (allocated(arena%entries(node%body_indices(j))%node_type)) then
-                            child_type = trim(arena%entries(node%body_indices(j))%node_type)
+                        child_idx = node%body_indices(j)
+                        if (child_idx <= 0) cycle
+                        if (child_idx > arena%size) cycle
+                        if (allocated(arena%entries(child_idx)%node_type)) then
+                            child_type = trim(arena%entries(child_idx)%node_type)
                         else
                             child_type = '<unknown>'
                         end if
                         write (error_unit, '(A,1X,I0,2X,A)') '    body', &
-                            node%body_indices(j), child_type
+                            child_idx, child_type
                     end do
                 else
                     write (error_unit, '(A,I0,2X,A,2X,A)') &
@@ -1501,9 +1502,10 @@ contains
     end subroutine maybe_dump_program_overview
 
     ! Save current configuration
-    subroutine save_current_configuration(saved_size, saved_char, saved_line_length, &
+    subroutine save_current_configuration(saved_size, saved_char, &
+                                          saved_line_length, &
                                           saved_standardize_types, &
-                                              & saved_standardizer_types)
+                                          saved_standardizer_types)
         integer, intent(out) :: saved_size, saved_line_length
         character(len=1), intent(out) :: saved_char
         logical, intent(out) :: saved_standardize_types, saved_standardizer_types
@@ -1678,7 +1680,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical, intent(inout) :: membership(:)
-        integer :: child_idx, child_count
+        integer :: child_idx, child_count, member_idx
 
         if (node_index <= 0) return
         if (node_index > size(membership)) return
@@ -1690,16 +1692,15 @@ contains
         child_count = size(arena%entries(node_index)%child_indices)
         if (child_count == 0) return
         do child_idx = 1, child_count
-            call mark_procedure_subtree(arena, &
-                                   arena%entries(node_index)%child_indices(child_idx), &
-                                        membership)
+            member_idx = arena%entries(node_index)%child_indices(child_idx)
+            call mark_procedure_subtree(arena, member_idx, membership)
         end do
     end subroutine mark_procedure_subtree
 
     subroutine build_procedure_membership(arena, membership)
         type(ast_arena_t), intent(in) :: arena
         logical, allocatable, intent(out) :: membership(:)
-        integer :: i, j
+        integer :: i, j, body_idx
 
         if (arena%size <= 0) then
             allocate (membership(0))
@@ -1715,15 +1716,15 @@ contains
             type is (function_def_node)
                 if (allocated(proc%body_indices)) then
                     do j = 1, size(proc%body_indices)
-                        call mark_procedure_subtree(arena, proc%body_indices(j), &
-                                                    membership)
+                        body_idx = proc%body_indices(j)
+                        call mark_procedure_subtree(arena, body_idx, membership)
                     end do
                 end if
             type is (subroutine_def_node)
                 if (allocated(proc%body_indices)) then
                     do j = 1, size(proc%body_indices)
-                        call mark_procedure_subtree(arena, proc%body_indices(j), &
-                                                    membership)
+                        body_idx = proc%body_indices(j)
+                        call mark_procedure_subtree(arena, body_idx, membership)
                     end do
                 end if
             end select
@@ -1892,12 +1893,12 @@ contains
 
         select type (root => arena%entries(root_index)%node)
         type is (mixed_construct_container_node)
-! Handle mixed constructs: implicit declarations (main code) + explicit programs (functions)
+            ! Handle mixed constructs: main statements plus explicit procedures
             if (allocated(root%implicit_declaration_indices)) then
                 do i = 1, size(root%implicit_declaration_indices)
-                    if (is_host_level_statement(arena, &
-                        root%implicit_declaration_indices(i))) then
-                        main_stmts = [main_stmts, root%implicit_declaration_indices(i)]
+                    child_index = root%implicit_declaration_indices(i)
+                    if (is_host_level_statement(arena, child_index)) then
+                        main_stmts = [main_stmts, child_index]
                     end if
                 end do
             end if
@@ -1921,12 +1922,11 @@ contains
                     ! No bare statements to wrap; keep procedures external
                     return
                 end if
-     ! Create program structure: implicit none + main statements + contains + procedures
+                ! Create program skeleton: implicit none + body + contains + procs
                 implicit_none_index = push_implicit_statement(arena, .true., &
-                                                              line=1, column=1, &
-                                                              parent_index=0)
+                     line=1, column=1, parent_index=0)
 
-           ! Build program body: implicit none + main statements + contains + procedures
+                ! Build program body: implicit none + main statements + procs
                 body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
                 allocate (new_body(body_size))
                 new_body(1) = implicit_none_index
@@ -2502,7 +2502,7 @@ contains
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
         logical, intent(in) :: skip_procedures
-        integer :: child_i
+        integer :: child_i, child_target
 
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -2518,18 +2518,18 @@ contains
         type is (program_node)
             if (.not. allocated(node%body_indices)) return
             do child_i = 1, size(node%body_indices)
-                call collect_assignment_from_node(arena, &
-                                                  node%body_indices(child_i), &
-                                                  names, skip_procedures)
+                child_target = node%body_indices(child_i)
+                call collect_assignment_from_node(arena, child_target, names, &
+                     skip_procedures)
             end do
             return
         end select
 
         if (allocated(arena%entries(node_index)%child_indices)) then
             do child_i = 1, size(arena%entries(node_index)%child_indices)
-                call collect_assignment_from_node(arena, &
-                    arena%entries(node_index)%child_indices(child_i), names, &
-                    skip_procedures)
+                child_target = arena%entries(node_index)%child_indices(child_i)
+                call collect_assignment_from_node(arena, child_target, names, &
+                     skip_procedures)
             end do
         end if
     end subroutine collect_assignment_from_node
