@@ -676,6 +676,7 @@ contains
                     if (index(line, '[SYNTAX_ERROR]') > 0 .or. &
                         index(line, '[VALIDATION') > 0 .or. &
                         index(line, '[PARSER_') > 0 .or. &
+                        index(line, '[INVALID_INPUT]') > 0 .or. &
                         index(line, '[UNRECOGNIZED_INPUT]') > 0 .or. &
                         index(line, 'No output generated') > 0) then
                         has_error_output = .true.
