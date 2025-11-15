@@ -748,51 +748,31 @@ def is_expected_gfortran_failure(test_path: Path) -> bool:
         return False
 
     # Pattern 1: Files with dg-error directives (expect compiler errors)
+    # ONLY dg-error should be expected failures - they're testing error handling
     if re.search(r'\{ dg-error\s+', content):
         return True
 
-    # Pattern 1.1: Files with dg-warning directives (expect compiler warnings)
-    if re.search(r'\{ dg-warning\s+', content):
-        return True
-
-    # Pattern 1.2: Files with dg-message directives (diagnostic message tests)
-    if re.search(r'\{ dg-message\s+', content):
-        return True
-
-    # Pattern 1.3: Files with dg-output directives (testing specific output)
-    if re.search(r'\{ dg-output\s+', content):
-        return True
-
-    # Pattern 1.4: Files with dg-excess-errors directive (expect multiple errors)
+    # Pattern 1.1: Files with dg-excess-errors directive (expect multiple errors)
     if re.search(r'\{ dg-excess-errors\s+', content):
         return True
 
-    # Pattern 1.5: Files with dg-xfail directives (expected test failures)
+    # Pattern 1.2: Files with dg-xfail directives (expected test failures)
     if re.search(r'\{ dg-xfail\s+', content):
         return True
 
-    # Pattern 2: Files with dg-do compile (testing compilation errors)
-    if re.search(r'\{ dg-do\s+compile\s*\}', content):
-        return True
-
-    # Pattern 2.1: Files with dg-do run but marked to fail
+    # Pattern 2: Files with dg-do run but marked to fail
     if re.search(r'\{ dg-do\s+run.*xfail', content):
         return True
 
-    # Pattern 3: Files using GNU extensions marked with -std=gnu
+    # IMPORTANT: Files with dg-warning, dg-message, dg-output, dg-do compile
+    # should NOT be expected failures - they should roundtrip perfectly!
+
+    # Pattern 3: Files using GNU extensions marked with -std=gnu (not standard Fortran)
     if re.search(r'\{ dg-options.*-std=gnu', content):
         return True
 
-    # Pattern 3.1: Files with dg-options containing "illegal" or "error"
+    # Pattern 3.1: Files with dg-options containing "illegal" or "error" (testing error handling)
     if re.search(r'\{ dg-options.*(illegal|error)', content):
-        return True
-
-    # Pattern 3.2: Files testing obsolescent features
-    if re.search(r'\{ dg-options.*-std=f', content):
-        return True
-
-    # Pattern 3.3: Files with negative tests (should fail)
-    if re.search(r'\{ dg-options.*-fno-', content):
         return True
 
     # Pattern 4: Check for directory and naming patterns that indicate diagnostic tests
