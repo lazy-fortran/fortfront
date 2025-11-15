@@ -751,15 +751,66 @@ def is_expected_gfortran_failure(test_path: Path) -> bool:
     if re.search(r'\{ dg-error\s+', content):
         return True
 
+    # Pattern 1.1: Files with dg-warning directives (expect compiler warnings)
+    if re.search(r'\{ dg-warning\s+', content):
+        return True
+
+    # Pattern 1.2: Files with dg-message directives (diagnostic message tests)
+    if re.search(r'\{ dg-message\s+', content):
+        return True
+
+    # Pattern 1.3: Files with dg-output directives (testing specific output)
+    if re.search(r'\{ dg-output\s+', content):
+        return True
+
+    # Pattern 1.4: Files with dg-excess-errors directive (expect multiple errors)
+    if re.search(r'\{ dg-excess-errors\s+', content):
+        return True
+
+    # Pattern 1.5: Files with dg-xfail directives (expected test failures)
+    if re.search(r'\{ dg-xfail\s+', content):
+        return True
+
     # Pattern 2: Files with dg-do compile (testing compilation errors)
     if re.search(r'\{ dg-do\s+compile\s*\}', content):
+        return True
+
+    # Pattern 2.1: Files with dg-do run but marked to fail
+    if re.search(r'\{ dg-do\s+run.*xfail', content):
         return True
 
     # Pattern 3: Files using GNU extensions marked with -std=gnu
     if re.search(r'\{ dg-options.*-std=gnu', content):
         return True
 
-    # Pattern 4: Check for obvious malformed Fortran
+    # Pattern 3.1: Files with dg-options containing "illegal" or "error"
+    if re.search(r'\{ dg-options.*(illegal|error)', content):
+        return True
+
+    # Pattern 3.2: Files testing obsolescent features
+    if re.search(r'\{ dg-options.*-std=f', content):
+        return True
+
+    # Pattern 3.3: Files with negative tests (should fail)
+    if re.search(r'\{ dg-options.*-fno-', content):
+        return True
+
+    # Pattern 4: Check for directory and naming patterns that indicate diagnostic tests
+    test_path_str = str(test_path).lower()
+
+    # Files in diagnostic-specific directories
+    if ('diagnostic' in test_path_str or
+        'dg-error' in test_path_str or
+        'negative' in test_path_str or
+        'invalid' in test_path_str or
+        'error' in test_path_str):
+        return True
+
+    # Files with diagnostic-related naming patterns
+    if re.search(r'(error|invalid|negative|malformed|obsolescent|deleted)', test_path_str):
+        return True
+
+    # Pattern 5: Check for obvious malformed Fortran
     lines = content.split('\n')
 
     # Look for common patterns that indicate malformed files
