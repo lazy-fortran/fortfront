@@ -610,7 +610,9 @@ contains
 
         idx = 0
         normalized_target = to_lower(trim(var_name))
-        do i = 1, var_count
+
+        ! Bounds check: only iterate up to both var_count and array size
+        do i = 1, min(var_count, size(var_names))
             normalized_existing = to_lower(trim(var_names(i)))
             if (trim(normalized_existing) == trim(normalized_target)) then
                 idx = i
