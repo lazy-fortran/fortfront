@@ -88,13 +88,60 @@ contains
         valid = .true.
     end function is_valid_body_entry
 
-    subroutine handle_contains_entry(in_contains_section, code, i)
+    logical function has_procedures_after_contains(arena, body_indices, contains_idx) result(has_procs)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: contains_idx
+        integer :: j, child_idx
+
+        has_procs = .false.
+
+        ! Look for procedure definitions after the contains statement
+        ! and before the next non-procedure statement
+        do j = contains_idx + 1, size(body_indices)
+            child_idx = body_indices(j)
+
+            if (j > size(body_indices)) exit
+
+            if (child_idx <= 0 .or. child_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+
+            select type (node => arena%entries(child_idx)%node)
+            type is (function_def_node)
+                has_procs = .true.
+                exit
+            type is (subroutine_def_node)
+                has_procs = .true.
+                exit
+            type is (end_statement_node)
+                ! Found end statement, no more procedures in this section
+                exit
+            type is (comment_node)
+                ! Skip comments, continue looking
+                cycle
+            type is (blank_line_node)
+                ! Skip blank lines, continue looking
+                cycle
+            class default
+                ! Found non-procedure, non-comment, non-blank statement
+                ! If we haven't found a procedure yet, this contains section is empty
+                exit
+            end select
+        end do
+    end function has_procedures_after_contains
+
+    subroutine handle_contains_entry(arena, body_indices, in_contains_section, code, i)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
         logical, intent(inout) :: in_contains_section
         character(len=:), allocatable, intent(inout) :: code
         integer, intent(inout) :: i
 
-        in_contains_section = .true.
-        code = code // "contains" // new_line('A')
+        ! Only output "contains" if there are actual procedures following
+        if (has_procedures_after_contains(arena, body_indices, i)) then
+            in_contains_section = .true.
+            code = code // "contains" // new_line('A')
+        end if
         i = i + 1
     end subroutine handle_contains_entry
 
@@ -186,7 +233,7 @@ contains
 
         select type (node => arena%entries(body_indices(i))%node)
         type is (contains_node)
-            call handle_contains_entry(in_contains_section, code, i)
+            call handle_contains_entry(arena, body_indices, in_contains_section, code, i)
 
         type is (end_statement_node)
             call handle_end_statement(i)
