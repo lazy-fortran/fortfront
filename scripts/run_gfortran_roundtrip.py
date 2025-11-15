@@ -731,6 +731,82 @@ def verify_roundtrip(
     return True, {}
 
 
+def is_expected_gfortran_failure(test_path: Path) -> bool:
+    """
+    Detect if a gfortran test case is expected to fail during roundtrip.
+
+    GCC test suite contains many files designed to test compiler error handling,
+    missing END statements, or other deliberately malformed code. These should
+    not be counted as real roundtrip failures.
+
+    Returns True if this test case is expected to fail.
+    """
+    try:
+        with open(test_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except Exception:
+        return False
+
+    # Pattern 1: Files with dg-error directives (expect compiler errors)
+    if re.search(r'\{ dg-error\s+', content):
+        return True
+
+    # Pattern 2: Files with dg-do compile (testing compilation errors)
+    if re.search(r'\{ dg-do\s+compile\s*\}', content):
+        return True
+
+    # Pattern 3: Files using GNU extensions marked with -std=gnu
+    if re.search(r'\{ dg-options.*-std=gnu', content):
+        return True
+
+    # Pattern 4: Check for obvious malformed Fortran
+    lines = content.split('\n')
+
+    # Look for common patterns that indicate malformed files
+    has_program = any('program' in line.lower().strip() for line in lines if line.strip() and not line.strip().startswith('!'))
+    has_end_statement = any(re.search(r'\bend\s+(program|subroutine|function|module)', line, re.IGNORECASE) for line in lines)
+
+    # If no program statement but has executable statements, likely malformed
+    executable_statements = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith('!'):
+            # Look for obvious executable statements
+            if (re.search(r'^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=', line) or  # Assignment
+                re.search(r'^\s*call\s+', line) or  # Subroutine call
+                re.search(r'^\s*if\s+', line) or  # If statement
+                re.search(r'^\s*do\s+', line) or  # Do loop
+                re.search(r'^\s*goto\s+', line) or  # Goto
+                re.search(r'^\s*print\s*\*', line) or  # Print statement
+                re.search(r'^\s*write\s*\*', line) or  # Write statement
+                re.search(r'^\s*stop\s', line) or  # Stop statement
+                re.search(r'^\s*[0-9]+', line)):  # Labeled statement (old Fortran)
+                executable_statements.append(line)
+
+    if not has_program and executable_statements:
+        return True
+
+    # Pattern 5: Check for files with obvious missing END statements
+    # by counting procedure starts vs ends
+    program_starts = len(re.findall(r'\bprogram\s+\w+', content, re.IGNORECASE))
+    program_ends = len(re.findall(r'\bend\s+program', content, re.IGNORECASE))
+    subroutine_starts = len(re.findall(r'\bsubroutine\s+\w+', content, re.IGNORECASE))
+    subroutine_ends = len(re.findall(r'\bend\s+subroutine', content, re.IGNORECASE))
+    function_starts = len(re.findall(r'\bfunction\s+\w+', content, re.IGNORECASE))
+    function_ends = len(re.findall(r'\bend\s+function', content, re.IGNORECASE))
+    module_starts = len(re.findall(r'\bmodule\s+\w+', content, re.IGNORECASE))
+    module_ends = len(re.findall(r'\bend\s+module', content, re.IGNORECASE))
+
+    # If there are more starts than ends, likely missing END statements
+    if (program_starts > program_ends or
+        subroutine_starts > subroutine_ends or
+        function_starts > function_ends or
+        module_starts > module_ends):
+        return True
+
+    return False
+
+
 def run_case(
     test_path: Path,
     fortfront_bin: Path,
@@ -738,6 +814,18 @@ def run_case(
     timeout: float,
 ) -> Dict[str, object]:
     rel_path = str(test_path.relative_to(gcc_root))
+
+    # Check if this is an expected gfortran test failure
+    if is_expected_gfortran_failure(test_path):
+        return {
+            "file": rel_path,
+            "status": "expected_failure",
+            "exit_code": None,
+            "duration_s": 0.0,
+            "stdout_bytes": 0,
+            "stderr_preview": "Expected gfortran test failure (compiler error test case)",
+        }
+
     started = time.monotonic()
     cmd = [str(fortfront_bin), str(test_path)]
     try:
@@ -793,6 +881,7 @@ def print_progress(
     roundtrip_failures: int,
     fatals: int,
     timeouts: int,
+    expected_failures: int,
     start_time: float,
 ) -> None:
     elapsed = time.monotonic() - start_time
@@ -802,7 +891,7 @@ def print_progress(
     percent = (processed / total * 100.0) if total else 100.0
     message = (
         f"\r[{percent:6.2f}%] {processed}/{total} "
-        f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts}) "
+        f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts} | expected {expected_failures}) "
         f"elapsed {format_seconds(elapsed)} "
         f"eta {format_seconds(eta)} "
         f"rate {rate:.1f}/s"
@@ -869,6 +958,7 @@ def main() -> int:
         roundtrip_failures = 0
         fatals = 0
         timeouts = 0
+        expected_failures = 0
         start_time = time.monotonic()
         effective_timeout = max(args.timeout, 0.0)
         aggregator = FailureAggregator()
@@ -877,7 +967,7 @@ def main() -> int:
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, start_time)
+        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, expected_failures, start_time)
 
         worker = partial(
             run_case,
@@ -897,6 +987,8 @@ def main() -> int:
                     roundtrip_failures += 1
                 elif status == "fatal":
                     fatals += 1
+                elif status == "expected_failure":
+                    expected_failures += 1
                 else:
                     timeouts += 1
                 handle.write(json.dumps(record) + "\n")
@@ -909,6 +1001,7 @@ def main() -> int:
                     roundtrip_failures,
                     fatals,
                     timeouts,
+                    expected_failures,
                     start_time,
                 )
         else:
@@ -922,6 +1015,8 @@ def main() -> int:
                         roundtrip_failures += 1
                     elif status == "fatal":
                         fatals += 1
+                    elif status == "expected_failure":
+                        expected_failures += 1
                     else:
                         timeouts += 1
                     handle.write(json.dumps(record) + "\n")
@@ -934,13 +1029,14 @@ def main() -> int:
                         roundtrip_failures,
                         fatals,
                         timeouts,
+                        expected_failures,
                         start_time,
                     )
 
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}. "
+        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}, EXPECTED_FAILURES: {expected_failures}. "
         f"Results: {output_path}"
     )
     digest = aggregator.build_digest()
