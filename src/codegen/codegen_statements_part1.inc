@@ -733,7 +733,12 @@
         if (is_legacy_statement) then
             code = trim(node%text)
         else if (allocated(node%text)) then
-            code = "!" // node%text
+            ! Preserve original comment marker (!, !!, !!!, etc.)
+            if (len_trim(node%text) > 0 .and. node%text(1:1) == "!") then
+                code = trim(node%text)
+            else
+                code = "!" // node%text
+            end if
         else
             code = "!"
         end if
