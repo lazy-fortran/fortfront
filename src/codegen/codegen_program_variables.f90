@@ -984,6 +984,15 @@ contains
                                trim(state%func_names(i)))) cycle
             ! Skip if the name matches a variable type (likely a type constructor)
             if (is_type_constructor_call(state, trim(state%func_names(i)))) cycle
+            ! Skip external declarations for functions that are likely internal
+            ! or part of the current compilation unit to avoid spurious declarations
+            if (len_trim(state%func_names(i)) == 0) cycle
+            if (len_trim(state%func_types(i)) == 0) cycle
+            ! Conservative check: skip external declaration if function name is short
+            ! and commonly appears as a local variable or parameter
+            if (len_trim(state%func_names(i)) <= 1) cycle
+            ! Skip if function type contains character with deferred length (likely parsing error)
+            if (index(to_lower(trim(state%func_types(i))), 'character(len=:)') > 0) cycle
             code = code // "    " // trim(state%func_types(i)) // &
                    ", external :: " // trim(state%func_names(i)) // new_line('A')
         end do
