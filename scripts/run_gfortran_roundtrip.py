@@ -787,15 +787,15 @@ def is_expected_gfortran_failure(test_path: Path) -> bool:
         return True
 
     # Pattern 5: Check for files with obvious missing END statements
-    # by counting procedure starts vs ends
-    program_starts = len(re.findall(r'\bprogram\s+\w+', content, re.IGNORECASE))
-    program_ends = len(re.findall(r'\bend\s+program', content, re.IGNORECASE))
-    subroutine_starts = len(re.findall(r'\bsubroutine\s+\w+', content, re.IGNORECASE))
-    subroutine_ends = len(re.findall(r'\bend\s+subroutine', content, re.IGNORECASE))
-    function_starts = len(re.findall(r'\bfunction\s+\w+', content, re.IGNORECASE))
-    function_ends = len(re.findall(r'\bend\s+function', content, re.IGNORECASE))
-    module_starts = len(re.findall(r'\bmodule\s+\w+', content, re.IGNORECASE))
-    module_ends = len(re.findall(r'\bend\s+module', content, re.IGNORECASE))
+    # by counting procedure starts vs ends (avoid double-counting "end program")
+    program_starts = len(re.findall(r'^\s*program\s+\w+', content, re.IGNORECASE | re.MULTILINE))
+    program_ends = len(re.findall(r'\bend\s+program\b', content, re.IGNORECASE))
+    subroutine_starts = len(re.findall(r'^\s*subroutine\s+\w+', content, re.IGNORECASE | re.MULTILINE))
+    subroutine_ends = len(re.findall(r'\bend\s+subroutine\b', content, re.IGNORECASE))
+    function_starts = len(re.findall(r'^\s*function\s+\w+', content, re.IGNORECASE | re.MULTILINE))
+    function_ends = len(re.findall(r'\bend\s+function\b', content, re.IGNORECASE))
+    module_starts = len(re.findall(r'^\s*module\s+\w+', content, re.IGNORECASE | re.MULTILINE))
+    module_ends = len(re.findall(r'\bend\s+module\b', content, re.IGNORECASE))
 
     # If there are more starts than ends, likely missing END statements
     if (program_starts > program_ends or
