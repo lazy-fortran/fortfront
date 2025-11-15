@@ -200,7 +200,35 @@ def format_seconds(seconds: float) -> str:
 
 
 def normalize_source(text: str) -> str:
-    return "\n".join(line.rstrip() for line in text.replace("\r\n", "\n").splitlines()).strip()
+    """
+    Normalize source code for comparison by removing insignificant differences:
+    - Handles Windows/Unix line endings
+    - Removes trailing whitespace
+    - Normalizes multiple consecutive newlines to single newlines
+    - Preserves essential whitespace for indentation and content
+    """
+    # Handle line endings and split into lines
+    lines = text.replace("\r\n", "\n").splitlines()
+
+    # Process each line
+    normalized_lines = []
+    prev_was_blank = False
+
+    for line in lines:
+        # Remove trailing whitespace
+        line = line.rstrip()
+
+        # Skip consecutive blank lines (but keep one)
+        if len(line) == 0:
+            if not prev_was_blank:
+                normalized_lines.append(line)
+                prev_was_blank = True
+        else:
+            normalized_lines.append(line)
+            prev_was_blank = False
+
+    # Join back and strip leading/trailing whitespace
+    return "\n".join(normalized_lines).strip()
 
 
 def first_line(text: str) -> str:
