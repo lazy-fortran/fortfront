@@ -577,8 +577,10 @@ contains
                 has_binary = .true.
                 return
             end if
-            ! Reject control characters except TAB(9), LF(10), CR(13)
-            if (code < 32 .and. code /= 9 .and. code /= 10 .and. code /= 13) then
+            ! Reject control characters except common text file markers:
+            ! TAB(9), LF(10), FF(12), CR(13), Ctrl-Z/SUB(26)
+            if (code < 32 .and. code /= 9 .and. code /= 10 .and. &
+                code /= 12 .and. code /= 13 .and. code /= 26) then
                 has_binary = .true.
                 return
             end if
