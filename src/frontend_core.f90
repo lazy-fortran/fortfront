@@ -6,7 +6,8 @@ module frontend_core
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                          TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE
+                          TK_NUMBER, TK_STRING, TK_UNKNOWN, TK_WHITESPACE, &
+                          to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
@@ -46,6 +47,7 @@ module frontend_core
     public :: compile_source, compilation_options_t
     public :: lex_file
     public :: parse_tokens_safe, parse_result_with_index_t
+    public :: normalize_fixed_form_source_text, is_fixed_form_file
 
     ! Simplified compilation options - no backend selection
     type :: compilation_options_t
@@ -74,6 +76,7 @@ contains
         type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code, source
+        logical :: is_fixed_form
         integer :: unit, iostat
         type(path_validation_result_t) :: validation_result
 
@@ -95,8 +98,12 @@ contains
             return
         end if
 
+        ! Detect fixed-form source so continuation markers are preserved
+        is_fixed_form = is_fixed_form_file(input_file)
+
         ! Read source file
-        call read_source_file(input_file, source, error_msg)
+        call read_source_file(input_file, source, error_msg, &
+                              fixed_form=is_fixed_form)
         if (error_msg /= "") return
 
         ! Initialize unified compiler arena for all phases
@@ -204,11 +211,13 @@ contains
 
     ! Private helper subroutines to break down large functions
 
-    subroutine read_source_file(input_file, source, error_msg)
+    subroutine read_source_file(input_file, source, error_msg, fixed_form)
         character(len=*), intent(in) :: input_file
         character(len=:), allocatable, intent(out) :: source
         character(len=*), intent(out) :: error_msg
+        logical, intent(in), optional :: fixed_form
         integer :: unit, iostat
+        logical :: use_fixed_form
 
         ! Read source file
         open (newunit=unit, file=input_file, status='old', action='read', iostat=iostat)
@@ -216,6 +225,9 @@ contains
             error_msg = "Cannot open input file: " // input_file
             return
         end if
+
+        use_fixed_form = .false.
+        if (present(fixed_form)) use_fixed_form = fixed_form
 
         block
             character(len=:), allocatable :: line
@@ -242,6 +254,10 @@ contains
                 end if
                 lines(line_count) = trim(line)
             end do
+
+            if (use_fixed_form) then
+                call normalize_fixed_form_lines(lines, line_count)
+            end if
 
             if (line_count > 0) then
                 source = join_strings(lines(1:line_count), new_line('a'))
@@ -578,5 +594,145 @@ contains
 
         is_ws = (iachar(ch) <= 32)
     end function is_whitespace_char
+
+    pure logical function is_fixed_form_file(path) result(is_fixed)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable :: lower_path
+
+        lower_path = to_lower(trim(path))
+        is_fixed = has_suffix(lower_path, ".f") .or. &
+                   has_suffix(lower_path, ".for") .or. &
+                   has_suffix(lower_path, ".ftn") .or. &
+                   has_suffix(lower_path, ".f77")
+    end function is_fixed_form_file
+
+    pure logical function has_suffix(text, suffix) result(matches)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: suffix
+        integer :: text_len, suffix_len
+
+        text_len = len_trim(text)
+        suffix_len = len_trim(suffix)
+        if (text_len < suffix_len) then
+            matches = .false.
+        else
+            matches = text(text_len - suffix_len + 1:text_len) == suffix
+        end if
+    end function has_suffix
+
+    subroutine normalize_fixed_form_lines(lines, line_count)
+        character(len=:), allocatable, intent(inout) :: lines(:)
+        integer, intent(in) :: line_count
+        integer :: i
+
+        if (.not. allocated(lines)) return
+        if (line_count <= 0) return
+
+        do i = 1, line_count
+            call normalize_fixed_form_line(lines(i))
+        end do
+    end subroutine normalize_fixed_form_lines
+
+    subroutine normalize_fixed_form_line(line)
+        character(len=*), intent(inout) :: line
+        integer :: len_line
+        character(len=1) :: cont_char
+        character(len=:), allocatable :: body
+
+        len_line = len(line)
+        if (len_trim(line) > 0) then
+            if (line(1:1) == "&") return  ! Already normalized to free form
+        end if
+        if (len_line < 6) return
+        if (is_fixed_form_comment(line)) return
+
+        cont_char = line(6:6)
+        if (cont_char == " " .or. cont_char == "0") return
+
+        if (len_line > 6) then
+            body = adjustl(line(7:len_line))
+        else
+            allocate (character(len=0) :: body)
+        end if
+
+        if (len(body) > 0) then
+            line = "& " // trim(body)
+        else
+            line = "&"
+        end if
+    end subroutine normalize_fixed_form_line
+
+    pure logical function is_fixed_form_comment(line) result(is_comment)
+        character(len=*), intent(in) :: line
+        character(len=1) :: first_char
+
+        is_comment = .false.
+        if (len(line) == 0) return
+
+        first_char = line(1:1)
+        select case (first_char)
+        case ("c", "C", "*", "!")
+            is_comment = .true.
+        case default
+            is_comment = .false.
+        end select
+    end function is_fixed_form_comment
+
+    subroutine normalize_fixed_form_source_text(source)
+        character(len=:), allocatable, intent(inout) :: source
+        character(len=:), allocatable :: lines(:)
+        integer :: line_count
+
+        if (.not. allocated(source)) return
+        if (len(source) == 0) return
+
+        call split_source_into_lines(source, lines, line_count)
+        if (line_count <= 0) return
+
+        call normalize_fixed_form_lines(lines, line_count)
+        source = join_strings(lines(1:line_count), new_line('a'))
+    end subroutine normalize_fixed_form_source_text
+
+    subroutine split_source_into_lines(source, lines, line_count)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable, intent(out) :: lines(:)
+        integer, intent(out) :: line_count
+        integer :: i, src_len
+        integer :: start_pos, end_pos
+        integer :: current_line
+        character(len=1), parameter :: nl = new_line('a')
+
+        src_len = len(source)
+        line_count = 1
+
+        do i = 1, src_len
+            if (source(i:i) == nl) line_count = line_count + 1
+        end do
+
+        allocate (character(len=src_len) :: lines(line_count))
+
+        start_pos = 1
+        current_line = 1
+        do while (start_pos <= src_len .and. current_line <= line_count)
+            end_pos = index(source(start_pos:), nl)
+            if (end_pos == 0) then
+                lines(current_line) = source(start_pos:)
+                exit
+            end if
+
+            if (end_pos == 1) then
+                lines(current_line) = ""
+            else
+                lines(current_line) = source(start_pos:start_pos + end_pos - 2)
+            end if
+
+            start_pos = start_pos + end_pos
+            current_line = current_line + 1
+        end do
+
+        if (current_line <= line_count) then
+            lines(current_line:line_count) = ""
+        end if
+    end subroutine split_source_into_lines
 
 end module frontend_core
