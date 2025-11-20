@@ -273,13 +273,21 @@ contains
         integer, allocatable, intent(inout) :: procedure_indices(:)
         type(token_t) :: token
         integer :: stmt_index
+        character(len=:), allocatable :: lowered
 
         do while (.not. parser%is_at_end())
             if (check_module_end(parser)) exit
 
             token = parser%peek()
+            select case (token%kind)
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                lowered = to_lower(token%text)
+            case default
+                lowered = ""
+            end select
 
-            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
+                trim(lowered) == "contains") then
                 if (handle_contains_keyword_in_module(parser, arena, has_contains, &
                                                      in_contains_section, &
                                                      declaration_indices)) then
