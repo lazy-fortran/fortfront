@@ -82,6 +82,8 @@ gfortran output.f90 -o test
 - `derived_type_*.f90` - Derived type examples
 - `legacy_*.f90` - Legacy Fortran features
 - `issue_*.f90` - Issue-specific standard Fortran examples
+- Program scaffold preservation: `program_scaffold_preserve.f90`,
+  `program_scaffold_special_name.f90`
 
 ## Adding New Examples
 
