@@ -1,8 +1,8 @@
 module codegen_procedure_shared
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: identifier_node
-    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
-                              intent_type_to_string
+    use ast_nodes_core, only: identifier_node, literal_node, program_node
+    use ast_nodes_data, only: declaration_node, module_node, &
+                              parameter_declaration_node, intent_type_to_string
     use ast_nodes_misc, only: implicit_statement_node
     use codegen_declarations_core, only: build_parameter_dimensions, &
                                          fix_character_len_placeholder
@@ -113,17 +113,21 @@ contains
         end do
     end subroutine filter_implicit_statements
 
-    function maybe_add_procedure_implicit_none(arena, body_indices) result(prolog)
+    function maybe_add_procedure_implicit_none(arena, body_indices, &
+                                               procedure_index) result(prolog)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: procedure_index
         character(len=:), allocatable :: prolog
         integer :: j
         logical :: has_implicit_none
         logical :: has_other_implicit
+        logical :: host_has_implicit
 
         prolog = ""
         has_implicit_none = .false.
         has_other_implicit = .false.
+        host_has_implicit = enclosing_has_implicit(arena, procedure_index)
 
         do j = 1, size(body_indices)
             if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
@@ -139,8 +143,86 @@ contains
         end do
 
         if (has_other_implicit) return
+        if (has_implicit_none) return
+        if (host_has_implicit) return
         prolog = "    implicit none" // new_line('A')
     end function maybe_add_procedure_implicit_none
+
+    logical function enclosing_has_implicit(arena, procedure_index) &
+        result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: procedure_index
+        integer :: parent_index
+
+        has_implicit = .false.
+        if (procedure_index <= 0 .or. procedure_index > arena%size) return
+
+        parent_index = arena%entries(procedure_index)%parent_index
+        if (parent_index <= 0 .or. parent_index > arena%size) return
+        if (.not. allocated(arena%entries(parent_index)%node)) return
+
+        select type (parent => arena%entries(parent_index)%node)
+        type is (module_node)
+            has_implicit = module_scope_has_implicit(arena, parent)
+        type is (program_node)
+            has_implicit = program_scope_has_implicit(arena, parent)
+        class default
+            has_implicit = .false.
+        end select
+    end function enclosing_has_implicit
+
+    logical function module_scope_has_implicit(arena, mod) result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: mod
+        integer :: i
+
+        has_implicit = .false.
+        if (.not. allocated(mod%declaration_indices)) return
+
+        do i = 1, size(mod%declaration_indices)
+            if (node_index_has_implicit(arena, mod%declaration_indices(i))) then
+                has_implicit = .true.
+                return
+            end if
+        end do
+    end function module_scope_has_implicit
+
+    logical function program_scope_has_implicit(arena, prog) result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: i
+
+        has_implicit = .false.
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+            if (node_index_has_implicit(arena, prog%body_indices(i))) then
+                has_implicit = .true.
+                return
+            end if
+        end do
+    end function program_scope_has_implicit
+
+    logical function node_index_has_implicit(arena, node_index) &
+        result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: lowered_text
+
+        has_implicit = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (stmt => arena%entries(node_index)%node)
+        type is (implicit_statement_node)
+            has_implicit = .true.
+        type is (literal_node)
+            if (allocated(stmt%value)) then
+                lowered_text = to_lower(adjustl(stmt%value))
+                if (index(lowered_text, "implicit") == 1) has_implicit = .true.
+            end if
+        end select
+    end function node_index_has_implicit
 
     subroutine apply_default_intents(prefix_keywords, param_map)
         character(len=*), intent(in) :: prefix_keywords(:)
@@ -287,7 +369,8 @@ contains
         if (.not. is_procedure_parameter) then
             select type (param_node => arena%entries(param_idx)%node)
             type is (parameter_declaration_node)
-                if (param_node%is_array .or. param_node%inferred_type%kind == TARRAY) then
+                if (param_node%is_array .or. &
+                    param_node%inferred_type%kind == TARRAY) then
                     dim_clause = build_parameter_dimensions(arena, param_node)
                     if (len(dim_clause) == 0) then
                         dim_clause = build_assumed_shape_dimensions( &

@@ -10,6 +10,7 @@ module codegen_module_generation
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
     use ast_traversal_utils, only: get_ancestor_of_type
+    use string_utils_mod, only: to_lower
     implicit none
     private
     public :: generate_code_module
@@ -32,6 +33,7 @@ contains
         character(len=:), allocatable :: remainder_block
         integer :: prefix_count
         logical :: needs_implicit
+        logical :: has_implicit
 
         in_module_context = .true.
         header = build_module_header(arena, node)
@@ -39,7 +41,8 @@ contains
         use_block = collect_module_declarations(arena, node, 1, prefix_count)
         remainder_block = collect_module_declarations(arena, node, &
                                                       prefix_count + 1)
-        needs_implicit = .not. module_has_implicit_none(arena, node)
+        has_implicit = module_has_implicit_statement(arena, node)
+        needs_implicit = .not. has_implicit
 
         code = header
         if (len(use_block) > 0) code = code // use_block
@@ -107,11 +110,12 @@ contains
         header = "module " // node%name // new_line('A')
     end function build_module_header
 
-    logical function module_has_implicit_none(arena, node) result(has_implicit)
+    logical function module_has_implicit_statement(arena, node) result(has_implicit)
         type(ast_arena_t), intent(in) :: arena
         type(module_node), intent(in) :: node
         integer :: i
         integer :: decl_index
+        character(len=:), allocatable :: lowered_value
 
         has_implicit = .false.
         if (.not. allocated(node%declaration_indices)) return
@@ -123,20 +127,19 @@ contains
 
             select type (decl => arena%entries(decl_index)%node)
             type is (implicit_statement_node)
-                if (decl%is_none) then
-                    has_implicit = .true.
-                    return
-                end if
+                has_implicit = .true.
+                return
             type is (literal_node)
                 if (allocated(decl%value)) then
-                    if (index(decl%value, "implicit none") > 0) then
+                    lowered_value = to_lower(adjustl(decl%value))
+                    if (index(lowered_value, "implicit") == 1) then
                         has_implicit = .true.
                         return
                     end if
                 end if
             end select
         end do
-    end function module_has_implicit_none
+    end function module_has_implicit_statement
 
     function collect_module_declarations(arena, node, start_idx, end_idx) &
         result(body_code)
