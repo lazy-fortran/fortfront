@@ -9,6 +9,7 @@ program fortfront_cli
     use process_exit, only: exit_quiet
     use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
     use stdout_sanitizer, only: sanitize_redirected_stdout
+    use frontend_core, only: normalize_fixed_form_source_text, is_fixed_form_file
     implicit none
 
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -450,6 +451,11 @@ contains
             end if
             call read_all_from_unit(unit_num, text, status)
             close (unit_num)
+            if (status == 0) then
+                if (is_fixed_form_file(trim(filename))) then
+                    call normalize_fixed_form_source_text(text)
+                end if
+            end if
         else
             call read_all_from_unit(input_unit, text, status)
         end if
@@ -587,7 +593,8 @@ contains
             allocate (character(len=capacity) :: tmp, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write (error_unit, '(A,I0,A)') &
-                    'Failed to allocate memory for input expansion (', capacity, ' bytes)'
+                    'Failed to allocate memory for input expansion (', &
+                    capacity, ' bytes)'
                 status = 5
                 return
             end if
@@ -624,7 +631,8 @@ contains
             allocate (character(len=capacity) :: tmp, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write (error_unit, '(A,I0,A)') &
-                    'Failed to allocate memory for newline expansion (', capacity, ' bytes)'
+                    'Failed to allocate memory for newline expansion (', &
+                    capacity, ' bytes)'
                 status = 5
                 return
             end if
