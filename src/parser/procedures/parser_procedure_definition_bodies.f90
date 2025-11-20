@@ -61,11 +61,17 @@ contains
 
         type(token_t) :: token
         integer :: stmt_index
+        character(len=:), allocatable :: lowered
 
         allocate (body_indices(0))
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                lowered = to_lower(token%text)
+            else
+                lowered = ""
+            end if
 
             if (check_procedure_end(parser, token, end_keyword, procedure_name)) exit
 
@@ -82,7 +88,8 @@ contains
                 cycle
             end if
 
-            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
+                trim(lowered) == "contains") then
                 ! Only treat lone "contains" statements as structural section markers.
                 ! Any continuation (assignment, call, array reference, etc.) means the
                 ! identifier should be preserved as regular code (issue #2247).
@@ -125,7 +132,8 @@ contains
                         token = parser%consume()
                         call parse_contains_section(parser, arena, procedure_name, &
                                                     end_keyword, body_indices, &
-                                                    parse_function_proc, parse_subroutine_proc)
+                                                    parse_function_proc, &
+                                                    parse_subroutine_proc)
                         exit
                     end if
                     ! Otherwise fall through and treat "contains" as an identifier
@@ -396,7 +404,6 @@ contains
         call copy_statement_slice(parser%tokens, stmt_start, stmt_end, first_token, &
                                   stmt_tokens)
     end subroutine collect_statement_tokens
-
 
     logical function is_if_statement_start(first_token) result(is_if_start)
         type(token_t), intent(in) :: first_token
@@ -732,7 +739,7 @@ contains
             if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
                 block
                     character(len=:), allocatable :: lowered, lookahead_lower, &
-                                                        type_with_kind
+                                                     type_with_kind
                     character(len=16), allocatable :: stored(:)
                     type(token_t) :: lookahead
                     lowered = to_lower(token%text)
@@ -754,8 +761,8 @@ contains
                             lookahead_lower = to_lower(trim(lookahead%text))
                             select case (trim(lookahead_lower))
                             case ("precision", "complex")
-                                type_with_kind = trim(token%text)//" "// &
-                                                 trim(lookahead%text)
+                                type_with_kind = trim(token%text) // " " // &
+                                    trim(lookahead%text)
                                 token = parser%consume()
                                 token = parser%consume()
                                 call consume_optional_kind_spec(parser, type_with_kind)

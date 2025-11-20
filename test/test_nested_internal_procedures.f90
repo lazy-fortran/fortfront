@@ -57,11 +57,15 @@ contains
         call emit_fortran(arena, prog_index, output_code)
 
         outer_pos = index(output_code, 'function outer')
-        contains_pos = index(output_code, 'contains')
+        contains_pos = index(output_code(outer_pos:), 'contains')
         inner_pos = index(output_code, 'integer function inner')
 
+        if (contains_pos > 0) then
+            contains_pos = contains_pos + outer_pos - 1
+        end if
+
         if (contains_pos == 0 .or. inner_pos <= contains_pos .or. &
-            (outer_pos > 0 .and. contains_pos < outer_pos)) then
+            contains_pos <= outer_pos) then
             write (error_unit, '(A)') 'FAIL: nested contains structure missing'
             write (error_unit, '(A)') trim(output_code)
             error stop 1

@@ -32,7 +32,8 @@ module parser_module_structures_module
 contains
 
     function handle_contains_keyword_in_module(parser, arena, has_contains, &
-                                              in_contains_section, declaration_indices) &
+                                               in_contains_section, &
+                                               declaration_indices) &
         result(should_cycle)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -80,7 +81,8 @@ contains
 
                         if (rhs_token%kind == TK_IDENTIFIER) then
                             rhs_index = push_identifier(arena, rhs_token%text, &
-                                                        rhs_token%line, rhs_token%column)
+                                                        rhs_token%line, &
+                                                        rhs_token%column)
                         else
                             rhs_index = push_literal(arena, rhs_token%text, &
                                                      rhs_token%line, rhs_token%column, &
@@ -93,7 +95,8 @@ contains
                                                            id_token%column, &
                                                            operator_text=assignment_op)
                             if (assign_index > 0) then
-                                declaration_indices = [declaration_indices, assign_index]
+                                declaration_indices = [declaration_indices, &
+                                                       assign_index]
                             end if
                         end if
                     end if
@@ -263,8 +266,8 @@ contains
     end function check_module_end
 
     subroutine parse_module_body(parser, arena, prefix_buffer, &
-                                has_contains, in_contains_section, &
-                                declaration_indices, procedure_indices)
+                                 has_contains, in_contains_section, &
+                                 declaration_indices, procedure_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -273,16 +276,24 @@ contains
         integer, allocatable, intent(inout) :: procedure_indices(:)
         type(token_t) :: token
         integer :: stmt_index
+        character(len=:), allocatable :: lowered
 
         do while (.not. parser%is_at_end())
             if (check_module_end(parser)) exit
 
             token = parser%peek()
+            select case (token%kind)
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                lowered = to_lower(token%text)
+            case default
+                lowered = ""
+            end select
 
-            if (token%kind == TK_KEYWORD .and. token%text == "contains") then
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
+                trim(lowered) == "contains") then
                 if (handle_contains_keyword_in_module(parser, arena, has_contains, &
-                                                     in_contains_section, &
-                                                     declaration_indices)) then
+                                                      in_contains_section, &
+                                                      declaration_indices)) then
                     cycle
                 end if
             end if
@@ -305,7 +316,8 @@ contains
                             integer, allocatable :: extra_indices(:)
                             extra_indices = take_implicit_additional_indices()
                             if (size(extra_indices) > 0) then
-                                declaration_indices = [declaration_indices, extra_indices]
+                                declaration_indices = [declaration_indices, &
+                                                       extra_indices]
                             end if
                         end block
                         cycle
@@ -332,7 +344,8 @@ contains
                 end if
 
                 if (.not. (token%kind == TK_KEYWORD .and. &
-                           (token%text == "function" .or. token%text == "subroutine"))) then
+                           (token%text == "function" .or. token%text == &
+                            "subroutine"))) then
                     token = parser%consume()
                 end if
             else
@@ -370,8 +383,8 @@ contains
         in_contains_section = .false.
 
         call parse_module_body(parser, arena, prefix_buffer, &
-                              has_contains, in_contains_section, &
-                              declaration_indices, procedure_indices)
+                               has_contains, in_contains_section, &
+                               declaration_indices, procedure_indices)
 
         module_index = push_module_structured(arena, module_name, &
                                               declaration_indices, &
