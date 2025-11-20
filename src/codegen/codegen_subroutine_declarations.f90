@@ -34,7 +34,7 @@ contains
 
         code = compose_subroutine_signature(arena, node)
         code = code // new_line('A')
-        code = code // build_subroutine_body_section(arena, node)
+        code = code // build_subroutine_body_section(arena, node, node_index)
         code = code // "end subroutine " // node%name
     end function generate_code_subroutine_def
 
@@ -81,9 +81,10 @@ contains
         prefix = gather_prefix(node%prefix_keywords, recursive_in_prefix)
     end function gather_subroutine_prefix
 
-    function build_subroutine_body_section(arena, node) result(body)
+    function build_subroutine_body_section(arena, node, node_index) result(body)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: node
+        integer, intent(in) :: node_index
         character(len=:), allocatable :: body
         type(parameter_info_t), allocatable :: param_map(:)
         integer, allocatable :: param_indices(:)
@@ -106,7 +107,8 @@ contains
         body = ""
         if (len_trim(use_section) > 0) body = body // use_section
 
-        body = body // maybe_add_procedure_implicit_none(arena, body_indices)
+        body = body // maybe_add_procedure_implicit_none(arena, body_indices, &
+                                                        node_index)
         body = body // collect_subroutine_parameter_decls(arena, node, param_map)
         body = body // collect_subroutine_local_variable_decls(arena, node, param_map)
 
@@ -233,19 +235,23 @@ contains
                                              declared_capacity)
             type is (assignment_node)
                 call collect_vars_from_assignment_sub(arena, stmt, param_map, &
-                                                      local_vars, n_locals, capacity, &
-                                                      declared_vars, n_declared, decl_code)
+                                                      local_vars, n_locals, &
+                                                      capacity, declared_vars, &
+                                                      n_declared, decl_code)
             type is (print_statement_node)
-                call collect_vars_from_print_sub(arena, stmt, param_map, local_vars, &
-                                                 n_locals, capacity, declared_vars, &
-                                                 n_declared, decl_code)
+                call collect_vars_from_print_sub(arena, stmt, param_map, &
+                                                 local_vars, n_locals, capacity, &
+                                                 declared_vars, n_declared, &
+                                                 decl_code)
             type is (read_statement_node)
-                call collect_vars_from_read_sub(arena, stmt, param_map, local_vars, &
-                                                n_locals, capacity, declared_vars, &
-                                                n_declared, decl_code)
+                call collect_vars_from_read_sub(arena, stmt, param_map, &
+                                                local_vars, n_locals, capacity, &
+                                                declared_vars, n_declared, &
+                                                decl_code)
             type is (do_loop_node)
-                call collect_loop_var_sub(arena, stmt, param_map, local_vars, n_locals, &
-                                          capacity, declared_vars, n_declared, decl_code)
+                call collect_loop_var_sub(arena, stmt, param_map, local_vars, &
+                                          n_locals, capacity, declared_vars, &
+                                          n_declared, decl_code)
             end select
         end do
     end function collect_subroutine_local_variable_decls
@@ -363,7 +369,8 @@ contains
             call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
             n_locals = n_locals + 1
             local_vars(n_locals) = var_name
-            decl_code = decl_code // "    integer :: " // trim(var_name) // new_line('A')
+            decl_code = decl_code // "    integer :: " // trim(var_name) // &
+                        new_line('A')
         end if
 
         if (allocated(loop_node%body_indices)) then
@@ -374,9 +381,9 @@ contains
 
                 select type (nested_stmt => arena%entries(nested_idx)%node)
                 type is (do_loop_node)
-                    call collect_loop_var_sub(arena, nested_stmt, param_map, local_vars, &
-                                              n_locals, capacity, declared_vars, n_declared, &
-                                              decl_code)
+                    call collect_loop_var_sub(arena, nested_stmt, param_map, &
+                                              local_vars, n_locals, capacity, &
+                                              declared_vars, n_declared, decl_code)
                 end select
             end do
         end if

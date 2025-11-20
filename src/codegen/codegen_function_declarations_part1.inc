@@ -14,7 +14,7 @@
         if (in_interface_context) then
             code = code // build_interface_prototype_body(arena, node)
         else
-            code = code // build_function_body_section(arena, node)
+            code = code // build_function_body_section(arena, node, node_index)
         end if
         code = code // "end function " // node%name
     end function generate_code_function_def
@@ -170,7 +170,8 @@
         needs_result_for_array = should_use_result_for_array(arena, node) .and. &
                                 missing_result_variable
 
-        if (rename_result .or. needs_result_for_recursion .or. needs_result_for_array) then
+        if (rename_result .or. needs_result_for_recursion .or. &
+            needs_result_for_array) then
             result_name = trim(node%name) // "_result"
         else
             if (.not. allocated(node%result_variable)) return
@@ -189,9 +190,10 @@
         result_clause = " result(" // result_name // ")"
     end function build_function_result_clause
 
-    function build_function_body_section(arena, node) result(body)
+    function build_function_body_section(arena, node, node_index) result(body)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
+        integer, intent(in) :: node_index
         character(len=:), allocatable :: body
         type(parameter_info_t), allocatable :: param_map(:)
         integer, allocatable :: param_indices(:)
@@ -207,7 +209,7 @@
         end if
         call apply_function_default_intents(param_map)
 
-        body = maybe_add_procedure_implicit_none(arena, body_indices)
+        body = maybe_add_procedure_implicit_none(arena, body_indices, node_index)
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
         body = body // collect_recursive_result_decl(arena, node)
