@@ -1,3 +1,4 @@
+! Ensures program scaffold survives roundtrip with name and implicit state
 program scaffold_test
     implicit none
     integer :: x
