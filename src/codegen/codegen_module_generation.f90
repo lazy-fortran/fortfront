@@ -294,6 +294,11 @@ contains
                 if (allocated(node%operator)) then
                     code = code // "(" // trim(node%operator) // ")"
                 end if
+            else if (trim(node%kind) == "read" .or. trim(node%kind) == "write") then
+                code = code // " " // trim(node%kind)
+                if (allocated(node%operator)) then
+                    code = code // "(" // trim(node%operator) // ")"
+                end if
             else if (allocated(node%name)) then
                 if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
             end if
@@ -313,6 +318,11 @@ contains
         if (allocated(node%kind)) then
             if (trim(node%kind) == "operator" .or. trim(node%kind) == &
                 "assignment") then
+                code = code // " " // trim(node%kind)
+                if (allocated(node%operator)) then
+                    code = code // "(" // trim(node%operator) // ")"
+                end if
+            else if (trim(node%kind) == "read" .or. trim(node%kind) == "write") then
                 code = code // " " // trim(node%kind)
                 if (allocated(node%operator)) then
                     code = code // "(" // trim(node%operator) // ")"

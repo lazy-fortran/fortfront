@@ -45,6 +45,23 @@ contains
                     end if
                 end if
                 interface_name = ""
+            else if (trim(lowered) == "read" .or. trim(lowered) == "write") then
+                interface_kind = trim(lowered)
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    token = parser%consume()
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                        operator_symbol = trim(to_lower(token%text))
+                        token = parser%consume()
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                            token = parser%consume()
+                        end if
+                    end if
+                end if
+                interface_name = ""
             else
                 token = parser%consume()
                 interface_name = token%text
