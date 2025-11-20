@@ -55,6 +55,7 @@ module parser_execution_statements_module
     use parser_keyword_disambiguation_module, only: looks_like_format_statement, &
                                                     looks_like_implicit_statement
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_misc, only: contains_node
     use ast_factory, only: push_program, &
                            push_declaration, push_implicit_statement, push_goto
     use parser_statement_utilities_module, only: parse_comment_or_directive
@@ -342,6 +343,7 @@ contains
                 ! If so, it's an identifier, not the structural keyword
                 block
                     type(token_t) :: next_token
+                    type(contains_node) :: contains_stmt
                     logical :: is_assignment
                     integer :: lookahead_pos
 
@@ -374,8 +376,11 @@ contains
                             type(token_t) :: ignored_token
                             ignored_token = parser_ref%consume()
                         end block
+                        contains_stmt%line = keyword_token%line
+                        contains_stmt%column = keyword_token%column
+                        call arena_ref%push(contains_stmt, "contains", 0)
+                        stmt_index = arena_ref%size
                         call flush_pending_prefixes()
-                        stmt_index = 0
                     else
                         ! This is "contains" used as an identifier in assignment
                         ! Don't consume it - let it be handled as an identifier
