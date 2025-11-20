@@ -296,14 +296,35 @@ contains
         character(len=:), allocatable, intent(inout) :: decl_code
         character(len=:), allocatable :: param_type
         character(len=:), allocatable :: decl_line
-        character(len=:), allocatable :: intent_str
-        character(len=:), allocatable :: dim_clause
         logical :: has_intent_attr
         logical :: has_optional_attr
         logical :: has_target_attr
-        logical :: is_procedure_parameter
 
         if (len_trim(param_info%name) == 0) return
+
+        call build_param_type_with_attrs(arena, param_idx, param_info, param_type, &
+                                         has_intent_attr, has_optional_attr, &
+                                         has_target_attr)
+
+        decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
+
+        call append_array_dimensions(arena, param_idx, param_type, decl_line)
+        call fix_declaration_formatting(decl_line)
+
+        decl_code = decl_code // decl_line // new_line('A')
+    end subroutine append_parameter_declaration
+
+    subroutine build_param_type_with_attrs(arena, param_idx, param_info, &
+                                           param_type, has_intent_attr, &
+                                           has_optional_attr, has_target_attr)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_idx
+        type(parameter_info_t), intent(in) :: param_info
+        character(len=:), allocatable, intent(out) :: param_type
+        logical, intent(out) :: has_intent_attr
+        logical, intent(out) :: has_optional_attr
+        logical, intent(out) :: has_target_attr
+        character(len=:), allocatable :: intent_str
 
         has_intent_attr = .false.
         has_optional_attr = .false.
@@ -331,6 +352,18 @@ contains
             param_type = get_param_type_fallback(param_node)
         end select
 
+        call apply_param_info_attrs(param_info, param_type, has_intent_attr, &
+                                    has_optional_attr, has_target_attr)
+    end subroutine build_param_type_with_attrs
+
+    subroutine apply_param_info_attrs(param_info, param_type, has_intent_attr, &
+                                      has_optional_attr, has_target_attr)
+        type(parameter_info_t), intent(in) :: param_info
+        character(len=:), allocatable, intent(inout) :: param_type
+        logical, intent(inout) :: has_intent_attr
+        logical, intent(inout) :: has_optional_attr
+        logical, intent(inout) :: has_target_attr
+
         if (.not. has_intent_attr) then
             if (allocated(param_info%intent_str)) then
                 if (len_trim(param_info%intent_str) > 0) then
@@ -352,8 +385,15 @@ contains
                 has_target_attr = .true.
             end if
         end if
+    end subroutine apply_param_info_attrs
 
-        decl_line = "    " // trim(param_type) // " :: " // trim(param_info%name)
+    subroutine append_array_dimensions(arena, param_idx, param_type, decl_line)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_idx
+        character(len=*), intent(in) :: param_type
+        character(len=:), allocatable, intent(inout) :: decl_line
+        logical :: is_procedure_parameter
+        character(len=:), allocatable :: dim_clause
 
         is_procedure_parameter = .false.
         select type (param_node => arena%entries(param_idx)%node)
@@ -380,29 +420,29 @@ contains
                 end if
             end select
         end if
+    end subroutine append_array_dimensions
+
+    subroutine fix_declaration_formatting(decl_line)
+        character(len=:), allocatable, intent(inout) :: decl_line
+        integer :: pos_char
+        integer :: intent_pos
+        logical :: has_comma
 
         decl_line = fix_character_len_placeholder(decl_line)
-        block
-            integer :: pos_char
-            pos_char = index(decl_line, 'character(len=:)')
-            if (pos_char > 0) then
-                decl_line = decl_line(1:pos_char + 13) // '*)' // &
-                            decl_line(pos_char + 17:)
-            end if
-        end block
-        block
-            integer :: intent_pos
-            logical :: has_comma
 
-            intent_pos = index(decl_line, ' intent(')
-            has_comma = index(decl_line, ', intent(') > 0
-            if (intent_pos > 0 .and. .not. has_comma) then
-                decl_line = decl_line(:intent_pos - 1) // ', intent(' // &
-                            decl_line(intent_pos + 8:)
-            end if
-        end block
-        decl_code = decl_code // decl_line // new_line('A')
-    end subroutine append_parameter_declaration
+        pos_char = index(decl_line, 'character(len=:)')
+        if (pos_char > 0) then
+            decl_line = decl_line(1:pos_char + 13) // '*)' // &
+                        decl_line(pos_char + 17:)
+        end if
+
+        intent_pos = index(decl_line, ' intent(')
+        has_comma = index(decl_line, ', intent(') > 0
+        if (intent_pos > 0 .and. .not. has_comma) then
+            decl_line = decl_line(:intent_pos - 1) // ', intent(' // &
+                        decl_line(intent_pos + 8:)
+        end if
+    end subroutine fix_declaration_formatting
 
     function get_param_type_from_identifier(param_node) result(param_type)
         type(identifier_node), intent(in) :: param_node
