@@ -77,6 +77,8 @@ build/**/*.log
 cli_trace.txt
 logs/
 examples/external_tool_example
+generated_tests/
+fortfront_modules/
 
 # Binary executables (common names)
 a.out

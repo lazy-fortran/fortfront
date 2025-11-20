@@ -18,6 +18,7 @@ import tempfile
 import difflib
 from collections import Counter, defaultdict
 import re
+import shlex
 from rapidfuzz import fuzz
 
 FORTRAN_SUFFIXES: Sequence[str] = (
@@ -32,8 +33,11 @@ FORTRAN_SUFFIXES: Sequence[str] = (
 
 DEFAULT_OUTPUT = Path("logs") / "gfortran_dejagnu_roundtrip_results.jsonl"
 DEFAULT_GCC_ROOT = Path("..") / "gcc-dev" / "gcc"
-DEFAULT_JOBS = max(1, (os.cpu_count() or 1))
-DEFAULT_TEST_TIMEOUT = 0.1  # seconds; default timeout per test
+DEFAULT_JOBS = min(32, max(1, (os.cpu_count() or 1)))
+DEFAULT_TEST_TIMEOUT = 0.05  # seconds; default timeout per test (fast path)
+DEFAULT_LIVE_DIGEST = 5.0  # seconds between live digest updates (fast feedback)
+DEFAULT_COMPILE_TIMEOUT = 0.5  # seconds for gfortran compile
+DEFAULT_RUN_TIMEOUT = 0.5  # seconds for execution of compiled program
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,6 +96,42 @@ def parse_args() -> argparse.Namespace:
         "--dry-run",
         action="store_true",
         help="List discovered tests and exit without running fortfront.",
+    )
+    parser.add_argument(
+        "--max-tests",
+        type=int,
+        default=None,
+        help="Optional cap on number of tests (for quick iteration).",
+    )
+    parser.add_argument(
+        "--live-digest-interval",
+        type=float,
+        default=DEFAULT_LIVE_DIGEST,
+        help=(
+            "Print a compact top-categories digest every N seconds while tests run "
+            "(0 disables live digests; default: 5s)."
+        ),
+    )
+    parser.add_argument(
+        "--live-digest-limit",
+        type=int,
+        default=3,
+        help=(
+            "Maximum categories/signatures to show in each live digest "
+            "(default: 3)."
+        ),
+    )
+    parser.add_argument(
+        "--compile-timeout",
+        type=float,
+        default=DEFAULT_COMPILE_TIMEOUT,
+        help="Per-source compile timeout in seconds when semantic checking diffs (default: 0.5).",
+    )
+    parser.add_argument(
+        "--run-timeout",
+        type=float,
+        default=DEFAULT_RUN_TIMEOUT,
+        help="Per-binary run timeout in seconds when semantic checking diffs (default: 0.5).",
     )
     return parser.parse_args()
 
@@ -243,6 +283,7 @@ class SummaryGroup:
     description: str
     count: int = 0
     examples: List[str] = field(default_factory=list)
+    keywords: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -254,10 +295,11 @@ class Classification:
 
 
 class FailureAggregator:
-    def __init__(self, max_examples: int = 10) -> None:
+    def __init__(self, total_tests: int, max_examples: int = 10) -> None:
         self.max_examples = max_examples
         self.category_totals: Dict[str, int] = defaultdict(int)
         self.records: Dict[str, List[Tuple[Dict[str, object], Classification]]] = defaultdict(list)
+        self.total_tests = total_tests
 
     def add_record(self, record: Dict[str, object]) -> None:
         classification = classify_failure_record(record)
@@ -275,12 +317,17 @@ class FailureAggregator:
                 {
                     "category": category,
                     "total": self.category_totals[category],
+                    "percent_all_tests": round(
+                        100.0 * self.category_totals[category] / self.total_tests, 3
+                    ),
+                    "percent_failures": None,  # filled later
                     "groups": [
                         {
                             "signature": entry.signature,
                             "description": entry.description,
                             "count": entry.count,
                             "examples": entry.examples,
+                            "keywords": getattr(entry, "keywords", []),
                         }
                         for entry in groups[:max_groups_per_category]
                     ],
@@ -288,6 +335,10 @@ class FailureAggregator:
                 }
             )
         digest.sort(key=lambda entry: entry["total"], reverse=True)
+        total_failed = sum(entry["total"] for entry in digest)
+        if total_failed:
+            for entry in digest:
+                entry["percent_failures"] = round(100.0 * entry["total"] / total_failed, 3)
         return digest
 
     def _summarize_category(
@@ -336,6 +387,10 @@ class FailureAggregator:
                     description=description,
                 )
                 group.count = len(items)
+                # attach keyword hints
+                features = items[0][1].features
+                if isinstance(features, dict):
+                    group.keywords = features.get("top_keywords", [])
                 for record, _ in items[: self.max_examples]:
                     file_path = record.get("file")
                     if isinstance(file_path, str):
@@ -373,7 +428,14 @@ class FailureAggregator:
         for section in digest:
             category = section["category"]
             total = section["total"]
-            print(f"\n[{category}] total={total}")
+            pct_all = section.get("percent_all_tests")
+            pct_fail = section.get("percent_failures")
+            hdr_parts = [f"[{category}] total={total}"]
+            if pct_all is not None:
+                hdr_parts.append(f"{pct_all:.3f}% of all tests")
+            if pct_fail is not None:
+                hdr_parts.append(f"{pct_fail:.3f}% of failures")
+            print("\n" + " | ".join(hdr_parts))
             for group in section["groups"]:
                 signature = group["signature"]
                 count = group["count"]
@@ -385,41 +447,52 @@ class FailureAggregator:
             if remaining:
                 print(f"    ... {remaining} additional unique signatures omitted ...")
 
+    def build_heatmaps(self, top_n: int = 12) -> Dict[str, object]:
+        from collections import Counter
+
+        path_counter: Counter[str] = Counter()
+        keyword_counter: Counter[str] = Counter()
+        for entries in self.records.values():
+            for record, classification in entries:
+                cluster = extract_path_cluster(record) or "unknown"
+                path_counter[cluster] += 1
+                features = classification.features or {}
+                for kw in features.get("top_keywords", []):
+                    keyword_counter[kw] += 1
+                label = features.get("label")
+                if label:
+                    keyword_counter[label] += 1
+        return {
+            "paths": path_counter.most_common(top_n),
+            "keywords": keyword_counter.most_common(top_n),
+        }
+
 
 def classify_failure_record(record: Dict[str, object]) -> Optional[Classification]:
     status = record.get("status")
+    expected = bool(record.get("expected_failure", False))
     if status == "pass":
-        return None
-    if status == "fail":
-        if record.get("roundtrip_timeout"):
-            return Classification(
-                category="roundtrip_timeout",
-                signature="second_pass_timeout",
-                description="Second fortfront invocation timed out",
-            )
-        if "roundtrip_exit_code" in record:
-            code = record.get("roundtrip_exit_code")
-            raw_stderr = str(record.get("roundtrip_stderr", ""))
-            stderr_line = first_line(raw_stderr)
-            module_hint = extract_module_hint(raw_stderr)
-            normalized = normalize_message(raw_stderr)
+        if expected:
             path_hint = extract_path_cluster(record)
-            module_label = module_hint or (path_hint and f"path:{path_hint}") or "generic"
-            signature = f"exit:{code}:{module_label}:{normalized}"
-            description = (
-                f"Round-trip exit {code}: {stderr_line or 'no stderr'}"
-                + (
-                    f" [{module_hint}]"
-                    if module_hint
-                    else (f" [{path_hint}]" if path_hint else "")
-                )
-            )
+            desc_suffix = f" [{path_hint}]" if path_hint else ""
             return Classification(
-                category="roundtrip_exit",
-                signature=signature,
-                description=description,
-                features={"module": module_hint, "path": path_hint, "normalized": normalized},
+                category="unexpected_pass",
+                signature=f"XPASS:{path_hint or 'generic'}",
+                description=f"Expected failure passed{desc_suffix}",
+                features={"expected": True, "path": path_hint},
             )
+        return None
+    if expected:
+        path_hint = extract_path_cluster(record)
+        desc_suffix = f" [{path_hint}]" if path_hint else ""
+        return Classification(
+            category="expected_failure",
+            signature=f"XFAIL:{path_hint or 'generic'}",
+            description=f"Expected failure (per dg directives){desc_suffix}",
+            features={"expected": True, "path": path_hint},
+        )
+    if status == "fail":
+        # legacy catch-all
         if "roundtrip_diff" in record:
             diff_text = str(record.get("roundtrip_diff", ""))
             signature, description, features = extract_diff_signature(diff_text)
@@ -434,6 +507,72 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
             signature="unknown",
             description="Round-trip failure (unspecified)",
         )
+    if status == "roundtrip_timeout":
+        return Classification(
+            category="roundtrip_timeout",
+            signature="second_pass_timeout",
+            description="Second fortfront invocation timed out",
+        )
+    if status == "roundtrip_exit":
+        code = record.get("roundtrip_exit_code")
+        raw_stderr = str(record.get("roundtrip_stderr", ""))
+        stderr_line = first_line(raw_stderr)
+        label = categorize_message(raw_stderr)
+        path_hint = extract_path_cluster(record)
+        signature = f"exit:{code}:{label or 'generic'}"
+        description = f"Round-trip exit {code}: {label or stderr_line or 'no stderr'}"
+        return Classification(
+            category="roundtrip_exit",
+            signature=signature,
+            description=description,
+            features={"label": label, "path": path_hint},
+        )
+    if status == "pass_equivalent":
+        path_hint = extract_path_cluster(record)
+        return Classification(
+            category="equivalent_not_identical",
+            signature=f"equiv:{path_hint or 'generic'}",
+            description="Byte diff but compile+run outputs match",
+            features={"path": path_hint},
+        )
+    if status == "compile_fail_ref":
+        return Classification(
+            category="compile_fail_ref",
+            signature="ref_compile",
+            description="Reference source failed to compile during semantic check",
+        )
+    if status == "compile_fail_roundtrip":
+        return Classification(
+            category="compile_fail_roundtrip",
+            signature="rt_compile",
+            description="Round-trip source failed to compile during semantic check",
+        )
+    if status == "runtime_fail_ref":
+        return Classification(
+            category="runtime_fail_ref",
+            signature="ref_runtime",
+            description="Reference binary failed or timed out during semantic check",
+        )
+    if status == "runtime_fail_roundtrip":
+        return Classification(
+            category="runtime_fail_roundtrip",
+            signature="rt_runtime",
+            description="Round-trip binary failed or timed out during semantic check",
+        )
+    if status == "output_mismatch":
+        path_hint = extract_path_cluster(record)
+        return Classification(
+            category="output_mismatch",
+            signature=f"output_diff:{path_hint or 'generic'}",
+            description="Compile+run succeeded but outputs differ",
+            features={"path": path_hint},
+        )
+    if status == "compare_failure":
+        return Classification(
+            category="compare_failure",
+            signature="compare_failure",
+            description="Structural diff and semantic check did not match outputs",
+        )
     if status == "fatal":
         if record.get("stderr_preview") == "No output produced for successful transform":
             return Classification(
@@ -443,25 +582,14 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
             )
         exit_code = record.get("exit_code")
         stderr_text = str(record.get("stderr_preview", ""))
-        stderr_line = first_line(stderr_text)
-        module_hint = extract_module_hint(stderr_text)
-        normalized = normalize_message(stderr_text)
-        path_hint = extract_path_cluster(record)
-        module_label = module_hint or (path_hint and f"path:{path_hint}") or "generic"
-        signature = f"fatal:{exit_code}:{module_label}:{normalized}"
-        description = (
-            f"fortfront exit {exit_code}: {stderr_line or 'no stderr'}"
-            + (
-                f" [{module_hint}]"
-                if module_hint
-                else (f" [{path_hint}]" if path_hint else "")
-            )
-        )
+        label = categorize_message(stderr_text)
+        signature = f"fatal:{exit_code}:{label or 'generic'}"
+        description = f"fortfront exit {exit_code}: {label or first_line(stderr_text) or 'no stderr'}"
         return Classification(
             category="fatal_exit",
             signature=signature,
             description=description,
-            features={"module": module_hint, "path": path_hint, "normalized": normalized},
+            features={"label": label},
         )
     if status == "timeout":
         stderr_text = str(record.get("stderr_preview", ""))
@@ -517,6 +645,7 @@ _TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\d+|[^\s]")
 
 DIFF_LABEL_DESCRIPTIONS: Dict[str, str] = {
     "missing_program_scaffold": "Program wrapper removed",
+    "program_wrapper_added": "Program wrapper inserted",
     "implicit_removed": "Implicit typing statements removed",
     "implicit_added": "Implicit typing statements inserted",
     "contains_removed": "Contains section removed",
@@ -525,6 +654,13 @@ DIFF_LABEL_DESCRIPTIONS: Dict[str, str] = {
     "data_stmt_altered": "DATA statement edited",
     "interface_changed": "Interface block changed",
     "pointer_attr_change": "Pointer attributes changed",
+    "procedure_signature_change": "Subprogram signature adjusted",
+    "unnamed_module_wrapper": "Unnamed module wrapper added",
+    "unnamed_subroutine_wrapper": "Unnamed subroutine wrapper added",
+    "bind_c_change": "BIND(C)/interop adjusted",
+    "openmp_change": "OpenMP directives adjusted",
+    "openacc_change": "OpenACC directives adjusted",
+    "coarray_change": "Coarray statements changed",
     "coarray_change": "Coarray statements changed",
     "generic": "Round-trip diff pattern",
     "no_diff_lines": "Round-trip diff without diff body",
@@ -584,18 +720,21 @@ def extract_diff_signature(diff_text: str) -> Tuple[str, str, Dict[str, Any]]:
         normalized_tokens.append(f"{marker}{normalized}")
 
     top_tokens = [tok for tok, _ in Counter(tokens).most_common(12)]
-    signature_vector = normalized_tokens[:8] + top_tokens[:8]
+    top_keywords = keyword_signature(change_lines, top_k=8)
+    signature_vector = normalized_tokens[:8] + top_tokens[:4] + top_keywords[:4]
     signature_text = " ".join(signature_vector)
     signature = f"{label}:{' | '.join(signature_vector[:6])}"
     if len(signature) > 200:
         signature = signature[:197] + "..."
-    description = f"{label_desc}: {'; '.join(change_lines[:4])}"
+    keyword_str = f" keywords={','.join(top_keywords[:4])}" if top_keywords else ""
+    description = f"{label_desc}: {'; '.join(change_lines[:4])}{keyword_str}"
 
     features = {
         "label": label,
         "signature_text": signature_text,
         "raw_lines": change_lines[:12],
         "top_tokens": top_tokens,
+        "top_keywords": top_keywords,
         "minus_tokens": minus_tokens[:20],
         "plus_tokens": plus_tokens[:20],
     }
@@ -613,6 +752,45 @@ def tokenize_diff_lines(lines: List[str]) -> List[str]:
     return tokens
 
 
+STOPWORDS = {
+    "implicit",
+    "none",
+    "program",
+    "module",
+    "end",
+    "subroutine",
+    "function",
+    "integer",
+    "real",
+    "logical",
+    "type",
+    "class",
+    "contains",
+    "public",
+    "private",
+    "use",
+    "bind",
+    "c",
+    "omp",
+    "acc",
+    "coarray",
+}
+
+
+def keyword_signature(lines: List[str], top_k: int = 6) -> List[str]:
+    tokens: List[str] = []
+    for line in lines:
+        words = re.split(r"[^A-Za-z0-9_]+", line.lower())
+        for word in words:
+            if not word or word.isdigit() or word in STOPWORDS:
+                continue
+            if len(word) < 3:
+                continue
+            tokens.append(_DIGIT_PATTERN.sub("#", word))
+    counts = Counter(tokens)
+    return [word for word, _ in counts.most_common(top_k)]
+
+
 def detect_diff_label(env: Dict[str, Any]) -> str:
     minus_tokens = env["minus_tokens"]
     plus_tokens = env["plus_tokens"]
@@ -626,6 +804,18 @@ def detect_diff_label(env: Dict[str, Any]) -> str:
 
     if has_line("program", minus_lines) and has_line("end program", minus_lines):
         return "missing_program_scaffold"
+    if has_line("program", plus_lines) and has_line("end program", plus_lines):
+        return "program_wrapper_added"
+    if any("unnamed_module" in line.lower() for line in plus_lines):
+        return "unnamed_module_wrapper"
+    if any("unnamed_subroutine" in line.lower() for line in plus_lines):
+        return "unnamed_subroutine_wrapper"
+    if any("bind(c" in line.lower() or "iso_c_binding" in line.lower() for line in tokens):
+        return "bind_c_change"
+    if any(tok.startswith("omp") or tok == "openmp" for tok in tokens):
+        return "openmp_change"
+    if any(tok.startswith("acc") or tok == "openacc" for tok in tokens):
+        return "openacc_change"
     if "implicit" in minus_tokens and "implicit" not in plus_tokens:
         return "implicit_removed"
     if "implicit" in plus_tokens and "implicit" not in minus_tokens:
@@ -640,6 +830,8 @@ def detect_diff_label(env: Dict[str, Any]) -> str:
         return "interface_changed"
     if any(tok in {"pointer", "allocatable"} for tok in tokens):
         return "pointer_attr_change"
+    if any(tok in {"subroutine", "function"} for tok in tokens):
+        return "procedure_signature_change"
     if any(tok in {"coarray", "sync", "team"} for tok in tokens):
         return "coarray_change"
     if any(tok in {"type", "class"} for tok in tokens):
@@ -658,6 +850,210 @@ def normalize_message(text: str) -> str:
     lowered = _DIGIT_PATTERN.sub("#", lowered)
     lowered = re.sub(r"\s+", " ", lowered)
     return lowered.strip()
+
+
+def detect_expected_failure(test_path: Path) -> bool:
+    """
+    Lightweight dg directive detector: if the file contains dg-shouldfail or
+    dg-xfail, treat it as an expected failure.
+    """
+    try:
+        text = test_path.read_text(encoding="utf-8", errors="ignore").lower()
+    except OSError:
+        return False
+    return ("dg-shouldfail" in text) or ("dg-xfail" in text)
+
+
+def parse_dg_metadata(test_path: Path, gcc_root: Path) -> Dict[str, object]:
+    """
+    Minimal dg directive parser to approximate GCC harness context without copying code.
+    Supports:
+      - dg-options / dg-additional-options: extra flags
+      - dg-additional-source / dg-additional-files: extra source paths
+      - dg-do compile|run : decide whether to run
+    """
+    meta: Dict[str, object] = {
+        "options": [],
+        "extra_sources": [],
+        "do_run": True,
+    }
+    try:
+        text = test_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return meta
+    # options
+    opt_patterns = [
+        r"dg-options\\s*\"([^\"]+)\"",
+        r"dg-additional-options\\s*\"([^\"]+)\"",
+    ]
+    opts: List[str] = []
+    for pat in opt_patterns:
+        for match in re.findall(pat, text, flags=re.IGNORECASE):
+            opts.extend(shlex.split(match))
+    meta["options"] = opts
+    # additional sources/files
+    extra_patterns = [
+        r"dg-additional-source\\s*\"([^\"]+)\"",
+        r"dg-additional-files\\s*\"([^\"]+)\"",
+    ]
+    extras: List[str] = []
+    for pat in extra_patterns:
+        for match in re.findall(pat, text, flags=re.IGNORECASE):
+            for token in shlex.split(match):
+                extras.append(token)
+    testsuite_root = (gcc_root / "gcc" / "testsuite").resolve()
+    extra_paths: List[str] = []
+    for rel in extras:
+        candidate = (testsuite_root / rel).resolve()
+        if candidate.exists():
+            extra_paths.append(str(candidate))
+    meta["extra_sources"] = extra_paths
+    # dg-do
+    do_compile = re.search(r"dg-do\\s+compile", text, flags=re.IGNORECASE)
+    do_run = re.search(r"dg-do\\s+run", text, flags=re.IGNORECASE)
+    if do_compile and not do_run:
+        meta["do_run"] = False
+    else:
+        meta["do_run"] = True
+    return meta
+
+
+# Lightweight message categorization for clearer diagnostics
+_MSG_PATTERNS: List[Tuple[str, str]] = [
+    ("binary_input", r"input appears to be binary data"),
+    ("missing_then", r"missing 'then'"),
+    ("unexpected_token_data", r"unexpected token in data"),
+    ("unexpected_token_interface", r"unexpected token .*interface"),
+    ("unexpected_token_module", r"unexpected token .*module"),
+    ("unexpected_token_subprogram", r"unexpected token .*(subroutine|function)"),
+    ("no_output", r"no output produced"),
+    ("program_wrapper", r"program main"),
+    ("module_wrapper", r"module unnamed_module"),
+    ("unnamed_subroutine", r"subroutine unnamed_subroutine"),
+    ("unnamed_function", r"function unnamed_function"),
+    ("data_stmt", r"data statement"),
+    ("io_format", r"expected '\\)' after write unit"),
+    ("pointer_attr", r"pointer|allocatable attribute"),
+    ("case_diff", r"uppercase|lowercase|case conversion"),
+    ("openmp", r"openmp|omp"),
+    ("openacc", r"openacc|acc"),
+    ("coarray", r"coarray|sync|team"),
+    ("bind_c", r"bind\(c\)|iso_c_binding|c_f_pointer"),
+]
+
+
+def categorize_message(text: str) -> Optional[str]:
+    lowered = text.lower()
+    for label, pattern in _MSG_PATTERNS:
+        try:
+            if re.search(pattern, lowered):
+                return label
+        except re.error:
+            continue
+    # fallback: largest keyword in stderr
+    keywords = keyword_signature([text], top_k=1)
+    return keywords[0] if keywords else None
+
+
+def compile_and_run(
+    source_text: str,
+    suffix: str,
+    compile_timeout: float,
+    run_timeout: float,
+    options: Optional[List[str]] = None,
+    extra_sources: Optional[List[str]] = None,
+    include_dirs: Optional[List[Path]] = None,
+    do_run: bool = True,
+) -> Dict[str, object]:
+    """
+    Compile and run provided Fortran source. Returns a dict describing status and outputs.
+    Status values: compile_fail, compile_timeout, run_fail, run_timeout, run_ok.
+    """
+    options = options or []
+    extra_sources = extra_sources or []
+    include_dirs = include_dirs or []
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_path = Path(tmpdir) / f"code{suffix}"
+        exe_path = Path(tmpdir) / "a.out"
+        src_path.write_text(source_text, encoding="utf-8")
+        include_flags: List[str] = []
+        for inc in include_dirs:
+            include_flags.append(f"-I{inc}")
+        cmd = ["gfortran", *include_flags, *options, str(src_path), *extra_sources, "-o", str(exe_path)]
+        try:
+            compiled = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=max(compile_timeout, 0.01),
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "status": "compile_timeout",
+                "stderr": truncate_text((exc.stderr or b"").decode("utf-8", errors="replace"), 400),
+            }
+        if compiled.returncode != 0:
+            return {
+                "status": "compile_fail",
+                "stdout": truncate_text(compiled.stdout.decode("utf-8", errors="replace"), 200),
+                "stderr": truncate_text(compiled.stderr.decode("utf-8", errors="replace"), 400),
+            }
+        if not do_run:
+            return {
+                "status": "compile_ok",
+                "stdout": "",
+                "stderr": "",
+            }
+        try:
+            run = subprocess.run(
+                [str(exe_path)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=max(run_timeout, 0.01),
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return {
+                "status": "run_timeout",
+                "stderr": truncate_text((exc.stderr or b"").decode("utf-8", errors="replace"), 400),
+            }
+        if run.returncode != 0:
+            return {
+                "status": "run_fail",
+                "returncode": run.returncode,
+                "stdout": truncate_text(run.stdout.decode("utf-8", errors="replace"), 200),
+                "stderr": truncate_text(run.stderr.decode("utf-8", errors="replace"), 400),
+            }
+        return {
+            "status": "run_ok",
+            "stdout": run.stdout.decode("utf-8", errors="replace"),
+            "stderr": truncate_text(run.stderr.decode("utf-8", errors="replace"), 200),
+        }
+
+
+def print_live_digest(digest: List[Dict[str, object]], cat_limit: int, example_limit: int) -> None:
+    if not digest:
+        return
+    sys.stdout.write("\n>> Live digest (top categories)\n")
+    for section in digest[:cat_limit]:
+        category = section["category"]
+        total = section["total"]
+        pct_all = section.get("percent_all_tests")
+        header = f"[{category}] {total}"
+        if pct_all is not None:
+            header += f" ({pct_all:.2f}% of all tests)"
+        sys.stdout.write(header + "\n")
+        for group in section["groups"][:cat_limit]:
+            kw = ""
+            if "keywords" in group:
+                kw = f" keywords={','.join(group['keywords'])}"
+            examples = ", ".join(group["examples"][:example_limit])
+            suffix = f" :: {examples}" if examples else ""
+            sys.stdout.write(
+                f"  - {group['signature']} ({group['count']}) :: {group['description']}{kw}{suffix}\n"
+            )
+    sys.stdout.flush()
 
 
 def extract_module_hint(text: str) -> Optional[str]:
@@ -688,11 +1084,61 @@ def extract_path_cluster(record: Dict[str, object], depth: int = 2) -> Optional[
     return "/".join(cluster_parts)
 
 
+def semantic_compare_sources(
+    original_text: str,
+    roundtrip_text: str,
+    compile_timeout: float,
+    run_timeout: float,
+    options: List[str],
+    extra_sources: List[str],
+    include_dirs: List[Path],
+    do_run: bool,
+) -> Dict[str, object]:
+    """
+    Attempt semantic equivalence by compiling and running both versions.
+    Returns a dict with keys describing statuses for reference and roundtrip builds,
+    plus output comparison when both run_ok.
+    """
+    ref = compile_and_run(
+        original_text,
+        suffix=".f90",
+        compile_timeout=compile_timeout,
+        run_timeout=run_timeout,
+        options=options,
+        extra_sources=extra_sources,
+        include_dirs=include_dirs,
+        do_run=do_run,
+    )
+    rt = compile_and_run(
+        roundtrip_text,
+        suffix=".f90",
+        compile_timeout=compile_timeout,
+        run_timeout=run_timeout,
+        options=options,
+        extra_sources=extra_sources,
+        include_dirs=include_dirs,
+        do_run=do_run,
+    )
+    result = {
+        "ref": ref,
+        "roundtrip": rt,
+    }
+    success_status = {"run_ok", "compile_ok"}
+    if ref.get("status") in success_status and rt.get("status") in success_status:
+        if do_run and ref.get("status") == "run_ok" and rt.get("status") == "run_ok":
+            ref_out = ref.get("stdout", "")
+            rt_out = rt.get("stdout", "")
+            result["output_match"] = ref_out == rt_out
+        else:
+            result["output_match"] = True
+    return result
+
+
 def verify_roundtrip(
     output_text: str,
     fortfront_bin: Path,
     timeout: float,
-) -> tuple[bool, Dict[str, object]]:
+) -> tuple[str, Dict[str, object]]:
     with tempfile.NamedTemporaryFile("w", suffix=".f90", delete=False, encoding="utf-8") as tmp:
         tmp.write(output_text)
         tmp_path = tmp.name
@@ -706,7 +1152,7 @@ def verify_roundtrip(
         )
     except subprocess.TimeoutExpired:
         os.unlink(tmp_path)
-        return False, {
+        return "roundtrip_timeout", {
             "roundtrip_timeout": True,
             "roundtrip_note": "Second pass timed out",
         }
@@ -715,7 +1161,7 @@ def verify_roundtrip(
             os.unlink(tmp_path)
 
     if completed.returncode != 0:
-        return False, {
+        return "roundtrip_exit", {
             "roundtrip_exit_code": completed.returncode,
             "roundtrip_stderr": truncate_text(
                 completed.stderr.decode("utf-8", errors="replace").strip(), 600
@@ -723,12 +1169,13 @@ def verify_roundtrip(
         }
 
     rt_output = completed.stdout.decode("utf-8", errors="replace")
-    if normalize_source(rt_output) != normalize_source(output_text):
-        return False, {
-            "roundtrip_diff": summarize_diff(output_text, rt_output),
-        }
+    if normalize_source(rt_output) == normalize_source(output_text):
+        return "pass", {}
 
-    return True, {}
+    return "diff", {
+        "roundtrip_diff": summarize_diff(output_text, rt_output),
+        "roundtrip_output": rt_output,
+    }
 
 
 def run_case(
@@ -736,8 +1183,17 @@ def run_case(
     fortfront_bin: Path,
     gcc_root: Path,
     timeout: float,
+    compile_timeout: float,
+    run_timeout: float,
 ) -> Dict[str, object]:
     rel_path = str(test_path.relative_to(gcc_root))
+    expected_failure = detect_expected_failure(test_path)
+    dg_meta = parse_dg_metadata(test_path, gcc_root)
+    include_dirs = [
+        (gcc_root / "gcc" / "testsuite"),
+        (gcc_root / "gcc" / "testsuite" / "gfortran.dg"),
+        (gcc_root / "gcc" / "testsuite" / "gfortran.dg" / "include"),
+    ]
     started = time.monotonic()
     cmd = [str(fortfront_bin), str(test_path)]
     try:
@@ -756,6 +1212,7 @@ def run_case(
             "exit_code": completed.returncode,
             "duration_s": round(duration, 4),
             "stdout_bytes": len(completed.stdout),
+            "expected_failure": expected_failure,
         }
         if completed.returncode != 0:
             record["status"] = "fatal"
@@ -765,12 +1222,63 @@ def run_case(
             record["status"] = "fatal"
             record["stderr_preview"] = "No output produced for successful transform"
             return record
-        roundtrip_ok, detail = verify_roundtrip(stdout_text, fortfront_bin, timeout)
-        if not roundtrip_ok:
-            record["status"] = "fail"
+        rt_status, detail = verify_roundtrip(stdout_text, fortfront_bin, timeout)
+        if rt_status == "pass":
+            record["status"] = "pass"
+            return record
+        if rt_status == "roundtrip_timeout":
+            record["status"] = "roundtrip_timeout"
             record.update(detail)
             return record
-        record["status"] = "pass"
+        if rt_status == "roundtrip_exit":
+            record["status"] = "roundtrip_exit"
+            record.update(detail)
+            return record
+        roundtrip_text = detail.get("roundtrip_output", "")
+        semantic = semantic_compare_sources(
+            stdout_text,
+            roundtrip_text,
+            compile_timeout=compile_timeout,
+            run_timeout=run_timeout,
+            options=dg_meta.get("options", []),
+            extra_sources=dg_meta.get("extra_sources", []),
+            include_dirs=include_dirs,
+            do_run=dg_meta.get("do_run", True),
+        )
+        record["roundtrip_diff"] = detail.get("roundtrip_diff", "")
+        record["semantic_check"] = semantic
+        ref_status = semantic["ref"].get("status")
+        rt_status_compile = semantic["roundtrip"].get("status")
+        success_status = {"run_ok", "compile_ok"}
+        if (
+            ref_status in success_status
+            and rt_status_compile in success_status
+            and semantic.get("output_match", False)
+        ):
+            record["status"] = "pass_equivalent"
+            return record
+        if ref_status in {"compile_fail", "compile_timeout"}:
+            record["status"] = "compile_fail_ref"
+            return record
+        if rt_status_compile in {"compile_fail", "compile_timeout"}:
+            record["status"] = "compile_fail_roundtrip"
+            return record
+        if ref_status in {"run_fail", "run_timeout"}:
+            record["status"] = "runtime_fail_ref"
+            return record
+        if rt_status_compile in {"run_fail", "run_timeout"}:
+            record["status"] = "runtime_fail_roundtrip"
+            return record
+        if (
+            ref_status == "run_ok"
+            and rt_status_compile == "run_ok"
+            and not semantic.get("output_match", True)
+        ):
+            record["status"] = "output_mismatch"
+            record["ref_stdout"] = truncate_text(semantic["ref"].get("stdout", ""), 400)
+            record["roundtrip_stdout"] = truncate_text(semantic["roundtrip"].get("stdout", ""), 400)
+            return record
+        record["status"] = "compare_failure"
         return record
     except subprocess.TimeoutExpired as exc:
         duration = time.monotonic() - started
@@ -793,6 +1301,8 @@ def print_progress(
     roundtrip_failures: int,
     fatals: int,
     timeouts: int,
+    xfails: int,
+    xpasses: int,
     start_time: float,
 ) -> None:
     elapsed = time.monotonic() - start_time
@@ -802,7 +1312,8 @@ def print_progress(
     percent = (processed / total * 100.0) if total else 100.0
     message = (
         f"\r[{percent:6.2f}%] {processed}/{total} "
-        f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts}) "
+        f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts} | "
+        f"xfail {xfails} | xpass {xpasses}) "
         f"elapsed {format_seconds(elapsed)} "
         f"eta {format_seconds(eta)} "
         f"rate {rate:.1f}/s"
@@ -869,21 +1380,26 @@ def main() -> int:
         roundtrip_failures = 0
         fatals = 0
         timeouts = 0
+        xfails = 0
+        xpasses = 0
         start_time = time.monotonic()
         effective_timeout = max(args.timeout, 0.0)
-        aggregator = FailureAggregator()
+        aggregator = FailureAggregator(total_tests=len(tests))
+        last_digest = start_time
 
         print(
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, start_time)
+        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, xfails, xpasses, start_time)
 
         worker = partial(
             run_case,
             fortfront_bin=fortfront_bin,
             gcc_root=gcc_root,
             timeout=effective_timeout,
+            compile_timeout=args.compile_timeout,
+            run_timeout=args.run_timeout,
         )
 
         if args.jobs <= 1:
@@ -891,10 +1407,25 @@ def main() -> int:
                 record = worker(test_path)
                 processed += 1
                 status = record["status"]
-                if status == "pass":
+                expected = record.get("expected_failure", False)
+                if status in {"pass", "pass_equivalent"}:
                     passes += 1
-                elif status == "fail":
+                    if expected:
+                        xpasses += 1
+                elif status in {
+                    "fail",
+                    "roundtrip_exit",
+                    "roundtrip_timeout",
+                    "compile_fail_ref",
+                    "compile_fail_roundtrip",
+                    "runtime_fail_ref",
+                    "runtime_fail_roundtrip",
+                    "output_mismatch",
+                    "compare_failure",
+                }:
                     roundtrip_failures += 1
+                    if expected:
+                        xfails += 1
                 elif status == "fatal":
                     fatals += 1
                 else:
@@ -902,6 +1433,14 @@ def main() -> int:
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
                 aggregator.add_record(record)
+                if args.live_digest_interval > 0 and (
+                    time.monotonic() - last_digest >= args.live_digest_interval
+                ):
+                    digest = aggregator.build_digest(
+                        max_groups_per_category=args.live_digest_limit
+                    )
+                    print_live_digest(digest, args.live_digest_limit, example_limit=2)
+                    last_digest = time.monotonic()
                 print_progress(
                     processed,
                     len(tests),
@@ -909,6 +1448,8 @@ def main() -> int:
                     roundtrip_failures,
                     fatals,
                     timeouts,
+                    xfails,
+                    xpasses,
                     start_time,
                 )
         else:
@@ -916,10 +1457,25 @@ def main() -> int:
                 for record in pool.map(worker, queue):
                     processed += 1
                     status = record["status"]
-                    if status == "pass":
+                    expected = record.get("expected_failure", False)
+                    if status in {"pass", "pass_equivalent"}:
                         passes += 1
-                    elif status == "fail":
+                        if expected:
+                            xpasses += 1
+                    elif status in {
+                        "fail",
+                        "roundtrip_exit",
+                        "roundtrip_timeout",
+                        "compile_fail_ref",
+                        "compile_fail_roundtrip",
+                        "runtime_fail_ref",
+                        "runtime_fail_roundtrip",
+                        "output_mismatch",
+                        "compare_failure",
+                    }:
                         roundtrip_failures += 1
+                        if expected:
+                            xfails += 1
                     elif status == "fatal":
                         fatals += 1
                     else:
@@ -927,6 +1483,14 @@ def main() -> int:
                     handle.write(json.dumps(record) + "\n")
                     handle.flush()
                     aggregator.add_record(record)
+                    if args.live_digest_interval > 0 and (
+                        time.monotonic() - last_digest >= args.live_digest_interval
+                    ):
+                        digest = aggregator.build_digest(
+                            max_groups_per_category=args.live_digest_limit
+                        )
+                        print_live_digest(digest, args.live_digest_limit, example_limit=2)
+                        last_digest = time.monotonic()
                     print_progress(
                         processed,
                         len(tests),
@@ -934,6 +1498,8 @@ def main() -> int:
                         roundtrip_failures,
                         fatals,
                         timeouts,
+                        xfails,
+                        xpasses,
                         start_time,
                     )
 
@@ -941,10 +1507,18 @@ def main() -> int:
     sys.stdout.flush()
     print(
         f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}. "
+        f"XFAIL: {xfails}, XPASS: {xpasses}. "
         f"Results: {output_path}"
     )
     digest = aggregator.build_digest()
     FailureAggregator.print_digest(digest)
+    heatmaps = aggregator.build_heatmaps()
+    print("\nHeatmap (path clusters):")
+    for path, count in heatmaps["paths"]:
+        print(f"  {path}: {count}")
+    print("Heatmap (keywords/labels):")
+    for kw, count in heatmaps["keywords"]:
+        print(f"  {kw}: {count}")
     summary_path = output_path.with_name(output_path.stem + "_summary.json")
     with summary_path.open("w", encoding="utf-8") as summary_handle:
         json.dump(
@@ -953,14 +1527,26 @@ def main() -> int:
                 "summary": digest,
                 "totals": {
                     "pass": passes,
+                    "pass_equivalent": None,  # filled below
                     "roundtrip_fail": roundtrip_failures,
                     "fatal": fatals,
                     "timeout": timeouts,
+                    "xfail": xfails,
+                    "xpass": xpasses,
                 },
+                "heatmap": heatmaps,
             },
             summary_handle,
             indent=2,
         )
+        summary_handle.write("\n")
+    # fill pass_equivalent count separately
+    # (not stored separately above; recompute from digest)
+    summary = json.load(open(summary_path, "r", encoding="utf-8"))
+    pass_equiv = next((entry["total"] for entry in digest if entry["category"] == "equivalent_not_identical"), 0)
+    summary["totals"]["pass_equivalent"] = pass_equiv
+    with summary_path.open("w", encoding="utf-8") as summary_handle:
+        json.dump(summary, summary_handle, indent=2)
         summary_handle.write("\n")
     print(f"Summary digest written to {summary_path}")
     if fatals > 0 or timeouts > 0:
