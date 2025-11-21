@@ -27,8 +27,10 @@ contains
         integer :: var_index
 
         ! Parse variable identifier
+        ! Accept both TK_IDENTIFIER and TK_KEYWORD since Fortran keywords
+        ! are not reserved and can be used as variable names
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
             var_index = parse_comparison(parser, arena)
             var_indices = [var_indices, var_index]
 
