@@ -1,6 +1,6 @@
 program test_minimal_type_system
     use type_system_unified
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     integer :: test_count, pass_count

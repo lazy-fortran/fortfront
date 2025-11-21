@@ -1,6 +1,6 @@
 program test_issue_653_semicolon_parsing
     ! Test for Issue #653: CRITICAL if/else parsing completely broken with false error messages
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena

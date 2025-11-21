@@ -84,6 +84,13 @@ contains
             return
         end if
 
+        if (node%is_external) then
+            if (node%inferred_type%kind <= 0) then
+                type_str = "external"
+                return
+            end if
+        end if
+
         if (node%inferred_type%kind <= 0) then
             type_str = "real"
             return
@@ -178,9 +185,21 @@ contains
     subroutine populate_declaration_attributes(node, attr_info)
         type(declaration_node), intent(in) :: node
         type(declaration_attribute_info_t), intent(out) :: attr_info
+        logical :: is_procedure_dummy
 
         call reset_declaration_attributes(attr_info)
-        if (node%has_intent .and. allocated(node%intent)) then
+
+        ! ISO/IEC 1539-1:2018 Section 15.4.3.2: Procedure dummy arguments
+        ! cannot have INTENT attribute
+        is_procedure_dummy = .false.
+        if (allocated(node%type_name)) then
+            if (index(to_lower(trim(node%type_name)), 'procedure(') == 1) then
+                is_procedure_dummy = .true.
+            end if
+        end if
+
+        if (node%has_intent .and. allocated(node%intent) .and. &
+            .not. is_procedure_dummy) then
             call set_declaration_intent(attr_info, node%intent)
         end if
         ! Never output allocatable for parameter constants (conflicts - fixes #1810)

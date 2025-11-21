@@ -62,7 +62,6 @@
 
     ! Get last parser errors from dispatcher
     function get_last_parser_errors() result(errors)
-        use iso_fortran_env, only: error_unit
         character(len=:), allocatable :: errors
         if (allocated(last_parser_errors)) then
             errors = last_parser_errors

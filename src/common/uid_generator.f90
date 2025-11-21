@@ -10,7 +10,7 @@ module uid_generator
     ! - Performance target: <1 microsecond per UID
     ! - 64-bit value space for large codebases
 
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
 

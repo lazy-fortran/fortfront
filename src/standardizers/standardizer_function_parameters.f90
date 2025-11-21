@@ -14,6 +14,8 @@ module standardizer_function_parameters
     use standardizer_parameter, only: node_exists
     use standardizer_parameter, only: param_metadata_t
     use standardizer_parameter, only: synchronize_parameter_declarations
+    use standardizer_parameter, only: get_standardizer_input_mode
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
     public :: standardize_function_parameters
@@ -26,7 +28,10 @@ contains
         type(param_metadata_t) :: metadata
         logical :: standardizer_type_standardization_enabled
         logical :: requires_intent_in_flag
+        logical :: is_lazy_fortran
         integer :: n_params
+        integer :: current_input_mode
+        character(len=:), allocatable :: default_intent
 
         if (.not. allocated(func_def%param_indices)) return
         n_params = size(func_def%param_indices)
@@ -36,6 +41,10 @@ contains
             standardizer_type_standardization_enabled)
         call init_param_metadata(metadata, n_params)
 
+        ! Check input mode: lazy Fortran vs standard Fortran
+        current_input_mode = get_standardizer_input_mode()
+        is_lazy_fortran = (current_input_mode == INPUT_MODE_LAZY)
+
         requires_intent_in_flag = needs_intent_in(func_def)
         if (requires_intent_in_flag) metadata%intent = "in"
 
@@ -43,9 +52,22 @@ contains
         call analyze_parameter_usage(arena, func_def, metadata)
         call finalize_param_types(metadata)
 
+        ! Determine default intent based on input mode and function type
+        ! ISO/IEC 1539-1:2018 Section 15.5.2.3:
+        ! - Pure/elemental functions REQUIRE intent(in) for all dummy arguments
+        ! - Standard Fortran: Normal functions do NOT require intent (preserve as-is)
+        ! - Lazy Fortran: Add intent(in) for type inference purposes
+        if (requires_intent_in_flag) then
+            default_intent = "in"
+        else if (is_lazy_fortran) then
+            default_intent = "in"  ! Lazy Fortran: add intent for inference
+        else
+            default_intent = ""    ! Standard Fortran: no default intent
+        end if
+
         if (allocated(func_def%body_indices)) then
             call synchronize_parameter_declarations( &
-                arena, func_def%body_indices, metadata, "in", &
+                arena, func_def%body_indices, metadata, default_intent, &
                 standardizer_type_standardization_enabled)
         end if
 

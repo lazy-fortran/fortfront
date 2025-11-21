@@ -7,7 +7,7 @@ module compiler_arena
     use arena_memory
     use type_system_arena
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, destroy_ast_arena
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
 

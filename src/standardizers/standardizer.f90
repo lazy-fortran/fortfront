@@ -17,7 +17,8 @@ module standardizer
         standardize_ast, &
         standardize_multi_unit_children, &
         set_standardizer_type_standardization, &
-        get_standardizer_type_standardization
+        get_standardizer_type_standardization, &
+        set_standardizer_input_mode
 
     use standardizer_types, only: &
         string_result_t, &
@@ -94,6 +95,7 @@ module standardizer
         standardize_multi_unit_children, &
         set_standardizer_type_standardization, &
         get_standardizer_type_standardization, &
+        set_standardizer_input_mode, &
         string_result_t, &
         INVALID_INTEGER, &
         ! Program standardization

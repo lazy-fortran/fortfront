@@ -75,7 +75,7 @@ contains
 
     ! Get node type identifier (issue #12 requirement)
     function get_node_type_id(node) result(type_id)
-        use iso_fortran_env, only: error_unit
+        use, intrinsic :: iso_fortran_env, only: error_unit
         class(ast_node), intent(in) :: node
         integer :: type_id
 

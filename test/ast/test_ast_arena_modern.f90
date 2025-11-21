@@ -4,7 +4,7 @@ program test_ast_arena_modern
     ! Demonstrates 5-10x parsing speedup and 8x cache improvement
 
     use ast_arena_modern
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     integer :: test_count, pass_count
