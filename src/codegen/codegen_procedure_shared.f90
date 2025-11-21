@@ -122,12 +122,10 @@ contains
         integer :: j
         logical :: has_implicit_none
         logical :: has_other_implicit
-        logical :: host_has_implicit
 
         prolog = ""
         has_implicit_none = .false.
         has_other_implicit = .false.
-        host_has_implicit = enclosing_has_implicit(arena, procedure_index)
 
         do j = 1, size(body_indices)
             if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
@@ -144,7 +142,9 @@ contains
 
         if (has_other_implicit) return
         if (has_implicit_none) return
-        if (host_has_implicit) return
+        ! Per ISO/IEC 1539-1:2018 Section 8.7: each scoping unit needs
+        ! its own implicit statement. Do not skip adding implicit none
+        ! to internal procedures even if host has implicit none.
         prolog = "    implicit none" // new_line('A')
     end function maybe_add_procedure_implicit_none
 
