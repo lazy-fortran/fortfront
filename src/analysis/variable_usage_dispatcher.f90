@@ -336,7 +336,8 @@ contains
                     ! Process elsewhere body
                     if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
-                            call push_node(ctx, node%elsewhere_clauses(i)%body_indices(j))
+                            call push_node(ctx, node%elsewhere_clauses(i)% &
+                                body_indices(j))
                         end do
                     end if
                 end do
@@ -758,7 +759,14 @@ contains
             ! Process all arguments/subscripts
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
-                    call push_node(ctx, node%arg_indices(i))
+                    if (node%arg_indices(i) <= 0) cycle
+                    if (.not. allocated(arena%entries(node%arg_indices(i))%node)) cycle
+                    select type (arg => arena%entries(node%arg_indices(i))%node)
+                    type is (assignment_node)
+                        call push_node(ctx, arg%value_index)
+                    class default
+                        call push_node(ctx, node%arg_indices(i))
+                    end select
                 end do
             end if
         end select
@@ -822,6 +830,12 @@ contains
 
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
+            ! Keyword arguments should not introduce new targets for declaration
+            if (node%is_keyword_argument) then
+                call push_node(ctx, node%value_index)
+                return
+            end if
+
             ! Process target (LHS) - might have array subscripts
             call push_node(ctx, node%target_index)
 
