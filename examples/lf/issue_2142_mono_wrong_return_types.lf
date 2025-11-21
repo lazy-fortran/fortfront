@@ -1,4 +1,3 @@
-! XFAIL: Monomorphization generates empty function bodies
 function add(a, b)
     add = a + b
 end function
