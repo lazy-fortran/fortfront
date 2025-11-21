@@ -463,11 +463,15 @@
         character(len=:), allocatable :: renamed_result
 
         is_result = .false.
+        renamed_result = ''
 
         if (allocated(func%name)) then
             function_name = trim(func%name)
         else
             function_name = ''
+        end if
+        if (len_trim(function_name) > 0) then
+            renamed_result = trim(function_name) // "_result"
         end if
 
         if (allocated(func%result_variable)) then
@@ -489,36 +493,96 @@
                 return
             end if
             if (result_name == function_name) then
-                renamed_result = trim(function_name) // "_result"
                 if (trim(var_name) == renamed_result) then
                     is_result = .true.
+                    return
                 end if
+            end if
+        end if
+
+        if (len_trim(renamed_result) > 0) then
+            if (trim(var_name) == renamed_result) then
+                is_result = .true.
             end if
         end if
     end function is_function_result_identifier
 
-    function get_result_type_string(func, var_name, inferred_type) &
+    function get_result_type_string(arena, func, var_name, inferred_type) &
         result(type_str)
+        type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
         character(len=*), intent(in) :: var_name
         type(mono_type_t), intent(in) :: inferred_type
         character(len=:), allocatable :: type_str
         type(mono_type_t) :: deferred_type
+        type(mono_type_t) :: type_choice
         logical :: is_result_var
+        logical :: has_header_type
+        character(len=:), allocatable :: header_type
+        logical :: is_array_result
+        logical :: is_deferred_char
+        character(len=:), allocatable :: signature
+        integer :: func_pos
 
-        is_result_var = .false.
-        if (allocated(func%result_variable)) then
-            is_result_var = (trim(var_name) == trim(func%result_variable))
+        is_result_var = is_function_result_identifier(func, var_name)
+        is_array_result = is_result_var .and. should_use_result_for_array(arena, &
+                           func)
+
+        has_header_type = .false.
+        if (is_result_var) then
+            if (allocated(func%return_type)) then
+                header_type = trim(func%return_type)
+                if (len_trim(header_type) > 0) has_header_type = .true.
+            end if
         end if
 
-        if (is_result_var .and. inferred_type%kind == TARRAY .and. &
-            (inferred_type%size == 0 .or. inferred_type%alloc_info%is_allocatable)) &
+        if (is_array_result) has_header_type = .false.
+
+        if (has_header_type) then
+            type_str = trim(header_type)
+            return
+        end if
+
+        if (is_result_var) then
+            call derive_function_return_type_and_flags(arena, func, &
+                                                       header_type, &
+                                                       is_deferred_char)
+            if (len_trim(header_type) > 0) then
+                type_str = trim(header_type)
+                return
+            end if
+
+            signature = compose_function_signature(arena, func)
+            func_pos = index(to_lower(signature), 'function')
+            if (func_pos > 1) then
+                header_type = trim(signature(:func_pos - 1))
+                if (len_trim(header_type) > 0) then
+                    type_str = trim(header_type)
+                    return
+                end if
+            end if
+        end if
+
+        type_choice = inferred_type
+        if (is_result_var) then
+            if (should_use_result_for_array(arena, func)) then
+                if (type_choice%kind /= TARRAY) then
+                    type_choice = wrap_scalar_as_deferred_array(type_choice)
+                end if
+            end if
+            if (type_choice%kind == 0 .and. func%inferred_type%kind /= 0) then
+                type_choice = func%inferred_type
+            end if
+        end if
+
+        if (is_result_var .and. type_choice%kind == TARRAY .and. &
+            (type_choice%size == 0 .or. type_choice%alloc_info%is_allocatable)) &
             then
-            deferred_type = convert_array_to_deferred_shape(inferred_type)
+            deferred_type = convert_array_to_deferred_shape(type_choice)
             type_str = mono_type_to_string(deferred_type, include_shape=.true., &
                                            fallback='integer')
         else
-            type_str = mono_type_to_string(inferred_type, include_shape=.true., &
+            type_str = mono_type_to_string(type_choice, include_shape=.true., &
                                            fallback='integer')
         end if
     end function get_result_type_string
@@ -605,6 +669,50 @@
         end if
     end function convert_array_to_deferred_shape
 
+    function wrap_scalar_as_deferred_array(base_type) result(array_type)
+        use type_system_unified, only: create_mono_type
+        type(mono_type_t), intent(in) :: base_type
+        type(mono_type_t) :: array_type
+        type(mono_type_t), allocatable :: args(:)
+
+        allocate (args(1))
+        args(1) = base_type
+        array_type = create_mono_type(TARRAY, args=args)
+        array_type%size = 0
+        array_type%alloc_info%is_allocatable = .true.
+    end function wrap_scalar_as_deferred_array
+
+    logical function assignment_value_is_array(arena, stmt) result(is_array)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: stmt
+        integer :: value_idx
+        character(len=:), allocatable :: value_code
+        character(len=:), allocatable :: lowered
+
+        is_array = stmt%inferred_type%kind == TARRAY
+        if (is_array) return
+        value_idx = stmt%value_index
+        if (value_idx <= 0 .or. value_idx > arena%size) return
+        if (.not. allocated(arena%entries(value_idx)%node)) return
+
+        select type (value => arena%entries(value_idx)%node)
+        type is (array_literal_node)
+            is_array = .true.
+        class default
+            if (value%inferred_type%kind == TARRAY) is_array = .true.
+        end select
+
+        if (.not. is_array) then
+            value_code = generate_code_from_arena(arena, value_idx)
+            if (allocated(value_code)) then
+                lowered = to_lower(adjustl(value_code))
+                if (index(lowered, '[') > 0 .or. index(lowered, '(/') > 0) then
+                    is_array = .true.
+                end if
+            end if
+        end if
+    end function assignment_value_is_array
+
     logical function needs_result_declaration(arena, func, result_type) &
         result(needed)
         type(ast_arena_t), intent(in) :: arena
@@ -614,6 +722,8 @@
         character(len=:), allocatable :: result_name
         logical :: header_has_type
         logical :: requires_deferred_attrs
+        character(len=:), allocatable :: signature
+        integer :: func_pos
 
         needed = .false.
         header_has_type = .false.
@@ -638,6 +748,15 @@
         if (allocated(func%return_type)) then
             if (len_trim(func%return_type) > 0) header_has_type = .true.
         end if
+        if (.not. header_has_type) header_has_type = func%has_return_type_in_header
+        if (.not. header_has_type) header_has_type = func%inferred_type%kind /= 0
+        if (.not. header_has_type) then
+            signature = compose_function_signature(arena, func)
+            func_pos = index(to_lower(signature), 'function')
+            if (func_pos > 1) then
+                header_has_type = len_trim(signature(:func_pos - 1)) > 0
+            end if
+        end if
 
         if (result_type%kind == TARRAY) then
             if (result_type%size == 0 .or. result_type%alloc_info%is_allocatable) then
@@ -650,7 +769,14 @@
         if (has_result_variable_declaration(arena, func, result_name)) return
 
         if (trim(result_name) /= trim(function_name)) then
-            needed = .true.
+            if (.not. header_has_type) then
+                needed = .true.
+                return
+            end if
+            if (requires_deferred_attrs) then
+                needed = .true.
+                return
+            end if
             return
         end if
 
@@ -711,6 +837,10 @@
         integer :: capacity
         character(len=64) :: var_name
         character(len=:), allocatable :: result_name
+        character(len=:), allocatable :: value_code
+        character(len=:), allocatable :: lowered_value
+        type(mono_type_t) :: decl_type
+        logical :: is_array_value
 
         decl_code = ""
         n_locals = 0
@@ -739,12 +869,30 @@
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle
                     if (target%inferred_type%kind == 0) cycle
+                    decl_type = target%inferred_type
+                    is_array_value = assignment_value_is_array(arena, stmt)
 
                     var_name = trim(target%name)
 
                     if (is_function_result_identifier(func, var_name)) then
-                        if (.not. needs_result_declaration(arena, func, &
-                                                           target%inferred_type)) &
+                        if (.not. is_array_value) then
+                            value_code = generate_code_from_arena(arena, &
+                                                                  stmt%value_index)
+                            if (allocated(value_code)) then
+                                lowered_value = to_lower(adjustl(value_code))
+                                if (index(lowered_value, '[') > 0 .or. &
+                                    index(lowered_value, '(/') > 0) then
+                                    is_array_value = .true.
+                                end if
+                            end if
+                        end if
+                        if (should_use_result_for_array(arena, func) .or. &
+                            (is_array_value .and. decl_type%kind /= TARRAY)) then
+                            if (decl_type%kind /= TARRAY) then
+                                decl_type = wrap_scalar_as_deferred_array(decl_type)
+                            end if
+                        end if
+                        if (.not. needs_result_declaration(arena, func, decl_type)) &
                             cycle
                         var_name = trim(result_name)
                     end if
@@ -758,8 +906,9 @@
                         n_locals = n_locals + 1
                         local_vars(n_locals) = var_name
                         decl_code = decl_code // "    " // &
-                                    get_result_type_string(func, var_name, &
-                                                           target%inferred_type) // &
+                                    get_result_type_string(arena, func, &
+                                                           var_name, &
+                                                           decl_type) // &
                                     " :: " // trim(var_name) // new_line('A')
                     end if
                 end select

@@ -1,6 +1,6 @@
 module codegen_function_declarations
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: identifier_node, assignment_node
+    use ast_nodes_core, only: identifier_node, assignment_node, array_literal_node
     use ast_nodes_loops, only: do_loop_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_io, only: print_statement_node, read_statement_node
