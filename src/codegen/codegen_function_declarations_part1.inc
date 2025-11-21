@@ -898,6 +898,7 @@
                     end if
 
                     if (is_parameter_name(var_name, param_map)) cycle
+                    if (has_explicit_variable_declaration(arena, func, var_name)) cycle
 
                     if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
                         then
@@ -1098,6 +1099,42 @@
             end select
         end do
     end function has_explicit_loop_declaration
+
+    logical function has_explicit_variable_declaration(arena, func, var_name) &
+        result(has_decl)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+        integer :: idx
+        integer :: stmt_idx
+        integer :: name_idx
+
+        has_decl = .false.
+        if (.not. allocated(func%body_indices)) return
+
+        do idx = 1, size(func%body_indices)
+            stmt_idx = func%body_indices(idx)
+            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+
+            select type (decl => arena%entries(stmt_idx)%node)
+            type is (declaration_node)
+                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                    do name_idx = 1, size(decl%var_names)
+                        if (trim(decl%var_names(name_idx)) == trim(var_name)) then
+                            has_decl = .true.
+                            return
+                        end if
+                    end do
+                else if (allocated(decl%var_name)) then
+                    if (trim(decl%var_name) == trim(var_name)) then
+                        has_decl = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function has_explicit_variable_declaration
 
     function collect_deferred_char_result_decl(arena, node) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
