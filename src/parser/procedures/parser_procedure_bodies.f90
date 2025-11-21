@@ -152,7 +152,7 @@ contains
 
         ! Consume subroutine keyword
         token = parser%peek()
-        if (.not. (token%kind == TK_KEYWORD .and. token%text == "subroutine")) then
+        if (.not. (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine")) then
             sub_index = 0
             return
         end if
@@ -457,12 +457,12 @@ contains
         integer :: nested_index, stmt_index
         type(token_t) :: consumed_token
 
-        if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
             nested_index = parse_subroutine_in_module(parser, arena)
             if (nested_index > 0) then
                 body_indices = [body_indices, nested_index]
             end if
-        else if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        else if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             nested_index = parse_function_in_module(parser, arena)
             if (nested_index > 0) then
                 body_indices = [body_indices, nested_index]

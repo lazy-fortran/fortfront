@@ -142,7 +142,7 @@ contains
 
             ! Lazy fortran: detect nested internal procedures (not supported)
             if (token%kind == TK_KEYWORD .and. &
-                (token%text == "function" .or. token%text == "subroutine")) then
+                (to_lower(token%text) == "function" .or. to_lower(token%text) == "subroutine")) then
                 call record_nested_internal_procedure_error(token, procedure_name)
                 call skip_nested_internal_procedure(parser)
                 cycle
@@ -258,7 +258,7 @@ contains
 
         next_token = parser%peek()
         if (next_token%kind == TK_KEYWORD .and. &
-            (next_token%text == "function" .or. next_token%text == "subroutine")) then
+            (to_lower(next_token%text) == "function" .or. to_lower(next_token%text) == "subroutine")) then
             next_token = parser%consume()
             depth = depth - 1
             call consume_optional_identifier_token(parser)
@@ -724,7 +724,7 @@ contains
                 cycle
             end if
 
-            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+            if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
                 if (.not. present(parse_subroutine_proc)) then
                     token = parser%consume()
                     cycle

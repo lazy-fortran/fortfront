@@ -176,12 +176,12 @@ contains
             return
         end if
 
-        if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
             stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
             return
         end if
 
-        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             return
         end if

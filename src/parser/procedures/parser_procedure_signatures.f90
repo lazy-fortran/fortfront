@@ -217,7 +217,7 @@ contains
         end if
 
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             line = token%line
             column = token%column
             token = parser%consume()
