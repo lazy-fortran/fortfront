@@ -69,6 +69,7 @@ module ast_nodes_io
         character(len=:), allocatable :: unit_spec  ! Unit specifier
         ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec  ! Optional format
+        character(len=:), allocatable :: namelist_group  ! Optional namelist group
         integer, allocatable :: var_indices(:)  ! Variables to read into
         integer :: iostat_var_index = 0  ! Optional iostat variable index
         integer :: err_label_index = 0  ! Optional err label index
