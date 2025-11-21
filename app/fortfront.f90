@@ -260,7 +260,8 @@ program fortfront_cli
                 index(error_msg, 'FATAL') > 0 .or. &
                 index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
                 index(error_msg, '[VALIDATION') > 0 .or. &
-                index(error_msg, '[PARSER_') > 0) then
+                index(error_msg, '[PARSER_') > 0 .or. &
+                index(error_msg, '[UNRECOGNIZED_INPUT]') > 0) then
                 call exit_quiet(EXIT_FAILURE)
             end if
             ! INFO/WARNING messages are advisory only; continue with success

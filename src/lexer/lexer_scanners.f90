@@ -101,7 +101,7 @@ contains
         start_pos = pos
         start_col = col_num
 
-        ! Skip the '!' character
+        ! Skip the '!' or '#' character
         pos = pos + 1
         col_num = col_num + 1
 
