@@ -75,13 +75,16 @@ contains
             character(len=:), allocatable :: lowered_text
             lowered_text = to_lower(first_token%text)
             if (trim(lowered_text) == 'data') then
-                stmt_index = parse_data_statement(parser, arena, parent_index)
-                if (stmt_index > 0) then
-                    if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
-                    stmt_indices(1) = stmt_index
-                    if (present(consumed_count)) consumed_count = &
-                        parser%current_token - 1
-                    return
+                ! Check if this looks like a DATA statement before parsing
+                if (looks_like_data_statement_local(parser)) then
+                    stmt_index = parse_data_statement(parser, arena, parent_index)
+                    if (stmt_index > 0) then
+                        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
+                        stmt_indices(1) = stmt_index
+                        if (present(consumed_count)) consumed_count = &
+                            parser%current_token - 1
+                        return
+                    end if
                 end if
             end if
         end block
@@ -342,11 +345,49 @@ contains
         stmt_index = 0
         select case (keyword)
         case ("data")
-            stmt_index = parse_data_statement(parser, arena, parent_index)
+            ! Check if this is actually a DATA statement or just a variable named "data"
+            if (looks_like_data_statement_local(parser)) then
+                stmt_index = parse_data_statement(parser, arena, parent_index)
+            end if
         case ("namelist")
             stmt_index = parse_namelist_statement(parser, arena, parent_index)
         end select
     end function handle_data_keyword
+
+    logical function looks_like_data_statement_local(parser) result(is_data_stmt)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: token
+        integer :: idx
+
+        is_data_stmt = .false.
+        ! Start looking AFTER the current token (which is "data")
+        idx = parser%current_token + 1
+
+        ! Skip whitespace and look for the pattern that indicates DATA statement
+        do while (idx <= size(parser%tokens))
+            token = parser%tokens(idx)
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx + 1
+                cycle
+            case (TK_OPERATOR)
+                select case (trim(token%text))
+                case ("/")
+                    ! DATA statements have values in /.../ delimiters
+                    is_data_stmt = .true.
+                    return
+                case ("=", "(")
+                    ! Assignment or array subscript - not a DATA statement
+                    return
+                end select
+                return
+            case default
+                ! DATA statement format: DATA var1, var2 / value1, value2 /
+                ! Continue scanning to find the / delimiter
+                idx = idx + 1
+            end select
+        end do
+    end function looks_like_data_statement_local
 
     integer function handle_flow_keyword(keyword, parser, arena, parent_index, &
                                          callbacks) result(stmt_index)

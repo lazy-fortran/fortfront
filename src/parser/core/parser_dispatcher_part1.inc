@@ -894,6 +894,9 @@
                 case ("/")
                     is_data_statement = .true.
                     return
+                case ("=", "(")
+                    ! Assignment or function call - not a DATA statement
+                    return
                 case ("&")
                     idx = idx + 1
                     cycle
