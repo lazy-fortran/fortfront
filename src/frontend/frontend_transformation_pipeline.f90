@@ -473,8 +473,9 @@ contains
         integer :: mode
         logical :: has_implicit_none, has_program, has_module, has_subroutine
         logical :: has_function_keyword, has_end_function, has_bare_executable
-        logical :: inside_procedure
-        integer :: i, line_end, eq_pos
+        logical :: inside_procedure, subroutine_start, function_start
+        logical :: is_assignment
+        integer :: i, line_end, eq_pos, trimmed_len
         character(len=:), allocatable :: line, trimmed, lowered
 
         has_implicit_none = .false.
@@ -499,10 +500,18 @@ contains
             end if
 
             trimmed = trim(adjustl(line))
-            if (len(trimmed) == 0) cycle
+            trimmed_len = len_trim(trimmed)
+            if (trimmed_len == 0) cycle
             if (trimmed(1:1) == '!') cycle
 
             lowered = to_lower(trimmed)
+
+            if (index(lowered, 'end function') > 0 .or. &
+                index(lowered, 'end subroutine') > 0) then
+                has_end_function = .true.
+                inside_procedure = .false.
+                cycle
+            end if
 
             if (index(lowered, 'implicit none') == 1 .or. &
                 index(lowered, 'implicit  none') == 1) then
@@ -518,33 +527,51 @@ contains
                 has_module = .true.
             end if
 
-            if (index(lowered, 'subroutine ') == 1) then
+            subroutine_start = (index(lowered, 'subroutine ') == 1 .or. &
+                                index(lowered, ' subroutine ') > 0)
+            function_start = (index(lowered, 'function ') == 1 .or. &
+                              index(lowered, ' function ') > 0)
+
+            if (subroutine_start) then
                 has_subroutine = .true.
                 inside_procedure = .true.
             end if
 
-            if (index(lowered, 'function ') == 1) then
+            if (function_start) then
                 has_function_keyword = .true.
                 inside_procedure = .true.
-            end if
-
-            if (index(lowered, 'end function') > 0 .or. &
-                index(lowered, 'end subroutine') > 0) then
-                has_end_function = .true.
-                inside_procedure = .false.
             end if
 
             if (.not. inside_procedure .and. .not. has_program .and. &
                 .not. has_module) then
                 eq_pos = index(trimmed, '=')
-                if (eq_pos > 1 .and. index(lowered, 'function ') /= 1 .and. &
-                    index(lowered, 'subroutine ') /= 1 .and. &
-                    index(lowered, 'program ') /= 1 .and. &
-                    index(lowered, 'module ') /= 1 .and. &
-                    index(lowered, 'end ') /= 1 .and. &
-                    index(lowered, 'print ') /= 1) then
-                    has_bare_executable = .true.
-                else if (index(lowered, 'print ') == 1) then
+                is_assignment = .false.
+                if (eq_pos > 1 .and. eq_pos <= trimmed_len) then
+                    if (eq_pos < trimmed_len) then
+                        select case (trimmed(eq_pos + 1:eq_pos + 1))
+                        case ('=', '>', '<', '/', '.')
+                            is_assignment = .false.
+                        case default
+                            is_assignment = .true.
+                        end select
+                    else
+                        is_assignment = .true.
+                    end if
+
+                    if (is_assignment .and. eq_pos > 1) then
+                        select case (trimmed(eq_pos - 1:eq_pos - 1))
+                        case ('<', '>', '/', '=', '.')
+                            is_assignment = .false.
+                        end select
+                    end if
+                end if
+
+                if ((is_assignment .and. index(lowered, 'function ') /= 1 .and. &
+                     index(lowered, 'subroutine ') /= 1 .and. &
+                     index(lowered, 'program ') /= 1 .and. &
+                     index(lowered, 'module ') /= 1 .and. &
+                     index(lowered, 'end ') /= 1) .or. &
+                    index(lowered, 'print ') == 1) then
                     has_bare_executable = .true.
                 end if
             end if
