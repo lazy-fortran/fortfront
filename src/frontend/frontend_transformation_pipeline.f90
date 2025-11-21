@@ -472,8 +472,9 @@ contains
         character(len=*), intent(in) :: input
         integer :: mode
         logical :: has_implicit_none, has_program, has_module, has_subroutine
-        logical :: has_function_keyword, has_end_function
-        integer :: i, line_end
+        logical :: has_function_keyword, has_end_function, has_bare_executable
+        logical :: inside_procedure
+        integer :: i, line_end, eq_pos
         character(len=:), allocatable :: line, trimmed, lowered
 
         has_implicit_none = .false.
@@ -482,6 +483,8 @@ contains
         has_subroutine = .false.
         has_function_keyword = .false.
         has_end_function = .false.
+        has_bare_executable = .false.
+        inside_procedure = .false.
 
         i = 1
         do while (i <= len(input))
@@ -517,18 +520,39 @@ contains
 
             if (index(lowered, 'subroutine ') == 1) then
                 has_subroutine = .true.
+                inside_procedure = .true.
             end if
 
             if (index(lowered, 'function ') == 1) then
                 has_function_keyword = .true.
+                inside_procedure = .true.
             end if
 
-            if (index(lowered, 'end function') > 0) then
+            if (index(lowered, 'end function') > 0 .or. &
+                index(lowered, 'end subroutine') > 0) then
                 has_end_function = .true.
+                inside_procedure = .false.
+            end if
+
+            if (.not. inside_procedure .and. .not. has_program .and. &
+                .not. has_module) then
+                eq_pos = index(trimmed, '=')
+                if (eq_pos > 1 .and. index(lowered, 'function ') /= 1 .and. &
+                    index(lowered, 'subroutine ') /= 1 .and. &
+                    index(lowered, 'program ') /= 1 .and. &
+                    index(lowered, 'module ') /= 1 .and. &
+                    index(lowered, 'end ') /= 1 .and. &
+                    index(lowered, 'print ') /= 1) then
+                    has_bare_executable = .true.
+                else if (index(lowered, 'print ') == 1) then
+                    has_bare_executable = .true.
+                end if
             end if
         end do
 
-        if (has_implicit_none .or. has_program .or. has_module) then
+        if (has_bare_executable) then
+            mode = INPUT_MODE_LAZY
+        else if (has_implicit_none .or. has_program .or. has_module) then
             mode = INPUT_MODE_STANDARD
         else if (has_subroutine .or. (has_function_keyword .and. &
                                       has_end_function)) then

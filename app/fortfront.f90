@@ -317,7 +317,7 @@ contains
         character(len=:), allocatable :: actual_module_name
 
         if (from_file .and. allocated(filename)) then
-            call configure_context_from_file(filename, context)
+            call configure_context_from_file(filename, context, input_text)
             if (len_trim(input_text) > 0) then
                 actual_module_name = extract_module_name_from_source(input_text)
                 if (allocated(actual_module_name)) then
@@ -332,15 +332,18 @@ contains
         end if
     end subroutine create_transform_context
 
-    subroutine configure_context_from_file(filename, context)
+    subroutine configure_context_from_file(filename, context, source_content)
         character(len=:), allocatable, intent(in) :: filename
         type(transform_context_t), intent(out) :: context
+        character(len=*), intent(in), optional :: source_content
         character(len=:), allocatable :: basename, extension
 
         call split_filename(filename, basename, extension)
 
         if (extension == '.lf') then
             context%input_mode = INPUT_MODE_LAZY
+        else if (present(source_content)) then
+            context%input_mode = detect_input_mode_from_content(source_content)
         else
             context%input_mode = INPUT_MODE_STANDARD
         end if
