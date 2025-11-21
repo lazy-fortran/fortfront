@@ -137,7 +137,7 @@ contains
                 call handle_newline(src, pos, line_num, col_num, &
                                     tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('!')  ! Comment
+            case ('!', '#')  ! Comment or preprocessor directive
                 call scan_comment(src, pos, line_num, col_num, &
                                   tokenize_res%tokens, tokenize_res%token_count)
 
