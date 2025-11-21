@@ -22,7 +22,7 @@ module codegen_subroutine_declarations
     use type_string_utils, only: mono_type_to_string
     implicit none
     private
-    public :: generate_code_subroutine_def
+    public :: generate_code_subroutine_def, extract_use_statements
 
 contains
 

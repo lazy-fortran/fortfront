@@ -133,7 +133,7 @@ contains
             i = i + 1
             return
         end if
-        ! Note: removed has_intent skip to prevent silently dropping declarations (fixes #2140)
+        ! Removed has_intent skip to prevent dropping declarations (fixes #2140)
         if (.not. in_contains_section .and. node%initializer_index == 0) then
             call process_grouped_declarations(arena, body_indices, i, indent_str, &
                                               code)
@@ -243,6 +243,7 @@ contains
         in_contains_section = .false.
         i = 1
         ordered_indices = body_indices
+        call reorder_use_before_implicit(arena, ordered_indices)
         call reorder_data_statements(arena, ordered_indices)
 
         do while (i <= size(ordered_indices))
@@ -267,6 +268,29 @@ contains
         unused_flag = has_exec_before_contains
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_context
+
+    subroutine reorder_use_before_implicit(arena, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer :: first_implicit
+        integer :: i
+
+        if (.not. allocated(body_indices)) return
+        if (size(body_indices) == 0) return
+
+        first_implicit = find_first_implicit(arena, body_indices)
+        if (first_implicit <= 0) return
+
+        do i = first_implicit + 1, size(body_indices)
+            if (.not. is_valid_body_entry(arena, body_indices(i))) cycle
+            if (is_contains_entry(arena, body_indices(i))) exit
+            if (.not. is_spec_statement(arena, body_indices(i))) exit
+            if (is_use_like_statement(arena, body_indices(i))) then
+                call move_index(body_indices, i, first_implicit)
+                first_implicit = first_implicit + 1
+            end if
+        end do
+    end subroutine reorder_use_before_implicit
 
     subroutine reorder_data_statements(arena, body_indices)
         type(ast_arena_t), intent(in) :: arena
@@ -308,6 +332,23 @@ contains
         end do
     end function find_first_exec_position
 
+    integer function find_first_implicit(arena, body_indices) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer :: i
+
+        pos = 0
+        do i = 1, size(body_indices)
+            if (.not. is_valid_body_entry(arena, body_indices(i))) cycle
+            if (is_contains_entry(arena, body_indices(i))) exit
+            if (.not. is_spec_statement(arena, body_indices(i))) exit
+            if (is_implicit_statement(arena, body_indices(i))) then
+                pos = i
+                return
+            end if
+        end do
+    end function find_first_implicit
+
     logical function is_spec_statement(arena, idx) result(is_spec)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
@@ -347,6 +388,42 @@ contains
             is_spec = .false.
         end select
     end function is_spec_statement
+
+    logical function is_implicit_statement(arena, idx) result(is_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_implicit = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (implicit_statement_node)
+            is_implicit = .true.
+        class default
+            is_implicit = .false.
+        end select
+    end function is_implicit_statement
+
+    logical function is_use_like_statement(arena, idx) result(is_use_like)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        is_use_like = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+
+        select type (node => arena%entries(idx)%node)
+        type is (use_statement_node)
+            is_use_like = .true.
+        type is (import_statement_node)
+            is_use_like = .true.
+        type is (intrinsic_statement_node)
+            is_use_like = .true.
+        class default
+            is_use_like = .false.
+        end select
+    end function is_use_like_statement
 
     logical function is_data_statement(arena, idx) result(is_data)
         type(ast_arena_t), intent(in) :: arena

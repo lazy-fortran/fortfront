@@ -129,6 +129,9 @@ contains
         call parse_parameter_list(parser, arena, param_indices)
         call parse_function_result_clause(parser, result_variable_name)
         call parse_bind_c_clause(parser, bind_c_clause)
+        if (len_trim(result_variable_name) == 0) then
+            call parse_function_result_clause(parser, result_variable_name)
+        end if
         call parse_procedure_body(parser, arena, function_name, "function", &
                                   body_indices, infer_recursive_from_body, &
                                   parse_function_proc=parse_function_definition, &
@@ -156,7 +159,8 @@ contains
 
         character(len=:), allocatable :: function_name, return_type_str, &
                                          result_variable_name, &
-                                         return_type_from_prefix
+                                         return_type_from_prefix, &
+                                         bind_c_clause
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword, is_valid
@@ -179,6 +183,10 @@ contains
 
         call parse_parameter_list(parser, arena, param_indices)
         call parse_function_result_clause(parser, result_variable_name)
+        call parse_bind_c_clause(parser, bind_c_clause)
+        if (len_trim(result_variable_name) == 0) then
+            call parse_function_result_clause(parser, result_variable_name)
+        end if
         call parse_procedure_body(parser, arena, function_name, "function", &
                                   body_indices, infer_recursive_from_body, &
                                   parse_function_proc=parse_function_definition, &
@@ -194,7 +202,8 @@ contains
                                        line, column, &
                                        result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
-                                       prefix_keywords=prefix_keywords)
+                                       prefix_keywords=prefix_keywords, &
+                                       bind_c_clause=bind_c_clause)
     end function parse_function_definition
 
     function parse_subroutine_definition(parser, arena, prefix_buffer) &

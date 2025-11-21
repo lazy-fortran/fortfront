@@ -152,7 +152,8 @@ contains
 
         ! Consume subroutine keyword
         token = parser%peek()
-        if (.not. (token%kind == TK_KEYWORD .and. token%text == "subroutine")) then
+        if (.not. (token%kind == TK_KEYWORD .and. &
+                   to_lower(token%text) == "subroutine")) then
             sub_index = 0
             return
         end if
@@ -172,39 +173,34 @@ contains
         ! Parse parameters (simplified - no type info)
         call parse_simple_parameter_list(parser, arena, param_indices)
 
-        ! Parse subroutine body until "end subroutine" (simplified)
+        ! Parse subroutine body until end subroutine (simplified)
         allocate (body_indices(0))
         do while (.not. parser%is_at_end())
             token = parser%peek()
 
             ! Check for end of subroutine
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            if (token%kind == TK_KEYWORD .and. &
+                to_lower(token%text) == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
                         TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == &
+                        to_lower(parser%tokens(parser%current_token + 1)%text) == &
                         "subroutine") then
-                        ! Check if this "end subroutine" belongs to this subroutine
-                        ! Look ahead to see if there's a subroutine name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
                             parser%tokens(parser%current_token + 2)%kind == &
                             TK_IDENTIFIER) then
-                            ! There is a name - check if it matches our subroutine
-                            if (parser%tokens(parser%current_token + 2)%text == &
-                                subroutine_name) then
-                                ! This is our matching "end subroutine" - consume it and exit
-                                token = parser%consume()  ! consume "end"
-                                token = parser%consume()  ! consume "subroutine"
+                            if (to_lower(parser%tokens(parser%current_token + 2)%text) &
+                                == to_lower(subroutine_name)) then
+                                token = parser%consume()  ! consume end
+                                token = parser%consume()  ! consume subroutine
                                 token = parser%consume()  ! consume subroutine name
                                 exit
                             else
-                                ! This "end subroutine" belongs to a nested procedure - continue parsing
-                                ! Don't consume these tokens, let the nested procedure parser handle them
+                                ! Nested procedure end; keep tokens for nested parser
                             end if
                         else
-                            ! No name after "end subroutine" - assume it's ours
-                            token = parser%consume()  ! consume "end"
-                            token = parser%consume()  ! consume "subroutine"
+                            token = parser%consume()  ! consume end
+                            token = parser%consume()  ! consume subroutine
                             exit
                         end if
                     end if
@@ -261,7 +257,7 @@ contains
 
         ! Consume function keyword
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             line = token%line
             column = token%column
             token = parser%consume()
@@ -312,33 +308,28 @@ contains
             token = parser%peek()
 
             ! Check for end of function
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            if (token%kind == TK_KEYWORD .and. &
+                to_lower(token%text) == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
                         TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == &
+                        to_lower(parser%tokens(parser%current_token + 1)%text) == &
                         "function") then
-                        ! Check if this "end function" belongs to this function
-                        ! Look ahead to see if there's a function name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
                             parser%tokens(parser%current_token + 2)%kind == &
                             TK_IDENTIFIER) then
-                            ! There is a name - check if it matches our function
-                            if (parser%tokens(parser%current_token + 2)%text == &
-                                function_name) then
-                                ! This is our matching "end function" - consume it and exit
-                                token = parser%consume()  ! consume "end"
-                                token = parser%consume()  ! consume "function"
+                            if (to_lower(parser%tokens(parser%current_token + 2)%text) &
+                                == to_lower(function_name)) then
+                                token = parser%consume()  ! consume end
+                                token = parser%consume()  ! consume function
                                 token = parser%consume()  ! consume function name
                                 exit
                             else
-                                ! This "end function" belongs to a nested procedure - continue parsing
-                                ! Don't consume these tokens, let the nested procedure parser handle them
+                                ! Nested procedure end; keep tokens for nested parser
                             end if
                         else
-                            ! No name after "end function" - assume it's ours
-                            token = parser%consume()  ! consume "end"
-                            token = parser%consume()  ! consume "function"
+                            token = parser%consume()  ! consume end
+                            token = parser%consume()  ! consume function
                             exit
                         end if
                     end if
@@ -457,12 +448,12 @@ contains
         integer :: nested_index, stmt_index
         type(token_t) :: consumed_token
 
-        if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
             nested_index = parse_subroutine_in_module(parser, arena)
             if (nested_index > 0) then
                 body_indices = [body_indices, nested_index]
             end if
-        else if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        else if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             nested_index = parse_function_in_module(parser, arena)
             if (nested_index > 0) then
                 body_indices = [body_indices, nested_index]

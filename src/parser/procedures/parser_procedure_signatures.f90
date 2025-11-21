@@ -217,7 +217,7 @@ contains
         end if
 
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
             line = token%line
             column = token%column
             token = parser%consume()
@@ -247,7 +247,8 @@ contains
 
         result_variable_name = ""
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
+        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+            to_lower(token%text) == "result") then
             token = parser%consume()
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "(") then

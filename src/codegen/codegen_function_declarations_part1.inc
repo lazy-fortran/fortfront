@@ -199,9 +199,15 @@
         integer, allocatable :: param_indices(:)
         integer, allocatable :: body_indices(:)
         integer, allocatable :: filtered_body_indices(:)
+        character(len=:), allocatable :: use_section
+        integer, allocatable :: trimmed_indices(:)
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
+
+        call extract_use_statements_function(arena, body_indices, trimmed_indices, &
+                                             use_section)
+        call move_alloc(trimmed_indices, body_indices)
 
         call build_parameter_map(arena, param_indices, body_indices, param_map, node)
         if (allocated(node%prefix_keywords)) then
@@ -209,7 +215,10 @@
         end if
         call apply_function_default_intents(param_map)
 
-        body = maybe_add_procedure_implicit_none(arena, body_indices, node_index)
+        body = ""
+        if (len_trim(use_section) > 0) body = body // use_section
+        body = body // maybe_add_procedure_implicit_none(arena, body_indices, &
+                                                         node_index)
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
         body = body // collect_recursive_result_decl(arena, node)
@@ -228,15 +237,88 @@
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: body
+        integer, allocatable :: body_indices(:)
+        integer, allocatable :: remaining_indices(:)
+        character(len=:), allocatable :: use_section
 
         if (.not. allocated(node%body_indices)) then
             body = ""
             return
         end if
 
-        body = generate_grouped_body(arena, node%body_indices, 1)
+        call copy_indices(node%body_indices, body_indices)
+
+        call extract_use_statements_function(arena, body_indices, remaining_indices, &
+                                             use_section)
+        call move_alloc(remaining_indices, body_indices)
+
+        body = ""
+        if (len_trim(use_section) > 0) body = body // use_section
+
+        if (allocated(body_indices)) then
+            if (size(body_indices) > 0) then
+                body = body // generate_grouped_body(arena, body_indices, 1)
+            end if
+        end if
+
         if (.not. allocated(body)) body = ""
     end function build_interface_prototype_body
+
+    subroutine extract_use_statements_function(arena, original_indices, &
+                                               remaining_indices, use_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: original_indices(:)
+        integer, allocatable, intent(out) :: remaining_indices(:)
+        character(len=:), allocatable, intent(out) :: use_code
+        integer :: i, count
+        logical :: is_use_stmt
+        character(len=:), allocatable :: stmt_text
+
+        if (size(original_indices) == 0) then
+            allocate (remaining_indices(0))
+            use_code = ""
+            return
+        end if
+
+        allocate (remaining_indices(size(original_indices)))
+        count = 0
+        use_code = ""
+
+        do i = 1, size(original_indices)
+            is_use_stmt = .false.
+            if (original_indices(i) > 0 .and. original_indices(i) <= arena%size) then
+                if (allocated(arena%entries(original_indices(i))%node)) then
+                    select type (node => arena%entries(original_indices(i))%node)
+                    type is (use_statement_node)
+                        is_use_stmt = .true.
+                        stmt_text = generate_code_from_arena(arena, &
+                                                             original_indices(i))
+                        if (len_trim(stmt_text) > 0) then
+                            use_code = use_code // "    " // trim(stmt_text) // &
+                                       new_line('A')
+                        end if
+                    end select
+                end if
+            end if
+
+            if (.not. is_use_stmt) then
+                count = count + 1
+                remaining_indices(count) = original_indices(i)
+            end if
+        end do
+
+        if (count == 0) then
+            deallocate (remaining_indices)
+            allocate (remaining_indices(0))
+        else if (count < size(original_indices)) then
+            block
+                integer, allocatable :: trimmed(:)
+                allocate (trimmed(count))
+                trimmed = remaining_indices(1:count)
+                call move_alloc(trimmed, remaining_indices)
+            end block
+        end if
+    end subroutine extract_use_statements_function
 
     logical function should_omit_return_type(arena, node, return_type_code) &
         result(omit)
