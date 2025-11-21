@@ -19,8 +19,8 @@ contains
         call transform_lazy_fortran_string(src, output, error_msg)
 
         ok = allocated(output)
-        if (ok) ok = index(output, "data a /1/") > 0
-        if (ok) ok = index(output, "data b /2/") > 0
+        if (ok) ok = index(output, "data a/1 /") > 0
+        if (ok) ok = index(output, "data b/2 /") > 0
         if (ok) ok = .not. allocated(error_msg) .or. len_trim(error_msg) == 0
 
         if (.not. ok) then

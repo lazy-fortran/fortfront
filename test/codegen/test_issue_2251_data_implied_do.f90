@@ -8,7 +8,7 @@ program test_issue_2251_data_implied_do
     character(len=:), allocatable :: error_msg
     logical :: success
     character(len=*), parameter :: expected_stmt = &
-        'data (coeff(i), coeff(i + 2), i = 1, 2) /1.0d0, 2.0d0, 3.0d0, 4.0d0/'
+        'data (coeff(i), coeff(i + 2), i = 1, 2)/1.0d0, 2.0d0, 3.0d0, 4.0d0 /'
 
     print *, "=== Codegen: DATA implied-do object list preserved ==="
 
