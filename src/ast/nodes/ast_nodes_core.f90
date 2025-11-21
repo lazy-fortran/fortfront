@@ -37,7 +37,7 @@ module ast_nodes_core
         logical :: type_was_inferred = .false.  ! true if type was inferred
         character(len=:), allocatable :: inferred_type_name
         logical :: suppress_codegen = .false.
-        logical :: is_keyword_argument = .false.  ! true if this is a keyword argument in a call
+        logical :: is_keyword_argument = .false.  ! keyword argument in a call
     contains
         procedure :: accept => assignment_accept
         procedure :: to_json => assignment_to_json
@@ -114,7 +114,7 @@ module ast_nodes_core
         integer, allocatable :: element_indices(:)  ! Indices to array elements
         character(len=:), allocatable :: element_type  ! Type of array elements
         character(len=:), allocatable :: type_spec  ! Optional explicit type-spec
-        character(len=:), allocatable :: syntax_style  ! "modern" for [...] or "legacy" for (/ ... /)
+        character(len=:), allocatable :: syntax_style  ! modern [...] or legacy (/ /)
     contains
         procedure :: accept => array_literal_accept
         procedure :: to_json => array_literal_to_json
@@ -252,6 +252,8 @@ contains
         if (allocated(rhs%inferred_type_name)) then
             lhs%inferred_type_name = rhs%inferred_type_name
         end if
+        lhs%suppress_codegen = rhs%suppress_codegen
+        lhs%is_keyword_argument = rhs%is_keyword_argument
     end subroutine assignment_assign
 
     ! Stub implementations for pointer_assignment_node

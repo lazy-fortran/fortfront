@@ -677,8 +677,16 @@ contains
             end if
             if (allocated(expr%arg_indices)) then
                 do i = 1, size(expr%arg_indices)
-                    call collect_expr_identifiers(arena, expr%arg_indices(i), &
-                                                  state, standardize_types_enabled)
+                    if (expr%arg_indices(i) <= 0) cycle
+                    if (.not. allocated(arena%entries(expr%arg_indices(i))%node)) cycle
+                    select type (arg => arena%entries(expr%arg_indices(i))%node)
+                    type is (assignment_node)
+                        call collect_expr_identifiers(arena, arg%value_index, state, &
+                                                      standardize_types_enabled)
+                    class default
+                        call collect_expr_identifiers(arena, expr%arg_indices(i), &
+                                                      state, standardize_types_enabled)
+                    end select
                 end do
             end if
         type is (array_literal_node)

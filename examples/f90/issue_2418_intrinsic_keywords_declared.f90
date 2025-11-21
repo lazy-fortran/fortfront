@@ -3,7 +3,7 @@
 program test_intrinsic_keywords
     implicit none
     integer, dimension(3, 3) :: matrix
-    integer :: min_index
+    integer, dimension(3) :: min_index
     logical, dimension(3, 3) :: condition
 
     ! Initialize test data
@@ -11,8 +11,8 @@ program test_intrinsic_keywords
     condition = matrix > 4
 
     ! Call intrinsic with keyword arguments
-    ! Bug: fortfront incorrectly emits "real :: dim, mask" declarations
+    ! Bug: fortfront incorrectly emits real :: dim, mask declarations
     min_index = minloc(matrix, dim=1, mask=condition)
 
-    print *, "Minimum location:", min_index
+    print *, "Minimum locations:", min_index
 end program test_intrinsic_keywords
