@@ -9,8 +9,8 @@ program test_issue_1899_data_multi_objects
     call check_case("multi-object scalars", &
         'examples/f90/data_multi_objects.f90', &
         [ character(len=32) :: &
-            'data i, j, k /1, 2, 3/', &
-            'data x, y /3.5, 7.2/' ])
+            'data i, j, k/1, 2, 3 /', &
+            'data x, y/3.5, 7.2 /' ])
 
     print *, "PASSED"
 

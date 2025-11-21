@@ -653,7 +653,7 @@
             end do
         end if
 
-        code = code // trim(objects_str) // " /" // trim(values_str) // "/"
+        code = code // trim(objects_str) // " / " // values_str // " /"
 
         call prepend_stmt_label(code, node%stmt_label)
     end function generate_code_data_statement
