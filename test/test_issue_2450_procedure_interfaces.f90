@@ -41,8 +41,16 @@ program test_issue_2450_procedure_interfaces
         error stop 1
     end if
 
-    if (index(output_code, 'procedure(real), intent(in) :: fn') == 0) then
+    ! ISO/IEC 1539-1:2018 Section 15.4.3.2: Procedure dummy arguments
+    ! cannot have INTENT attribute - check that intent is NOT added
+    if (index(output_code, 'procedure(real) :: fn') == 0) then
         write (error_unit, '(A)') 'FAIL: dummy procedure specification missing'
+        error stop 1
+    end if
+
+    if (index(output_code, 'procedure(real), intent') /= 0) then
+        write (error_unit, '(A)') 'FAIL: procedure dummy argument incorrectly has intent attribute'
+        write (error_unit, '(A)') 'ISO/IEC 1539-1:2018 Section 15.4.3.2: procedure dummy arguments cannot have INTENT'
         error stop 1
     end if
 
