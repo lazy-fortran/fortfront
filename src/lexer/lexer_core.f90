@@ -157,7 +157,7 @@ contains
                 if (pos < source_len) then
                     if (src(pos + 1:pos + 1) >= '0' .and. src(pos + 1:pos + 1) &
                         <= '9') then
-                        ! Only treat as a decimal number if not immediately following a digit
+                        ! Treat as decimal only when previous character is not a digit
                         block
                             logical :: prev_is_digit
                             if (pos > 1) then
@@ -167,7 +167,8 @@ contains
                                 prev_is_digit = .false.
                             end if
                             if (prev_is_digit) then
-                                ! Pattern like "3.14.159": second dot should be an operator separator
+                                ! Pattern 3.14.159:
+                                ! second dot acts as operator separator
                                 call scan_operator(src, pos, line_num, col_num, &
                                                    tokenize_res%tokens, &
                                                    tokenize_res%token_count)
@@ -178,7 +179,8 @@ contains
                             end if
                         end block
                     else
-                        ! Not followed by a digit: try logical token forms like .and., .true.
+                        ! Not followed by a digit:
+                        ! scan logical token such as .and. or .true.
                         call scan_logical_token(src, pos, line_num, col_num, &
                                                 tokenize_res%tokens, &
                                                 tokenize_res%token_count)
