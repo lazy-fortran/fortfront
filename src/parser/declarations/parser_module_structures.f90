@@ -170,18 +170,19 @@ contains
 
         stmt_index = 0
         token = parser%peek()
+        lowered = to_lower(token%text)
 
-        if (token%kind == TK_KEYWORD .and. token%text == "interface") then
+        if (token%kind == TK_KEYWORD .and. lowered == "interface") then
             stmt_index = parse_interface_block(parser, arena, prefix_buffer)
             return
         end if
 
-        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
+        if (token%kind == TK_KEYWORD .and. lowered == "subroutine") then
             stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
             return
         end if
 
-        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "function") then
+        if (token%kind == TK_KEYWORD .and. lowered == "function") then
             stmt_index = parse_function_definition(parser, arena, prefix_buffer)
             return
         end if
@@ -344,7 +345,7 @@ contains
                 end if
 
                 if (.not. (token%kind == TK_KEYWORD .and. &
-                           (token%text == "function" .or. token%text == &
+                           (trim(lowered) == "function" .or. trim(lowered) == &
                             "subroutine"))) then
                     token = parser%consume()
                 end if
