@@ -349,6 +349,7 @@ class FailureAggregator:
         if category == "roundtrip_diff":
             return self._summarize_diff(entries)
         grouped: Dict[str, SummaryGroup] = {}
+        keyword_buckets: Dict[str, Counter[str]] = {}
         for record, classification in entries:
             key = classification.signature
             group = grouped.get(key)
@@ -359,11 +360,25 @@ class FailureAggregator:
                     description=classification.description,
                 )
                 grouped[key] = group
+                keyword_buckets[key] = Counter()
             group.count += 1
             file_path = record.get("file")
             if isinstance(file_path, str) and len(group.examples) < self.max_examples:
                 group.examples.append(file_path)
-        return list(grouped.values())
+            features = classification.features or {}
+            bucket = keyword_buckets[key]
+            for kw in features.get("top_keywords", []):
+                bucket[kw] += 1
+            for kw in features.get("source_patterns", []):
+                bucket[kw] += 1
+            for kw in features.get("source_keywords", []):
+                bucket[kw] += 1
+        groups = list(grouped.values())
+        for group in groups:
+            kw_counter = keyword_buckets.get(group.signature, Counter())
+            if kw_counter:
+                group.keywords = [kw for kw, _ in kw_counter.most_common(8)]
+        return groups
 
     def _summarize_diff(
         self,
@@ -441,8 +456,10 @@ class FailureAggregator:
                 count = group["count"]
                 description = group["description"]
                 examples = ", ".join(group["examples"])
+                keywords = group.get("keywords", [])
+                kw_text = f" keywords={','.join(keywords)}" if keywords else ""
                 example_text = f" examples: {examples}" if examples else ""
-                print(f"  - {signature} ({count}) :: {description}{example_text}")
+                print(f"  - {signature} ({count}) :: {description}{kw_text}{example_text}")
             remaining = section["remaining_groups"]
             if remaining:
                 print(f"    ... {remaining} additional unique signatures omitted ...")
@@ -459,6 +476,8 @@ class FailureAggregator:
                 features = classification.features or {}
                 for kw in features.get("top_keywords", []):
                     keyword_counter[kw] += 1
+                for kw in features.get("source_patterns", []):
+                    keyword_counter[kw] += 1
                 label = features.get("label")
                 if label:
                     keyword_counter[label] += 1
@@ -471,47 +490,65 @@ class FailureAggregator:
 def classify_failure_record(record: Dict[str, object]) -> Optional[Classification]:
     status = record.get("status")
     expected = bool(record.get("expected_failure", False))
+
+    def finalize(cls: Classification) -> Classification:
+        merge_source_features(cls.features, record)
+        return cls
+
+    if status == "skipped_ref_no_compile":
+        # Don't count skipped tests as failures
+        return None
     if status == "pass":
         if expected:
             path_hint = extract_path_cluster(record)
             desc_suffix = f" [{path_hint}]" if path_hint else ""
-            return Classification(
-                category="unexpected_pass",
-                signature=f"XPASS:{path_hint or 'generic'}",
-                description=f"Expected failure passed{desc_suffix}",
-                features={"expected": True, "path": path_hint},
+            return finalize(
+                Classification(
+                    category="unexpected_pass",
+                    signature=f"XPASS:{path_hint or 'generic'}",
+                    description=f"Expected failure passed{desc_suffix}",
+                    features={"expected": True, "path": path_hint},
+                )
             )
         return None
     if expected:
         path_hint = extract_path_cluster(record)
         desc_suffix = f" [{path_hint}]" if path_hint else ""
-        return Classification(
-            category="expected_failure",
-            signature=f"XFAIL:{path_hint or 'generic'}",
-            description=f"Expected failure (per dg directives){desc_suffix}",
-            features={"expected": True, "path": path_hint},
+        return finalize(
+            Classification(
+                category="expected_failure",
+                signature=f"XFAIL:{path_hint or 'generic'}",
+                description=f"Expected failure (per dg directives){desc_suffix}",
+                features={"expected": True, "path": path_hint},
+            )
         )
     if status == "fail":
         # legacy catch-all
         if "roundtrip_diff" in record:
             diff_text = str(record.get("roundtrip_diff", ""))
             signature, description, features = extract_diff_signature(diff_text)
-            return Classification(
-                category="roundtrip_diff",
-                signature=signature,
-                description=description,
-                features=features,
+            return finalize(
+                Classification(
+                    category="roundtrip_diff",
+                    signature=signature,
+                    description=description,
+                    features=features,
+                )
             )
-        return Classification(
-            category="roundtrip_unknown",
-            signature="unknown",
-            description="Round-trip failure (unspecified)",
+        return finalize(
+            Classification(
+                category="roundtrip_unknown",
+                signature="unknown",
+                description="Round-trip failure (unspecified)",
+            )
         )
     if status == "roundtrip_timeout":
-        return Classification(
-            category="roundtrip_timeout",
-            signature="second_pass_timeout",
-            description="Second fortfront invocation timed out",
+        return finalize(
+            Classification(
+                category="roundtrip_timeout",
+                signature="second_pass_timeout",
+                description="Second fortfront invocation timed out",
+            )
         )
     if status == "roundtrip_exit":
         code = record.get("roundtrip_exit_code")
@@ -521,75 +558,95 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
         path_hint = extract_path_cluster(record)
         signature = f"exit:{code}:{label or 'generic'}"
         description = f"Round-trip exit {code}: {label or stderr_line or 'no stderr'}"
-        return Classification(
-            category="roundtrip_exit",
-            signature=signature,
-            description=description,
-            features={"label": label, "path": path_hint},
+        return finalize(
+            Classification(
+                category="roundtrip_exit",
+                signature=signature,
+                description=description,
+                features={"label": label, "path": path_hint},
+            )
         )
     if status == "pass_equivalent":
         path_hint = extract_path_cluster(record)
-        return Classification(
-            category="equivalent_not_identical",
-            signature=f"equiv:{path_hint or 'generic'}",
-            description="Byte diff but compile+run outputs match",
-            features={"path": path_hint},
+        return finalize(
+            Classification(
+                category="equivalent_not_identical",
+                signature=f"equiv:{path_hint or 'generic'}",
+                description="Byte diff but compile+run outputs match",
+                features={"path": path_hint},
+            )
         )
     if status == "compile_fail_ref":
-        return Classification(
-            category="compile_fail_ref",
-            signature="ref_compile",
-            description="Reference source failed to compile during semantic check",
+        return finalize(
+            Classification(
+                category="compile_fail_ref",
+                signature="ref_compile",
+                description="Reference source failed to compile during semantic check",
+            )
         )
     if status == "compile_fail_roundtrip":
-        return Classification(
-            category="compile_fail_roundtrip",
-            signature="rt_compile",
-            description="Round-trip source failed to compile during semantic check",
+        return finalize(
+            Classification(
+                category="compile_fail_roundtrip",
+                signature="rt_compile",
+                description="Round-trip source failed to compile during semantic check",
+            )
         )
     if status == "runtime_fail_ref":
-        return Classification(
-            category="runtime_fail_ref",
-            signature="ref_runtime",
-            description="Reference binary failed or timed out during semantic check",
+        return finalize(
+            Classification(
+                category="runtime_fail_ref",
+                signature="ref_runtime",
+                description="Reference binary failed or timed out during semantic check",
+            )
         )
     if status == "runtime_fail_roundtrip":
-        return Classification(
-            category="runtime_fail_roundtrip",
-            signature="rt_runtime",
-            description="Round-trip binary failed or timed out during semantic check",
+        return finalize(
+            Classification(
+                category="runtime_fail_roundtrip",
+                signature="rt_runtime",
+                description="Round-trip binary failed or timed out during semantic check",
+            )
         )
     if status == "output_mismatch":
         path_hint = extract_path_cluster(record)
-        return Classification(
-            category="output_mismatch",
-            signature=f"output_diff:{path_hint or 'generic'}",
-            description="Compile+run succeeded but outputs differ",
-            features={"path": path_hint},
+        return finalize(
+            Classification(
+                category="output_mismatch",
+                signature=f"output_diff:{path_hint or 'generic'}",
+                description="Compile+run succeeded but outputs differ",
+                features={"path": path_hint},
+            )
         )
     if status == "compare_failure":
-        return Classification(
-            category="compare_failure",
-            signature="compare_failure",
-            description="Structural diff and semantic check did not match outputs",
+        return finalize(
+            Classification(
+                category="compare_failure",
+                signature="compare_failure",
+                description="Structural diff and semantic check did not match outputs",
+            )
         )
     if status == "fatal":
         if record.get("stderr_preview") == "No output produced for successful transform":
-            return Classification(
-                category="fatal_no_output",
-                signature="no_output",
-                description="fortfront exited 0 but stdout was empty",
+            return finalize(
+                Classification(
+                    category="fatal_no_output",
+                    signature="no_output",
+                    description="fortfront exited 0 but stdout was empty",
+                )
             )
         exit_code = record.get("exit_code")
         stderr_text = str(record.get("stderr_preview", ""))
         label = categorize_message(stderr_text)
         signature = f"fatal:{exit_code}:{label or 'generic'}"
         description = f"fortfront exit {exit_code}: {label or first_line(stderr_text) or 'no stderr'}"
-        return Classification(
-            category="fatal_exit",
-            signature=signature,
-            description=description,
-            features={"label": label},
+        return finalize(
+            Classification(
+                category="fatal_exit",
+                signature=signature,
+                description=description,
+                features={"label": label},
+            )
         )
     if status == "timeout":
         stderr_text = str(record.get("stderr_preview", ""))
@@ -599,22 +656,28 @@ def classify_failure_record(record: Dict[str, object]) -> Optional[Classificatio
         label = path_hint or "generic"
         signature = f"{label}:{normalized or 'timeout'}"
         desc_suffix = f" [{path_hint}]" if path_hint else ""
-        return Classification(
-            category="transform_timeout",
-            signature=signature,
-            description=f"Initial fortfront invocation timed out{desc_suffix}",
-            features={"path": path_hint, "normalized": normalized},
+        return finalize(
+            Classification(
+                category="transform_timeout",
+                signature=signature,
+                description=f"Initial fortfront invocation timed out{desc_suffix}",
+                features={"path": path_hint, "normalized": normalized},
+            )
         )
     if status is None:
-        return Classification(
-            category="unknown_status",
-            signature="missing",
-            description="Record missing status",
+        return finalize(
+            Classification(
+                category="unknown_status",
+                signature="missing",
+                description="Record missing status",
+            )
         )
-    return Classification(
-        category="unknown_status",
-        signature=str(status),
-        description=f"Unhandled status {status}",
+    return finalize(
+        Classification(
+            category="unknown_status",
+            signature=str(status),
+            description=f"Unhandled status {status}",
+        )
     )
 
 
@@ -777,6 +840,128 @@ STOPWORDS = {
 }
 
 
+SOURCE_STOPWORDS = STOPWORDS | {
+    "call",
+    "if",
+    "then",
+    "else",
+    "endif",
+    "enddo",
+    "do",
+    "cycle",
+    "exit",
+    "return",
+    "stop",
+    "select",
+    "case",
+    "block",
+    "where",
+    "forall",
+    "allocate",
+    "deallocate",
+    "character",
+    "complex",
+    "double",
+    "precision",
+    "dimension",
+    "parameter",
+    "intent",
+    "procedure",
+    "interface",
+    "contains",
+    "program",
+    "module",
+    "subroutine",
+    "function",
+    "type",
+    "class",
+    "end",
+    "use",
+}
+
+
+SOURCE_PATTERN_RULES: Sequence[Tuple[str, str]] = (
+    ("openmp", r"!\$omp|\bopenmp\b|\bomp_"),
+    ("openacc", r"!\$acc|\bopenacc\b|\bacc_"),
+    ("coarray", r"\bcoarray\b|\bteam\b|\bsync\b(?:all|images|memory)?"),
+    ("bind_c", r"bind\s*\(c\)|iso_c_binding|c_f_pointer|c_loc|c_funloc"),
+    ("pointer_attr", r"\bpointer\b|\ballocatable\b"),
+    ("complex_kind", r"complex\s*\(kind"),
+    ("equivalence", r"\bequivalence\b"),
+    ("common_block", r"\bcommon\b"),
+    ("namelist", r"\bnamelist\b"),
+    ("entry_stmt", r"\bentry\b"),
+    ("enum", r"\benum\b|\benumerator\b"),
+    ("select_type", r"\bselect\s+type\b"),
+    ("associate", r"\bassociate\b"),
+)
+
+
+def _strip_fortran_comments(line: str) -> str:
+    """Remove trailing ! comments and skip full-line Fortran comments."""
+    if not line:
+        return ""
+    # Column-1 comment markers (fixed form) and leading !
+    trimmed = line.rstrip("\n\r")
+    leading = trimmed.lstrip()
+    if leading.startswith("!"):
+        return ""
+    if trimmed and trimmed[0] in {"c", "C", "*"} and (len(trimmed) == 1 or trimmed[1].isspace()):
+        return ""
+    # Remove trailing inline comment introduced by !
+    return trimmed.split("!", 1)[0]
+
+
+def analyze_source_text(text: str, top_k: int = 8) -> Dict[str, List[str]]:
+    """Extract keyword and pattern hints from a Fortran source string."""
+    tokens: Counter[str] = Counter()
+    cleaned_lines: List[str] = []
+    for line in text.splitlines():
+        stripped = _strip_fortran_comments(line)
+        if not stripped.strip():
+            continue
+        cleaned_lines.append(stripped)
+        no_strings = re.sub(r"(['\"])(?:\\.|(?!\1).)*\1", " ", stripped)
+        for tok in _TOKEN_PATTERN.findall(no_strings.lower()):
+            if tok.isdigit() or len(tok) < 3:
+                continue
+            normalized = _DIGIT_PATTERN.sub("#", tok)
+            if normalized in SOURCE_STOPWORDS:
+                continue
+            tokens[normalized] += 1
+
+    combined_text = "\n".join(cleaned_lines).lower()
+    pattern_hits: List[str] = []
+    for label, pattern in SOURCE_PATTERN_RULES:
+        try:
+            if re.search(pattern, combined_text, flags=re.IGNORECASE):
+                pattern_hits.append(label)
+        except re.error:
+            continue
+
+    return {
+        "source_keywords": [kw for kw, _ in tokens.most_common(top_k)],
+        "source_patterns": pattern_hits,
+    }
+
+
+def merge_source_features(features: Dict[str, Any], record: Dict[str, object]) -> None:
+    """Attach source-derived keywords/patterns to a feature dict in-place."""
+    if features is None:
+        return
+    source_keywords = record.get("source_keywords") or []
+    source_patterns = record.get("source_patterns") or []
+    if source_keywords:
+        existing_kw = list(dict.fromkeys(features.get("top_keywords", [])))
+        merged_kw = list(dict.fromkeys(existing_kw + list(source_keywords)))
+        features["top_keywords"] = merged_kw
+        features.setdefault("source_keywords", list(source_keywords))
+    if source_patterns:
+        existing_patterns = list(dict.fromkeys(features.get("source_patterns", [])))
+        merged_patterns = list(dict.fromkeys(existing_patterns + list(source_patterns)))
+        features["source_patterns"] = merged_patterns
+
+
 def keyword_signature(lines: List[str], top_k: int = 6) -> List[str]:
     tokens: List[str] = []
     for line in lines:
@@ -852,19 +1037,21 @@ def normalize_message(text: str) -> str:
     return lowered.strip()
 
 
-def detect_expected_failure(test_path: Path) -> bool:
+def detect_expected_failure(test_path: Path, text: Optional[str] = None) -> bool:
     """
     Lightweight dg directive detector: if the file contains dg-shouldfail or
     dg-xfail, treat it as an expected failure.
     """
-    try:
-        text = test_path.read_text(encoding="utf-8", errors="ignore").lower()
-    except OSError:
-        return False
+    if text is None:
+        try:
+            text = test_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return False
+    text = text.lower()
     return ("dg-shouldfail" in text) or ("dg-xfail" in text)
 
 
-def parse_dg_metadata(test_path: Path, gcc_root: Path) -> Dict[str, object]:
+def parse_dg_metadata(test_path: Path, gcc_root: Path, text: Optional[str] = None) -> Dict[str, object]:
     """
     Minimal dg directive parser to approximate GCC harness context without copying code.
     Supports:
@@ -877,10 +1064,11 @@ def parse_dg_metadata(test_path: Path, gcc_root: Path) -> Dict[str, object]:
         "extra_sources": [],
         "do_run": True,
     }
-    try:
-        text = test_path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return meta
+    if text is None:
+        try:
+            text = test_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return meta
     # options
     opt_patterns = [
         r"dg-options\\s*\"([^\"]+)\"",
@@ -1187,13 +1375,43 @@ def run_case(
     run_timeout: float,
 ) -> Dict[str, object]:
     rel_path = str(test_path.relative_to(gcc_root))
-    expected_failure = detect_expected_failure(test_path)
-    dg_meta = parse_dg_metadata(test_path, gcc_root)
+    try:
+        source_text = test_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        source_text = ""
+    source_features = analyze_source_text(source_text)
+    expected_failure = detect_expected_failure(test_path, text=source_text)
+    dg_meta = parse_dg_metadata(test_path, gcc_root, text=source_text)
     include_dirs = [
         (gcc_root / "gcc" / "testsuite"),
         (gcc_root / "gcc" / "testsuite" / "gfortran.dg"),
         (gcc_root / "gcc" / "testsuite" / "gfortran.dg" / "include"),
     ]
+
+    # Check if reference source compiles with gfortran before running fortfront
+    ref_compile = compile_and_run(
+        source_text,
+        suffix=".f90",
+        compile_timeout=compile_timeout,
+        run_timeout=0.01,  # minimal timeout, we don't run yet
+        options=dg_meta.get("options", []),
+        extra_sources=dg_meta.get("extra_sources", []),
+        include_dirs=include_dirs,
+        do_run=False,  # Only check if it compiles
+    )
+    if ref_compile.get("status") in {"compile_fail", "compile_timeout"}:
+        # Reference doesn't compile - skip this test entirely
+        return {
+            "file": rel_path,
+            "status": "skipped_ref_no_compile",
+            "duration_s": 0.0,
+            "stdout_bytes": 0,
+            "expected_failure": expected_failure,
+            "source_keywords": source_features.get("source_keywords", []),
+            "source_patterns": source_features.get("source_patterns", []),
+            "note": "Reference source does not compile with gfortran",
+        }
+
     started = time.monotonic()
     cmd = [str(fortfront_bin), str(test_path)]
     try:
@@ -1213,6 +1431,8 @@ def run_case(
             "duration_s": round(duration, 4),
             "stdout_bytes": len(completed.stdout),
             "expected_failure": expected_failure,
+            "source_keywords": source_features.get("source_keywords", []),
+            "source_patterns": source_features.get("source_patterns", []),
         }
         if completed.returncode != 0:
             record["status"] = "fatal"
@@ -1291,6 +1511,8 @@ def run_case(
             "stderr_preview": truncate_text(
                 (exc.stderr or b"").decode("utf-8", errors="replace"), 600
             ),
+            "source_keywords": source_features.get("source_keywords", []),
+            "source_patterns": source_features.get("source_patterns", []),
         }
 
 
@@ -1303,6 +1525,7 @@ def print_progress(
     timeouts: int,
     xfails: int,
     xpasses: int,
+    skipped: int,
     start_time: float,
 ) -> None:
     elapsed = time.monotonic() - start_time
@@ -1313,7 +1536,7 @@ def print_progress(
     message = (
         f"\r[{percent:6.2f}%] {processed}/{total} "
         f"(pass {passes} | fail {roundtrip_failures} | fatal {fatals} | timeout {timeouts} | "
-        f"xfail {xfails} | xpass {xpasses}) "
+        f"skip {skipped} | xfail {xfails} | xpass {xpasses}) "
         f"elapsed {format_seconds(elapsed)} "
         f"eta {format_seconds(eta)} "
         f"rate {rate:.1f}/s"
@@ -1382,6 +1605,7 @@ def main() -> int:
         timeouts = 0
         xfails = 0
         xpasses = 0
+        skipped = 0
         start_time = time.monotonic()
         effective_timeout = max(args.timeout, 0.0)
         aggregator = FailureAggregator(total_tests=len(tests))
@@ -1391,7 +1615,7 @@ def main() -> int:
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, xfails, xpasses, start_time)
+        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, xfails, xpasses, skipped, start_time)
 
         worker = partial(
             run_case,
@@ -1408,7 +1632,9 @@ def main() -> int:
                 processed += 1
                 status = record["status"]
                 expected = record.get("expected_failure", False)
-                if status in {"pass", "pass_equivalent"}:
+                if status == "skipped_ref_no_compile":
+                    skipped += 1
+                elif status in {"pass", "pass_equivalent"}:
                     passes += 1
                     if expected:
                         xpasses += 1
@@ -1450,6 +1676,7 @@ def main() -> int:
                     timeouts,
                     xfails,
                     xpasses,
+                    skipped,
                     start_time,
                 )
         else:
@@ -1458,7 +1685,9 @@ def main() -> int:
                     processed += 1
                     status = record["status"]
                     expected = record.get("expected_failure", False)
-                    if status in {"pass", "pass_equivalent"}:
+                    if status == "skipped_ref_no_compile":
+                        skipped += 1
+                    elif status in {"pass", "pass_equivalent"}:
                         passes += 1
                         if expected:
                             xpasses += 1
@@ -1500,14 +1729,15 @@ def main() -> int:
                         timeouts,
                         xfails,
                         xpasses,
+                        skipped,
                         start_time,
                     )
 
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}. "
-        f"XFAIL: {xfails}, XPASS: {xpasses}. "
+        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}, "
+        f"SKIP: {skipped}. XFAIL: {xfails}, XPASS: {xpasses}. "
         f"Results: {output_path}"
     )
     digest = aggregator.build_digest()
@@ -1531,6 +1761,7 @@ def main() -> int:
                     "roundtrip_fail": roundtrip_failures,
                     "fatal": fatals,
                     "timeout": timeouts,
+                    "skipped": skipped,
                     "xfail": xfails,
                     "xpass": xpasses,
                 },

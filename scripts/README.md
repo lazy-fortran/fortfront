@@ -50,17 +50,24 @@ Shell wrapper for the Python duplication checker. Provides Unix-friendly interfa
 Validates parser correctness via round-trip testing and classifies expected failures using dg directives (no DejaGnu invocation). Adds a semantic check path: if byte-for-byte output differs, compile and run both the reference and round-tripped sources and treat them as equivalent when binaries run and outputs match.
 
 Round-trip steps:
-1. Parse standard Fortran → AST
-2. Emit AST → standardized Fortran
-3. Parse standardized → AST2
-4. Emit AST2 → output2
-5. Verify output1 == output2 (modulo whitespace)
+1. Pre-check: compile reference source with gfortran (skip test if compilation fails)
+2. Parse standard Fortran → AST
+3. Emit AST → standardized Fortran
+4. Parse standardized → AST2
+5. Emit AST2 → output2
+6. Verify output1 == output2 (modulo whitespace)
+
+Skipped tests:
+- Tests where the reference source does not compile with gfortran are skipped automatically
+- These are reported separately as "SKIP" and not counted as failures
+- This ensures the test suite only reports genuine fortfront issues
 
 Expected failures:
 - Inputs containing `dg-shouldfail` or `dg-xfail` comments are marked XFAIL; if such a test passes round-trip it is reported as XPASS.
 
 Heuristics:
 - Lightweight bucketization + keyword extraction of stderr/diff patterns (interface/data, unnamed wrappers, implicit handling, bind(c), OpenMP/ACC, coarrays) to surface the most common failure modes for humans and LLMs.
+- Source-aware hints: failing records now attach keywords/pattern hits extracted from the original test case (e.g., bind(c), coarray, OpenMP, POINTER/ALLOCATABLE, NAMELIST). Digests and heatmaps include these for quick triage.
 - Semantic leniency: if byte output differs, compile+run both reference and round-trip; when both compile/run and outputs match, the case is reported as “equivalent_not_identical” instead of a failure. Outputs/compile/runtime mismatches are split into compare/compile/runtime buckets.
 - Minimal dg handling: honors `dg-options`/`dg-additional-options`, `dg-additional-source`/`dg-additional-files`, and `dg-do compile|run` to give reference/round-trip compiles the same flags and extra sources (without using the GCC DejaGnu harness).
 
@@ -146,8 +153,8 @@ python scripts/run_gfortran_roundtrip.py examples/f90/*.f90
 ## Dependencies
 
 **Python Scripts**:
-- Python 3.6+
-- No external dependencies (standard library only)
+- Python 3.8+
+- `rapidfuzz` (used by `run_gfortran_roundtrip.py` for diff clustering)
 
 **Shell Scripts**:
 - Bash (Linux/macOS)
