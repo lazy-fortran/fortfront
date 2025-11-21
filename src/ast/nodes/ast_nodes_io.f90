@@ -332,6 +332,8 @@ contains
         if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
         if (allocated(this%format_spec)) call json%add(obj, 'format_spec', &
                                                        this%format_spec)
+        if (allocated(this%namelist_group)) call json%add(obj, 'namelist_group', &
+                                                          this%namelist_group)
         if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
                                                      this%iostat_var_index)
         if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
@@ -360,6 +362,7 @@ contains
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%namelist_group)) lhs%namelist_group = rhs%namelist_group
         if (allocated(rhs%var_indices)) then
             if (allocated(lhs%var_indices)) deallocate (lhs%var_indices)
             allocate (lhs%var_indices(size(rhs%var_indices)))
