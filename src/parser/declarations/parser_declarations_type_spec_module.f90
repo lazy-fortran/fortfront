@@ -347,9 +347,29 @@ contains
                 type_spec%has_character_length = .true.
                 token = parser%consume()
             else if (token%kind == TK_IDENTIFIER) then
-                type_spec%character_length_expr = trim(token%text)
-                type_spec%has_character_length = .true.
-                token = parser%consume()
+                call collect_character_parameter_tokens(parser, value_tokens)
+                if (allocated(value_tokens)) then
+                    call trim_token_sequence(value_tokens, cleaned)
+                    if (allocated(cleaned)) then
+                        value_text = trim(adjustl(tokens_to_text(cleaned)))
+                        block
+                            type(token_t), allocatable :: temp(:)
+                            call move_alloc(cleaned, temp)
+                        end block
+                    else
+                        value_text = ""
+                    end if
+                    block
+                        type(token_t), allocatable :: temp(:)
+                        call move_alloc(value_tokens, temp)
+                    end block
+                else
+                    value_text = ""
+                end if
+                if (len_trim(value_text) > 0) then
+                    type_spec%character_length_expr = trim(value_text)
+                    type_spec%has_character_length = .true.
+                end if
             else
                 token = parser%consume()
             end if
