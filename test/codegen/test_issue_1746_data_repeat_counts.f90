@@ -9,19 +9,19 @@ program test_issue_1746_data_repeat_counts
     call check_case("simple-repeat", &
                     'examples/f90/data_repeat_simple.f90', &
                     'integer :: arr(5)', &
-                    'data arr /0, 0, 0, 0, 0/', &
+                    'data arr/0, 0, 0, 0, 0 /', &
                     '')
 
     call check_case("mixed-repeat-and-values", &
                     'examples/f90/data_repeat_mixed.f90', &
                     'integer :: arr(7)', &
-                    'data arr /1, 1, 1, 2, 0, 0, 0/', &
+                    'data arr/1, 1, 1, 2, 0, 0, 0 /', &
                     '')
 
     call check_case("repeat-count-kind", &
                     'examples/f90/data_repeat_kind.f90', &
                     'integer :: arr(5)', &
-                    'data arr /0, 0, 0, 0, 0/', &
+                    'data arr/0, 0, 0, 0, 0 /', &
                     '5_1*0')
 
     print *, "PASSED"
