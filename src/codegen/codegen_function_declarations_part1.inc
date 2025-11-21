@@ -650,14 +650,7 @@
         if (has_result_variable_declaration(arena, func, result_name)) return
 
         if (trim(result_name) /= trim(function_name)) then
-            if (.not. header_has_type) then
-                needed = .true.
-                return
-            end if
-            if (requires_deferred_attrs) then
-                needed = .true.
-                return
-            end if
+            needed = .true.
             return
         end if
 
