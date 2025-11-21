@@ -529,6 +529,9 @@ contains
         logical :: standardize_types_enabled
         character(len=:), allocatable :: normalized_target
 
+        ! Skip keyword arguments (e.g., dim=1 in minloc(arr, dim=1))
+        if (stmt%is_keyword_argument) return
+
         call get_type_standardization(standardize_types_enabled)
 
         target_idx = stmt%target_index

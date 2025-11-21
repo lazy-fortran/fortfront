@@ -1,5 +1,4 @@
 module codegen_core
-    use iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use codegen_expressions
     use codegen_statements
