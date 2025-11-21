@@ -460,6 +460,10 @@ contains
         type(mono_type_t) :: current
         integer :: rank
         integer :: idx
+        integer :: visited_indices(100)
+        integer :: visited_count
+        integer :: i
+        logical :: is_cycle
 
         call safe_extract_array_rank(array_type, rank, current)
         if (rank <= 0) then
@@ -471,12 +475,35 @@ contains
         allocate (dims(rank))
         current = array_type
         all_known = .true.
+        visited_count = 0
 
         do idx = 1, rank
             if (current%kind /= TARRAY) then
                 all_known = .false.
                 exit
             end if
+
+            ! Detect cycles by checking if we've seen this type_id before
+            is_cycle = .false.
+            do i = 1, visited_count
+                if (visited_indices(i) == current%handle%type_id) then
+                    is_cycle = .true.
+                    exit
+                end if
+            end do
+
+            if (is_cycle) then
+                ! Circular reference detected - stop traversal
+                all_known = .false.
+                exit
+            end if
+
+            ! Track this type_id
+            visited_count = visited_count + 1
+            if (visited_count <= size(visited_indices)) then
+                visited_indices(visited_count) = current%handle%type_id
+            end if
+
             dims(idx) = current%size
             if (dims(idx) <= 0) all_known = .false.
             if (current%has_args() .and. current%get_args_count() >= 1) then
