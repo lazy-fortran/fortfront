@@ -249,8 +249,10 @@
             unit_code = "*"
         end if
 
-        ! Generate format specifier
-        if (allocated(node%format_spec)) then
+        ! Generate format or namelist specifier
+        if (allocated(node%namelist_group)) then
+            format_code = "nml=" // node%namelist_group
+        else if (allocated(node%format_spec)) then
             format_code = node%format_spec
         else
             format_code = "*"

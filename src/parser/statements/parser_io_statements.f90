@@ -495,7 +495,8 @@ contains
         type(token_t) :: token
         integer, allocatable :: var_indices(:)
         integer :: line, column
-        character(len=:), allocatable :: unit_spec, format_spec
+        character(len=:), allocatable :: unit_spec, format_spec, namelist_group
+        type(parser_state_t) :: checkpoint
 
         ! Consume 'read' keyword
         token = parser%consume()
@@ -518,25 +519,53 @@ contains
                 return
             end if
 
-            ! Check for format specifier (optional)
+            ! Check for format specifier or namelist (optional)
             format_spec = ""
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
                 token = parser%consume()  ! consume comma
 
-                ! Check if next token is a keyword parameter (e.g., 'fmt=')
+                ! Check if next token is 'nml' keyword for namelist
                 token = parser%peek()
-                if (is_format_specifier_keyword(token)) then
-                    token = parser%consume()  ! consume 'fmt' or 'format'
+                if (token%kind == TK_IDENTIFIER .and. token%text == "nml") then
+                    token = parser%consume()  ! consume 'nml'
 
-                    ! Expect '=' after keyword
+                    ! Expect '=' after 'nml'
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == "=") then
                         token = parser%consume()  ! consume '='
+
+                        ! Parse namelist group name
+                        token = parser%peek()
+                        if (token%kind == TK_IDENTIFIER) then
+                            namelist_group = token%text
+                            token = parser%consume()
+                        else
+                            write (error_unit, *) &
+                                "Error: Expected namelist group name after 'nml=' &
+                                &at line ", token%line
+                        end if
                     end if
+                else if (is_format_specifier_keyword(token)) then
+                    ! Check if next token is a keyword parameter (e.g., 'fmt=')
+                    ! Only consume keyword if followed by '='
+                    ! Save position to check for '=' before committing
+                    checkpoint = parser
+                    token = checkpoint%consume()  ! tentatively consume keyword
+
+                    ! Check if '=' follows
+                    token = checkpoint%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                        ! It's a keyworded format (fmt= or format=)
+                        parser = checkpoint  ! commit keyword consumption
+                        token = parser%consume()  ! consume '='
+                    end if
+                    ! Otherwise, treat as positional format variable
                 end if
 
-                call parse_format_specifier(parser, format_spec)
+                if (.not. allocated(namelist_group)) then
+                    call parse_format_specifier(parser, format_spec)
+                end if
             end if
 
             ! Expect closing parenthesis
@@ -567,8 +596,19 @@ contains
         call parse_argument_list(parser, arena, var_indices)
 
         ! Create read statement node with parsed variables
-        read_index = push_read_statement(arena, unit_spec, var_indices, &
-                                         format_spec, line, column)
+        if (allocated(namelist_group)) then
+            read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                             format_spec=format_spec, &
+                                             namelist_group=namelist_group, &
+                                             line=line, column=column)
+        else if (allocated(format_spec)) then
+            read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                             format_spec=format_spec, &
+                                             line=line, column=column)
+        else
+            read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                             line=line, column=column)
+        end if
     end function parse_read_statement
 
     pure logical function is_format_specifier_keyword(token)
