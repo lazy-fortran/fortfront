@@ -76,11 +76,13 @@ contains
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, &
-                                 line, column, parent_index) result(read_index)
+                                 namelist_group, line, column, parent_index) &
+        result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: var_indices(:)
         character(len=*), intent(in), optional :: format_spec
+        character(len=*), intent(in), optional :: namelist_group
         integer, intent(in), optional :: line, column, parent_index
         integer :: read_index
         type(read_statement_node) :: read_stmt
@@ -91,7 +93,12 @@ contains
                 read_stmt%var_indices = var_indices
             end if
         end if
-        if (present(format_spec)) read_stmt%format_spec = format_spec
+        if (present(format_spec)) then
+            if (len(format_spec) > 0) read_stmt%format_spec = format_spec
+        end if
+        if (present(namelist_group)) then
+            if (len(namelist_group) > 0) read_stmt%namelist_group = namelist_group
+        end if
         if (present(line)) read_stmt%line = line
         if (present(column)) read_stmt%column = column
 
