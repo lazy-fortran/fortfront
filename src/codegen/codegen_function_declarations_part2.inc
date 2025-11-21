@@ -370,8 +370,11 @@
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: result_name
         integer :: i, stmt_idx, k
         logical :: has_array_declaration
+        logical :: value_is_array
+        logical :: is_result_target
 
         needs_result = .false.
 
@@ -379,6 +382,11 @@
         if (.not. allocated(node%name)) return
         function_name = trim(node%name)
         if (len_trim(function_name) == 0) return
+        if (allocated(node%result_variable)) then
+            result_name = trim(node%result_variable)
+        else
+            result_name = function_name
+        end if
 
         if (.not. allocated(node%body_indices)) return
 
@@ -393,7 +401,9 @@
             type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                     do k = 1, size(decl%var_names)
-                        if (trim(decl%var_names(k)) == trim(function_name)) then
+                        if (trim(decl%var_names(k)) == trim(function_name) .or. &
+                            (len_trim(result_name) > 0 .and. &
+                             trim(decl%var_names(k)) == trim(result_name))) then
                             if (decl%is_array .or. decl%inferred_type%kind == TARRAY) then
                                 has_array_declaration = .true.
                                 exit
@@ -425,23 +435,33 @@
             if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
-            type is (assignment_node)
-                if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
+                type is (assignment_node)
+                    if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
 
-                select type (target => arena%entries(stmt%target_index)%node)
-                type is (identifier_node)
-                    if (.not. allocated(target%name)) cycle
-                    ! Look for assignment to function name (before rename)
-                    if (trim(target%name) /= trim(function_name)) cycle
+                    select type (target => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        if (.not. allocated(target%name)) cycle
+                        ! Look for assignment to function result (before rename)
+                        is_result_target = (trim(target%name) == trim(function_name))
+                        if (.not. is_result_target) then
+                            if (len_trim(result_name) > 0) then
+                                is_result_target = &
+                                    (trim(target%name) == trim(result_name))
+                            end if
+                        end if
+                        if (.not. is_result_target) cycle
 
-                    ! Found assignment to function name - check inferred type
-                    if (target%inferred_type%kind == TARRAY) then
-                        needs_result = .true.
-                        return
-                    end if
+                        value_is_array = assignment_value_is_array(arena, stmt)
+
+                        ! Found assignment to function name - check inferred type
+                        if (target%inferred_type%kind == TARRAY .or. &
+                            value_is_array) then
+                            needs_result = .true.
+                            return
+                        end if
+                    end select
                 end select
-            end select
         end do
     end function should_use_result_for_array
 

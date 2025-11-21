@@ -10,7 +10,6 @@ issue_2349_data_boz_literals.f90  # gfortran rejects legacy BOZ syntax (x'...' a
 
 # Lazy Fortran - Partial fixes still need work
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
-issue_2067_implied_do_array_return_rank_mismatch.lf  # implied-do array return rank mismatch (partial fix in PR #2094) #2067
 issue_2068_nested_function_type_inference_mismatch.lf  # nested function type inference mismatch (partial fix in PR #2093) #2068
 
 # Lazy Fortran - Recent failures needing implementation
