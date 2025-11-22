@@ -3,7 +3,7 @@ module semantic_function_inference
                                    create_type_var, TVAR, TREAL, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
-                              call_or_subscript_node, array_literal_node
+                              call_or_subscript_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
                                  select_case_node, case_block_node, &
@@ -487,7 +487,6 @@ contains
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: candidate
         integer :: target_index
-        logical :: value_is_array_literal
 
         candidate%kind = 0
         target_index = stmt%target_index
@@ -499,12 +498,6 @@ contains
             if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
-            value_is_array_literal = is_array_literal_node(arena, stmt%value_index)
-            if (.not. value_is_array_literal) then
-                if (candidate%kind == TARRAY) then
-                    candidate = safe_peel_array_to_base(candidate)
-                end if
-            end if
             if (needs_deferred_shape(candidate)) then
                 candidate = convert_to_deferred_shape_array(candidate)
             end if
@@ -514,19 +507,6 @@ contains
                                                     param_names, param_types)
         end select
     end function infer_assignment_result_type
-
-    logical function is_array_literal_node(arena, node_index)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-
-        is_array_literal_node = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        select type (value_node => arena%entries(node_index)%node)
-        type is (array_literal_node)
-            is_array_literal_node = .true.
-        end select
-    end function is_array_literal_node
 
     logical function needs_deferred_shape(typ) result(needs)
         use type_system_unified, only: TARRAY
