@@ -9,6 +9,7 @@ module codegen_program_decl_utils
     implicit none
     private
     public :: exists_in_list, build_function_return_type_table
+    public :: initialize_program_decl_state
     public :: program_decl_state_t, program_decl_max_vars
     public :: record_declared_name, record_namelist_group
     public :: record_use_associated_name, record_use_module_name
@@ -39,6 +40,30 @@ module codegen_program_decl_utils
     end type program_decl_state_t
 
 contains
+
+    subroutine initialize_program_decl_state(state)
+        type(program_decl_state_t), intent(out) :: state
+
+        state%declared_names = ""
+        state%var_names = ""
+        state%var_types = ""
+        state%func_names = ""
+        state%func_types = ""
+        state%internal_funcs = ""
+        state%defined_func_names = ""
+        state%defined_func_types = ""
+        state%use_associated_names = ""
+        state%use_module_names = ""
+        state%namelist_group_names = ""
+        state%declared_count = 0
+        state%var_count = 0
+        state%func_count = 0
+        state%internal_count = 0
+        state%defined_func_count = 0
+        state%use_associated_count = 0
+        state%use_module_count = 0
+        state%namelist_group_count = 0
+    end subroutine initialize_program_decl_state
 
     pure function normalize_declared_identifier(raw_name) result(normalized)
         character(len=*), intent(in) :: raw_name
