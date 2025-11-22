@@ -19,7 +19,6 @@ module semantic_function_inference
                                      infer_expression_type_static
     use semantic_array_type_builders, only: build_deferred_shape_array
     use semantic_parameter_analysis, only: merge_parameter_type
-    use type_array_safe, only: safe_peel_array_to_base
     implicit none
     private
 
@@ -514,7 +513,8 @@ contains
 
         needs = .false.
         if (typ%kind /= TARRAY) return
-        if (typ%size <= 0 .or. typ%size > 1000) needs = .true.
+        if (typ%alloc_info%is_allocatable) return
+        needs = .true.
     end function needs_deferred_shape
 
     function infer_array_assignment_type(arena, target, value_index, result_name, &
