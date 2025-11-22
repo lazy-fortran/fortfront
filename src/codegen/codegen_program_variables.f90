@@ -14,6 +14,7 @@ module codegen_program_variables
     use ast_nodes_transfer, only: entry_node
     use codegen_program_decl_utils, only: exists_in_list, &
                                            build_function_return_type_table, &
+                                           initialize_program_decl_state, &
                                            program_decl_state_t, &
                                            program_decl_max_vars, &
                                            record_declared_name, &
@@ -37,14 +38,12 @@ module codegen_program_variables
     public :: collect_program_variable_decls
 
 contains
-
     function collect_program_variable_decls(arena, prog, header_code) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         character(len=*), intent(in), optional :: header_code
         character(len=:), allocatable :: decl_code
         type(program_decl_state_t) :: state
-
         decl_code = ""
         if (.not. allocated(prog%body_indices)) return
 
@@ -65,30 +64,6 @@ contains
 
         decl_code = emit_program_declarations(state)
     end function collect_program_variable_decls
-
-    subroutine initialize_program_decl_state(state)
-        type(program_decl_state_t), intent(out) :: state
-
-        state%declared_names = ""
-        state%var_names = ""
-        state%var_types = ""
-        state%func_names = ""
-        state%func_types = ""
-        state%internal_funcs = ""
-        state%defined_func_names = ""
-        state%defined_func_types = ""
-        state%use_associated_names = ""
-        state%use_module_names = ""
-        state%namelist_group_names = ""
-        state%declared_count = 0
-        state%var_count = 0
-        state%func_count = 0
-        state%internal_count = 0
-        state%defined_func_count = 0
-        state%use_associated_count = 0
-        state%use_module_count = 0
-        state%namelist_group_count = 0
-    end subroutine initialize_program_decl_state
 
     subroutine populate_defined_function_table(arena, state)
         type(ast_arena_t), intent(in) :: arena
