@@ -243,15 +243,44 @@ contains
 
     end subroutine apply_default_intents
 
-    subroutine apply_function_default_intents(param_map)
+    subroutine apply_function_default_intents(param_map, arena, body_indices)
+        use ast_nodes_data, only: declaration_node
         type(parameter_info_t), intent(inout) :: param_map(:)
-        integer :: i
+        type(ast_arena_t), intent(in), optional :: arena
+        integer, intent(in), optional :: body_indices(:)
+        integer :: i, j, idx
+        logical :: is_procedure_param
 
         do i = 1, size(param_map)
             if (.not. allocated(param_map(i)%name)) cycle
             if (param_map(i)%is_mutated) cycle
             if (len_trim(param_map(i)%intent_str) == 0) then
-                param_map(i)%intent_str = "in"
+                ! Check if this parameter is a procedure type
+                ! ISO/IEC 1539-1:2018 Section 15.4.3.2: procedure dummy arguments
+                ! cannot have INTENT attribute
+                is_procedure_param = .false.
+                if (present(arena) .and. present(body_indices)) then
+                    do j = 1, size(body_indices)
+                        idx = body_indices(j)
+                        if (idx <= 0 .or. idx > arena%size) cycle
+                        if (.not. allocated(arena%entries(idx)%node)) cycle
+                        select type (node => arena%entries(idx)%node)
+                        type is (declaration_node)
+                            if (trim(node%var_name) == trim(param_map(i)%name)) then
+                                if (allocated(node%type_name)) then
+                                    if (index(to_lower(trim(node%type_name)), 'procedure(') == 1) then
+                                        is_procedure_param = .true.
+                                        exit
+                                    end if
+                                end if
+                            end if
+                        end select
+                    end do
+                end if
+
+                if (.not. is_procedure_param) then
+                    param_map(i)%intent_str = "in"
+                end if
             end if
         end do
     end subroutine apply_function_default_intents

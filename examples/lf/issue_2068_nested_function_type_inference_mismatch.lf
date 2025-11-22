@@ -7,5 +7,5 @@ function mul(a, b)
     mul = a * b
 end function
 
-result = add(mul(2, 3), mul(4, 5))
+result = add(mul(2.0, 3.0), mul(4.0, 5.0))
 print *, "Result:", result

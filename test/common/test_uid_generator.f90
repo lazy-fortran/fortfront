@@ -3,7 +3,7 @@ program test_uid_generator
     ! Tests uniqueness, stability, performance, and thread-safety
 
     use uid_generator
-    use iso_fortran_env, only: int64, real64
+    use, intrinsic :: iso_fortran_env, only: int64, real64
     implicit none
 
     integer :: test_count, tests_passed, tests_failed

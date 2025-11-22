@@ -48,6 +48,7 @@ module parser_execution_statements_module
     use parser_import_resolution_module, only: parse_use_statement, &
                                                parse_include_statement
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
+    use parser_external_statements_module, only: parse_external_statement
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
@@ -565,6 +566,8 @@ contains
                     stmt_index = parse_use_statement(parser_ref, arena_ref)
                 case ("intrinsic")
                     stmt_index = parse_intrinsic_statement(parser_ref, arena_ref)
+                case ("external")
+                    stmt_index = parse_external_statement(parser_ref, arena_ref)
                 case ("include")
                     stmt_index = parse_include_statement(parser_ref, arena_ref)
                 case ("write")

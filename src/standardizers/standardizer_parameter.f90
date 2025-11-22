@@ -1,6 +1,7 @@
 module standardizer_parameter
     use ast_arena_modern, only: ast_arena_t
     use string_utils_mod, only: to_lower
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     implicit none
     private
     ! Type standardization configuration (local copy)
@@ -8,6 +9,10 @@ module standardizer_parameter
     ! depend on exact type matching. Users should explicitly use real(8) or
     ! kind parameters if they want double precision.
     logical, save :: standardizer_type_standardization_enabled = .false.
+
+    ! Input mode: Distinguish standard Fortran (.f90) vs lazy Fortran (.lf)
+    ! Used to determine whether to add default intents and perform inference
+    integer, save :: global_input_mode = INPUT_MODE_LAZY
     type :: param_metadata_t
         character(len=:), allocatable :: names(:)
         integer, allocatable :: found(:)
@@ -25,6 +30,7 @@ module standardizer_parameter
 
     public :: param_metadata_t
     public :: get_standardizer_type_standardization
+    public :: get_standardizer_input_mode, set_standardizer_input_mode
     public :: synchronize_parameter_declarations
     public :: init_param_metadata
     public :: metadata_find_param
@@ -380,6 +386,13 @@ contains
             return
         end if
 
+        if (is_procedure_type(stmt%type_name)) then
+            stmt_intent = ""
+            if (allocated(stmt%intent)) deallocate (stmt%intent)
+            stmt%has_intent = .false.
+            return
+        end if
+
         final_intent = trim(stmt_intent)
         if (len_trim(final_intent) == 0) final_intent = trim(default_intent)
         if (len_trim(final_intent) == 0) then
@@ -579,4 +592,13 @@ contains
         end if
 
     end subroutine infer_parameter_type
+    pure integer function get_standardizer_input_mode()
+        get_standardizer_input_mode = global_input_mode
+    end function get_standardizer_input_mode
+
+    subroutine set_standardizer_input_mode(mode)
+        integer, intent(in) :: mode
+        global_input_mode = mode
+    end subroutine set_standardizer_input_mode
+
 end module standardizer_parameter

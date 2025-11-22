@@ -1,5 +1,5 @@
 module codegen_control_flow
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
     use ast_nodes_control

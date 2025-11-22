@@ -1,6 +1,6 @@
 ! @slow-path
 module variable_usage_dispatcher_module
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern
     use variable_usage_core_module
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &

@@ -3,7 +3,7 @@ module ast_arena_core
     ! Focused on essential arena operations without compatibility layer
 
     use ast_base, only: ast_node
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
     implicit none
     private

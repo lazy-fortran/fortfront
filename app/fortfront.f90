@@ -3,7 +3,7 @@ program fortfront_cli
         input_unit, output_unit, error_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string, &
         transform_with_context, transform_context_t, INPUT_MODE_LAZY, &
-        INPUT_MODE_STANDARD, detect_input_mode_from_content
+        INPUT_MODE_STANDARD
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
@@ -72,8 +72,22 @@ program fortfront_cli
                     cycle
                 case ('--help', '-h')
                     show_help = .true.
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
                 case ('--version', '-v')
                     show_version = .true.
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
                 case default
                     block
                         logical :: rec, is_file
@@ -317,7 +331,7 @@ contains
         character(len=:), allocatable :: actual_module_name
 
         if (from_file .and. allocated(filename)) then
-            call configure_context_from_file(filename, context, input_text)
+            call configure_context_from_file(filename, context)
             if (len_trim(input_text) > 0) then
                 actual_module_name = extract_module_name_from_source(input_text)
                 if (allocated(actual_module_name)) then
@@ -332,18 +346,18 @@ contains
         end if
     end subroutine create_transform_context
 
-    subroutine configure_context_from_file(filename, context, source_content)
+    subroutine configure_context_from_file(filename, context)
         character(len=:), allocatable, intent(in) :: filename
         type(transform_context_t), intent(out) :: context
-        character(len=*), intent(in), optional :: source_content
         character(len=:), allocatable :: basename, extension
 
         call split_filename(filename, basename, extension)
 
+        ! INPUT MODE DETERMINED BY FILE EXTENSION ONLY
+        ! .lf files = INPUT_MODE_LAZY (lazy Fortran with type inference)
+        ! All other files (.f90, .f, etc.) = INPUT_MODE_STANDARD (standard Fortran)
         if (extension == '.lf') then
             context%input_mode = INPUT_MODE_LAZY
-        else if (present(source_content)) then
-            context%input_mode = detect_input_mode_from_content(source_content)
         else
             context%input_mode = INPUT_MODE_STANDARD
         end if
@@ -361,7 +375,9 @@ contains
         character(len=32) :: uuid_str
         integer :: pid, timestamp
 
-        context%input_mode = detect_input_mode_from_content(input_text)
+        ! For stdin, default to lazy Fortran mode
+        ! (Standard Fortran should always come from .f90 files with proper extension)
+        context%input_mode = INPUT_MODE_LAZY
 
         call get_pid_impl(pid)
         call get_timestamp_impl(timestamp)

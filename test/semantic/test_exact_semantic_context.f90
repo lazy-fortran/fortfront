@@ -2,7 +2,7 @@ program test_exact_semantic_context
     use semantic_analyzer
     use type_system_unified
     use scope_manager
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     integer :: test_count, pass_count

@@ -2,7 +2,7 @@ program test_scope_manager_basic
     use scope_manager
     use type_system_unified
     use identifier_table, only: identifier_table_get
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     integer :: test_count, pass_count
