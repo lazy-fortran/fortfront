@@ -10,5 +10,7 @@ y = [3.0, 4.0]
 x = [x, 5.0]
 y = [y, 6.0]
 ! Only indexing for third group
+p = [.true., .false.]
+q = [.false., .true.]
 p(1) = .true.
 q(2) = .false.
