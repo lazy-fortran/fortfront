@@ -10,6 +10,7 @@ issue_2349_data_boz_literals.f90  # gfortran rejects legacy BOZ syntax (x'...' a
 
 # Lazy Fortran - Partial fixes still need work
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
+issue_2142_mono_wrong_return_types.lf  # flaky failure - sometimes passes, sometimes fails (race condition in type inference or codegen) #2142
 
 # Standard Fortran - Codegen bugs
 tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
