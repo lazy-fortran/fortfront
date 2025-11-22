@@ -578,11 +578,28 @@ contains
                     else if (curr_lower == 'logical' .and. func_lower /= &
                              'logical') then
                         type_buf = func_return_type
+                    ! Issue #2075: Use function return type if it has allocatable
+                    else if (index(func_lower, 'allocatable') > 0 .and. &
+                             index(curr_lower, 'allocatable') == 0) then
+                        type_buf = func_return_type
                     end if
                 end block
             end if
 
             if (len_trim(type_buf) == 0) type_buf = 'real'
+
+            ! Issue #2075: Deferred-shape arrays in local scope must be allocatable
+            ! If dimension(:) without allocatable, add it
+            block
+                character(len=:), allocatable :: lowered_type
+                lowered_type = to_lower(trim(type_buf))
+                if (index(lowered_type, 'dimension(:)') > 0 .and. &
+                    index(lowered_type, 'allocatable') == 0) then
+                    ! Add allocatable to deferred-shape array
+                    type_buf = trim(type_buf) // ', allocatable'
+                end if
+            end block
+
             call try_add_variable(state, name_buf, trim(type_buf))
         end select
     end subroutine process_assignment_target
