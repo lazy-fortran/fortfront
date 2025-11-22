@@ -271,7 +271,7 @@ contains
             select type (child => arena%entries(child_idx)%node)
             type is (program_node)
                 if (trim(child%name) == "main" .or. &
-                    trim(child%name) == "__IMPLICIT_MAIN__") then
+                    trim(child%name) == "implicit_main") then
                     call append_program_body_to_target(arena, target_prog_idx, &
                                                        child_idx)
                     cycle
@@ -462,15 +462,160 @@ contains
 
     ! Run code generation phase
     subroutine run_code_generation_phase(compiler_arena, prog_index, output)
+        use ast_nodes_data, only: module_node
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+        use string_utils_mod, only: to_lower
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable :: inner_code
+        character(len=*), parameter :: implicit_prog_name = "implicit_main"
+        logical :: is_program_unit
+        integer :: prog_pos
+        integer :: mod_pos
 
         call compiler_arena%next_phase("codegen")
-        call maybe_dump_program_overview(compiler_arena%ast, prog_index)
-        output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        if (prog_index <= 0 .or. prog_index > compiler_arena%ast%size) then
+            output = ""
+            return
+        end if
+
+        if (.not. allocated(compiler_arena%ast%entries(prog_index)%node)) then
+            output = ""
+            return
+        end if
+
+        is_program_unit = .false.
+        inner_code = ""
+
+        select type (root => compiler_arena%ast%entries(prog_index)%node)
+        type is (program_node)
+            is_program_unit = .true.
+            call maybe_dump_program_overview(compiler_arena%ast, prog_index)
+            output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        type is (function_def_node)
+            is_program_unit = .true.
+            output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        type is (subroutine_def_node)
+            is_program_unit = .true.
+            output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        type is (module_node)
+            is_program_unit = .true.
+            output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        class default
+            inner_code = generate_code_from_arena(compiler_arena%ast, prog_index)
+            prog_pos = index(inner_code, "program ")
+            mod_pos = index(inner_code, "module ")
+            if ((prog_pos > 0 .and. prog_pos <= 5) .or. &
+                (mod_pos > 0 .and. mod_pos <= 5)) then
+                output = inner_code
+                is_program_unit = .true.
+            end if
+        end select
+        if (.not. is_program_unit) then
+            if (len_trim(inner_code) > 0) then
+                output = "program " // implicit_prog_name // new_line('A') // &
+                         trim(inner_code) // new_line('A') // "end program " // &
+                         implicit_prog_name
+            else
+                output = "program " // implicit_prog_name // new_line('A') // &
+                         "end program " // implicit_prog_name
+            end if
+        end if
         output = add_line_continuations(output)
+        output = dedupe_array_result_scalars(output)
     end subroutine run_code_generation_phase
+
+    function dedupe_array_result_scalars(text) result(cleaned)
+        use string_utils_mod, only: to_lower
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: cleaned
+        character(len=:), allocatable :: line
+        character(len=:), allocatable :: lowered_line
+        character(len=64) :: array_names(256)
+        integer :: name_count
+        integer :: start_pos
+        integer :: nl_pos
+        integer :: name_start
+        integer :: name_end
+        character(len=64) :: candidate
+        integer :: i
+        logical :: skip_line
+
+        name_count = 0
+        cleaned = ""
+
+        start_pos = 1
+        do
+            nl_pos = index(text(start_pos:), new_line('A'))
+            if (nl_pos == 0) then
+                line = text(start_pos:)
+            else
+                line = text(start_pos:start_pos + nl_pos - 2)
+            end if
+
+            lowered_line = to_lower(line)
+            if (index(lowered_line, "(") > 0 .and. index(lowered_line, "::") > 0) then
+                name_start = index(lowered_line, "::") + 2
+                do while (name_start <= len(lowered_line))
+                    if (lowered_line(name_start:name_start) /= ' ') exit
+                    name_start = name_start + 1
+                end do
+                name_end = index(lowered_line(name_start:), "(")
+                if (name_end > 1) then
+                    name_end = name_start + name_end - 2
+                    candidate = trim(lowered_line(name_start:name_end))
+                    if (len_trim(candidate) > 0) then
+                        if (name_count < size(array_names)) then
+                            if (.not. any(array_names(1:name_count) == trim(candidate))) then
+                                name_count = name_count + 1
+                                array_names(name_count) = trim(candidate)
+                            end if
+                        end if
+                    end if
+                end if
+            end if
+
+            if (nl_pos == 0) exit
+            start_pos = start_pos + nl_pos
+            if (start_pos > len(text)) exit
+        end do
+
+        start_pos = 1
+        do
+            nl_pos = index(text(start_pos:), new_line('A'))
+            if (nl_pos == 0) then
+                line = text(start_pos:)
+            else
+                line = text(start_pos:start_pos + nl_pos - 2)
+            end if
+            lowered_line = to_lower(line)
+            skip_line = .false.
+            if (index(lowered_line, "::") > 0 .and. index(lowered_line, "(") == 0) then
+                name_start = index(lowered_line, "::") + 2
+                do while (name_start <= len(lowered_line))
+                    if (lowered_line(name_start:name_start) /= ' ') exit
+                    name_start = name_start + 1
+                end do
+                candidate = trim(lowered_line(name_start:))
+                do i = 1, name_count
+                    if (candidate == trim(array_names(i))) then
+                        skip_line = .true.
+                        exit
+                    end if
+                end do
+            end if
+
+            if (.not. skip_line) then
+                if (len(cleaned) > 0) cleaned = cleaned // new_line('A')
+                cleaned = cleaned // trim(line)
+            end if
+
+            if (nl_pos == 0) exit
+            start_pos = start_pos + nl_pos
+            if (start_pos > len(text)) exit
+        end do
+    end function dedupe_array_result_scalars
 
     subroutine maybe_dump_program_overview(arena, prog_index)
         use, intrinsic :: iso_fortran_env, only: error_unit

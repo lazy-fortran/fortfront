@@ -22,6 +22,7 @@ contains
         type(program_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: prog_name
         integer, allocatable :: non_use_indices(:)
         integer :: non_use_count
         logical :: context_has_executable_before_contains
@@ -40,7 +41,10 @@ contains
             return
         end if
 
-        code = "program " // node%name // new_line('A')
+        prog_name = node%name
+        if (len_trim(prog_name) == 0) prog_name = "implicit_main"
+
+        code = "program " // prog_name // new_line('A')
 
         call assemble_program_header(arena, node, code, non_use_indices, &
                                      non_use_count, extra_decl_code)
@@ -53,7 +57,7 @@ contains
             deallocate (non_use_indices)
         end if
 
-        code = code // "end program " // node%name
+        code = code // "end program " // prog_name
     end function generate_code_program
 
     logical function has_executable_before_contains(arena, node) result(has_exec)
@@ -170,7 +174,7 @@ contains
 
         is_wrapper = .false.
 
-        if (trim(node%name) /= 'main' .and. trim(node%name) /= '__IMPLICIT_MAIN__') &
+        if (trim(node%name) /= 'main' .and. trim(node%name) /= 'implicit_main') &
             return
         if (.not. allocated(node%body_indices)) return
 
@@ -236,12 +240,14 @@ contains
         integer :: i, child_index
         logical :: has_interface_child
         logical :: has_non_interface_child
+        logical :: has_program_unit
         character(len=:), allocatable :: child_code
 
         code = ""
         if (.not. allocated(node%body_indices)) return
         has_interface_child = .false.
         has_non_interface_child = .false.
+        has_program_unit = .false.
 
         do i = 1, size(node%body_indices)
             child_index = node%body_indices(i)
@@ -250,6 +256,7 @@ contains
 
             select type (child => arena%entries(child_index)%node)
             type is (program_node)
+                has_program_unit = .true.
                 if (program_is_module_wrapper(arena, child)) then
                     call append_module_wrapper(arena, child, code)
                     cycle
@@ -268,11 +275,18 @@ contains
                                            child%name)) cycle
                 has_non_interface_child = .true.
             type is (subroutine_def_node)
+                has_program_unit = .true.
                 if (skip_duplicate_empty_subroutine(arena, node, child, &
                                                     child_index, i)) cycle
                 has_non_interface_child = .true.
             type is (interface_block_node)
                 has_interface_child = .true.
+            type is (function_def_node)
+                has_program_unit = .true.
+                has_non_interface_child = .true.
+            type is (module_node)
+                has_program_unit = .true.
+                has_non_interface_child = .true.
             class default
                 has_non_interface_child = .true.
             end select
@@ -280,6 +294,12 @@ contains
             if (len(code) > 0) code = code // new_line('A') // new_line('A')
             code = code // generate_code_from_arena(arena, child_index)
         end do
+
+        if (.not. has_program_unit .and. len_trim(code) > 0) then
+            code = "program implicit_main" // new_line('A') // trim(code) // &
+                   new_line('A') // "end program implicit_main"
+            return
+        end if
 
         if (has_interface_child .and. .not. has_non_interface_child) then
             if (len_trim(code) > 0) code = code // new_line('A')
@@ -419,7 +439,7 @@ contains
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. (trim(name) == 'main' .or. trim(name) == &
-                       '__IMPLICIT_MAIN__')) return
+                       'implicit_main')) return
             if (.not. allocated(prog%body_indices) .or. &
                 size(prog%body_indices) == 0) then
                 is_trivial = .true.

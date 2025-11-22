@@ -261,7 +261,7 @@ contains
         character(len=*), intent(in) :: name
 
         select case (trim(name))
-        case ("main", "__IMPLICIT_MAIN__")
+        case ("main", "implicit_main")
             is_implicit = .true.
         case default
             is_implicit = .false.

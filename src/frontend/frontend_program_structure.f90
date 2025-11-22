@@ -128,7 +128,7 @@ contains
         select type (prog_node => node)
         type is (program_node)
             if (prog_node%name == "main" .or. &
-                prog_node%name == "__IMPLICIT_MAIN__") then
+                prog_node%name == "implicit_main") then
                 if (.not. allocated(prog_node%body_indices) .or. &
                     size(prog_node%body_indices) == 0) then
                     is_empty = .true.

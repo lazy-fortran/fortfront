@@ -5,23 +5,27 @@
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         logical :: in_interface_context
+        character(len=:), allocatable :: func_name
 
         in_interface_context = function_in_interface(arena, node_index) .or. &
                                function_has_only_specs(arena, node)
 
-        code = compose_function_signature(arena, node)
+        func_name = effective_function_name(node)
+
+        code = compose_function_signature(arena, node, func_name)
         code = code // new_line('A')
         if (in_interface_context) then
             code = code // build_interface_prototype_body(arena, node)
         else
             code = code // build_function_body_section(arena, node, node_index)
         end if
-        code = code // "end function " // node%name
+        code = code // "end function " // func_name
     end function generate_code_function_def
 
-    function compose_function_signature(arena, node) result(signature)
+    function compose_function_signature(arena, node, func_name) result(signature)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
+        character(len=*), intent(in) :: func_name
         character(len=:), allocatable :: signature
         character(len=:), allocatable :: prefix
         character(len=:), allocatable :: return_type_code
@@ -58,9 +62,9 @@
 
         if (len_trim(return_type_code) > 0) then
             signature = signature // trim(return_type_code) // " function " // &
-                        node%name
+                        trim(func_name)
         else
-            signature = signature // "function " // node%name
+            signature = signature // "function " // trim(func_name)
         end if
 
         signature = signature // params_clause // result_clause
@@ -78,6 +82,23 @@
 
         prefix = gather_prefix(node%prefix_keywords, recursive_in_prefix)
     end function gather_function_prefix
+
+    pure function effective_function_name(node) result(name)
+        type(function_def_node), intent(in) :: node
+        character(len=:), allocatable :: name
+
+        name = trim(node%name)
+        if (len_trim(name) > 0) return
+
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) then
+                name = trim(node%result_variable)
+                return
+            end if
+        end if
+
+        name = "unnamed_function"
+    end function effective_function_name
 
     subroutine derive_function_return_type_and_flags(arena, node, &
                                                       return_type_code, &
@@ -201,6 +222,10 @@
         integer, allocatable :: filtered_body_indices(:)
         character(len=:), allocatable :: use_section
         integer, allocatable :: trimmed_indices(:)
+        character(len=:), allocatable :: array_result_decl
+        character(len=:), allocatable :: inferred_type_str
+        character(len=:), allocatable :: result_var_name
+        logical :: type_success
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
@@ -214,6 +239,11 @@
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
         call apply_function_default_intents(param_map, arena, body_indices)
+        result_var_name = ""
+        if (allocated(node%result_variable)) result_var_name = trim(node%result_variable)
+        if (len_trim(result_var_name) == 0 .and. allocated(node%name)) then
+            result_var_name = trim(node%name)
+        end if
 
         body = ""
         if (len_trim(use_section) > 0) body = body // use_section
@@ -221,10 +251,29 @@
                                                          node_index)
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
-        body = body // collect_recursive_result_decl(arena, node)
-        body = body // collect_array_result_decl(arena, node)
+        if (len_trim(result_var_name) > 0) then
+            call remove_result_declarations(arena, body_indices, result_var_name)
+        end if
+        array_result_decl = collect_array_result_decl(arena, node)
+        if (len_trim(array_result_decl) == 0 .and. node%inferred_type%kind == TARRAY) then
+            if (len_trim(result_var_name) > 0) then
+                inferred_type_str = mono_type_to_string(node%inferred_type, &
+                                                        include_shape=.true., &
+                                                        success=type_success)
+                if (type_success .and. len_trim(inferred_type_str) > 0) then
+                    array_result_decl = "    " // trim(inferred_type_str) // " :: " // &
+                                        trim(result_var_name) // new_line('A')
+                end if
+            end if
+        end if
+        if (len_trim(array_result_decl) > 0) then
+            body = body // array_result_decl
+        else if (.not. allocated(node%result_variable)) then
+            body = body // collect_recursive_result_decl(arena, node)
+        end if
         body = body // collect_entry_parameter_decls(arena, node)
         body = body // collect_local_variable_decls(arena, node, param_map)
+        body = remove_scalar_result_duplicate(body, result_var_name)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
@@ -553,7 +602,8 @@
                 return
             end if
 
-            signature = compose_function_signature(arena, func)
+            signature = compose_function_signature(arena, func, &
+                                                   effective_function_name(func))
             func_pos = index(to_lower(signature), 'function')
             if (func_pos > 1) then
                 header_type = trim(signature(:func_pos - 1))
@@ -752,7 +802,8 @@
         if (.not. header_has_type) header_has_type = func%has_return_type_in_header
         if (.not. header_has_type) header_has_type = func%inferred_type%kind /= 0
         if (.not. header_has_type) then
-            signature = compose_function_signature(arena, func)
+            signature = compose_function_signature(arena, func, &
+                                                   effective_function_name(func))
             func_pos = index(to_lower(signature), 'function')
             if (func_pos > 1) then
                 header_has_type = len_trim(signature(:func_pos - 1)) > 0
@@ -788,6 +839,58 @@
 
         if (requires_deferred_attrs) needed = .true.
     end function needs_result_declaration
+
+    function remove_scalar_result_duplicate(body, result_name) result(cleaned)
+        character(len=*), intent(in) :: body
+        character(len=*), intent(in) :: result_name
+        character(len=:), allocatable :: cleaned
+        character(len=:), allocatable :: line
+        character(len=:), allocatable :: lowered_line
+        character(len=:), allocatable :: lowered_body
+        character(len=:), allocatable :: lowered_name
+        integer :: start_pos
+        integer :: nl_pos
+        logical :: has_array_decl
+
+        cleaned = ""
+        if (len_trim(body) == 0) return
+        if (len_trim(result_name) == 0) then
+            cleaned = body
+            return
+        end if
+
+        lowered_body = to_lower(body)
+        lowered_name = to_lower(trim(result_name))
+
+        has_array_decl = index(lowered_body, " :: " // trim(lowered_name) // "(") > 0
+        if (.not. has_array_decl) then
+            cleaned = body
+            return
+        end if
+
+        start_pos = 1
+        do
+            nl_pos = index(body(start_pos:), new_line('A'))
+            if (nl_pos == 0) then
+                line = body(start_pos:)
+            else
+                line = body(start_pos:start_pos + nl_pos - 2)
+            end if
+            lowered_line = to_lower(line)
+
+            if (.not. (index(lowered_line, " :: " // trim(lowered_name)) > 0 .and. &
+                       index(lowered_line, "(") == 0)) then
+                if (len(cleaned) > 0) cleaned = cleaned // new_line('A')
+                cleaned = cleaned // trim(line)
+            end if
+
+            if (nl_pos == 0) exit
+            start_pos = start_pos + nl_pos
+            if (start_pos > len(body)) exit
+        end do
+
+        cleaned = cleaned // new_line('A')
+    end function remove_scalar_result_duplicate
 
     logical function has_result_variable_declaration(arena, func, result_name) &
         result(found)
@@ -825,6 +928,49 @@
             end select
         end do
     end function has_result_variable_declaration
+
+    subroutine remove_result_declarations(arena, indices, result_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(inout) :: indices(:)
+        character(len=*), intent(in) :: result_name
+        integer, allocatable :: keep_indices(:)
+        integer :: i
+        integer :: idx
+        integer :: keep_count
+
+        if (.not. allocated(indices)) return
+        if (len_trim(result_name) == 0) return
+
+        allocate (keep_indices(size(indices)))
+        keep_count = 0
+
+        do i = 1, size(indices)
+            idx = indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+
+            select type (stmt => arena%entries(idx)%node)
+            type is (declaration_node)
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    if (any(trim(stmt%var_names) == trim(result_name))) cycle
+                else if (allocated(stmt%var_name)) then
+                    if (trim(stmt%var_name) == trim(result_name)) cycle
+                end if
+            end select
+
+            keep_count = keep_count + 1
+            keep_indices(keep_count) = idx
+        end do
+
+        deallocate (indices)
+        if (keep_count > 0) then
+            allocate (indices(keep_count))
+            indices = keep_indices(1:keep_count)
+        else
+            allocate (indices(0))
+        end if
+        deallocate (keep_indices)
+    end subroutine remove_result_declarations
 
     function collect_local_variable_decls(arena, func, param_map) result(decl_code)
         type(ast_arena_t), intent(in) :: arena
@@ -876,6 +1022,10 @@
                     var_name = trim(target%name)
 
                     if (is_function_result_identifier(func, var_name)) then
+                        if (should_use_result_for_array(arena, func)) cycle
+                        if (func%inferred_type%kind /= 0) decl_type = func%inferred_type
+                        if (should_use_result_for_array(arena, func)) &
+                            is_array_value = .true.
                         if (.not. is_array_value) then
                             value_code = generate_code_from_arena(arena, &
                                                                   stmt%value_index)

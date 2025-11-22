@@ -28,6 +28,7 @@
 
         if (.not. allocated(node%name)) return
         function_name = trim(node%name)
+        if (node%inferred_type%kind == TARRAY) return
 
         ! If function has type prefix, result is implicitly declared - do not add explicit decl
         ! BUT: allocatable arrays are NOT emitted as type prefix (handled in local decls)
@@ -43,6 +44,8 @@
                 end if
             end if
         end if
+
+        if (should_use_result_for_array(arena, node)) return
 
         ! Determine if result() clause will be generated (same logic as build_function_result_clause)
         if (allocated(node%result_variable)) then
@@ -449,6 +452,11 @@
         logical :: is_result_target
 
         needs_result = .false.
+
+        if (node%inferred_type%kind == TARRAY) then
+            needs_result = .true.
+            return
+        end if
 
         ! Get function name to look for assignments
         if (.not. allocated(node%name)) return
