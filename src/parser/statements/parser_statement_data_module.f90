@@ -368,7 +368,7 @@ contains
                 end if
 
                 if (current%kind == TK_OPERATOR .and. trim(current%text) == "/") then
-                    if (expect_object) then
+                    if (size(objects) == 0) then
                         call parser%error("DATA statement object list cannot be empty")
                         return
                     end if
@@ -432,11 +432,6 @@ contains
                 end if
             end do
 
-            if (expect_object) then
-                call parser%error("DATA statement object list cannot be empty")
-                return
-            end if
-
             success = .true.
         end subroutine parse_object_list
 
@@ -460,7 +455,7 @@ contains
                 end if
 
                 if (current%kind == TK_OPERATOR .and. trim(current%text) == "/") then
-                    if (expect_value) then
+                    if (size(values) == 0) then
                         call parser%error("DATA statement value list cannot be empty")
                         return
                     end if
@@ -523,11 +518,6 @@ contains
                     return
                 end if
             end do
-
-            if (expect_value) then
-                call parser%error("DATA statement value list cannot be empty")
-                return
-            end if
 
             success = .true.
         end subroutine parse_value_list
