@@ -32,6 +32,11 @@
         character(len=:), allocatable :: lowered_return
         integer :: i
         type(declaration_node) :: decl_copy
+        logical :: has_result_decl
+        integer :: new_decl_idx
+        integer, allocatable :: dim_indices(:)
+        integer, allocatable :: temp_indices(:)
+        character(len=:), allocatable :: decl_type
 
         if (len_trim(return_type) > 0) then
             lowered_return = to_lower(return_type)
@@ -39,6 +44,7 @@
             lowered_return = ""
         end if
 
+        has_result_decl = .false.
         if (allocated(orig_func%body_indices)) then
             allocate (body_indices_copy(size(orig_func%body_indices)))
             do i = 1, size(orig_func%body_indices)
@@ -51,6 +57,7 @@
                     if (len_trim(result_name) == 0) cycle
                     if (.not. allocated(decl%var_name)) cycle
                     if (trim(decl%var_name) /= trim(result_name)) cycle
+                    has_result_decl = .true.
                     decl_copy = decl
                     decl_copy%uid = generate_uid()
                     if (len_trim(return_type) > 0) then
@@ -66,12 +73,48 @@
                         decl_copy%is_allocatable = .false.
                         decl_copy%is_array = .false.
                     end if
+                    if (decl_copy%is_array) then
+                        call extract_dimension_from_type_string( &
+                             decl_copy%type_name, decl_copy%dimension_indices)
+                        decl_copy%type_name = strip_dimension_from_type( &
+                             decl_copy%type_name)
+                    else
+                        if (allocated(decl_copy%dimension_indices)) then
+                            deallocate (decl_copy%dimension_indices)
+                        end if
+                    end if
                     call arena%push(decl_copy)
                     body_indices_copy(i) = arena%size
                 end select
             end do
         else
             allocate (body_indices_copy(0))
+        end if
+
+        if (.not. has_result_decl) then
+            if (len_trim(result_name) > 0 .and. len_trim(return_type) > 0) then
+                decl_type = trim(return_type)
+                call extract_dimension_from_type_string(decl_type, dim_indices)
+                decl_type = strip_dimension_from_type(decl_type)
+                if (allocated(dim_indices)) then
+                    new_decl_idx = push_declaration( &
+                        arena, decl_type, [trim(result_name)], &
+                        dimension_indices=dim_indices, &
+                        is_allocatable=index(lowered_return, "allocatable") > 0)
+                else
+                    new_decl_idx = push_declaration( &
+                        arena, decl_type, [trim(result_name)], &
+                        is_allocatable=index(lowered_return, "allocatable") > 0)
+                end if
+                if (new_decl_idx > 0) then
+                    allocate (temp_indices(size(body_indices_copy) + 1))
+                    temp_indices(1) = new_decl_idx
+                    if (size(body_indices_copy) > 0) then
+                        temp_indices(2:) = body_indices_copy
+                    end if
+                    call move_alloc(temp_indices, body_indices_copy)
+                end if
+            end if
         end if
     end function clone_function_body_with_updated_result
 
@@ -307,12 +350,18 @@
         type(call_or_subscript_node), pointer :: call_node
         type(mono_type_t) :: inferred_type
         logical :: has_value
+        logical :: return_is_array_kind
 
         type_str = ""
+        return_is_array_kind = .false.
 
         if (allocated(signature%return_type_string)) then
             if (len_trim(signature%return_type_string) > 0) then
                 type_str = trim(signature%return_type_string)
+                if (index(to_lower(type_str), 'dimension(') > 0 .or. &
+                    index(type_str, '(:)') > 0) then
+                    return_is_array_kind = .true.
+                end if
             end if
         end if
 
@@ -322,11 +371,16 @@
                 if (associated(call_node)) then
                     inferred_type = call_node%inferred_type
                     call inferred_type%sync_from_arena()
+                    if (inferred_type%kind == TARRAY) return_is_array_kind = .true.
                     type_str = trim(mono_type_to_string(inferred_type, &
                                                         include_shape=.true., &
                                                         fallback=''))
                     if (len_trim(type_str) == 0) then
-                        type_str = get_kind_type_string(inferred_type%kind)
+                        ! Only use get_kind_type_string for non-array types
+                        ! For arrays, mono_type_to_string should have handled it
+                        if (inferred_type%kind /= TARRAY) then
+                            type_str = get_kind_type_string(inferred_type%kind)
+                        end if
                     end if
                 end if
             end if
@@ -338,6 +392,10 @@
             if (has_value) then
                 if (len_trim(orig_func%return_type) > 0) then
                     type_str = trim(orig_func%return_type)
+                    if (index(to_lower(type_str), 'dimension(') > 0 .or. &
+                        index(type_str, '(:)') > 0) then
+                        return_is_array_kind = .true.
+                    end if
                 end if
             end if
         end if
@@ -345,17 +403,30 @@
         if (len_trim(type_str) == 0 .and. associated(orig_func)) then
             type_str = trim(mono_type_to_string(orig_func%inferred_type, &
                                                 include_shape=.true., fallback=''))
+            if (orig_func%inferred_type%kind == TARRAY) then
+                return_is_array_kind = .true.
+            end if
         end if
 
         if (len_trim(type_str) == 0) then
-            type_str = get_kind_type_string(signature%return_kind)
+            ! Only use get_kind_type_string for non-array types
+            ! For TARRAY, we need dimension information
+            if (signature%return_kind /= TARRAY) then
+                type_str = get_kind_type_string(signature%return_kind)
+            end if
         end if
 
-        if (allocated(signature%param_kinds)) then
-            if (size(signature%param_kinds) > 0) then
-                if (len_trim(type_str) == 0) then
-                    type_str = fallback_return_type_from_params( &
-                        signature%param_kinds)
+        if (signature%return_kind == TARRAY) then
+            if (len_trim(type_str) == 0) then
+                return_is_array_kind = .true.
+            end if
+        end if
+
+                if (allocated(signature%param_kinds)) then
+                    if (size(signature%param_kinds) > 0) then
+                        if (len_trim(type_str) == 0) then
+                            type_str = fallback_return_type_from_params( &
+                                signature%param_kinds)
                 else
                     ! For monomorphization, check if return type matches parameters
                     ! If not, use parameter-based return type (fixes #2142)
@@ -387,6 +458,84 @@
                         if (dominant_kind > 0 .and. signature%return_kind /= &
                             dominant_kind) then
                             type_str = param_return_type
+                        end if
+                    end block
+                end if
+
+                ! If any parameter is an array, return type should also be array
+                ! (for element-wise operations like x + 1)
+                if (allocated(signature%param_type_strings)) then
+                    block
+                        integer :: i
+                        logical :: has_array_param
+                        logical :: all_params_array
+                        logical :: all_kinds_array
+                        logical :: orig_params_all_array
+                        type(parameter_declaration_node), pointer :: orig_param
+                        character(len=:), allocatable :: scalar_type_candidate
+                        has_array_param = .false.
+                        all_params_array = .true.
+                        all_kinds_array = .true.
+                        orig_params_all_array = .true.
+                        scalar_type_candidate = ""
+                        do i = 1, size(signature%param_type_strings)
+                            if (index(signature%param_type_strings(i), &
+                                      'dimension') > 0 .or. &
+                                index(signature%param_type_strings(i), '(:)') > 0) then
+                                has_array_param = .true.
+                            else
+                                all_params_array = .false.
+                                if (len_trim(scalar_type_candidate) == 0) then
+                                    scalar_type_candidate = trim( &
+                                        signature%param_type_strings(i))
+                                end if
+                                exit
+                            end if
+                        end do
+                        if (allocated(signature%param_kinds)) then
+                            do i = 1, size(signature%param_kinds)
+                                if (signature%param_kinds(i) /= TARRAY) then
+                                    all_kinds_array = .false.
+                                    exit
+                                end if
+                            end do
+                        end if
+                        if (associated(orig_func)) then
+                            if (allocated(orig_func%param_indices)) then
+                                do i = 1, size(orig_func%param_indices)
+                                    call get_parameter_node( &
+                                         arena, orig_func%param_indices(i), &
+                                         orig_param)
+                                    if (.not. associated(orig_param)) cycle
+                                    if (.not. orig_param%is_array) then
+                                        orig_params_all_array = .false.
+                                        exit
+                                    end if
+                                end do
+                            end if
+                        end if
+                        if (.not. all_params_array) then
+                            if (len_trim(scalar_type_candidate) > 0) then
+                                type_str = strip_dimension_from_type( &
+                                           scalar_type_candidate)
+                            else
+                                type_str = strip_dimension_from_type(type_str)
+                            end if
+                            return_is_array_kind = .false.
+                        end if
+
+                        if (has_array_param .and. all_params_array .and. &
+                            all_kinds_array .and. orig_params_all_array .and. &
+                            return_is_array_kind) then
+                            ! Return type should match element type with array dimension
+                            if (index(type_str, 'dimension') == 0 .and. &
+                                index(type_str, '(:)') == 0) then
+                                ! Add assumed-shape allocatable array dimension
+                                ! allocatable is required for codegen to emit &
+                                ! result clause
+                                type_str = trim(type_str) // ", dimension(:), " // &
+                                           "allocatable"
+                            end if
                         end if
                     end block
                 end if
