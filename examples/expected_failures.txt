@@ -3,7 +3,6 @@
 # Format: filename  # optional comment with issue reference
 
 # Standard F90 issues still failing
-issue_1774_user_defined_operator.f90  # type constructors incorrectly declared as external functions (#1774 - PR #1801 incomplete)
 issue_2349_data_boz_literals.f90  # gfortran rejects legacy BOZ syntax (x'...' and '...'z) without -fallow-invalid-boz; fortfront correctly preserves them (#2349)
 
 # Unsupported language features
