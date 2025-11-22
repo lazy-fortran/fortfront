@@ -45,13 +45,14 @@ contains
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, &
-                                  namelist_group, line, column, parent_index) &
-        result(write_index)
+                                  namelist_group, io_control_list, line, column, &
+                                  parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: arg_indices(:)
         character(len=*), intent(in), optional :: format_spec
         character(len=*), intent(in), optional :: namelist_group
+        character(len=*), intent(in), optional :: io_control_list
         integer, intent(in), optional :: line, column, parent_index
         integer :: write_index
         type(write_statement_node) :: write_stmt
@@ -68,6 +69,9 @@ contains
         if (present(namelist_group)) then
             if (len(namelist_group) > 0) write_stmt%namelist_group = namelist_group
         end if
+        if (present(io_control_list)) then
+            if (len(io_control_list) > 0) write_stmt%io_control_list = io_control_list
+        end if
         if (present(line)) write_stmt%line = line
         if (present(column)) write_stmt%column = column
 
@@ -76,13 +80,14 @@ contains
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, &
-                                 namelist_group, line, column, parent_index) &
-        result(read_index)
+                                 namelist_group, io_control_list, line, column, &
+                                 parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: var_indices(:)
         character(len=*), intent(in), optional :: format_spec
         character(len=*), intent(in), optional :: namelist_group
+        character(len=*), intent(in), optional :: io_control_list
         integer, intent(in), optional :: line, column, parent_index
         integer :: read_index
         type(read_statement_node) :: read_stmt
@@ -98,6 +103,9 @@ contains
         end if
         if (present(namelist_group)) then
             if (len(namelist_group) > 0) read_stmt%namelist_group = namelist_group
+        end if
+        if (present(io_control_list)) then
+            if (len(io_control_list) > 0) read_stmt%io_control_list = io_control_list
         end if
         if (present(line)) read_stmt%line = line
         if (present(column)) read_stmt%column = column

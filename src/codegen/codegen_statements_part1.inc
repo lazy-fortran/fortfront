@@ -224,8 +224,14 @@
             end do
         end if
 
-        ! Assemble write statement: write(unit, format) args
-        code = "write(" // unit_code // ", " // format_code // ")"
+        ! Assemble write statement: write(unit, format[, io_controls]) args
+        code = "write(" // unit_code // ", " // format_code
+        if (allocated(node%io_control_list)) then
+            if (len(node%io_control_list) > 0) then
+                code = code // ", " // node%io_control_list
+            end if
+        end if
+        code = code // ")"
         if (len(args_code) > 0) then
             code = code // " " // args_code
         end if
@@ -271,8 +277,14 @@
             end do
         end if
 
-        ! Assemble read statement: read(unit, format) vars
-        code = "read(" // unit_code // ", " // format_code // ")"
+        ! Assemble read statement: read(unit, format[, io_controls]) vars
+        code = "read(" // unit_code // ", " // format_code
+        if (allocated(node%io_control_list)) then
+            if (len(node%io_control_list) > 0) then
+                code = code // ", " // node%io_control_list
+            end if
+        end if
+        code = code // ")"
         if (len(vars_code) > 0) then
             code = code // " " // vars_code
         end if

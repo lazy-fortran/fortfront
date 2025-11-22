@@ -404,6 +404,7 @@ contains
         integer, allocatable :: arg_indices(:)
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
+        character(len=:), allocatable :: io_control_list
         logical :: has_keyworded_format
 
         ! Check if we're at write keyword
@@ -479,8 +480,9 @@ contains
             end if
         end if
 
-        ! Skip any additional I/O control specifiers (iostat, iomsg, etc.)
-        call skip_io_control_specifiers(parser, is_write_io_control_specifier)
+        ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
+        io_control_list = collect_io_control_specifiers(parser, &
+                                                         is_write_io_control_specifier)
 
         ! Expect closing parenthesis
         token = parser%consume()
@@ -499,13 +501,16 @@ contains
         if (allocated(namelist_group)) then
             write_index = push_write_statement(arena, unit_spec, arg_indices, &
                                                namelist_group=namelist_group, &
+                                               io_control_list=io_control_list, &
                                                line=line, column=column)
         else if (allocated(format_spec)) then
             write_index = push_write_statement(arena, unit_spec, arg_indices, &
                                                format_spec=format_spec, &
+                                               io_control_list=io_control_list, &
                                                line=line, column=column)
         else
             write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                               io_control_list=io_control_list, &
                                                line=line, column=column)
         end if
     end function parse_write_statement
@@ -519,6 +524,7 @@ contains
         integer, allocatable :: var_indices(:)
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec, namelist_group
+        character(len=:), allocatable :: io_control_list
         type(parser_state_t) :: checkpoint
 
         ! Consume 'read' keyword
@@ -593,8 +599,9 @@ contains
                 end if
             end if
 
-        ! Skip any additional I/O control specifiers (iostat, iomsg, etc.)
-            call skip_io_control_specifiers(parser, is_read_io_control_specifier)
+        ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
+            io_control_list = collect_io_control_specifiers(parser, &
+                                                             is_read_io_control_specifier)
 
             ! Expect closing parenthesis
             token = parser%consume()
@@ -628,13 +635,16 @@ contains
             read_index = push_read_statement(arena, unit_spec, var_indices, &
                                              format_spec=format_spec, &
                                              namelist_group=namelist_group, &
+                                             io_control_list=io_control_list, &
                                              line=line, column=column)
         else if (allocated(format_spec)) then
             read_index = push_read_statement(arena, unit_spec, var_indices, &
                                              format_spec=format_spec, &
+                                             io_control_list=io_control_list, &
                                              line=line, column=column)
         else
             read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                             io_control_list=io_control_list, &
                                              line=line, column=column)
         end if
     end function parse_read_statement
@@ -712,12 +722,15 @@ contains
              lowered == "sign")
     end function is_read_io_control_specifier
 
-    subroutine skip_io_control_specifiers(parser, is_control_specifier)
+    function collect_io_control_specifiers(parser, is_control_specifier) result(spec_text)
         type(parser_state_t), intent(inout) :: parser
         procedure(io_control_specifier_predicate) :: is_control_specifier
+        character(len=:), allocatable :: spec_text
         type(token_t) :: token
         integer :: paren_depth
         logical :: found_specifier
+
+        spec_text = ""
 
         do while (.not. parser%is_at_end())
             call skip_io_trivia(parser)
@@ -730,6 +743,7 @@ contains
             if (is_control_specifier(token)) then
                 found_specifier = .true.
             else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                if (len(spec_text) > 0) spec_text = spec_text // ", "
                 token = parser%consume()
                 call skip_io_trivia(parser)
                 token = parser%peek()
@@ -743,10 +757,12 @@ contains
             end if
 
             if (found_specifier) then
+                spec_text = spec_text // token%text
                 token = parser%consume()
                 call skip_io_trivia(parser)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    spec_text = spec_text // "="
                     token = parser%consume()
                     call skip_io_trivia(parser)
 
@@ -755,19 +771,23 @@ contains
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == "(") then
                             paren_depth = paren_depth + 1
+                            spec_text = spec_text // token%text
                             token = parser%consume()
                         else if (token%kind == TK_OPERATOR .and. &
                                  token%text == ")") then
                             if (paren_depth == 0) exit
                             paren_depth = paren_depth - 1
+                            spec_text = spec_text // token%text
                             token = parser%consume()
                         else if (token%kind == TK_OPERATOR .and. &
                                  token%text == ",") then
                             if (paren_depth == 0) exit
+                            spec_text = spec_text // token%text
                             token = parser%consume()
                         else if (token%kind == TK_NEWLINE) then
                             exit
                         else
+                            spec_text = spec_text // token%text
                             token = parser%consume()
                         end if
                     end do
@@ -776,7 +796,7 @@ contains
                 end if
             end if
         end do
-    end subroutine skip_io_control_specifiers
+    end function collect_io_control_specifiers
 
     function parse_format_statement(parser, arena) result(format_index)
         type(parser_state_t), intent(inout) :: parser
