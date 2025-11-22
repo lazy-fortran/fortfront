@@ -72,8 +72,22 @@ program fortfront_cli
                     cycle
                 case ('--help', '-h')
                     show_help = .true.
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
                 case ('--version', '-v')
                     show_version = .true.
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
                 case default
                     block
                         logical :: rec, is_file
