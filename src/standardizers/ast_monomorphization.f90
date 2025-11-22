@@ -11,6 +11,7 @@ module ast_monomorphization
     use ast_nodes_data, only: module_node, parameter_declaration_node, &
                               declaration_node, mixed_construct_container_node, &
                               create_module
+    use ast_factory_declarations, only: push_declaration
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
                               use_statement_node, create_interface_block, &
                               create_module_procedure, create_use_statement
