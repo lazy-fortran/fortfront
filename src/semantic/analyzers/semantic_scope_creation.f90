@@ -114,18 +114,22 @@ contains
         logical, intent(out) :: success
         character(len=:), allocatable :: text
 
-        text = mono_type_to_string(return_type, include_shape=.false., &
+        type(mono_type_t) :: resolved_type
+
+        resolved_type = return_type
+        call resolved_type%sync_from_arena()
+
+        text = mono_type_to_string(resolved_type, include_shape=.false., &
                                    success=success)
         if (.not. success) text = ''
         if (success) then
-            if (return_type%kind == TCHAR .and. return_type%size <= 0) then
-                if (.not. return_type%alloc_info%needs_allocatable_string) then
+            if (resolved_type%kind == TCHAR .and. resolved_type%size <= 0) then
+                if (.not. resolved_type%alloc_info%needs_allocatable_string) then
                     text = 'character(len=:), allocatable'
                 end if
-            else if (return_type%kind == TARRAY .and. &
-                     return_type%alloc_info%is_allocatable) then
-                text = mono_type_to_string(return_type, include_shape=.true., &
-                                          success=success)
+            else if (resolved_type%kind == TARRAY) then
+                text = mono_type_to_string(resolved_type, include_shape=.true., &
+                                           success=success)
             end if
         end if
     end function build_function_return_string
@@ -140,9 +144,13 @@ contains
         logical, intent(in) :: type_success
         character(len=:), allocatable :: function_name
         character(len=:), allocatable :: resolved_result_name
+        type(mono_type_t) :: return_copy
 
         if (func_index <= 0 .or. func_index > arena%size) return
         if (.not. allocated(arena%entries(func_index)%node)) return
+
+        return_copy = return_type
+        call return_copy%sync_from_arena()
 
         if (len_trim(result_name) > 0) then
             resolved_result_name = trim(result_name)
@@ -154,7 +162,7 @@ contains
         type is (function_def_node)
             if (len_trim(resolved_result_name) > 0) then
                 call update_identifier_type_in_arena(arena, resolved_result_name, &
-                                                     return_type)
+                                                     return_copy)
             end if
             if (allocated(node%name)) then
                 function_name = trim(node%name)
@@ -179,9 +187,12 @@ contains
             if (len_trim(function_name) > 0) then
                 if (trim(resolved_result_name) /= trim(function_name)) then
                     call update_identifier_type_in_arena(arena, function_name, &
-                                                         return_type)
+                                                         return_copy)
                 end if
             end if
+            call refine_return_type_from_body(arena, func_index, &
+                                              resolved_result_name, &
+                                              function_name, return_copy)
             if (type_success .and. len_trim(type_string) > 0) then
                 node%return_type = type_string
             end if
@@ -192,12 +203,70 @@ contains
                                                 trim(resolved_result_name), &
                                                 node%body_indices, func_index)
                 call update_identifier_type_in_arena(arena, resolved_result_name, &
-                                                     return_type)
+                                                     return_copy)
             end if
             node%result_variable = resolved_result_name
+            node%inferred_type = return_copy
             arena%entries(func_index)%node = node
         end select
     end subroutine apply_result_metadata
+
+    subroutine refine_return_type_from_body(arena, func_index, result_name, &
+                                            function_name, return_type)
+        use ast_nodes_core, only: assignment_node, identifier_node, &
+                                  call_or_subscript_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: func_index
+        character(len=*), intent(in) :: result_name
+        character(len=*), intent(in) :: function_name
+        type(mono_type_t), intent(inout) :: return_type
+        character(len=:), allocatable :: target_name
+        integer :: i
+        integer :: stmt_index
+        integer :: target_index
+
+        if (func_index <= 0 .or. func_index > arena%size) return
+        if (.not. allocated(arena%entries(func_index)%node)) return
+
+        target_name = trim(result_name)
+        if (len_trim(target_name) == 0) target_name = trim(function_name)
+        if (len_trim(target_name) == 0) return
+
+        select type (func => arena%entries(func_index)%node)
+        type is (function_def_node)
+            if (.not. allocated(func%body_indices)) return
+            do i = 1, size(func%body_indices)
+                stmt_index = func%body_indices(i)
+                if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
+                if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+                select type (stmt => arena%entries(stmt_index)%node)
+                type is (assignment_node)
+                    target_index = stmt%target_index
+                    if (target_index <= 0 .or. target_index > arena%size) cycle
+                    if (.not. allocated(arena%entries(target_index)%node)) cycle
+                    select type (target => arena%entries(target_index)%node)
+                    type is (identifier_node)
+                        if (trim(target%name) /= trim(target_name)) cycle
+                    type is (call_or_subscript_node)
+                        if (.not. allocated(target%name)) cycle
+                        if (trim(target%name) /= trim(target_name)) cycle
+                    class default
+                        cycle
+                    end select
+                    if (stmt%inferred_type%kind > 0) then
+                        if (return_type%kind == 0) then
+                            return_type = stmt%inferred_type
+                            call return_type%sync_from_arena()
+                        else if (stmt%inferred_type%kind == TARRAY .and. &
+                                 return_type%kind /= TARRAY) then
+                            return_type = stmt%inferred_type
+                            call return_type%sync_from_arena()
+                        end if
+                    end if
+                end select
+            end do
+        end select
+    end subroutine refine_return_type_from_body
 
     logical function requires_explicit_result_name(return_type, result_name, &
                                                     function_name) result(required)
