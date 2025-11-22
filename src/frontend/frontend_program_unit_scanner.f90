@@ -133,7 +133,7 @@ contains
         if (tokens(keyword_idx)%kind /= TK_KEYWORD) return
 
         select case (to_lower(trim(tokens(keyword_idx)%text)))
-        case ("program", "module", "function", "subroutine", "type", "interface")
+        case ("program", "module", "function", "subroutine", "interface")
             is_start = .true.
         case ("abstract")
             lookahead = keyword_idx + 1
