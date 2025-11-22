@@ -568,12 +568,12 @@ contains
             if (len_trim(type_buf) == 0) type_buf = 'real'
 
             ! Issue #2075: Deferred-shape arrays in local scope must be allocatable
-            ! If dimension(:) without allocatable, add it
+            ! If dimension(:), dimension(:,:), etc. without allocatable, add it
             block
-                character(len=:), allocatable :: lowered_type
-                lowered_type = to_lower(trim(type_buf))
-                if (index(lowered_type, 'dimension(:)') > 0 .and. &
-                    index(lowered_type, 'allocatable') == 0) then
+                use codegen_character_types, only: is_deferred_shape_array
+                logical :: needs_alloc
+                needs_alloc = is_deferred_shape_array(type_buf)
+                if (needs_alloc .and. index(to_lower(trim(type_buf)), 'allocatable') == 0) then
                     ! Add allocatable to deferred-shape array
                     type_buf = trim(type_buf) // ', allocatable'
                 end if

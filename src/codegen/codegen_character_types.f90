@@ -10,6 +10,7 @@ module codegen_character_types
     public :: character_len_references_params
     public :: is_deferred_character_return
     public :: is_allocatable_array_return
+    public :: is_deferred_shape_array
     public :: has_character_len_result_decl
     public :: is_character_len_declaration
 
@@ -129,6 +130,35 @@ contains
                          index(lowered, '(') > 0) .and. &
                          (index(lowered, 'allocatable') > 0)
     end function is_allocatable_array_return
+
+    pure logical function is_deferred_shape_array(text) result(is_deferred)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: lowered
+        integer :: dim_pos, colon_pos
+
+        is_deferred = .false.
+        lowered = to_lower(trim(text))
+
+        ! Check for dimension(:) or dimension(:,:) etc.
+        dim_pos = index(lowered, 'dimension')
+        if (dim_pos > 0) then
+            ! Look for colon after dimension keyword
+            colon_pos = index(lowered(dim_pos:), ':')
+            if (colon_pos > 0) then
+                is_deferred = .true.
+                return
+            end if
+        end if
+
+        ! Also check for shorthand syntax like real(:) or real(:,:)
+        ! by looking for type followed by parentheses with colons
+        if (index(lowered, 'real(') > 0 .or. index(lowered, 'integer(') > 0 .or. &
+            index(lowered, 'logical(') > 0 .or. index(lowered, 'complex(') > 0 .or. &
+            index(lowered, 'character(') > 0) then
+            colon_pos = index(lowered, ':')
+            if (colon_pos > 0) is_deferred = .true.
+        end if
+    end function is_deferred_shape_array
 
     logical function has_character_len_result_decl(arena, node) result(has_decl)
         type(ast_arena_t), intent(in) :: arena

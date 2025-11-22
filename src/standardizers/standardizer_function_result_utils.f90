@@ -7,7 +7,8 @@ module standardizer_function_result_utils
     use standardizer_interface_utils, only: function_in_interface_block
     use standardizer_parameter, only: infer_parameter_type, is_type_variable_str, &
                                       reset_declaration_node
-    use type_string_utils, only: is_character_type_string
+    use standardizer_declarations_array, only: set_array_properties_from_type
+    use type_string_utils, only: is_character_type_string, mono_type_to_string
     implicit none
     private
     public :: determine_preferred_result_name
@@ -376,6 +377,22 @@ contains
         decl%initializer_index = 0
         decl%line = 1
         decl%column = 1
+
+        if (func_def%inferred_type%kind > 0) then
+            decl%inferred_type = func_def%inferred_type
+            call decl%inferred_type%sync_from_arena()
+            call set_array_properties_from_type(arena, decl%var_name, func_index, &
+                                                decl)
+            if (decl%inferred_type%alloc_info%is_allocatable) then
+                decl%is_allocatable = .true.
+            end if
+            if (decl%inferred_type%kind > 0) then
+                decl%type_name = mono_type_to_string(decl%inferred_type, &
+                                                     include_shape=.false., &
+                                                     standardize_real=type_std_enabled, &
+                                                     fallback=decl%type_name)
+            end if
+        end if
 
         call arena%push(decl, "declaration", func_index)
         call insert_result_declaration_into_body(func_def, arena%size)
