@@ -232,7 +232,28 @@ contains
                                                selected, fallback)
         end do
         if (selected%kind == 0) selected = fallback
+
+        ! Elemental functions MUST return scalars, never arrays
+        ! ISO Fortran standard: elemental attribute applies element-wise
+        ! The return type must be scalar even though params can be arrays
+        if (is_elemental_function(func_node) .and. selected%kind == TARRAY) then
+            selected = safe_peel_array_to_base(selected)
+        end if
     end function select_best_assignment_type
+
+    logical function is_elemental_function(func_node) result(is_elem)
+        type(function_def_node), intent(in) :: func_node
+        integer :: i
+
+        is_elem = .false.
+        if (.not. allocated(func_node%prefix_keywords)) return
+        do i = 1, size(func_node%prefix_keywords)
+            if (trim(func_node%prefix_keywords(i)) == 'elemental') then
+                is_elem = .true.
+                return
+            end if
+        end do
+    end function is_elemental_function
 
     recursive subroutine accumulate_result_assignments(arena, stmt_index, &
                                                        result_name, aliases, &
