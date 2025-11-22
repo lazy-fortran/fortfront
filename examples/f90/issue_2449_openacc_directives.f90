@@ -1,7 +1,8 @@
 program test_openacc
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     integer :: i
-    real :: a(100), b(100), c(100)
+    real(dp) :: a(100), b(100), c(100)
 
     !$acc parallel loop
     do i = 1, 100

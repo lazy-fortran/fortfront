@@ -1,7 +1,8 @@
 program test_openacc_clauses
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     integer :: i, n
-    real :: a(100), b(100), c(100)
+    real(dp) :: a(100), b(100), c(100)
 
     n = 100
 
@@ -13,7 +14,7 @@ program test_openacc_clauses
 
     !$acc kernels async(1) wait(2)
     do i = 1, n
-        a(i) = c(i) * 2.0
+        a(i) = c(i) * 2.0_dp
     end do
     !$acc end kernels
 
