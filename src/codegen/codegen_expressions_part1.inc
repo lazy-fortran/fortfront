@@ -216,9 +216,6 @@
             end if
 
             select case (trim(fortran_operator))
-            case ('*', '/', '**')
-                ! Maintain compact form for high-precedence arithmetic
-                code = left_code // fortran_operator // right_code
             case ('=')
                 ! For keyword arguments in function calls, don't add space before string literals
                 ! to prevent "file = '/tmp/test.dat'" from becoming "file = ' /tmp/ test.dat'"
@@ -234,6 +231,7 @@
                     code = left_code // " " // fortran_operator // " " // right_code
                 end if
             case default
+                ! Use spaces around all operators for readability
                 code = left_code // " " // fortran_operator // " " // right_code
             end select
         else
