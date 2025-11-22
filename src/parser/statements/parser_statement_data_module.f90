@@ -240,7 +240,8 @@ contains
 
         function create_implied_do_node_helper(object_exprs, value_expr_index, &
                                                var_name, start_index, end_index, &
-                                               step_index, line, column) result(node_index)
+                                               step_index, line, column) &
+            result(node_index)
             integer, allocatable, intent(in) :: object_exprs(:)
             integer, intent(in) :: value_expr_index
             character(len=*), intent(in) :: var_name
@@ -250,31 +251,28 @@ contains
 
             if (step_index > 0) then
                 if (allocated(object_exprs)) then
-                    node_index = push_io_implied_do(arena, value_expr_index, &
-                                                    var_name, start_expr_index=start_index, &
-                                                    end_expr_index=end_index, &
-                                                    step_expr_index=step_index, &
-                                                    line=line, column=column, &
-                                                    object_indices=object_exprs)
+                    node_index = push_io_implied_do( &
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, end_expr_index=end_index, &
+                        step_expr_index=step_index, line=line, column=column, &
+                        object_indices=object_exprs)
                 else
-                    node_index = push_io_implied_do(arena, value_expr_index, &
-                                                    var_name, start_expr_index=start_index, &
-                                                    end_expr_index=end_index, &
-                                                    step_expr_index=step_index, &
-                                                    line=line, column=column)
+                    node_index = push_io_implied_do( &
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, end_expr_index=end_index, &
+                        step_expr_index=step_index, line=line, column=column)
                 end if
             else
                 if (allocated(object_exprs)) then
-                    node_index = push_io_implied_do(arena, value_expr_index, &
-                                                    var_name, start_expr_index=start_index, &
-                                                    end_expr_index=end_index, line=line, &
-                                                    column=column, &
-                                                    object_indices=object_exprs)
+                    node_index = push_io_implied_do( &
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, end_expr_index=end_index, &
+                        line=line, column=column, object_indices=object_exprs)
                 else
-                    node_index = push_io_implied_do(arena, value_expr_index, &
-                                                    var_name, start_expr_index=start_index, &
-                                                    end_expr_index=end_index, line=line, &
-                                                    column=column)
+                    node_index = push_io_implied_do( &
+                        arena, value_expr_index, var_name, &
+                        start_expr_index=start_index, end_expr_index=end_index, &
+                        line=line, column=column)
                 end if
             end if
         end function create_implied_do_node_helper
@@ -386,6 +384,15 @@ contains
                             case (",")
                                 current = parser%consume()
                                 call skip_trivia(parser)
+                                current = parser%peek()
+                                if (current%kind == TK_OPERATOR .and. &
+                                    trim(current%text) == "/") then
+                                    call parser%error("Trailing comma before '/' "// &
+                                                      "in DATA object list is "// &
+                                                      "non-compliant (ISO/IEC "// &
+                                                      "1539-1:2018 8.6.7, R838)")
+                                    return
+                                end if
                                 cycle
                             case ("/")
                                 exit
@@ -413,6 +420,15 @@ contains
                     case (",")
                         current = parser%consume()
                         call skip_trivia(parser)
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR .and. &
+                            trim(current%text) == "/") then
+                            call parser%error("Trailing comma before '/' in "// &
+                                              "DATA object list is "// &
+                                              "non-compliant (ISO/IEC 1539-1:2018 "// &
+                                              "8.6.7, R838)")
+                            return
+                        end if
                         cycle
                     case ("/")
                         exit
@@ -467,6 +483,15 @@ contains
                             case (",")
                                 current = parser%consume()
                                 call skip_trivia(parser)
+                                current = parser%peek()
+                                if (current%kind == TK_OPERATOR .and. &
+                                    trim(current%text) == "/") then
+                                    call parser%error("Trailing comma before '/' "// &
+                                                      "in DATA value list is "// &
+                                                      "non-compliant (ISO/IEC "// &
+                                                      "1539-1:2018 8.6.7, R838)")
+                                    return
+                                end if
                                 cycle
                             case ("/")
                                 exit
@@ -494,6 +519,15 @@ contains
                     case (",")
                         current = parser%consume()
                         call skip_trivia(parser)
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR .and. &
+                            trim(current%text) == "/") then
+                            call parser%error("Trailing comma before '/' in "// &
+                                              "DATA value list is "// &
+                                              "non-compliant (ISO/IEC 1539-1:2018 "// &
+                                              "8.6.7, R838)")
+                            return
+                        end if
                         cycle
                     case ("/")
                     case default
