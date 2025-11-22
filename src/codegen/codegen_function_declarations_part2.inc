@@ -96,9 +96,12 @@
         ! If declaration already exists, don't add another
         if (has_existing_decl) return
 
-        ! Allocatable arrays are declared in local variable declarations - skip here
+        ! Allocatable and deferred-shape arrays are declared in local variable declarations - skip here
         if (allocated(node%return_type)) then
             if (is_allocatable_array_return(node%return_type)) return
+            ! Also skip deferred-shape arrays (dimension(:), dimension(:,:), etc.) even without allocatable keyword
+            ! because collect_local_variable_decls will add the allocatable attribute
+            if (is_deferred_shape_array(node%return_type)) return
         end if
 
         ! Build type declaration

@@ -14,7 +14,8 @@ module codegen_function_declarations
                                               derive_character_return_type, &
                                               has_character_len_result_decl, &
                                               is_deferred_character_return, &
-                                              is_allocatable_array_return
+                                              is_allocatable_array_return, &
+                                              is_deferred_shape_array
     use codegen_procedure_shared, only: build_parameter_clause, gather_prefix, &
                                         copy_indices, apply_default_intents, &
                                         apply_function_default_intents, &

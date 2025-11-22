@@ -497,6 +497,14 @@ contains
             if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
+            ! Issue #2066 vs scalar accumulation: distinguish array operations from scalar
+            ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to scalar
+            ! If RHS is whole-array operation (e.g., x * x), keep as array
+            if (candidate%kind == TARRAY .and. .not. is_array_literal_node(arena, stmt%value_index)) then
+                if (expression_uses_subscripted_params(arena, stmt%value_index, param_names)) then
+                    candidate = safe_peel_array_to_base(candidate)
+                end if
+            end if
             if (needs_deferred_shape(candidate)) then
                 candidate = convert_to_deferred_shape_array(candidate)
             end if
@@ -506,6 +514,64 @@ contains
                                                     param_names, param_types)
         end select
     end function infer_assignment_result_type
+
+    logical function is_array_literal_node(arena, node_index)
+        use ast_nodes_core, only: array_literal_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+
+        is_array_literal_node = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        select type (value_node => arena%entries(node_index)%node)
+        type is (array_literal_node)
+            is_array_literal_node = .true.
+        end select
+    end function is_array_literal_node
+
+    recursive function expression_uses_subscripted_params(arena, expr_index, param_names) result(uses_subscripts)
+        use ast_nodes_core, only: call_or_subscript_node, binary_op_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        logical :: uses_subscripts
+        integer :: i
+
+        uses_subscripts = .false.
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (call_or_subscript_node)
+            ! Check if this is a subscripted parameter (e.g., arr(i))
+            if (allocated(node%name) .and. allocated(node%arg_indices)) then
+                do i = 1, size(param_names)
+                    if (trim(param_names(i)) == trim(node%name)) then
+                        ! Found parameter with subscripts - this is scalar access
+                        uses_subscripts = .true.
+                        return
+                    end if
+                end do
+            end if
+        type is (binary_op_node)
+            ! Recursively check left and right sides
+            uses_subscripts = expression_uses_subscripted_params(arena, node%left_index, param_names)
+            if (uses_subscripts) return
+            uses_subscripts = expression_uses_subscripted_params(arena, node%right_index, param_names)
+        end select
+    end function expression_uses_subscripted_params
+
+    function safe_peel_array_to_base(array_type) result(base_type)
+        use type_system_unified, only: TARRAY
+        type(mono_type_t), intent(in) :: array_type
+        type(mono_type_t) :: base_type
+
+        base_type = array_type
+        if (array_type%kind /= TARRAY) return
+        if (.not. array_type%has_args()) return
+        if (array_type%get_args_count() == 0) return
+        base_type = array_type%get_arg(1)
+    end function safe_peel_array_to_base
 
     logical function needs_deferred_shape(typ) result(needs)
         use type_system_unified, only: TARRAY
