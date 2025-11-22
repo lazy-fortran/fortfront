@@ -28,10 +28,13 @@
         function_name = trim(node%name)
 
         ! If function has type prefix, result is implicitly declared - do not add explicit decl
+        ! BUT: allocatable arrays are NOT emitted as type prefix (handled in local decls)
         if (allocated(node%return_type)) then
             if (len_trim(node%return_type) > 0) then
-                ! Function has type prefix - result variable implicitly declared
-                return
+                if (.not. is_allocatable_array_return(node%return_type)) then
+                    ! Function has type prefix - result variable implicitly declared
+                    return
+                end if
             end if
         end if
 
@@ -93,8 +96,16 @@
         ! If declaration already exists, don't add another
         if (has_existing_decl) return
 
+        ! Allocatable arrays are declared in local variable declarations - skip here
+        if (allocated(node%return_type)) then
+            if (is_allocatable_array_return(node%return_type)) return
+        end if
+
         ! Build type declaration
+        if (.not. allocated(node%return_type)) return
         type_str = trim(node%return_type)
+        if (len_trim(type_str) == 0) return
+
         call get_type_standardization(standardize_types_enabled)
         if (standardize_types_enabled) then
             lowered = to_lower(trim(type_str))
