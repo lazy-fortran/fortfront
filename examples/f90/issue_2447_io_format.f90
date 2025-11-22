@@ -1,23 +1,27 @@
 program test_io_format
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     integer :: unit_num, io_stat
-    real :: value
+    real(dp) :: value
     character(len=100) :: io_msg
 
+    unit_num = 10
+
     ! Test OPEN with various specifiers
-    open(unit=10, file='test.dat', status='unknown', iostat=io_stat, iomsg=io_msg)
+    open(unit=unit_num, file='test.dat', status='unknown', iostat=io_stat, &
+         iomsg=io_msg)
 
     ! Test WRITE with format
-    write(10, *) 42.0
+    write(10, *) 42.0_dp
 
     ! Test REWIND
-    rewind(10)
+    rewind(unit_num)
 
     ! Test READ with iostat/iomsg
-    read(10, *, iostat=io_stat, iomsg=io_msg) value
+    read(unit_num, *, iostat=io_stat, iomsg=io_msg) value
 
     ! Test CLOSE
-    close(10)
+    close(unit_num)
 
     ! Test PRINT
     print *, 'Value:', value
