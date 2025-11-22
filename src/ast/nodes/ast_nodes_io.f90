@@ -50,6 +50,7 @@ module ast_nodes_io
         ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec  ! Optional format
         character(len=:), allocatable :: namelist_group  ! Optional namelist group
+        character(len=:), allocatable :: io_control_list  ! All I/O control specifiers
         integer, allocatable :: arg_indices(:)  ! Arguments to write
         integer :: iostat_var_index = 0  ! Optional iostat variable index
         integer :: err_label_index = 0  ! Optional err label index
@@ -70,6 +71,7 @@ module ast_nodes_io
         ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec  ! Optional format
         character(len=:), allocatable :: namelist_group  ! Optional namelist group
+        character(len=:), allocatable :: io_control_list  ! All I/O control specifiers
         integer, allocatable :: var_indices(:)  ! Variables to read into
         integer :: iostat_var_index = 0  ! Optional iostat variable index
         integer :: err_label_index = 0  ! Optional err label index
@@ -281,7 +283,32 @@ contains
         class(write_statement_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'write_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', &
+                                                     this%unit_spec)
+        if (allocated(this%format_spec)) call json%add(obj, 'format_spec', &
+                                                       this%format_spec)
+        if (allocated(this%namelist_group)) call json%add(obj, &
+                                                          'namelist_group', &
+                                                          this%namelist_group)
+        if (allocated(this%io_control_list)) call json%add(obj, &
+                                                          'io_control_list', &
+                                                          this%io_control_list)
+        if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
+                                                     this%iostat_var_index)
+        if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
+                                                    this%err_label_index)
+        if (this%end_label_index > 0) call json%add(obj, 'end_label_index', &
+                                                    this%end_label_index)
+        if (this%format_expr_index > 0) call json%add(obj, 'format_expr_index', &
+                                                      this%format_expr_index)
+        call json%add(obj, 'is_formatted', this%is_formatted)
+        call json%add(parent, obj)
     end subroutine write_statement_to_json
 
     subroutine write_statement_assign(lhs, rhs)
@@ -306,6 +333,7 @@ contains
             allocate (lhs%arg_indices(size(rhs%arg_indices)))
             lhs%arg_indices = rhs%arg_indices
         end if
+        if (allocated(rhs%io_control_list)) lhs%io_control_list = rhs%io_control_list
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
         lhs%end_label_index = rhs%end_label_index
@@ -334,6 +362,8 @@ contains
                                                        this%format_spec)
         if (allocated(this%namelist_group)) call json%add(obj, 'namelist_group', &
                                                           this%namelist_group)
+        if (allocated(this%io_control_list)) call json%add(obj, 'io_control_list', &
+                                                           this%io_control_list)
         if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
                                                      this%iostat_var_index)
         if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
@@ -368,6 +398,7 @@ contains
             allocate (lhs%var_indices(size(rhs%var_indices)))
             lhs%var_indices = rhs%var_indices
         end if
+        if (allocated(rhs%io_control_list)) lhs%io_control_list = rhs%io_control_list
         lhs%iostat_var_index = rhs%iostat_var_index
         lhs%err_label_index = rhs%err_label_index
         lhs%end_label_index = rhs%end_label_index
