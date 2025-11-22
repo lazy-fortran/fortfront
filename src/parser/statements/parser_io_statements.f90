@@ -41,8 +41,12 @@ contains
             format_spec = token%text
             token = parser%consume()
         else if (token%kind == TK_IDENTIFIER) then
-            format_spec = token%text
-            token = parser%consume()
+            if (.not. is_io_control_specifier(token)) then
+                format_spec = token%text
+                token = parser%consume()
+            else
+                format_spec = ""
+            end if
         else if (token%kind == TK_NUMBER) then
             format_spec = token%text
             token = parser%consume()
@@ -459,6 +463,9 @@ contains
             end if
         end if
 
+        ! Skip any additional I/O control specifiers (iostat, iomsg, etc.)
+        call skip_io_control_specifiers(parser)
+
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
@@ -568,6 +575,9 @@ contains
                 end if
             end if
 
+            ! Skip any additional I/O control specifiers (iostat, iomsg, etc.)
+            call skip_io_control_specifiers(parser)
+
             ! Expect closing parenthesis
             token = parser%consume()
             if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
@@ -630,6 +640,99 @@ contains
         is_format_specifier_keyword = &
             (lowered == "fmt" .or. lowered == "format")
     end function is_format_specifier_keyword
+
+    pure logical function is_io_control_specifier(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_IDENTIFIER .and. token%kind /= TK_KEYWORD) then
+            is_io_control_specifier = .false.
+            return
+        end if
+
+        if (.not. allocated(token%text)) then
+            is_io_control_specifier = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        lowered = trim(lowered)
+        is_io_control_specifier = &
+            (lowered == "iostat" .or. lowered == "iomsg" .or. &
+             lowered == "err" .or. lowered == "end" .or. &
+             lowered == "eor" .or. lowered == "size" .or. &
+             lowered == "advance" .or. lowered == "asynchronous" .or. &
+             lowered == "blank" .or. lowered == "decimal" .or. &
+             lowered == "delim" .or. lowered == "id" .or. &
+             lowered == "pad" .or. lowered == "pos" .or. &
+             lowered == "rec" .or. lowered == "round" .or. &
+             lowered == "sign")
+    end function is_io_control_specifier
+
+    subroutine skip_io_control_specifiers(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+        integer :: paren_depth
+        logical :: found_specifier
+
+        do while (.not. parser%is_at_end())
+            call skip_io_trivia(parser)
+            token = parser%peek()
+
+            if (token%kind == TK_OPERATOR .and. token%text == ")") exit
+
+            found_specifier = .false.
+
+            if (is_io_control_specifier(token)) then
+                found_specifier = .true.
+            else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+                call skip_io_trivia(parser)
+                token = parser%peek()
+                if (is_io_control_specifier(token)) then
+                    found_specifier = .true.
+                else
+                    exit
+                end if
+            else
+                exit
+            end if
+
+            if (found_specifier) then
+                token = parser%consume()
+                call skip_io_trivia(parser)
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = parser%consume()
+                    call skip_io_trivia(parser)
+
+                    paren_depth = 0
+                    do while (.not. parser%is_at_end())
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                            paren_depth = paren_depth + 1
+                            token = parser%consume()
+                        else if (token%kind == TK_OPERATOR .and. &
+                                 token%text == ")") then
+                            if (paren_depth == 0) exit
+                            paren_depth = paren_depth - 1
+                            token = parser%consume()
+                        else if (token%kind == TK_OPERATOR .and. &
+                                 token%text == ",") then
+                            if (paren_depth == 0) exit
+                            token = parser%consume()
+                        else if (token%kind == TK_NEWLINE) then
+                            exit
+                        else
+                            token = parser%consume()
+                        end if
+                    end do
+                else
+                    exit
+                end if
+            end if
+        end do
+    end subroutine skip_io_control_specifiers
 
     function parse_format_statement(parser, arena) result(format_index)
         type(parser_state_t), intent(inout) :: parser
