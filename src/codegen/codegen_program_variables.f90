@@ -9,7 +9,7 @@ module codegen_program_variables
                               module_procedure_node, implicit_statement_node, &
                               comment_node, directive_node, blank_line_node, &
                               namelist_statement_node
-    use ast_nodes_data, only: declaration_node, module_node
+    use ast_nodes_data, only: declaration_node, module_node, derived_type_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
     use codegen_program_decl_utils, only: exists_in_list, &
@@ -237,6 +237,10 @@ contains
                 end do
             else if (allocated(decl%var_name)) then
                 call record_use_associated_name(state, trim(decl%var_name))
+            end if
+        type is (derived_type_node)
+            if (allocated(decl%name)) then
+                call record_use_associated_name(state, trim(decl%name))
             end if
         type is (interface_block_node)
             if (allocated(decl%name)) then
