@@ -14,9 +14,6 @@ issue_2444_data_trailing_comma.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 8.6.7 (
 
 # Lazy Fortran - Partial fixes still need work
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
-issue_2067_implied_do_array_return_rank_mismatch.lf  # implied DO array return rank mismatch #2067
-issue_2142_mono_wrong_return_types.lf  # monomorphization wrong return types #2142
-issue_2151_array_function_broken.lf  # array function broken #2151
 
 # Standard Fortran - Codegen bugs
 tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
