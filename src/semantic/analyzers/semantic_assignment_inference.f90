@@ -320,7 +320,7 @@ contains
         type(assignment_node), intent(in) :: assignment
         type(mono_type_t), intent(inout) :: expr_typ
 
-        ! If RHS is a call returning an allocatable array, mark expr_typ as allocatable
+        ! If RHS is a call returning an allocatable array, use the call's full type
         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
             if (allocated(arena%entries(assignment%value_index)%node)) then
                 select type (value_node => arena%entries(assignment%value_index)%node)
@@ -328,9 +328,9 @@ contains
                     ! Check if the call returns an allocatable array
                     if (value_node%inferred_type%kind == TARRAY) then
                         if (value_node%inferred_type%alloc_info%is_allocatable) then
-                            ! Preserve allocatable attribute in expr_typ
-                            expr_typ%alloc_info%is_allocatable = .true.
-                            expr_typ%alloc_info%needs_allocation_check = .true.
+                            ! Use the full array type from the function call
+                            ! This ensures expr_typ has both TARRAY kind and allocatable flag
+                            expr_typ = value_node%inferred_type
                         end if
                     end if
                 end select

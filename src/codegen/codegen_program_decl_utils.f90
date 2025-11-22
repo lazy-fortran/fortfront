@@ -3,6 +3,9 @@ module codegen_program_decl_utils
     use ast_nodes_data, only: module_node
     use ast_nodes_procedure, only: function_def_node
     use string_utils_mod, only: to_lower
+    use type_string_utils, only: mono_type_to_string
+    use type_system_unified, only: TFUN, type_args_allocated, type_args_size, &
+                                   type_args_element
     implicit none
     private
     public :: exists_in_list, build_function_return_type_table
@@ -80,6 +83,7 @@ contains
         integer, intent(out) :: count
         integer :: i
         character(len=64) :: func_name
+        character(len=:), allocatable :: inferred_return_type
 
         count = 0
         func_names = ""
@@ -99,9 +103,24 @@ contains
                 if (.not. allocated(func%body_indices)) cycle
                 count = count + 1
                 func_names(count) = trim(to_lower(func_name))
+                ! Use explicit return_type if present (standard Fortran)
                 if (allocated(func%return_type)) then
                     if (len_trim(func%return_type) > 0) then
                         func_types(count) = trim(func%return_type)
+                        cycle
+                    end if
+                end if
+                ! Fall back to inferred_type for lazy Fortran (Issue #2075)
+                if (func%inferred_type%kind == TFUN .and. &
+                    type_args_allocated(func%inferred_type) .and. &
+                    type_args_size(func%inferred_type) >= 2) then
+                    inferred_return_type = mono_type_to_string( &
+                                           type_args_element(func%inferred_type, 2), &
+                                           include_shape=.true., &
+                                           standardize_real=.false., &
+                                           fallback='')
+                    if (len_trim(inferred_return_type) > 0) then
+                        func_types(count) = trim(inferred_return_type)
                     end if
                 end if
             end select
