@@ -353,11 +353,9 @@ contains
             logical, intent(out) :: success
             type(token_t) :: current
             integer :: object_index
-            logical :: expect_object
 
             allocate (objects(0))
             success = .false.
-            expect_object = .true.
 
             do
                 current = parser%peek()
@@ -381,7 +379,6 @@ contains
                     object_index = try_parse_data_implied_do()
                     if (object_index > 0) then
                         call append_index(objects, object_index)
-                        expect_object = .false.
                         call skip_trivia(parser)
                         current = parser%peek()
                         if (current%kind == TK_OPERATOR) then
@@ -389,7 +386,6 @@ contains
                             case (",")
                                 current = parser%consume()
                                 call skip_trivia(parser)
-                                expect_object = .true.
                                 cycle
                             case ("/")
                                 exit
@@ -409,7 +405,6 @@ contains
                 object_index = parse_expression_until(parser, arena, [",", "/"])
                 if (object_index <= 0) return
                 call append_index(objects, object_index)
-                expect_object = .false.
 
                 call skip_trivia(parser)
                 current = parser%peek()
@@ -418,7 +413,6 @@ contains
                     case (",")
                         current = parser%consume()
                         call skip_trivia(parser)
-                        expect_object = .true.
                         cycle
                     case ("/")
                         exit
@@ -440,11 +434,9 @@ contains
             logical, intent(out) :: success
             type(token_t) :: current
             integer :: value_index
-            logical :: expect_value
 
             allocate (values(0))
             success = .false.
-            expect_value = .true.
 
             do
                 current = parser%peek()
@@ -467,7 +459,6 @@ contains
                     value_index = try_parse_data_implied_do()
                     if (value_index > 0) then
                         call append_index(values, value_index)
-                        expect_value = .false.
 
                         call skip_trivia(parser)
                         current = parser%peek()
@@ -476,7 +467,6 @@ contains
                             case (",")
                                 current = parser%consume()
                                 call skip_trivia(parser)
-                                expect_value = .true.
                                 cycle
                             case ("/")
                                 exit
@@ -503,11 +493,9 @@ contains
                     select case (trim(current%text))
                     case (",")
                         current = parser%consume()
-                        expect_value = .true.
                         call skip_trivia(parser)
                         cycle
                     case ("/")
-                        expect_value = .false.
                     case default
                         call parser%error("Unexpected token in DATA statement "// &
                                           "value list")
