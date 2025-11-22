@@ -326,7 +326,11 @@
                                                         include_shape=.true., &
                                                         fallback=''))
                     if (len_trim(type_str) == 0) then
-                        type_str = get_kind_type_string(inferred_type%kind)
+                        ! Only use get_kind_type_string for non-array types
+                        ! For arrays, mono_type_to_string should have handled it
+                        if (inferred_type%kind /= TARRAY) then
+                            type_str = get_kind_type_string(inferred_type%kind)
+                        end if
                     end if
                 end if
             end if
@@ -348,7 +352,11 @@
         end if
 
         if (len_trim(type_str) == 0) then
-            type_str = get_kind_type_string(signature%return_kind)
+            ! Only use get_kind_type_string for non-array types
+            ! For TARRAY, we need dimension information
+            if (signature%return_kind /= TARRAY) then
+                type_str = get_kind_type_string(signature%return_kind)
+            end if
         end if
 
         if (allocated(signature%param_kinds)) then
@@ -387,6 +395,33 @@
                         if (dominant_kind > 0 .and. signature%return_kind /= &
                             dominant_kind) then
                             type_str = param_return_type
+                        end if
+                    end block
+                end if
+
+                ! If any parameter is an array, return type should also be array
+                ! (for element-wise operations like x + 1)
+                if (allocated(signature%param_type_strings)) then
+                    block
+                        integer :: i
+                        logical :: has_array_param
+                        has_array_param = .false.
+                        do i = 1, size(signature%param_type_strings)
+                            if (index(signature%param_type_strings(i), 'dimension') > 0 .or. &
+                                index(signature%param_type_strings(i), '(:)') > 0) then
+                                has_array_param = .true.
+                                exit
+                            end if
+                        end do
+
+                        if (has_array_param) then
+                            ! Return type should match element type with array dimension
+                            if (index(type_str, 'dimension') == 0 .and. &
+                                index(type_str, '(:)') == 0) then
+                                ! Add assumed-shape allocatable array dimension
+                                ! allocatable is required for codegen to emit result clause
+                                type_str = trim(type_str) // ", dimension(:), allocatable"
+                            end if
                         end if
                     end block
                 end if
