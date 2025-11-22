@@ -81,7 +81,7 @@ contains
         character(len=:), allocatable, intent(inout) :: output_code
         integer, intent(in) :: max_len
         integer, parameter :: CONTINUATION_INDENT = 6
-        integer :: pos, last_break, len_line
+        integer :: pos, last_break, len_line, i
         character(len=:), allocatable :: current_line, continuation_str
         logical :: found_break
 
@@ -96,25 +96,28 @@ contains
 
         pos = 1
         do while (pos <= len_line)
-            last_break = pos
+            ! Find the last good break point within MAX_LINE_LENGTH
+            ! Strategy: scan the valid range and remember the LAST break character position
+            last_break = 0  ! Will hold position of last break char found
             found_break = .false.
 
-            ! Find a good break point within MAX_LINE_LENGTH
-            do while (last_break - pos + 1 <= max_len .and. last_break <= len_line)
-                if (input_line(last_break:last_break) == ' ' .or. &
-                    input_line(last_break:last_break) == ',' .or. &
-                    input_line(last_break:last_break) == '(' .or. &
-                    input_line(last_break:last_break) == ')') then
+            ! Scan from pos to min(pos+max_len-1, len_line)
+            do i = pos, min(pos + max_len - 1, len_line)
+                if (input_line(i:i) == ' ' .or. &
+                    input_line(i:i) == ',' .or. &
+                    input_line(i:i) == '(' .or. &
+                    input_line(i:i) == ')') then
+                    ! Remember this position - it's a valid break point
+                    last_break = i
                     found_break = .true.
                 end if
-                last_break = last_break + 1
             end do
 
-            if (.not. found_break .or. last_break > len_line) then
-                ! No good break point found, just break at MAX_LINE_LENGTH
+            ! Determine actual break position
+            if (.not. found_break) then
+                ! No break character found in range - must break at max_len
+                ! This will split a token, but we have no choice
                 last_break = min(pos + max_len - 1, len_line)
-            else
-                last_break = last_break - 1  ! Step back to the break character
             end if
 
             ! Extract the line segment
