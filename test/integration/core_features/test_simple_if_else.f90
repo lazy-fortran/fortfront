@@ -1,6 +1,6 @@
 program test_simple_if_else
     ! Simple test to isolate the if/else issue reported in #623
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_arena_modern, only: ast_arena_t, create_ast_arena

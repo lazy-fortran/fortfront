@@ -15,7 +15,7 @@ module frontend_transformation_pipeline
     use type_system_unified, only: reset_type_system
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                             get_standardizer_type_standardization, &
-                            mark_pointer_targets
+                            mark_pointer_targets, set_standardizer_input_mode
     use codegen_arena_interface, only: generate_code_from_arena
     use ast_monomorphization, only: transform_monomorphization
     use call_graph_signatures_mod, only: signatures_map_t, type_signature_t, &
@@ -94,7 +94,6 @@ module frontend_transformation_pipeline
               transform_lazy_fortran_string_with_format, &
               transform_with_context, &
               INPUT_MODE_LAZY, INPUT_MODE_STANDARD, &
-              detect_input_mode_from_content, &
               pass_config_t, create_pass_manager
 
 contains
@@ -172,13 +171,6 @@ contains
         call trace_leave('phase:lexer')
         if (error_msg /= "") then
             call handle_lexical_error(source, error_msg, output, shared_arena)
-            call trace_leave('transform_lazy_fortran_string')
-            return
-        end if
-
-        ! Detect standard Fortran inputs we should pass through unchanged
-        if (is_probably_standard_fortran(tokens)) then
-            output = ensure_trailing_newline(source)
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -282,6 +274,9 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
         type(transform_context_t), intent(in) :: context
 
+        ! Set input mode in standardizer to distinguish standard vs lazy Fortran
+        call set_standardizer_input_mode(context%input_mode)
+
         ! For standard Fortran mode, use simple transformation
         if (context%input_mode == INPUT_MODE_STANDARD) then
             call transform_lazy_fortran_string(input, output, error_msg, &
@@ -338,12 +333,6 @@ contains
         call run_lexical_analysis(source, tokens, shared_arena, error_msg)
         if (error_msg /= "") then
             call handle_lexical_error(source, error_msg, output, shared_arena)
-            call trace_leave('transform_lazy_with_ast_wrapping')
-            return
-        end if
-
-        if (is_probably_standard_fortran(tokens)) then
-            output = ensure_trailing_newline(source)
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
@@ -427,167 +416,6 @@ contains
         end if
     end function ensure_trailing_newline
 
-    pure logical function is_probably_standard_fortran(tokens) result(is_standard)
-        type(token_t), intent(in) :: tokens(:)
-        integer :: i
-        logical :: has_implicit_none
-        logical :: references_tooling_api
-        character(len=:), allocatable :: lower_text
-        character(len=:), allocatable :: next_text
-
-        has_implicit_none = .false.
-        references_tooling_api = .false.
-
-        do i = 1, size(tokens)
-            if (.not. allocated(tokens(i)%text)) cycle
-            lower_text = to_lower(tokens(i)%text)
-            if (tokens(i)%kind == TK_KEYWORD) then
-                if (lower_text == 'implicit') then
-                    if (i < size(tokens)) then
-                        if (tokens(i + 1)%kind == TK_KEYWORD) then
-                            if (allocated(tokens(i + 1)%text)) then
-                                next_text = to_lower(tokens(i + 1)%text)
-                                if (next_text == 'none') then
-                                    has_implicit_none = .true.
-                                end if
-                            end if
-                        end if
-                    end if
-                end if
-            else if (tokens(i)%kind == TK_IDENTIFIER) then
-                select case (lower_text)
-                case ('tooling_load_ast_from_string', 'tooling_parse_options_t', &
-                      'transform_lazy_fortran_string', &
-                      'transform_lazy_fortran_string_with_format', &
-                      'frontend_transformation')
-                    references_tooling_api = .true.
-                end select
-            end if
-        end do
-
-        is_standard = has_implicit_none .and. references_tooling_api
-    end function is_probably_standard_fortran
-
-    pure function detect_input_mode_from_content(input) result(mode)
-        character(len=*), intent(in) :: input
-        integer :: mode
-        logical :: has_implicit_none, has_program, has_module, has_subroutine
-        logical :: has_function_keyword, has_end_function, has_bare_executable
-        logical :: inside_procedure, subroutine_start, function_start
-        logical :: is_assignment
-        integer :: i, line_end, eq_pos, trimmed_len
-        character(len=:), allocatable :: line, trimmed, lowered
-
-        has_implicit_none = .false.
-        has_program = .false.
-        has_module = .false.
-        has_subroutine = .false.
-        has_function_keyword = .false.
-        has_end_function = .false.
-        has_bare_executable = .false.
-        inside_procedure = .false.
-
-        i = 1
-        do while (i <= len(input))
-            ! Extract line inline (can't use extract_line since it's not pure)
-            line_end = index(input(i:), new_line('A'))
-            if (line_end == 0) then
-                line = input(i:)
-                i = len(input) + 1
-            else
-                line = input(i:i + line_end - 2)
-                i = i + line_end
-            end if
-
-            trimmed = trim(adjustl(line))
-            trimmed_len = len_trim(trimmed)
-            if (trimmed_len == 0) cycle
-            if (trimmed(1:1) == '!') cycle
-
-            lowered = to_lower(trimmed)
-
-            if (index(lowered, 'end function') > 0 .or. &
-                index(lowered, 'end subroutine') > 0) then
-                has_end_function = .true.
-                inside_procedure = .false.
-                cycle
-            end if
-
-            if (index(lowered, 'implicit none') == 1 .or. &
-                index(lowered, 'implicit  none') == 1) then
-                has_implicit_none = .true.
-            end if
-
-            if (index(lowered, 'program ') == 1) then
-                has_program = .true.
-            end if
-
-            if (index(lowered, 'module ') == 1 .and. &
-                index(lowered, 'module procedure') == 0) then
-                has_module = .true.
-            end if
-
-            subroutine_start = (index(lowered, 'subroutine ') == 1 .or. &
-                                index(lowered, ' subroutine ') > 0)
-            function_start = (index(lowered, 'function ') == 1 .or. &
-                              index(lowered, ' function ') > 0)
-
-            if (subroutine_start) then
-                has_subroutine = .true.
-                inside_procedure = .true.
-            end if
-
-            if (function_start) then
-                has_function_keyword = .true.
-                inside_procedure = .true.
-            end if
-
-            if (.not. inside_procedure .and. .not. has_program .and. &
-                .not. has_module) then
-                eq_pos = index(trimmed, '=')
-                is_assignment = .false.
-                if (eq_pos > 1 .and. eq_pos <= trimmed_len) then
-                    if (eq_pos < trimmed_len) then
-                        select case (trimmed(eq_pos + 1:eq_pos + 1))
-                        case ('=', '>', '<', '/', '.')
-                            is_assignment = .false.
-                        case default
-                            is_assignment = .true.
-                        end select
-                    else
-                        is_assignment = .true.
-                    end if
-
-                    if (is_assignment .and. eq_pos > 1) then
-                        select case (trimmed(eq_pos - 1:eq_pos - 1))
-                        case ('<', '>', '/', '=', '.')
-                            is_assignment = .false.
-                        end select
-                    end if
-                end if
-
-                if ((is_assignment .and. index(lowered, 'function ') /= 1 .and. &
-                     index(lowered, 'subroutine ') /= 1 .and. &
-                     index(lowered, 'program ') /= 1 .and. &
-                     index(lowered, 'module ') /= 1 .and. &
-                     index(lowered, 'end ') /= 1) .or. &
-                    index(lowered, 'print ') == 1) then
-                    has_bare_executable = .true.
-                end if
-            end if
-        end do
-
-        if (has_bare_executable) then
-            mode = INPUT_MODE_LAZY
-        else if (has_implicit_none .or. has_program .or. has_module) then
-            mode = INPUT_MODE_STANDARD
-        else if (has_subroutine .or. (has_function_keyword .and. &
-                                      has_end_function)) then
-            mode = INPUT_MODE_STANDARD
-        else
-            mode = INPUT_MODE_LAZY
-        end if
-    end function detect_input_mode_from_content
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)

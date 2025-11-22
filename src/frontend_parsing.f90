@@ -262,7 +262,7 @@ contains
     end subroutine collect_program_units
 
     subroutine log_unit_bounds(tokens, unit_start, unit_end, unit_index)
-        use iso_fortran_env, only: error_unit
+        use, intrinsic :: iso_fortran_env, only: error_unit
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: unit_start
         integer, intent(in) :: unit_end

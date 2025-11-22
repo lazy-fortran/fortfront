@@ -1,6 +1,6 @@
 program test_function_parameter_integer_inference
     use transformation_api, only: transform_lazy_fortran_string
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     if (test_square_integer_inference()) then

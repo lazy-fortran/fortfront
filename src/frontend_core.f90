@@ -2,7 +2,7 @@ module frontend_core
     ! fortfront - Core frontend API module
     ! Main entry points for compilation pipeline
 
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &

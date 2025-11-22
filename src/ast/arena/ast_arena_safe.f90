@@ -10,7 +10,7 @@ module ast_arena_safe
                               module_node
     use ast_nodes_control, only: if_node, do_loop_node, do_while_node, &
                                  select_case_node, case_block_node
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
     private
 

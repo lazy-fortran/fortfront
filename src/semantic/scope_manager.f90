@@ -1,6 +1,6 @@
 module scope_manager
     ! Hierarchical scope management for semantic analysis
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use type_system_unified
     use identifier_table, only: identifier_table_t, identifier_table_init, &
                                 identifier_table_intern, identifier_table_find, identifier_id_kind

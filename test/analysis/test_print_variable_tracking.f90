@@ -1,5 +1,5 @@
 program test_print_variable_tracking
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: tokenize_core, token_t
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_subroutine_definition

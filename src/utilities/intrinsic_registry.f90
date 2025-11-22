@@ -1,5 +1,5 @@
 module intrinsic_registry
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use string_utils_mod, only: to_lower
     implicit none
     private

@@ -6,7 +6,7 @@ program test_build_system_integration
     ! When: Build commands are executed with proper configuration
     ! Then: The build system reliably produces all required artifacts
     !
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     integer :: test_count, pass_count

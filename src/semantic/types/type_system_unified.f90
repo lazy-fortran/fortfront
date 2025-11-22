@@ -2,7 +2,7 @@ module type_system_unified
     ! Unified type system using arena-based storage
     ! Provides compatibility layer for legacy API while using efficient arena storage
 
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use type_system_arena
     use error_handling, only: result_t, create_error_result, &
                               success_result, ERROR_MEMORY

@@ -6,7 +6,7 @@ program test_module_distribution
     ! When: The build system collects all .mod files
     ! Then: All required Fortran modules should be available for external use
     !
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     integer :: test_count, pass_count

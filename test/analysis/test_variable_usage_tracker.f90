@@ -1,6 +1,6 @@
 program test_variable_usage_tracker
     use fortfront
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use test_variable_usage_tracker_helpers, only: count_nodes_visitor
     implicit none
 

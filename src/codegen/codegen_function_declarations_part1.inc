@@ -213,7 +213,7 @@
         if (allocated(node%prefix_keywords)) then
             call apply_default_intents(node%prefix_keywords, param_map)
         end if
-        call apply_function_default_intents(param_map)
+        call apply_function_default_intents(param_map, arena, body_indices)
 
         body = ""
         if (len_trim(use_section) > 0) body = body // use_section

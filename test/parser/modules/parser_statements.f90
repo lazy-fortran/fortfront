@@ -25,7 +25,7 @@ module parser_statements_module
     use parser_module_structures_module, only: parse_module
 
     ! Additional dependencies for remaining utility functions
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
     use parser_expressions_module, only: parse_comparison, parse_expression, &

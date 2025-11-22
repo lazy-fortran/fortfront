@@ -8,7 +8,8 @@ module test_mod
   end type
 contains
   function add_custom(a, b)
-    type(point) :: a, b, add_custom
+    type(point), intent(in) :: a, b
+    type(point) :: add_custom
   end function
   subroutine test_sub(x, y)
     real, intent(in) :: x

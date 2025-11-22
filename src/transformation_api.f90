@@ -8,8 +8,7 @@ module transformation_api
         format_options_t, &
         transform_context_t, &
         INPUT_MODE_LAZY, &
-        INPUT_MODE_STANDARD, &
-        detect_input_mode_from_content
+        INPUT_MODE_STANDARD
     use frontend_core, only: compile_source, compilation_options_t
 
     implicit none
@@ -29,8 +28,5 @@ module transformation_api
     ! Input mode constants
     public :: INPUT_MODE_LAZY
     public :: INPUT_MODE_STANDARD
-
-    ! Utility functions
-    public :: detect_input_mode_from_content
 
 end module transformation_api

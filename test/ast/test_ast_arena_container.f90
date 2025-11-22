@@ -4,7 +4,7 @@ module test_ast_arena_container
 
     use ast_arena_modern
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
     private
 

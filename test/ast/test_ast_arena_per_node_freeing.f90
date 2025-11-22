@@ -3,7 +3,7 @@ program test_ast_arena_per_node_freeing
     ! Tests selective memory management, checkpoint/rollback, and performance requirements
 
     use ast_arena_modern
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     integer :: test_count, pass_count

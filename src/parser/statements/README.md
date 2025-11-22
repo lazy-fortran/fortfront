@@ -16,6 +16,7 @@ This directory handles parsing of executable statements: assignments, I/O operat
 | parser_execution_statements.f90 | Executable statement parsing dispatcher |
 | parser_io_statements.f90 | I/O statement parsing: read, write, print, open, close |
 | parser_intrinsic_statements.f90 | Intrinsic statement parsing |
+| parser_external_statements.f90 | External statement parsing (EXTERNAL attribute) |
 | parser_legacy_statements.f90 | Legacy Fortran statement parsing (goto, computed goto) |
 | parser_memory_statements.f90 | Memory management: allocate, deallocate, nullify |
 | parser_statement_data_module.f90 | Data statement parsing |

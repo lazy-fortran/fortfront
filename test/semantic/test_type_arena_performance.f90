@@ -4,7 +4,7 @@ program test_type_arena_performance
 
     use type_system_arena
     use type_system_unified, only: TVAR, TINT, TREAL, TFUN, mono_type_t
-    use iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
     integer, parameter :: NUM_TYPES = 10000

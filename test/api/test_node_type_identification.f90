@@ -1,6 +1,6 @@
 program test_node_type_identification
     use fortfront
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
     logical :: all_tests_passed

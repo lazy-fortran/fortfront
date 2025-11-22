@@ -13,6 +13,7 @@ module standardizer_core
     use standardizer_types, only: string_result_t
     use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
     use debug_trace, only: trace_enter, trace_leave
+    use standardizer_parameter, only: set_standardizer_input_mode
     implicit none
     private
 
@@ -29,6 +30,7 @@ module standardizer_core
     ! JSON-based API removed
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
+    public :: set_standardizer_input_mode
 
 contains
 
