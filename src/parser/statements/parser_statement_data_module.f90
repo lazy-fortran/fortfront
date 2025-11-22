@@ -413,6 +413,12 @@ contains
                     case (",")
                         current = parser%consume()
                         call skip_trivia(parser)
+                        ! Check for trailing comma before /
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR .and. &
+                            trim(current%text) == "/") then
+                            exit
+                        end if
                         cycle
                     case ("/")
                         exit
@@ -494,6 +500,12 @@ contains
                     case (",")
                         current = parser%consume()
                         call skip_trivia(parser)
+                        ! Check for trailing comma before closing /
+                        current = parser%peek()
+                        if (current%kind == TK_OPERATOR .and. &
+                            trim(current%text) == "/") then
+                            exit
+                        end if
                         cycle
                     case ("/")
                     case default

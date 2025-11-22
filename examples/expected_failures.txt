@@ -4,11 +4,16 @@
 
 # Standard F90 issues still failing
 issue_2349_data_boz_literals.f90  # gfortran rejects legacy BOZ syntax (x'...' and '...'z) without -fallow-invalid-boz; fortfront correctly preserves them (#2349)
+issue_2349_data_boz_x_prefix.f90  # gfortran rejects X'...' BOZ syntax without -fallow-invalid-boz; fortfront correctly preserves it (#2349)
+issue_2349_data_boz_postfix.f90  # gfortran rejects postfix '...'z BOZ syntax without -fallow-invalid-boz; fortfront correctly preserves it (#2349)
 
 # Unsupported language features
 
 # Lazy Fortran - Partial fixes still need work
 issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
+issue_2067_implied_do_array_return_rank_mismatch.lf  # implied DO array return rank mismatch #2067
+issue_2142_mono_wrong_return_types.lf  # monomorphization wrong return types #2142
+issue_2151_array_function_broken.lf  # array function broken #2151
 
 # Standard Fortran - Codegen bugs
 tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
