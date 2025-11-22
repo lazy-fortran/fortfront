@@ -514,6 +514,7 @@ contains
         needs = .false.
         if (typ%kind /= TARRAY) return
         if (typ%alloc_info%is_allocatable) return
+        if (typ%size > 0 .and. .not. typ%alloc_info%needs_allocation_check) return
         needs = .true.
     end function needs_deferred_shape
 
