@@ -1,6 +1,7 @@
 
     function collect_recursive_result_decl(arena, node) result(decl_code)
         use ast_nodes_data, only: declaration_node
+        use type_string_utils, only: mono_type_to_string
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: decl_code
@@ -12,6 +13,7 @@
         logical :: missing_result_variable
         logical :: will_emit_result_clause
         logical :: has_existing_decl
+        logical :: type_success
         integer :: i
 
         decl_code = ""
@@ -29,11 +31,15 @@
 
         ! If function has type prefix, result is implicitly declared - do not add explicit decl
         ! BUT: allocatable arrays are NOT emitted as type prefix (handled in local decls)
+        ! BUT: array returns with result() clause omit type prefix (handled below)
         if (allocated(node%return_type)) then
             if (len_trim(node%return_type) > 0) then
                 if (.not. is_allocatable_array_return(node%return_type)) then
-                    ! Function has type prefix - result variable implicitly declared
-                    return
+                    ! Check if this is an array return with result clause
+                    if (.not. should_use_result_for_array(arena, node)) then
+                        ! Function has type prefix - result variable implicitly declared
+                        return
+                    end if
                 end if
             end if
         end if
@@ -105,9 +111,30 @@
         end if
 
         ! Build type declaration
-        if (.not. allocated(node%return_type)) return
-        type_str = trim(node%return_type)
-        if (len_trim(type_str) == 0) return
+        if (.not. allocated(node%return_type)) then
+            ! Fallback: use inferred type if available
+            if (node%inferred_type%kind > 0) then
+                type_str = mono_type_to_string(node%inferred_type, &
+                                               include_shape=.true., &
+                                               success=type_success)
+                if (.not. type_success .or. len_trim(type_str) == 0) return
+            else
+                return
+            end if
+        else
+            type_str = trim(node%return_type)
+            if (len_trim(type_str) == 0) then
+                ! Fallback to inferred type if return_type is empty
+                if (node%inferred_type%kind > 0) then
+                    type_str = mono_type_to_string(node%inferred_type, &
+                                                   include_shape=.true., &
+                                                   success=type_success)
+                    if (.not. type_success .or. len_trim(type_str) == 0) return
+                else
+                    return
+                end if
+            end if
+        end if
 
         call get_type_standardization(standardize_types_enabled)
         if (standardize_types_enabled) then
@@ -128,7 +155,6 @@
         character(len=:), allocatable :: type_str
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: function_name
-        logical :: missing_result_variable
 
         decl_code = ""
 
@@ -137,26 +163,29 @@
 
         function_name = trim(node%name)
 
-        if (allocated(node%result_variable)) then
-            missing_result_variable = len_trim(node%result_variable) == 0
-            if (.not. missing_result_variable) then
-                if (len_trim(function_name) > 0) then
-                    missing_result_variable = &
-                        (trim(node%result_variable) == function_name)
-                end if
-            end if
-        else
-            missing_result_variable = .true.
-        end if
-        if (.not. missing_result_variable) return
-
         if (should_rename_deferred_char_result(node)) return
 
         if (.not. allocated(node%return_type)) return
         if (len_trim(node%return_type) == 0) return
 
         type_str = trim(node%return_type)
-        result_name = trim(function_name) // "_result"
+
+        ! Determine result variable name:
+        ! 1. If result() clause exists and is different from function name, use it
+        ! 2. Otherwise, use function_name_result
+        if (allocated(node%result_variable)) then
+            if (len_trim(node%result_variable) > 0) then
+                if (trim(node%result_variable) /= trim(function_name)) then
+                    result_name = trim(node%result_variable)
+                else
+                    result_name = trim(function_name) // "_result"
+                end if
+            else
+                result_name = trim(function_name) // "_result"
+            end if
+        else
+            result_name = trim(function_name) // "_result"
+        end if
 
         decl_code = "    " // trim(type_str) // " :: " // &
                     trim(result_name) // new_line('A')

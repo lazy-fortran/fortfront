@@ -222,6 +222,7 @@
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
         body = body // collect_recursive_result_decl(arena, node)
+        body = body // collect_array_result_decl(arena, node)
         body = body // collect_entry_parameter_decls(arena, node)
         body = body // collect_local_variable_decls(arena, node, param_map)
 
