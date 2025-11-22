@@ -82,10 +82,6 @@ contains
             else if (is_block_data_start(trimmed_tokens, 1)) then
                 ! Parse BLOCK DATA unit
                 unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error)
-            else if (is_type_start(trimmed_tokens, 1)) then
-                ! Type definitions should be parsed as structured constructs
-                unit_index = parse_statement_dispatcher(trimmed_tokens, arena, &
-                                                        prefix_buffer)
             else if (is_interface_start(trimmed_tokens, 1)) then
                 unit_index = parse_interface_unit(trimmed_tokens, arena, &
                                                   parse_error)

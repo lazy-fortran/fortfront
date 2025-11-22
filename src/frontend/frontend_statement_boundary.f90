@@ -188,6 +188,9 @@ contains
         case ("submodule")
             is_multiline = .true.
             nesting_level = 1
+        case ("type")
+            is_multiline = .true.
+            nesting_level = 1
         end select
     end subroutine detect_multiline_construct
 
@@ -244,6 +247,10 @@ contains
         case ("submodule")
             if (tokens(stmt_start)%text == "submodule" .and. idx > stmt_start) &
                 then
+                nesting_level = nesting_level + 1
+            end if
+        case ("type")
+            if (tokens(stmt_start)%text == "type" .and. idx > stmt_start) then
                 nesting_level = nesting_level + 1
             end if
         case ("endif")
@@ -375,6 +382,10 @@ contains
                                              found_end, .false.)
                 case ("submodule")
                     call try_close_construct(tokens, stmt_start, "submodule", &
+                                             idx + 1, nesting_level, stmt_end, &
+                                             found_end, .true.)
+                case ("type")
+                    call try_close_construct(tokens, stmt_start, "type", &
                                              idx + 1, nesting_level, stmt_end, &
                                              found_end, .true.)
                 end select
