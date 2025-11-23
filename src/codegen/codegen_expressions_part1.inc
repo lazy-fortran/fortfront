@@ -121,6 +121,78 @@
         end select
     end function is_zero_literal
 
+    ! Validate that operands of logical operators are TLOGICAL type
+    ! ISO/IEC 1539-1:2018 Section 10.1.5.2: Logical operators require LOGICAL operands
+    ! Fixes issue #2457: Detect and report type mismatches in logical operations
+    subroutine validate_logical_operator_types(arena, node, operator_str)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        type(ast_arena_t), intent(in) :: arena
+        type(binary_op_node), intent(in) :: node
+        character(len=*), intent(in) :: operator_str
+        integer :: left_type, right_type
+        character(len=20) :: left_type_str, right_type_str
+
+        ! Get left operand type
+        left_type = 0
+        if (node%left_index > 0 .and. node%left_index <= arena%size) then
+            if (allocated(arena%entries(node%left_index)%node)) then
+                left_type = arena%entries(node%left_index)%node%inferred_type%kind
+            end if
+        end if
+
+        ! Get right operand type
+        right_type = 0
+        if (node%right_index > 0 .and. node%right_index <= arena%size) then
+            if (allocated(arena%entries(node%right_index)%node)) then
+                right_type = arena%entries(node%right_index)%node%inferred_type%kind
+            end if
+        end if
+
+        ! Check if both operands are TLOGICAL (or unknown/TVAR which is acceptable)
+        ! TVAR (1) is unknown type variable, which is OK during type inference
+        if (left_type /= TLOGICAL .and. left_type /= 0 .and. left_type /= TVAR) then
+            call type_kind_to_string(left_type, left_type_str)
+            write (error_unit, '(A,I0,A,A,A,A)') &
+                "WARNING (issue #2457): Logical operator '", node%line, ":", &
+                trim(operator_str), "' has non-logical left operand of type ", &
+                trim(left_type_str)
+        end if
+
+        if (right_type /= TLOGICAL .and. right_type /= 0 .and. right_type /= TVAR) &
+            then
+            call type_kind_to_string(right_type, right_type_str)
+            write (error_unit, '(A,I0,A,A,A,A)') &
+                "WARNING (issue #2457): Logical operator '", node%line, ":", &
+                trim(operator_str), "' has non-logical right operand of type ", &
+                trim(right_type_str)
+        end if
+    end subroutine validate_logical_operator_types
+
+    ! Helper to convert type kind to string for error messages
+    subroutine type_kind_to_string(kind, str)
+        integer, intent(in) :: kind
+        character(len=*), intent(out) :: str
+
+        select case (kind)
+        case (TINT)
+            str = "INTEGER"
+        case (TREAL)
+            str = "REAL"
+        case (TCHAR)
+            str = "CHARACTER"
+        case (TLOGICAL)
+            str = "LOGICAL"
+        case (TVAR)
+            str = "TVAR"
+        case (TFUN)
+            str = "FUNCTION"
+        case (TARRAY)
+            str = "ARRAY"
+        case default
+            write (str, '(A,I0)') "UNKNOWN(", kind
+        end select
+    end subroutine type_kind_to_string
+
     ! Generate code for binary operations
     function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -175,6 +247,14 @@
             if (node%operator == "+" .and. is_string_concatenation(left_code, &
                                                                    right_code)) then
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
+            end if
+
+            ! ISO/IEC 1539-1:2018 Section 10.1.5.2: Logical operators require LOGICAL operands
+            ! Fixes issue #2457: Prevent emitting logical operators on non-logical types
+            if (trim(fortran_operator) == ".and." .or. trim(fortran_operator) == ".or." &
+                .or. trim(fortran_operator) == ".eqv." .or. trim(fortran_operator) == &
+                ".neqv.") then
+                call validate_logical_operator_types(arena, node, fortran_operator)
             end if
 
             unary_minus = (trim(fortran_operator) == "-") .and. &
