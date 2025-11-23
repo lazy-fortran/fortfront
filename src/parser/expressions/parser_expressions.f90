@@ -443,6 +443,8 @@ contains
         type(token_view_t) :: view
         logical :: expect_operand, should_exit
         type(token_t) :: token
+        integer :: iteration_count
+        integer, parameter :: MAX_ITERATIONS = 100000
 
         call operator_stack_clear(operators)
         call operand_stack_clear(operands)
@@ -450,8 +452,10 @@ contains
         call build_token_view(view, parser)
         expr_index = 0
         expect_operand = .true.
+        iteration_count = 0
 
-        main_loop: do while (.true.)
+        main_loop: do while (iteration_count < MAX_ITERATIONS)
+            iteration_count = iteration_count + 1
             token = view_peek_token(view, parser)
             if (token%kind == TK_EOF) exit main_loop
 
