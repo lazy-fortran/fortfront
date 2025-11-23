@@ -2,6 +2,7 @@
 # Entries are relative to the examples/ directory. Paths use forward slashes.
 f90/equivalence_common_block.f90
 f90/issue_common_block_ordering.f90
+f90/issue_2455_array_constructor_arg.f90  # covered by test_issue_2455_argument_syntax_roundtrip (skipped - GCC 14 codegen issue, not parser issue)
 f90/issue_1787_continue_in_if.f90
 f90/issue_1861_nested_do_print.f90
 f90/issue_1889_single_line_if.f90
