@@ -19,6 +19,8 @@ module parser_procedure_bodies_module
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
     use parser_do_constructs_module, only: parse_do_loop
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
+                                               parse_select_rank
     use parser_utilities, only: skip_to_end_of_line
     use parser_io_statements_module, only: parse_print_statement
     use parser_control_statements_module, only: parse_entry_statement
@@ -463,6 +465,33 @@ contains
             stmt_index = parse_do_loop(parser, arena)
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
+            end if
+        else if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "select") then
+            ! Handle SELECT constructs (case/type/rank)
+            ! Peek ahead to determine which select construct
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                token = parser%tokens(parser%current_token + 1)
+                if (token%kind == TK_KEYWORD) then
+                    if (to_lower(token%text) == "case") then
+                        stmt_index = parse_select_case(parser, arena)
+                    else if (to_lower(token%text) == "type") then
+                        stmt_index = parse_select_type(parser, arena)
+                    else if (to_lower(token%text) == "rank") then
+                        stmt_index = parse_select_rank(parser, arena)
+                    else
+                        stmt_index = 0
+                    end if
+                else
+                    stmt_index = 0
+                end if
+            else
+                stmt_index = 0
+            end if
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            else
+                ! If parsing failed, consume the select token to avoid infinite loop
+                consumed_token = parser%consume()
             end if
         else if (token%kind /= TK_NEWLINE) then
             if (token%kind == TK_KEYWORD) then
