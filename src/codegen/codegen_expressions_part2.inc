@@ -267,30 +267,30 @@
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
                 step_code = trim(step_code)
                 if (allocated(node%var_name)) then
-                    inner = "(" // expr_code // ", " // node%var_name // "=" // &
-                            start_code // ", " // end_code // ", " // step_code // ")"
+                    inner = expr_code // ", " // node%var_name // "=" // &
+                            start_code // ", " // end_code // ", " // step_code
                 else
-                    inner = "(" // expr_code // ", i=" // start_code // ", " // &
-                            end_code // ", " // step_code // ")"
+                    inner = expr_code // ", i=" // start_code // ", " // &
+                            end_code // ", " // step_code
                 end if
             else
                 if (allocated(node%var_name)) then
-                    inner = "(" // expr_code // ", " // node%var_name // "=" // &
-                            start_code // ", " // end_code // ")"
+                    inner = expr_code // ", " // node%var_name // "=" // &
+                            start_code // ", " // end_code
                 else
-                    inner = "(" // expr_code // ", i=" // start_code // ", " // &
-                            end_code // ")"
+                    inner = expr_code // ", i=" // start_code // ", " // &
+                            end_code
                 end if
             end if
 
             if (present(type_spec)) then
                 if (len_trim(type_spec) > 0) then
-                    code = "(/ " // trim(type_spec) // " :: " // trim(inner) // " /)"
+                    code = "[" // trim(type_spec) // " :: (" // trim(inner) // ")]"
                 else
-                    code = "(/ " // trim(inner) // " /)"
+                    code = "[(" // trim(inner) // ")]"
                 end if
             else
-                code = "(/ " // trim(inner) // " /)"
+                code = "[(" // trim(inner) // ")]"
             end if
         class default
             ! Not a do loop node - fallback
