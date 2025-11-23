@@ -19,6 +19,8 @@ module parser_procedure_bodies_module
     use parser_procedure_shared_module, only: consume_optional_return_type, &
                                               keyword_can_be_function_name
     use parser_do_constructs_module, only: parse_do_loop
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
+                                               parse_select_rank
     use parser_utilities, only: skip_to_end_of_line
     use parser_io_statements_module, only: parse_print_statement
     use parser_control_statements_module, only: parse_entry_statement
@@ -364,9 +366,11 @@ contains
     end function parse_function_in_module
 
     ! Basic statement parsing for subroutine/function bodies (avoiding circular deps)
-    function parse_basic_statement_in_subroutine(parser, arena) result(stmt_index)
+    function parse_basic_statement_in_subroutine(parser, arena, body_indices) &
+        result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout), optional :: body_indices(:)
         integer :: stmt_index
         type(token_t) :: token
 
@@ -395,7 +399,11 @@ contains
                         integer, allocatable :: decl_indices(:)
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            stmt_index = decl_indices(1)  ! Return first index
+                            stmt_index = decl_indices(1)
+                            if (size(decl_indices) > 1 .and. present(body_indices)) then
+                                call append_multi_declarations(body_indices, &
+                                                               decl_indices)
+                            end if
                         else
                             stmt_index = 0
                         end if
@@ -447,6 +455,7 @@ contains
         integer, allocatable, intent(inout) :: body_indices(:)
         integer :: nested_index, stmt_index
         type(token_t) :: consumed_token
+        type(token_t) :: lookahead
 
         if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "subroutine") then
             nested_index = parse_subroutine_in_module(parser, arena)
@@ -464,6 +473,33 @@ contains
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
             end if
+        else if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "select") then
+            ! Handle SELECT constructs (case/type/rank)
+            ! Peek ahead to determine which select construct
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                lookahead = parser%tokens(parser%current_token + 1)
+                if (lookahead%kind == TK_KEYWORD) then
+                    if (to_lower(lookahead%text) == "case") then
+                        stmt_index = parse_select_case(parser, arena)
+                    else if (to_lower(lookahead%text) == "type") then
+                        stmt_index = parse_select_type(parser, arena)
+                    else if (to_lower(lookahead%text) == "rank") then
+                        stmt_index = parse_select_rank(parser, arena)
+                    else
+                        stmt_index = 0
+                    end if
+                else
+                    stmt_index = 0
+                end if
+            else
+                stmt_index = 0
+            end if
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            else
+                ! If parsing failed, consume the select token to avoid infinite loop
+                consumed_token = parser%consume()
+            end if
         else if (token%kind /= TK_NEWLINE) then
             if (token%kind == TK_KEYWORD) then
                 stmt_index = try_parse_keyword_assignment(parser, arena, .true.)
@@ -474,7 +510,8 @@ contains
             end if
 
             if (stmt_index == 0) then
-                stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+                stmt_index = parse_basic_statement_in_subroutine(parser, arena, &
+                                                                 body_indices)
             end if
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
@@ -483,6 +520,16 @@ contains
             consumed_token = parser%consume()
         end if
     end subroutine append_body_item
+
+    subroutine append_multi_declarations(body_indices, decl_indices)
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, allocatable, intent(in) :: decl_indices(:)
+
+        if (.not. allocated(decl_indices)) return
+        if (size(decl_indices) <= 1) return
+
+        body_indices = [body_indices, decl_indices(2:)]
+    end subroutine append_multi_declarations
 
     ! Simple assignment statement parser for subroutine bodies
     function parse_simple_assignment_statement(parser, arena) result(stmt_index)

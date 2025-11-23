@@ -6,6 +6,8 @@ module parser_procedure_definition_bodies_module
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_if_statements_module, only: parse_if_statement_tokens
     use parser_do_constructs_module, only: parse_do_loop
+    use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
+                                               parse_select_rank
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
                                                  parse_comment_or_directive
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
@@ -411,11 +413,14 @@ contains
 
     logical function is_if_statement_start(first_token) result(is_if_start)
         type(token_t), intent(in) :: first_token
+        character(len=:), allocatable :: token_lower
 
         is_if_start = first_token%kind == TK_KEYWORD
         if (is_if_start) then
-            is_if_start = first_token%text == "if" .or. &
-                          first_token%text == "do"
+            token_lower = to_lower(first_token%text)
+            is_if_start = trim(token_lower) == "if" .or. &
+                          trim(token_lower) == "do" .or. &
+                          trim(token_lower) == "select"
         end if
     end function is_if_statement_start
 
@@ -442,9 +447,9 @@ contains
         end if
 
         ! Set initial depth based on statement type
-        if (stmt_type == "do") then
-            depth = 1  ! We're already at the "do" keyword
-            pos = stmt_start + 1  ! Skip the initial "do" token
+        if (stmt_type == "do" .or. to_lower(stmt_type) == "select") then
+            depth = 1  ! We're already at the "do" or "select" keyword
+            pos = stmt_start + 1  ! Skip the initial token
         else
             depth = 0
             pos = stmt_start
@@ -502,6 +507,24 @@ contains
                             end if
                         end if
                     end select
+                case default
+                    if (to_lower(stmt_type) == "select") then
+                        select case (to_lower(all_tokens(pos)%text))
+                        case ("select")
+                            depth = depth + 1
+                        case ("end")
+                            if (pos + 1 <= size(all_tokens)) then
+                                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                                    to_lower(all_tokens(pos + 1)%text) == "select") then
+                                    depth = depth - 1
+                                    if (depth <= 0) then
+                                        stmt_end = min(size(all_tokens), pos + 1)
+                                        return
+                                    end if
+                                end if
+                            end if
+                        end select
+                    end if
                 end select
             end if
             stmt_end = pos
@@ -652,6 +675,8 @@ contains
                     stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
                 else if (trim(token_lower) == "do") then
                     stmt_index = parse_do_statement_tokens(stmt_tokens, arena)
+                else if (trim(token_lower) == "select") then
+                    stmt_index = parse_select_statement_tokens(stmt_tokens, arena)
                 end if
             end if
         end if
@@ -683,6 +708,59 @@ contains
         ! Parse the DO loop using the existing DO loop parser
         do_index = parse_do_loop(do_parser, arena)
     end function parse_do_statement_tokens
+
+    integer function parse_select_statement_tokens(stmt_tokens, arena) &
+        result(select_index)
+        type(token_t), intent(in) :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_state_t) :: select_parser
+        type(token_t) :: next_token
+        character(len=:), allocatable :: next_lower
+
+        ! Create a parser state from the tokens
+        select_parser = create_parser_state(stmt_tokens)
+
+        ! Consume SELECT keyword
+        next_token = select_parser%consume()
+
+        ! Check what type of select construct (case/type/rank)
+        do while (select_parser%current_token <= size(stmt_tokens))
+            next_token = select_parser%peek()
+            if (next_token%kind == TK_WHITESPACE .or. &
+                next_token%kind == TK_NEWLINE .or. &
+                next_token%kind == TK_COMMENT) then
+                next_token = select_parser%consume()
+            else
+                exit
+            end if
+        end do
+
+        if (select_parser%current_token <= size(stmt_tokens)) then
+            next_token = select_parser%peek()
+            if (next_token%kind == TK_KEYWORD) then
+                next_lower = to_lower(next_token%text)
+                if (trim(next_lower) == "case") then
+                    ! Reset parser to beginning and call parse_select_case
+                    select_parser = create_parser_state(stmt_tokens)
+                    select_index = parse_select_case(select_parser, arena)
+                else if (trim(next_lower) == "type") then
+                    ! Reset parser to beginning and call parse_select_type
+                    select_parser = create_parser_state(stmt_tokens)
+                    select_index = parse_select_type(select_parser, arena)
+                else if (trim(next_lower) == "rank") then
+                    ! Reset parser to beginning and call parse_select_rank
+                    select_parser = create_parser_state(stmt_tokens)
+                    select_index = parse_select_rank(select_parser, arena)
+                else
+                    select_index = 0
+                end if
+            else
+                select_index = 0
+            end if
+        else
+            select_index = 0
+        end if
+    end function parse_select_statement_tokens
 
     subroutine parse_contains_section(parser, arena, procedure_name, end_keyword, &
                                       body_indices, parse_function_proc, &
