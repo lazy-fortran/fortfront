@@ -201,6 +201,9 @@
         integer, allocatable :: filtered_body_indices(:)
         character(len=:), allocatable :: use_section
         integer, allocatable :: trimmed_indices(:)
+        character(len=:), allocatable :: array_result_decl
+        character(len=:), allocatable :: array_result_name
+        logical :: array_result_declared
 
         call copy_indices(node%param_indices, param_indices)
         call copy_indices(node%body_indices, body_indices)
@@ -222,13 +225,27 @@
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
         body = body // collect_recursive_result_decl(arena, node)
+        array_result_decl = collect_array_result_decl(arena, node, &
+                                                      array_result_name)
+        array_result_declared = allocated(array_result_decl)
+        if (array_result_declared) &
+            array_result_declared = len_trim(array_result_decl) > 0
+        if (array_result_declared) body = body // array_result_decl
         body = body // collect_entry_parameter_decls(arena, node)
-        body = body // collect_local_variable_decls(arena, node, param_map)
+        body = body // collect_local_variable_decls(arena, node, param_map, &
+                                                    array_result_declared)
 
         call filter_implicit_statements(arena, body_indices, filtered_body_indices)
         body = body // generate_grouped_body_with_params(arena, &
                                                          filtered_body_indices, 1, &
                                                          param_map, node)
+        if (allocated(node%result_variable)) then
+            body = dedupe_result_declaration(body, trim(node%result_variable))
+        end if
+        if (allocated(node%name)) then
+            body = dedupe_result_declaration(body, trim(node%name))
+            body = dedupe_result_declaration(body, trim(node%name) // "_result")
+        end if
         call reorder_import_lines(body)
         call rename_result_variable_in_body(node, body, arena)
     end function build_function_body_section
@@ -722,12 +739,14 @@
         character(len=:), allocatable :: result_name
         logical :: header_has_type
         logical :: requires_deferred_attrs
+        logical :: has_fixed_shape_result
         character(len=:), allocatable :: signature
         integer :: func_pos
 
         needed = .false.
         header_has_type = .false.
         requires_deferred_attrs = .false.
+        has_fixed_shape_result = .false.
 
         if (allocated(func%name)) then
             function_name = trim(func%name)
@@ -747,6 +766,12 @@
 
         if (allocated(func%return_type)) then
             if (len_trim(func%return_type) > 0) header_has_type = .true.
+            if (len_trim(func%return_type) > 0) then
+                has_fixed_shape_result = .not. is_allocatable_array_return( &
+                                            func%return_type) .and. &
+                                         .not. is_deferred_shape_array( &
+                                             func%return_type)
+            end if
         end if
         if (.not. header_has_type) header_has_type = func%has_return_type_in_header
         if (.not. header_has_type) header_has_type = func%inferred_type%kind /= 0
@@ -767,6 +792,11 @@
         if (len_trim(result_name) == 0) return
 
         if (has_result_variable_declaration(arena, func, result_name)) return
+
+        if (should_use_result_for_array(arena, func) .and. has_fixed_shape_result) then
+            needed = .false.
+            return
+        end if
 
         if (trim(result_name) /= trim(function_name)) then
             if (.not. header_has_type) then
@@ -825,10 +855,12 @@
         end do
     end function has_result_variable_declaration
 
-    function collect_local_variable_decls(arena, func, param_map) result(decl_code)
+    function collect_local_variable_decls(arena, func, param_map, result_declared) &
+        result(decl_code)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func
         type(parameter_info_t), intent(in) :: param_map(:)
+        logical, intent(in), optional :: result_declared
         character(len=:), allocatable :: decl_code
         character(len=64), allocatable :: local_vars(:)
         integer :: i
@@ -839,12 +871,18 @@
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: value_code
         character(len=:), allocatable :: lowered_value
+        character(len=:), allocatable :: lowered_return_type
         type(mono_type_t) :: decl_type
         logical :: is_array_value
+        logical :: skip_local_result_decl
+        logical :: array_result_decl_handled
+        logical :: skip_result_decl
 
         decl_code = ""
         n_locals = 0
         capacity = 0
+        skip_result_decl = .false.
+        if (present(result_declared)) skip_result_decl = result_declared
 
         result_name = ""
         if (allocated(func%result_variable)) then
@@ -860,10 +898,11 @@
             if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
             if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
-            select type (stmt => arena%entries(stmt_idx)%node)
-            type is (assignment_node)
-                if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
+                select type (stmt => arena%entries(stmt_idx)%node)
+                type is (assignment_node)
+                    if (stmt%target_index <= 0 .or. stmt%target_index > &
+                        arena%size) cycle
+                    if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
 
                 select type (target => arena%entries(stmt%target_index)%node)
                 type is (identifier_node)
@@ -875,6 +914,47 @@
                     var_name = trim(target%name)
 
                     if (is_function_result_identifier(func, var_name)) then
+                        if (skip_result_decl) cycle
+                        skip_local_result_decl = .false.
+                        array_result_decl_handled = .false.
+                        if (allocated(func%return_type)) then
+                            lowered_return_type = to_lower(adjustl(func%return_type))
+                            if (len_trim(lowered_return_type) > 0) then
+                                if (index(lowered_return_type, 'dimension') > 0) then
+                                    if (.not. is_allocatable_array_return( &
+                                            func%return_type) .and. &
+                                        .not. is_deferred_shape_array( &
+                                            func%return_type)) then
+                                        skip_local_result_decl = .true.
+                                    end if
+                                end if
+                            end if
+                        end if
+                        if (skip_local_result_decl) cycle
+
+                        if (should_use_result_for_array(arena, func)) then
+                            array_result_decl_handled = allocated(func%name)
+                            if (array_result_decl_handled) then
+                                array_result_decl_handled = &
+                                    allocated(func%return_type)
+                            end if
+                            if (array_result_decl_handled) then
+                                array_result_decl_handled = &
+                                    len_trim(func%return_type) > 0
+                            end if
+                            if (array_result_decl_handled) then
+                                if (is_allocatable_array_return(func%return_type)) then
+                                    array_result_decl_handled = .false.
+                                end if
+                            end if
+                            if (array_result_decl_handled) then
+                                if (is_deferred_shape_array(func%return_type)) then
+                                    array_result_decl_handled = .false.
+                                end if
+                            end if
+                        end if
+                        if (array_result_decl_handled) cycle
+
                         if (.not. is_array_value) then
                             value_code = generate_code_from_arena(arena, &
                                                                   stmt%value_index)
@@ -895,6 +975,19 @@
                         if (.not. needs_result_declaration(arena, func, decl_type)) &
                             cycle
                         var_name = trim(result_name)
+
+                        if (allocated(func%return_type)) then
+                            lowered_return_type = to_lower(adjustl(func%return_type))
+                            if (index(lowered_return_type, 'dimension') > 0) then
+                                if (.not. is_allocatable_array_return( &
+                                        func%return_type)) then
+                                    if (.not. is_deferred_shape_array( &
+                                            func%return_type)) then
+                                        cycle
+                                    end if
+                                end if
+                            end if
+                        end if
                     end if
 
                     if (is_parameter_name(var_name, param_map)) cycle
@@ -928,6 +1021,45 @@
             end select
         end do
     end function collect_local_variable_decls
+
+    function dedupe_result_declaration(body, result_name) result(clean_body)
+        character(len=:), allocatable, intent(in) :: body
+        character(len=*), intent(in) :: result_name
+        character(len=:), allocatable :: clean_body
+        character(len=:), allocatable :: pattern
+        integer :: first_pos
+        integer :: search_pos
+        integer :: line_start
+        integer :: line_end
+
+        clean_body = body
+        if (.not. allocated(clean_body)) return
+        if (len_trim(result_name) == 0) return
+
+        pattern = ":: " // trim(result_name)
+        first_pos = index(clean_body, pattern)
+        if (first_pos == 0) return
+
+        search_pos = index(clean_body(first_pos + len(pattern):), pattern)
+        do while (search_pos > 0)
+            search_pos = search_pos + first_pos + len(pattern) - 1
+            line_start = search_pos
+            do while (line_start > 1 .and. clean_body(line_start - 1: &
+                                                     line_start - 1) /= &
+                      new_line('A'))
+                line_start = line_start - 1
+            end do
+            line_end = index(clean_body(search_pos:), new_line('A'))
+            if (line_end == 0) then
+                clean_body = clean_body(:line_start - 1)
+            else
+                line_end = line_end + search_pos - 1
+                clean_body = clean_body(:line_start - 1) // &
+                             clean_body(line_end + 1:)
+            end if
+            search_pos = index(clean_body(first_pos + len(pattern):), pattern)
+        end do
+    end function dedupe_result_declaration
 
     subroutine collect_vars_from_print(arena, stmt, param_map, local_vars, &
                                        n_locals, capacity, result_name, decl_code)

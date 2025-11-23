@@ -13,13 +13,11 @@ issue_2444_data_trailing_comma.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 8.6.7 (
 # Unsupported language features
 
 # Lazy Fortran - Partial fixes still need work
-issue_2066_array_function_rank_mismatch.lf  # elemental-style array function rank mismatch (partial fix in PR #2095) #2066
 
 # Standard Fortran - Codegen bugs
 tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
 
 # Lazy Fortran - Recent failures needing implementation
-issue_1816_multiple_returns.lf  # array literal return type inference from result = [q, r] not implemented #1816
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
 issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of array (segfault in monomorphization) #2153
 

@@ -11,6 +11,7 @@ program test_issue_1816_multiple_returns
     if (.not. test_result_variable_detection()) all_passed = .false.
     if (.not. test_local_variable_declarations()) all_passed = .false.
     if (.not. test_array_result_type_inference()) all_passed = .false.
+    if (.not. test_result_variable_declaration()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -150,6 +151,44 @@ contains
             print *, '  PASS: Array result type inferred'
         end if
     end function test_array_result_type_inference
+
+    logical function test_result_variable_declaration()
+        character(len=:), allocatable :: source
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+        logical :: has_result_decl
+
+        test_result_variable_declaration = .true.
+        print *, 'Testing result variable declaration...'
+
+        call read_example('examples/lf/issue_1816_multiple_returns.lf', source)
+        call transform_lazy_fortran_string(source, output, error_msg)
+
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: Unexpected error -', trim(error_msg)
+                test_result_variable_declaration = .false.
+                return
+            end if
+        end if
+
+        if (.not. allocated(output)) then
+            print *, '  FAIL: No output generated'
+            test_result_variable_declaration = .false.
+            return
+        end if
+
+        has_result_decl = index(output, ':: result') > 0
+
+        if (.not. has_result_decl) then
+            print *, '  FAIL: Result variable not declared in function body'
+            test_result_variable_declaration = .false.
+        end if
+
+        if (test_result_variable_declaration) then
+            print *, '  PASS: Result variable declared'
+        end if
+    end function test_result_variable_declaration
 
     subroutine read_example(filepath, content)
         character(len=*), intent(in) :: filepath

@@ -16,19 +16,20 @@
 
         decl_code = ""
 
-        ! ISO/IEC 1539-1:2018 Section 15.6.2.1: Result variable declaration rules:
-        ! 1. Typed prefix (e.g., "integer function f() result(r)"):
+        ! ISO/IEC 1539-1:2018 Section 15.6.2.1 result variable declaration rules:
+        ! 1. Typed prefix (e.g., integer function f() result(r)):
         !    - Type prefix implicitly declares result variable
-        !    - Explicit declaration is INVALID (gfortran error: "already has basic type")
-        ! 2. Untyped function (e.g., "function f() result(r)"):
-        !    - Result variable MUST be explicitly declared in body
-        !    - result() clause does NOT create implicit declaration
+        !    - Explicit declaration is invalid (gfortran error already has basic type)
+        ! 2. Untyped function (e.g., function f() result(r)):
+        !    - Result variable must be explicitly declared in body
+        !    - result() clause does not create implicit declaration
 
         if (.not. allocated(node%name)) return
         function_name = trim(node%name)
 
-        ! If function has type prefix, result is implicitly declared - do not add explicit decl
-        ! BUT: allocatable arrays are NOT emitted as type prefix (handled in local decls)
+        ! If function has type prefix, result is implicitly declared - do not add
+        ! explicit decl. Allocatable arrays are not emitted as type prefix (handled
+        ! in local declarations).
         if (allocated(node%return_type)) then
             if (len_trim(node%return_type) > 0) then
                 if (.not. is_allocatable_array_return(node%return_type)) then
@@ -38,7 +39,8 @@
             end if
         end if
 
-        ! Determine if result() clause will be generated (same logic as build_function_result_clause)
+        ! Determine if result() clause will be generated (same logic as
+        ! build_function_result_clause)
         if (allocated(node%result_variable)) then
             missing_result_variable = len_trim(node%result_variable) == 0
             if (.not. missing_result_variable) then
@@ -57,9 +59,11 @@
             will_emit_result_clause = .true.
         else if (node%is_recursive .and. missing_result_variable) then
             will_emit_result_clause = .true.
-        else if (should_use_result_for_array(arena, node) .and. missing_result_variable) then
+        else if (should_use_result_for_array(arena, node) .and. &
+                 missing_result_variable) then
             will_emit_result_clause = .true.
-        else if (allocated(node%result_variable) .and. .not. missing_result_variable) then
+        else if (allocated(node%result_variable) .and. &
+                 .not. missing_result_variable) then
             will_emit_result_clause = .true.
         end if
 
@@ -79,7 +83,8 @@
         has_existing_decl = .false.
         if (allocated(node%body_indices)) then
             do i = 1, size(node%body_indices)
-                if (node%body_indices(i) <= 0 .or. node%body_indices(i) > arena%size) cycle
+                if (node%body_indices(i) <= 0 .or. node%body_indices(i) > &
+                    arena%size) cycle
                 if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
                 select type (body_node => arena%entries(node%body_indices(i))%node)
                 type is (declaration_node)
@@ -96,11 +101,13 @@
         ! If declaration already exists, don't add another
         if (has_existing_decl) return
 
-        ! Allocatable and deferred-shape arrays are declared in local variable declarations - skip here
+        ! Allocatable and deferred-shape arrays are declared in local variable
+        ! declarations - skip here
         if (allocated(node%return_type)) then
             if (is_allocatable_array_return(node%return_type)) return
-            ! Also skip deferred-shape arrays (dimension(:), dimension(:,:), etc.) even without allocatable keyword
-            ! because collect_local_variable_decls will add the allocatable attribute
+            ! Also skip deferred-shape arrays (dimension(:), dimension(:,:), etc.)
+            ! even without allocatable keyword because collect_local_variable_decls
+            ! will add the allocatable attribute
             if (is_deferred_shape_array(node%return_type)) return
         end if
 
@@ -121,45 +128,96 @@
                     trim(result_name) // new_line('A')
     end function collect_recursive_result_decl
 
-    function collect_array_result_decl(arena, node) result(decl_code)
+    function collect_array_result_decl(arena, node, result_name_out) &
+        result(decl_code)
+        use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
+        character(len=:), allocatable, intent(out), optional :: result_name_out
         character(len=:), allocatable :: decl_code
         character(len=:), allocatable :: type_str
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: function_name
-        logical :: missing_result_variable
+        character(len=:), allocatable :: lowered
+        logical :: has_existing_decl
+        logical :: standardize_types_enabled
+        integer :: i
+        integer :: k
 
         decl_code = ""
+        if (present(result_name_out)) result_name_out = ""
 
         if (.not. should_use_result_for_array(arena, node)) return
         if (.not. allocated(node%name)) return
 
         function_name = trim(node%name)
 
-        if (allocated(node%result_variable)) then
-            missing_result_variable = len_trim(node%result_variable) == 0
-            if (.not. missing_result_variable) then
-                if (len_trim(function_name) > 0) then
-                    missing_result_variable = &
-                        (trim(node%result_variable) == function_name)
-                end if
-            end if
-        else
-            missing_result_variable = .true.
-        end if
-        if (.not. missing_result_variable) return
-
         if (should_rename_deferred_char_result(node)) return
 
         if (.not. allocated(node%return_type)) return
         if (len_trim(node%return_type) == 0) return
 
+        if (node%inferred_type%alloc_info%is_allocatable) return
+
         type_str = trim(node%return_type)
-        result_name = trim(function_name) // "_result"
+
+        if (allocated(node%result_variable) .and. &
+            len_trim(node%result_variable) > 0 .and. &
+            trim(node%result_variable) /= function_name) then
+            result_name = trim(node%result_variable)
+        else
+            result_name = trim(function_name) // "_result"
+        end if
+
+        has_existing_decl = .false.
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                if (node%body_indices(i) <= 0 .or. node%body_indices(i) > &
+                    arena%size) cycle
+                if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
+                select type (body_node => arena%entries(node%body_indices(i))%node)
+                type is (declaration_node)
+                    if (body_node%is_multi_declaration .and. &
+                        allocated(body_node%var_names)) then
+                        do k = 1, size(body_node%var_names)
+                            if (trim(body_node%var_names(k)) == trim(result_name)) then
+                                has_existing_decl = .true.
+                                exit
+                            end if
+                            if (trim(body_node%var_names(k)) == &
+                                trim(function_name)) then
+                                has_existing_decl = .true.
+                                exit
+                            end if
+                        end do
+                        if (has_existing_decl) exit
+                    else if (allocated(body_node%var_name)) then
+                        if (trim(body_node%var_name) == trim(result_name) .or. &
+                            trim(body_node%var_name) == trim(function_name)) then
+                            has_existing_decl = .true.
+                            exit
+                        end if
+                    end if
+                end select
+                if (has_existing_decl) exit
+            end do
+        end if
+
+        if (has_existing_decl) return
+
+        if (is_allocatable_array_return(type_str)) return
+        if (is_deferred_shape_array(type_str)) return
+
+        call get_type_standardization(standardize_types_enabled)
+        if (standardize_types_enabled) then
+            lowered = to_lower(trim(type_str))
+            if (lowered == 'real') type_str = "real(8)"
+        end if
 
         decl_code = "    " // trim(type_str) // " :: " // &
                     trim(result_name) // new_line('A')
+
+        if (present(result_name_out)) result_name_out = trim(result_name)
     end function collect_array_result_decl
 
     subroutine get_deferred_char_type_info(arena, node, full_type, base_type, &
@@ -440,19 +498,26 @@
             if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
             if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
-            select type (decl => arena%entries(stmt_idx)%node)
-            type is (declaration_node)
-                if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
-                    do k = 1, size(decl%var_names)
-                        if (trim(decl%var_names(k)) == trim(function_name) .or. &
-                            (len_trim(result_name) > 0 .and. &
-                             trim(decl%var_names(k)) == trim(result_name))) then
-                            if (decl%is_array .or. decl%inferred_type%kind == TARRAY) then
-                                has_array_declaration = .true.
-                                exit
+                select type (decl => arena%entries(stmt_idx)%node)
+                type is (declaration_node)
+                    if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                        do k = 1, size(decl%var_names)
+                            if (trim(decl%var_names(k)) == trim(function_name)) then
+                                if (decl%is_array .or. &
+                                    decl%inferred_type%kind == TARRAY) then
+                                    has_array_declaration = .true.
+                                    exit
+                                end if
+                            else if (len_trim(result_name) > 0) then
+                                if (trim(decl%var_names(k)) == trim(result_name)) then
+                                    if (decl%is_array .or. &
+                                        decl%inferred_type%kind == TARRAY) then
+                                        has_array_declaration = .true.
+                                        exit
+                                    end if
+                                end if
                             end if
-                        end if
-                    end do
+                        end do
                 else if (allocated(decl%var_name)) then
                     if (trim(decl%var_name) == trim(function_name)) then
                         if (decl%is_array .or. decl%inferred_type%kind == TARRAY) then
@@ -479,7 +544,8 @@
 
             select type (stmt => arena%entries(stmt_idx)%node)
                 type is (assignment_node)
-                    if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) cycle
+                    if (stmt%target_index <= 0 .or. stmt%target_index > &
+                        arena%size) cycle
                     if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
 
                     select type (target => arena%entries(stmt%target_index)%node)

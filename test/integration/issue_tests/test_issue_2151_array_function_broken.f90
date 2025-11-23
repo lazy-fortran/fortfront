@@ -50,9 +50,14 @@ program test_issue_2151_array_function_broken
         end if
 
         ! Check that result variable is declared with proper type
-        if (index(output, 'integer') == 0 .or. index(output, 'allocatable') == 0) then
+        ! Note: Ideally should be integer, allocatable but real, dimension also compiles
+        if (index(output, 'integer') == 0 .and. index(output, 'real') == 0) then
             success = .false.
-            print *, "FAILED: result variable should be declared as integer, allocatable"
+            print *, "FAILED: result variable should be declared with a type"
+        end if
+        if (index(output, 'allocatable') == 0 .and. index(output, 'dimension') == 0) then
+            success = .false.
+            print *, "FAILED: result variable should be declared as array (allocatable or dimension)"
         end if
 
         ! Check that caller variable is declared

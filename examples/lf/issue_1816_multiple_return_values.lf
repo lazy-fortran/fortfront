@@ -1,0 +1,8 @@
+function divmod(a, b)
+    q = a / b
+    r = mod(a, b)
+    result = [q, r]
+end function
+
+res = divmod(17, 5)
+print *, res
