@@ -89,7 +89,8 @@
         end if
 
         ! Check if result variable already has a declaration in body
-        ! If found, emit it; if not found, generate one from inferred type
+        ! If found, don't generate a new one - let generate_grouped_body_with_params emit it
+        ! in the correct order (after parameter declarations)
         has_existing_decl = .false.
         if (allocated(node%body_indices)) then
             do i = 1, size(node%body_indices)
@@ -100,15 +101,10 @@
                     ! Check both single and multi-declarations
                     if (allocated(body_node%var_name)) then
                         if (trim(body_node%var_name) == trim(result_name)) then
-                            ! Found existing declaration - emit it
-                            decl_code = generate_code_from_arena(arena, node%body_indices(i))
-                            if (.not. allocated(decl_code)) decl_code = ""
-                            if (len_trim(decl_code) > 0) then
-                                ! Preserve original declaration formatting
-                                if (index(decl_code, new_line('A')) == 0) then
-                                    decl_code = "    " // trim(decl_code) // new_line('A')
-                                end if
-                            end if
+                            ! Found existing declaration in body
+                            ! Don't emit it here - let it be emitted in correct order by generate_grouped_body
+                            has_existing_decl = .true.
+                            decl_code = ""
                             return
                         end if
                     else if (allocated(body_node%var_names)) then
@@ -117,15 +113,10 @@
                             integer :: j
                             do j = 1, size(body_node%var_names)
                                 if (trim(body_node%var_names(j)) == trim(result_name)) then
-                                    ! Found existing declaration - emit it
-                                    decl_code = generate_code_from_arena(arena, node%body_indices(i))
-                                    if (.not. allocated(decl_code)) decl_code = ""
-                                    if (len_trim(decl_code) > 0) then
-                                        ! Preserve original declaration formatting
-                                        if (index(decl_code, new_line('A')) == 0) then
-                                            decl_code = "    " // trim(decl_code) // new_line('A')
-                                        end if
-                                    end if
+                                    ! Found existing declaration in body
+                                    ! Don't emit it here - let it be emitted in correct order by generate_grouped_body
+                                    has_existing_decl = .true.
+                                    decl_code = ""
                                     return
                                 end if
                             end do
