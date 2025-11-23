@@ -143,12 +143,25 @@ contains
         character(len=:), allocatable :: adjusted
         character(len=:), allocatable :: lowered
         character(len=:), allocatable :: kind_text
+        logical :: is_dummy_or_param
 
         adjusted = type_str
 
+        ! ISO/IEC 1539-1:2018 Section 7.4.4.4:
+        ! Assumed-length character (len=*) only valid for:
+        ! - Dummy arguments (has_intent=true)
+        ! - Named constants (is_parameter=true)
+        is_dummy_or_param = node%has_intent .or. node%is_parameter
+
         select case (trim(adjusted))
         case ("character(len=))", "character(len=)")
-            adjusted = "character(len=*)"
+            ! Only use len=* for dummy arguments or parameters
+            if (is_dummy_or_param) then
+                adjusted = "character(len=*)"
+            else
+                ! For local variables, use deferred-length allocatable
+                adjusted = "character(len=:), allocatable"
+            end if
         end select
 
         if (.not. is_character_type_string(adjusted)) return
@@ -159,7 +172,13 @@ contains
 
         select case (node%kind_value)
         case (-1)
-            adjusted = "character(len=*)"
+            ! Only use len=* for dummy arguments or parameters
+            if (is_dummy_or_param) then
+                adjusted = "character(len=*)"
+            else
+                ! For local variables, use deferred-length allocatable
+                adjusted = "character(len=:), allocatable"
+            end if
         case default
             if (node%kind_value > 0) then
                 kind_text = trim(adjustl(int_to_string(node%kind_value)))
