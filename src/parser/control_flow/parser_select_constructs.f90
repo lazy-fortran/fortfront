@@ -1,6 +1,7 @@
 module parser_select_constructs_module
     ! Parser module for SELECT CASE and SELECT TYPE constructs
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use string_utils_mod, only: to_lower
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use ast_types, only: LITERAL_STRING
@@ -145,7 +146,7 @@ contains
 
         ! Expect 'case'
         case_token = parser%consume()
-        if (case_token%kind /= TK_KEYWORD .or. case_token%text /= "case") then
+        if (case_token%kind /= TK_KEYWORD .or. to_lower(case_token%text) /= "case") then
             ! Error: expected 'case' after 'select'
             select_index = 0
             return
@@ -349,7 +350,7 @@ contains
 
         ! Expect 'type'
         type_token = parser%consume()
-        if (type_token%kind /= TK_KEYWORD .or. type_token%text /= "type") then
+        if (type_token%kind /= TK_KEYWORD .or. to_lower(type_token%text) /= "type") then
             select_index = 0
             return
         end if
@@ -629,7 +630,7 @@ contains
 
         ! Expect 'rank'
         rank_token = parser%consume()
-        if (rank_token%kind /= TK_KEYWORD .or. rank_token%text /= "rank") then
+        if (rank_token%kind /= TK_KEYWORD .or. to_lower(rank_token%text) /= "rank") then
             select_index = 0
             return
         end if
