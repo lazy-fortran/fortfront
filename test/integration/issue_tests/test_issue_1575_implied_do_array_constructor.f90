@@ -20,7 +20,7 @@ program test_issue_1575_implied_do_array_constructor
         end if
     end if
 
-    if (index(transformed, 'arr = (/(i*2, i=1, 10) /)') == 0) then
+    if (index(transformed, 'arr = [(i*2, i=1, 10)]') == 0) then
         print *, 'FAIL: implied-do constructor lost'
         print *, 'Output:'
         print *, trim(transformed)

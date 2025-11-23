@@ -1,5 +1,6 @@
 program test_issue_1580_dimension_statement
     use transformation_api, only: transform_lazy_fortran_string
+    implicit none
 
     call run_dimension_conversion_test()
     print *, ""
@@ -46,11 +47,11 @@ contains
             error stop 1
         end if
 
-        has_assignment = index(output_code, "arr1 = (/(i, i=1,10)/)") > 0
+        has_assignment = index(output_code, "arr1 = [(i, i=1,10)]") > 0
         has_assignment = has_assignment .or. &
-                         index(output_code, "arr1 = (/(i, i=1, 10) /)") > 0
+                         index(output_code, "arr1 = [(i, i=1, 10)]") > 0
         has_assignment = has_assignment .or. &
-                         index(output_code, "arr1 = (/(i, i = 1, 10) /)") > 0
+                         index(output_code, "arr1 = [(i, i = 1, 10)]") > 0
 
         if (.not. has_assignment) then
             print *, "FAIL: array constructor assignment not preserved"
