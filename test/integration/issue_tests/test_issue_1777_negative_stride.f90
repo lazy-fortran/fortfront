@@ -25,7 +25,7 @@ program test_issue_1777_negative_stride
         stop 1
     end if
 
-    if (index(transformed, '(/(i, i=10, 1, -2) /)') == 0) then
+    if (index(transformed, '[(i, i=10, 1, -2)]') == 0) then
         print *, 'FAIL: implied-do with negative stride lost'
         print *, 'Output:'
         print *, trim(transformed)

@@ -1,5 +1,6 @@
 program test_implied_do_loops
     use transformation_api, only: transform_lazy_fortran_string
+    implicit none
     character(len=:), allocatable :: output, error_msg
 
     write (*, '(A)') "=== Testing Implied Do Loop Array Constructors ==="
@@ -23,12 +24,12 @@ contains
             error stop 1
         end if
 
-        ! The generated code should use legacy (/ /) syntax for compatibility
-        if (contains_without_spaces(output, "(/(i,i=1,5)/)")) then
+        ! The generated code should use modern [...] syntax for compatibility
+        if (contains_without_spaces(output, "[(i,i=1,5)]")) then
             print *, "  PASS: Simple implied do loop"
         else
             print *, "  FAIL: Simple implied do loop - Expected" // &
-                     " (/ (i, i=1, 5) /) syntax"
+                     " [(i, i=1, 5)] syntax"
             print *, "  Got:", trim(output)
             error stop 1
         end if
@@ -45,11 +46,11 @@ contains
             error stop 1
         end if
 
-        if (contains_without_spaces(output, "sum((/(i*2,i=1,10)/))")) then
+        if (contains_without_spaces(output, "sum([(i*2,i=1,10)])")) then
             print *, "  PASS: Implied do with expression"
         else
             print *, "  FAIL: Implied do with expression - Expected" // &
-                     " sum((/ (i*2, i=1, 10) /))"
+                     " sum([(i*2, i=1, 10)])"
             print *, "  Got:", trim(output)
             error stop 1
         end if
@@ -58,13 +59,13 @@ contains
     subroutine test_nested_implied_do_levels()
         character(len=:), allocatable :: input
         character(len=*), parameter :: nested2_pattern = &
-            "reshape((/((i*10+j,j=1,3),i=1,3)/),[3,3])"
+            "reshape([((i*10+j,j=1,3),i=1,3)],[3,3])"
         character(len=*), parameter :: nested3_pattern = &
-            "reshape((/(((i*100+j*10+k,k=1,3),j=1,3),i=1,3)/),[3,3,3])"
+            "reshape([(((i*100+j*10+k,k=1,3),j=1,3),i=1,3)],[3,3,3])"
         character(len=*), parameter :: nested2_expect = &
-            "reshape((/((i*10 + j, j=1, 3), i=1, 3) /), [3, 3])"
+            "reshape([((i*10 + j, j=1, 3), i=1, 3)], [3, 3])"
         character(len=*), parameter :: nested3_expect = &
-            "reshape((/(((i*100 + j*10 + k, k=1, 3), j=1, 3), i=1, 3) /), " // &
+            "reshape([(((i*100 + j*10 + k, k=1, 3), j=1, 3), i=1, 3)], " // &
             "[3, 3, 3])"
 
         input = 'matrix = reshape([((i*10 + j, j=1,3), i=1,3)], [3,3])'
@@ -114,10 +115,10 @@ contains
             error stop 1
         end if
 
-        if (contains_without_spaces(output, "(/(sqrt(real(i)),i=1,5)/)")) then
+        if (contains_without_spaces(output, "[(sqrt(real(i)),i=1,5)]")) then
             print *, "  PASS: Nested functions with implied do"
         else
-            print *, "  FAIL: Nested functions with implied do - Expected legacy syntax"
+            print *, "  FAIL: Nested functions with implied do - Expected modern syntax"
             print *, "  Got:", trim(output)
             error stop 1
         end if
