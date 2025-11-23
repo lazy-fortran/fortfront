@@ -122,13 +122,15 @@
     end function collect_recursive_result_decl
 
     function collect_array_result_decl(arena, node) result(decl_code)
+        use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable :: decl_code
         character(len=:), allocatable :: type_str
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: function_name
-        logical :: missing_result_variable
+        logical :: has_existing_decl
+        integer :: i
 
         decl_code = ""
 
@@ -137,26 +139,43 @@
 
         function_name = trim(node%name)
 
-        if (allocated(node%result_variable)) then
-            missing_result_variable = len_trim(node%result_variable) == 0
-            if (.not. missing_result_variable) then
-                if (len_trim(function_name) > 0) then
-                    missing_result_variable = &
-                        (trim(node%result_variable) == function_name)
-                end if
-            end if
-        else
-            missing_result_variable = .true.
-        end if
-        if (.not. missing_result_variable) return
-
         if (should_rename_deferred_char_result(node)) return
 
         if (.not. allocated(node%return_type)) return
         if (len_trim(node%return_type) == 0) return
 
         type_str = trim(node%return_type)
-        result_name = trim(function_name) // "_result"
+
+        if (allocated(node%result_variable) .and. &
+            len_trim(node%result_variable) > 0 .and. &
+            trim(node%result_variable) /= function_name) then
+            result_name = trim(node%result_variable)
+        else
+            result_name = trim(function_name) // "_result"
+        end if
+
+        has_existing_decl = .false.
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                if (node%body_indices(i) <= 0 .or. node%body_indices(i) > arena%size) cycle
+                if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
+                select type (body_node => arena%entries(node%body_indices(i))%node)
+                type is (declaration_node)
+                    if (allocated(body_node%var_name)) then
+                        if (trim(body_node%var_name) == trim(result_name) .or. &
+                            trim(body_node%var_name) == trim(function_name)) then
+                            has_existing_decl = .true.
+                            exit
+                        end if
+                    end if
+                end select
+            end do
+        end if
+
+        if (has_existing_decl) return
+
+        if (is_allocatable_array_return(type_str)) return
+        if (is_deferred_shape_array(type_str)) return
 
         decl_code = "    " // trim(type_str) // " :: " // &
                     trim(result_name) // new_line('A')
