@@ -952,7 +952,18 @@
             select type (stmt => arena%entries(idx)%node)
             type is (declaration_node)
                 if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                    if (any(trim(stmt%var_names) == trim(result_name))) cycle
+                    block
+                        integer :: name_idx
+                        logical :: matches_result
+                        matches_result = .false.
+                        do name_idx = 1, size(stmt%var_names)
+                            if (trim(stmt%var_names(name_idx)) == trim(result_name)) then
+                                matches_result = .true.
+                                exit
+                            end if
+                        end do
+                        if (matches_result) cycle
+                    end block
                 else if (allocated(stmt%var_name)) then
                     if (trim(stmt%var_name) == trim(result_name)) cycle
                 end if
