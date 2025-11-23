@@ -4,7 +4,6 @@ program test_issue_2452_roundtrip_timeout
     implicit none
     character(len=:), allocatable :: source, output1, output2, error_msg
     logical :: success
-
     print *, "=== Testing Issue #2452: Roundtrip Timeout ==="
     print *
 
@@ -26,7 +25,6 @@ program test_issue_2452_roundtrip_timeout
     end if
 
     print *, "First pass: SUCCESS"
-    print *
 
     ! Second pass: parse emitted output -> emit again
     ! This is where the hang would occur before the fix
@@ -44,7 +42,6 @@ program test_issue_2452_roundtrip_timeout
     end if
 
     print *, "Second pass: SUCCESS"
-    print *
 
     ! Verify that output contains expected constructs
     success = .true.
@@ -66,7 +63,6 @@ program test_issue_2452_roundtrip_timeout
         stop 1
     end if
 
-    print *
     print *, "PASS: All roundtrip timeout tests passed"
     print *, "      First pass completed successfully"
     print *, "      Second pass completed successfully (no hang)"
