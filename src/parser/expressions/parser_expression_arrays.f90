@@ -58,7 +58,7 @@ contains
         element_count = 0
         allocate (temp_indices(20))
 
-        do
+        do while (element_count < 100000)
             element_count = element_count + 1
             if (element_count > size(temp_indices)) then
                 block
@@ -271,16 +271,22 @@ contains
                 spec_token = parser%consume()
                 type_spec_text = trim(type_spec_text) // spec_token%text
                 paren_depth = 1
-                do while (paren_depth > 0)
-                    peek_token = parser%peek()
-                    if (peek_token%text == "(") then
-                        paren_depth = paren_depth + 1
-                    else if (peek_token%text == ")") then
-                        paren_depth = paren_depth - 1
-                    end if
-                    spec_token = parser%consume()
-                    type_spec_text = type_spec_text // spec_token%text
-                end do
+                block
+                    integer :: paren_count
+                    integer, parameter :: MAX_PAREN_DEPTH = 1000
+                    paren_count = 0
+                    do while (paren_depth > 0 .and. paren_count < MAX_PAREN_DEPTH)
+                        paren_count = paren_count + 1
+                        peek_token = parser%peek()
+                        if (peek_token%text == "(") then
+                            paren_depth = paren_depth + 1
+                        else if (peek_token%text == ")") then
+                            paren_depth = paren_depth - 1
+                        end if
+                        spec_token = parser%consume()
+                        type_spec_text = type_spec_text // spec_token%text
+                    end do
+                end block
                 peek_token = parser%peek()
             end if
 
@@ -301,7 +307,7 @@ contains
             end if
         end if
 
-        do
+        do while (element_count < 100000)
             ! Skip newlines and comments inside array literals
             do
                 peek_token = parser%peek()
@@ -787,6 +793,8 @@ contains
         type(token_t), intent(out) :: close_token
         type(token_t) :: token
         integer :: arg_index
+        integer :: arg_count
+        integer, parameter :: MAX_ARGUMENTS = 10000
 
         if (parser%is_at_end()) then
             close_token = parser%peek()
@@ -799,8 +807,10 @@ contains
             if (arg_index > 0) then
                 allocate (arg_indices(1))
                 arg_indices(1) = arg_index
+                arg_count = 1
 
-                do
+                do while (arg_count < MAX_ARGUMENTS)
+                    arg_count = arg_count + 1
                     token = parser%peek()
                     if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
                     token = parser%consume()
