@@ -655,10 +655,15 @@
         ! Handle different syntax styles
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
-                ! Modern syntax: [1, 2, 3]
+                ! Modern syntax: [1, 2, 3] or [type :: 1, 2, 3]
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
-                    code = "[" // elements_code // "]"
+                    if (allocated(node%type_spec)) then
+                        code = "[" // trim(node%type_spec) // " :: " // &
+                               elements_code // "]"
+                    else
+                        code = "[" // elements_code // "]"
+                    end if
                 else
                     ! Empty array - needs type spec, default to integer
                     code = "[integer ::]"
