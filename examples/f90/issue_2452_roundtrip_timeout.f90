@@ -6,7 +6,6 @@ program test_roundtrip_timeout_patterns
     integer :: arr(3,3), arr2(3,3)
     integer :: lb(3), ub(3)
     integer :: res(3), idx(2)
-    real :: carr(3,3), cres(3)
 
     ! Pattern 1: lbound/ubound with spread and array slices
     arr = reshape([1,2,3,4,5,6,7,8,9], [3,3])
