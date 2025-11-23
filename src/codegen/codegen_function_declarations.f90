@@ -9,7 +9,8 @@ module codegen_function_declarations
                               use_statement_node, comment_node, directive_node, &
                               blank_line_node, end_statement_node
     use ast_nodes_transfer, only: entry_node
-    use codegen_declarations_core, only: fix_character_len_placeholder
+    use codegen_declarations_core, only: fix_character_len_placeholder, &
+                                          generate_code_declaration
     use codegen_declarations_inference, only: build_parameter_map, &
                                               derive_character_return_type, &
                                               has_character_len_result_decl, &

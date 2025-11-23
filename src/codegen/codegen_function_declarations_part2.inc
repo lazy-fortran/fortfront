@@ -179,6 +179,9 @@
         character(len=:), allocatable :: type_str
         character(len=:), allocatable :: result_name
         character(len=:), allocatable :: function_name
+        character(len=:), allocatable :: orig_decl_str
+        integer :: i, decl_idx
+        logical :: found_array_decl
 
         decl_code = ""
 
@@ -189,14 +192,7 @@
 
         if (should_rename_deferred_char_result(node)) return
 
-        if (.not. allocated(node%return_type)) return
-        if (len_trim(node%return_type) == 0) return
-
-        type_str = trim(node%return_type)
-
-        ! Determine result variable name:
-        ! 1. If result() clause exists and is different from function name, use it
-        ! 2. Otherwise, use function_name_result
+        ! Determine result variable name for output
         if (allocated(node%result_variable)) then
             if (len_trim(node%result_variable) > 0) then
                 if (trim(node%result_variable) /= trim(function_name)) then
@@ -211,9 +207,107 @@
             result_name = trim(function_name) // "_result"
         end if
 
-        decl_code = "    " // trim(type_str) // " :: " // &
-                    trim(result_name) // new_line('A')
+        ! Try to use return_type from header if available
+        if (allocated(node%return_type) .and. len_trim(node%return_type) > 0) then
+            type_str = trim(node%return_type)
+            decl_code = "    " // trim(type_str) // " :: " // &
+                        trim(result_name) // new_line('A')
+            return
+        end if
+
+        ! No return_type in header - search for array declaration in body
+        if (.not. allocated(node%body_indices)) return
+
+        found_array_decl = .false.
+        do i = 1, size(node%body_indices)
+            decl_idx = node%body_indices(i)
+            if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_idx)%node)) cycle
+
+            select type (decl => arena%entries(decl_idx)%node)
+            type is (declaration_node)
+                if (decl%is_array) then
+                    ! Check if this is the function result variable declaration
+                    if (allocated(decl%var_name)) then
+                        if (trim(decl%var_name) == trim(function_name)) then
+                            found_array_decl = .true.
+                        end if
+                    else if (decl%is_multi_declaration .and. &
+                             allocated(decl%var_names)) then
+                        block
+                            integer :: k
+                            do k = 1, size(decl%var_names)
+                                if (trim(decl%var_names(k)) == trim(function_name)) then
+                                    found_array_decl = .true.
+                                    exit
+                                end if
+                            end do
+                        end block
+                    end if
+
+                    if (found_array_decl) then
+                        ! Generate declaration string with result variable name
+                        ! Use generate_code_declaration to get full declaration,
+                        ! then replace function name with result name
+                        orig_decl_str = generate_code_declaration(arena, decl, decl_idx)
+                        ! DEBUG: Force use of orig_decl_str to ensure it's computed
+                        if (len_trim(orig_decl_str) == 0) then
+                            decl_code = ""
+                            return
+                        end if
+                        ! Replace function name with result name in the declaration
+                        decl_code = replace_var_name_in_decl(orig_decl_str, &
+                                                             function_name, &
+                                                             result_name)
+                        return
+                    end if
+                end if
+            end select
+        end do
     end function collect_array_result_decl
+
+    function replace_var_name_in_decl(decl_str, old_name, new_name) result(new_decl)
+        use string_utils_mod, only: to_lower
+        character(len=*), intent(in) :: decl_str
+        character(len=*), intent(in) :: old_name
+        character(len=*), intent(in) :: new_name
+        character(len=:), allocatable :: new_decl
+        integer :: pos, name_start, name_end
+        character(len=:), allocatable :: lowered_decl, lowered_old
+
+        new_decl = decl_str
+        lowered_decl = to_lower(decl_str)
+        lowered_old = to_lower(trim(old_name))
+
+        ! Find ":: old_name" or ":: old_name("
+        pos = index(lowered_decl, "::")
+        if (pos == 0) return
+
+        name_start = pos + 2
+        ! Skip whitespace after ::
+        do while (name_start <= len(lowered_decl))
+            if (lowered_decl(name_start:name_start) /= ' ') exit
+            name_start = name_start + 1
+        end do
+
+        ! Check if this is our variable name
+        name_end = name_start + len(lowered_old) - 1
+        if (name_end > len(lowered_decl)) return
+        if (lowered_decl(name_start:name_end) /= lowered_old) return
+
+        ! Verify it's followed by space, newline, or ( for arrays
+        if (name_end < len(lowered_decl)) then
+            if (decl_str(name_end + 1:name_end + 1) /= ' ' .and. &
+                decl_str(name_end + 1:name_end + 1) /= '(' .and. &
+                decl_str(name_end + 1:name_end + 1) /= new_line('A')) then
+                return
+            end if
+        end if
+
+        ! Replace old name with new name
+        new_decl = decl_str(1:name_start - 1) // trim(new_name) // &
+                   decl_str(name_end + 1:len(decl_str))
+    end function replace_var_name_in_decl
 
     subroutine get_deferred_char_type_info(arena, node, full_type, base_type, &
                                            result_name)

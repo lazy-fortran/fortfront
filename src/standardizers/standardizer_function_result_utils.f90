@@ -467,6 +467,9 @@ contains
         if (.not. allocated(func_def%return_type) .or. &
             len_trim(func_def%return_type) == 0) then
             if (len_trim(decl%type_name) == 0) return
+            ! For array declarations, don't set return_type - let codegen handle
+            ! it via inferred type with dimensions
+            if (decl%is_array) return
             if (decl%has_kind .and. decl%kind_value > 0 .and. &
                 decl%type_name /= "character") then
                 call assign_return_type_with_kind(func_def, decl%type_name, &

@@ -257,7 +257,9 @@
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
         array_result_decl = collect_array_result_decl(arena, node)
-        if (len_trim(array_result_decl) == 0 .and. node%inferred_type%kind == TARRAY) then
+        if (len_trim(array_result_decl) == 0 .and. &
+            (node%inferred_type%kind == TARRAY .or. &
+             should_use_result_for_array(arena, node))) then
             if (len_trim(result_var_name) > 0) then
                 inferred_type_str = mono_type_to_string(node%inferred_type, &
                                                         include_shape=.true., &
