@@ -1,6 +1,6 @@
 module semantic_function_inference
     use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
-                                   create_type_var, TVAR, TREAL, TCHAR, TARRAY
+                                   create_type_var, TVAR, TINT, TREAL, TCHAR, TARRAY
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
                               call_or_subscript_node
@@ -628,7 +628,7 @@ contains
 
         element_type = infer_expression_type_static(arena, value_index, param_names, &
                                                     param_types)
-        if (element_type%kind == 0) element_type = create_mono_type(TREAL)
+        if (element_type%kind == 0) element_type = create_mono_type(TINT)
         candidate = build_deferred_shape_array(element_type, rank)
     end function infer_array_assignment_type
 

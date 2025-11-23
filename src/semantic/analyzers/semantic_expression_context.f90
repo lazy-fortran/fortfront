@@ -6,9 +6,11 @@ module semantic_expression_context
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                               array_literal_node, call_or_subscript_node
+    use ast_nodes_loops, only: do_loop_node
     use semantic_type_operations, only: get_common_type
     use semantic_array_type_builders, only: collapse_array_rank
     use semantic_function_helpers, only: find_return_type
+    use standardizer_types, only: calculate_loop_size
     implicit none
     private
 
@@ -170,14 +172,24 @@ contains
         type(mono_type_t) :: element_type
         type(mono_type_t), allocatable :: args(:)
         integer :: elem_count
+        logical :: has_dynamic_implied_do
 
         elem_count = count_array_elements(node)
         element_type = infer_array_element_type(arena, node, param_names, &
                                                 param_types)
 
+        has_dynamic_implied_do = check_for_dynamic_implied_do_simple(arena, node)
+
         allocate (args(1))
         args(1) = element_type
-        if (elem_count > 0) then
+        if (has_dynamic_implied_do) then
+            ! Runtime-sized array - use allocatable
+            typ = create_mono_type(TARRAY, args=args)
+            typ%alloc_info%is_allocatable = .true.
+            typ%alloc_info%needs_allocation_check = .true.
+            typ%alloc_info%is_pointer = .false.
+            typ%alloc_info%needs_allocatable_string = .false.
+        else if (elem_count > 0) then
             typ = create_mono_type(TARRAY, args=args, array_size=elem_count)
         else
             typ = create_mono_type(TARRAY, args=args)
@@ -214,7 +226,28 @@ contains
 
         element_type = infer_expression_type_static( &
                        arena, node%element_indices(1), param_names, param_types)
-        if (element_type%kind == 0) element_type = create_mono_type(TREAL)
+        ! Default to TINT for integer implied-do loops, TREAL for unknown types
+        ! This matches Fortran's implicit typing where i-n are integers
+        if (element_type%kind == 0) then
+            ! Check if first element is an implied-do loop (integer context)
+            if (allocated(node%element_indices) .and. &
+                size(node%element_indices) > 0 .and. &
+                node%element_indices(1) > 0 .and. &
+                node%element_indices(1) <= arena%size .and. &
+                allocated(arena%entries(node%element_indices(1))%node)) then
+                select type (elem => arena%entries(node%element_indices(1))%node)
+                type is (do_loop_node)
+                    ! Implied-do loop - default to integer
+                    element_type = create_mono_type(TINT)
+                class default
+                    ! Unknown type - default to real (Fortran legacy default)
+                    element_type = create_mono_type(TREAL)
+                end select
+            else
+                ! Default to real for unknown types
+                element_type = create_mono_type(TREAL)
+            end if
+        end if
 
         do elem_idx = 2, elem_count
             other_type = infer_expression_type_static( &
@@ -265,5 +298,35 @@ contains
             typ = create_mono_type(TVAR, var=create_type_var(0, "unknown_call"))
         end if
     end function infer_call_expression_type
+
+    logical function check_for_dynamic_implied_do_simple(arena, array_lit) &
+        result(is_dynamic)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: array_lit
+        integer :: i
+        integer :: loop_size
+
+        is_dynamic = .false.
+
+        if (.not. allocated(array_lit%element_indices)) return
+
+        do i = 1, size(array_lit%element_indices)
+            if (array_lit%element_indices(i) <= 0) cycle
+            if (array_lit%element_indices(i) > arena%size) cycle
+            if (.not. allocated(arena%entries(array_lit%element_indices(i))%node)) &
+                cycle
+
+            select type (elem => arena%entries(array_lit%element_indices(i))%node)
+            type is (do_loop_node)
+                loop_size = calculate_loop_size(arena, elem%start_expr_index, &
+                                                elem%end_expr_index, &
+                                                elem%step_expr_index)
+                if (loop_size < 0) then
+                    is_dynamic = .true.
+                    return
+                end if
+            end select
+        end do
+    end function check_for_dynamic_implied_do_simple
 
 end module semantic_expression_context
