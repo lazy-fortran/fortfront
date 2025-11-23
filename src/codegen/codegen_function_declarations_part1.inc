@@ -201,6 +201,11 @@
 
         if (len_trim(result_name) == 0) return
 
+        ! BUGFIX: Avoid result(result) which is invalid Fortran syntax.
+        ! When result variable is named "result", omit the result clause
+        ! since "result" cannot be both the clause keyword and variable name.
+        if (to_lower(trim(result_name)) == "result") return
+
         if (allocated(node%name)) then
             if (.not. rename_result .and. .not. needs_result_for_recursion .and. &
                 .not. needs_result_for_array) then
@@ -281,6 +286,17 @@
                                                          param_map, node)
         call reorder_import_lines(body)
         call rename_result_variable_in_body(node, body, arena)
+        ! BUGFIX: After renaming, remove redundant result variable declarations
+        ! when result variable name equals function name AND type is in signature.
+        ! Only remove if result_variable was "result" (renamed to function name).
+        if (allocated(node%result_variable) .and. &
+            to_lower(trim(node%result_variable)) == "result") then
+            if (allocated(node%return_type) .and. len_trim(node%return_type) > 0) then
+                if (allocated(node%name)) then
+                    body = remove_redundant_function_name_decl(body, trim(node%name))
+                end if
+            end if
+        end if
     end function build_function_body_section
 
     function build_interface_prototype_body(arena, node) result(body)
@@ -891,6 +907,62 @@
 
         cleaned = cleaned // new_line('A')
     end function remove_scalar_result_duplicate
+
+    function remove_redundant_function_name_decl(body, func_name) result(cleaned)
+        character(len=*), intent(in) :: body
+        character(len=*), intent(in) :: func_name
+        character(len=:), allocatable :: cleaned
+        character(len=:), allocatable :: line
+        character(len=:), allocatable :: lowered_line
+        character(len=:), allocatable :: lowered_name
+        integer :: start_pos
+        integer :: nl_pos
+
+        cleaned = ""
+        if (len_trim(body) == 0) return
+        if (len_trim(func_name) == 0) then
+            cleaned = body
+            return
+        end if
+
+        lowered_name = to_lower(trim(func_name))
+
+        start_pos = 1
+        do
+            nl_pos = index(body(start_pos:), new_line('A'))
+            if (nl_pos == 0) then
+                line = body(start_pos:)
+            else
+                line = body(start_pos:start_pos + nl_pos - 2)
+            end if
+            lowered_line = to_lower(line)
+
+            ! Skip lines that are standalone type declarations for the function name
+            ! e.g., "    integer :: square" when function is "integer function square(x)"
+            if (index(lowered_line, " :: " // trim(lowered_name)) > 0) then
+                ! Check it's not an array declaration (has parentheses after name)
+                if (index(lowered_line, trim(lowered_name) // "(") == 0) then
+                    ! This is a scalar declaration - skip it
+                    if (nl_pos > 0) then
+                        start_pos = start_pos + nl_pos
+                        cycle
+                    else
+                        ! Last line, just skip it
+                        exit
+                    end if
+                end if
+            end if
+
+            if (len(cleaned) > 0) cleaned = cleaned // new_line('A')
+            cleaned = cleaned // trim(line)
+
+            if (nl_pos == 0) exit
+            start_pos = start_pos + nl_pos
+            if (start_pos > len(body)) exit
+        end do
+
+        if (len(cleaned) > 0) cleaned = cleaned // new_line('A')
+    end function remove_redundant_function_name_decl
 
     logical function has_result_variable_declaration(arena, func, result_name) &
         result(found)

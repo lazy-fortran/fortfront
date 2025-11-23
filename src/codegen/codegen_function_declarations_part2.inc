@@ -365,10 +365,14 @@
         has_return_type = allocated(node%return_type)
         if (has_return_type) has_return_type = len_trim(node%return_type) > 0
 
+        ! BUGFIX: Also rename when result_variable is "result" to avoid invalid
+        ! result(result) syntax. In this case, rename "result" to function name.
         needs_rename = should_rename_deferred_char_result(node) .or. &
                        (node%is_recursive .and. has_return_type .and. &
                         missing_result_variable) .or. &
-                       should_use_result_for_array(arena, node)
+                       should_use_result_for_array(arena, node) .or. &
+                       (allocated(node%result_variable) .and. &
+                        to_lower(trim(node%result_variable)) == "result")
 
         if (.not. needs_rename) return
 
@@ -377,6 +381,12 @@
             old_name = function_name
             ! Always use generated name for array functions
             new_name = trim(function_name) // "_result"
+        else if (allocated(node%result_variable) .and. &
+                 to_lower(trim(node%result_variable)) == "result") then
+            ! BUGFIX: When result_variable is "result", rename it to function name
+            ! to avoid invalid result(result) syntax
+            old_name = "result"
+            new_name = function_name
         else if (allocated(node%result_variable)) then
             if (len_trim(node%result_variable) > 0) then
                 old_name = trim(node%result_variable)

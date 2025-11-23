@@ -49,16 +49,25 @@ contains
             return
         end if
 
+        ! BUGFIX: result(result) is invalid Fortran syntax.
+        ! The output should NOT have result(result).
+        ! Instead, variable "result" should be used directly in the function body.
         has_result_clause = index(output, 'result(result)') > 0
         not_using_q_as_result = index(output, 'result(q)') == 0
 
-        if (.not. has_result_clause) then
-            print *, '  FAIL: Result variable not detected as result'
+        if (has_result_clause) then
+            print *, '  FAIL: Invalid result(result) syntax detected'
             test_result_variable_detection = .false.
         end if
 
         if (.not. not_using_q_as_result) then
             print *, '  FAIL: Incorrectly using q as result variable'
+            test_result_variable_detection = .false.
+        end if
+
+        ! Check that result variable is declared
+        if (index(output, ':: result') == 0 .and. index(output, '::result') == 0) then
+            print *, '  FAIL: Result variable not declared'
             test_result_variable_detection = .false.
         end if
 

@@ -19,8 +19,17 @@ program test_issue_1735_result_type
         end if
     end if
 
-    if (index(transformed, 'integer function square(x) result(result)') == 0) then
-        print *, 'FAIL: missing integer return type for result clause'
+    ! BUGFIX: result(result) is invalid when there's a redundant declaration.
+    ! Fortfront correctly omits the result clause and renames the variable.
+    if (index(transformed, 'integer function square(x)') == 0) then
+        print *, 'FAIL: missing integer return type'
+        print *, transformed
+        error stop 1
+    end if
+
+    ! Should not have result(result) - that would be invalid
+    if (index(transformed, 'result(result)') > 0) then
+        print *, 'FAIL: invalid result(result) syntax should be avoided'
         print *, transformed
         error stop 1
     end if
