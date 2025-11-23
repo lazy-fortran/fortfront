@@ -30,16 +30,20 @@
         function_name = trim(node%name)
         if (node%inferred_type%kind == TARRAY) return
 
-        ! If function has type prefix, result is implicitly declared - do not add explicit decl
+        ! If function has type prefix in source, result is implicitly declared - do not add explicit decl
         ! BUT: allocatable arrays are NOT emitted as type prefix (handled in local decls)
         ! BUT: array returns with result() clause omit type prefix (handled below)
-        if (allocated(node%return_type)) then
-            if (len_trim(node%return_type) > 0) then
-                if (.not. is_allocatable_array_return(node%return_type)) then
-                    ! Check if this is an array return with result clause
-                    if (.not. should_use_result_for_array(arena, node)) then
-                        ! Function has type prefix - result variable implicitly declared
-                        return
+        ! CRITICAL: Check has_return_type_in_header flag, not just allocated(return_type),
+        ! because return_type may be populated by type inference even without syntactic prefix
+        if (node%has_return_type_in_header) then
+            if (allocated(node%return_type)) then
+                if (len_trim(node%return_type) > 0) then
+                    if (.not. is_allocatable_array_return(node%return_type)) then
+                        ! Check if this is an array return with result clause
+                        if (.not. should_use_result_for_array(arena, node)) then
+                            ! Function has type prefix - result variable implicitly declared
+                            return
+                        end if
                     end if
                 end if
             end if
@@ -85,6 +89,7 @@
         end if
 
         ! Check if result variable already has a declaration in body
+        ! If found, emit it; if not found, generate one from inferred type
         has_existing_decl = .false.
         if (allocated(node%body_indices)) then
             do i = 1, size(node%body_indices)
@@ -92,18 +97,43 @@
                 if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
                 select type (body_node => arena%entries(node%body_indices(i))%node)
                 type is (declaration_node)
+                    ! Check both single and multi-declarations
                     if (allocated(body_node%var_name)) then
                         if (trim(body_node%var_name) == trim(result_name)) then
-                            has_existing_decl = .true.
-                            exit
+                            ! Found existing declaration - emit it
+                            decl_code = generate_code_from_arena(arena, node%body_indices(i))
+                            if (.not. allocated(decl_code)) decl_code = ""
+                            if (len_trim(decl_code) > 0) then
+                                ! Preserve original declaration formatting
+                                if (index(decl_code, new_line('A')) == 0) then
+                                    decl_code = "    " // trim(decl_code) // new_line('A')
+                                end if
+                            end if
+                            return
                         end if
+                    else if (allocated(body_node%var_names)) then
+                        ! Check multi-declaration
+                        block
+                            integer :: j
+                            do j = 1, size(body_node%var_names)
+                                if (trim(body_node%var_names(j)) == trim(result_name)) then
+                                    ! Found existing declaration - emit it
+                                    decl_code = generate_code_from_arena(arena, node%body_indices(i))
+                                    if (.not. allocated(decl_code)) decl_code = ""
+                                    if (len_trim(decl_code) > 0) then
+                                        ! Preserve original declaration formatting
+                                        if (index(decl_code, new_line('A')) == 0) then
+                                            decl_code = "    " // trim(decl_code) // new_line('A')
+                                        end if
+                                    end if
+                                    return
+                                end if
+                            end do
+                        end block
                     end if
                 end select
             end do
         end if
-
-        ! If declaration already exists, don't add another
-        if (has_existing_decl) return
 
         ! Allocatable and deferred-shape arrays are declared in local variable declarations - skip here
         if (allocated(node%return_type)) then

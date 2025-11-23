@@ -251,9 +251,6 @@
                                                          node_index)
         body = body // collect_function_parameter_decls(arena, node, param_map)
         body = body // collect_deferred_char_result_decl(arena, node)
-        if (len_trim(result_var_name) > 0) then
-            call remove_result_declarations(arena, body_indices, result_var_name)
-        end if
         array_result_decl = collect_array_result_decl(arena, node)
         if (len_trim(array_result_decl) == 0 .and. node%inferred_type%kind == TARRAY) then
             if (len_trim(result_var_name) > 0) then
@@ -268,7 +265,10 @@
         end if
         if (len_trim(array_result_decl) > 0) then
             body = body // array_result_decl
-        else if (.not. allocated(node%result_variable)) then
+            if (len_trim(result_var_name) > 0) then
+                call remove_result_declarations(arena, body_indices, result_var_name)
+            end if
+        else
             body = body // collect_recursive_result_decl(arena, node)
         end if
         body = body // collect_entry_parameter_decls(arena, node)
