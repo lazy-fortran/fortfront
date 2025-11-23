@@ -724,6 +724,17 @@ contains
         next_token = select_parser%consume()
 
         ! Check what type of select construct (case/type/rank)
+        do while (select_parser%current_token <= size(stmt_tokens))
+            next_token = select_parser%peek()
+            if (next_token%kind == TK_WHITESPACE .or. &
+                next_token%kind == TK_NEWLINE .or. &
+                next_token%kind == TK_COMMENT) then
+                next_token = select_parser%consume()
+            else
+                exit
+            end if
+        end do
+
         if (select_parser%current_token <= size(stmt_tokens)) then
             next_token = select_parser%peek()
             if (next_token%kind == TK_KEYWORD) then
