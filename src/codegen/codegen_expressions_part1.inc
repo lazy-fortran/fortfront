@@ -188,8 +188,14 @@
             str = "FUNCTION"
         case (TARRAY)
             str = "ARRAY"
+        case (TCOMPLEX)
+            str = "COMPLEX"
+        case (TDOUBLE)
+            str = "DOUBLE"
+        case (TDERIVED)
+            str = "DERIVED"
         case default
-            write (str, '(A,I0)') "UNKNOWN(", kind
+            write (str, '(A,I0,A)') "UNKNOWN(", kind, ")"
         end select
     end subroutine type_kind_to_string
 
@@ -243,17 +249,19 @@
                 return
             end if
 
-            ! Check for string concatenation: if operator is '+' and we're dealing with string literals
-            if (node%operator == "+" .and. is_string_concatenation(left_code, &
-                                                                   right_code)) then
-                fortran_operator = "//"  ! Use Fortran string concatenation operator
+            ! Check for string concatenation: if operator is '+' and we're
+            ! dealing with string literals
+            if (node%operator == "+" .and. &
+                is_string_concatenation(left_code, right_code)) then
+                fortran_operator = "//"  ! Use Fortran string concat operator
             end if
 
-            ! ISO/IEC 1539-1:2018 Section 10.1.5.2: Logical operators require LOGICAL operands
-            ! Fixes issue #2457: Prevent emitting logical operators on non-logical types
-            if (trim(fortran_operator) == ".and." .or. trim(fortran_operator) == ".or." &
-                .or. trim(fortran_operator) == ".eqv." .or. trim(fortran_operator) == &
-                ".neqv.") then
+            ! ISO/IEC 1539-1:2018 Section 10.1.5.2: Logical operators require
+            ! LOGICAL operands. Detect non-logical operands before emitting.
+            if (trim(fortran_operator) == ".and." .or. &
+                trim(fortran_operator) == ".or." .or. &
+                trim(fortran_operator) == ".eqv." .or. &
+                trim(fortran_operator) == ".neqv.") then
                 call validate_logical_operator_types(arena, node, fortran_operator)
             end if
 
@@ -297,8 +305,8 @@
 
             select case (trim(fortran_operator))
             case ('=')
-                ! For keyword arguments in function calls, don't add space before string literals
-                ! to prevent "file = '/tmp/test.dat'" from becoming "file = ' /tmp/ test.dat'"
+                ! For keyword arguments in function calls, don't add space before
+                ! string literals to prevent introducing stray spaces
                 if (len(right_code) > 0) then
                     if (right_code(1:1) == "'" .or. right_code(1:1) == '"') then
                         ! Right side is a string literal - use compact form
@@ -802,7 +810,7 @@
                 if (allocated(node%type_spec)) then
                     code = "(/ " // trim(node%type_spec) // " :: /)"
                 else
-                    code = "[integer ::]"  ! Empty array constructor with type specification
+                    code = "[integer ::]"  ! Empty array constructor with type spec
                 end if
             end if
         end if
