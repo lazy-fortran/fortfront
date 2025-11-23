@@ -540,10 +540,21 @@ contains
         integer :: name_end
         character(len=64) :: candidate
         integer :: i
+        integer :: text_len
         logical :: skip_line
+        logical :: has_trailing_newline
 
         name_count = 0
         cleaned = ""
+
+        ! Check if input has trailing newline to preserve it
+        text_len = len(text)
+        has_trailing_newline = .false.
+        if (text_len > 0) then
+            if (text(text_len:text_len) == new_line('A')) then
+                has_trailing_newline = .true.
+            end if
+        end if
 
         start_pos = 1
         do
@@ -615,6 +626,15 @@ contains
             start_pos = start_pos + nl_pos
             if (start_pos > len(text)) exit
         end do
+
+        ! Preserve trailing newline if input had one
+        if (has_trailing_newline) then
+            if (len(cleaned) > 0) then
+                if (cleaned(len(cleaned):len(cleaned)) /= new_line('A')) then
+                    cleaned = cleaned // new_line('A')
+                end if
+            end if
+        end if
     end function dedupe_array_result_scalars
 
     subroutine maybe_dump_program_overview(arena, prog_index)
