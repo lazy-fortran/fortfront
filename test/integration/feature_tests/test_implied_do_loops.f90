@@ -23,12 +23,12 @@ contains
             error stop 1
         end if
 
-        ! The generated code should use legacy (/ /) syntax for compatibility
-        if (contains_without_spaces(output, "(/(i,i=1,5)/)")) then
+        ! The generated code should use modern [...] syntax for compatibility
+        if (contains_without_spaces(output, "[(i,i=1,5)]")) then
             print *, "  PASS: Simple implied do loop"
         else
             print *, "  FAIL: Simple implied do loop - Expected" // &
-                     " (/ (i, i=1, 5) /) syntax"
+                     " [(i, i=1, 5)] syntax"
             print *, "  Got:", trim(output)
             error stop 1
         end if
@@ -45,11 +45,11 @@ contains
             error stop 1
         end if
 
-        if (contains_without_spaces(output, "sum((/(i*2,i=1,10)/))")) then
+        if (contains_without_spaces(output, "sum([(i*2,i=1,10)])")) then
             print *, "  PASS: Implied do with expression"
         else
             print *, "  FAIL: Implied do with expression - Expected" // &
-                     " sum((/ (i*2, i=1, 10) /))"
+                     " sum([(i*2, i=1, 10)])"
             print *, "  Got:", trim(output)
             error stop 1
         end if
