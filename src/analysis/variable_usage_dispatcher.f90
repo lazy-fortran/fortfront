@@ -21,7 +21,8 @@ module variable_usage_dispatcher_module
     public :: process_select_case_node_children, process_where_node_children
     public :: process_where_stmt_node_children, process_multi_declaration_node_children
     public :: process_print_statement_node_children, process_case_block_node_children
-    public :: process_do_loop_node_children, process_subroutine_call_children
+    public :: process_do_loop_node_children, process_forall_node_children
+    public :: process_subroutine_call_children
     public :: process_write_statement_children, process_read_statement_children
     public :: process_allocate_statement_children, process_deallocate_statement_children
     public :: process_associate_construct_children, process_subroutine_def_children
@@ -183,6 +184,8 @@ contains
             call process_case_block_node_children(arena, node_index, info, ctx)
         case ("do_loop")
             call process_do_loop_node_children(arena, node_index, info, ctx)
+        case ("forall")
+            call process_forall_node_children(arena, node_index, info, ctx)
         case ("assignment")
             call process_assignment_node_children(arena, node_index, info, ctx)
         case ("subroutine_call", "call_statement")
@@ -476,6 +479,64 @@ contains
             end if
         end select
     end subroutine process_do_loop_node_children
+
+    ! Process forall node children
+    subroutine process_forall_node_children(arena, node_index, info, ctx)
+        use ast_nodes_loops, only: forall_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        if (.not. validate_node_index(arena, node_index)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (forall_node)
+            ! Process forall index variables (stored as strings, not indices)
+            if (allocated(node%index_names)) then
+                do i = 1, node%num_indices
+                    call add_string_to_info(node%index_names(i), node_index, info)
+                end do
+            end if
+
+            ! Process lower bound expressions
+            if (allocated(node%lower_bound_indices)) then
+                do i = 1, node%num_indices
+                    call push_node(ctx, node%lower_bound_indices(i))
+                end do
+            end if
+
+            ! Process upper bound expressions
+            if (allocated(node%upper_bound_indices)) then
+                do i = 1, node%num_indices
+                    call push_node(ctx, node%upper_bound_indices(i))
+                end do
+            end if
+
+            ! Process stride expressions
+            if (allocated(node%stride_indices)) then
+                do i = 1, node%num_indices
+                    if (node%stride_indices(i) > 0) then
+                        call push_node(ctx, node%stride_indices(i))
+                    end if
+                end do
+            end if
+
+            ! Process mask expression if present
+            if (node%has_mask .and. node%mask_expr_index > 0) then
+                call push_node(ctx, node%mask_expr_index)
+            end if
+
+            ! Process forall body statements
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call push_node(ctx, node%body_indices(i))
+                end do
+            end if
+        end select
+    end subroutine process_forall_node_children
 
     ! Process subroutine call children
     subroutine process_subroutine_call_children(arena, node_index, info, ctx)
