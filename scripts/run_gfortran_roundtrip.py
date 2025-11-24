@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""Run fortfront round-trip tests over GCC's gfortran DejaGNU suite."""
+"""Run fortfront round-trip tests over GCC's gfortran DejaGNU suite.
+
+This script validates fortfront's standard Fortran parsing and emission by:
+1. Parsing each test file with fortfront
+2. Re-parsing the output (round-trip verification)
+3. Optionally compiling and running both versions to check semantic equivalence
+
+Key outputs:
+- JSONL file with per-test results including status, duration, and metadata
+- Summary JSON with aggregated statistics, keyword analysis, and failure patterns
+- Console output with live progress and detailed keyword statistics
+
+Usage:
+    python run_gfortran_roundtrip.py --gcc-root ../gcc-dev/gcc
+    python run_gfortran_roundtrip.py --resume  # Continue interrupted run
+    python run_gfortran_roundtrip.py --max-tests 100  # Quick iteration
+
+The script detects Fortran language constructs in failing tests to help identify
+which features cause the most failures (e.g., OpenMP, coarray, pointer attributes).
+"""
 
 from __future__ import annotations
 
@@ -295,18 +314,50 @@ class Classification:
 
 
 class FailureAggregator:
+    """Aggregates test failures and computes detailed keyword statistics."""
+
     def __init__(self, total_tests: int, max_examples: int = 10) -> None:
         self.max_examples = max_examples
         self.category_totals: Dict[str, int] = defaultdict(int)
-        self.records: Dict[str, List[Tuple[Dict[str, object], Classification]]] = defaultdict(list)
+        self.records: Dict[str, List[Tuple[Dict[str, object], Classification]]] = (
+            defaultdict(list)
+        )
         self.total_tests = total_tests
+        # Detailed keyword tracking per category
+        self.category_keywords: Dict[str, Counter[str]] = defaultdict(Counter)
+        self.category_patterns: Dict[str, Counter[str]] = defaultdict(Counter)
+        # Co-occurrence tracking: pairs of patterns that appear together
+        self.pattern_cooccurrence: Counter[Tuple[str, str]] = Counter()
+        # Global keyword/pattern counters for failures only
+        self.global_keywords: Counter[str] = Counter()
+        self.global_patterns: Counter[str] = Counter()
 
     def add_record(self, record: Dict[str, object]) -> None:
         classification = classify_failure_record(record)
         if classification is None:
             return
-        self.records[classification.category].append((record, classification))
-        self.category_totals[classification.category] += 1
+        category = classification.category
+        self.records[category].append((record, classification))
+        self.category_totals[category] += 1
+
+        # Track keywords and patterns per category
+        source_keywords = record.get("source_keywords") or []
+        source_patterns = record.get("source_patterns") or []
+
+        for kw in source_keywords:
+            self.category_keywords[category][kw] += 1
+            self.global_keywords[kw] += 1
+
+        for pat in source_patterns:
+            self.category_patterns[category][pat] += 1
+            self.global_patterns[pat] += 1
+
+        # Track pattern co-occurrence (sorted pairs to avoid duplicates)
+        if len(source_patterns) >= 2:
+            for i, pat1 in enumerate(source_patterns):
+                for pat2 in source_patterns[i + 1 :]:
+                    pair = tuple(sorted([pat1, pat2]))
+                    self.pattern_cooccurrence[pair] += 1
 
     def build_digest(self, max_groups_per_category: int = 8) -> List[Dict[str, object]]:
         digest: List[Dict[str, object]] = []
@@ -465,26 +516,42 @@ class FailureAggregator:
                 print(f"    ... {remaining} additional unique signatures omitted ...")
 
     def build_heatmaps(self, top_n: int = 12) -> Dict[str, object]:
-        from collections import Counter
-
+        """Build comprehensive heatmaps for paths, keywords, and patterns."""
         path_counter: Counter[str] = Counter()
-        keyword_counter: Counter[str] = Counter()
         for entries in self.records.values():
-            for record, classification in entries:
+            for record, _ in entries:
                 cluster = extract_path_cluster(record) or "unknown"
                 path_counter[cluster] += 1
-                features = classification.features or {}
-                for kw in features.get("top_keywords", []):
-                    keyword_counter[kw] += 1
-                for kw in features.get("source_patterns", []):
-                    keyword_counter[kw] += 1
-                label = features.get("label")
-                if label:
-                    keyword_counter[label] += 1
+
         return {
             "paths": path_counter.most_common(top_n),
-            "keywords": keyword_counter.most_common(top_n),
+            "keywords": self.global_keywords.most_common(top_n),
+            "patterns": self.global_patterns.most_common(top_n),
+            "cooccurrence": [
+                (f"{p1}+{p2}", cnt)
+                for (p1, p2), cnt in self.pattern_cooccurrence.most_common(top_n)
+            ],
         }
+
+    def build_category_keyword_stats(self, top_n: int = 10) -> Dict[str, object]:
+        """Build per-category keyword and pattern statistics."""
+        stats: Dict[str, object] = {}
+        for category in self.records:
+            cat_total = self.category_totals[category]
+            kw_counter = self.category_keywords[category]
+            pat_counter = self.category_patterns[category]
+            stats[category] = {
+                "total": cat_total,
+                "top_keywords": [
+                    {"keyword": kw, "count": cnt, "percent": round(100 * cnt / cat_total, 1)}
+                    for kw, cnt in kw_counter.most_common(top_n)
+                ],
+                "top_patterns": [
+                    {"pattern": pat, "count": cnt, "percent": round(100 * cnt / cat_total, 1)}
+                    for pat, cnt in pat_counter.most_common(top_n)
+                ],
+            }
+        return stats
 
 
 def classify_failure_record(record: Dict[str, object]) -> Optional[Classification]:
@@ -724,7 +791,6 @@ DIFF_LABEL_DESCRIPTIONS: Dict[str, str] = {
     "openmp_change": "OpenMP directives adjusted",
     "openacc_change": "OpenACC directives adjusted",
     "coarray_change": "Coarray statements changed",
-    "coarray_change": "Coarray statements changed",
     "generic": "Round-trip diff pattern",
     "no_diff_lines": "Round-trip diff without diff body",
 }
@@ -881,19 +947,72 @@ SOURCE_STOPWORDS = STOPWORDS | {
 
 
 SOURCE_PATTERN_RULES: Sequence[Tuple[str, str]] = (
+    # Parallel/directive-based extensions
     ("openmp", r"!\$omp|\bopenmp\b|\bomp_"),
     ("openacc", r"!\$acc|\bopenacc\b|\bacc_"),
-    ("coarray", r"\bcoarray\b|\bteam\b|\bsync\b(?:all|images|memory)?"),
-    ("bind_c", r"bind\s*\(c\)|iso_c_binding|c_f_pointer|c_loc|c_funloc"),
+    ("coarray", r"\bcoarray\b|\bteam\b|\bsync\b(?:all|images|memory)?|\bco_\w+\b"),
+    # C interoperability
+    ("bind_c", r"bind\s*\(c\)|iso_c_binding|c_f_pointer|c_loc|c_funloc|c_ptr"),
+    # Memory/pointer attributes
     ("pointer_attr", r"\bpointer\b|\ballocatable\b"),
-    ("complex_kind", r"complex\s*\(kind"),
+    ("target_attr", r"\btarget\b"),
+    # Legacy constructs
     ("equivalence", r"\bequivalence\b"),
-    ("common_block", r"\bcommon\b"),
-    ("namelist", r"\bnamelist\b"),
-    ("entry_stmt", r"\bentry\b"),
+    ("common_block", r"\bcommon\s*/"),
+    ("namelist", r"\bnamelist\s*/"),
+    ("entry_stmt", r"\bentry\s+\w"),
+    ("block_data", r"\bblock\s+data\b"),
+    ("save_stmt", r"\bsave\b"),
+    # Type system features
     ("enum", r"\benum\b|\benumerator\b"),
     ("select_type", r"\bselect\s+type\b"),
+    ("select_rank", r"\bselect\s+rank\b"),
     ("associate", r"\bassociate\b"),
+    ("class_type", r"\bclass\s*\("),
+    ("abstract_type", r"\babstract\s+type\b"),
+    ("extends_type", r"\bextends\s*\("),
+    ("deferred_proc", r"\bdeferred\b"),
+    ("final_proc", r"\bfinal\s*::"),
+    ("generic_interface", r"\bgeneric\s*::"),
+    # Array features
+    ("assumed_shape", r"dimension\s*\([^)]*:"),
+    ("assumed_rank", r"dimension\s*\(\.\.\)|\(\.\.\)"),
+    ("array_constructor", r"\[\s*\w"),
+    ("implied_do", r"\(\s*\w+\s*,\s*\w+\s*="),
+    ("reshape_call", r"\breshape\s*\("),
+    ("spread_call", r"\bspread\s*\("),
+    ("pack_unpack", r"\b(?:pack|unpack)\s*\("),
+    # I/O features
+    ("namelist_io", r"read\s*\([^)]*nml\s*=|write\s*\([^)]*nml\s*="),
+    ("async_io", r"asynchronous\b|wait\s*\("),
+    ("stream_io", r"access\s*=\s*['\"]stream['\"]"),
+    ("internal_file", r"read\s*\(\s*\w+\s*,|write\s*\(\s*\w+\s*,"),
+    ("format_stmt", r"^\s*\d+\s+format\b"),
+    # Kind/precision
+    ("complex_kind", r"complex\s*\(kind|complex\s*\(\d"),
+    ("real_kind", r"real\s*\(kind|real\s*\(\d"),
+    ("int_kind", r"integer\s*\(kind|integer\s*\(\d"),
+    ("selected_kind", r"selected_\w+_kind\s*\("),
+    # Procedures
+    ("elemental", r"\belemental\b"),
+    ("pure_proc", r"\bpure\b"),
+    ("impure_elemental", r"\bimpure\s+elemental\b"),
+    ("recursive", r"\brecursive\b"),
+    ("result_clause", r"\bresult\s*\("),
+    ("procedure_ptr", r"\bprocedure\s*\("),
+    # Module features
+    ("submodule", r"\bsubmodule\b"),
+    ("use_only", r"\buse\s+\w+\s*,\s*only\s*:"),
+    ("use_rename", r"\buse\s+\w+\s*,.*=>"),
+    ("protected_attr", r"\bprotected\b"),
+    # Misc constructs
+    ("forall_stmt", r"\bforall\b"),
+    ("where_stmt", r"\bwhere\s*\("),
+    ("block_construct", r"\bblock\b[^_]"),
+    ("critical_section", r"\bcritical\b"),
+    ("error_stop", r"\berror\s+stop\b"),
+    ("ieee_module", r"\bieee_\w+\b"),
+    ("iso_fortran_env", r"\biso_fortran_env\b"),
 )
 
 
@@ -913,7 +1032,21 @@ def _strip_fortran_comments(line: str) -> str:
 
 
 def analyze_source_text(text: str, top_k: int = 8) -> Dict[str, List[str]]:
-    """Extract keyword and pattern hints from a Fortran source string."""
+    """Extract keyword and Fortran construct patterns from source code.
+
+    Analyzes Fortran source to identify:
+    - Top keywords (identifiers excluding common stopwords)
+    - Detected language constructs (OpenMP, coarray, pointer attrs, etc.)
+
+    Args:
+        text: Fortran source code string
+        top_k: Maximum number of keywords to return
+
+    Returns:
+        Dictionary with keys:
+        - source_keywords: List of top identifiers in the source
+        - source_patterns: List of detected Fortran construct labels
+    """
     tokens: Counter[str] = Counter()
     cleaned_lines: List[str] = []
     for line in text.splitlines():
@@ -1374,6 +1507,30 @@ def run_case(
     compile_timeout: float,
     run_timeout: float,
 ) -> Dict[str, object]:
+    """Execute a single round-trip test case.
+
+    Pipeline:
+    1. Check if reference source compiles (skip if not)
+    2. Run fortfront on source file
+    3. Verify round-trip (re-parse fortfront output)
+    4. If diff detected, check semantic equivalence via compile+run
+
+    Args:
+        test_path: Path to the Fortran test file
+        fortfront_bin: Path to fortfront executable
+        gcc_root: Root of GCC source tree (for relative paths)
+        timeout: Timeout for fortfront invocations
+        compile_timeout: Timeout for gfortran compilation
+        run_timeout: Timeout for compiled binary execution
+
+    Returns:
+        Dictionary with test results including:
+        - file: Relative path to test file
+        - status: Result status (pass, fatal, timeout, etc.)
+        - duration_s: Execution time
+        - source_keywords: Detected keywords in source
+        - source_patterns: Detected Fortran constructs
+    """
     rel_path = str(test_path.relative_to(gcc_root))
     try:
         source_text = test_path.read_text(encoding="utf-8", errors="ignore")
@@ -1516,6 +1673,53 @@ def run_case(
         }
 
 
+STATUS_PASS = {"pass", "pass_equivalent"}
+STATUS_FAILURE = {
+    "fail",
+    "roundtrip_exit",
+    "roundtrip_timeout",
+    "compile_fail_ref",
+    "compile_fail_roundtrip",
+    "runtime_fail_ref",
+    "runtime_fail_roundtrip",
+    "output_mismatch",
+    "compare_failure",
+}
+
+
+@dataclass
+class TestCounters:
+    """Mutable counters for test result tracking."""
+
+    passes: int = 0
+    roundtrip_failures: int = 0
+    fatals: int = 0
+    timeouts: int = 0
+    xfails: int = 0
+    xpasses: int = 0
+    skipped: int = 0
+
+    def update_from_record(self, record: Dict[str, object]) -> None:
+        """Update counters based on a test record."""
+        status = record.get("status")
+        expected = record.get("expected_failure", False)
+
+        if status == "skipped_ref_no_compile":
+            self.skipped += 1
+        elif status in STATUS_PASS:
+            self.passes += 1
+            if expected:
+                self.xpasses += 1
+        elif status in STATUS_FAILURE:
+            self.roundtrip_failures += 1
+            if expected:
+                self.xfails += 1
+        elif status == "fatal":
+            self.fatals += 1
+        else:
+            self.timeouts += 1
+
+
 def print_progress(
     processed: int,
     total: int,
@@ -1599,13 +1803,7 @@ def main() -> int:
             write_meta_block(handle, gcc_root, fortfront_bin, len(tests))
 
         processed = len(tests) - len(queue)
-        passes = 0
-        roundtrip_failures = 0
-        fatals = 0
-        timeouts = 0
-        xfails = 0
-        xpasses = 0
-        skipped = 0
+        counters = TestCounters()
         start_time = time.monotonic()
         effective_timeout = max(args.timeout, 0.0)
         aggregator = FailureAggregator(total_tests=len(tests))
@@ -1615,7 +1813,11 @@ def main() -> int:
             f"Running fortfront round-trip on {total_to_run} tests "
             f"(skipped {processed}) using {fortfront_bin}"
         )
-        print_progress(processed, len(tests), passes, roundtrip_failures, fatals, timeouts, xfails, xpasses, skipped, start_time)
+        print_progress(
+            processed, len(tests), counters.passes, counters.roundtrip_failures,
+            counters.fatals, counters.timeouts, counters.xfails, counters.xpasses,
+            counters.skipped, start_time,
+        )
 
         worker = partial(
             run_case,
@@ -1626,163 +1828,122 @@ def main() -> int:
             run_timeout=args.run_timeout,
         )
 
+        def process_record(record: Dict[str, object]) -> None:
+            """Process a single test record: update counters, write, and report."""
+            nonlocal processed, last_digest
+            processed += 1
+            counters.update_from_record(record)
+            handle.write(json.dumps(record) + "\n")
+            handle.flush()
+            aggregator.add_record(record)
+            if args.live_digest_interval > 0 and (
+                time.monotonic() - last_digest >= args.live_digest_interval
+            ):
+                digest = aggregator.build_digest(
+                    max_groups_per_category=args.live_digest_limit
+                )
+                print_live_digest(digest, args.live_digest_limit, example_limit=2)
+                last_digest = time.monotonic()
+            print_progress(
+                processed, len(tests), counters.passes, counters.roundtrip_failures,
+                counters.fatals, counters.timeouts, counters.xfails, counters.xpasses,
+                counters.skipped, start_time,
+            )
+
         if args.jobs <= 1:
             for test_path in queue:
-                record = worker(test_path)
-                processed += 1
-                status = record["status"]
-                expected = record.get("expected_failure", False)
-                if status == "skipped_ref_no_compile":
-                    skipped += 1
-                elif status in {"pass", "pass_equivalent"}:
-                    passes += 1
-                    if expected:
-                        xpasses += 1
-                elif status in {
-                    "fail",
-                    "roundtrip_exit",
-                    "roundtrip_timeout",
-                    "compile_fail_ref",
-                    "compile_fail_roundtrip",
-                    "runtime_fail_ref",
-                    "runtime_fail_roundtrip",
-                    "output_mismatch",
-                    "compare_failure",
-                }:
-                    roundtrip_failures += 1
-                    if expected:
-                        xfails += 1
-                elif status == "fatal":
-                    fatals += 1
-                else:
-                    timeouts += 1
-                handle.write(json.dumps(record) + "\n")
-                handle.flush()
-                aggregator.add_record(record)
-                if args.live_digest_interval > 0 and (
-                    time.monotonic() - last_digest >= args.live_digest_interval
-                ):
-                    digest = aggregator.build_digest(
-                        max_groups_per_category=args.live_digest_limit
-                    )
-                    print_live_digest(digest, args.live_digest_limit, example_limit=2)
-                    last_digest = time.monotonic()
-                print_progress(
-                    processed,
-                    len(tests),
-                    passes,
-                    roundtrip_failures,
-                    fatals,
-                    timeouts,
-                    xfails,
-                    xpasses,
-                    skipped,
-                    start_time,
-                )
+                process_record(worker(test_path))
         else:
             with ThreadPoolExecutor(max_workers=args.jobs) as pool:
                 for record in pool.map(worker, queue):
-                    processed += 1
-                    status = record["status"]
-                    expected = record.get("expected_failure", False)
-                    if status == "skipped_ref_no_compile":
-                        skipped += 1
-                    elif status in {"pass", "pass_equivalent"}:
-                        passes += 1
-                        if expected:
-                            xpasses += 1
-                    elif status in {
-                        "fail",
-                        "roundtrip_exit",
-                        "roundtrip_timeout",
-                        "compile_fail_ref",
-                        "compile_fail_roundtrip",
-                        "runtime_fail_ref",
-                        "runtime_fail_roundtrip",
-                        "output_mismatch",
-                        "compare_failure",
-                    }:
-                        roundtrip_failures += 1
-                        if expected:
-                            xfails += 1
-                    elif status == "fatal":
-                        fatals += 1
-                    else:
-                        timeouts += 1
-                    handle.write(json.dumps(record) + "\n")
-                    handle.flush()
-                    aggregator.add_record(record)
-                    if args.live_digest_interval > 0 and (
-                        time.monotonic() - last_digest >= args.live_digest_interval
-                    ):
-                        digest = aggregator.build_digest(
-                            max_groups_per_category=args.live_digest_limit
-                        )
-                        print_live_digest(digest, args.live_digest_limit, example_limit=2)
-                        last_digest = time.monotonic()
-                    print_progress(
-                        processed,
-                        len(tests),
-                        passes,
-                        roundtrip_failures,
-                        fatals,
-                        timeouts,
-                        xfails,
-                        xpasses,
-                        skipped,
-                        start_time,
-                    )
+                    process_record(record)
 
     sys.stdout.write("\n")
     sys.stdout.flush()
     print(
-        f"Complete. PASS: {passes}, FAIL: {roundtrip_failures}, FATAL: {fatals}, TIMEOUT: {timeouts}, "
-        f"SKIP: {skipped}. XFAIL: {xfails}, XPASS: {xpasses}. "
+        f"Complete. PASS: {counters.passes}, FAIL: {counters.roundtrip_failures}, "
+        f"FATAL: {counters.fatals}, TIMEOUT: {counters.timeouts}, "
+        f"SKIP: {counters.skipped}. XFAIL: {counters.xfails}, XPASS: {counters.xpasses}. "
         f"Results: {output_path}"
     )
     digest = aggregator.build_digest()
     FailureAggregator.print_digest(digest)
     heatmaps = aggregator.build_heatmaps()
-    print("\nHeatmap (path clusters):")
+    category_stats = aggregator.build_category_keyword_stats()
+
+    # Print comprehensive statistics
+    print("\n" + "=" * 70)
+    print("KEYWORD STATISTICS FOR FAILING TESTS")
+    print("=" * 70)
+
+    print("\nPath clusters (directories with most failures):")
     for path, count in heatmaps["paths"]:
         print(f"  {path}: {count}")
-    print("Heatmap (keywords/labels):")
+
+    print("\nTop keywords in failing tests:")
     for kw, count in heatmaps["keywords"]:
         print(f"  {kw}: {count}")
+
+    print("\nFortran constructs detected in failing tests:")
+    for pat, count in heatmaps["patterns"]:
+        print(f"  {pat}: {count}")
+
+    if heatmaps.get("cooccurrence"):
+        print("\nPattern co-occurrence (constructs appearing together):")
+        for pair, count in heatmaps["cooccurrence"]:
+            print(f"  {pair}: {count}")
+
+    # Per-category breakdown
+    print("\n" + "-" * 70)
+    print("PER-CATEGORY KEYWORD BREAKDOWN")
+    print("-" * 70)
+    for category, stats in sorted(
+        category_stats.items(), key=lambda x: x[1]["total"], reverse=True
+    ):
+        cat_total = stats["total"]
+        print(f"\n[{category}] ({cat_total} tests)")
+        if stats["top_patterns"]:
+            print("  Fortran constructs:")
+            for item in stats["top_patterns"][:5]:
+                print(f"    {item['pattern']}: {item['count']} ({item['percent']}%)")
+        if stats["top_keywords"]:
+            print("  Keywords:")
+            for item in stats["top_keywords"][:5]:
+                print(f"    {item['keyword']}: {item['count']} ({item['percent']}%)")
+
+    # Write summary JSON
     summary_path = output_path.with_name(output_path.stem + "_summary.json")
+    pass_equiv = next(
+        (
+            entry["total"]
+            for entry in digest
+            if entry["category"] == "equivalent_not_identical"
+        ),
+        0,
+    )
+    summary_data = {
+        "output_file": str(output_path),
+        "summary": digest,
+        "totals": {
+            "pass": counters.passes,
+            "pass_equivalent": pass_equiv,
+            "roundtrip_fail": counters.roundtrip_failures,
+            "fatal": counters.fatals,
+            "timeout": counters.timeouts,
+            "skipped": counters.skipped,
+            "xfail": counters.xfails,
+            "xpass": counters.xpasses,
+        },
+        "heatmap": heatmaps,
+        "category_keyword_stats": category_stats,
+    }
     with summary_path.open("w", encoding="utf-8") as summary_handle:
-        json.dump(
-            {
-                "output_file": str(output_path),
-                "summary": digest,
-                "totals": {
-                    "pass": passes,
-                    "pass_equivalent": None,  # filled below
-                    "roundtrip_fail": roundtrip_failures,
-                    "fatal": fatals,
-                    "timeout": timeouts,
-                    "skipped": skipped,
-                    "xfail": xfails,
-                    "xpass": xpasses,
-                },
-                "heatmap": heatmaps,
-            },
-            summary_handle,
-            indent=2,
-        )
+        json.dump(summary_data, summary_handle, indent=2)
         summary_handle.write("\n")
-    # fill pass_equivalent count separately
-    # (not stored separately above; recompute from digest)
-    summary = json.load(open(summary_path, "r", encoding="utf-8"))
-    pass_equiv = next((entry["total"] for entry in digest if entry["category"] == "equivalent_not_identical"), 0)
-    summary["totals"]["pass_equivalent"] = pass_equiv
-    with summary_path.open("w", encoding="utf-8") as summary_handle:
-        json.dump(summary, summary_handle, indent=2)
-        summary_handle.write("\n")
-    print(f"Summary digest written to {summary_path}")
-    if fatals > 0 or timeouts > 0:
+    print(f"\nSummary digest written to {summary_path}")
+    if counters.fatals > 0 or counters.timeouts > 0:
         return 2
-    if roundtrip_failures > 0:
+    if counters.roundtrip_failures > 0:
         return 1
     return 0
 
