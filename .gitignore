@@ -13,6 +13,7 @@ packages/*/
 /*.json
 /*_out.f90
 /*.mod
+/*.smod
 /*.txt
 
 # CMake build artifacts
