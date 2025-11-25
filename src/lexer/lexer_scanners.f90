@@ -14,12 +14,12 @@ module lexer_scanners
 
 contains
 
-    ! Scan a number token
+    ! Scan a number token (including Hollerith constants like 2Hab)
     subroutine scan_number(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
-        integer :: start_pos, start_col, dot_count, e_count
+        integer :: start_pos, start_col, dot_count, e_count, digit_end_pos
         logical :: has_dot, has_exp
         character :: c
 
@@ -30,7 +30,64 @@ contains
         has_dot = .false.
         has_exp = .false.
 
-        ! Scan digits, decimal points, and scientific notation
+        ! Scan digits first (needed for Hollerith check)
+        do while (pos <= len(source))
+            c = source(pos:pos)
+            if (c >= '0' .and. c <= '9') then
+                pos = pos + 1
+                col_num = col_num + 1
+            else
+                exit
+            end if
+        end do
+
+        digit_end_pos = pos
+
+        ! Check for Hollerith constant (nH followed by n characters)
+        if (pos <= len(source)) then
+            c = source(pos:pos)
+            if (c == 'H' .or. c == 'h') then
+                ! This is a Hollerith constant
+                block
+                    integer :: hollerith_count, i, iostat_val
+                    character(len=:), allocatable :: digits_str
+
+                    digits_str = source(start_pos:digit_end_pos - 1)
+                    read (digits_str, *, iostat=iostat_val) hollerith_count
+
+                    if (iostat_val == 0 .and. hollerith_count > 0) then
+                        ! Consume the H
+                        pos = pos + 1
+                        col_num = col_num + 1
+
+                        ! Consume exactly hollerith_count characters
+                        do i = 1, hollerith_count
+                            if (pos <= len(source)) then
+                                c = source(pos:pos)
+                                ! Do not stop at newlines in Hollerith
+                                if (c == char(10) .or. c == char(13)) exit
+                                pos = pos + 1
+                                col_num = col_num + 1
+                            else
+                                exit
+                            end if
+                        end do
+
+                        ! Create Hollerith token (use STRING kind)
+                        if (token_count < size(tokens)) then
+                            token_count = token_count + 1
+                            tokens(token_count)%kind = TK_STRING
+                            tokens(token_count)%text = source(start_pos:pos - 1)
+                            tokens(token_count)%line = line_num
+                            tokens(token_count)%column = start_col
+                        end if
+                        return
+                    end if
+                end block
+            end if
+        end if
+
+        ! Not a Hollerith constant - continue with decimal/exponent scanning
         do while (pos <= len(source))
             c = source(pos:pos)
 
@@ -183,7 +240,7 @@ contains
             else
                 ! Unclosed string - add a closing quote to keep output valid
                 ! Extract content until current position and append the terminator
-                tokens(token_count)%text = source(start_pos:pos - 1)//quote_char
+                tokens(token_count)%text = source(start_pos:pos - 1) // quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
@@ -471,7 +528,8 @@ contains
 
         select case (trim(lower_word))
         case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
-              'go', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', 'entry', 'error', &
+              'go', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', &
+              'entry', 'error', &
               'continue', 'nullify', 'do', 'while', 'concurrent', 'for', 'integer', &
               'real', 'logical', 'character', 'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
