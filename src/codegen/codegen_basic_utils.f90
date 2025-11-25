@@ -15,8 +15,6 @@ contains
         integer :: pos, line_start, line_end, len_input
         integer :: max_len
         character(len=:), allocatable :: current_line
-        logical :: in_string, in_comment
-        character :: quote_char
 
         len_input = len(input_code)
         if (len_input == 0) then
@@ -76,14 +74,19 @@ contains
     end function add_line_continuations
 
     ! Helper subroutine to add continuation to a long line
+    ! Per ISO/IEC 1539-1:2018 Section 6.3.2.5, line breaks inside string literals
+    ! require special handling. To avoid corrupting string content, this function
+    ! only breaks at positions outside of string literals.
     subroutine add_line_with_continuation(input_line, output_code, max_len)
         character(len=*), intent(in) :: input_line
         character(len=:), allocatable, intent(inout) :: output_code
         integer, intent(in) :: max_len
         integer, parameter :: CONTINUATION_INDENT = 6
-        integer :: pos, last_break, len_line, i
-        character(len=:), allocatable :: current_line, continuation_str
-        logical :: found_break
+        integer :: i, len_line, limit, remaining, last_break
+        integer :: segment_start
+        character(len=:), allocatable :: continuation_str
+        character :: quote_char, c
+        logical :: in_string, first_segment, has_more
 
         len_line = len(input_line)
         if (len_line <= max_len) then
@@ -94,49 +97,86 @@ contains
         ! Create continuation indent
         continuation_str = repeat(' ', CONTINUATION_INDENT) // '& '
 
-        pos = 1
-        do while (pos <= len_line)
-            ! Find the last good break point within MAX_LINE_LENGTH
-            ! Strategy: scan the valid range and remember the LAST break character position
-            last_break = 0  ! Will hold position of last break char found
-            found_break = .false.
+        segment_start = 1
+        first_segment = .true.
 
-            ! Scan from pos to min(pos+max_len-1, len_line)
-            do i = pos, min(pos + max_len - 1, len_line)
-                if (input_line(i:i) == ' ' .or. &
-                    input_line(i:i) == ',' .or. &
-                    input_line(i:i) == '(' .or. &
-                    input_line(i:i) == ')') then
-                    ! Remember this position - it's a valid break point
-                    last_break = i
-                    found_break = .true.
+        do
+            in_string = .false.
+            quote_char = ' '
+
+            remaining = len_line - segment_start + 1
+            if (remaining <= max_len) then
+                if (first_segment) then
+                    output_code = output_code // input_line(segment_start:) // &
+                                  new_line('A')
+                else
+                    output_code = output_code // continuation_str // &
+                                  input_line(segment_start:) // new_line('A')
                 end if
+                exit
+            end if
+
+            limit = min(segment_start + max_len - 1, len_line)
+            last_break = 0
+
+            i = segment_start
+            do while (i <= limit)
+                c = input_line(i:i)
+
+                if (in_string) then
+                    if (c == quote_char) then
+                        if (i < len_line) then
+                            if (input_line(i + 1:i + 1) == quote_char) then
+                                i = i + 1
+                            else
+                                in_string = .false.
+                            end if
+                        else
+                            in_string = .false.
+                        end if
+                    end if
+                else
+                    if (c == '"' .or. c == '''') then
+                        in_string = .true.
+                        quote_char = c
+                    else if (c == ' ' .or. c == ',' .or. c == '(' .or. c == ')') then
+                        last_break = i
+                    end if
+                end if
+
+                i = i + 1
             end do
 
-            ! Determine actual break position
-            if (.not. found_break) then
-                ! No break character found in range - must break at max_len
-                ! This will split a token, but we have no choice
-                last_break = min(pos + max_len - 1, len_line)
+            if (last_break == 0) then
+                if (in_string) then
+                    output_code = output_code // input_line(segment_start:) // &
+                                  new_line('A')
+                    exit
+                else
+                    last_break = limit
+                end if
             end if
 
-            ! Extract the line segment
-            if (last_break >= pos) then
-                current_line = input_line(pos:last_break)
-                if (pos == 1) then
-                    output_code = output_code // current_line // ' &' // new_line('A')
-                else
-                    output_code = output_code // continuation_str // current_line // new_line('A')
-                end if
-                ! Write the remainder of the line as-is and exit (single continuation is enough)
-                if (last_break + 1 <= len_line) then
-                    output_code = output_code // input_line(last_break + 1:len_line) // new_line('A')
-                end if
-                exit
+            has_more = last_break < len_line
+
+            if (first_segment) then
+                output_code = output_code // &
+                              input_line(segment_start:last_break)
             else
-                output_code = output_code // input_line // new_line('A')
-                exit
+                output_code = output_code // continuation_str // &
+                              input_line(segment_start:last_break)
             end if
+
+            if (has_more) then
+                output_code = output_code // ' &' // new_line('A')
+            else
+                output_code = output_code // new_line('A')
+            end if
+
+            if (.not. has_more) exit
+
+            segment_start = last_break + 1
+            first_segment = .false.
         end do
     end subroutine add_line_with_continuation
 
