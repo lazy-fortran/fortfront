@@ -570,10 +570,57 @@ contains
         call get_environment_variable('PWD', buffer, status=status)
         if (status == 0 .and. len_trim(buffer) > 0) then
             root_path = trim(buffer)
-        else
-            root_path = ''
+            return
         end if
+
+        call get_environment_variable('CD', buffer, status=status)
+        if (status == 0 .and. len_trim(buffer) > 0) then
+            root_path = trim(buffer)
+            return
+        end if
+
+        call get_cwd_via_command(buffer, is_windows)
+        if (len_trim(buffer) > 0) then
+            root_path = trim(buffer)
+            return
+        end if
+
+        root_path = ''
     end subroutine initialize_project_root
+
+    subroutine get_cwd_via_command(cwd_result, is_win)
+        character(len=*), intent(out) :: cwd_result
+        logical, intent(in) :: is_win
+        character(len=256) :: tmp_file
+        integer :: unit_num, ios, exit_code
+        character(len=1024) :: line
+
+        cwd_result = ''
+        tmp_file = 'fortfront_cwd_temp.txt'
+
+        if (is_win) then
+            call execute_command_line('cd > ' // trim(tmp_file), exitstat=exit_code)
+        else
+            call execute_command_line('pwd > ' // trim(tmp_file), exitstat=exit_code)
+        end if
+
+        if (exit_code /= 0) return
+
+        open (newunit=unit_num, file=trim(tmp_file), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) then
+            call cleanup_file(tmp_file)
+            return
+        end if
+
+        read (unit_num, '(A)', iostat=ios) line
+        close (unit_num)
+        call cleanup_file(tmp_file)
+
+        if (ios == 0 .and. len_trim(line) > 0) then
+            cwd_result = trim(line)
+        end if
+    end subroutine get_cwd_via_command
 
     subroutine maybe_print_compile_command(command)
         character(len=*), intent(in) :: command
