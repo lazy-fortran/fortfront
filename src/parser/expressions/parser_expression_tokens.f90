@@ -9,6 +9,8 @@ module parser_expression_tokens_module
     public :: token_matches
     public :: token_is_boolean_literal
     public :: is_prefix_operator_token
+    public :: is_immediate_prefix_token
+    public :: is_not_operator_token
     public :: token_is_terminator
     public :: is_legacy_array_literal_start
 
@@ -43,6 +45,36 @@ contains
         is_prefix_operator_token = (lowered == "+" .or. lowered == "-" .or. lowered &
                                     == ".not.")
     end function is_prefix_operator_token
+
+    ! High-precedence prefix operators that bind immediately to their operand
+    ! (unary + and -). These should NOT include .not. which has lower precedence.
+    logical function is_immediate_prefix_token(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_OPERATOR) then
+            is_immediate_prefix_token = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        is_immediate_prefix_token = (lowered == "+" .or. lowered == "-")
+    end function is_immediate_prefix_token
+
+    ! Check if token is .not. operator
+    ! ISO/IEC 1539-1:2018 Table 10.1: .not. has lower precedence than comparison
+    logical function is_not_operator_token(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_OPERATOR) then
+            is_not_operator_token = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        is_not_operator_token = (lowered == ".not.")
+    end function is_not_operator_token
 
     logical function token_is_terminator(token, terminators)
         type(token_t), intent(in) :: token
