@@ -69,7 +69,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 53
+        integer, parameter :: NUM_INTRINSICS = 54
         integer :: i
 
         if (registry_initialized) return
@@ -423,6 +423,13 @@ contains
                                  name="ubound", return_type="array", &
                                  arg_types="array", &
                                  description="Upper bounds of array")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="null", return_type="pointer", &
+                                 arg_types="", &
+                                 description="Disassociated pointer or unallocated "// &
+                                 "allocatable")
     end subroutine register_inquiry_intrinsics
 
     ! Helper function to convert string to lowercase
