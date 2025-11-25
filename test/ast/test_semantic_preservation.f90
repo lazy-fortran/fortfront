@@ -3,6 +3,7 @@ program test_semantic_preservation
 
     character(len=:), allocatable :: input, output, error_msg
     logical :: test_passed
+    logical :: has_expected_expr
     integer :: total_tests, passed_tests
 
     total_tests = 0
@@ -32,7 +33,8 @@ program test_semantic_preservation
     call transform_lazy_fortran_string(input, output, error_msg)
     test_passed = (error_msg == "" .and. &
                    index(output, "integer :: x") > 0 .and. &
-                   index(output, "integer :: y") > 0)
+                   index(output, "function test() result(y)") > 0 .and. &
+                   index(output, "y = 10") > 0)
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 2 - Scope preservation:", merge("PASSED", "FAILED", test_passed)
 
@@ -40,8 +42,11 @@ program test_semantic_preservation
     total_tests = total_tests + 1
     input = "result = a + b * c"
     call transform_lazy_fortran_string(input, output, error_msg)
-    test_passed = (error_msg == "" .and. &
-                   index(output, "result = a + b * c") > 0)  ! Should preserve precedence
+    has_expected_expr = index(output, "result = a + b*c") > 0
+    if (.not. has_expected_expr) then
+        has_expected_expr = index(output, "result = a + b * c") > 0
+    end if
+    test_passed = (error_msg == "" .and. has_expected_expr)
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 3 - Expression order:", merge("PASSED", "FAILED", test_passed)
 
@@ -76,10 +81,12 @@ program test_semantic_preservation
             "b = 2" // new_line('A') // &
             "c = 3"
     call transform_lazy_fortran_string(input, output, error_msg)
+    ! Declarations should be consolidated into a single statement
     test_passed = (error_msg == "" .and. &
-                   count_substr(output, "integer ::") <= 1)  ! Should consolidate declarations
+                   count_substr(output, "integer ::") <= 1)
     if (test_passed) passed_tests = passed_tests + 1
-    print *, "Test 6 - Declaration consolidation:", merge("PASSED", "FAILED", test_passed)
+    print *, "Test 6 - Declaration consolidation:", &
+             merge("PASSED", "FAILED", test_passed)
 
     print *, ""
     print *, "=== Test Summary ==="
@@ -89,7 +96,7 @@ program test_semantic_preservation
         print *, "All AST transformation correctness tests passed!"
     else
         print *, "Some tests failed - AST transformation needs improvement"
-        print *, "This is expected - these tests expose real limitations"
+        stop 1
     end if
     stop 0
 
