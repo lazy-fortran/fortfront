@@ -279,7 +279,9 @@ contains
             token = parser%consume()
 
             token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. trim(to_lower(token%text)) == "to") then
+            ! Accept 'to' as either keyword or identifier (to is not a reserved word)
+            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
+                trim(to_lower(token%text)) == "to") then
                 token = parser%consume()
 
                 token = parser%peek()
