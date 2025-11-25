@@ -15,8 +15,6 @@ contains
         integer :: pos, line_start, line_end, len_input
         integer :: max_len
         character(len=:), allocatable :: current_line
-        logical :: in_string, in_comment
-        character :: quote_char
 
         len_input = len(input_code)
         if (len_input == 0) then
@@ -76,6 +74,9 @@ contains
     end function add_line_continuations
 
     ! Helper subroutine to add continuation to a long line
+    ! Per ISO/IEC 1539-1:2018 Section 6.3.2.5, line breaks inside string literals
+    ! require special handling. To avoid corrupting string content, this function
+    ! only breaks at positions outside of string literals.
     subroutine add_line_with_continuation(input_line, output_code, max_len)
         character(len=*), intent(in) :: input_line
         character(len=:), allocatable, intent(inout) :: output_code
@@ -83,7 +84,8 @@ contains
         integer, parameter :: CONTINUATION_INDENT = 6
         integer :: pos, last_break, len_line, i
         character(len=:), allocatable :: current_line, continuation_str
-        logical :: found_break
+        logical :: found_break, in_string
+        character :: quote_char, c
 
         len_line = len(input_line)
         if (len_line <= max_len) then
@@ -97,27 +99,60 @@ contains
         pos = 1
         do while (pos <= len_line)
             ! Find the last good break point within MAX_LINE_LENGTH
-            ! Strategy: scan the valid range and remember the LAST break character position
-            last_break = 0  ! Will hold position of last break char found
+            ! Strategy: scan the valid range, remember LAST break char position
+            ! IMPORTANT: Skip break points that are inside string literals
+            last_break = 0
             found_break = .false.
+            in_string = .false.
+            quote_char = ' '
+
+            ! First, determine string state at start of scan range (pos)
+            ! by scanning from the beginning of the line
+            do i = 1, pos - 1
+                c = input_line(i:i)
+                if (in_string) then
+                    if (c == quote_char) then
+                        in_string = .false.
+                    end if
+                else
+                    if (c == '"' .or. c == '''') then
+                        in_string = .true.
+                        quote_char = c
+                    end if
+                end if
+            end do
 
             ! Scan from pos to min(pos+max_len-1, len_line)
             do i = pos, min(pos + max_len - 1, len_line)
-                if (input_line(i:i) == ' ' .or. &
-                    input_line(i:i) == ',' .or. &
-                    input_line(i:i) == '(' .or. &
-                    input_line(i:i) == ')') then
-                    ! Remember this position - it's a valid break point
-                    last_break = i
-                    found_break = .true.
+                c = input_line(i:i)
+
+                ! Update string tracking state
+                if (in_string) then
+                    if (c == quote_char) then
+                        in_string = .false.
+                    end if
+                else
+                    if (c == '"' .or. c == '''') then
+                        in_string = .true.
+                        quote_char = c
+                    end if
+                end if
+
+                ! Only consider break points outside of string literals
+                if (.not. in_string) then
+                    if (c == ' ' .or. c == ',' .or. c == '(' .or. c == ')') then
+                        last_break = i
+                        found_break = .true.
+                    end if
                 end if
             end do
 
             ! Determine actual break position
             if (.not. found_break) then
-                ! No break character found in range - must break at max_len
-                ! This will split a token, but we have no choice
-                last_break = min(pos + max_len - 1, len_line)
+                ! No valid break character found outside strings - emit line as-is
+                ! This avoids corrupting string literals per ISO standard
+                output_code = output_code // input_line // new_line('A')
+                return
             end if
 
             ! Extract the line segment
@@ -126,11 +161,13 @@ contains
                 if (pos == 1) then
                     output_code = output_code // current_line // ' &' // new_line('A')
                 else
-                    output_code = output_code // continuation_str // current_line // new_line('A')
+                    output_code = output_code // continuation_str // &
+                                  current_line // new_line('A')
                 end if
-                ! Write the remainder of the line as-is and exit (single continuation is enough)
+                ! Write remainder as-is and exit (single continuation is enough)
                 if (last_break + 1 <= len_line) then
-                    output_code = output_code // input_line(last_break + 1:len_line) // new_line('A')
+                    output_code = output_code // &
+                                  input_line(last_break + 1:len_line) // new_line('A')
                 end if
                 exit
             else
