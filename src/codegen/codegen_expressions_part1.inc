@@ -636,7 +636,6 @@
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: elements_code
-        type(mono_type_t) :: array_type
         logical :: is_real_array
         integer :: nested_rows, nested_cols
 
@@ -648,118 +647,138 @@
             end if
         end if
 
-        ! Check array type to handle type-specific code generation
+        is_real_array = is_real_array_literal(arena, node)
+        elements_code = build_array_elements_code(arena, node, is_real_array)
+        code = format_array_literal_code(arena, node, elements_code)
+    end function generate_code_array_literal
+
+    function is_real_array_literal(arena, node) result(is_real_array)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        logical :: is_real_array
+        type(mono_type_t) :: array_type
+        integer :: j
+
         is_real_array = .false.
-        if (node%inferred_type%kind == TARRAY) then
-            if (node%inferred_type%has_args() .and. &
-                node%inferred_type%get_args_count() > 0) then
-                array_type = node%inferred_type%get_arg(1)
-                is_real_array = (array_type%kind == TREAL)
-            else
-                ! If no type info, check if any element is real
-                if (allocated(node%element_indices)) then
-                    block
-                        integer :: j
-                        do j = 1, size(node%element_indices)
-                            if (node%element_indices(j) > 0) then
-                                associate (entry => &
-                                           arena%entries(node%element_indices(j)))
-                                    select type (elem_node => entry%node)
-                                    type is (literal_node)
-                                        if (elem_node%literal_kind == &
-                                            LITERAL_REAL) then
-                                            is_real_array = .true.
-                                            exit
-                                        end if
-                                    end select
-                                end associate
-                            end if
-                        end do
-                    end block
-                end if
-            end if
+
+        if (node%inferred_type%kind /= TARRAY) return
+
+        if (node%inferred_type%has_args() .and. &
+            node%inferred_type%get_args_count() > 0) then
+            array_type = node%inferred_type%get_arg(1)
+            is_real_array = (array_type%kind == TREAL)
+            return
         end if
 
-        ! Generate elements code based on array type
-        if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-            if (is_real_array) then
-                elements_code = generate_real_elements_code(arena, &
-                                                            node%element_indices)
-            else
-                ! Per ISO/IEC 1539-1:2018 Section 7.8: Character array constructors
-                ! require all elements to have the same length-type-parameter.
-                ! For Lazy Fortran, we pad to the max actual string length.
-                ! For Standard Fortran roundtrip, strings already have consistent
-                ! lengths, so padding with max_actual_len preserves them unchanged.
-                ! CRITICAL FIX (issue #2493): Use actual string lengths from
-                ! literal values, NOT from the inferred type which may be incorrect.
-                block
-                    integer :: max_actual_len, j, str_len_val
-                    logical :: all_char
-                    character(len=:), allocatable :: trimmed_val
-                    max_actual_len = 0
-                    all_char = .true.
-                    do j = 1, size(node%element_indices)
-                        if (node%element_indices(j) <= 0) cycle
-                        associate (entry => arena%entries(node%element_indices(j)))
-                            if (.not. allocated(entry%node)) then
-                                all_char = .false.
-                                exit
-                            end if
-                            select type (elem => entry%node)
-                            type is (literal_node)
-                                if (allocated(elem%value) .and. &
-                                    len(elem%value) >= 2) then
-                                    ! CRITICAL FIX (issue #2493): Use len_trim to
-                                    ! handle trailing spaces in stored literals.
-                                    ! Some parsing paths store literals with padding.
-                                    trimmed_val = trim(elem%value)
-                                    str_len_val = len_trim(trimmed_val) - 2
-                                    max_actual_len = max(max_actual_len, str_len_val)
-                                else
-                                    all_char = .false.
-                                    exit
-                                end if
-                            class default
-                                all_char = .false.
-                                exit
-                            end select
-                        end associate
-                    end do
-                    if (all_char .and. max_actual_len > 0) then
-                        elements_code = generate_char_elements_code( &
-                                        arena, node%element_indices, max_actual_len)
-                    else
-                        elements_code = generate_elements_code_from_indices(arena, &
-                            & node%element_indices)
-                    end if
-                end block
+        if (.not. allocated(node%element_indices)) return
+
+        do j = 1, size(node%element_indices)
+            if (node%element_indices(j) > 0) then
+                associate (entry => arena%entries(node%element_indices(j)))
+                    select type (elem_node => entry%node)
+                    type is (literal_node)
+                        if (elem_node%literal_kind == LITERAL_REAL) then
+                            is_real_array = .true.
+                            return
+                        end if
+                    end select
+                end associate
             end if
-        else
+        end do
+    end function is_real_array_literal
+
+    function build_array_elements_code(arena, node, is_real_array) result(elements_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        logical, intent(in) :: is_real_array
+        character(len=:), allocatable :: elements_code
+        integer :: max_actual_len
+        logical :: all_char
+
+        if (.not. allocated(node%element_indices)) then
             elements_code = ""
+            return
         end if
 
-        ! Handle different syntax styles
+        if (size(node%element_indices) == 0) then
+            elements_code = ""
+            return
+        end if
+
+        if (is_real_array) then
+            elements_code = generate_real_elements_code(arena, node%element_indices)
+            return
+        end if
+
+        call compute_char_element_length(arena, node%element_indices, max_actual_len, &
+                                         all_char)
+
+        if (all_char .and. max_actual_len > 0) then
+            elements_code = generate_char_elements_code(arena, node%element_indices, &
+                                                        max_actual_len)
+        else
+            elements_code = generate_elements_code_from_indices(arena, &
+                                                                node%element_indices)
+        end if
+    end function build_array_elements_code
+
+    subroutine compute_char_element_length(arena, element_indices, max_actual_len, &
+                                           all_char)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: element_indices(:)
+        integer, intent(out) :: max_actual_len
+        logical, intent(out) :: all_char
+        integer :: j, str_len_val
+
+        max_actual_len = 0
+        all_char = .true.
+
+        do j = 1, size(element_indices)
+            if (element_indices(j) <= 0) cycle
+            associate (entry => arena%entries(element_indices(j)))
+                if (.not. allocated(entry%node)) then
+                    all_char = .false.
+                    exit
+                end if
+                select type (elem => entry%node)
+                type is (literal_node)
+                    if (allocated(elem%value) .and. len(elem%value) >= 2) then
+                        str_len_val = len_trim(elem%value) - 2
+                        max_actual_len = max(max_actual_len, str_len_val)
+                    else
+                        all_char = .false.
+                        exit
+                    end if
+                class default
+                    all_char = .false.
+                    exit
+                end select
+            end associate
+        end do
+    end subroutine compute_char_element_length
+
+    function format_array_literal_code(arena, node, elements_code) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: node
+        character(len=*), intent(in) :: elements_code
+        character(len=:), allocatable :: code
+
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
-                ! Modern syntax: [1, 2, 3] or [type :: 1, 2, 3]
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
                     if (allocated(node%type_spec)) then
                         code = "[" // trim(node%type_spec) // " :: " // &
-                               elements_code // "]"
+                               trim(elements_code) // "]"
                     else
-                        code = "[" // elements_code // "]"
+                        code = "[" // trim(elements_code) // "]"
                     end if
                 else
-                    ! Empty array - needs type spec, default to integer
                     code = "[integer ::]"
                 end if
             else if (node%syntax_style == "implied_do") then
-                ! Implied do loop syntax: generate actual implied do loop
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
-                    ! The element should be a do loop node
                     if (allocated(node%type_spec)) then
                         code = generate_implied_do_array(arena, &
                                                          node%element_indices(1), &
@@ -769,7 +788,6 @@
                                                          node%element_indices(1))
                     end if
                 else
-                    ! Empty array - needs type spec, default to integer
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
@@ -777,17 +795,15 @@
                     end if
                 end if
             else
-                ! Legacy syntax: (/ 1, 2, 3 /)
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: " // &
                                trim(elements_code) // " /)"
                     else
-                        code = "(/ " // elements_code // " /)"
+                        code = "(/ " // trim(elements_code) // " /)"
                     end if
                 else
-                    ! Empty array - needs type spec, default to integer
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
@@ -796,24 +812,23 @@
                 end if
             end if
         else
-            ! Default to legacy syntax
             if (allocated(node%element_indices) .and. &
                 size(node%element_indices) > 0) then
                 if (allocated(node%type_spec)) then
                     code = "(/ " // trim(node%type_spec) // " :: " // &
                            trim(elements_code) // " /)"
                 else
-                    code = "(/ " // elements_code // " /)"
+                    code = "(/ " // trim(elements_code) // " /)"
                 end if
             else
                 if (allocated(node%type_spec)) then
                     code = "(/ " // trim(node%type_spec) // " :: /)"
                 else
-                    code = "[integer ::]"  ! Empty array constructor with type spec
+                    code = "[integer ::]"
                 end if
             end if
         end if
-    end function generate_code_array_literal
+    end function format_array_literal_code
 
     ! Promote integer literals to default real form and keep explicit kinds intact.
     function promote_integer_literal_to_real(code) result(promoted)

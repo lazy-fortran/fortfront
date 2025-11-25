@@ -269,7 +269,8 @@ contains
                 ! Check if the single element is a do_loop_node
                 if (array_node%element_indices(1) > 0 .and. &
                     array_node%element_indices(1) <= arena%size) then
-                    if (allocated(arena%entries(array_node%element_indices(1))%node)) then
+                    if (allocated(arena%entries(array_node%element_indices(1))%node)) &
+                        then
                         select type (elem => &
                                      arena%entries(array_node%element_indices(1))%node)
                         type is (do_loop_node)
