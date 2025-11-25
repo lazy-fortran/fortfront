@@ -21,6 +21,8 @@ module parser_expression_operator_utils_module
     integer, parameter, public :: PREC_LOGICAL_EQV = 20
     integer, parameter, public :: PREC_LOGICAL_OR = 30
     integer, parameter, public :: PREC_LOGICAL_AND = 40
+    ! ISO/IEC 1539-1:2018 Table 10.1: .not. has lower precedence than comparison
+    integer, parameter, public :: PREC_NOT = 45
     integer, parameter, public :: PREC_COMPARISON = 50
     integer, parameter, public :: PREC_CONCAT = 60
     integer, parameter, public :: PREC_TERM = 70
@@ -72,6 +74,11 @@ contains
             entry%symbol = token%text
             entry%precedence = PREC_LOGICAL_AND
         case ("==", "/=", "<=", ">=", "<", ">")
+            entry%symbol = token%text
+            entry%precedence = PREC_COMPARISON
+        ! ISO/IEC 1539-1:2018 Table 10.1: old-style comparison operators
+        ! have same precedence as modern comparison operators
+        case (".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.")
             entry%symbol = token%text
             entry%precedence = PREC_COMPARISON
         case ("//")
@@ -197,9 +204,8 @@ contains
                                               token%text, token%line, token%column)
             case ("+")
                 cycle
-            case (".not.")
-                result_index = push_binary_op(arena, 0, result_index, token%text, &
-                                              token%line, token%column)
+            ! Note: .not. is now handled as an operator with PREC_NOT precedence
+            ! in parse_expression_with_precedence, not as a prefix operator
             case default
                 cycle
             end select
