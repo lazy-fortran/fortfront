@@ -9,7 +9,9 @@ module parser_procedure_definition_bodies_module
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
                                                parse_select_rank
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
-                                                 parse_comment_or_directive
+                                                 parse_comment_or_directive, &
+                                                 get_stmt_util_additional_indices, &
+                                                 clear_stmt_util_additional_indices
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
                                            append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
@@ -156,6 +158,14 @@ contains
 
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
+                block
+                    integer, allocatable :: extra_indices(:)
+                    extra_indices = get_stmt_util_additional_indices()
+                    if (size(extra_indices) > 0) then
+                        body_indices = [body_indices, extra_indices]
+                    end if
+                    call clear_stmt_util_additional_indices()
+                end block
             end if
         end do
     end subroutine parse_procedure_body

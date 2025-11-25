@@ -22,6 +22,7 @@ module parser_procedure_bodies_module
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
                                                parse_select_rank
     use parser_utilities, only: skip_to_end_of_line
+    use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement
     use parser_control_statements_module, only: parse_entry_statement
     implicit none
@@ -390,13 +391,14 @@ contains
             case ("data")
                 stmt_index = parse_data_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", &
-                  "double", "procedure")
+                  "double", "procedure", "class", "type")
                 ! Check if this is a multi-variable declaration
                 block
-                    logical :: has_comma
-                    has_comma = parser%has_comma_in_declaration()
+                    logical :: has_initializer, has_comma
+                    integer, allocatable :: decl_indices(:)
+                    call analyze_declaration_structure(parser, has_initializer, &
+                                                       has_comma)
                     if (has_comma) then
-                        integer, allocatable :: decl_indices(:)
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
                             stmt_index = decl_indices(1)
