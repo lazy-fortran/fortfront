@@ -475,7 +475,7 @@
     end function generate_real_elements_code
 
     ! Generate code for character array elements.
-    ! String literals must be padded to consistent target_len.
+    ! String literals are padded to consistent target_len (max actual length).
     function generate_char_elements_code(arena, element_indices, target_len) &
         result(elements_code)
         type(ast_arena_t), intent(in) :: arena
@@ -685,23 +685,19 @@
             if (is_real_array) then
                 elements_code = generate_real_elements_code(arena, &
                                                             node%element_indices)
-            else if (node%inferred_type%kind == TARRAY .and. &
-                     node%inferred_type%has_args() .and. &
-                     node%inferred_type%get_args_count() > 0) then
-                array_type = node%inferred_type%get_arg(1)
-                if (array_type%kind == TCHAR .and. array_type%size > 0) then
-                    elements_code = generate_char_elements_code( &
-                                    arena, node%element_indices, array_type%size)
-                else
-                    elements_code = generate_elements_code_from_indices(arena, &
-                        & node%element_indices)
-                end if
             else
-                ! Fallback: check if elements are character literals
+                ! Per ISO/IEC 1539-1:2018 Section 7.8: Character array constructors
+                ! require all elements to have the same length-type-parameter.
+                ! For Lazy Fortran, we pad to the max actual string length.
+                ! For Standard Fortran roundtrip, strings already have consistent
+                ! lengths, so padding with max_actual_len preserves them unchanged.
+                ! CRITICAL FIX (issue #2493): Use actual string lengths from
+                ! literal values, NOT from the inferred type which may be incorrect.
                 block
-                    integer :: max_len_fallback, j, str_len_val
+                    integer :: max_actual_len, j, str_len_val
                     logical :: all_char
-                    max_len_fallback = 0
+                    character(len=:), allocatable :: trimmed_val
+                    max_actual_len = 0
                     all_char = .true.
                     do j = 1, size(node%element_indices)
                         if (node%element_indices(j) <= 0) cycle
@@ -714,9 +710,12 @@
                             type is (literal_node)
                                 if (allocated(elem%value) .and. &
                                     len(elem%value) >= 2) then
-                                    str_len_val = len(elem%value) - 2
-                                    max_len_fallback = max(max_len_fallback, &
-                                                           str_len_val)
+                                    ! CRITICAL FIX (issue #2493): Use len_trim to
+                                    ! handle trailing spaces in stored literals.
+                                    ! Some parsing paths store literals with padding.
+                                    trimmed_val = trim(elem%value)
+                                    str_len_val = len_trim(trimmed_val) - 2
+                                    max_actual_len = max(max_actual_len, str_len_val)
                                 else
                                     all_char = .false.
                                     exit
@@ -727,9 +726,9 @@
                             end select
                         end associate
                     end do
-                    if (all_char .and. max_len_fallback > 0) then
+                    if (all_char .and. max_actual_len > 0) then
                         elements_code = generate_char_elements_code( &
-                                        arena, node%element_indices, max_len_fallback)
+                                        arena, node%element_indices, max_actual_len)
                     else
                         elements_code = generate_elements_code_from_indices(arena, &
                             & node%element_indices)
