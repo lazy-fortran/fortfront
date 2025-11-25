@@ -733,6 +733,16 @@ contains
                         success = parse_dimension_statement(parser_ref, arena_ref)
                     end block
                     stmt_index = 0
+                case ("parameter")
+                    block
+                        use parser_parameter_statements_module, only: &
+                            parse_parameter_statement
+                        type(token_t) :: ignored_token
+                        logical :: success
+                        ignored_token = parser_ref%consume()
+                        success = parse_parameter_statement(parser_ref, arena_ref)
+                    end block
+                    stmt_index = 0
                 case ("namelist")
                     stmt_index = parse_namelist_statement(parser_ref, arena_ref)
                 case ("equivalence", "common")

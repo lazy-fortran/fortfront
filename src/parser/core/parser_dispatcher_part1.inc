@@ -16,13 +16,13 @@
         select case (first_token%kind)
         case (TK_KEYWORD)
             call dispatch_keyword(parser, arena, prefix_buffer, tokens, &
-                                 first_token, stmt_index)
+                                  first_token, stmt_index)
         case (TK_NUMBER)
             call dispatch_number_token(parser, arena, prefix_buffer, tokens, &
-                                      stmt_index)
+                                       stmt_index)
         case (TK_IDENTIFIER)
             call dispatch_identifier_token(parser, arena, prefix_buffer, &
-                                          first_token, stmt_index)
+                                           first_token, stmt_index)
         case (TK_COMMENT)
             call dispatch_comment_token(parser, arena, first_token, stmt_index)
         case (TK_NEWLINE)
@@ -49,23 +49,24 @@
         if (try_dispatch_io_keyword(parser, arena, lowered_keyword, stmt_index)) &
             return
         if (try_dispatch_control_keyword(parser, arena, first_token, &
-            lowered_keyword, stmt_index)) return
+                                         lowered_keyword, stmt_index)) return
         if (try_dispatch_definition_keyword(parser, arena, prefix_buffer, &
-            first_token, lowered_keyword, stmt_index)) return
+                                            first_token, lowered_keyword, &
+                                                stmt_index)) return
         if (try_dispatch_declaration_keyword(parser, arena, prefix_buffer, &
-            lowered_keyword, stmt_index)) return
+                                             lowered_keyword, stmt_index)) return
         if (try_dispatch_execution_keyword(parser, arena, first_token, &
-            lowered_keyword, stmt_index)) return
+                                           lowered_keyword, stmt_index)) return
         if (try_dispatch_data_keyword(parser, arena, first_token, &
-            lowered_keyword, stmt_index)) return
+                                      lowered_keyword, stmt_index)) return
         if (.not. try_handle_prefix_sequence(parser, arena, prefix_buffer, &
-            stmt_index)) then
+                                             stmt_index)) then
             stmt_index = parse_as_expression(tokens, arena)
         end if
     end subroutine dispatch_keyword
 
     logical function try_dispatch_io_keyword(parser, arena, keyword, &
-        stmt_index) result(handled)
+                                             stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: keyword
@@ -103,7 +104,7 @@
     end function try_dispatch_io_keyword
 
     logical function try_dispatch_control_keyword(parser, arena, first_token, &
-        keyword, stmt_index) result(handled)
+                                                  keyword, stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
@@ -126,7 +127,9 @@
     end function try_dispatch_control_keyword
 
     logical function try_dispatch_definition_keyword(parser, arena, &
-        prefix_buffer, first_token, keyword, stmt_index) result(handled)
+                                                     prefix_buffer, first_token, &
+                                                         keyword, stmt_index) &
+                                                         result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -162,7 +165,8 @@
     end function try_dispatch_definition_keyword
 
     logical function try_dispatch_declaration_keyword(parser, arena, &
-        prefix_buffer, keyword, stmt_index) result(handled)
+                                                      prefix_buffer, keyword, &
+                                                          stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -191,7 +195,7 @@
     end function try_dispatch_declaration_keyword
 
     logical function try_dispatch_execution_keyword(parser, arena, first_token, &
-        keyword, stmt_index) result(handled)
+                                                    keyword, stmt_index) result(handled)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
@@ -228,12 +232,14 @@
     end function try_dispatch_execution_keyword
 
     logical function try_dispatch_data_keyword(parser, arena, first_token, &
-        keyword, stmt_index) result(handled)
+                                               keyword, stmt_index) result(handled)
+        use parser_parameter_statements_module, only: parse_parameter_statement
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: first_token
         character(len=*), intent(in) :: keyword
         integer, intent(out) :: stmt_index
+        logical :: param_success
 
         handled = .true.
         select case (keyword)
@@ -241,9 +247,16 @@
             call handle_data_keyword(parser, arena, stmt_index)
         case ("namelist")
             stmt_index = parse_namelist_statement(parser, arena)
+        case ("parameter")
+            param_success = parse_parameter_statement(parser, arena)
+            if (param_success) then
+                stmt_index = 0
+            else
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            end if
         case ("equivalence", "common")
             call handle_legacy_keyword(parser, arena, first_token, keyword, &
-                                      stmt_index)
+                                       stmt_index)
         case ("enum", "enumerator")
             stmt_index = parse_unsupported_statement(keyword, parser, arena)
         case default
@@ -281,7 +294,7 @@
         if (is_abstract_interface) then
             next_token = parser%consume()
             stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
-                                              is_abstract=.true.)
+                                               is_abstract=.true.)
         else
             stmt_index = parse_type_or_declaration(parser, arena, prefix_buffer)
         end if
@@ -496,7 +509,7 @@
     end subroutine handle_legacy_keyword
 
     subroutine dispatch_number_token(parser, arena, prefix_buffer, tokens, &
-                                    stmt_index)
+                                     stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
@@ -552,7 +565,7 @@
     end subroutine dispatch_number_token
 
     subroutine dispatch_identifier_token(parser, arena, prefix_buffer, &
-                                        first_token, stmt_index)
+                                         first_token, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
