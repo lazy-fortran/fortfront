@@ -1,13 +1,10 @@
 module parser_allocatable_statements_module
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_KEYWORD, TK_OPERATOR, &
-        & TK_WHITESPACE, TK_COMMENT, TK_NEWLINE, TK_NUMBER, to_lower
+        & TK_WHITESPACE, TK_COMMENT, TK_NEWLINE, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_data, only: declaration_node, module_node
-    use ast_nodes_core, only: program_node
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_data, only: declaration_node
     use parser_declaration_attributes_module, only: parse_array_dimensions
-    use parser_type_hooks_module, only: update_type_annotation_entry
     implicit none
     private
 
@@ -93,6 +90,10 @@ contains
                 call parse_array_dimensions(parser, arena, dimension_indices)
                 has_dimensions = .true.
             end if
+        end if
+
+        if (.not. allocated(dimension_indices)) then
+            allocate (dimension_indices(0))
         end if
 
         applied = apply_allocatable_to_variable(arena, var_name, dimension_indices, &
