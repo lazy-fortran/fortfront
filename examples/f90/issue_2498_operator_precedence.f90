@@ -7,13 +7,14 @@
 ! Case 2: Old-style comparison operators (.ne., .eq., etc.)
 ! should have same precedence as modern comparison operators (==, /=, etc.)
 program test_operator_precedence
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     logical :: result1, result2, result3
-    real :: x
+    real(dp) :: x
     integer :: a, b
 
     ! Case 1: .not. precedence - should bind looser than ==
-    x = 1.0
+    x = 1.0d0
     result1 = .not. x == x
     ! Expected: .not. (x == x) = .not. .true. = .false.
 
