@@ -38,12 +38,15 @@ module parser_expressions_module
     use parser_expression_tokens_module, only: token_matches, &
                                                token_is_boolean_literal, &
                                                is_prefix_operator_token, &
+                                               is_immediate_prefix_token, &
+                                               is_not_operator_token, &
                                                token_is_terminator, &
                                                is_legacy_array_literal_start
     use parser_expression_operator_utils_module, only: PREC_ASSIGNMENT, PREC_RANGE, &
                                                        PREC_LOGICAL_EQV, &
                                                        PREC_LOGICAL_OR, &
                                                        PREC_LOGICAL_AND, &
+                                                       PREC_NOT, &
                                                        PREC_COMPARISON, &
                                                        PREC_CONCAT, PREC_TERM, &
                                                        PREC_FACTOR, PREC_POWER, &
@@ -489,7 +492,28 @@ contains
                     end if
                 end if
 
-                if (is_prefix_operator_token(token)) then
+                ! Handle .not. operator with correct precedence (lower than comparison)
+                ! ISO/IEC 1539-1:2018 Table 10.1: .not. binds looser than relational ops
+                if (is_not_operator_token(token)) then
+                    ! Push virtual 0 operand for unary .not.
+                    call operand_stack_push(operands, 0)
+                    ! Create operator entry for .not. with PREC_NOT precedence
+                    block
+                        type(operator_entry_t) :: not_entry
+                        not_entry%symbol = token%text
+                        not_entry%precedence = PREC_NOT
+                        not_entry%right_associative = .true.
+                        not_entry%token = view_consume_token(view, parser)
+                        call reduce_operators_for_incoming(operators, operands, arena, &
+                                                           not_entry)
+                        call operator_stack_push(operators, not_entry)
+                    end block
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                ! Handle high-precedence prefix operators (+, -) that bind immediately
+                if (is_immediate_prefix_token(token)) then
                     call token_stack_push(prefix_stack, &
                                           view_consume_token(view, parser))
                     cycle
