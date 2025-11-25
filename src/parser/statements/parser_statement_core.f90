@@ -26,6 +26,7 @@ module parser_statement_core_module
                                             parse_namelist_statement
     use parser_dimension_statements_module, only: parse_dimension_statement
     use parser_parameter_statements_module, only: parse_parameter_statement
+    use parser_allocatable_statements_module, only: parse_allocatable_statement
     use parser_statement_detection_module, only: is_block_if, find_statement_end, &
                                                  extend_if_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
@@ -208,6 +209,14 @@ contains
                     stmt_index = 0
                 end if
             end if
+
+            if (lowered == "allocatable") then
+                if (parse_allocatable_statement(parser, arena)) then
+                    stmt_index = STATEMENT_NO_NODE
+                else
+                    stmt_index = 0
+                end if
+            end if
         end block
     end function parse_keyword_statement
 
@@ -226,11 +235,12 @@ contains
         stmt_index = 0
         select case (keyword)
         case ("if")
-            ! Check if this "if" is part of a compound keyword like "end if" or "else if"
+           ! Check if this "if" is part of a compound keyword like "end if" or "else if"
             skip_if = .false.
             if (parser%current_token >= 2) then
                 ! Look back for previous non-whitespace token
-                do prev_idx = parser%current_token - 2, max(1, parser%current_token - 5), -1
+                do prev_idx = parser%current_token - 2, max(1, &
+                                                           parser%current_token - 5), -1
                     if (prev_idx >= 1 .and. prev_idx <= size(parser%tokens)) then
                         prev_token = parser%tokens(prev_idx)
                         ! Skip whitespace/newlines/comments
@@ -249,7 +259,7 @@ contains
                 end do
             end if
 
-            ! Only call parse_if if this is a standalone "if", not part of compound keyword
+         ! Only call parse_if if this is a standalone "if", not part of compound keyword
             if (.not. skip_if .and. associated(callbacks%parse_if)) then
                 if (present(parent_index)) then
                     stmt_index = callbacks%parse_if(parser, arena, parent_index)
