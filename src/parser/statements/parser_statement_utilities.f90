@@ -4,7 +4,8 @@ module parser_statement_utilities_module
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
-    use parser_declarations, only: parse_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_utils, only: analyze_declaration_structure
     use parser_expressions_module, only: parse_comparison
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, &
@@ -39,9 +40,29 @@ module parser_statement_utilities_module
     implicit none
     private
 
+    integer, allocatable :: stmt_util_additional_indices(:)
+
     public :: parse_statement_in_if_block, parse_comment_or_directive
+    public :: get_stmt_util_additional_indices, clear_stmt_util_additional_indices
 
 contains
+
+    function get_stmt_util_additional_indices() result(indices)
+        integer, allocatable :: indices(:)
+        if (allocated(stmt_util_additional_indices)) then
+            allocate (indices(size(stmt_util_additional_indices)))
+            indices = stmt_util_additional_indices
+        else
+            allocate (indices(0))
+        end if
+    end function get_stmt_util_additional_indices
+
+    subroutine clear_stmt_util_additional_indices()
+        if (allocated(stmt_util_additional_indices)) then
+            deallocate (stmt_util_additional_indices)
+        end if
+    end subroutine clear_stmt_util_additional_indices
+
 
     ! Statement parsing for if blocks - moved here to break circular dependency
     function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
@@ -98,7 +119,31 @@ contains
                     (next_token%text == "=" .or. next_token%text == "=>")) then
                     stmt_index = parse_assignment_simple(parser, arena)
                 else
-                    stmt_index = parse_declaration(parser, arena)
+                    block
+                        logical :: has_initializer, has_comma
+                        integer, allocatable :: decl_indices(:)
+                        call analyze_declaration_structure(parser, has_initializer, &
+                                                           has_comma)
+                        if (has_comma) then
+                            decl_indices = parse_multi_declaration(parser, arena)
+                            if (allocated(decl_indices) .and. size(decl_indices) > 0) &
+                                then
+                                stmt_index = decl_indices(1)
+                                if (size(decl_indices) > 1) then
+                                    if (allocated(stmt_util_additional_indices)) then
+                                        deallocate (stmt_util_additional_indices)
+                                    end if
+                                    allocate (stmt_util_additional_indices( &
+                                              size(decl_indices) - 1))
+                                    stmt_util_additional_indices = decl_indices(2:)
+                                end if
+                            else
+                                stmt_index = 0
+                            end if
+                        else
+                            stmt_index = parse_declaration(parser, arena)
+                        end if
+                    end block
                 end if
             case ("allocate")
                 stmt_index = parse_allocate_statement(parser, arena)

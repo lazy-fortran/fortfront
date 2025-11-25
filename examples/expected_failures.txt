@@ -16,7 +16,6 @@ issue_2444_data_trailing_comma.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 8.6.7 (
 
 # Standard Fortran - Codegen bugs
 tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
-issue_2455_multi_variable_decl.f90  # multi-variable parameter declarations lose dimensions/intent (#2455)
 issue_2455_nested_array_constructor.f90  # nested array constructors generate malformed syntax (#2455)
 
 # Lazy Fortran - Recent failures needing implementation
