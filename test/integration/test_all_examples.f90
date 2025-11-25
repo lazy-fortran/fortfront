@@ -36,6 +36,7 @@ program test_all_examples
     logical :: timeout_requires_command_string = .false.
     logical :: timeout_string_needs_quotes = .false.
     real(dp) :: success_rate
+    character(len=:), allocatable :: project_root
 
     test_count = 0
     pass_count = 0
@@ -45,6 +46,7 @@ program test_all_examples
     xpass_count = 0
 
     is_windows = check_if_windows()
+    call initialize_project_root(project_root)
 
     ! Print platform diagnostics for CI debugging
     print *, "=== Platform Diagnostics ==="
@@ -309,7 +311,9 @@ contains
         logical :: is_f90_roundtrip
         logical :: analysis_only, expect_diagnostic
         character(len=:), allocatable :: module_dir
+        character(len=:), allocatable :: module_dir_abs
         character(len=:), allocatable :: module_cache_dir
+        character(len=:), allocatable :: command_with_workdir
 
         basename_str = extract_example_basename(filepath)
         sep = path_separator_for(temp_dir)
@@ -497,6 +501,8 @@ contains
         character(len=*), intent(in) :: module_dir, module_cache_dir
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: command
+        character(len=:), allocatable :: command_with_workdir
+        character(len=:), allocatable :: module_dir_abs
         integer :: exit_code
 
         if (len_trim(module_cache_dir) == 0) then
@@ -509,14 +515,24 @@ contains
             return
         end if
 
-        command = build_compile_command(output_file, module_dir, module_cache_dir, &
-                                        is_windows)
+        module_dir_abs = to_absolute_path(module_dir, is_windows)
+
+        command = build_compile_command(output_file, module_dir_abs, &
+                                        module_cache_dir, is_windows)
         if (len_trim(command) == 0) then
             compile_generated_output = .false.
             return
         end if
 
-        call execute_command_line(trim(command), exitstat=exit_code)
+        command_with_workdir = prepend_workdir(command, module_cache_dir, &
+                                               is_windows)
+        if (len_trim(command_with_workdir) == 0) then
+            compile_generated_output = .false.
+            return
+        end if
+
+        call maybe_print_compile_command(command_with_workdir)
+        call execute_command_line(trim(command_with_workdir), exitstat=exit_code)
         if (exit_code /= 0) then
             print *, 'DEBUG: Compilation failed with exit code:', exit_code
             print *, 'DEBUG: Command was:', trim(command)
@@ -524,6 +540,106 @@ contains
         end if
         compile_generated_output = (exit_code == 0)
     end function compile_generated_output
+
+    function prepend_workdir(command, workdir, is_windows) result(prefixed)
+        character(len=*), intent(in) :: command, workdir
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: prefixed
+        character(len=:), allocatable :: quoted_dir
+
+        prefixed = ''
+        if (len_trim(command) == 0 .or. len_trim(workdir) == 0) return
+
+        quoted_dir = quote_for_shell(workdir, is_windows, &
+                                     escape_for_cmd=is_windows)
+        if (len_trim(quoted_dir) == 0) return
+
+        if (is_windows) then
+            prefixed = 'cd /d ' // trim(quoted_dir) // ' && ' // trim(command)
+        else
+            prefixed = 'cd ' // trim(quoted_dir) // ' && ' // trim(command)
+        end if
+    end function prepend_workdir
+
+    subroutine initialize_project_root(root_path)
+        character(len=:), allocatable, intent(out) :: root_path
+        character(len=1024) :: buffer
+        integer :: status
+
+        buffer = ''
+        call get_environment_variable('PWD', buffer, status=status)
+        if (status == 0 .and. len_trim(buffer) > 0) then
+            root_path = trim(buffer)
+        else
+            root_path = ''
+        end if
+    end subroutine initialize_project_root
+
+    subroutine maybe_print_compile_command(command)
+        character(len=*), intent(in) :: command
+        character(len=32) :: env_value
+        integer :: status
+
+        env_value = ''
+        call get_environment_variable('FORTFRONT_SHOW_COMPILE_OUTPUT', env_value, &
+                                      status=status)
+        if (status == 0) then
+            if (len_trim(env_value) > 0 .and. env_value(1:1) /= '0') then
+                write (*, '(A)') 'DEBUG compile command: '//trim(command)
+            end if
+        end if
+    end subroutine maybe_print_compile_command
+
+    function to_absolute_path(path, is_windows) result(absolute)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: absolute
+        character(len=:), allocatable :: cwd
+        character(len=1) :: sep
+
+        absolute = trim(path)
+        if (len_trim(path) == 0) return
+        if (is_absolute_path(path, is_windows)) return
+        if (.not. allocated(project_root)) return
+        if (len_trim(project_root) == 0) return
+
+        cwd = project_root
+
+        sep = path_separator_for(cwd)
+        absolute = trim(cwd)
+        if (absolute(len_trim(absolute):len_trim(absolute)) /= sep) then
+            absolute = trim(absolute) // sep
+        end if
+        absolute = trim(absolute) // trim(path)
+    end function to_absolute_path
+
+    logical function is_absolute_path(path, is_windows)
+        character(len=*), intent(in) :: path
+        logical, intent(in) :: is_windows
+        integer :: trimmed_len
+
+        trimmed_len = len_trim(path)
+        if (trimmed_len == 0) then
+            is_absolute_path = .false.
+            return
+        end if
+
+        if (path(1:1) == '/') then
+            is_absolute_path = .true.
+            return
+        end if
+
+        if (is_windows) then
+            if (trimmed_len >= 2) then
+                if (path(2:2) == ':' .or. path(1:1) == '\') then
+                    is_absolute_path = .true.
+                    return
+                end if
+            end if
+        end if
+
+        is_absolute_path = .false.
+    end function is_absolute_path
 
     subroutine finalize_example_result(name, output_file, error_file, has_error, &
                                        has_unparsed, has_warning, expect_fail, &
