@@ -15,6 +15,7 @@ module parser_procedure_definition_bodies_module
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, &
                                            append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
+    use parser_interface_blocks_module, only: parse_interface_block
     use ast_nodes_misc, only: contains_node
     use ast_arena_modern, only: ast_arena_t
     implicit none
@@ -141,6 +142,60 @@ contains
                         exit
                     end if
                     ! Otherwise fall through and treat "contains" as an identifier
+                end block
+            end if
+
+            ! Handle interface blocks (including abstract interface)
+            if (token%kind == TK_KEYWORD .and. trim(lowered) == "interface") then
+                block
+                    type(parser_prefix_buffer_t) :: iface_prefix_buffer
+                    call iface_prefix_buffer%clear()
+                    stmt_index = parse_interface_block(parser, arena, iface_prefix_buffer)
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
+                end block
+                cycle
+            end if
+
+            if (token%kind == TK_KEYWORD .and. trim(lowered) == "abstract") then
+                block
+                    type(parser_prefix_buffer_t) :: iface_prefix_buffer
+                    integer :: lookahead_idx
+                    type(token_t) :: lookahead_token
+                    logical :: is_abstract_interface
+                    character(len=:), allocatable :: lookahead_lowered
+
+                    is_abstract_interface = .false.
+                    lookahead_idx = parser%current_token + 1
+                    do while (lookahead_idx <= size(parser%tokens))
+                        lookahead_token = parser%tokens(lookahead_idx)
+                        select case (lookahead_token%kind)
+                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                            lookahead_idx = lookahead_idx + 1
+                            cycle
+                        case (TK_KEYWORD, TK_IDENTIFIER)
+                            lookahead_lowered = to_lower(trim(lookahead_token%text))
+                            if (lookahead_lowered == "interface") then
+                                is_abstract_interface = .true.
+                            end if
+                            exit
+                        case default
+                            exit
+                        end select
+                    end do
+
+                    if (is_abstract_interface) then
+                        token = parser%consume()
+                        call iface_prefix_buffer%clear()
+                        stmt_index = parse_interface_block(parser, arena, &
+                                                           iface_prefix_buffer, &
+                                                           is_abstract=.true.)
+                        if (stmt_index > 0) then
+                            body_indices = [body_indices, stmt_index]
+                        end if
+                        cycle
+                    end if
                 end block
             end if
 
