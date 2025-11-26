@@ -87,7 +87,7 @@ contains
 
         ! Check if we're already at 'program' keyword
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "program") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "program") then
             ! Consume 'program' keyword
             token = parser%consume()
         else

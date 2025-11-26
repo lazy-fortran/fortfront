@@ -365,19 +365,23 @@
             if (tokens(i)%kind == TK_KEYWORD) then
                 keyword_count = keyword_count + 1
 
-                ! Check for common Fortran keywords
-                if (tokens(i)%text == "program" .or. tokens(i)%text == "function" .or. &
-                    tokens(i)%text == "subroutine" .or. tokens(i)%text == "module" .or. &
-                    tokens(i)%text == "integer" .or. tokens(i)%text == "real" .or. &
-                    tokens(i)%text == "character" .or. tokens(i)%text == "logical" .or. &
-                    tokens(i)%text == "implicit" .or. tokens(i)%text == "none" .or. &
-                    tokens(i)%text == "end" .or. tokens(i)%text == "if" .or. &
-                    tokens(i)%text == "do" .or. tokens(i)%text == "print" .or. &
-                    tokens(i)%text == "read" .or. tokens(i)%text == "write" .or. &
-                    tokens(i)%text == "use" .or. tokens(i)%text == "include" .or. &
-                    tokens(i)%text == "import") then
-                    has_fortran_keywords = .true.
-                end if
+                ! Check for common Fortran keywords (case-insensitive)
+                block
+                    character(len=:), allocatable :: kw_lower
+                    kw_lower = to_lower(tokens(i)%text)
+                    if (kw_lower == "program" .or. kw_lower == "function" .or. &
+                        kw_lower == "subroutine" .or. kw_lower == "module" .or. &
+                        kw_lower == "integer" .or. kw_lower == "real" .or. &
+                        kw_lower == "character" .or. kw_lower == "logical" .or. &
+                        kw_lower == "implicit" .or. kw_lower == "none" .or. &
+                        kw_lower == "end" .or. kw_lower == "if" .or. &
+                        kw_lower == "do" .or. kw_lower == "print" .or. &
+                        kw_lower == "read" .or. kw_lower == "write" .or. &
+                        kw_lower == "use" .or. kw_lower == "include" .or. &
+                        kw_lower == "import") then
+                        has_fortran_keywords = .true.
+                    end if
+                end block
             end if
         end do
 
@@ -445,14 +449,14 @@
             last_col = tokens(i)%column
 
             if (tokens(i)%kind == TK_KEYWORD) then
-                select case (tokens(i)%text)
+                select case (to_lower(tokens(i)%text))
                 case ("program")
                     ! Only treat as a new program when this token actually begins a program
                     if (.not. is_program_statement_start(tokens, i)) cycle
 
                     ! Skip "end program"
                     if (i > 1) then
-                        if (tokens(i - 1)%text == "end") cycle
+                        if (to_lower(tokens(i - 1)%text) == "end") cycle
                     end if
 
                     program_count = program_count + 1
@@ -463,7 +467,7 @@
                     if (i == 1) then
                         function_count = function_count + 1
                         call push_construct(UNIT_FUNCTION)
-                    else if (i > 1 .and. tokens(i - 1)%text /= "end") then
+                    else if (i > 1 .and. to_lower(tokens(i - 1)%text) /= "end") then
                         function_count = function_count + 1
                         call push_construct(UNIT_FUNCTION)
                     end if
@@ -472,7 +476,7 @@
                     if (i == 1) then
                         subroutine_count = subroutine_count + 1
                         call push_construct(UNIT_SUBROUTINE)
-                    else if (i > 1 .and. tokens(i - 1)%text /= "end") then
+                    else if (i > 1 .and. to_lower(tokens(i - 1)%text) /= "end") then
                         subroutine_count = subroutine_count + 1
                         call push_construct(UNIT_SUBROUTINE)
                     end if
@@ -489,14 +493,14 @@
                     if (i == 1) then
                         module_count = module_count + 1
                         call push_construct(UNIT_MODULE)
-                    else if (i > 1 .and. tokens(i - 1)%text /= "end") then
+                    else if (i > 1 .and. to_lower(tokens(i - 1)%text) /= "end") then
                         module_count = module_count + 1
                         call push_construct(UNIT_MODULE)
                     end if
                 case ("end")
                     ! Check what kind of end this is
                     if (i < size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
-                        select case (tokens(i + 1)%text)
+                        select case (to_lower(tokens(i + 1)%text))
                         case ("program")
                             end_program_count = end_program_count + 1
                             call pop_construct(UNIT_PROGRAM, popped_unit)
