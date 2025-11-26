@@ -380,7 +380,7 @@ contains
 
         is_start = .false.
         if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == &
+            if (tokens(pos)%kind == TK_KEYWORD .and. to_lower(tokens(pos)%text) == &
                 "program") then
                 is_start = .true.
             end if
