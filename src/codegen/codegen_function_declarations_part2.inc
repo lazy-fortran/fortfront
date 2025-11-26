@@ -401,6 +401,12 @@
 
             pos = pos + start_pos - 1
 
+            ! Skip if inside a string literal (quoted text)
+            if (is_inside_string_literal(body, pos)) then
+                start_pos = pos + len(old_name)
+                cycle
+            end if
+
             if (pos > 1) then
                 if (is_identifier_char(body(pos - 1:pos - 1))) then
                     start_pos = pos + len(old_name)
@@ -579,3 +585,60 @@
         is_id = (c >= 'a' .and. c <= 'z') .or. (c >= 'A' .and. c <= 'Z') .or. &
                 (c >= '0' .and. c <= '9') .or. c == '_'
     end function is_identifier_char
+
+    logical function is_inside_string_literal(text, pos) result(inside)
+        ! Check if position pos is inside a string literal in text.
+        ! Counts quotes from line start to position, odd count means inside string.
+        ! Handles both single and double quotes, and escaped quotes.
+        character(len=*), intent(in) :: text
+        integer, intent(in) :: pos
+        integer :: i, line_start, single_count, double_count
+        character(len=1) :: c, prev_c
+
+        inside = .false.
+        if (pos < 1 .or. pos > len(text)) return
+
+        ! Find start of current line (after last newline before pos)
+        line_start = 1
+        do i = pos - 1, 1, -1
+            if (text(i:i) == new_line('A')) then
+                line_start = i + 1
+                exit
+            end if
+        end do
+
+        ! Count unescaped quotes from line start to position
+        single_count = 0
+        double_count = 0
+        prev_c = ' '
+        do i = line_start, pos - 1
+            c = text(i:i)
+            ! In Fortran, doubled quotes inside strings represent literal quote
+            ! So we need to track quote pairs properly
+            if (c == "'") then
+                if (double_count == 0) then
+                    ! Not inside double-quoted string
+                    if (prev_c == "'") then
+                        ! Escaped single quote - decrement to cancel previous
+                        single_count = single_count - 1
+                    else
+                        single_count = single_count + 1
+                    end if
+                end if
+            else if (c == '"') then
+                if (single_count == 0) then
+                    ! Not inside single-quoted string
+                    if (prev_c == '"') then
+                        ! Escaped double quote - decrement to cancel previous
+                        double_count = double_count - 1
+                    else
+                        double_count = double_count + 1
+                    end if
+                end if
+            end if
+            prev_c = c
+        end do
+
+        ! Odd count means we are inside a string
+        inside = (mod(single_count, 2) == 1) .or. (mod(double_count, 2) == 1)
+    end function is_inside_string_literal

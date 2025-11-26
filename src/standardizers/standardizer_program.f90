@@ -14,6 +14,8 @@ module standardizer_program
     use standardizer_declarations
     use standardizer_allocatable
     use standardizer_subprograms, only: standardize_subprograms
+    use standardizer_parameter, only: get_standardizer_input_mode
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
     implicit none
     private
 
@@ -35,6 +37,9 @@ contains
         integer :: contains_index
         integer, allocatable :: new_body_indices(:)
         integer :: i, n_statements, insert_pos
+        logical :: is_standard
+
+        is_standard = (get_standardizer_input_mode() == INPUT_MODE_STANDARD)
 
         ! Analyze the program to determine if it should be a module
         call analyze_program_content(arena, prog, has_functions, &
@@ -50,6 +55,27 @@ contains
                 call ensure_contains_before_index(arena, prog, prog_index, &
                                                   insert_pos)
             end if
+        end if
+
+        ! For standard Fortran input, skip declaration-related standardization
+        ! to preserve original declarations, implicit rules, and formatting.
+        ! However, still handle contains insertion for wrapped subprograms.
+        if (is_standard) then
+            ! Check if we need to insert a contains statement
+            if (has_functions .or. has_subroutines) then
+                ! Find where to insert contains (before first function/subroutine)
+                insert_pos = find_contains_insertion_point(arena, prog)
+
+                if (insert_pos > 0) then
+                    ! Ensure contains is present exactly once in the correct position
+                    call ensure_contains_before_index(arena, prog, prog_index, &
+                                                      insert_pos)
+                end if
+            end if
+
+            ! For standard mode, skip subprogram standardization to preserve
+            ! original formatting and declarations
+            return
         end if
 
         ! Standardize existing declarations (e.g., real -> real(8))

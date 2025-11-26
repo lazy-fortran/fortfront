@@ -224,6 +224,19 @@ contains
                 call prefix_buffer%set(stored)
                 if (allocated(stored)) deallocate (stored)
                 stmt_index = -1
+            case ("type", "class")
+                ! Handle type(xxx) or class(xxx) as function return type prefix
+                lookahead = parser%get_token_at_index(parser%current_token + 1)
+                if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
+                    call prefix_buffer%get_all(stored)
+                    type_with_kind = trim(token%text)
+                    token = parser%consume()
+                    call consume_optional_kind_spec(parser, type_with_kind)
+                    call append_prefix_token(stored, type_with_kind)
+                    call prefix_buffer%set(stored)
+                    if (allocated(stored)) deallocate (stored)
+                    stmt_index = -1
+                end if
             end select
         end if
     end function parse_contains_section_item

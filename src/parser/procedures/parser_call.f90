@@ -1,7 +1,7 @@
 module parser_call_module
     ! Shared call-statement parser used across control-flow helpers
     use lexer_core, only: token_t
-    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR
+    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use ast_arena_modern, only: ast_arena_t
@@ -83,6 +83,23 @@ contains
 
         subroutine_name = token%text
         token = parser%consume()
+
+        ! Handle component access: call foo%bar%baz(...)
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "%") then
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                    subroutine_name = subroutine_name // "%" // token%text
+                    token = parser%consume()
+                else
+                    exit
+                end if
+            else
+                exit
+            end if
+        end do
 
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then

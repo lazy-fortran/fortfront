@@ -40,6 +40,15 @@ contains
                     token = parser%consume()
                     token = parser%consume()
                 end if
+            case ("type", "class")
+                ! Handle type(xxx) or class(xxx) as function return type
+                next_index = parser%current_token + 1
+                lookahead = parser%get_token_at_index(next_index)
+                if (lookahead%text == "(") then
+                    return_type_str = token%text
+                    token = parser%consume()
+                    call consume_optional_kind_spec(parser, return_type_str)
+                end if
             end select
         end if
     end subroutine consume_optional_return_type

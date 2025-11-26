@@ -79,13 +79,32 @@ contains
         character(len=:), allocatable :: lowered_text
 
         is_end = .false.
-        if (first_token%kind /= TK_KEYWORD) return
+        ! Accept both TK_KEYWORD and TK_IDENTIFIER for end/endinterface
+        if (first_token%kind /= TK_KEYWORD .and. &
+            first_token%kind /= TK_IDENTIFIER) return
 
         lowered_text = to_lower(first_token%text)
+
+        ! Check for endinterface as single keyword
+        if (trim(lowered_text) == "endinterface") then
+            next_token = parser%consume()
+            ! Optionally consume interface name
+            next_token = parser%peek()
+            if (next_token%kind == TK_IDENTIFIER .or. &
+                next_token%kind == TK_KEYWORD) then
+                next_token = parser%consume()
+            end if
+            is_end = .true.
+            return
+        end if
+
+        ! Check for end interface as two tokens
         if (trim(lowered_text) /= "end") return
 
         next_token = parser%get_token_at_index(parser%current_token + 1)
-        if (next_token%kind /= TK_KEYWORD) return
+        ! Accept both TK_KEYWORD and TK_IDENTIFIER for interface
+        if (next_token%kind /= TK_KEYWORD .and. &
+            next_token%kind /= TK_IDENTIFIER) return
 
         lowered_text = to_lower(next_token%text)
         if (trim(lowered_text) /= "interface") return
@@ -94,7 +113,8 @@ contains
         next_token = parser%consume()
 
         next_token = parser%peek()
-        if (next_token%kind == TK_IDENTIFIER) then
+        if (next_token%kind == TK_IDENTIFIER .or. &
+            next_token%kind == TK_KEYWORD) then
             next_token = parser%consume()
         end if
 

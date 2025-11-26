@@ -224,6 +224,8 @@
             call handle_exit_keyword(parser, arena, first_token, stmt_index)
         case ("nullify")
             stmt_index = parse_nullify_statement(parser, arena)
+        case ("continue")
+            stmt_index = parse_continue_statement(parser, arena)
         case ("end")
             stmt_index = parse_end_statement(parser, arena)
         case default
@@ -617,6 +619,10 @@
             is_derived_type_def = parser_is_at_type_definition(parser)
             if (is_derived_type_def) then
                 stmt_index = parse_derived_type_def(parser, arena)
+            else if (looks_like_function_definition(parser)) then
+                ! type(xxx) function foo() - parse as function with type prefix
+                stmt_index = parse_function_or_expression(parser, arena, &
+                                                          prefix_buffer)
             else
                 stmt_index = parse_declaration(parser, arena)
             end if

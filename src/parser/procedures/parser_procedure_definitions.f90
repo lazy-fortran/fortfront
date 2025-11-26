@@ -8,7 +8,8 @@ module parser_procedure_definitions_module
         parse_function_result_clause, parse_parameter_list, &
         merge_parameter_attributes_if_needed, ensure_recursive_prefix, &
         parse_subroutine_header, parse_bind_c_clause
-    use parser_procedure_definition_bodies_module, only: parse_procedure_body
+    use parser_procedure_definition_bodies_module, only: parse_procedure_body, &
+                                                        parse_interface_body
     use parser_interface_blocks_module, only: parse_interface_block, &
                                               set_interface_procedure_parser
     use string_utils_mod, only: to_lower
@@ -67,10 +68,8 @@ contains
         integer, allocatable :: param_indices(:), body_indices(:)
         character(len=16), allocatable :: prefix_keywords(:)
         logical :: has_recursive_keyword
-        logical :: infer_recursive_from_body
 
         has_recursive_keyword = .false.
-        infer_recursive_from_body = .false.
 
         call parse_function_prefix_keywords(parser, prefix_buffer, &
                                             prefix_keywords=prefix_keywords, &
@@ -79,10 +78,8 @@ contains
         call parse_subroutine_header(parser, subroutine_name, line, column)
         call parse_parameter_list(parser, arena, param_indices)
         call parse_bind_c_clause(parser, bind_c_clause)
-        call parse_procedure_body(parser, arena, subroutine_name, "subroutine", &
-                                  body_indices, infer_recursive_from_body, &
-                                  parse_function_proc=parse_function_definition, &
-                                  parse_subroutine_proc=parse_subroutine_definition)
+        call parse_interface_body(parser, arena, subroutine_name, "subroutine", &
+                                  body_indices)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)
@@ -106,10 +103,8 @@ contains
                                          return_type_from_prefix, bind_c_clause
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
-        logical :: has_recursive_keyword, is_valid, infer_recursive_from_body
+        logical :: has_recursive_keyword, is_valid
         character(len=16), allocatable :: prefix_keywords(:)
-
-        infer_recursive_from_body = .false.
 
         call parse_function_prefix_keywords(parser, prefix_buffer, &
                                             prefix_keywords=prefix_keywords, &
@@ -132,10 +127,8 @@ contains
         if (len_trim(result_variable_name) == 0) then
             call parse_function_result_clause(parser, result_variable_name)
         end if
-        call parse_procedure_body(parser, arena, function_name, "function", &
-                                  body_indices, infer_recursive_from_body, &
-                                  parse_function_proc=parse_function_definition, &
-                                  parse_subroutine_proc=parse_subroutine_definition)
+        call parse_interface_body(parser, arena, function_name, "function", &
+                                  body_indices)
 
         call merge_parameter_attributes_if_needed(arena, param_indices, &
                                                   body_indices)

@@ -44,6 +44,8 @@ module parser_statement_utilities_module
 
     public :: parse_statement_in_if_block, parse_comment_or_directive
     public :: get_stmt_util_additional_indices, clear_stmt_util_additional_indices
+    public :: parse_if_from_definition
+    public :: parse_associate_from_definition
 
 contains
 

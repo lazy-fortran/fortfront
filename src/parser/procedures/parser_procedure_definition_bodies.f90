@@ -25,6 +25,7 @@ module parser_procedure_definition_bodies_module
     private
 
     public :: parse_procedure_body
+    public :: parse_interface_body
     public :: reset_nested_internal_procedure_error
     public :: has_nested_internal_procedure_error
     public :: get_nested_internal_procedure_message
@@ -760,6 +761,19 @@ contains
             call prefix_buffer%set(stored)
             if (allocated(stored)) deallocate (stored)
             handled = .true.
+        case ("type", "class")
+            ! Handle type(xxx) or class(xxx) as function return type prefix
+            lookahead = parser%get_token_at_index(parser%current_token + 1)
+            if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
+                call prefix_buffer%get_all(stored)
+                type_with_kind = trim(token%text)
+                consumed_token = parser%consume()
+                call consume_optional_kind_spec(parser, type_with_kind)
+                call append_prefix_token(stored, type_with_kind)
+                call prefix_buffer%set(stored)
+                if (allocated(stored)) deallocate (stored)
+                handled = .true.
+            end if
         end select
     end function handle_contains_prefix
 
@@ -808,5 +822,165 @@ contains
             token = parser%consume()
         end do
     end subroutine parse_contains_section
+
+    subroutine parse_interface_body(parser, arena, procedure_name, end_keyword, &
+                                    body_indices)
+        use parser_declarations_core_module, only: parse_declaration
+        use parser_import_resolution_module, only: parse_use_statement
+        use parser_interface_import_module, only: parse_import_statement
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: end_keyword
+        integer, allocatable, intent(out) :: body_indices(:)
+
+        type(token_t) :: token
+        integer :: stmt_index
+        character(len=:), allocatable :: lowered
+
+        allocate (body_indices(0))
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+
+            if (check_interface_body_end(parser, token, end_keyword, &
+                                         procedure_name)) exit
+
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+                cycle
+            end if
+
+            if (token%kind == TK_COMMENT) then
+                stmt_index = parse_comment_or_directive(parser, arena, token)
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
+                cycle
+            end if
+
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                lowered = to_lower(trim(token%text))
+                if (is_interface_body_declaration(lowered)) then
+                    if (lowered == "use") then
+                        stmt_index = parse_use_statement(parser, arena)
+                    else if (lowered == "import") then
+                        stmt_index = parse_import_statement(parser, arena)
+                    else
+                        stmt_index = parse_declaration(parser, arena)
+                    end if
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
+                    cycle
+                end if
+            end if
+
+            token = parser%consume()
+        end do
+    end subroutine parse_interface_body
+
+    logical function check_interface_body_end(parser, first_token, end_keyword, &
+                                              procedure_name) result(is_end)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), intent(in) :: first_token
+        character(len=*), intent(in) :: end_keyword
+        character(len=*), intent(in) :: procedure_name
+
+        type(token_t) :: token_local
+        character(len=:), allocatable :: lowered_token, combined_keyword
+        character(len=:), allocatable :: name_lower, proc_lower
+        integer :: next_idx, name_idx
+
+        is_end = .false.
+        if (first_token%kind /= TK_KEYWORD) return
+
+        lowered_token = to_lower(trim(first_token%text))
+        combined_keyword = "end" // trim(end_keyword)
+        proc_lower = to_lower(trim(procedure_name))
+
+        if (lowered_token == combined_keyword) then
+            next_idx = parser%current_token + 1
+            if (next_idx <= size(parser%tokens)) then
+                token_local = parser%tokens(next_idx)
+                if (token_local%kind == TK_IDENTIFIER .or. &
+                    token_local%kind == TK_KEYWORD) then
+                    name_lower = to_lower(trim(token_local%text))
+                    if (name_lower == proc_lower) then
+                        token_local = parser%consume()
+                        token_local = parser%consume()
+                        is_end = .true.
+                        return
+                    end if
+                else if (token_local%kind == TK_NEWLINE .or. &
+                         token_local%kind == TK_COMMENT .or. &
+                         token_local%kind == TK_EOF) then
+                    token_local = parser%consume()
+                    is_end = .true.
+                    return
+                end if
+            else
+                token_local = parser%consume()
+                is_end = .true.
+                return
+            end if
+            return
+        end if
+
+        if (lowered_token /= "end") return
+
+        next_idx = parser%current_token + 1
+        if (next_idx > size(parser%tokens)) return
+
+        token_local = parser%tokens(next_idx)
+        if (token_local%kind /= TK_KEYWORD) return
+
+        if (to_lower(trim(token_local%text)) /= trim(end_keyword)) return
+
+        name_idx = next_idx + 1
+        if (name_idx <= size(parser%tokens)) then
+            token_local = parser%tokens(name_idx)
+            if (token_local%kind == TK_IDENTIFIER .or. &
+                token_local%kind == TK_KEYWORD) then
+                name_lower = to_lower(trim(token_local%text))
+                if (name_lower == proc_lower) then
+                    token_local = parser%consume()
+                    token_local = parser%consume()
+                    token_local = parser%consume()
+                    is_end = .true.
+                    return
+                end if
+            else if (token_local%kind == TK_NEWLINE .or. &
+                     token_local%kind == TK_COMMENT .or. &
+                     token_local%kind == TK_EOF) then
+                token_local = parser%consume()
+                token_local = parser%consume()
+                is_end = .true.
+                return
+            end if
+        else
+            token_local = parser%consume()
+            token_local = parser%consume()
+            is_end = .true.
+            return
+        end if
+    end function check_interface_body_end
+
+    logical function is_interface_body_declaration(keyword) result(is_decl)
+        character(len=*), intent(in) :: keyword
+
+        is_decl = .false.
+        select case (trim(keyword))
+        case ("integer", "real", "logical", "character", "complex", &
+              "double", "type", "class", "dimension", "intent", &
+              "optional", "pointer", "target", "allocatable", &
+              "parameter", "save", "external", "intrinsic", &
+              "common", "equivalence", "data", "implicit", &
+              "import", "procedure", "value", "volatile", &
+              "asynchronous", "contiguous", "codimension", &
+              "protected", "sequence", "bind", "use")
+            is_decl = .true.
+        end select
+    end function is_interface_body_declaration
 
 end module parser_procedure_definition_bodies_module

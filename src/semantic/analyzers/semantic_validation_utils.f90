@@ -90,7 +90,7 @@ contains
     end subroutine update_identifier_type_in_arena
 
     ! Helper: Rename identifier within function scope
-    ! Simple scan-based approach since AST doesn't use parent_index consistently
+    ! Uses parent_index chain to ensure nodes belong to the specified function
     subroutine rename_identifier_in_arena(arena, old_name, new_name, &
                                           body_indices, func_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -114,8 +114,11 @@ contains
                 end if
             end do
             ! Scan arena from min to max+50 (buffer for nested nodes)
+            ! But verify each node belongs to the function via parent chain
             do i = min_idx, min(max_idx + 50, arena%size)
-                call rename_at_index(arena, i, old_name, new_name)
+                if (node_belongs_to_function(arena, i, func_index)) then
+                    call rename_at_index(arena, i, old_name, new_name)
+                end if
             end do
         else
             ! Global rename (fallback)
@@ -124,6 +127,56 @@ contains
             end do
         end if
     end subroutine rename_identifier_in_arena
+
+    ! Check if a node belongs to a function by following parent_index chain
+    logical function node_belongs_to_function(arena, node_idx, func_index) &
+        result(belongs)
+        use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_idx
+        integer, intent(in) :: func_index
+        integer :: current_idx, max_depth
+
+        belongs = .false.
+        if (node_idx <= 0 .or. node_idx > arena%size) return
+        if (func_index <= 0 .or. func_index > arena%size) return
+
+        ! Direct match
+        if (node_idx == func_index) then
+            belongs = .true.
+            return
+        end if
+
+        ! Follow parent chain up to the function
+        current_idx = node_idx
+        max_depth = 100  ! Prevent infinite loops
+        do while (max_depth > 0)
+            max_depth = max_depth - 1
+            if (current_idx <= 0 .or. current_idx > arena%size) exit
+            if (.not. allocated(arena%entries(current_idx)%node)) exit
+
+            ! Check if we reached the target function
+            if (current_idx == func_index) then
+                belongs = .true.
+                return
+            end if
+
+            ! Check if we hit a DIFFERENT function/subroutine (sibling scope)
+            if (current_idx /= node_idx) then
+                select type (node => arena%entries(current_idx)%node)
+                type is (function_def_node)
+                    ! Found a different function before reaching our target
+                    if (current_idx /= func_index) return
+                type is (subroutine_def_node)
+                    ! Found a subroutine, node doesn't belong to our function
+                    return
+                end select
+            end if
+
+            ! Move up to parent
+            current_idx = arena%entries(current_idx)%parent_index
+        end do
+    end function node_belongs_to_function
 
     pure subroutine merge_allocatable_flags(source_type, target_type)
         type(mono_type_t), intent(in) :: source_type

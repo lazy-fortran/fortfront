@@ -13,6 +13,7 @@ module standardizer_declarations_array
 
     public :: parse_dimension_attribute
     public :: set_array_properties_from_type
+    public :: check_has_explicit_bounds
 
 contains
 
@@ -202,7 +203,11 @@ contains
                 return
             end if
             decl_node%is_array = .true.
-            decl_node%is_allocatable = .true.
+            ! Deferred shape - allocatable UNLESS its a pointer
+            ! ISO/IEC 1539-1:2018: pointer arrays can be deferred shape
+            if (.not. decl_node%is_pointer) then
+                decl_node%is_allocatable = .true.
+            end if
             if (allocated(decl_node%dimension_indices)) &
                 deallocate (decl_node%dimension_indices)
             allocate (decl_node%dimension_indices(1))
@@ -284,10 +289,16 @@ contains
         integer, allocatable :: dim_sizes(:)
         character(len=64) :: target_name
         character(len=64) :: candidate_name
+        logical :: has_explicit_bounds
 
         target_name = to_lower(trim(var_name))
 
         if (decl_node%is_parameter) return
+
+        ! Preserve existing explicit array bounds (standard Fortran declarations)
+        ! ISO/IEC 1539-1:2018: explicit-shape arrays have declared dimensions
+        has_explicit_bounds = check_has_explicit_bounds(arena, decl_node)
+        if (has_explicit_bounds) return
 
         do j = 1, arena%size
             if (allocated(arena%entries(j)%node)) then

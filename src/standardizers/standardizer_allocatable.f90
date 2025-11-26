@@ -879,6 +879,12 @@ contains
             return
         end if
 
+        ! Never apply allocatable to POINTER declarations - they are mutually exclusive
+        ! ISO/IEC 1539-1:2018 Section 8.5.3: ALLOCATABLE and POINTER are incompatible
+        if (decl%is_pointer) then
+            return
+        end if
+
         if (allocated(decl%type_name)) then
             if (trim(decl%type_name) == "character") then
                 is_character = .true.

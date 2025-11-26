@@ -48,7 +48,7 @@ contains
         case ("call", "stop", "cycle", "exit", "return", &
               "continue", "goto", "go", "entry", "select", &
               "contains", "else", "dimension", "common", &
-              "program", "module", "if")
+              "program", "module", "if", "data")
             is_supported = .true.
         case default
             is_supported = .false.

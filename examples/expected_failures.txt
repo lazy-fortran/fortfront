@@ -15,8 +15,8 @@ issue_2444_data_trailing_comma.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 8.6.7 (
 # Lazy Fortran - Partial fixes still need work
 
 # Standard Fortran - Codegen bugs
-tooling_lightweight_ast.f90  # line continuation breaks identifier mid-word in long use statement (#2462)
 issue_2455_nested_array_constructor.f90  # nested array constructors generate malformed syntax (#2455)
+control_flow_associate_construct.f90  # associate selector generates spurious deferred-shape declaration (#2519)
 
 # Lazy Fortran - Recent failures needing implementation
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
@@ -25,3 +25,7 @@ issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of
 # Fortran 2018 features - Not fully supported
 issue_2238_select_rank_performance.f90  # assumed-rank arrays (..) not fully supported; SELECT RANK requires them #2238
 select_rank_simple.f90  # SELECT RANK requires assumed-rank arrays (..) which are not fully supported #2238
+
+# Invalid Fortran test cases (error detection tests)
+issue_2459_missing_implicit_type.f90  # intentionally invalid: uses undeclared loop variable with implicit none
+data_statement_scalar_upgrade.f90  # intentionally invalid: DATA with more values than variables in scalar declaration

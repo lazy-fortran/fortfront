@@ -265,6 +265,8 @@
             type(assignment_node) :: synthetic_assignment
             type(mono_type_t) :: expr_typ
             type(mono_type_t) :: updated_expr_typ
+            type(mono_type_t) :: declared_type
+            logical :: has_declared_type
 
             if (object_index <= 0) return
             if (size(value_indices) == 0) return
@@ -277,7 +279,16 @@
                 expr_typ = get_node_type(value_indices(1))
             else
                 synthetic_assignment%value_index = 0
-                expr_typ = build_array_type_from_values(value_indices)
+                ! For standard Fortran: check if target has declared array shape
+                ! If so, preserve that shape instead of creating 1D from value count
+                has_declared_type = get_data_target_declared_type(object_index, &
+                                                                  declared_type)
+                if (has_declared_type .and. declared_type%kind == TARRAY) then
+                    ! Preserve declared array shape, just use element type from values
+                    expr_typ = declared_type
+                else
+                    expr_typ = build_array_type_from_values(value_indices)
+                end if
             end if
 
             updated_expr_typ = expr_typ
@@ -352,6 +363,32 @@
                                           array_size=size(value_indices))
             deallocate (args)
         end function build_array_type_from_values
+
+        logical function get_data_target_declared_type(object_index, decl_type) &
+            result(found)
+            use semantic_declaration_utils, only: fetch_declaration_type
+            integer, intent(in) :: object_index
+            type(mono_type_t), intent(out) :: decl_type
+            character(len=:), allocatable :: var_name
+
+            found = .false.
+            if (object_index <= 0 .or. object_index > arena%size) return
+            if (.not. allocated(arena%entries(object_index)%node)) return
+
+            ! Get the variable name from the DATA target
+            select type (target_node => arena%entries(object_index)%node)
+            type is (identifier_node)
+                if (allocated(target_node%name)) then
+                    var_name = trim(target_node%name)
+                end if
+            end select
+
+            if (.not. allocated(var_name)) return
+            if (len_trim(var_name) == 0) return
+
+            ! Look up declared type from arena
+            found = fetch_declaration_type(arena, var_name, decl_type)
+        end function get_data_target_declared_type
 
         subroutine finalize_binary_operation(node_index, expr)
             integer, intent(in) :: node_index
