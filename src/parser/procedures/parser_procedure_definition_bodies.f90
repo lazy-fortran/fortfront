@@ -8,6 +8,9 @@ module parser_procedure_definition_bodies_module
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
                                                parse_select_rank
+    use parser_block_statement_utils_module, only: is_if_statement_start, &
+                                                    locate_block_statement_end, &
+                                                    locate_single_line_end
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
                                                  parse_comment_or_directive, &
                                                  get_stmt_util_additional_indices, &
@@ -65,18 +68,12 @@ contains
         procedure(parse_subroutine_definition_iface), optional :: parse_subroutine_proc
 
         type(token_t) :: token
-        character(len=:), allocatable :: lowered
         integer :: stmt_index
 
         allocate (body_indices(0))
 
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                lowered = to_lower(token%text)
-            else
-                lowered = ""
-            end if
 
             if (check_procedure_end(parser, token, end_keyword, procedure_name)) exit
 
@@ -93,111 +90,15 @@ contains
                 cycle
             end if
 
-            if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. &
-                trim(lowered) == "contains") then
-                ! Only treat lone "contains" statements as structural section markers.
-                ! Any continuation (assignment, call, array reference, etc.) means the
-                ! identifier should be preserved as regular code (issue #2247).
-                block
-                    integer :: lookahead_idx
-                    type(token_t) :: lookahead
-                    logical :: is_structural_contains
-                    character(len=:), allocatable :: op_text
-
-                    is_structural_contains = .true.
-                    lookahead_idx = parser%current_token + 1
-
-                    do while (lookahead_idx <= size(parser%tokens))
-                        lookahead = parser%tokens(lookahead_idx)
-                        select case (lookahead%kind)
-                        case (TK_WHITESPACE)
-                            lookahead_idx = lookahead_idx + 1
-                            cycle
-                        case (TK_NEWLINE, TK_EOF, TK_COMMENT)
-                            exit
-                        case (TK_OPERATOR)
-                            op_text = trim(lookahead%text)
-                            select case (op_text)
-                            case (";")
-                                exit
-                            case ("&")
-                                is_structural_contains = .false.
-                                exit
-                            case default
-                                is_structural_contains = .false.
-                                exit
-                            end select
-                        case default
-                            is_structural_contains = .false.
-                            exit
-                        end select
-                    end do
-
-                    if (is_structural_contains) then
-                        token = parser%consume()
-                        call parse_contains_section(parser, arena, procedure_name, &
-                                                    end_keyword, body_indices, &
-                                                    parse_function_proc, &
-                                                    parse_subroutine_proc)
-                        exit
-                    end if
-                    ! Otherwise fall through and treat "contains" as an identifier
-                end block
+            if (handle_structural_contains(parser, arena, token, procedure_name, &
+                                           end_keyword, body_indices, &
+                                           parse_function_proc, &
+                                           parse_subroutine_proc)) then
+                exit
             end if
 
-            ! Handle interface blocks (including abstract interface)
-            if (token%kind == TK_KEYWORD .and. trim(lowered) == "interface") then
-                block
-                    type(parser_prefix_buffer_t) :: iface_prefix_buffer
-                    call iface_prefix_buffer%clear()
-                    stmt_index = parse_interface_block(parser, arena, iface_prefix_buffer)
-                    if (stmt_index > 0) then
-                        body_indices = [body_indices, stmt_index]
-                    end if
-                end block
+            if (handle_interface_block_in_body(parser, arena, token, body_indices)) &
                 cycle
-            end if
-
-            if (token%kind == TK_KEYWORD .and. trim(lowered) == "abstract") then
-                block
-                    type(parser_prefix_buffer_t) :: iface_prefix_buffer
-                    integer :: lookahead_idx
-                    type(token_t) :: lookahead_token
-                    logical :: is_abstract_interface
-                    character(len=:), allocatable :: lookahead_lowered
-
-                    is_abstract_interface = .false.
-                    lookahead_idx = parser%current_token + 1
-                    do while (lookahead_idx <= size(parser%tokens))
-                        lookahead_token = parser%tokens(lookahead_idx)
-                        select case (lookahead_token%kind)
-                        case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
-                            lookahead_idx = lookahead_idx + 1
-                            cycle
-                        case (TK_KEYWORD, TK_IDENTIFIER)
-                            lookahead_lowered = to_lower(trim(lookahead_token%text))
-                            if (lookahead_lowered == "interface") then
-                                is_abstract_interface = .true.
-                            end if
-                            exit
-                        case default
-                            exit
-                        end select
-                    end do
-
-                    if (is_abstract_interface) then
-                        token = parser%consume()
-                        call iface_prefix_buffer%clear()
-                        stmt_index = parse_interface_block(parser, arena, &
-                                                           iface_prefix_buffer, &
-                                                           is_abstract=.true.)
-                        if (stmt_index > 0) then
-                            body_indices = [body_indices, stmt_index]
-                        end if
-                        cycle
-                    end if
-                end block
-            end if
 
             ! Lazy fortran: detect nested internal procedures (not supported)
             if (token%kind == TK_KEYWORD .and. &
@@ -224,6 +125,133 @@ contains
             end if
         end do
     end subroutine parse_procedure_body
+
+    logical function handle_structural_contains(parser, arena, token, &
+                                                procedure_name, end_keyword, &
+                                                body_indices, parse_function_proc, &
+                                                parse_subroutine_proc) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: procedure_name
+        character(len=*), intent(in) :: end_keyword
+        integer, allocatable, intent(inout) :: body_indices(:)
+        procedure(parse_function_definition_iface), optional :: parse_function_proc
+        procedure(parse_subroutine_definition_iface), optional :: parse_subroutine_proc
+
+        integer :: lookahead_idx
+        type(token_t) :: lookahead
+        logical :: is_structural_contains
+        character(len=:), allocatable :: op_text
+        character(len=:), allocatable :: lowered
+        type(token_t) :: consumed_token
+
+        handled = .false.
+        if (.not. (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) return
+
+        lowered = to_lower(token%text)
+        if (trim(lowered) /= "contains") return
+
+        is_structural_contains = .true.
+        lookahead_idx = parser%current_token + 1
+
+        do while (lookahead_idx <= size(parser%tokens))
+            lookahead = parser%tokens(lookahead_idx)
+            select case (lookahead%kind)
+            case (TK_WHITESPACE)
+                lookahead_idx = lookahead_idx + 1
+                cycle
+            case (TK_NEWLINE, TK_EOF, TK_COMMENT)
+                exit
+            case (TK_OPERATOR)
+                op_text = trim(lookahead%text)
+                select case (op_text)
+                case (";")
+                    exit
+                case ("&")
+                    is_structural_contains = .false.
+                    exit
+                case default
+                    is_structural_contains = .false.
+                    exit
+                end select
+            case default
+                is_structural_contains = .false.
+                exit
+            end select
+        end do
+
+        if (.not. is_structural_contains) return
+
+        consumed_token = parser%consume()
+        call parse_contains_section(parser, arena, procedure_name, end_keyword, &
+                                    body_indices, parse_function_proc, &
+                                    parse_subroutine_proc)
+        handled = .true.
+    end function handle_structural_contains
+
+    logical function handle_interface_block_in_body(parser, arena, token, &
+                                                    body_indices) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        integer, allocatable, intent(inout) :: body_indices(:)
+
+        type(parser_prefix_buffer_t) :: iface_prefix_buffer
+        integer :: stmt_index
+        integer :: lookahead_idx
+        type(token_t) :: lookahead_token
+        type(token_t) :: consumed_token
+        logical :: is_abstract_interface
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: lookahead_lowered
+
+        handled = .false.
+        if (token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(token%text))
+        if (lowered == "interface") then
+            call iface_prefix_buffer%clear()
+            stmt_index = parse_interface_block(parser, arena, iface_prefix_buffer)
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
+            end if
+            handled = .true.
+            return
+        end if
+
+        if (lowered /= "abstract") return
+
+        is_abstract_interface = .false.
+        lookahead_idx = parser%current_token + 1
+        do while (lookahead_idx <= size(parser%tokens))
+            lookahead_token = parser%tokens(lookahead_idx)
+            select case (lookahead_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                lookahead_idx = lookahead_idx + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                lookahead_lowered = to_lower(trim(lookahead_token%text))
+                if (lookahead_lowered == "interface") then
+                    is_abstract_interface = .true.
+                end if
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (.not. is_abstract_interface) return
+
+        consumed_token = parser%consume()
+        call iface_prefix_buffer%clear()
+        stmt_index = parse_interface_block(parser, arena, iface_prefix_buffer, &
+                                           is_abstract=.true.)
+        if (stmt_index > 0) then
+            body_indices = [body_indices, stmt_index]
+        end if
+        handled = .true.
+    end function handle_interface_block_in_body
 
     subroutine reset_nested_internal_procedure_error()
         nested_internal_procedure_error = .false.
@@ -476,198 +504,6 @@ contains
                                   stmt_tokens)
     end subroutine collect_statement_tokens
 
-    logical function is_if_statement_start(first_token) result(is_if_start)
-        type(token_t), intent(in) :: first_token
-        character(len=:), allocatable :: token_lower
-
-        is_if_start = first_token%kind == TK_KEYWORD
-        if (is_if_start) then
-            token_lower = to_lower(first_token%text)
-            is_if_start = trim(token_lower) == "if" .or. &
-                          trim(token_lower) == "do" .or. &
-                          trim(token_lower) == "select"
-        end if
-    end function is_if_statement_start
-
-    integer function locate_block_statement_end(all_tokens, stmt_start, &
-                                                stmt_type) result(stmt_end)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: stmt_start
-        character(len=*), intent(in) :: stmt_type
-
-        integer :: pos
-        integer :: depth
-        logical :: preceded_by_end
-        logical :: preceded_by_else
-
-        stmt_end = stmt_start
-        pos = stmt_start
-
-        if (stmt_type == "if") then
-            if (is_single_line_if_statement(all_tokens, stmt_start)) then
-                stmt_end = locate_single_line_end(all_tokens, stmt_start, &
-                                                  all_tokens(stmt_start)%line)
-                return
-            end if
-        end if
-
-        ! Set initial depth based on statement type
-        if (stmt_type == "do" .or. to_lower(stmt_type) == "select") then
-            depth = 1  ! We're already at the "do" or "select" keyword
-            pos = stmt_start + 1  ! Skip the initial token
-        else
-            depth = 0
-            pos = stmt_start
-        end if
-
-        do while (pos <= size(all_tokens))
-            if (all_tokens(pos)%kind == TK_KEYWORD) then
-                select case (stmt_type)
-                case ("if")
-                    select case (all_tokens(pos)%text)
-                    case ("if")
-                        preceded_by_end = .false.
-                        preceded_by_else = .false.
-                        if (pos > 1) then
-                            if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                                preceded_by_end = all_tokens(pos - 1)%text == "end"
-                                preceded_by_else = all_tokens(pos - 1)%text == "else"
-                            end if
-                        end if
-                        if (.not. preceded_by_end .and. .not. preceded_by_else) then
-                            depth = depth + 1
-                        end if
-                    case ("end")
-                        if (pos < size(all_tokens)) then
-                            if (all_tokens(pos + 1)%kind == TK_KEYWORD) then
-                                if (all_tokens(pos + 1)%text == "if") then
-                                    depth = depth - 1
-                                    if (depth <= 0) then
-                                        stmt_end = min(size(all_tokens), pos + 1)
-                                        return
-                                    end if
-                                end if
-                            end if
-                        end if
-                    end select
-                case ("do")
-                    select case (all_tokens(pos)%text)
-                    case ("do")
-                        depth = depth + 1
-                    case ("enddo", "end do")
-                        depth = depth - 1
-                        if (depth <= 0) then
-                            stmt_end = min(size(all_tokens), pos)
-                            return
-                        end if
-                    case ("end")
-                        if (pos + 1 <= size(all_tokens)) then
-                            if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                                all_tokens(pos + 1)%text == "do") then
-                                depth = depth - 1
-                                if (depth <= 0) then
-                                    stmt_end = min(size(all_tokens), pos + 1)
-                                    return
-                                end if
-                            end if
-                        end if
-                    end select
-                case default
-                    if (to_lower(stmt_type) == "select") then
-                        select case (to_lower(all_tokens(pos)%text))
-                        case ("select")
-                            depth = depth + 1
-                        case ("end")
-                            if (pos + 1 <= size(all_tokens)) then
-                                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
-                                    to_lower(all_tokens(pos + 1)%text) == "select") then
-                                    depth = depth - 1
-                                    if (depth <= 0) then
-                                        stmt_end = min(size(all_tokens), pos + 1)
-                                        return
-                                    end if
-                                end if
-                            end if
-                        end select
-                    end if
-                end select
-            end if
-            stmt_end = pos
-            pos = pos + 1
-        end do
-    end function locate_block_statement_end
-
-    logical function is_single_line_if_statement(all_tokens, stmt_start) &
-        result(is_single_line)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: stmt_start
-
-        integer :: pos
-        integer :: paren_depth
-        logical :: pending_continuation
-        character(len=:), allocatable :: token_text
-
-        is_single_line = .true.
-        paren_depth = 0
-        pending_continuation = .false.
-
-        do pos = stmt_start + 1, size(all_tokens)
-            select case (all_tokens(pos)%kind)
-            case (TK_OPERATOR)
-                token_text = all_tokens(pos)%text
-                if (token_text == "(") then
-                    paren_depth = paren_depth + 1
-                else if (token_text == ")") then
-                    paren_depth = max(0, paren_depth - 1)
-                else if (paren_depth == 0) then
-                    if (token_text == "&") then
-                        pending_continuation = .true.
-                    else
-                        pending_continuation = .false.
-                    end if
-                end if
-            case (TK_KEYWORD)
-                if (paren_depth == 0) then
-                    token_text = all_tokens(pos)%text
-                    select case (token_text)
-                    case ("then")
-                        is_single_line = .false.
-                        return
-                    case ("if")
-                        ! Allow ELSE IF detection later in main logic
-                    case default
-                        pending_continuation = .false.
-                    end select
-                end if
-            case (TK_NEWLINE)
-                if (paren_depth == 0) then
-                    if (pending_continuation) then
-                        pending_continuation = .false.
-                    else
-                        return
-                    end if
-                end if
-            end select
-        end do
-    end function is_single_line_if_statement
-
-    integer function locate_single_line_end(all_tokens, stmt_start, line_number) &
-        result(stmt_end)
-        type(token_t), intent(in) :: all_tokens(:)
-        integer, intent(in) :: stmt_start
-        integer, intent(in) :: line_number
-
-        integer :: pos
-
-        stmt_end = stmt_start
-        do pos = stmt_start, size(all_tokens)
-            if (pos > stmt_start) then
-                if (all_tokens(pos)%line /= line_number) exit
-            end if
-            stmt_end = pos
-        end do
-    end function locate_single_line_end
-
     subroutine copy_statement_slice(all_tokens, stmt_start, stmt_end, first_token, &
                                     stmt_tokens)
         type(token_t), intent(in) :: all_tokens(:)
@@ -827,6 +663,106 @@ contains
         end if
     end function parse_select_statement_tokens
 
+    logical function handle_contains_procedure(parser, arena, token, prefix_buffer, &
+                                               body_indices, parse_function_proc, &
+                                               parse_subroutine_proc) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, allocatable, intent(inout) :: body_indices(:)
+        procedure(parse_function_definition_iface), optional :: parse_function_proc
+        procedure(parse_subroutine_definition_iface), optional :: parse_subroutine_proc
+
+        integer :: proc_index
+        character(len=:), allocatable :: lowered
+        type(token_t) :: consumed_token
+
+        handled = .false.
+        if (token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(token%text)
+        select case (trim(lowered))
+        case ("function")
+            if (.not. present(parse_function_proc)) then
+                consumed_token = parser%consume()
+                handled = .true.
+                return
+            end if
+            proc_index = parse_function_proc(parser, arena, prefix_buffer)
+            if (proc_index > 0) then
+                body_indices = [body_indices, proc_index]
+            end if
+            handled = .true.
+        case ("subroutine")
+            if (.not. present(parse_subroutine_proc)) then
+                consumed_token = parser%consume()
+                handled = .true.
+                return
+            end if
+            proc_index = parse_subroutine_proc(parser, arena, prefix_buffer)
+            if (proc_index > 0) then
+                body_indices = [body_indices, proc_index]
+            end if
+            handled = .true.
+        end select
+    end function handle_contains_procedure
+
+    logical function handle_contains_prefix(parser, prefix_buffer, token) &
+        result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        type(token_t), intent(in) :: token
+
+        character(len=:), allocatable :: lowered
+        character(len=:), allocatable :: lookahead_lower
+        character(len=:), allocatable :: type_with_kind
+        character(len=16), allocatable :: stored(:)
+        type(token_t) :: lookahead
+        type(token_t) :: consumed_token
+
+        handled = .false.
+        if (.not. (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER)) return
+
+        lowered = to_lower(token%text)
+        select case (trim(lowered))
+        case ("pure", "elemental", "impure", "recursive", "nonrecursive", &
+              "non_recursive", "module")
+            call prefix_buffer%get_all(stored)
+            call append_prefix_token(stored, trim(lowered))
+            call prefix_buffer%set(stored)
+            if (allocated(stored)) deallocate (stored)
+            consumed_token = parser%consume()
+            handled = .true.
+        case ("integer", "real", "logical", "character", "complex", "double", &
+              "procedure")
+            call prefix_buffer%get_all(stored)
+            if (trim(lowered) == "double") then
+                lookahead = parser%get_token_at_index(parser%current_token + 1)
+                lookahead_lower = to_lower(trim(lookahead%text))
+                select case (trim(lookahead_lower))
+                case ("precision", "complex")
+                    type_with_kind = trim(token%text) // " " // trim(lookahead%text)
+                    consumed_token = parser%consume()
+                    consumed_token = parser%consume()
+                    call consume_optional_kind_spec(parser, type_with_kind)
+                    call append_prefix_token(stored, type_with_kind)
+                    call prefix_buffer%set(stored)
+                    if (allocated(stored)) deallocate (stored)
+                    handled = .true.
+                    return
+                end select
+            end if
+            type_with_kind = trim(token%text)
+            consumed_token = parser%consume()
+            call consume_optional_kind_spec(parser, type_with_kind)
+            call append_prefix_token(stored, type_with_kind)
+            call prefix_buffer%set(stored)
+            if (allocated(stored)) deallocate (stored)
+            handled = .true.
+        end select
+    end function handle_contains_prefix
+
     subroutine parse_contains_section(parser, arena, procedure_name, end_keyword, &
                                       body_indices, parse_function_proc, &
                                       parse_subroutine_proc)
@@ -840,7 +776,6 @@ contains
         type(token_t) :: token
         type(parser_prefix_buffer_t) :: prefix_buffer
         type(contains_node) :: contains_stmt
-        integer :: proc_index
 
         call prefix_buffer%clear()
 
@@ -860,76 +795,14 @@ contains
             end if
 
             if (token%kind == TK_KEYWORD .and. &
-                to_lower(token%text) == "function") then
-                if (.not. present(parse_function_proc)) then
-                    token = parser%consume()
-                    cycle
-                end if
-                proc_index = parse_function_proc(parser, arena, prefix_buffer)
-                if (proc_index > 0) then
-                    body_indices = [body_indices, proc_index]
-                end if
+                handle_contains_procedure(parser, arena, token, prefix_buffer, &
+                                           body_indices, parse_function_proc, &
+                                           parse_subroutine_proc)) then
                 cycle
             end if
 
-            if (token%kind == TK_KEYWORD .and. &
-                to_lower(token%text) == "subroutine") then
-                if (.not. present(parse_subroutine_proc)) then
-                    token = parser%consume()
-                    cycle
-                end if
-                proc_index = parse_subroutine_proc(parser, arena, prefix_buffer)
-                if (proc_index > 0) then
-                    body_indices = [body_indices, proc_index]
-                end if
+            if (handle_contains_prefix(parser, prefix_buffer, token)) then
                 cycle
-            end if
-
-            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-                block
-                    character(len=:), allocatable :: lowered, lookahead_lower, &
-                                                     type_with_kind
-                    character(len=16), allocatable :: stored(:)
-                    type(token_t) :: lookahead
-                    lowered = to_lower(token%text)
-                    select case (trim(lowered))
-                    case ("pure", "elemental", "impure", "recursive", &
-                          "nonrecursive", "non_recursive", "module")
-                        call prefix_buffer%get_all(stored)
-                        call append_prefix_token(stored, trim(lowered))
-                        call prefix_buffer%set(stored)
-                        if (allocated(stored)) deallocate (stored)
-                        token = parser%consume()
-                        cycle
-                    case ("integer", "real", "logical", "character", "complex", &
-                          "double", "procedure")
-                        call prefix_buffer%get_all(stored)
-                        if (trim(lowered) == "double") then
-                            lookahead = parser%get_token_at_index( &
-                                        parser%current_token + 1)
-                            lookahead_lower = to_lower(trim(lookahead%text))
-                            select case (trim(lookahead_lower))
-                            case ("precision", "complex")
-                                type_with_kind = trim(token%text) // " " // &
-                                    trim(lookahead%text)
-                                token = parser%consume()
-                                token = parser%consume()
-                                call consume_optional_kind_spec(parser, type_with_kind)
-                                call append_prefix_token(stored, type_with_kind)
-                                call prefix_buffer%set(stored)
-                                if (allocated(stored)) deallocate (stored)
-                                cycle
-                            end select
-                        end if
-                        type_with_kind = trim(token%text)
-                        token = parser%consume()
-                        call consume_optional_kind_spec(parser, type_with_kind)
-                        call append_prefix_token(stored, type_with_kind)
-                        call prefix_buffer%set(stored)
-                        if (allocated(stored)) deallocate (stored)
-                        cycle
-                    end select
-                end block
             end if
 
             token = parser%consume()
