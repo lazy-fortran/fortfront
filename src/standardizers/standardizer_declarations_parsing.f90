@@ -4,7 +4,10 @@ module standardizer_declarations_parsing
     use ast_nodes_data, only: declaration_node
     use lexer_core, only: to_lower
     use standardizer_declarations_array, only: parse_dimension_attribute, &
-                                               set_array_properties_from_type
+                                               set_array_properties_from_type, &
+                                               check_has_explicit_bounds
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
+    use standardizer_parameter, only: get_standardizer_input_mode
     implicit none
     private
 
@@ -12,6 +15,26 @@ module standardizer_declarations_parsing
     public :: update_existing_declaration_type
 
 contains
+
+    ! Check if declaration has explicit array bounds (not deferred shape)
+    ! Returns true only if all dimension_indices > 0
+    pure logical function has_explicit_array_bounds_decl(decl) result(has_bounds)
+        type(declaration_node), intent(in) :: decl
+        integer :: i
+
+        has_bounds = .false.
+        if (.not. decl%is_array) return
+        if (.not. allocated(decl%dimension_indices)) return
+        if (size(decl%dimension_indices) == 0) return
+
+        ! Check all dimensions have explicit bounds (index > 0)
+        ! dimension_indices(i) == 0 means deferred shape (:)
+        do i = 1, size(decl%dimension_indices)
+            if (decl%dimension_indices(i) <= 0) return
+        end do
+
+        has_bounds = .true.
+    end function has_explicit_array_bounds_decl
 
     subroutine parse_base_and_attributes(var_type, base_part, attr_part)
         character(len=*), intent(in) :: var_type
@@ -177,6 +200,14 @@ contains
                     trim(base_name_existing) /= 'integer') then
                     keep_base_type = .true.
                 end if
+                ! Preserve existing type if it has a kind specifier and new doesn't
+                ! e.g., existing "integer(kind=1)" vs new "integer"
+                if (trim(base_name_new) == trim(base_name_existing)) then
+                    if (index(existing_base, '(') > 0 .and. &
+                        index(base_part, '(') == 0) then
+                        keep_base_type = .true.
+                    end if
+                end if
             end if
         end if
 
@@ -200,10 +231,15 @@ contains
             call parse_dimension_attribute(arena, prog_index, var_type, &
                                            dim_pos, decl_node)
         else
-            if (allocated(decl_node%dimension_indices)) then
-                deallocate (decl_node%dimension_indices)
+            ! Preserve existing explicit array bounds (standard Fortran declarations)
+            ! ISO/IEC 1539-1:2018 Section 8.5.8.2: explicit-shape arrays have
+            ! declared dimensions that should not be overwritten by inference
+            if (.not. check_has_explicit_bounds(arena, decl_node)) then
+                if (allocated(decl_node%dimension_indices)) then
+                    deallocate (decl_node%dimension_indices)
+                end if
+                decl_node%is_array = .false.
             end if
-            decl_node%is_array = .false.
         end if
 
         if (index(lowered_type, 'allocatable') > 0) then
@@ -226,7 +262,12 @@ contains
         if (decl_node%is_array .and. allocated(decl_node%dimension_indices)) then
             if (size(decl_node%dimension_indices) > 0) then
                 if (decl_node%dimension_indices(1) == 0) then
-                    decl_node%is_allocatable = .true.
+                    ! Deferred shape array - needs allocatable UNLESS its a pointer
+                    ! ISO/IEC 1539-1:2018 Section 8.5.3: pointer arrays can have
+                    ! deferred shape without allocatable attribute
+                    if (.not. decl_node%is_pointer) then
+                        decl_node%is_allocatable = .true.
+                    end if
                 end if
             end if
         end if
@@ -259,6 +300,18 @@ contains
                     if (.not. decl%is_multi_declaration) then
                         candidate_name = to_lower(trim(decl%var_name))
                         if (trim(candidate_name) == trim(target_name)) then
+                            ! Preserve existing explicit array bounds ONLY for standard
+                            ! Fortran (.f90) files - for lazy Fortran (.lf), dimensions
+                            ! may need correction based on actual usage
+                            ! ISO/IEC 1539-1:2018 Section 8.5.8.2: explicit-shape arrays
+                            ! Note: dimension_indices(i)==0 means deferred shape (:)
+                            !       dimension_indices(i)>0 means explicit size
+                            if (get_standardizer_input_mode() == INPUT_MODE_STANDARD) then
+                                if (has_explicit_array_bounds_decl(decl)) then
+                                    ! Skip type update - preserve original bounds
+                                    return
+                                end if
+                            end if
                             call apply_type_string_to_decl(arena, prog_index, &
                                                            var_name, var_type, &
                                                            decl)

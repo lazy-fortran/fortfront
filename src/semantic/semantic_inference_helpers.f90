@@ -141,9 +141,13 @@ contains
 
     ! Process declaration and return type
     subroutine process_declaration_variables(decl, var_type)
+        use type_system_unified, only: TARRAY
         type(declaration_node), intent(in) :: decl
         type(mono_type_t), intent(out) :: var_type
+        type(mono_type_t) :: element_type
+        type(mono_type_t), allocatable :: args(:)
         integer :: var_type_kind
+        integer :: rank, i
 
         ! Map type name to type kind
         select case (trim(decl%type_name))
@@ -169,20 +173,37 @@ contains
             end if
         end select
 
-        ! Create mono type
-        var_type = create_mono_type(var_type_kind)
+        ! Create element type
+        element_type = create_mono_type(var_type_kind)
 
         ! Handle kind parameter if present
         if (decl%has_kind) then
-            var_type%kind = var_type_kind
+            element_type%kind = var_type_kind
             if (var_type_kind == TCHAR) then
                 if (decl%kind_value > 0) then
-                    var_type%size = decl%kind_value
+                    element_type%size = decl%kind_value
                 else if (decl%kind_value == -1) then
-                    var_type%size = -1
+                    element_type%size = -1
                 end if
             end if
         end if
+
+        ! Handle array declarations - build nested array type for each dimension
+        if (decl%is_array .and. allocated(decl%dimension_indices)) then
+            rank = size(decl%dimension_indices)
+            if (rank > 0) then
+                var_type = element_type
+                do i = rank, 1, -1
+                    allocate (args(1))
+                    args(1) = var_type
+                    var_type = create_mono_type(TARRAY, args=args)
+                    deallocate (args)
+                end do
+                return
+            end if
+        end if
+
+        var_type = element_type
     end subroutine process_declaration_variables
 
     ! Check if program has implicit none statement

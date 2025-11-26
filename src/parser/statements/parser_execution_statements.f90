@@ -100,8 +100,11 @@ contains
         column = token%column
 
         ! Get program name (optional in lazy fortran, required in standard)
+        ! Accept both identifiers and keywords as program names since Fortran
+        ! allows using keyword names as program names (e.g., program data)
         name_token = parser%peek()
-        if (name_token%kind == TK_IDENTIFIER) then
+        if (name_token%kind == TK_IDENTIFIER .or. &
+            name_token%kind == TK_KEYWORD) then
             name_token = parser%consume()
             program_name = name_token%text
         else
@@ -481,7 +484,7 @@ contains
 
             select case (lowered)
             case ("real", "integer", "logical", "character", "complex", "double", &
-                  "class", "procedure")
+                  "class", "procedure", "type")
                 ! Check if function or subroutine follows this type keyword
                 if (is_function_or_subroutine_ahead(parser_ref)) then
                     ! This is a return type prefix, not a variable declaration
@@ -517,9 +520,14 @@ contains
                     call append_prefix_token(pending_prefixes, type_with_kind)
                     stmt_index = 0
                 else
-                    ! This is a variable declaration
+                    ! This is a variable declaration or type definition
                     call flush_pending_prefixes()
-                    call handle_variable_declaration(parser_ref, arena_ref, stmt_index)
+                    if (trim(lowered) == "type") then
+                        call handle_type_declaration(parser_ref, arena_ref, stmt_index)
+                    else
+                        call handle_variable_declaration(parser_ref, arena_ref, &
+                                                         stmt_index)
+                    end if
                 end if
             case default
                 ! For all other keywords, flush prefixes and process normally
@@ -541,8 +549,6 @@ contains
                                             additional_execution_indices)
                         end if
                     end block
-                case ("type")
-                    call handle_type_declaration(parser_ref, arena_ref, stmt_index)
                 case ("print")
                     stmt_index = parse_print_statement(parser_ref, arena_ref)
                 case ("data")

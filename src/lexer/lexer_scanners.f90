@@ -202,6 +202,8 @@ contains
         col_num = col_num + 1
 
         ! Scan until closing quote, end of line, or end of file
+        ! In Fortran, doubled quote characters inside strings represent a
+        ! literal quote (e.g., "can""t" or 'can''t' produces can't)
         do while (pos <= len(source))
             c = source(pos:pos)
 
@@ -215,6 +217,16 @@ contains
             else if (c == '\') then
                 escaped = .true.
             else if (c == quote_char) then
+                ! Check if this is a doubled quote (Fortran escape sequence)
+                if (pos + 1 <= len(source)) then
+                    if (source(pos + 1:pos + 1) == quote_char) then
+                        ! Doubled quote - skip both and continue
+                        pos = pos + 2
+                        col_num = col_num + 2
+                        cycle
+                    end if
+                end if
+                ! Single quote - this is the closing quote
                 pos = pos + 1
                 col_num = col_num + 1
                 found_closing_quote = .true.

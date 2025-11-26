@@ -30,6 +30,8 @@ module parser_statement_core_module
     use parser_statement_detection_module, only: is_block_if, find_statement_end, &
                                                  extend_if_statement_end
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
+    use parser_statement_utilities_module, only: parse_if_from_definition, &
+                                                 parse_associate_from_definition
     implicit none
     private
 
@@ -260,11 +262,16 @@ contains
             end if
 
          ! Only call parse_if if this is a standalone "if", not part of compound keyword
-            if (.not. skip_if .and. associated(callbacks%parse_if)) then
-                if (present(parent_index)) then
-                    stmt_index = callbacks%parse_if(parser, arena, parent_index)
+            if (.not. skip_if) then
+                if (associated(callbacks%parse_if)) then
+                    if (present(parent_index)) then
+                        stmt_index = callbacks%parse_if(parser, arena, parent_index)
+                    else
+                        stmt_index = callbacks%parse_if(parser, arena)
+                    end if
                 else
-                    stmt_index = callbacks%parse_if(parser, arena)
+                    ! Fallback to simple IF parser if callback not set
+                    stmt_index = parse_if_from_definition(parser, arena)
                 end if
             end if
         case ("do")
@@ -284,6 +291,9 @@ contains
         case ("associate")
             if (associated(callbacks%parse_associate)) then
                 stmt_index = callbacks%parse_associate(parser, arena)
+            else
+                ! Fallback to simple ASSOCIATE parser if callback not set
+                stmt_index = parse_associate_from_definition(parser, arena)
             end if
         end select
     end function handle_control_keyword

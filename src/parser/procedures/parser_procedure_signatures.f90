@@ -140,7 +140,11 @@ contains
                        starts_with(text, "complex(") .or. &
                        starts_with(text, "complex (") .or. &
                        starts_with(text, "procedure(") .or. &
-                       starts_with(text, "procedure (")
+                       starts_with(text, "procedure (") .or. &
+                       starts_with(text, "type(") .or. &
+                       starts_with(text, "type (") .or. &
+                       starts_with(text, "class(") .or. &
+                       starts_with(text, "class (")
         end function has_type_with_parentheses
 
         logical function starts_with(text, prefix) result(matches)

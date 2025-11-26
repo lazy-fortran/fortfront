@@ -11,6 +11,8 @@ module codegen_program_header
     use codegen_indent, only: indent_lines
     use codegen_grouped_body, only: generate_grouped_body
     use string_utils_mod, only: to_lower
+    use standardizer_parameter, only: get_standardizer_input_mode
+    use semantic_input_mode, only: INPUT_MODE_STANDARD
     implicit none
     private
     public :: assemble_program_header
@@ -48,7 +50,11 @@ contains
         if (len(implicit_statements_code) > 0) then
             code = code // implicit_statements_code
         else if (.not. has_implicit) then
-            code = code // "    implicit none" // new_line('A')
+            ! Only add implicit none for lazy Fortran mode
+            ! For standard Fortran, preserve original implicit typing rules
+            if (get_standardizer_input_mode() /= INPUT_MODE_STANDARD) then
+                code = code // "    implicit none" // new_line('A')
+            end if
         end if
 
         if (len(intrinsic_statements_code) > 0) then

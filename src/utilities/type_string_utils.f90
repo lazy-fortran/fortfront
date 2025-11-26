@@ -111,7 +111,16 @@ contains
         case (TDOUBLE)
             type_str = "double precision"
         case (TFUN)
-            type_str = "function"
+            ! For function types, use the return type (second arg) if available
+            if (type_args_allocated(mono_type) .and. &
+                type_args_size(mono_type) >= 2) then
+                call resolve_mono_type_string(type_args_element(mono_type, 2), &
+                                              include_shape, prefer_len_zero_char, &
+                                              standardize_real, type_str, success)
+                if (.not. success) type_str = ""
+            else
+                type_str = ""
+            end if
         case (TVAR)
             ! Return empty string for type variables - they should be inferred
             type_str = ""

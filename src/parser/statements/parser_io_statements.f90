@@ -212,7 +212,8 @@ contains
         allocate (arg_indices(0))
 
         token = parser%peek()
-        if (parser%is_at_end() .or. token%kind == TK_NEWLINE) return
+        if (parser%is_at_end() .or. token%kind == TK_NEWLINE .or. &
+            token%kind == TK_COMMENT) return
 
         ! Parse first argument
         current_arg_index = parse_io_implied_do(parser, arena)
@@ -224,7 +225,7 @@ contains
             ! Parse additional arguments separated by commas
             do
                 token = parser%peek()
-                if (token%kind == TK_NEWLINE) exit
+                if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) exit
                 if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
 
                 token = parser%consume()  ! consume comma

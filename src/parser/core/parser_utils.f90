@@ -127,7 +127,7 @@ contains
         end if
     end subroutine process_operator
 
-    ! Check if keyword is an attribute (not statement-ending)
+    ! Check if keyword is an attribute or type modifier (not statement-ending)
     logical function is_attribute_keyword(keyword)
         character(len=*), intent(in) :: keyword
         is_attribute_keyword = (keyword == "parameter" .or. &
@@ -138,7 +138,8 @@ contains
                                 keyword == "target" .or. &
                                 keyword == "save" .or. &
                                 keyword == "public" .or. &
-                                keyword == "private")
+                                keyword == "private" .or. &
+                                keyword == "precision")  ! For double precision
     end function is_attribute_keyword
 
 end module parser_utils

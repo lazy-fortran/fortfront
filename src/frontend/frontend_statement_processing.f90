@@ -8,6 +8,9 @@ module frontend_statement_processing
                                         get_additional_indices, &
                                         clear_additional_indices
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_definition_statements_module, only: parse_function_definition, &
+                                                   parse_subroutine_definition
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, call_or_subscript_node, &
                               identifier_node
@@ -17,7 +20,7 @@ module frontend_statement_processing
                               implicit_statement_node, intrinsic_statement_node, &
                               namelist_statement_node, import_statement_node, &
                               include_statement_node, comment_node, &
-                              blank_line_node, directive_node
+                              blank_line_node, directive_node, contains_node
     use ast_nodes_io, only: format_statement_node
     use frontend_statement_boundary, only: find_statement_boundary
     use frontend_program_structure, only: create_final_program_structure, &
@@ -63,6 +66,19 @@ contains
             if (tokens(i)%kind == TK_EOF) exit
 
             call find_statement_boundary(tokens, i, stmt_start, stmt_end)
+
+            ! Check for structural contains keyword (implicit main program)
+            if (is_structural_contains(tokens, stmt_start, stmt_end)) then
+                call parse_implicit_contains_section(tokens, stmt_end + 1, arena, &
+                                                     body_indices, i)
+                exit
+            end if
+
+            ! NOTE: We do NOT check for bare end here because:
+            ! 1. For standard Fortran round-trips, bare end should be preserved as-is
+            ! 2. The contains section parser handles end detection internally
+            ! 3. Removing bare end detection here prevents premature exit for
+            !    files like "f(x) = x + 1\nend" which should round-trip exactly
 
             if (is_prefix_only_statement(tokens, stmt_start, stmt_end)) then
                 look_ahead = stmt_end + 1
@@ -111,6 +127,459 @@ contains
         call create_final_program_structure(arena, body_indices, stmt_count, &
                                             prog_index)
     end function parse_all_statements
+
+    ! Check if current statement is structural contains (not variable use)
+    logical function is_structural_contains(tokens, stmt_start, stmt_end) &
+        result(is_contains)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        integer :: idx
+        character(len=:), allocatable :: lowered
+
+        is_contains = .false.
+        idx = stmt_start
+
+        ! Skip leading whitespace/newlines
+        do while (idx <= stmt_end)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE)
+                idx = idx + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > stmt_end) return
+        if (tokens(idx)%kind /= TK_KEYWORD .and. &
+            tokens(idx)%kind /= TK_IDENTIFIER) return
+
+        lowered = to_lower(trim(tokens(idx)%text))
+        if (lowered /= "contains") return
+
+        ! Check that contains is alone on this statement (structural, not variable)
+        idx = idx + 1
+        do while (idx <= stmt_end)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+            case (TK_OPERATOR)
+                ! If followed by operator like = or (, it's a variable use
+                if (tokens(idx)%text == "=" .or. tokens(idx)%text == "(" .or. &
+                    tokens(idx)%text == "&") then
+                    return
+                end if
+                idx = idx + 1
+            case default
+                ! Something else follows - not structural contains
+                return
+            end select
+        end do
+
+        is_contains = .true.
+    end function is_structural_contains
+
+    ! Check if statement is a bare end (just end or end followed by newline/comment)
+    logical function is_bare_end_statement(tokens, stmt_start, stmt_end) &
+        result(is_bare_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start, stmt_end
+        integer :: idx
+        character(len=:), allocatable :: lowered, next_lower
+
+        is_bare_end = .false.
+        idx = stmt_start
+
+        ! Skip leading whitespace/newlines
+        do while (idx <= stmt_end)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE)
+                idx = idx + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (idx > stmt_end) return
+        if (tokens(idx)%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(tokens(idx)%text))
+        if (lowered /= "end") return
+
+        ! Check what follows end
+        idx = idx + 1
+        do while (idx <= stmt_end)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx + 1
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                ! Check if followed by program unit keyword
+                next_lower = to_lower(trim(tokens(idx)%text))
+                if (next_lower == "program" .or. next_lower == "function" .or. &
+                    next_lower == "subroutine" .or. next_lower == "module" .or. &
+                    next_lower == "block" .or. next_lower == "type" .or. &
+                    next_lower == "interface") then
+                    return  ! end <unit> is not bare end
+                end if
+                ! end <name> - could be end of implicit main
+                is_bare_end = .true.
+                return
+            case default
+                return
+            end select
+        end do
+
+        ! Just end followed by whitespace/newline/comment
+        is_bare_end = .true.
+    end function is_bare_end_statement
+
+    ! Parse contains section for implicit main program
+    subroutine parse_implicit_contains_section(tokens, start_pos, arena, &
+                                               body_indices, end_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(out) :: end_pos
+
+        type(contains_node) :: contains_stmt
+        type(parser_prefix_buffer_t) :: prefix_buffer
+        type(parser_state_t) :: parser
+        type(token_t), allocatable :: proc_tokens(:)
+        integer :: i, proc_start, proc_end, proc_index
+        character(len=:), allocatable :: lowered
+        character(len=16), allocatable :: prefix_list(:)
+
+        ! Add contains node
+        contains_stmt%line = 0
+        contains_stmt%column = 0
+        call arena%push(contains_stmt, "contains", 0)
+        body_indices = [body_indices, arena%size]
+
+        i = start_pos
+        end_pos = size(tokens)
+        allocate (prefix_list(0))
+
+        do while (i <= size(tokens))
+            if (tokens(i)%kind == TK_EOF) exit
+
+            ! Skip whitespace and newlines
+            if (tokens(i)%kind == TK_WHITESPACE .or. &
+                tokens(i)%kind == TK_NEWLINE) then
+                i = i + 1
+                cycle
+            end if
+
+            ! Skip comments (but we could add them to body_indices if desired)
+            if (tokens(i)%kind == TK_COMMENT) then
+                i = i + 1
+                cycle
+            end if
+
+            if (tokens(i)%kind == TK_KEYWORD .or. tokens(i)%kind == TK_IDENTIFIER) then
+                lowered = to_lower(trim(tokens(i)%text))
+
+                ! Check for end statement
+                if (lowered == "end") then
+                    end_pos = i
+                    exit
+                end if
+
+                ! Check for procedure prefix keywords
+                if (lowered == "pure" .or. lowered == "elemental" .or. &
+                    lowered == "impure" .or. lowered == "recursive" .or. &
+                    lowered == "module" .or. lowered == "nonrecursive") then
+                    prefix_list = [prefix_list, adjustl(trim(lowered))]
+                    i = i + 1
+                    cycle
+                end if
+
+                ! Check for type prefix (like integer, real, etc.)
+                ! These are result type prefixes for functions - scan forward
+                ! to find the function keyword and parse from there
+                if (lowered == "integer" .or. lowered == "real" .or. &
+                    lowered == "logical" .or. lowered == "character" .or. &
+                    lowered == "complex" .or. lowered == "double" .or. &
+                    lowered == "type" .or. lowered == "class") then
+                    ! Find the function/subroutine keyword that follows
+                    proc_start = find_proc_keyword_after_type(tokens, i)
+                    if (proc_start > 0) then
+                        ! Parse from the type prefix start
+                        lowered = to_lower(trim(tokens(proc_start)%text))
+                        if (lowered == "function") then
+                            call find_procedure_end(tokens, proc_start, "function", &
+                                                    proc_end)
+                            allocate (proc_tokens(proc_end - i + 2))
+                            proc_tokens(1:proc_end - i + 1) = tokens(i:proc_end)
+                            proc_tokens(proc_end - i + 2)%kind = TK_EOF
+                            proc_tokens(proc_end - i + 2)%text = ""
+
+                            call prefix_buffer%clear()
+                            parser = create_parser_state(proc_tokens)
+                            if (size(prefix_list) > 0) then
+                                proc_index = parse_function_definition(parser, arena, &
+                                                                       prefix_buffer, &
+                                                                       prefix_list)
+                            else
+                                proc_index = parse_function_definition(parser, arena, &
+                                                                       prefix_buffer)
+                            end if
+                            if (proc_index > 0) body_indices = [body_indices, proc_index]
+                            deallocate (proc_tokens)
+                            deallocate (prefix_list)
+                            allocate (prefix_list(0))
+                            i = proc_end + 1
+                            cycle
+                        end if
+                    end if
+                    ! If no procedure keyword found, just skip the type spec
+                    call skip_type_spec(tokens, i)
+                    cycle
+                end if
+
+                ! Handle function
+                if (lowered == "function") then
+                    proc_start = i
+                    call find_procedure_end(tokens, proc_start, "function", proc_end)
+                    allocate (proc_tokens(proc_end - proc_start + 2))
+                    proc_tokens(1:proc_end - proc_start + 1) = &
+                        tokens(proc_start:proc_end)
+                    proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
+                    proc_tokens(proc_end - proc_start + 2)%text = ""
+
+                    call prefix_buffer%clear()
+                    parser = create_parser_state(proc_tokens)
+                    if (size(prefix_list) > 0) then
+                        proc_index = parse_function_definition(parser, arena, &
+                                                               prefix_buffer, &
+                                                               prefix_list)
+                    else
+                        proc_index = parse_function_definition(parser, arena, &
+                                                               prefix_buffer)
+                    end if
+                    if (proc_index > 0) body_indices = [body_indices, proc_index]
+                    deallocate (proc_tokens)
+                    deallocate (prefix_list)
+                    allocate (prefix_list(0))
+                    i = proc_end + 1
+                    cycle
+                end if
+
+                ! Handle subroutine
+                if (lowered == "subroutine") then
+                    proc_start = i
+                    call find_procedure_end(tokens, proc_start, "subroutine", proc_end)
+                    allocate (proc_tokens(proc_end - proc_start + 2))
+                    proc_tokens(1:proc_end - proc_start + 1) = &
+                        tokens(proc_start:proc_end)
+                    proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
+                    proc_tokens(proc_end - proc_start + 2)%text = ""
+
+                    call prefix_buffer%clear()
+                    parser = create_parser_state(proc_tokens)
+                    proc_index = parse_subroutine_definition(parser, arena, &
+                                                             prefix_buffer)
+                    if (proc_index > 0) body_indices = [body_indices, proc_index]
+                    deallocate (proc_tokens)
+                    deallocate (prefix_list)
+                    allocate (prefix_list(0))
+                    i = proc_end + 1
+                    cycle
+                end if
+            end if
+
+            i = i + 1
+        end do
+
+        if (allocated(prefix_list)) deallocate (prefix_list)
+    end subroutine parse_implicit_contains_section
+
+    ! Find function/subroutine keyword after type specification
+    integer function find_proc_keyword_after_type(tokens, start_pos) result(proc_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: pos, paren_depth
+        character(len=:), allocatable :: lowered
+
+        proc_pos = 0
+        pos = start_pos
+
+        ! Skip type keyword
+        pos = pos + 1
+
+        ! Skip type spec details (kind selector, len, etc.)
+        do while (pos <= size(tokens))
+            select case (tokens(pos)%kind)
+            case (TK_WHITESPACE)
+                pos = pos + 1
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                lowered = to_lower(trim(tokens(pos)%text))
+                if (lowered == "function" .or. lowered == "subroutine") then
+                    proc_pos = pos
+                    return
+                else if (lowered == "precision" .or. lowered == "complex") then
+                    ! double precision / double complex
+                    pos = pos + 1
+                else
+                    pos = pos + 1
+                end if
+            case (TK_OPERATOR)
+                if (tokens(pos)%text == "(") then
+                    paren_depth = 1
+                    pos = pos + 1
+                    do while (pos <= size(tokens) .and. paren_depth > 0)
+                        if (tokens(pos)%kind == TK_OPERATOR) then
+                            if (tokens(pos)%text == "(") paren_depth = paren_depth + 1
+                            if (tokens(pos)%text == ")") paren_depth = paren_depth - 1
+                        end if
+                        pos = pos + 1
+                    end do
+                else if (tokens(pos)%text == "*") then
+                    pos = pos + 1
+                    if (pos <= size(tokens)) then
+                        if (tokens(pos)%kind == TK_NUMBER) pos = pos + 1
+                    end if
+                else
+                    pos = pos + 1
+                end if
+            case (TK_NEWLINE, TK_COMMENT, TK_EOF)
+                return
+            case default
+                pos = pos + 1
+            end select
+        end do
+    end function find_proc_keyword_after_type
+
+    ! Skip type specification including kind selector
+    subroutine skip_type_spec(tokens, pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(inout) :: pos
+        integer :: paren_depth
+        character(len=:), allocatable :: lowered
+
+        ! First token is the type keyword
+        pos = pos + 1
+
+        ! Check for double precision / double complex
+        if (pos <= size(tokens)) then
+            if (tokens(pos)%kind == TK_WHITESPACE) pos = pos + 1
+            if (pos <= size(tokens)) then
+                if (tokens(pos)%kind == TK_KEYWORD .or. &
+                    tokens(pos)%kind == TK_IDENTIFIER) then
+                    lowered = to_lower(trim(tokens(pos)%text))
+                    if (lowered == "precision" .or. lowered == "complex") then
+                        pos = pos + 1
+                    end if
+                end if
+            end if
+        end if
+
+        ! Skip any kind selector (xxx) or *N
+        if (pos <= size(tokens)) then
+            if (tokens(pos)%kind == TK_WHITESPACE) pos = pos + 1
+            if (pos <= size(tokens)) then
+                if (tokens(pos)%kind == TK_OPERATOR) then
+                    if (tokens(pos)%text == "(") then
+                        paren_depth = 1
+                        pos = pos + 1
+                        do while (pos <= size(tokens) .and. paren_depth > 0)
+                            if (tokens(pos)%kind == TK_OPERATOR) then
+                                if (tokens(pos)%text == "(") paren_depth = paren_depth + 1
+                                if (tokens(pos)%text == ")") paren_depth = paren_depth - 1
+                            end if
+                            pos = pos + 1
+                        end do
+                    else if (tokens(pos)%text == "*") then
+                        pos = pos + 1
+                        if (pos <= size(tokens)) then
+                            if (tokens(pos)%kind == TK_NUMBER) pos = pos + 1
+                        end if
+                    end if
+                end if
+            end if
+        end if
+    end subroutine skip_type_spec
+
+    ! Find end of procedure (function or subroutine)
+    subroutine find_procedure_end(tokens, start_pos, proc_type, end_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        character(len=*), intent(in) :: proc_type
+        integer, intent(out) :: end_pos
+        integer :: i, next_idx
+        character(len=:), allocatable :: lowered, next_lower, combined
+
+        end_pos = start_pos
+        combined = "end" // trim(proc_type)
+
+        do i = start_pos + 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF) then
+                end_pos = i - 1
+                exit
+            end if
+
+            ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be either)
+            if (tokens(i)%kind == TK_KEYWORD .or. tokens(i)%kind == TK_IDENTIFIER) then
+                lowered = to_lower(trim(tokens(i)%text))
+
+                ! Check for combined keyword like endfunction, endsubroutine
+                if (lowered == combined) then
+                    end_pos = i
+                    ! Skip optional procedure name
+                    next_idx = i + 1
+                    do while (next_idx <= size(tokens))
+                        if (tokens(next_idx)%kind == TK_WHITESPACE) then
+                            next_idx = next_idx + 1
+                        else if (tokens(next_idx)%kind == TK_IDENTIFIER .or. &
+                                 tokens(next_idx)%kind == TK_KEYWORD) then
+                            end_pos = next_idx
+                            exit
+                        else
+                            exit
+                        end if
+                    end do
+                    exit
+                end if
+
+                ! Check for end <proc_type>
+                if (lowered == "end") then
+                    next_idx = i + 1
+                    do while (next_idx <= size(tokens))
+                        if (tokens(next_idx)%kind == TK_WHITESPACE) then
+                            next_idx = next_idx + 1
+                        else
+                            exit
+                        end if
+                    end do
+
+                    if (next_idx <= size(tokens)) then
+                        if (tokens(next_idx)%kind == TK_KEYWORD .or. &
+                            tokens(next_idx)%kind == TK_IDENTIFIER) then
+                            next_lower = to_lower(trim(tokens(next_idx)%text))
+                            if (next_lower == proc_type) then
+                                end_pos = next_idx
+                                ! Skip optional procedure name
+                                next_idx = next_idx + 1
+                                do while (next_idx <= size(tokens))
+                                    if (tokens(next_idx)%kind == TK_WHITESPACE) then
+                                        next_idx = next_idx + 1
+                                    else if (tokens(next_idx)%kind == TK_IDENTIFIER .or. &
+                                             tokens(next_idx)%kind == TK_KEYWORD) then
+                                        end_pos = next_idx
+                                        exit
+                                    else
+                                        exit
+                                    end if
+                                end do
+                                exit
+                            end if
+                        end if
+                    end if
+                end if
+            end if
+
+            end_pos = i
+        end do
+    end subroutine find_procedure_end
 
     ! Process comment statement
     subroutine process_comment_statement(tokens, i, arena, prefix_buffer, stmt_index, &

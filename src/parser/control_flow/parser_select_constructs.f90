@@ -24,7 +24,8 @@ module parser_select_constructs_module
                            push_type_guard_block, &
                            push_select_rank, push_select_rank_with_default, &
                            push_rank_block, &
-                           push_identifier, push_literal, push_assignment
+                           push_identifier, push_literal, push_assignment, &
+                           push_pointer_assignment
     implicit none
     private
 
@@ -330,6 +331,89 @@ contains
         end if
     end function parse_select_case
 
+    function parse_select_type_selector(parser, arena) result(selector_index)
+        ! Parse the selector part of SELECT TYPE:
+        !   SELECT TYPE (x)           - just an expression
+        !   SELECT TYPE (y => x)      - associate_name => selector
+        ! For the associate syntax, we create an assignment node representing y => x
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: selector_index
+
+        type(token_t) :: token, next_token
+        integer :: name_index
+        integer :: lookahead_idx
+        logical :: has_associate
+
+        selector_index = 0
+
+        ! Skip whitespace to find the first real token
+        token = parser%peek()
+        do while (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT .or. &
+                  token%kind == TK_NEWLINE)
+            token = parser%consume()
+            if (parser%is_at_end()) return
+            token = parser%peek()
+        end do
+
+        ! Check if this is associate syntax: identifier => selector
+        has_associate = .false.
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+            ! Look ahead for =>
+            lookahead_idx = parser%current_token + 1
+            do while (lookahead_idx <= size(parser%tokens))
+                next_token = parser%tokens(lookahead_idx)
+                if (next_token%kind == TK_WHITESPACE .or. &
+                    next_token%kind == TK_COMMENT) then
+                    lookahead_idx = lookahead_idx + 1
+                    cycle
+                else if (next_token%kind == TK_OPERATOR .and. &
+                         next_token%text == "=>") then
+                    has_associate = .true.
+                    exit
+                else
+                    exit
+                end if
+            end do
+        end if
+
+        if (has_associate) then
+            ! Parse: associate_name => selector
+            ! First, consume the associate name
+            name_index = push_identifier(arena, token%text, line=token%line, &
+                                         column=token%column)
+            token = parser%consume()  ! consume the identifier
+
+            ! Skip whitespace to get to =>
+            token = parser%peek()
+            do while (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT)
+                token = parser%consume()
+                if (parser%is_at_end()) return
+                token = parser%peek()
+            end do
+
+            ! Consume =>
+            if (token%kind == TK_OPERATOR .and. token%text == "=>") then
+                token = parser%consume()
+            else
+                return  ! Error: expected =>
+            end if
+
+            ! Parse the selector expression after =>
+            selector_index = parse_expression_until(parser, arena, [")"])
+            if (selector_index <= 0) return
+
+            ! Create a pointer assignment node to represent y => x
+            selector_index = push_pointer_assignment(arena, name_index, &
+                                                     selector_index, &
+                                                     line=parser%tokens(1)%line, &
+                                                     column=parser%tokens(1)%column)
+        else
+            ! Simple selector (just an expression)
+            selector_index = parse_expression_until(parser, arena, [")"])
+        end if
+    end function parse_select_type_selector
+
     recursive function parse_select_type(parser, arena) result(select_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -362,8 +446,8 @@ contains
             return
         end if
 
-        ! Parse selector expression
-        selector_index = parse_expression_until(parser, arena, [")"])
+        ! Parse selector expression (may include associate_name => selector syntax)
+        selector_index = parse_select_type_selector(parser, arena)
         if (selector_index <= 0) then
             select_index = 0
             return
@@ -382,13 +466,12 @@ contains
 
         end_keywords(1) = "type"
         end_keywords(2) = "class"
-        ! Note: "end" is NOT included here because parse_statement_body would
-        ! stop at ANY "end" keyword (end if, end do, etc.), not just "end select".
-        ! Instead, we handle "end select" detection in the main loop below.
-        end_keywords(3) = ""
+        end_keywords(3) = "contains"
 
         callbacks = null_statement_callbacks()
+        callbacks%parse_select_case => parse_select_case
         callbacks%parse_select_type => parse_select_type
+        callbacks%parse_select_rank => parse_select_rank
 
         do while (parser%current_token <= size(parser%tokens))
             guard_token = parser%peek()
@@ -593,6 +676,13 @@ contains
                         ! If not 'end select', we already consumed 'end' and
                         ! will continue to next iteration to parse what follows
                     end block
+                else if (guard_token%text == "contains" .or. &
+                         guard_token%text == "function" .or. &
+                         guard_token%text == "subroutine") then
+                    ! We've reached something that shouldn't be inside
+                    ! select type - likely we missed an end select.
+                    ! Don't consume; let the parent parser handle it.
+                    exit
                 end if
             else
                 parser%current_token = parser%current_token + 1

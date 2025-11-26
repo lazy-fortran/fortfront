@@ -202,6 +202,7 @@ contains
     logical function end_type_ahead(parser) result(is_end)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
+        character(len=:), allocatable :: lowered
 
         is_end = .false.
         if (parser%is_at_end()) then
@@ -209,28 +210,46 @@ contains
         end if
 
         token = parser%peek()
-        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
-            token%text == "end") then
-            is_end = .true.
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+            lowered = to_lower(trim(token%text))
+            if (lowered == "end" .or. lowered == "endtype") then
+                is_end = .true.
+            end if
         end if
     end function end_type_ahead
 
     subroutine consume_end_type_sequence(parser)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
+        character(len=:), allocatable :: lowered
 
         if (parser%is_at_end()) then
             return
         end if
 
         token = parser%consume()
+        lowered = to_lower(trim(token%text))
+
+        ! Check if we consumed endtype (single keyword) - done
+        if (lowered == "endtype") then
+            ! Optionally consume type name
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    token = parser%consume()
+                end if
+            end if
+            return
+        end if
+
+        ! Otherwise, we consumed end, now look for type
         if (parser%is_at_end()) then
             return
         end if
 
         token = parser%peek()
-        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
-            token%text == "type") then
+        lowered = to_lower(trim(token%text))
+        if (lowered == "type") then
             token = parser%consume()
             if (.not. parser%is_at_end()) then
                 token = parser%peek()
@@ -449,12 +468,23 @@ contains
                 attr = to_lower(trim(token%text))
                 if (attr == "deferred") then
                     is_deferred = .true.
+                    token = parser%consume()
                 else if (attr == "nopass") then
                     pass_arg = .false.
+                    token = parser%consume()
+                else if (attr == "pass") then
+                    ! Just consume pass (or pass(arg))
+                    token = parser%consume()
                 else if (attr == "public" .or. attr == "private") then
                     accessibility = attr
+                    token = parser%consume()
+                else
+                    ! Not a known attribute - this is likely the binding name
+                    ! Don't consume it, just exit with found_prefix = true
+                    ! to allow read_binding_name to handle it
+                    found_prefix = .true.
+                    exit
                 end if
-                token = parser%consume()
             else
                 token = parser%consume()
             end if

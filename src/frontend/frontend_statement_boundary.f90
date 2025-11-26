@@ -121,6 +121,48 @@ contains
         end if
     end function is_inline_where_statement
 
+    pure logical function is_inline_forall_statement(tokens, forall_index) &
+        result(is_inline)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: forall_index
+        integer :: idx, depth
+
+        is_inline = .false.
+        if (forall_index < 1 .or. forall_index > size(tokens)) return
+
+        idx = next_significant_token_index(tokens, forall_index + 1)
+        if (idx == 0) return
+
+        if (tokens(idx)%kind /= TK_OPERATOR .or. tokens(idx)%text /= "(") return
+
+        depth = 1
+        idx = idx + 1
+        do while (idx <= size(tokens) .and. depth > 0)
+            if (tokens(idx)%kind == TK_OPERATOR) then
+                select case (tokens(idx)%text)
+                case ("(")
+                    depth = depth + 1
+                case (")")
+                    depth = depth - 1
+                end select
+            else if (tokens(idx)%kind == TK_EOF) then
+                return
+            end if
+            idx = idx + 1
+        end do
+
+        if (depth > 0) return
+
+        idx = next_significant_token_index(tokens, idx)
+        if (idx == 0) return
+        select case (tokens(idx)%kind)
+        case (TK_NEWLINE, TK_EOF)
+            return
+        case default
+            is_inline = .true.
+        end select
+    end function is_inline_forall_statement
+
     pure integer function find_statement_start(tokens, start_pos) result(idx)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
@@ -191,6 +233,11 @@ contains
         case ("type")
             is_multiline = .true.
             nesting_level = 1
+        case ("forall")
+            if (.not. is_inline_forall_statement(tokens, stmt_start)) then
+                is_multiline = .true.
+                nesting_level = 1
+            end if
         end select
     end subroutine detect_multiline_construct
 
@@ -253,6 +300,12 @@ contains
             if (tokens(stmt_start)%text == "type" .and. idx > stmt_start) then
                 nesting_level = nesting_level + 1
             end if
+        case ("forall")
+            if (idx > stmt_start) then
+                if (.not. is_inline_forall_statement(tokens, idx)) then
+                    nesting_level = nesting_level + 1
+                end if
+            end if
         case ("endif")
             call try_close_construct(tokens, stmt_start, "if", idx, &
                                      nesting_level, stmt_end, found_end, &
@@ -268,6 +321,10 @@ contains
             call try_close_construct(tokens, stmt_start, "submodule", idx, &
                                      nesting_level, stmt_end, found_end, &
                                      .true.)
+        case ("endforall")
+            call try_close_construct(tokens, stmt_start, "forall", idx, &
+                                     nesting_level, stmt_end, found_end, &
+                                     .false.)
         end select
     end subroutine update_multiline_keyword_state
 
@@ -356,12 +413,18 @@ contains
         end do
         if (kw_pos <= size(tokens)) then
             if (tokens(kw_pos)%kind == TK_KEYWORD) then
-                if (tokens(kw_pos)%text == "do") then
+                select case (tokens(kw_pos)%text)
+                case ("do")
                     call try_close_construct(tokens, stmt_start, "do", kw_pos, &
                                              nesting_level, stmt_end, &
                                              found_end, .false.)
                     if (found_end) return
-                end if
+                case ("forall")
+                    call try_close_construct(tokens, stmt_start, "forall", kw_pos, &
+                                             nesting_level, stmt_end, &
+                                             found_end, .false.)
+                    if (found_end) return
+                end select
             end if
         end if
 

@@ -32,7 +32,9 @@ contains
 
         has_explicit_program_unit = .false.
         do i = 1, size(tokens)
-            if (tokens(i)%kind /= TK_KEYWORD) cycle
+            ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be mixed case)
+            if (tokens(i)%kind /= TK_KEYWORD .and. &
+                tokens(i)%kind /= TK_IDENTIFIER) cycle
 
             lowered = to_lower(trim(tokens(i)%text))
             select case (lowered)
@@ -42,7 +44,8 @@ contains
             case ("abstract")
                 next_idx = find_next_nontrivial_index(tokens, i)
                 if (next_idx > 0 .and. next_idx <= size(tokens)) then
-                    if (tokens(next_idx)%kind == TK_KEYWORD) then
+                    if (tokens(next_idx)%kind == TK_KEYWORD .or. &
+                        tokens(next_idx)%kind == TK_IDENTIFIER) then
                         next_lower = to_lower(trim(tokens(next_idx)%text))
                         if (next_lower == "interface") then
                             has_explicit_program_unit = .true.
@@ -130,7 +133,9 @@ contains
         end do
 
         if (keyword_idx > size(tokens)) return
-        if (tokens(keyword_idx)%kind /= TK_KEYWORD) return
+        ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be mixed case)
+        if (tokens(keyword_idx)%kind /= TK_KEYWORD .and. &
+            tokens(keyword_idx)%kind /= TK_IDENTIFIER) return
 
         select case (to_lower(trim(tokens(keyword_idx)%text)))
         case ("program", "module", "function", "subroutine", "interface")
@@ -142,7 +147,7 @@ contains
                 case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
                     lookahead = lookahead + 1
                     cycle
-                case (TK_KEYWORD)
+                case (TK_KEYWORD, TK_IDENTIFIER)
                     if (to_lower(trim(tokens(lookahead)%text)) == "interface") then
                         is_start = .true.
                     end if
@@ -425,7 +430,8 @@ contains
 
         if (unit_start <= size(tokens)) then
             select case (tokens(unit_start)%kind)
-            case (TK_KEYWORD)
+            ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be mixed case)
+            case (TK_KEYWORD, TK_IDENTIFIER)
                 unit_type = to_lower(trim(tokens(unit_start)%text))
                 if (unit_type == "block") block_keyword_pos = unit_start
             case (TK_NUMBER)
@@ -435,7 +441,8 @@ contains
                     case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
                         next_pos = next_pos + 1
                         cycle
-                    case (TK_KEYWORD)
+                    ! Check both TK_KEYWORD and TK_IDENTIFIER
+                    case (TK_KEYWORD, TK_IDENTIFIER)
                         unit_type = to_lower(trim(tokens(next_pos)%text))
                         if (unit_type == "block") block_keyword_pos = next_pos
                         exit
@@ -654,14 +661,19 @@ contains
             if (tokens(i)%kind == TK_EOF) then
                 unit_end = i - 1
                 exit
-            else if (tokens(i)%kind == TK_KEYWORD) then
+            ! Check both TK_KEYWORD and TK_IDENTIFIER
+            else if (tokens(i)%kind == TK_KEYWORD .or. &
+                     tokens(i)%kind == TK_IDENTIFIER) then
                 if (to_lower(trim(tokens(i)%text)) == "end") then
                     if (i + 1 <= size(tokens)) then
-                        if (tokens(i + 1)%kind == TK_KEYWORD) then
+                        ! Check both TK_KEYWORD and TK_IDENTIFIER
+                        if (tokens(i + 1)%kind == TK_KEYWORD .or. &
+                            tokens(i + 1)%kind == TK_IDENTIFIER) then
                             if (to_lower(trim(tokens(i + 1)%text)) == unit_type) then
                                 unit_end = i + 1
                                 if (i + 2 <= size(tokens)) then
-                                    if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                    if (tokens(i + 2)%kind == TK_IDENTIFIER .or. &
+                                        tokens(i + 2)%kind == TK_KEYWORD) then
                                         unit_end = i + 2
                                     end if
                                 end if
@@ -670,7 +682,8 @@ contains
                         end if
                     end if
                     if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
-                                                tokens(i + 1)%kind /= TK_KEYWORD)) then
+                                                tokens(i + 1)%kind /= TK_KEYWORD .and. &
+                                                tokens(i + 1)%kind /= TK_IDENTIFIER)) then
                         unit_end = i
                         exit
                     end if

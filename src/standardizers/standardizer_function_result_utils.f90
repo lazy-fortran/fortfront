@@ -346,6 +346,31 @@ contains
         logical, intent(in) :: type_std_enabled
         type(declaration_node) :: decl
         logical :: result_inferred
+        integer :: i, body_idx
+
+        ! Safety check: if a declaration for this result variable already exists
+        ! in the body with a valid type, do not create a new one
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                body_idx = func_def%body_indices(i)
+                if (body_idx <= 0 .or. body_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(body_idx)%node)) cycle
+                select type (stmt => arena%entries(body_idx)%node)
+                type is (declaration_node)
+                    if (allocated(stmt%var_name)) then
+                        if (trim(stmt%var_name) == &
+                            trim(func_def%result_variable)) then
+                            if (len_trim(stmt%type_name) > 0 .and. &
+                                trim(stmt%type_name) /= "real" .and. &
+                                trim(stmt%type_name) /= "function") then
+                                ! Declaration already exists with non-default type
+                                return
+                            end if
+                        end if
+                    end if
+                end select
+            end do
+        end if
 
         call reset_declaration_node(decl)
 
@@ -386,7 +411,8 @@ contains
             if (decl%inferred_type%alloc_info%is_allocatable) then
                 decl%is_allocatable = .true.
             end if
-            if (decl%inferred_type%kind > 0) then
+            ! Only use inferred type for type_name if not already set by return_type
+            if (decl%inferred_type%kind > 0 .and. len_trim(decl%type_name) == 0) then
                 decl%type_name = mono_type_to_string(decl%inferred_type, &
                                                      include_shape=.false., &
                                                      standardize_real=type_std_enabled, &
