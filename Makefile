@@ -62,6 +62,7 @@ clean:
 	fpm clean --all
 	@echo "Cleaning root directory artifacts..."
 	@find . -maxdepth 1 -name "*.mod" -type f -delete
+	@find . -maxdepth 1 -name "*.smod" -type f -delete
 	@find . -maxdepth 1 -name "*.o" -type f -delete
 	@find . -maxdepth 1 -name "*.a" -type f -delete
 	@find . -maxdepth 1 -name "*.lf" -type f -delete
