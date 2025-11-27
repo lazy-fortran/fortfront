@@ -290,7 +290,7 @@ contains
             ! Contextual keywords can act as identifiers within declarations
         case ("stop", "call", "cycle", "exit", "return", "continue", "goto", &
               "go", "entry", "select", "contains", "else", "dimension", &
-              "common", "program", "module", "if")
+              "common", "program", "module", "if", "format")
             ! Allow executable keywords in identifier positions
         case ("implicit")
             parser_copy = parser
