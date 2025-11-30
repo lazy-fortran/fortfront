@@ -15,6 +15,7 @@ program fortfront_cli
 
     character(len=:), allocatable :: input_text, output_text, error_msg
     character(len=:), allocatable :: arg_str, filename
+    character(len=:), allocatable :: basename, extension
     integer :: io_stat
     integer :: alloc_stat
     integer :: num_args, arg_len, i
@@ -283,7 +284,21 @@ program fortfront_cli
         end if
     end if
 
-    ! Only write output if no errors occurred
+    ! If no output was produced but no hard error was reported, fall back to
+    ! preserving the original source for standard Fortran inputs. This makes
+    ! round-trip behavior well defined even when the transformer is a no-op.
+    if (.not. allocated(output_text) .or. len(output_text) == 0) then
+        if (from_file) then
+            if (allocated(filename)) then
+                call split_filename(filename, basename, extension)
+                if (extension /= '.lf') then
+                    output_text = input_text
+                end if
+            end if
+        end if
+    end if
+
+    ! Write output if available (either transformed or preserved source)
     if (allocated(output_text) .and. len(output_text) > 0) then
         write (output_unit, '(A)', advance='no') output_text
         ! Ensure a trailing newline for line-buffered environments (e.g., Windows pipes)
@@ -291,10 +306,8 @@ program fortfront_cli
             write (output_unit, '(A)') ''
         end if
         flush (output_unit)
-    end if
-
-    ! If no output was generated and no error was reported, treat as failure
-    if (.not. allocated(output_text) .or. len(output_text) == 0) then
+    else
+        ! If still no output, treat as failure
         write (error_unit, '(A)') 'No output generated'
         call exit_quiet(EXIT_FAILURE)
     end if

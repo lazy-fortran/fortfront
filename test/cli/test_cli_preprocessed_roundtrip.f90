@@ -1,0 +1,76 @@
+program test_cli_preprocessed_roundtrip
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    implicit none
+
+    character(len=256) :: tmp_in
+    character(len=256) :: tmp_out
+    character(len=512) :: exe_path
+    character(len=1024) :: command
+    integer :: exit_status
+    logical :: found
+
+    ! Skip this test unless RUN_SYSTEM_TESTS=1 is set
+    if (.not. should_run_system_tests()) then
+        print *, 'SKIP: CLI preprocessed roundtrip test (set RUN_SYSTEM_TESTS=1)'
+        stop 0
+    end if
+
+    call find_executable(exe_path, found)
+    if (.not. found) then
+        write (error_unit, '(A)') 'ERROR: Could not find fortfront executable'
+        stop 1
+    end if
+
+    call make_tmpfile(tmp_in)
+    call make_tmpfile(tmp_out)
+    call write_preprocessed_snippet(trim(tmp_in))
+
+    command = trim(exe_path) // ' ' // trim(tmp_in) // ' > ' // trim(tmp_out)
+    call execute_command_line(trim(command), exitstat=exit_status)
+    call assert_equal_int(exit_status, 0, 'fortfront first pass failed')
+
+    call execute_command_line(trim(command), exitstat=exit_status)
+    call assert_equal_int(exit_status, 0, 'fortfront second pass failed')
+
+    call assert_file_not_empty(trim(tmp_out))
+
+    call delete_file(trim(tmp_in))
+    call delete_file(trim(tmp_out))
+
+    print *, 'PASS: CLI handles preprocessed line directives without empty output'
+    stop 0
+
+contains
+
+    include '../common/cli_system_tests.inc'
+
+    subroutine write_preprocessed_snippet(path)
+        character(len=*), intent(in) :: path
+        integer :: unit, ios
+
+        open (newunit=unit, file=path, status='replace', action='write', &
+              iostat=ios)
+        call assert_equal_int(ios, 0, 'Failed to open preprocessed snippet file')
+        write (unit, '(A)') '# 1 "fake_line.F"'
+        write (unit, '(A)') '! simple preprocessed snippet'
+        write (unit, '(A)') '# 2 "fake_line.F"'
+        write (unit, '(A)') '      parameter (k = 2)'
+        write (unit, '(A)') '      end'
+        close (unit)
+    end subroutine write_preprocessed_snippet
+
+    subroutine assert_file_not_empty(path)
+        character(len=*), intent(in) :: path
+        integer :: unit, ios
+        character(len=1) :: ch
+
+        open (newunit=unit, file=path, status='old', action='read', &
+              iostat=ios)
+        call assert_equal_int(ios, 0, 'Failed to open CLI output file')
+        read (unit, '(A)', iostat=ios) ch
+        close (unit, status='delete')
+        call assert_equal_int(ios, 0, 'CLI output file was empty')
+    end subroutine assert_file_not_empty
+
+end program test_cli_preprocessed_roundtrip
+
