@@ -1,10 +1,13 @@
     subroutine make_tmpfile(path)
         character(len=*), intent(out) :: path
         integer :: clock_count
+        integer, save :: tmp_counter = 0
         character(len=256) :: buffer
 
         call system_clock(count=clock_count)
-        write (buffer, '(A,I0,A)') 'build/tmp_cli_sanitize_', clock_count, '.tmp'
+        tmp_counter = tmp_counter + 1
+        write (buffer, '(A,I0,A,I0,A)') 'build/tmp_cli_sanitize_', &
+            clock_count, '_', tmp_counter, '.tmp'
         path = trim(buffer)
     end subroutine make_tmpfile
 
@@ -137,4 +140,3 @@
             end if
         end if
     end function is_windows
-
