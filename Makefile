@@ -21,11 +21,11 @@ libfortfront.a:
 	    echo "ERROR: no module files produced by fpm build"; \
 	    exit 1; \
 	fi; \
-	rm -rf fortfront_modules; \
-	mkdir -p fortfront_modules; \
-	find "$$mod_dir" -maxdepth 1 -name '*.mod' -exec cp {} fortfront_modules/ \; ; \
-	if ! ls fortfront_modules/*.mod >/dev/null 2>&1; then \
-	    echo "ERROR: no module files copied into fortfront_modules"; \
+	rm -rf build/fortfront_modules; \
+	mkdir -p build/fortfront_modules; \
+	find "$$mod_dir" -maxdepth 1 -name '*.mod' -exec cp {} build/fortfront_modules/ \; ; \
+	if ! ls build/fortfront_modules/*.mod >/dev/null 2>&1; then \
+	    echo "ERROR: no module files copied into build/fortfront_modules"; \
 	    exit 1; \
 	fi; \
 	rm -f libfortfront.a; \
