@@ -10,6 +10,7 @@ program fortfront_cli
     use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
     use stdout_sanitizer, only: sanitize_redirected_stdout
     use frontend_core, only: normalize_fixed_form_source_text, is_fixed_form_file
+    use frontend_tooling_api, only: read_file_contents, message_has_error
     implicit none
 
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -458,19 +459,21 @@ contains
         status = 0
         if (from_file) then
             if (.not. present(filename)) then
-                write (error_unit, '(A)') 'Filename is required when reading from file'
+                write (error_unit, '(A)') &
+                    'Filename is required when reading from file'
                 status = 1
                 return
             end if
-            open (newunit=unit_num, file=filename, status='old', action='read', &
-                  iostat=ios)
-            if (ios /= 0) then
-                write (error_unit, '(A,A)') 'Cannot open file: ', filename
-                status = 2
-                return
-            end if
-            call read_all_from_unit(unit_num, text, status)
-            close (unit_num)
+            block
+                character(len=:), allocatable :: io_error
+
+                call read_file_contents(trim(filename), text, io_error)
+                if (message_has_error(io_error)) then
+                    write (error_unit, '(A)') trim(io_error)
+                    status = 2
+                    return
+                end if
+            end block
             if (status == 0) then
                 if (is_fixed_form_file(trim(filename))) then
                     call normalize_fixed_form_source_text(text)
