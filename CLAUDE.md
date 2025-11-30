@@ -2,6 +2,13 @@
 
 **Note:** This file contains fortfront-specific guidance. General Fortran/Git/fpm/GitHub rules are in the user's global CLAUDE.md (`~/.claude/CLAUDE.md`) and always apply.
 
+## Instruction Precedence (fortfront)
+
+- The user's global CLAUDE.md at `~/.claude/CLAUDE.md` defines general rules for Fortran, Git, fpm, and GitHub.
+- This fortfront `CLAUDE.md` refines those rules for this repository and is the canonical policy document here.
+- When this file disagrees with other project documentation, scripts, or comments in this repo, this file wins.
+- `AGENTS.md` in this repository must be a symlink to this file so there is exactly one source of truth.
+
 ## What is fortfront?
 
 Fortfront is a **Fortran frontend library** that parses and analyzes **both standard Fortran and Lazy Fortran**. It provides a complete AST, semantic analysis, and type inference infrastructure for building tools like:
