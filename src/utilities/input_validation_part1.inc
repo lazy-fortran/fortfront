@@ -798,12 +798,48 @@
                 consecutive_identifiers = 0
             end if
 
-            ! Count unknown tokens with special characters
+            ! Count clearly non-Fortran tokens or directives with special
+            ! characters. This includes unknown tokens and preprocessor-style
+            ! directives that are currently represented as comment tokens
+            ! starting with '#'.
             if (tokens(i)%kind == TK_UNKNOWN) then
                 if (index(tokens(i)%text, "***") > 0 .or. &
                     index(tokens(i)%text, "@") > 0 .or. &
                     index(tokens(i)%text, "#") > 0) then
                     unknown_with_special = unknown_with_special + 1
+                end if
+            else if (tokens(i)%kind == TK_COMMENT) then
+                if (len_trim(tokens(i)%text) > 0) then
+                    if (tokens(i)%text(1:1) == '#') then
+                        ! Distinguish preprocessor line directives such as
+                        ! "# 1 \"file.F\"" or "#line 42" (which we cannot
+                        ! currently support) from conditional compilation
+                        ! directives like "#if", which are treated as regular
+                        ! comments for now.
+                        block
+                            integer :: j, last
+                            last = len_trim(tokens(i)%text)
+                            j = 2
+                            do while (j <= last)
+                                select case (tokens(i)%text(j:j))
+                                case (' ', char(9))
+                                    j = j + 1
+                                case default
+                                    exit
+                                end select
+                            end do
+                            if (j <= last) then
+                                if (tokens(i)%text(j:j) >= '0' .and. &
+                                    tokens(i)%text(j:j) <= '9') then
+                                    unknown_with_special = unknown_with_special + 1
+                                else if (j + 3 <= last) then
+                                    if (to_lower(tokens(i)%text(j:j + 3)) == 'line') then
+                                        unknown_with_special = unknown_with_special + 1
+                                    end if
+                                end if
+                            end if
+                        end block
+                    end if
                 end if
             end if
         end do
@@ -811,16 +847,30 @@
         ! Check for specific invalid patterns from test cases
         is_invalid = .false.
 
-        ! Pattern 1: "this is not valid fortran syntax at all *** 123" or "this is not fortran *** 123"
-        if ((index(text_content, "this is not valid") > 0 .or. index(text_content, "this is not fortran") > 0) .and. &
-            (index(text_content, "***") > 0 .or. index(text_content, "** *") > 0)) then
+        ! Pattern 0: Preprocessor-style or other unknown tokens with special
+        ! characters (for example, lines starting with '# 1 "file.F"').
+        ! These are not valid Fortran tokens and must be rejected early so
+        ! the CLI can fail loudly instead of silently accepting input that
+        ! only parses partially.
+        if (unknown_with_special > 0) then
             is_invalid = .true.
-            ! Pattern 2: "garbage input 123 *** invalid"
+
+        ! Pattern 1: "this is not valid fortran syntax at all *** 123"
+        ! or "this is not fortran *** 123"
+        else if ((index(text_content, "this is not valid") > 0 .or. &
+                  index(text_content, "this is not fortran") > 0) .and. &
+                 (index(text_content, "***") > 0 .or. &
+                  index(text_content, "** *") > 0)) then
+            is_invalid = .true.
+
+        ! Pattern 2: "garbage input 123 *** invalid"
         else if (index(text_content, "garbage") > 0 .and. &
-                 (index(text_content, "***") > 0 .or. index(text_content, "** *") > 0)) then
+                 (index(text_content, "***") > 0 .or. &
+                  index(text_content, "** *") > 0)) then
             is_invalid = .true.
-            ! Pattern 3: Too many consecutive identifiers without structure
-            ! (5+ consecutive identifiers without any Fortran keywords)
+
+        ! Pattern 3: Too many consecutive identifiers without structure
+        ! (5+ consecutive identifiers without any Fortran keywords)
         else if (consecutive_identifiers > 5) then
             is_invalid = .true.
         end if

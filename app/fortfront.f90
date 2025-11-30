@@ -32,6 +32,7 @@ program fortfront_cli
     character(len=:), allocatable :: next_arg
     character(len=:), allocatable :: optval
     logical :: end_of_options
+    logical :: input_is_empty
     call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
@@ -226,6 +227,11 @@ program fortfront_cli
         call trace_leave('cli:main')
         call exit_quiet(EXIT_FAILURE)
     end if
+    if (allocated(input_text)) then
+        input_is_empty = (len_trim(input_text) == 0)
+    else
+        input_is_empty = .true.
+    end if
     block
         character(len=64) :: tmp_msg
         integer :: byte_count
@@ -276,7 +282,8 @@ program fortfront_cli
                 index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
                 index(error_msg, '[VALIDATION') > 0 .or. &
                 index(error_msg, '[PARSER_') > 0 .or. &
-                index(error_msg, '[UNRECOGNIZED_INPUT]') > 0) then
+                index(error_msg, '[UNRECOGNIZED_INPUT]') > 0 .or. &
+                index(error_msg, '[INVALID_INPUT]') > 0) then
                 call exit_quiet(EXIT_FAILURE)
             end if
             ! INFO/WARNING messages are advisory only; continue with success
@@ -294,9 +301,13 @@ program fortfront_cli
     end if
 
     ! If no output was generated and no error was reported, treat as failure
+    ! for non-empty inputs. Empty standard Fortran inputs are allowed to
+    ! produce no output to preserve strict round-trip semantics.
     if (.not. allocated(output_text) .or. len(output_text) == 0) then
-        write (error_unit, '(A)') 'No output generated'
-        call exit_quiet(EXIT_FAILURE)
+        if (.not. input_is_empty) then
+            write (error_unit, '(A)') 'No output generated'
+            call exit_quiet(EXIT_FAILURE)
+        end if
     end if
 
     call trace_leave('cli:main')

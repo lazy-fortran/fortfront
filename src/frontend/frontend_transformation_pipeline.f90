@@ -148,7 +148,16 @@ contains
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(source)) then
-            call create_minimal_program(output)
+            if (present(enable_ast_wrapping)) then
+                ! Standard Fortran mode (context-aware call): do not fabricate
+                ! a trivial program wrapper for empty input. This keeps
+                ! standard Fortran round-trip semantics strict.
+                output = ""
+            else
+                ! Lazy Fortran / library API: preserve legacy behaviour and
+                ! generate a minimal program for empty input.
+                call create_minimal_program(output)
+            end if
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -189,7 +198,13 @@ contains
 
         ! Check for meaningful content
         if (not_meaningful_for_parsing(tokens)) then
-            call create_minimal_program(output)
+            if (present(enable_ast_wrapping)) then
+                ! Standard Fortran mode: inputs that tokenize to comments,
+                ! whitespace or EOF should not gain a program wrapper.
+                output = ""
+            else
+                call create_minimal_program(output)
+            end if
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
