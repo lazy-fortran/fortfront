@@ -15,6 +15,8 @@ module frontend_tooling_api
     public :: tooling_parse_options_t
     public :: tooling_load_ast_from_string
     public :: tooling_load_ast_from_file
+    public :: read_file_contents
+    public :: message_has_error
 
 contains
 
