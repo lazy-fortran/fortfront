@@ -101,10 +101,10 @@ contains
                            "scope_manager               "]
 
         found_count = 0
-        ! Check if modules are in expected location
+        ! Check if modules are in expected location (build/fortfront_modules)
         do i = 1, size(required_modules)
             if (len_trim(required_modules(i)) > 0) then
-                write (mod_path, '(A,A,A)') 'fortfront_modules/', &
+                write (mod_path, '(A,A,A)') 'build/fortfront_modules/', &
                     trim(adjustl(required_modules(i))), '.mod'
                 inquire (file=trim(mod_path), exist=mod_exists)
                 if (mod_exists) found_count = found_count + 1
@@ -131,7 +131,7 @@ contains
         call test_start("Module interfaces are complete")
 
         ! Check key interface module exists
-        inquire (file='fortfront_modules/fortfront_c_interface.mod', &
+        inquire (file='build/fortfront_modules/fortfront_c_interface.mod', &
                  exist=mod_exists)
 
         interfaces_complete = mod_exists
@@ -154,10 +154,10 @@ contains
         call test_start("Module dependencies are resolved")
 
         ! Check key dependency chains
-        inquire (file='fortfront_modules/lexer_core.mod', exist=lex_exists)
-        inquire (file='fortfront_modules/parser_expressions_module.mod', exist=parse_exists)
-        inquire (file='fortfront_modules/ast_arena_modern.mod', exist=ast_exists)
-        inquire (file='fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
+        inquire (file='build/fortfront_modules/lexer_core.mod', exist=lex_exists)
+        inquire (file='build/fortfront_modules/parser_expressions_module.mod', exist=parse_exists)
+        inquire (file='build/fortfront_modules/ast_arena_modern.mod', exist=ast_exists)
+        inquire (file='build/fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
 
         dependencies_resolved = (lex_exists .and. parse_exists .and. &
                                  ast_exists .and. sem_exists)
@@ -181,7 +181,7 @@ contains
 
         ! Check if fortfront_modules directory exists and has content
         call execute_command_line( &
-            'test -d fortfront_modules && test "$(ls -A fortfront_modules)"', &
+            'test -d build/fortfront_modules && test "$(ls -A build/fortfront_modules)"', &
             exitstat=exit_code, wait=.true.)
 
         location_correct = (exit_code == 0)
@@ -206,7 +206,7 @@ contains
         ! Test that modules can be used with gfortran
         call execute_command_line( &
             'echo "program test; use error_handling; end program" > /tmp/test_mod.f90 && ' // &
-            'gfortran -I fortfront_modules/ -c /tmp/test_mod.f90 -o /tmp/test_mod.o 2>/dev/null', &
+            'gfortran -I build/fortfront_modules/ -c /tmp/test_mod.f90 -o /tmp/test_mod.o 2>/dev/null', &
             exitstat=exit_code, wait=.true.)
 
         version_compatible = (exit_code == 0)

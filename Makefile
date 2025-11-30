@@ -10,22 +10,26 @@ build:
 libfortfront.a:
 	@echo "Building fortfront static library..."
 	fpm build
-	@lib_dir=$$(find build/gfortran_* -type d -name fortfront 2>/dev/null | head -n 1 | xargs dirname); \
+	@lib_dir=$$(find build/gfortran_* -type f -name 'libfortfront.a' 2>/dev/null | head -n 1 | xargs dirname); \
 	if [ -z "$$lib_dir" ]; then \
-	    echo "ERROR: no fpm build artifacts found with fortfront subdirectory"; \
+	    echo "ERROR: no libfortfront.a produced by fpm build"; \
 	    exit 1; \
 	fi; \
 	echo "Found library build directory: $$lib_dir"; \
-	rm -rf fortfront_modules; \
-	mkdir -p fortfront_modules; \
-	find "$$lib_dir" -maxdepth 1 -name '*.mod' -exec cp {} fortfront_modules/ \; ; \
-	objs=$$(find "$$lib_dir/fortfront" \( -name 'src_*.o' -o -name 'build_dependencies_*.o' \) ); \
-	if [ -z "$$objs" ]; then \
-	    echo "ERROR: no object files found in $$lib_dir/fortfront"; \
+	mod_dir=$$(find build/gfortran_* -maxdepth 1 -type f -name '*.mod' 2>/dev/null | head -n 1 | xargs dirname); \
+	if [ -z "$$mod_dir" ]; then \
+	    echo "ERROR: no module files produced by fpm build"; \
+	    exit 1; \
+	fi; \
+	rm -rf build/fortfront_modules; \
+	mkdir -p build/fortfront_modules; \
+	find "$$mod_dir" -maxdepth 1 -name '*.mod' -exec cp {} build/fortfront_modules/ \; ; \
+	if ! ls build/fortfront_modules/*.mod >/dev/null 2>&1; then \
+	    echo "ERROR: no module files copied into build/fortfront_modules"; \
 	    exit 1; \
 	fi; \
 	rm -f libfortfront.a; \
-	ar rcs libfortfront.a $$objs
+	cp "$$lib_dir/libfortfront.a" libfortfront.a
 
 
 # Run tests (convenience wrapper)
