@@ -59,7 +59,8 @@ module frontend_transformation_pipeline
                                                  contains_binary_data, &
                                                      save_current_configuration, &
                                                  restore_configuration, &
-                                                     apply_format_options
+                                                     apply_format_options, &
+                                                 decode_bom_if_needed
     use frontend_transformation_analysis, only: build_procedure_membership, &
                                                 analyze_ast_content, &
                                                     analyze_single_unit, &
@@ -122,7 +123,8 @@ contains
 
         call trace_init()
 
-        source = normalize_line_endings(input)
+        call decode_bom_if_needed(input, source)
+        source = normalize_line_endings(source)
 
         call trace_enter('transform_lazy_fortran_string')
         ! Initialize the codegen system (idempotent)
@@ -307,7 +309,8 @@ contains
         call trace_enter('transform_lazy_with_ast_wrapping')
         call initialize_codegen()
 
-        source = normalize_line_endings(input)
+        call decode_bom_if_needed(input, source)
+        source = normalize_line_endings(source)
 
         ! Reset type system arena to prevent type accumulation across transformations
         ! IMPORTANT: Must be called BEFORE resetting the AST arena to avoid dangling
