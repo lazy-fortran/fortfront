@@ -455,7 +455,11 @@ contains
         do
             read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
-            if (index(line, 'ERROR') > 0) has_error = .true.
+            if (index(line, 'ERROR') > 0 .or. &
+                index(line, '[INVALID_INPUT]') > 0 .or. &
+                index(line, '[UNRECOGNIZED_INPUT]') > 0) then
+                has_error = .true.
+            end if
             if (index(line, 'WARNING') > 0) has_warning = .true.
         end do
 
