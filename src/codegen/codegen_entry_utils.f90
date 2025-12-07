@@ -78,13 +78,14 @@ contains
     logical function is_entry_parameter_decl(decl, entry_params, num_params) &
         result(is_entry_param)
         type(declaration_node), intent(in) :: decl
-        character(len=64), intent(in) :: entry_params(:)
+        character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params
         integer :: i
         integer :: max_params
 
         is_entry_param = .false.
 
+        if (.not. allocated(entry_params)) return
         if (num_params <= 0) return
         max_params = min(num_params, size(entry_params))
         if (max_params <= 0) return
@@ -106,12 +107,13 @@ contains
     logical function is_in_entry_params(var_name, entry_params, num_params) &
         result(found)
         character(len=*), intent(in) :: var_name
-        character(len=64), intent(in) :: entry_params(:)
+        character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params
         integer :: i
         integer :: max_params
 
         found = .false.
+        if (.not. allocated(entry_params)) return
         if (num_params <= 0) return
 
         max_params = min(num_params, size(entry_params))
