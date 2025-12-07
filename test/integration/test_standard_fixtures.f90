@@ -2,17 +2,8 @@ program test_standard_fixtures
     use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
     use test_example_lists, only: load_example_list, is_expected_failure
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
-                                       cleanup_temp_directory
-    use test_filesystem_helpers, only: create_temp_directory, &
                                        extract_example_basename
-    use test_filesystem_helpers, only: find_fortfront_executable
-    use test_filesystem_helpers, only: path_separator_for
-    use test_module_discovery, only: get_module_directory
-    use test_shell_commands, only: build_compile_command, quote_for_shell
-    use frontend_core, only: lex_source, emit_fortran
-    use frontend_parsing, only: parse_tokens
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use lexer_core, only: token_t
+    use test_roundtrip_core, only: roundtrip_result_t, run_roundtrip_test
     implicit none
 
     character(len=*), parameter :: STANDARD_REPO_URL = &
@@ -41,7 +32,11 @@ program test_standard_fixtures
 
     print *, "=== Standard Fixtures Roundtrip Test ==="
     print *, ""
-    print *, "Testing lazy-fortran/standard fixtures for parse-emit-reparse"
+    print *, "Testing lazy-fortran/standard fixtures:"
+    print *, "  - Parse -> Emit -> Reparse -> Re-emit (text comparison)"
+    print *, ""
+    print *, "NOTE: gfortran compilation skipped for grammar test fixtures"
+    print *, "      (many fixtures are grammar fragments, not valid programs)"
     print *, ""
 
     call ensure_standard_repo_cloned(is_windows)
@@ -226,11 +221,7 @@ contains
 
         character(len=256) :: basename_str
         character(len=:), allocatable :: source
-        character(len=:), allocatable :: first_output, second_output
-        character(len=:), allocatable :: error_msg
-        type(ast_arena_t) :: arena1, arena2
-        type(token_t), allocatable :: tokens1(:), tokens2(:)
-        integer :: root1, root2
+        type(roundtrip_result_t) :: result
         logical :: expect_fail, has_error
         logical :: file_exists
 
@@ -254,63 +245,13 @@ contains
         expect_fail = is_expected_failure(trim(basename_str), expected_failures, &
                                           num_expected_failures)
         test_count = test_count + 1
-        has_error = .false.
 
-        arena1 = create_ast_arena()
-        call lex_source(source, tokens1, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            has_error = .true.
-            call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                         'lex error: '//trim(error_msg), &
-                                         pass_count, fail_count, xfail_count, &
-                                         xpass_count)
-            return
-        end if
+        call run_roundtrip_test(source, result, skip_compile=.true., &
+                                is_windows=is_windows)
 
-        call parse_tokens(tokens1, arena1, root1, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            has_error = .true.
-            call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                         'parse error: '//trim(error_msg), &
-                                         pass_count, fail_count, xfail_count, &
-                                         xpass_count)
-            return
-        end if
-
-        call emit_fortran(arena1, root1, first_output)
-
-        arena2 = create_ast_arena()
-        call lex_source(first_output, tokens2, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            has_error = .true.
-            call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                         'relex error: '//trim(error_msg), &
-                                         pass_count, fail_count, xfail_count, &
-                                         xpass_count)
-            return
-        end if
-
-        call parse_tokens(tokens2, arena2, root2, error_msg)
-        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            has_error = .true.
-            call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                         'reparse error: '//trim(error_msg), &
-                                         pass_count, fail_count, xfail_count, &
-                                         xpass_count)
-            return
-        end if
-
-        call emit_fortran(arena2, root2, second_output)
-        if (first_output /= second_output) then
-            has_error = .true.
-            call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                         'roundtrip output differs', &
-                                         pass_count, fail_count, xfail_count, &
-                                         xpass_count)
-            return
-        end if
-
-        call finalize_fixture_result(basename_str, expect_fail, has_error, '', &
+        has_error = .not. result%success
+        call finalize_fixture_result(basename_str, expect_fail, has_error, &
+                                     trim(result%error_message), &
                                      pass_count, fail_count, xfail_count, &
                                      xpass_count)
     end subroutine test_single_fixture
