@@ -26,3 +26,4 @@ submodule_with_procedures.f90  # submodule construct not fully supported #2529
 
 # Fortran 2018 fixtures
 select_rank_minimal.f90  # gfortran14 codegen crash with select rank #2534
+team_event_semantics.f90  # F2018 team/event statements not yet supported #2537
