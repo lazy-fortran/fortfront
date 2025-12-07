@@ -155,7 +155,7 @@ contains
     end function is_arithmetic_if
 
     ! Parse arithmetic IF: IF (expr) label1, label2, label3
-    ! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
+! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
     function parse_arithmetic_if(parser, arena, condition_index, if_token, &
                                  parent_index) &
         result(if_index)
@@ -765,7 +765,8 @@ contains
                 token = parser%peek()
                 if (is_if_body_terminator(parser, token)) exit
 
-                call parse_if_body_statement(parser, arena, parent_index, body_indices, &
+                call parse_if_body_statement(parser, arena, parent_index, &
+                                             body_indices, &
                                              stmt_count)
             end do
         end block
@@ -788,24 +789,8 @@ contains
             keyword_text == "endif" .or. keyword_text == "end if") then
             is_if_body_terminator = .true.
         else if (keyword_text == "else") then
-            lookahead_pos = parser%current_token + 1
-            do while (lookahead_pos <= size(parser%tokens))
-                lookahead = parser%tokens(lookahead_pos)
-                if (lookahead%kind == TK_WHITESPACE .or. &
-                    lookahead%kind == TK_NEWLINE .or. &
-                    lookahead%kind == TK_COMMENT) then
-                    lookahead_pos = lookahead_pos + 1
-                    cycle
-                end if
-                exit
-            end do
-            if (lookahead_pos <= size(parser%tokens)) then
-                lookahead = parser%tokens(lookahead_pos)
-                if (lookahead%kind == TK_KEYWORD .and. &
-                    to_lower(trim(lookahead%text)) == "if") then
-                    is_if_body_terminator = .true.
-                end if
-            end if
+           ! Standalone "else" is always a body terminator (whether "else" or "else if")
+            is_if_body_terminator = .true.
         else if (keyword_text == "end") then
             lookahead_pos = parser%current_token + 1
             do while (lookahead_pos <= size(parser%tokens))
@@ -828,7 +813,8 @@ contains
         end if
     end function is_if_body_terminator
 
-    subroutine parse_if_body_statement(parser, arena, parent_index, body_indices, stmt_count)
+    subroutine parse_if_body_statement(parser, arena, parent_index, body_indices, &
+                                       stmt_count)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
