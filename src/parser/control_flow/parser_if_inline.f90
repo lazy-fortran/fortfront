@@ -132,7 +132,7 @@ contains
                 cycle
             end if
 
-            ! Check for "end if" or "endif" later in the code
+            ! Check for end if or endif later in the code
             if (check_tok%kind == TK_KEYWORD) then
                 if (to_lower(check_tok%text) == "end" .or. &
                     to_lower(check_tok%text) == "endif") then

@@ -196,7 +196,7 @@ contains
         end do
     end subroutine parse_elseif_else_chain
 
-    ! Check if current position is "else if" construct
+    ! Check if current position is else if construct
     function is_else_if_construct(parser) result(is_else_if)
         type(parser_state_t), intent(in) :: parser
         logical :: is_else_if
@@ -242,7 +242,7 @@ contains
         else_body_indices = parse_if_body(parser, arena, if_index, callbacks)
     end subroutine parse_else_body
 
-    ! Consume "end if" keyword pair if present, returns true if consumed
+    ! Consume end if keyword pair if present, returns true if consumed
     function consume_end_if(parser) result(consumed)
         type(parser_state_t), intent(inout) :: parser
         logical :: consumed
@@ -270,10 +270,10 @@ contains
         if (lookahead%kind /= TK_KEYWORD) return
         if (to_lower(lookahead%text) /= "if") return
 
-        ! Consume "end"
+        ! Consume end keyword
         token = parser%consume()
 
-        ! Skip trivia between "end" and "if"
+        ! Skip trivia between end and if
         do while (.not. parser%is_at_end())
             lookahead = parser%peek()
             if (lookahead%kind == TK_WHITESPACE .or. &
@@ -285,7 +285,7 @@ contains
             end if
         end do
 
-        ! Consume "if"
+        ! Consume if keyword
         if (.not. parser%is_at_end()) then
             lookahead = parser%peek()
             if (lookahead%kind == TK_KEYWORD .and. &
