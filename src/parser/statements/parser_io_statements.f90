@@ -4,7 +4,7 @@ module parser_io_statements_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_io, only: open_statement_node, close_statement_node, &
@@ -463,7 +463,7 @@ contains
                     else
                         write (error_unit, *) &
                           "Error: Expected namelist group name after 'nml=' at line ", &
-                          token%line
+                            token%line
                     end if
                 end if
             else
@@ -483,7 +483,7 @@ contains
 
         ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
         io_control_list = collect_io_control_specifiers(parser, &
-                                                         is_write_io_control_specifier)
+                                                        is_write_io_control_specifier)
 
         ! Expect closing parenthesis
         token = parser%consume()
@@ -600,9 +600,9 @@ contains
                 end if
             end if
 
-        ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
+            ! Collect any additional I/O control specifiers (iostat, iomsg, etc.)
             io_control_list = collect_io_control_specifiers(parser, &
-                                                             is_read_io_control_specifier)
+                                                           is_read_io_control_specifier)
 
             ! Expect closing parenthesis
             token = parser%consume()
@@ -723,7 +723,8 @@ contains
              lowered == "sign")
     end function is_read_io_control_specifier
 
-    function collect_io_control_specifiers(parser, is_control_specifier) result(spec_text)
+    function collect_io_control_specifiers(parser, is_control_specifier) &
+        result(spec_text)
         type(parser_state_t), intent(inout) :: parser
         procedure(io_control_specifier_predicate) :: is_control_specifier
         character(len=:), allocatable :: spec_text
