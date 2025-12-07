@@ -182,6 +182,7 @@ contains
                        ' 2>/dev/null || true'
         end if
 
+        ios = 0
         call execute_command_line(trim(find_cmd), exitstat=ios)
 
         open (newunit=unit_num, file=trim(list_file), status='old', &

@@ -33,7 +33,11 @@ contains
 
         if (len_trim(clean_params) == 0) return
 
-        if (.not. allocated(param_list)) allocate (param_list(10))
+        if (.not. allocated(param_list)) then
+            allocate (param_list(10))
+            param_list = ""
+            num_params = 0
+        end if
 
         do while (len_trim(clean_params) > 0)
             comma_pos = index(clean_params, ',')
@@ -66,7 +70,9 @@ contains
         temp = param_list
         deallocate (param_list)
         allocate (param_list(new_size * 2))
+        param_list = ""
         param_list(1:old_size) = temp
+        deallocate (temp)
     end subroutine expand_param_list
 
     logical function is_entry_parameter_decl(decl, entry_params, num_params) &
