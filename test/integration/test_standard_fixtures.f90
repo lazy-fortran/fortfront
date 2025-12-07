@@ -335,34 +335,34 @@ contains
     subroutine read_fixture_file(filepath, content)
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
-        integer :: unit_num, iostat_val, file_size
+        integer :: unit_num, iostat_val
+        character(len=10000) :: line
+        logical :: has_content
 
-        ! Read the entire fixture as a single stream into a deferred-length
-        ! character variable. This avoids intermediate buffers and relies
-        ! only on standard-conforming stream I/O (ISO/IEC 1539-1:2018,
-        ! 12.6.3) and allocatable assignment semantics (10.2.1.3).
+        content = ''
+        has_content = .false.
 
         open (newunit=unit_num, file=filepath, status='old', action='read', &
-              access='stream', iostat=iostat_val)
+              iostat=iostat_val)
         if (iostat_val /= 0) then
             content = ''
             return
         end if
 
-        inquire (unit=unit_num, size=file_size)
-        if (file_size <= 0) then
-            close (unit_num)
-            content = ''
-            return
-        end if
+        do
+            read (unit_num, '(A)', iostat=iostat_val) line
+            if (iostat_val /= 0) exit
+            if (has_content) then
+                content = content // new_line('a')
+            end if
+            content = content // trim(line)
+            has_content = .true.
+        end do
 
-        allocate (character(len=file_size) :: content)
-        read (unit_num, iostat=iostat_val) content
         close (unit_num)
 
-        if (iostat_val /= 0) then
+        if (.not. has_content) then
             content = ''
-            return
         end if
     end subroutine read_fixture_file
 
