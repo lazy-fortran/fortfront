@@ -24,3 +24,6 @@ basic_submodule.f90  # submodule construct not fully supported #2529
 nested_submodule_reference.f90  # submodule construct not fully supported #2529
 submodule_with_procedures.f90  # submodule construct not fully supported #2529
 enhanced_intrinsics.f90  # roundtrip output differs - F2008 intrinsics #2530
+
+# Fortran 2018 fixtures
+select_rank_minimal.f90  # gfortran14 codegen crash with select rank #2534

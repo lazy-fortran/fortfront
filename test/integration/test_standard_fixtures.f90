@@ -247,6 +247,13 @@ contains
                                           num_expected_failures)
         test_count = test_count + 1
 
+        ! Skip expected failures early to avoid crashes from compiler bugs
+        if (expect_fail) then
+            print *, "XFAIL"
+            xfail_count = xfail_count + 1
+            return
+        end if
+
         call run_roundtrip_test(source, result, skip_compile=.true., &
                                 is_windows=is_windows)
 
