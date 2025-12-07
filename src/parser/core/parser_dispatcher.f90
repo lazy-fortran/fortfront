@@ -13,6 +13,7 @@ module parser_dispatcher_module
     use parser_import_resolution_module, only: parse_use_statement, &
                                                parse_include_statement
     use parser_module_structures_module, only: parse_module
+    use parser_submodule_structures_module, only: parse_submodule
     use parser_intrinsic_statements_module, only: parse_intrinsic_statement
     use parser_block_data_module, only: parse_block_data
     use parser_io_statements_module, only: parse_print_statement, &

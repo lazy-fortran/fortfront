@@ -10,7 +10,7 @@ module codegen_core
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
                               parameter_declaration_node, module_node, &
-                              derived_type_node, block_data_node
+                              derived_type_node, block_data_node, submodule_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, &
                                 array_slice_node, &
                                 array_operation_node
@@ -199,6 +199,8 @@ contains
             code = generate_code_subroutine_def(arena, node, node_index)
         type is (module_node)
             code = generate_code_module(arena, node, node_index)
+        type is (submodule_node)
+            code = generate_code_submodule(arena, node, node_index)
         type is (block_data_node)
             code = generate_code_block_data(arena, node, node_index)
         type is (program_node)

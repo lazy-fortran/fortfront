@@ -5,7 +5,7 @@ module ast_factory_procedures
                                    create_function_def, create_subroutine_def
     use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
                               create_module_procedure
-    use ast_nodes_data, only: module_node, block_data_node
+    use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_base, only: string_t
     implicit none
     private
@@ -14,6 +14,7 @@ module ast_factory_procedures
     public :: push_function_def, push_subroutine_def, push_interface_block
     public :: push_module_procedure
     public :: push_module, push_module_structured, push_block_data
+    public :: push_submodule_structured
 
 contains
 
@@ -231,5 +232,40 @@ contains
         call arena%push(bd_node, "block_data_node", parent_index)
         block_data_index = arena%size
     end function push_block_data
+
+    ! Create complete submodule node (Fortran 2008)
+    function push_submodule_structured(arena, name, parent_identifier, &
+                                       declaration_indices, procedure_indices, &
+                                       has_contains, line, column, parent_index) &
+        result(submod_idx)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: parent_identifier
+        integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
+        logical, intent(in), optional :: has_contains
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: submod_idx
+        type(submodule_node) :: sub_node
+
+        sub_node%uid = generate_uid()
+        sub_node%name = name
+        sub_node%parent_identifier = parent_identifier
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) then
+                sub_node%declaration_indices = declaration_indices
+            end if
+        end if
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                sub_node%procedure_indices = procedure_indices
+            end if
+        end if
+        if (present(has_contains)) sub_node%has_contains = has_contains
+        sub_node%line = line
+        sub_node%column = column
+
+        call arena%push(sub_node, "submodule_node", parent_index)
+        submod_idx = arena%size
+    end function push_submodule_structured
 
 end module ast_factory_procedures
