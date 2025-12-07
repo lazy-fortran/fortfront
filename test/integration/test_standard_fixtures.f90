@@ -331,7 +331,11 @@ contains
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
         integer :: unit_num, iostat_val, file_size
-        character(len=1), allocatable :: buffer(:)
+
+        ! Read the entire fixture as a single stream into a deferred-length
+        ! character variable. This avoids intermediate buffers and relies
+        ! only on standard-conforming stream I/O (ISO/IEC 1539-1:2018,
+        ! 12.6.3) and allocatable assignment semantics (10.2.1.3).
 
         open (newunit=unit_num, file=filepath, status='old', action='read', &
               access='stream', iostat=iostat_val)
@@ -347,18 +351,14 @@ contains
             return
         end if
 
-        allocate (buffer(file_size))
-        read (unit_num, iostat=iostat_val) buffer
+        allocate (character(len=file_size) :: content)
+        read (unit_num, iostat=iostat_val) content
         close (unit_num)
 
         if (iostat_val /= 0) then
             content = ''
             return
         end if
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-        deallocate (buffer)
     end subroutine read_fixture_file
 
 end program test_standard_fixtures
