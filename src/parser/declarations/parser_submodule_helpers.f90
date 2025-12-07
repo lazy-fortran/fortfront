@@ -34,6 +34,10 @@ module parser_submodule_helpers_module
     public :: handle_submodule_identifier_assignment
     public :: parse_abstract_interface_in_submodule
 
+    private :: handle_procedure_keyword_in_contains
+    private :: handle_prefix_modifier_in_contains
+    private :: handle_type_prefix_in_contains
+
 contains
 
     function parse_submodule_declaration_statement(parser, arena, &
@@ -85,86 +89,138 @@ contains
         end select
     end function parse_submodule_declaration_statement
 
-    function parse_contains_section_item_submodule(parser, arena, prefix_buffer) &
-        result(stmt_index)
+    function handle_procedure_keyword_in_contains(parser, arena, prefix_buffer, &
+                                                  lowered) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: lowered
         integer :: stmt_index
-        type(token_t) :: token, lookahead
-        character(len=:), allocatable :: lowered, lookahead_lower, type_with_kind
-        character(len=16), allocatable :: stored(:)
+        type(token_t) :: token
 
         stmt_index = 0
         token = parser%peek()
-        lowered = to_lower(token%text)
 
-        if (token%kind == TK_KEYWORD .and. lowered == "interface") then
+        if (token%kind /= TK_KEYWORD) return
+
+        select case (trim(lowered))
+        case ("interface")
             stmt_index = parse_interface_block(parser, arena, prefix_buffer)
-            return
-        end if
-
-        if (token%kind == TK_KEYWORD .and. lowered == "subroutine") then
+        case ("subroutine")
             stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
-            return
-        end if
-
-        if (token%kind == TK_KEYWORD .and. lowered == "function") then
+        case ("function")
             stmt_index = parse_function_definition(parser, arena, prefix_buffer)
-            return
-        end if
+        end select
+    end function handle_procedure_keyword_in_contains
 
-        if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
-            lowered = to_lower(token%text)
-            select case (trim(lowered))
-            case ("pure", "elemental", "impure", "recursive", &
-                  "nonrecursive", "non_recursive", "module")
+    function handle_prefix_modifier_in_contains(parser, prefix_buffer, lowered) &
+        result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: lowered
+        logical :: handled
+        type(token_t) :: token
+        character(len=16), allocatable :: stored(:)
+
+        handled = .false.
+
+        select case (trim(lowered))
+        case ("pure", "elemental", "impure", "recursive", &
+              "nonrecursive", "non_recursive", "module")
+            call prefix_buffer%get_all(stored)
+            call append_prefix_token(stored, trim(lowered))
+            call prefix_buffer%set(stored)
+            if (allocated(stored)) deallocate (stored)
+            token = parser%consume()
+            handled = .true.
+        end select
+    end function handle_prefix_modifier_in_contains
+
+    function handle_type_prefix_in_contains(parser, prefix_buffer, lowered) &
+        result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=*), intent(in) :: lowered
+        logical :: handled
+        type(token_t) :: token, lookahead
+        character(len=:), allocatable :: lookahead_lower, type_with_kind
+        character(len=16), allocatable :: stored(:)
+
+        handled = .false.
+
+        select case (trim(lowered))
+        case ("integer", "real", "logical", "character", "complex", &
+              "double", "procedure")
+            call prefix_buffer%get_all(stored)
+            if (trim(lowered) == "double") then
+                lookahead = parser%get_token_at_index(parser%current_token + 1)
+                lookahead_lower = to_lower(trim(lookahead%text))
+                select case (trim(lookahead_lower))
+                case ("precision", "complex")
+                    token = parser%peek()
+                    type_with_kind = trim(token%text) // " " // &
+                        trim(lookahead%text)
+                    token = parser%consume()
+                    token = parser%consume()
+                    call consume_optional_kind_spec(parser, type_with_kind)
+                    call append_prefix_token(stored, type_with_kind)
+                    call prefix_buffer%set(stored)
+                    if (allocated(stored)) deallocate (stored)
+                    handled = .true.
+                    return
+                end select
+            end if
+            token = parser%peek()
+            type_with_kind = trim(token%text)
+            token = parser%consume()
+            call consume_optional_kind_spec(parser, type_with_kind)
+            call append_prefix_token(stored, type_with_kind)
+            call prefix_buffer%set(stored)
+            if (allocated(stored)) deallocate (stored)
+            handled = .true.
+        case ("type", "class")
+            lookahead = parser%get_token_at_index(parser%current_token + 1)
+            if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
                 call prefix_buffer%get_all(stored)
-                call append_prefix_token(stored, trim(lowered))
-                call prefix_buffer%set(stored)
-                if (allocated(stored)) deallocate (stored)
-                token = parser%consume()
-                stmt_index = -1
-            case ("integer", "real", "logical", "character", "complex", &
-                  "double", "procedure")
-                call prefix_buffer%get_all(stored)
-                if (trim(lowered) == "double") then
-                    lookahead = parser%get_token_at_index(parser%current_token + 1)
-                    lookahead_lower = to_lower(trim(lookahead%text))
-                    select case (trim(lookahead_lower))
-                    case ("precision", "complex")
-                        type_with_kind = trim(token%text) // " " // &
-                            trim(lookahead%text)
-                        token = parser%consume()
-                        token = parser%consume()
-                        call consume_optional_kind_spec(parser, type_with_kind)
-                        call append_prefix_token(stored, type_with_kind)
-                        call prefix_buffer%set(stored)
-                        if (allocated(stored)) deallocate (stored)
-                        stmt_index = -1
-                        return
-                    end select
-                end if
+                token = parser%peek()
                 type_with_kind = trim(token%text)
                 token = parser%consume()
                 call consume_optional_kind_spec(parser, type_with_kind)
                 call append_prefix_token(stored, type_with_kind)
                 call prefix_buffer%set(stored)
                 if (allocated(stored)) deallocate (stored)
+                handled = .true.
+            end if
+        end select
+    end function handle_type_prefix_in_contains
+
+    function parse_contains_section_item_submodule(parser, arena, prefix_buffer) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+
+        stmt_index = 0
+        token = parser%peek()
+        lowered = to_lower(token%text)
+
+        stmt_index = handle_procedure_keyword_in_contains(parser, arena, &
+                                                          prefix_buffer, lowered)
+        if (stmt_index /= 0) return
+
+        if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+            if (handle_prefix_modifier_in_contains(parser, prefix_buffer, &
+                                                   lowered)) then
                 stmt_index = -1
-            case ("type", "class")
-                lookahead = parser%get_token_at_index(parser%current_token + 1)
-                if (lookahead%kind == TK_OPERATOR .and. lookahead%text == "(") then
-                    call prefix_buffer%get_all(stored)
-                    type_with_kind = trim(token%text)
-                    token = parser%consume()
-                    call consume_optional_kind_spec(parser, type_with_kind)
-                    call append_prefix_token(stored, type_with_kind)
-                    call prefix_buffer%set(stored)
-                    if (allocated(stored)) deallocate (stored)
-                    stmt_index = -1
-                end if
-            end select
+                return
+            end if
+            if (handle_type_prefix_in_contains(parser, prefix_buffer, lowered)) &
+                then
+                stmt_index = -1
+            end if
         end if
     end function parse_contains_section_item_submodule
 
