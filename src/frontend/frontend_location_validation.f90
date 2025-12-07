@@ -15,7 +15,8 @@ module frontend_location_validation
     use ast_nodes_control, only: if_node, select_case_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_io, only: print_statement_node
-    use ast_nodes_data, only: declaration_node, derived_type_node, module_node
+    use ast_nodes_data, only: declaration_node, derived_type_node, module_node, &
+                              submodule_node
     use ast_nodes_misc, only: interface_block_node, use_statement_node, &
                               visibility_statement_node, &
                               include_statement_node
@@ -53,6 +54,7 @@ module frontend_location_validation
         procedure :: visit_derived_type => validate_visit_derived_type
         procedure :: visit_interface_block => validate_visit_interface_block
         procedure :: visit_module => validate_visit_module
+        procedure :: visit_submodule => validate_visit_submodule
         procedure :: visit_use_statement => validate_visit_use_statement
         procedure :: visit_visibility_statement &
             => validate_visit_visibility_statement
@@ -255,6 +257,12 @@ contains
         class(module_node), intent(in) :: node
         call this%check_location(node, "module")
     end subroutine validate_visit_module
+
+    subroutine validate_visit_submodule(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(submodule_node), intent(in) :: node
+        call this%check_location(node, "submodule")
+    end subroutine validate_visit_submodule
 
     subroutine validate_visit_use_statement(this, node)
         class(location_validation_visitor_t), intent(inout) :: this
