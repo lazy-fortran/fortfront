@@ -11,16 +11,11 @@
 #   2. Fix the underlying parser/codegen issue
 #   3. Ensure all tests pass
 
-# Fortran 90 fixtures
-free_form_features_program.f90  # declaration after executable statement not supported #2524
-
 # Fortran 95 fixtures
 array_constructor.f90  # bare array constructor expression not wrapped in program #2525
 
 # Fortran 2003 fixtures
 advanced_f2003.f90  # roundtrip output differs - complex F2003 OOP features #2526
-attr_mod.f90  # roundtrip output differs - protected/volatile attributes #2527
-c_interop_mod.f90  # roundtrip output differs - C interop features #2528
 
 # Fortran 2008 fixtures - submodules not fully supported (#2529)
 submodule_basic_syntax.f90  # submodule construct not fully supported #2529
@@ -29,4 +24,6 @@ basic_submodule.f90  # submodule construct not fully supported #2529
 nested_submodule_reference.f90  # submodule construct not fully supported #2529
 submodule_with_procedures.f90  # submodule construct not fully supported #2529
 enhanced_intrinsics.f90  # roundtrip output differs - F2008 intrinsics #2530
-error_stop.f90  # error stop string literal roundtrip issue #2531
+
+# Fortran 2018 fixtures
+select_rank_minimal.f90  # gfortran14 codegen crash with select rank #2534

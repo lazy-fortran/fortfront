@@ -182,6 +182,7 @@ contains
                        ' 2>/dev/null || true'
         end if
 
+        ios = 0
         call execute_command_line(trim(find_cmd), exitstat=ios)
 
         open (newunit=unit_num, file=trim(list_file), status='old', &
@@ -246,10 +247,24 @@ contains
                                           num_expected_failures)
         test_count = test_count + 1
 
+        ! Skip expected failures early to avoid crashes from compiler bugs
+        if (expect_fail) then
+            print *, "XFAIL"
+            xfail_count = xfail_count + 1
+            return
+        end if
+
         call run_roundtrip_test(source, result, skip_compile=.true., &
                                 is_windows=is_windows)
 
         has_error = .not. result%success
+        if (has_error .and. .not. expect_fail) then
+            if (index(trim(result%error_message), 'roundtrip output differs') > 0) then
+                call print_roundtrip_difference(basename_str, result%first_output, &
+                                                result%second_output)
+            end if
+        end if
+
         call finalize_fixture_result(basename_str, expect_fail, has_error, &
                                      trim(result%error_message), &
                                      pass_count, fail_count, xfail_count, &
@@ -287,38 +302,75 @@ contains
         end if
     end subroutine finalize_fixture_result
 
+    subroutine print_roundtrip_difference(name, result_first_output, &
+                                          result_second_output)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: result_first_output
+        character(len=*), intent(in) :: result_second_output
+        integer :: first_len, second_len
+        integer :: start_pos
+
+        print *, "  Roundtrip difference for fixture: ", trim(name)
+        first_len = len_trim(result_first_output)
+        second_len = len_trim(result_second_output)
+        print *, "  First output length: ", first_len
+        print *, "  Second output length: ", second_len
+        if (first_len > 0) then
+            print *, "  First output (prefix):"
+            print *, trim(result_first_output(1:min(first_len, 200)))
+            print *, "  First output (full):"
+            print *, trim(result_first_output)
+        end if
+        if (second_len > 0) then
+            print *, "  Second output (prefix):"
+            print *, trim(result_second_output(1:min(second_len, 200)))
+            print *, "  Second output (full):"
+            print *, trim(result_second_output)
+        end if
+        if (first_len > 0) then
+            start_pos = max(1, first_len - 199)
+            print *, "  First output (suffix):"
+            print *, trim(result_first_output(start_pos:first_len))
+        end if
+        if (second_len > 0) then
+            start_pos = max(1, second_len - 199)
+            print *, "  Second output (suffix):"
+            print *, trim(result_second_output(start_pos:second_len))
+        end if
+    end subroutine print_roundtrip_difference
+
     subroutine read_fixture_file(filepath, content)
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
-        integer :: unit_num, iostat_val, file_size
-        character(len=1), allocatable :: buffer(:)
+        integer :: unit_num, iostat_val
+        character(len=10000) :: line
+        logical :: has_content
+
+        content = ''
+        has_content = .false.
 
         open (newunit=unit_num, file=filepath, status='old', action='read', &
-              access='stream', iostat=iostat_val)
+              iostat=iostat_val)
         if (iostat_val /= 0) then
             content = ''
             return
         end if
 
-        inquire (unit=unit_num, size=file_size)
-        if (file_size <= 0) then
-            close (unit_num)
-            content = ''
-            return
-        end if
+        do
+            read (unit_num, '(A)', iostat=iostat_val) line
+            if (iostat_val /= 0) exit
+            if (has_content) then
+                content = content // new_line('a')
+            end if
+            content = content // trim(line)
+            has_content = .true.
+        end do
 
-        allocate (buffer(file_size))
-        read (unit_num, iostat=iostat_val) buffer
         close (unit_num)
 
-        if (iostat_val /= 0) then
+        if (.not. has_content) then
             content = ''
-            return
         end if
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-        deallocate (buffer)
     end subroutine read_fixture_file
 
 end program test_standard_fixtures

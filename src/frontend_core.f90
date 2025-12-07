@@ -207,9 +207,73 @@ contains
         ! and memory corruption when called in error paths. Standardization happens once
         ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
+        call normalize_emitted_code(fortran_code)
     end subroutine emit_fortran
 
     ! Private helper subroutines to break down large functions
+
+    subroutine normalize_emitted_code(code)
+        character(len=:), allocatable, intent(inout) :: code
+        character(len=:), allocatable :: result
+        character(len=:), allocatable :: line
+        integer :: start_pos, newline_pos, code_len
+
+        if (.not. allocated(code)) return
+
+        code_len = len(code)
+        if (code_len == 0) return
+
+        result = ''
+        start_pos = 1
+
+        do
+            newline_pos = index(code(start_pos:), new_line('A'))
+            if (newline_pos == 0) then
+                line = code(start_pos:)
+                call append_trimmed_line(line, .false., result)
+                exit
+            else
+                if (newline_pos > 1) then
+                    line = code(start_pos:start_pos + newline_pos - 2)
+                else
+                    line = ''
+                end if
+                call append_trimmed_line(line, .true., result)
+                start_pos = start_pos + newline_pos
+                if (start_pos > code_len) exit
+            end if
+        end do
+
+        call move_alloc(result, code)
+    contains
+        subroutine append_trimmed_line(raw_line, add_newline, buffer)
+            character(len=*), intent(in) :: raw_line
+            logical, intent(in) :: add_newline
+            character(len=:), allocatable, intent(inout) :: buffer
+            character(len=:), allocatable :: trimmed_line
+            integer :: last_idx
+
+            trimmed_line = raw_line
+            last_idx = len(trimmed_line)
+
+            do while (last_idx >= 1)
+                if (trimmed_line(last_idx:last_idx) /= ' ') exit
+                last_idx = last_idx - 1
+            end do
+
+            if (last_idx >= 1) then
+                trimmed_line = trimmed_line(1:last_idx)
+            else
+                trimmed_line = ''
+            end if
+
+            if (add_newline) then
+                buffer = buffer // trimmed_line // new_line('A')
+            else
+                buffer = buffer // trimmed_line
+            end if
+        end subroutine append_trimmed_line
+    end subroutine normalize_emitted_code
 
     subroutine read_source_file(input_file, source, error_msg, fixed_form)
         character(len=*), intent(in) :: input_file

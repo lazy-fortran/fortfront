@@ -36,7 +36,7 @@ module codegen_grouped_body
 
 contains
 
-    subroutine process_single_statement(arena, idx, indent, code)
+    recursive subroutine process_single_statement(arena, idx, indent, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
         integer, intent(in) :: indent
@@ -163,7 +163,7 @@ contains
         i = i + 1
     end subroutine handle_blank_line_entry
 
-    subroutine handle_default_entry(arena, idx, indent, code, i)
+    recursive subroutine handle_default_entry(arena, idx, indent, code, i)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
         integer, intent(in) :: indent
@@ -174,8 +174,9 @@ contains
         i = i + 1
     end subroutine handle_default_entry
 
-    subroutine process_body_entry(arena, body_indices, i, indent, indent_str, &
-                                  in_contains_section, code)
+    recursive subroutine process_body_entry(arena, body_indices, i, indent, &
+                                            indent_str, in_contains_section, &
+                                            code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
@@ -228,7 +229,7 @@ contains
         end select
     end subroutine process_body_entry
 
-    function generate_grouped_body(arena, body_indices, indent) result(code)
+    recursive function generate_grouped_body(arena, body_indices, indent) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent

@@ -26,8 +26,9 @@ module codegen_control_flow
 
 contains
 
-    subroutine append_do_loop_body_and_end(arena, body_indices, indent_level, &
-                                           code, end_keyword)
+    recursive subroutine append_do_loop_body_and_end(arena, body_indices, &
+                                                     indent_level, code, &
+                                                     end_keyword)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
         integer, intent(in) :: indent_level
@@ -178,7 +179,7 @@ contains
     end function try_generate_single_line_if
 
     ! Generate code for do loops
-    function generate_code_do_loop(arena, node, node_index) result(code)
+    recursive function generate_code_do_loop(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(do_loop_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -256,7 +257,7 @@ contains
     end function generate_code_do_loop
 
     ! Generate code for do while loops
-    function generate_code_do_while(arena, node, node_index) result(code)
+    recursive function generate_code_do_while(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(do_while_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -734,7 +735,8 @@ contains
     end function generate_code_block_construct
 
     ! Internal function to generate grouped body
-    function generate_grouped_body_internal(arena, body_indices, indent) result(code)
+    recursive function generate_grouped_body_internal(arena, body_indices, indent) &
+        result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
