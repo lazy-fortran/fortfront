@@ -69,11 +69,9 @@ contains
                 end block
             end if
 
-            if (style == "modern") then
-                value_index = helpers%parse_comparison(parser, arena)
-            else
-                value_index = helpers%parse_unary(parser, arena)
-            end if
+            ! Use parse_comparison for both modern and legacy styles to support
+            ! binary expressions like 2.0*x in array constructors
+            value_index = helpers%parse_comparison(parser, arena)
 
             if (value_index <= 0) then
                 expr_index = 0
