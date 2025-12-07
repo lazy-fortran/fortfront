@@ -15,7 +15,7 @@
 array_constructor.f90  # bare array constructor expression not wrapped in program #2525
 
 # Fortran 2003 fixtures
-advanced_f2003.f90  # roundtrip output differs - complex F2003 OOP features #2526
+advanced_f2003.f90  # line continuation in proc bodies, nested do in block #2526
 
 # Fortran 2008 fixtures - submodules not fully supported (#2529)
 submodule_basic_syntax.f90  # submodule construct not fully supported #2529
@@ -26,3 +26,4 @@ submodule_with_procedures.f90  # submodule construct not fully supported #2529
 
 # Fortran 2018 fixtures
 select_rank_minimal.f90  # gfortran14 codegen crash with select rank #2534
+team_event_semantics.f90  # F2018 team/event statements not yet supported #2537

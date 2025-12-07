@@ -515,14 +515,15 @@ contains
         ! Parse body statements until 'end associate'
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "end") then
                 ! Look ahead for "associate"
                 block
                     integer :: saved_pos
                     saved_pos = parser%current_token
                     token = parser%consume()
                     token = parser%peek()
-                    if (token%kind == TK_KEYWORD .and. token%text == "associate") then
+                    if (token%kind == TK_KEYWORD .and. &
+                        to_lower(token%text) == "associate") then
                         token = parser%consume()
                         exit
                     else

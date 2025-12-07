@@ -84,7 +84,7 @@ contains
         subroutine_name = token%text
         token = parser%consume()
 
-        ! Handle component access: call foo%bar%baz(...)
+        ! Handle component access: call foo%bar%baz(...) or call arr(1)%method()
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "%") then
@@ -96,6 +96,46 @@ contains
                 else
                     exit
                 end if
+            else if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                ! This might be array indices (arr(i)%method) or final arguments
+                ! Parse the parenthesized expression
+                block
+                    integer :: saved_pos
+                    integer :: paren_depth
+                    character(len=:), allocatable :: index_text
+
+                    saved_pos = parser%current_token
+                    token = parser%consume()
+                    paren_depth = 1
+                    index_text = "("
+
+                    do while (.not. parser%is_at_end() .and. paren_depth > 0)
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR) then
+                            if (token%text == "(") then
+                                paren_depth = paren_depth + 1
+                            else if (token%text == ")") then
+                                paren_depth = paren_depth - 1
+                            end if
+                        end if
+                        if (paren_depth > 0) then
+                            index_text = index_text // trim(token%text)
+                        end if
+                        token = parser%consume()
+                    end do
+                    index_text = index_text // ")"
+
+                    ! Check if followed by %
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "%") then
+                        ! This was array indexing, include in name
+                        subroutine_name = subroutine_name // index_text
+                    else
+                        ! This is the final argument list, restore position
+                        parser%current_token = saved_pos
+                        exit
+                    end if
+                end block
             else
                 exit
             end if
