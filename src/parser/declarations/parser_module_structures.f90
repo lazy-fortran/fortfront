@@ -153,6 +153,9 @@ contains
             end if
         case ("interface")
             stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+        case ("abstract")
+            stmt_index = parse_abstract_interface_in_module(parser, arena, &
+                                                            prefix_buffer)
         case ("enum", "enumerator")
             stmt_index = handle_enum_construct(parser, arena, to_lower(token%text))
         end select
@@ -688,5 +691,42 @@ contains
             token = parser%consume()
         end do
     end subroutine skip_procedure_body
+
+    function parse_abstract_interface_in_module(parser, arena, prefix_buffer) &
+        result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer :: stmt_index
+        type(token_t) :: token, next_token
+        integer :: lookahead_idx
+        logical :: is_abstract_interface
+
+        stmt_index = 0
+        is_abstract_interface = .false.
+
+        lookahead_idx = parser%current_token + 1
+        do while (lookahead_idx <= size(parser%tokens))
+            next_token = parser%tokens(lookahead_idx)
+            select case (next_token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                lookahead_idx = lookahead_idx + 1
+                cycle
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (to_lower(trim(next_token%text)) == "interface") then
+                    is_abstract_interface = .true.
+                end if
+                exit
+            case default
+                exit
+            end select
+        end do
+
+        if (is_abstract_interface) then
+            token = parser%consume()
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer, &
+                                               is_abstract=.true.)
+        end if
+    end function parse_abstract_interface_in_module
 
 end module parser_module_structures_module
