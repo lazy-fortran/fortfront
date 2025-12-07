@@ -7,7 +7,7 @@ program test_standard_fixtures
     implicit none
 
     character(len=*), parameter :: STANDARD_REPO_URL = &
-                                   'git@github.com:lazy-fortran/standard.git'
+                                   'https://github.com/lazy-fortran/standard.git'
     character(len=*), parameter :: STANDARD_REPO_DIR = 'build/standard'
     character(len=*), parameter :: FIXTURES_DIR = &
                                    'build/standard/tests/fixtures'
@@ -138,7 +138,7 @@ contains
         call execute_command_line(trim(clone_cmd), exitstat=exit_code)
         if (exit_code /= 0) then
             print *, "ERROR: Failed to clone standard repo"
-            print *, "Make sure SSH keys are configured for GitHub"
+            print *, "Check network access to GitHub"
             call exit(1)
         end if
 
