@@ -4,7 +4,7 @@ module parser_control_statements_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_stop, push_return, push_entry, push_continue, &
@@ -574,7 +574,7 @@ contains
 
         ! Create NULLIFY node
         nullify_index = push_nullify(arena, pointer_indices=pointer_indices, &
-                                      line=line, column=column)
+                                     line=line, column=column)
     end function parse_nullify_statement
 
 end module parser_control_statements_module

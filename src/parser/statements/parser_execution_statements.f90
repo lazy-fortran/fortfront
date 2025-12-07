@@ -5,7 +5,7 @@ module parser_execution_statements_module
                           TK_COMMENT, TK_WHITESPACE, to_lower
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, &
                                  TK_STRING, TK_NEWLINE, TK_KEYWORD
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
                                    parse_derived_type_def, parser_is_at_type_definition
