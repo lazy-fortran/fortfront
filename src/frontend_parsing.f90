@@ -9,7 +9,7 @@ module frontend_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: module_node, block_data_node
+    use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: interface_block_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
@@ -318,6 +318,8 @@ contains
         type is (program_node)
             prog_index = unit_index
         type is (module_node)
+            prog_index = unit_index
+        type is (submodule_node)
             prog_index = unit_index
         type is (block_data_node)
             prog_index = unit_index

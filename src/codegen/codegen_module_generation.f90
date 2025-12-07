@@ -1,7 +1,7 @@
 module codegen_module_generation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: literal_node
-    use ast_nodes_data, only: module_node, block_data_node
+    use ast_nodes_data, only: module_node, block_data_node, submodule_node
     use ast_nodes_misc, only: implicit_statement_node, interface_block_node, &
                               module_procedure_node, use_statement_node, &
                               import_statement_node, include_statement_node, &
@@ -14,6 +14,7 @@ module codegen_module_generation
     implicit none
     private
     public :: generate_code_module
+    public :: generate_code_submodule
     public :: generate_code_block_data
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
@@ -54,6 +55,158 @@ contains
         code = code // "end module " // node%name
         in_module_context = .false.
     end function generate_code_module
+
+    function generate_code_submodule(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: header
+        character(len=:), allocatable :: use_block
+        character(len=:), allocatable :: remainder_block
+        integer :: prefix_count
+        logical :: needs_implicit
+        logical :: has_implicit
+
+        in_module_context = .true.
+        header = build_submodule_header(arena, node)
+        prefix_count = count_leading_use_entries_submodule(arena, node)
+        use_block = collect_submodule_declarations(arena, node, 1, prefix_count)
+        remainder_block = collect_submodule_declarations(arena, node, &
+                                                         prefix_count + 1)
+        has_implicit = submodule_has_implicit_statement(arena, node)
+        needs_implicit = .not. has_implicit
+
+        code = header
+        if (len(use_block) > 0) code = code // use_block
+        if (needs_implicit) then
+            code = code // "    implicit none" // new_line('A')
+        end if
+        if (len(remainder_block) > 0) code = code // remainder_block
+        code = code // build_contains_section_submodule(arena, node)
+        code = code // "end submodule " // node%name
+        in_module_context = .false.
+    end function generate_code_submodule
+
+    function build_submodule_header(arena, node) result(header)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        character(len=:), allocatable :: header
+
+        header = "submodule (" // node%parent_identifier // ") " // node%name // &
+                 new_line('A')
+    end function build_submodule_header
+
+    logical function submodule_has_implicit_statement(arena, node) &
+        result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        integer :: i
+        integer :: decl_index
+        character(len=:), allocatable :: lowered_value
+
+        has_implicit = .false.
+        if (.not. allocated(node%declaration_indices)) return
+
+        do i = 1, size(node%declaration_indices)
+            decl_index = node%declaration_indices(i)
+            if (decl_index <= 0 .or. decl_index > arena%size) cycle
+            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+
+            select type (decl => arena%entries(decl_index)%node)
+            type is (implicit_statement_node)
+                has_implicit = .true.
+                return
+            type is (literal_node)
+                if (allocated(decl%value)) then
+                    lowered_value = to_lower(adjustl(decl%value))
+                    if (index(lowered_value, "implicit") == 1) then
+                        has_implicit = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function submodule_has_implicit_statement
+
+    function collect_submodule_declarations(arena, node, start_idx, end_idx) &
+        result(body_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        integer, intent(in), optional :: start_idx
+        integer, intent(in), optional :: end_idx
+        character(len=:), allocatable :: body_code
+        integer :: first, last
+
+        if (.not. allocated(node%declaration_indices)) then
+            body_code = ""
+            return
+        end if
+        if (size(node%declaration_indices) == 0) then
+            body_code = ""
+            return
+        end if
+
+        first = 1
+        if (present(start_idx)) first = max(1, start_idx)
+        last = size(node%declaration_indices)
+        if (present(end_idx)) last = min(last, end_idx)
+        if (first > last) then
+            body_code = ""
+            return
+        end if
+
+        body_code = generate_grouped_body(arena, &
+                                          node%declaration_indices(first:last), &
+                                          1)
+    end function collect_submodule_declarations
+
+    integer function count_leading_use_entries_submodule(arena, node) result(count)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        integer :: i
+
+        count = 0
+        if (.not. allocated(node%declaration_indices)) return
+
+        do i = 1, size(node%declaration_indices)
+            if (is_use_prefix_entry(arena, node%declaration_indices(i))) then
+                count = count + 1
+            else
+                exit
+            end if
+        end do
+    end function count_leading_use_entries_submodule
+
+    function build_contains_section_submodule(arena, node) result(section_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(submodule_node), intent(in) :: node
+        character(len=:), allocatable :: section_code
+        character(len=:), allocatable :: procedure_code
+        integer :: i
+        logical :: has_entries
+        logical :: has_more
+
+        section_code = ""
+        has_entries = .false.
+
+        if (.not. node%has_contains) return
+        if (.not. allocated(node%procedure_indices)) return
+
+        section_code = "contains" // new_line('A')
+
+        do i = 1, size(node%procedure_indices)
+            procedure_code = collect_contained_procedure(arena, &
+                                                         node%procedure_indices(i))
+            if (len(procedure_code) == 0) cycle
+            has_entries = .true.
+            has_more = i < size(node%procedure_indices)
+            section_code = section_code // format_contained_procedure( &
+                           procedure_code, has_more)
+        end do
+
+        if (.not. has_entries) section_code = ""
+    end function build_contains_section_submodule
 
     function generate_code_block_data(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
