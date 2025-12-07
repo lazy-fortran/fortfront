@@ -2,7 +2,7 @@ program test_ast_parent_indices
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_control, only: if_node, do_loop_node
     use parser_control_flow_module
-    use parser_state_module
+    use parser_state_module, only: parser_state_t, create_parser_state
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &
                           TK_NUMBER, TK_STRING, TK_EOF
     implicit none
@@ -85,8 +85,8 @@ contains
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
                             if (node%then_body_indices(i) > 0) then
-                                if (arena%entries(node%then_body_indices(i))%parent_index == 0) then
-                                    print *, "ERROR: Statement in if body has parent_index = 0"
+                    if (arena%entries(node%then_body_indices(i))%parent_index == 0) then
+                             print *, "ERROR: Statement in if body has parent_index = 0"
                                     test_passed = .false.
                                 end if
                             end if
@@ -165,8 +165,8 @@ contains
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
                             if (node%body_indices(i) > 0) then
-                                if (arena%entries(node%body_indices(i))%parent_index == 0) then
-                                    print *, "ERROR: Statement in do loop body has parent_index = 0"
+                         if (arena%entries(node%body_indices(i))%parent_index == 0) then
+                        print *, "ERROR: Statement in do loop body has parent_index = 0"
                                     test_passed = .false.
                                 end if
                             end if
@@ -252,11 +252,12 @@ contains
                         do i = 1, size(node%then_body_indices)
                             if (node%then_body_indices(i) > 0) then
                                 ! Check if this is the inner if
-                                if (allocated(arena%entries(node%then_body_indices(i))%node_type)) then
-                                    if (arena%entries(node%then_body_indices(i))%node_type == "if_statement") then
-                                        ! The inner if should have the outer if as parent
-                                        if (arena%entries(node%then_body_indices(i))%parent_index == 0) then
-                                            print *, "ERROR: Inner if has parent_index = 0"
+                 if (allocated(arena%entries(node%then_body_indices(i))%node_type)) then
+          if (arena%entries(node%then_body_indices(i))%node_type == "if_statement") then
+                                       ! The inner if should have the outer if as parent
+                    if (arena%entries(node%then_body_indices(i))%parent_index == 0) then
+                                            print *, &
+                                                "ERROR: Inner if has parent_index = 0"
                                             test_passed = .false.
                                         end if
                                     end if

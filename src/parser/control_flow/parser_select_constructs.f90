@@ -5,7 +5,7 @@ module parser_select_constructs_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use ast_types, only: LITERAL_STRING
-    use parser_state_module
+    use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression_until
     use parser_io_statements_module, only: &
         parse_print_statement, parse_write_statement, parse_read_statement
@@ -301,14 +301,15 @@ contains
                 else if (case_token%text == "end") then
                     ! Check for 'end select'
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "select") then
-                        ! Found 'end select', consume both tokens and exit
-                        case_token = parser%consume()  ! consume 'end'
-                        case_token = parser%consume()  ! consume 'select'
-                        exit
-                    end if
+                        if (parser%tokens(parser%current_token + 1)%kind == &
+                            TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == &
+                                "select") then
+                            ! Found 'end select', consume both tokens and exit
+                            case_token = parser%consume()  ! consume 'end'
+                            case_token = parser%consume()  ! consume 'select'
+                            exit
+                        end if
                     end if
                 else
                     ! Other keyword, skip
@@ -588,8 +589,8 @@ contains
 
                             type_name_index = push_identifier(arena, &
                                                               type_name_token%text, &
-                                                              line=type_name_token%line, &
-                                                              column=type_name_token%column)
+                                                            line=type_name_token%line, &
+                                                          column=type_name_token%column)
                             type_name_token = parser%consume()
 
                             ! Expect ')'
@@ -807,8 +808,8 @@ contains
 
                             ! Create default rank block
                             default_index = push_rank_block(arena, -1, body_indices, &
-                                                            line=rank_block_token%line, &
-                                                            column=rank_block_token%column)
+                                                           line=rank_block_token%line, &
+                                                         column=rank_block_token%column)
                         else if (value_token%kind == TK_OPERATOR .and. &
                                  value_token%text == "(") then
                             ! Regular RANK (n) or RANK (*)
@@ -884,8 +885,8 @@ contains
                             ! Create rank block node
                             rank_block_index = push_rank_block(arena, rank_value, &
                                                                body_indices, &
-                                                               line=rank_block_token%line, &
-                                                               column=rank_block_token%column)
+                                                           line=rank_block_token%line, &
+                                                         column=rank_block_token%column)
                             rank_indices = [rank_indices, rank_block_index]
                         end if
                     end block

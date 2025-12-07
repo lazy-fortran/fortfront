@@ -3,7 +3,7 @@ module parser_if_constructs_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER, to_lower
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
                                             statement_callbacks_t, &
@@ -155,8 +155,9 @@ contains
     end function is_arithmetic_if
 
     ! Parse arithmetic IF: IF (expr) label1, label2, label3
-    ! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
-    function parse_arithmetic_if(parser, arena, condition_index, if_token, parent_index) &
+! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
+    function parse_arithmetic_if(parser, arena, condition_index, if_token, &
+                                 parent_index) &
         result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -181,30 +182,36 @@ contains
         if (.not. consume_label_text(label3)) return
 
         ! Build: IF (expr < 0) GOTO label1
-        zero_index = push_literal(arena, "0", LITERAL_INTEGER, if_token%line, if_token%column)
+        zero_index = push_literal(arena, "0", LITERAL_INTEGER, if_token%line, &
+                                  if_token%column)
         cond_lt_zero_index = push_binary_op(arena, condition_index, zero_index, "<", &
-            if_token%line, if_token%column)
-        goto1_index = push_goto(arena, label=label1, line=if_token%line, column=if_token%column)
+                                            if_token%line, if_token%column)
+        goto1_index = push_goto(arena, label=label1, line=if_token%line, &
+                                column=if_token%column)
         allocate (then_body_indices(1))
         then_body_indices(1) = goto1_index
 
         ! Build: ELSEIF (expr == 0) GOTO label2
         cond_eq_zero_index = push_binary_op(arena, condition_index, zero_index, "==", &
-            if_token%line, if_token%column)
-        goto2_index = push_goto(arena, label=label2, line=if_token%line, column=if_token%column)
+                                            if_token%line, if_token%column)
+        goto2_index = push_goto(arena, label=label2, line=if_token%line, &
+                                column=if_token%column)
         allocate (elseif_indices(2))
         elseif_indices(1) = cond_eq_zero_index
         elseif_indices(2) = goto2_index
 
         ! Build: ELSE GOTO label3
-        goto3_index = push_goto(arena, label=label3, line=if_token%line, column=if_token%column)
+        goto3_index = push_goto(arena, label=label3, line=if_token%line, &
+                                column=if_token%column)
         allocate (else_body_indices(1))
         else_body_indices(1) = goto3_index
 
         ! Create IF node
         if_index = push_if(arena, cond_lt_zero_index, then_body_indices, &
-            elseif_indices=elseif_indices, else_body_indices=else_body_indices, &
-            line=if_token%line, column=if_token%column, parent_index=parent_index)
+                           elseif_indices=elseif_indices, &
+                               else_body_indices=else_body_indices, &
+                           line=if_token%line, column=if_token%column, &
+                               parent_index=parent_index)
     contains
 
         logical function fetch_next_token(token)
@@ -283,13 +290,15 @@ contains
 
         ! Check for arithmetic IF: IF (expr) label1, label2, label3
         if (is_arithmetic_if(parser)) then
-            if_index = parse_arithmetic_if(parser, arena, condition_index, if_token, parent_index)
+            if_index = parse_arithmetic_if(parser, arena, condition_index, if_token, &
+                                           parent_index)
             return
         end if
 
         ! Look for 'then' keyword
         then_token = parser%peek()
-        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == "then") then
+        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == &
+            "then") then
             ! Standard if/then/endif block
             then_token = parser%consume()
 
@@ -321,7 +330,8 @@ contains
                     then_token = parser%peek()
 
                     if (then_token%kind == TK_KEYWORD) then
-                        if (to_lower(then_token%text) == "elseif" .or. to_lower(then_token%text) == &
+                        if (to_lower(then_token%text) == "elseif" .or. &
+                            to_lower(then_token%text) == &
                             "else if") then
                             ! Parse elseif block
                             block
@@ -335,7 +345,8 @@ contains
                             if (parser%current_token + 1 <= size(parser%tokens)) then
                                 if (parser%tokens(parser%current_token + 1)%kind == &
                                     TK_KEYWORD .and. &
-                                    to_lower(parser%tokens(parser%current_token + 1)%text) &
+                                    to_lower(parser%tokens(parser%current_token &
+                                                           + 1)%text) &
                                     == "if") then
                                     ! Parse as elseif block
                                     block
@@ -344,7 +355,8 @@ contains
                                         elseif_indices = [elseif_indices, elseif_pair]
                                         elseif_count = elseif_count + 1
                                     end block
-                                    cycle  ! Continue looking for more elseif/else blocks
+                                    cycle
+                                    ! Continue looking for more elseif/else blocks
                                 end if
                             end if
                             ! Parse else block
@@ -366,7 +378,7 @@ contains
                             then_token = parser%consume()
                             exit
                         else if (to_lower(then_token%text) == "end") then
-                            ! Check if next token is "if" (for "end if"), ignoring trivia
+                           ! Check if next token is "if" (for "end if"), ignoring trivia
                             block
                                 integer :: lookahead_pos
                                 type(token_t) :: lookahead
@@ -451,11 +463,11 @@ contains
             ! (not just "end if" cleanup parsing)
             if (then_token%kind == TK_EOF .or. parser%is_at_end()) then
                 ! Only report error if the condition actually consumed tokens
-                ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
+               ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
                 if (condition_index > 0) then
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
                     call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
-                                    "Use 'IF (condition) THEN' for multi-line blocks")
+                                      "Use 'IF (condition) THEN' for multi-line blocks")
                     if_index = 0
                     return
                 end if
@@ -517,7 +529,7 @@ contains
                                 inline_has_continuation = .true.
                             end if
 
-                            ! If there's code immediately after newline, it's likely a continued inline IF
+          ! If there's code immediately after newline, it's likely a continued inline IF
                             ! Otherwise, it looks like a block IF
                             if (.not. found_code_after_newline .and. &
                                 .not. inline_has_continuation) then
@@ -543,7 +555,7 @@ contains
                         end if
                     end if
 
-                    ! Found a non-whitespace token on same line, might be valid one-liner
+                   ! Found a non-whitespace token on same line, might be valid one-liner
                     exit
                 end do
 
@@ -551,7 +563,7 @@ contains
                     ! This is a malformed block if Missing 'then' - report error
                     write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
                     call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
-                                    "Use 'IF (condition) THEN' for multi-line blocks")
+                                      "Use 'IF (condition) THEN' for multi-line blocks")
                     if_index = 0
                     return
                 end if
@@ -650,7 +662,7 @@ contains
 
                 ! Check for 'then' keyword
                 if (paren_token%kind == TK_KEYWORD .and. to_lower(paren_token%text) == &
-                         "then") then
+                    "then") then
                     exit  ! Don't consume 'then', let caller handle it
                 end if
 
@@ -660,7 +672,8 @@ contains
                 end if
 
                 ! Skip whitespace and comments
-                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == TK_COMMENT) then
+                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == &
+                    TK_COMMENT) then
                     paren_token = parser%consume()
                     cycle
                 end if
@@ -679,7 +692,7 @@ contains
                     end if
                 end if
 
-                ! Consume any other token (operators, identifiers, etc. within condition)
+               ! Consume any other token (operators, identifiers, etc. within condition)
                 paren_token = parser%consume()
             end do
         else
@@ -712,7 +725,8 @@ contains
                 end if
 
                 ! Skip whitespace and comments
-                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == TK_COMMENT) then
+                if (paren_token%kind == TK_WHITESPACE .or. paren_token%kind == &
+                    TK_COMMENT) then
                     paren_token = parser%consume()
                     cycle
                 end if
@@ -883,7 +897,8 @@ contains
 
         ! Look for 'then' keyword
         elseif_token = parser%peek()
-        if (elseif_token%kind == TK_KEYWORD .and. to_lower(elseif_token%text) == "then") then
+        if (elseif_token%kind == TK_KEYWORD .and. to_lower(elseif_token%text) == &
+            "then") then
             elseif_token = parser%consume()
         end if
 
