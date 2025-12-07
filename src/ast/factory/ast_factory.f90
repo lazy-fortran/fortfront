@@ -48,7 +48,8 @@ module ast_factory
     ! Procedure definition nodes
     use ast_factory_procedures, only: &
         push_function_def, push_subroutine_def, push_interface_block, &
-        push_module_procedure, push_module, push_module_structured, push_block_data
+        push_module_procedure, push_module, push_module_structured, push_block_data, &
+        push_submodule_structured
 
     ! Array-related nodes
     use ast_factory_arrays, only: &
@@ -109,6 +110,7 @@ module ast_factory
     public :: push_function_def, push_subroutine_def, push_interface_block
     public :: push_module_procedure
     public :: push_module, push_module_structured, push_block_data
+    public :: push_submodule_structured
 
     ! Array-related nodes
     public :: push_array_section, push_array_bounds, push_array_slice

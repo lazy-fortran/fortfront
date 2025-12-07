@@ -5,7 +5,7 @@ module frontend_analysis_helpers
         call_or_subscript_node, assignment_node, component_access_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
         subroutine_call_node
-    use ast_nodes_data, only: module_node
+    use ast_nodes_data, only: module_node, submodule_node
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -205,6 +205,9 @@ contains
             if (.not. allocated(arena%entries(i)%node)) cycle
             select type (node => arena%entries(i)%node)
             type is (module_node)
+                has_module = .true.
+                exit
+            type is (submodule_node)
                 has_module = .true.
                 exit
             end select

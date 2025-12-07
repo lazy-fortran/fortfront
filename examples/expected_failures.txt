@@ -26,6 +26,10 @@ issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of
 issue_2238_select_rank_performance.f90  # assumed-rank arrays (..) not fully supported; SELECT RANK requires them #2238
 select_rank_simple.f90  # SELECT RANK requires assumed-rank arrays (..) which are not fully supported #2238
 
+# Submodule standalone examples - require parent module compilation
+issue_1827_submodule_simple.f90  # submodule requires parent module to compile (ISO/IEC 1539-1:2008 11.2.3)
+issue_1827_submodule_with_contents.f90  # submodule requires parent module to compile (ISO/IEC 1539-1:2008 11.2.3)
+
 # Invalid Fortran test cases (error detection tests)
 issue_2459_missing_implicit_type.f90  # intentionally invalid: uses undeclared loop variable with implicit none
 data_statement_scalar_upgrade.f90  # intentionally invalid: DATA with more values than variables in scalar declaration

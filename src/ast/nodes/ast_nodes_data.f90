@@ -18,7 +18,7 @@ module ast_nodes_data
     public :: create_declaration, create_derived_type, create_mixed_construct_container
     public :: create_type_binding
     ! Constructors migrated from ast_core
-    public :: create_module, create_block_data
+    public :: create_module, create_block_data, create_submodule
 
     ! Public utility functions
     public :: intent_type_to_string
@@ -114,6 +114,24 @@ module ast_nodes_data
         procedure :: assign => module_assign
         generic :: assignment(=) => assign
     end type module_node
+
+    ! Submodule node (Fortran 2008, ISO/IEC 1539-1:2008 Section 11.2)
+    type, extends(ast_node), public :: submodule_node
+        character(len=:), allocatable :: name  ! Submodule name
+        character(len=:), allocatable :: parent_identifier  ! Parent reference
+        ! Format: parent_mod or parent_mod:parent_sub:...
+        integer, allocatable :: declaration_indices(:)  ! Submodule declaration
+        ! arena indices
+        integer, allocatable :: procedure_indices(:)  ! Submodule procedure
+        ! arena indices (after contains)
+        logical :: has_contains = .false.  ! Whether submodule has
+        ! a contains section
+    contains
+        procedure :: accept => submodule_accept
+        procedure :: to_json => submodule_to_json
+        procedure :: assign => submodule_assign
+        generic :: assignment(=) => assign
+    end type submodule_node
 
     ! BLOCK DATA node
     type, extends(ast_node), public :: block_data_node
@@ -354,6 +372,43 @@ contains
         lhs%has_contains = rhs%has_contains
     end subroutine module_assign
 
+    ! Stub implementations for submodule_node
+    subroutine submodule_accept(this, visitor)
+        class(submodule_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine submodule_accept
+
+    subroutine submodule_to_json(this, json, parent)
+        class(submodule_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+    end subroutine submodule_to_json
+
+    subroutine submodule_assign(lhs, rhs)
+        class(submodule_node), intent(inout) :: lhs
+        class(submodule_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%parent_identifier)) then
+            lhs%parent_identifier = rhs%parent_identifier
+        end if
+        if (allocated(rhs%declaration_indices)) then
+            lhs%declaration_indices = rhs%declaration_indices
+        end if
+        if (allocated(rhs%procedure_indices)) then
+            lhs%procedure_indices = rhs%procedure_indices
+        end if
+        lhs%has_contains = rhs%has_contains
+    end subroutine submodule_assign
+
     ! Stub implementations for block_data_node
     subroutine block_data_accept(this, visitor)
         class(block_data_node), intent(in) :: this
@@ -570,6 +625,39 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_block_data
+
+    ! Constructor for submodule node (Fortran 2008)
+    function create_submodule(name, parent_identifier, declaration_indices, &
+                              procedure_indices, has_contains, line, column) &
+        result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: parent_identifier
+        integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
+        logical, intent(in), optional :: has_contains
+        integer, intent(in), optional :: line, column
+        type(submodule_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+        node%parent_identifier = parent_identifier
+        if (present(has_contains)) node%has_contains = has_contains
+
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) then
+                node%declaration_indices = declaration_indices
+            end if
+        end if
+
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                node%procedure_indices = procedure_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_submodule
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, &

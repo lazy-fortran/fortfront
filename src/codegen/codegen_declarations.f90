@@ -5,6 +5,7 @@ module codegen_declarations
                                          generate_code_parameter_declaration, &
                                          generate_code_derived_type
     use codegen_declarations_programs, only: generate_code_module, &
+                                             generate_code_submodule, &
                                              generate_code_interface_block, &
                                              generate_code_module_procedure, &
                                              generate_code_program, &
@@ -16,6 +17,7 @@ module codegen_declarations
     public :: generate_code_declaration
     public :: generate_code_parameter_declaration
     public :: generate_code_module
+    public :: generate_code_submodule
     public :: generate_code_block_data
     public :: generate_code_interface_block
     public :: generate_code_module_procedure
