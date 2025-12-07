@@ -233,7 +233,11 @@ contains
                 call append_trimmed_line(line, .false., result)
                 exit
             else
-                line = code(start_pos:start_pos + newline_pos - 2)
+                if (newline_pos > 1) then
+                    line = code(start_pos:start_pos + newline_pos - 2)
+                else
+                    line = ''
+                end if
                 call append_trimmed_line(line, .true., result)
                 start_pos = start_pos + newline_pos
                 if (start_pos > code_len) exit
@@ -250,8 +254,11 @@ contains
             integer :: last_idx
 
             trimmed_line = raw_line
-            do last_idx = len(trimmed_line), 1, -1
+            last_idx = len(trimmed_line)
+
+            do while (last_idx >= 1)
                 if (trimmed_line(last_idx:last_idx) /= ' ') exit
+                last_idx = last_idx - 1
             end do
 
             if (last_idx >= 1) then
