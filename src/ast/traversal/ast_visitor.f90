@@ -6,7 +6,8 @@ module ast_visitor
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
-    use ast_nodes_data
+    use ast_nodes_data, only: declaration_node, module_node, submodule_node, &
+                              derived_type_node
     use ast_nodes_misc
     use string_utils_mod, only: int_to_string
     implicit none
@@ -20,7 +21,8 @@ module ast_visitor
         procedure(visit_binary_op_interface), deferred :: visit_binary_op
         procedure(visit_function_def_interface), deferred :: visit_function_def
         procedure(visit_subroutine_def_interface), deferred :: visit_subroutine_def
-        procedure(visit_call_or_subscript_interface), deferred :: visit_call_or_subscript
+        procedure(visit_call_or_subscript_interface), deferred :: &
+            visit_call_or_subscript
         procedure(visit_subroutine_call_interface), deferred :: visit_subroutine_call
         procedure(visit_identifier_interface), deferred :: visit_identifier
         procedure(visit_literal_interface), deferred :: visit_literal
@@ -33,9 +35,12 @@ module ast_visitor
         procedure(visit_derived_type_interface), deferred :: visit_derived_type
         procedure(visit_interface_block_interface), deferred :: visit_interface_block
         procedure(visit_module_interface), deferred :: visit_module
+        procedure(visit_submodule_interface), deferred :: visit_submodule
         procedure(visit_use_statement_interface), deferred :: visit_use_statement
-        procedure(visit_visibility_statement_interface), deferred :: visit_visibility_statement
-        procedure(visit_include_statement_interface), deferred :: visit_include_statement
+        procedure(visit_visibility_statement_interface), deferred :: &
+            visit_visibility_statement
+        procedure(visit_include_statement_interface), deferred :: &
+            visit_include_statement
     end type ast_visitor_t
 
     ! Concrete visitor implementation for debugging/printing
@@ -60,6 +65,7 @@ module ast_visitor
         procedure :: visit_derived_type => debug_visit_derived_type
         procedure :: visit_interface_block => debug_visit_interface_block
         procedure :: visit_module => debug_visit_module
+        procedure :: visit_submodule => debug_visit_submodule
         procedure :: visit_use_statement => debug_visit_use_statement
         procedure :: visit_visibility_statement => debug_visit_visibility_statement
         procedure :: visit_include_statement => debug_visit_include_statement
@@ -176,6 +182,12 @@ module ast_visitor
             class(module_node), intent(in) :: node
         end subroutine visit_module_interface
 
+        subroutine visit_submodule_interface(this, node)
+            import :: ast_visitor_t, submodule_node
+            class(ast_visitor_t), intent(inout) :: this
+            class(submodule_node), intent(in) :: node
+        end subroutine visit_submodule_interface
+
         subroutine visit_visibility_statement_interface(this, node)
             import :: ast_visitor_t, visibility_statement_node
             class(ast_visitor_t), intent(inout) :: this
@@ -201,9 +213,12 @@ module ast_visitor
     public :: function_def_accept, subroutine_def_accept
     public :: call_or_subscript_accept, subroutine_call_accept, &
               identifier_accept, literal_accept
-    public :: use_statement_accept, visibility_statement_accept, include_statement_accept, print_statement_accept
+    public :: use_statement_accept, visibility_statement_accept, &
+              include_statement_accept, print_statement_accept
     public :: declaration_accept, do_loop_accept, do_while_accept, if_accept
-    public :: select_case_accept, derived_type_accept, interface_block_accept, module_accept
+    public :: select_case_accept, derived_type_accept, interface_block_accept, &
+              module_accept
+    public :: submodule_accept
 
 contains
 
@@ -417,15 +432,25 @@ contains
         end select
     end subroutine module_accept
 
+    subroutine submodule_accept(this, visitor)
+        class(submodule_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+
+        select type (vis => visitor)
+        class is (ast_visitor_t)
+            call vis%visit_submodule(this)
+        end select
+    end subroutine submodule_accept
+
     ! Debug visitor implementations
     subroutine debug_visit_program(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(program_node), intent(in) :: node
 
-        call append_debug(this, "program: " // node%name)
+        call append_debug(this, "program: "//node%name)
         this%indent_level = this%indent_level + 1
         if (allocated(node%body_indices)) then
-            call append_debug(this, "body_indices: " // &
+            call append_debug(this, "body_indices: "// &
                               int_array_to_string(node%body_indices))
         else
             call append_debug(this, "body_indices: []")
@@ -437,16 +462,17 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(assignment_node), intent(in) :: node
 
-        call append_debug(this, "assignment: target=" // int_to_string(node%target_index) // &
-                          " value=" // int_to_string(node%value_index))
+        call append_debug(this, &
+                          "assignment: target="//int_to_string(node%target_index)// &
+                          " value="//int_to_string(node%value_index))
     end subroutine debug_visit_assignment
 
     subroutine debug_visit_binary_op(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(binary_op_node), intent(in) :: node
 
-        call append_debug(this, "binary_op: " // node%operator // " left=" // &
-                          int_to_string(node%left_index) // " right=" // &
+        call append_debug(this, "binary_op: "//node%operator//" left="// &
+                          int_to_string(node%left_index)//" right="// &
                           int_to_string(node%right_index))
     end subroutine debug_visit_binary_op
 
@@ -454,13 +480,14 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(function_def_node), intent(in) :: node
 
-        call append_debug(this, "function_def: " // node%name)
+        call append_debug(this, "function_def: "//node%name)
         this%indent_level = this%indent_level + 1
         if (allocated(node%return_type)) then
-            call append_debug(this, "return_type: " // node%return_type)
+            call append_debug(this, "return_type: "//node%return_type)
         end if
         if (allocated(node%param_indices)) then
-            call append_debug(this, "param_indices: " // int_array_to_string(node%param_indices))
+            call append_debug(this, &
+                             "param_indices: "//int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_function_def
@@ -469,10 +496,11 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(subroutine_def_node), intent(in) :: node
 
-        call append_debug(this, "subroutine_def: " // node%name)
+        call append_debug(this, "subroutine_def: "//node%name)
         this%indent_level = this%indent_level + 1
         if (allocated(node%param_indices)) then
-            call append_debug(this, "param_indices: " // int_array_to_string(node%param_indices))
+            call append_debug(this, &
+                             "param_indices: "//int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_subroutine_def
@@ -481,9 +509,10 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(subroutine_call_node), intent(in) :: node
 
-        call append_debug(this, "subroutine_call: " // node%name)
+        call append_debug(this, "subroutine_call: "//node%name)
         if (allocated(node%arg_indices)) then
-            call append_debug(this, "arg_indices: " // int_array_to_string(node%arg_indices))
+            call append_debug(this, &
+                              "arg_indices: "//int_array_to_string(node%arg_indices))
         end if
     end subroutine debug_visit_subroutine_call
 
@@ -491,14 +520,14 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(identifier_node), intent(in) :: node
 
-        call append_debug(this, "identifier: " // node%name)
+        call append_debug(this, "identifier: "//node%name)
     end subroutine debug_visit_identifier
 
     subroutine debug_visit_literal(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(literal_node), intent(in) :: node
 
-        call append_debug(this, "literal: " // node%value // " kind=" // &
+        call append_debug(this, "literal: "//node%value//" kind="// &
                           int_to_string(node%literal_kind))
     end subroutine debug_visit_literal
 
@@ -506,16 +535,16 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(declaration_node), intent(in) :: node
 
-        call append_debug(this, "declaration: " // node%type_name // " " // node%var_name)
+        call append_debug(this, "declaration: "//node%type_name//" "//node%var_name)
     end subroutine debug_visit_declaration
 
     subroutine debug_visit_print_statement(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(print_statement_node), intent(in) :: node
 
-        call append_debug(this, "print_statement: " // node%format_spec)
+        call append_debug(this, "print_statement: "//node%format_spec)
         if (allocated(node%expression_indices)) then
-            call append_debug(this, "expression_indices: " // &
+            call append_debug(this, "expression_indices: "// &
                               int_array_to_string(node%expression_indices))
         end if
     end subroutine debug_visit_print_statement
@@ -524,15 +553,16 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(if_node), intent(in) :: node
 
-        call append_debug(this, "if_statement: condition=" // int_to_string(node%condition_index))
+        call append_debug(this, &
+                        "if_statement: condition="//int_to_string(node%condition_index))
     end subroutine debug_visit_if
 
     subroutine debug_visit_do_loop(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(do_loop_node), intent(in) :: node
 
-        call append_debug(this, "do_loop: " // node%var_name // " start=" // &
-                          int_to_string(node%start_expr_index) // " end=" // &
+        call append_debug(this, "do_loop: "//node%var_name//" start="// &
+                          int_to_string(node%start_expr_index)//" end="// &
                           int_to_string(node%end_expr_index))
     end subroutine debug_visit_do_loop
 
@@ -540,7 +570,8 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(do_while_node), intent(in) :: node
 
-        call append_debug(this, "do_while: condition=" // int_to_string(node%condition_index))
+        call append_debug(this, &
+                          "do_while: condition="//int_to_string(node%condition_index))
     end subroutine debug_visit_do_while
 
     subroutine debug_visit_select_case(this, node)
@@ -554,7 +585,7 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(derived_type_node), intent(in) :: node
 
-        call append_debug(this, "derived_type: " // node%name)
+        call append_debug(this, "derived_type: "//node%name)
     end subroutine debug_visit_derived_type
 
     subroutine debug_visit_interface_block(this, node)
@@ -568,14 +599,41 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(module_node), intent(in) :: node
 
-        call append_debug(this, "module: " // node%name)
+        call append_debug(this, "module: "//node%name)
     end subroutine debug_visit_module
+
+    subroutine debug_visit_submodule(this, node)
+        class(debug_visitor_t), intent(inout) :: this
+        class(submodule_node), intent(in) :: node
+        character(len=:), allocatable :: parent_str
+
+        if (allocated(node%parent_identifier)) then
+            parent_str = " parent=" // node%parent_identifier
+        else
+            parent_str = ""
+        end if
+        call append_debug(this, "submodule: "//node%name//parent_str)
+        this%indent_level = this%indent_level + 1
+        if (allocated(node%declaration_indices)) then
+            call append_debug(this, "declaration_indices: "// &
+                              int_array_to_string(node%declaration_indices))
+        else
+            call append_debug(this, "declaration_indices: []")
+        end if
+        if (allocated(node%procedure_indices)) then
+            call append_debug(this, "procedure_indices: "// &
+                              int_array_to_string(node%procedure_indices))
+        else
+            call append_debug(this, "procedure_indices: []")
+        end if
+        this%indent_level = this%indent_level - 1
+    end subroutine debug_visit_submodule
 
     subroutine debug_visit_use_statement(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(use_statement_node), intent(in) :: node
 
-        call append_debug(this, "use_statement: " // node%module_name)
+        call append_debug(this, "use_statement: "//node%module_name)
     end subroutine debug_visit_use_statement
 
     subroutine debug_visit_visibility_statement(this, node)
@@ -599,14 +657,14 @@ contains
             end do
         end if
 
-        call append_debug(this, "visibility_statement: " // clause)
+        call append_debug(this, "visibility_statement: "//clause)
     end subroutine debug_visit_visibility_statement
 
     subroutine debug_visit_include_statement(this, node)
         class(debug_visitor_t), intent(inout) :: this
         class(include_statement_node), intent(in) :: node
 
-        call append_debug(this, "include_statement: " // node%filename)
+        call append_debug(this, "include_statement: "//node%filename)
     end subroutine debug_visit_include_statement
 
     subroutine debug_visit_call_or_subscript(this, node)
