@@ -8,6 +8,7 @@ module parser_procedure_definition_bodies_module
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
                                                parse_select_rank
+    use parser_array_constructs_module, only: parse_associate, parse_block_construct
     use parser_block_statement_utils_module, only: is_if_statement_start, &
                                                     locate_block_statement_end, &
                                                     locate_single_line_end
@@ -579,6 +580,12 @@ contains
                     stmt_index = parse_do_statement_tokens(stmt_tokens, arena)
                 else if (trim(token_lower) == "select") then
                     stmt_index = parse_select_statement_tokens(stmt_tokens, arena)
+                else if (trim(token_lower) == "associate") then
+                    block_parser = create_parser_state(stmt_tokens)
+                    stmt_index = parse_associate(block_parser, arena)
+                else if (trim(token_lower) == "block") then
+                    block_parser = create_parser_state(stmt_tokens)
+                    stmt_index = parse_block_construct(block_parser, arena)
                 end if
             end if
         end if

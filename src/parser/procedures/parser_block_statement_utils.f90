@@ -20,7 +20,9 @@ contains
             token_lower = to_lower(first_token%text)
             is_if_start = trim(token_lower) == "if" .or. &
                           trim(token_lower) == "do" .or. &
-                          trim(token_lower) == "select"
+                          trim(token_lower) == "select" .or. &
+                          trim(token_lower) == "associate" .or. &
+                          trim(token_lower) == "block"
         end if
     end function is_if_statement_start
 
@@ -119,6 +121,62 @@ contains
         end select
     end function handle_select_block_keyword
 
+    logical function handle_associate_block_keyword(all_tokens, pos, depth, &
+                                                    stmt_end) result(completed)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: pos
+        integer, intent(inout) :: depth
+        integer, intent(inout) :: stmt_end
+
+        completed = .false.
+        select case (to_lower(all_tokens(pos)%text))
+        case ("associate")
+            depth = depth + 1
+        case ("end")
+            if (pos + 1 <= size(all_tokens)) then
+                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                    to_lower(all_tokens(pos + 1)%text) == "associate") then
+                    depth = depth - 1
+                    if (depth <= 0) then
+                        stmt_end = min(size(all_tokens), pos + 1)
+                        completed = .true.
+                    end if
+                end if
+            end if
+        end select
+    end function handle_associate_block_keyword
+
+    logical function handle_block_construct_keyword(all_tokens, pos, depth, &
+                                                    stmt_end) result(completed)
+        type(token_t), intent(in) :: all_tokens(:)
+        integer, intent(in) :: pos
+        integer, intent(inout) :: depth
+        integer, intent(inout) :: stmt_end
+
+        completed = .false.
+        select case (to_lower(all_tokens(pos)%text))
+        case ("block")
+            depth = depth + 1
+        case ("endblock")
+            depth = depth - 1
+            if (depth <= 0) then
+                stmt_end = min(size(all_tokens), pos)
+                completed = .true.
+            end if
+        case ("end")
+            if (pos + 1 <= size(all_tokens)) then
+                if (all_tokens(pos + 1)%kind == TK_KEYWORD .and. &
+                    to_lower(all_tokens(pos + 1)%text) == "block") then
+                    depth = depth - 1
+                    if (depth <= 0) then
+                        stmt_end = min(size(all_tokens), pos + 1)
+                        completed = .true.
+                    end if
+                end if
+            end if
+        end select
+    end function handle_block_construct_keyword
+
     integer function locate_block_statement_end(all_tokens, stmt_start, &
                                                 stmt_type) result(stmt_end)
         type(token_t), intent(in) :: all_tokens(:)
@@ -139,7 +197,9 @@ contains
             end if
         end if
 
-        if (stmt_type == "do" .or. to_lower(stmt_type) == "select") then
+        if (stmt_type == "do" .or. to_lower(stmt_type) == "select" .or. &
+            to_lower(stmt_type) == "associate" .or. &
+            to_lower(stmt_type) == "block") then
             depth = 1
             pos = stmt_start + 1
         else
@@ -149,18 +209,22 @@ contains
 
         do while (pos <= size(all_tokens))
             if (all_tokens(pos)%kind == TK_KEYWORD) then
-                select case (stmt_type)
+                select case (to_lower(stmt_type))
                 case ("if")
                     if (handle_if_block_keyword(all_tokens, pos, depth, stmt_end)) &
                         return
                 case ("do")
                     if (handle_do_block_keyword(all_tokens, pos, depth, stmt_end)) &
                         return
-                case default
-                    if (to_lower(stmt_type) == "select") then
-                        if (handle_select_block_keyword(all_tokens, pos, depth, &
-                                                        stmt_end)) return
-                    end if
+                case ("select")
+                    if (handle_select_block_keyword(all_tokens, pos, depth, &
+                                                    stmt_end)) return
+                case ("associate")
+                    if (handle_associate_block_keyword(all_tokens, pos, depth, &
+                                                       stmt_end)) return
+                case ("block")
+                    if (handle_block_construct_keyword(all_tokens, pos, depth, &
+                                                       stmt_end)) return
                 end select
             end if
             stmt_end = pos
