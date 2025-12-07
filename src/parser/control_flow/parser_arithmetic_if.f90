@@ -76,7 +76,7 @@ contains
             if (tok%line /= start_line) exit
 
             if (expect_label) then
-                if (tok%kind == TK_NUMBER .or. tok%kind == TK_IDENTIFIER) then
+                if (tok%kind == TK_NUMBER) then
                     label_count = label_count + 1
                     expect_label = .false.
                     if (label_count > 3) return
@@ -212,7 +212,7 @@ contains
             return
         end if
 
-        if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
+        if (next_token%kind == TK_NUMBER) then
             label_text = trim(next_token%text)
             next_token = parser%consume()
             consume_arith_if_label = .true.
