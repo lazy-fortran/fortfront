@@ -2,7 +2,7 @@ module parser_if_constructs_module
     ! Parser module for IF constructs (if/then/else/elseif/endif)
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
-                          TK_COMMENT, TK_WHITESPACE, TK_NUMBER, TK_IDENTIFIER, to_lower
+                          TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
@@ -14,11 +14,10 @@ module parser_if_constructs_module
                                             skip_whitespace_and_semicolons
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
+    use parser_arithmetic_if_module, only: is_arithmetic_if, parse_arithmetic_if
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control, only: if_node
-    use ast_nodes_transfer, only: create_goto
-    use ast_base, only: LITERAL_INTEGER
-    use ast_factory, only: push_if, push_goto, push_binary_op, push_literal
+    use ast_factory, only: push_if
     implicit none
     private
 
@@ -75,201 +74,6 @@ contains
         end if
     end function parse_do_loop_callback
 
-    ! Helper function to detect arithmetic IF: IF (expr) label1, label2, label3
-    function is_arithmetic_if(parser) result(is_arith_if)
-        type(parser_state_t), intent(in) :: parser
-        logical :: is_arith_if
-        type(token_t) :: tok
-        integer :: idx, label_count, comma_count, total_tokens
-        logical :: expect_label
-        integer :: start_line
-
-        is_arith_if = .false.
-        if (.not. associated(parser%tokens)) return
-
-        total_tokens = size(parser%tokens)
-        idx = parser%current_token
-        if (idx < 1 .or. idx > total_tokens) return
-
-        ! Skip whitespace/comments before evaluating pattern
-        do while (idx <= total_tokens)
-            tok = parser%tokens(idx)
-            if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
-                idx = idx + 1
-                cycle
-            end if
-            exit
-        end do
-        if (idx > total_tokens) return
-        if (parser%tokens(idx)%kind == TK_NEWLINE) return
-
-        start_line = parser%tokens(idx)%line
-        expect_label = .true.
-        label_count = 0
-        comma_count = 0
-
-        do while (idx <= total_tokens)
-            tok = parser%tokens(idx)
-            if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
-                idx = idx + 1
-                cycle
-            end if
-            if (tok%kind == TK_NEWLINE) exit
-            if (tok%line /= start_line) exit
-
-            if (expect_label) then
-                if (tok%kind == TK_NUMBER .or. tok%kind == TK_IDENTIFIER) then
-                    label_count = label_count + 1
-                    expect_label = .false.
-                    if (label_count > 3) return
-                else
-                    return
-                end if
-            else
-                if (tok%kind == TK_OPERATOR .and. tok%text == ",") then
-                    comma_count = comma_count + 1
-                    expect_label = .true.
-                else
-                    return
-                end if
-            end if
-
-            idx = idx + 1
-            if (.not. expect_label .and. label_count == 3) exit
-        end do
-
-        if (label_count == 3 .and. comma_count == 2 .and. .not. expect_label) then
-            ! Ensure no additional tokens on the same line (besides whitespace/comment)
-            do while (idx <= total_tokens)
-                tok = parser%tokens(idx)
-                if (tok%kind == TK_WHITESPACE .or. tok%kind == TK_COMMENT) then
-                    idx = idx + 1
-                    cycle
-                end if
-                if (tok%kind == TK_NEWLINE) exit
-                if (tok%line /= start_line) exit
-                return
-            end do
-            is_arith_if = .true.
-        end if
-    end function is_arithmetic_if
-
-    ! Parse arithmetic IF: IF (expr) label1, label2, label3
-! Transforms to: IF (expr < 0) GOTO label1; ELSEIF (expr == 0) GOTO label2; ELSE GOTO label3
-    function parse_arithmetic_if(parser, arena, condition_index, if_token, &
-                                 parent_index) &
-        result(if_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: condition_index
-        type(token_t), intent(in) :: if_token
-        integer, intent(in), optional :: parent_index
-        integer :: if_index
-
-        character(len=:), allocatable :: label1, label2, label3
-        integer :: zero_index, cond_lt_zero_index, cond_eq_zero_index
-        integer :: goto1_index, goto2_index, goto3_index
-        integer, allocatable :: then_body_indices(:), else_body_indices(:)
-        integer, allocatable :: elseif_indices(:)
-
-        if_index = 0
-
-        ! Parse arithmetic IF label triplet
-        if (.not. consume_arith_if_label(parser, label1)) return
-        if (.not. consume_arith_if_comma(parser)) return
-        if (.not. consume_arith_if_label(parser, label2)) return
-        if (.not. consume_arith_if_comma(parser)) return
-        if (.not. consume_arith_if_label(parser, label3)) return
-
-        ! Build: IF (expr < 0) GOTO label1
-        zero_index = push_literal(arena, "0", LITERAL_INTEGER, if_token%line, &
-                                  if_token%column)
-        cond_lt_zero_index = push_binary_op(arena, condition_index, zero_index, "<", &
-                                            if_token%line, if_token%column)
-        goto1_index = push_goto(arena, label=label1, line=if_token%line, &
-                                column=if_token%column)
-        allocate (then_body_indices(1))
-        then_body_indices(1) = goto1_index
-
-        ! Build: ELSEIF (expr == 0) GOTO label2
-        cond_eq_zero_index = push_binary_op(arena, condition_index, zero_index, "==", &
-                                            if_token%line, if_token%column)
-        goto2_index = push_goto(arena, label=label2, line=if_token%line, &
-                                column=if_token%column)
-        allocate (elseif_indices(2))
-        elseif_indices(1) = cond_eq_zero_index
-        elseif_indices(2) = goto2_index
-
-        ! Build: ELSE GOTO label3
-        goto3_index = push_goto(arena, label=label3, line=if_token%line, &
-                                column=if_token%column)
-        allocate (else_body_indices(1))
-        else_body_indices(1) = goto3_index
-
-        ! Create IF node
-        if_index = push_if(arena, cond_lt_zero_index, then_body_indices, &
-                           elseif_indices=elseif_indices, &
-                           else_body_indices=else_body_indices, &
-                           line=if_token%line, column=if_token%column, &
-                           parent_index=parent_index)
-    end function parse_arithmetic_if
-
-    logical function fetch_next_label_token(parser, token)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t), intent(out) :: token
-
-        fetch_next_label_token = .false.
-        do
-            if (parser%is_at_end()) return
-            token = parser%peek()
-            if (token%kind == TK_WHITESPACE .or. token%kind == TK_COMMENT) then
-                token = parser%consume()
-                cycle
-            end if
-            if (token%kind == TK_NEWLINE) return
-            fetch_next_label_token = .true.
-            return
-        end do
-    end function fetch_next_label_token
-
-    logical function consume_arith_if_label(parser, label_text)
-        type(parser_state_t), intent(inout) :: parser
-        character(len=:), allocatable, intent(out) :: label_text
-        type(token_t) :: next_token
-
-        if (.not. fetch_next_label_token(parser, next_token)) then
-            label_text = ""
-            consume_arith_if_label = .false.
-            return
-        end if
-
-        if (next_token%kind == TK_NUMBER .or. next_token%kind == TK_IDENTIFIER) then
-            label_text = trim(next_token%text)
-            next_token = parser%consume()
-            consume_arith_if_label = .true.
-        else
-            label_text = ""
-            consume_arith_if_label = .false.
-        end if
-    end function consume_arith_if_label
-
-    logical function consume_arith_if_comma(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: next_token
-
-        if (.not. fetch_next_label_token(parser, next_token)) then
-            consume_arith_if_comma = .false.
-            return
-        end if
-
-        if (next_token%kind == TK_OPERATOR .and. next_token%text == ",") then
-            next_token = parser%consume()
-            consume_arith_if_comma = .true.
-        else
-            consume_arith_if_comma = .false.
-        end if
-    end function consume_arith_if_comma
-
     ! Parse if statement
     recursive function parse_if(parser, arena, parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
@@ -279,10 +83,6 @@ contains
 
         type(token_t) :: if_token, then_token
         integer :: condition_index
-        integer, allocatable :: then_body_indices(:), else_body_indices(:)
-        integer, allocatable :: elseif_indices(:)
-        integer :: elseif_count
-        logical :: inline_has_continuation
 
         ! Consume 'if' keyword
         if_token = parser%consume()
@@ -301,332 +101,437 @@ contains
         then_token = parser%peek()
         if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == &
             "then") then
-            ! Standard if/then/endif block
-            then_token = parser%consume()
-
-            ! Skip optional semicolon after 'then'
-            if (.not. parser%is_at_end()) then
-                then_token = parser%peek()
-                if (then_token%kind == TK_OPERATOR .and. then_token%text == ";") then
-                    then_token = parser%consume()  ! Skip the semicolon
-                end if
-            end if
-
-            ! Create if node placeholder first to get the parent index
-            if_index = push_if(arena, condition_index, [integer ::], &
-                               line=if_token%line, column=if_token%column, &
-                               parent_index=parent_index)
-
-            ! Parse then body statements with the if node as parent
-            then_body_indices = parse_if_body(parser, arena, if_index)
-
-            ! Check for elseif/else blocks
-            elseif_count = 0
-            allocate (elseif_indices(0))
-
-            block
-                integer :: safety_counter
-                safety_counter = 0
-                do while (.not. parser%is_at_end() .and. safety_counter < 10000)
-                    safety_counter = safety_counter + 1
-                    then_token = parser%peek()
-
-                    if (then_token%kind == TK_KEYWORD) then
-                        if (to_lower(then_token%text) == "elseif" .or. &
-                            to_lower(then_token%text) == &
-                            "else if") then
-                            ! Parse elseif block
-                            block
-                                integer :: elseif_pair(2)
-                                elseif_pair = parse_elseif_block(parser, arena)
-                                elseif_indices = [elseif_indices, elseif_pair]
-                                elseif_count = elseif_count + 1
-                            end block
-                        else if (to_lower(then_token%text) == "else") then
-                            ! Check if next token is "if" (for "else if")
-                            if (parser%current_token + 1 <= size(parser%tokens)) then
-                                if (parser%tokens(parser%current_token + 1)%kind == &
-                                    TK_KEYWORD .and. &
-                                    to_lower(parser%tokens(parser%current_token &
-                                                           + 1)%text) &
-                                    == "if") then
-                                    ! Parse as elseif block
-                                    block
-                                        integer :: elseif_pair(2)
-                                        elseif_pair = parse_elseif_block(parser, arena)
-                                        elseif_indices = [elseif_indices, elseif_pair]
-                                        elseif_count = elseif_count + 1
-                                    end block
-                                    cycle
-                                    ! Continue looking for more elseif/else blocks
-                                end if
-                            end if
-                            ! Parse else block
-                            then_token = parser%consume()  ! consume 'else'
-
-                            ! Skip optional semicolon after 'else'
-                            if (.not. parser%is_at_end()) then
-                                then_token = parser%peek()
-                                if (then_token%kind == TK_OPERATOR .and. &
-                                    then_token%text == ";") then
-                                    then_token = parser%consume()  ! Skip the semicolon
-                                end if
-                            end if
-
-                            else_body_indices = parse_if_body(parser, arena, if_index)
-                            exit
-                        else if (to_lower(then_token%text) == "endif") then
-                            ! End of if statement (single keyword)
-                            then_token = parser%consume()
-                            exit
-                        else if (to_lower(then_token%text) == "end") then
-                           ! Check if next token is "if" (for "end if"), ignoring trivia
-                            block
-                                integer :: lookahead_pos
-                                type(token_t) :: lookahead
-
-                                lookahead_pos = parser%current_token + 1
-                                do while (lookahead_pos <= size(parser%tokens))
-                                    lookahead = parser%tokens(lookahead_pos)
-                                    if (lookahead%kind == TK_WHITESPACE .or. &
-                                        lookahead%kind == TK_NEWLINE .or. &
-                                        lookahead%kind == TK_COMMENT) then
-                                        lookahead_pos = lookahead_pos + 1
-                                        cycle
-                                    end if
-                                    exit
-                                end do
-
-                                if (lookahead_pos <= size(parser%tokens)) then
-                                    lookahead = parser%tokens(lookahead_pos)
-                                    if (lookahead%kind == TK_KEYWORD .and. &
-                                        to_lower(lookahead%text) == "if") then
-                                        then_token = parser%consume()  ! consume "end"
-                                        do
-                                            if (parser%is_at_end()) exit
-                                            lookahead = parser%peek()
-                                            if (lookahead%kind == TK_WHITESPACE .or. &
-                                                lookahead%kind == TK_NEWLINE .or. &
-                                                lookahead%kind == TK_COMMENT) then
-                                                then_token = parser%consume()
-                                            else
-                                                exit
-                                            end if
-                                        end do
-                                        if (.not. parser%is_at_end()) then
-                                            lookahead = parser%peek()
-                                            if (lookahead%kind == TK_KEYWORD .and. &
-                                                to_lower(lookahead%text) == "if") then
-                                                then_token = parser%consume()
-                                            end if
-                                        end if
-                                        exit
-                                    end if
-                                end if
-                            end block
-                        else
-                            ! Other statement, stop parsing if block
-                            exit
-                        end if
-                    else
-                        ! Not a keyword, continue parsing body
-                        exit
-                    end if
-                end do
-            end block
-
-            ! Update the if node with the actual body indices
-            if (allocated(arena%entries(if_index)%node)) then
-                select type (node => arena%entries(if_index)%node)
-                type is (if_node)
-                    if (allocated(then_body_indices)) then
-                        node%then_body_indices = then_body_indices
-                    end if
-                    if (allocated(else_body_indices)) then
-                        node%else_body_indices = else_body_indices
-                    end if
-                    if (allocated(elseif_indices)) then
-                        if (size(elseif_indices) > 0 .and. &
-                            mod(size(elseif_indices), 2) == 0) then
-                            allocate (node%elseif_blocks(size(elseif_indices) / 2))
-                            do elseif_count = 1, size(elseif_indices) / 2
-                                node%elseif_blocks(elseif_count)%condition_index = &
-                                    elseif_indices(2 * elseif_count - 1)
-                                node%elseif_blocks(elseif_count)%body_indices = &
-                                    [elseif_indices(2 * elseif_count)]
-                            end do
-                        end if
-                    end if
-                end select
-            end if
+            if_index = parse_block_if(parser, arena, condition_index, if_token, &
+                                      parent_index)
         else
-            ! No 'then' keyword found
-            ! If we're at EOF, this is only an error if we parsed a real condition
-            ! (not just "end if" cleanup parsing)
-            if (then_token%kind == TK_EOF .or. parser%is_at_end()) then
-                ! Only report error if the condition actually consumed tokens
-               ! (i.e., this was a real IF statement without THEN, not "end if" cleanup)
-                if (condition_index > 0) then
-                    write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
-                                      "Use 'IF (condition) THEN' for multi-line blocks")
-                    if_index = 0
-                    return
-                end if
-                ! Return with no node
-                if_index = 0
-                return
+            if_index = parse_inline_if(parser, arena, condition_index, if_token, &
+                                       then_token, parent_index)
+        end if
+    end function parse_if
+
+    ! Parse block IF with THEN/ELSEIF/ELSE/ENDIF
+    recursive function parse_block_if(parser, arena, condition_index, if_token, &
+                                      parent_index) result(if_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: condition_index
+        type(token_t), intent(in) :: if_token
+        integer, intent(in), optional :: parent_index
+        integer :: if_index
+
+        type(token_t) :: then_token
+        integer, allocatable :: then_body_indices(:), else_body_indices(:)
+        integer, allocatable :: elseif_indices(:)
+
+        ! Consume 'then' keyword
+        then_token = parser%consume()
+
+        ! Skip optional semicolon after 'then'
+        if (.not. parser%is_at_end()) then
+            then_token = parser%peek()
+            if (then_token%kind == TK_OPERATOR .and. then_token%text == ";") then
+                then_token = parser%consume()
             end if
-
-            ! Check if this looks like a malformed multi-line if construct
-            inline_has_continuation = .false.
-            block
-                logical :: looks_like_block_if
-                type(token_t) :: check_tok
-                integer :: check_idx
-
-                looks_like_block_if = .false.
-
-                ! Scan ahead to see if there's a newline before any statement
-                ! or if there's an "end if" later
-                check_idx = parser%current_token
-                do while (check_idx <= size(parser%tokens))
-                    check_tok = parser%tokens(check_idx)
-
-                    ! Check for line continuation character
-                    if (check_tok%kind == TK_OPERATOR .and. check_tok%text == "&") then
-                        inline_has_continuation = .true.
-                        check_idx = check_idx + 1
-                        cycle
-                    end if
-
-                    ! If we hit a newline, peek ahead to see if there's code after it
-                    if (check_tok%kind == TK_NEWLINE) then
-                        ! Save current position and scan ahead
-                        block
-                            integer :: peek_idx
-                            type(token_t) :: peek_tok
-                            logical :: found_code_after_newline
-
-                            found_code_after_newline = .false.
-                            peek_idx = check_idx + 1
-
-                            ! Skip any following whitespace/comments/newlines
-                            do while (peek_idx <= size(parser%tokens))
-                                peek_tok = parser%tokens(peek_idx)
-                                if (peek_tok%kind == TK_WHITESPACE .or. &
-                                    peek_tok%kind == TK_COMMENT .or. &
-                                    peek_tok%kind == TK_NEWLINE) then
-                                    peek_idx = peek_idx + 1
-                                    cycle
-                                end if
-                                ! Found a non-trivia token
-                                if (peek_tok%kind /= TK_EOF) then
-                                    found_code_after_newline = .true.
-                                end if
-                                exit
-                            end do
-
-                            if (found_code_after_newline) then
-                                inline_has_continuation = .true.
-                            end if
-
-          ! If there's code immediately after newline, it's likely a continued inline IF
-                            ! Otherwise, it looks like a block IF
-                            if (.not. found_code_after_newline .and. &
-                                .not. inline_has_continuation) then
-                                looks_like_block_if = .true.
-                            end if
-                        end block
-                        exit
-                    end if
-
-                    ! Skip whitespace and comments
-                    if (check_tok%kind == TK_WHITESPACE .or. &
-                        check_tok%kind == TK_COMMENT) then
-                        check_idx = check_idx + 1
-                        cycle
-                    end if
-
-                    ! Check for "end if" or "endif" later in the code
-                    if (check_tok%kind == TK_KEYWORD) then
-                        if (to_lower(check_tok%text) == "end" .or. &
-                            to_lower(check_tok%text) == "endif") then
-                            looks_like_block_if = .true.
-                            exit
-                        end if
-                    end if
-
-                   ! Found a non-whitespace token on same line, might be valid one-liner
-                    exit
-                end do
-
-                if (looks_like_block_if) then
-                    ! This is a malformed block if Missing 'then' - report error
-                    write (error_unit, '(A)') "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
-                    call parser%error("IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
-                                      "Use 'IF (condition) THEN' for multi-line blocks")
-                    if_index = 0
-                    return
-                end if
-            end block
-
-            ! Valid one-line if statement (no then keyword)
-            allocate (then_body_indices(1))
-
-            ! Parse the single statement
-            block
-                integer :: stmt_start, stmt_end
-                integer, allocatable :: stmt_indices(:)
-                type(token_t), allocatable :: stmt_tokens(:)
-                type(token_t) :: tok
-                type(statement_callbacks_t) :: callbacks
-
-                call skip_inline_if_leading_tokens(parser, inline_has_continuation)
-                stmt_start = parser%current_token
-                if (stmt_start <= size(parser%tokens)) then
-                    stmt_end = find_statement_end(parser%tokens, stmt_start)
-                    if (stmt_end < stmt_start) stmt_end = stmt_start
-                    call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
-                                                       stmt_start, stmt_end)
-
-                    callbacks = build_if_body_callbacks()
-                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                              callbacks=callbacks)
-                    if (allocated(stmt_indices)) then
-                        if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
-                            then_body_indices(1) = stmt_indices(1)
-                        end if
-                    end if
-
-                    if (stmt_end < size(parser%tokens)) then
-                        parser%current_token = stmt_end + 1
-                    else
-                        parser%current_token = size(parser%tokens)
-                    end if
-                end if
-
-                ! Advance parser to end of statement to prevent re-parsing
-                do while (.not. parser%is_at_end())
-                    tok = parser%peek()
-                    if (tok%kind == TK_NEWLINE .or. tok%kind == TK_EOF) then
-                        exit
-                    end if
-                    tok = parser%consume()
-                end do
-            end block
-
-            ! Create if node with no elseif/else blocks
-            allocate (elseif_indices(0))
-            allocate (else_body_indices(0))
-            if_index = push_if(arena, condition_index, then_body_indices, &
-                               elseif_indices=elseif_indices, &
-                               else_body_indices=else_body_indices, &
-                               line=if_token%line, column=if_token%column, &
-                               parent_index=parent_index)
         end if
 
-    end function parse_if
+        ! Create if node placeholder first to get the parent index
+        if_index = push_if(arena, condition_index, [integer ::], &
+                           line=if_token%line, column=if_token%column, &
+                           parent_index=parent_index)
+
+        ! Parse then body statements with the if node as parent
+        then_body_indices = parse_if_body(parser, arena, if_index)
+
+        ! Parse elseif/else blocks and endif
+        allocate (elseif_indices(0))
+        call parse_elseif_else_chain(parser, arena, if_index, elseif_indices, &
+                                     else_body_indices)
+
+        ! Update the if node with the actual body indices
+        call update_if_node_bodies(arena, if_index, then_body_indices, &
+                                   elseif_indices, else_body_indices)
+    end function parse_block_if
+
+    ! Parse ELSEIF/ELSE chain and ENDIF
+    recursive subroutine parse_elseif_else_chain(parser, arena, if_index, &
+                                                 elseif_indices, else_body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: if_index
+        integer, allocatable, intent(inout) :: elseif_indices(:)
+        integer, allocatable, intent(out) :: else_body_indices(:)
+
+        type(token_t) :: token
+        integer :: safety_counter
+
+        safety_counter = 0
+        do while (.not. parser%is_at_end() .and. safety_counter < 10000)
+            safety_counter = safety_counter + 1
+            token = parser%peek()
+
+            if (token%kind /= TK_KEYWORD) exit
+
+            select case (to_lower(token%text))
+            case ("elseif", "else if")
+                call append_elseif_block(parser, arena, elseif_indices)
+            case ("else")
+                if (is_else_if_construct(parser)) then
+                    call append_elseif_block(parser, arena, elseif_indices)
+                    cycle
+                end if
+                call parse_else_body(parser, arena, if_index, else_body_indices)
+                exit
+            case ("endif")
+                token = parser%consume()
+                exit
+            case ("end")
+                if (consume_end_if(parser)) exit
+            case default
+                exit
+            end select
+        end do
+    end subroutine parse_elseif_else_chain
+
+    ! Check if current position is "else if" construct
+    function is_else_if_construct(parser) result(is_else_if)
+        type(parser_state_t), intent(in) :: parser
+        logical :: is_else_if
+
+        is_else_if = .false.
+        if (parser%current_token + 1 > size(parser%tokens)) return
+        if (parser%tokens(parser%current_token + 1)%kind /= TK_KEYWORD) return
+        is_else_if = to_lower(parser%tokens(parser%current_token + 1)%text) == "if"
+    end function is_else_if_construct
+
+    ! Append an elseif block to the indices array
+    subroutine append_elseif_block(parser, arena, elseif_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: elseif_indices(:)
+
+        integer :: elseif_pair(2)
+
+        elseif_pair = parse_elseif_block(parser, arena)
+        elseif_indices = [elseif_indices, elseif_pair]
+    end subroutine append_elseif_block
+
+    ! Parse else body block
+    subroutine parse_else_body(parser, arena, if_index, else_body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: if_index
+        integer, allocatable, intent(out) :: else_body_indices(:)
+
+        type(token_t) :: token
+
+        token = parser%consume()  ! consume 'else'
+
+        ! Skip optional semicolon after 'else'
+        if (.not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ";") then
+                token = parser%consume()
+            end if
+        end if
+
+        else_body_indices = parse_if_body(parser, arena, if_index)
+    end subroutine parse_else_body
+
+    ! Consume "end if" keyword pair if present, returns true if consumed
+    function consume_end_if(parser) result(consumed)
+        type(parser_state_t), intent(inout) :: parser
+        logical :: consumed
+
+        integer :: lookahead_pos
+        type(token_t) :: lookahead, token
+
+        consumed = .false.
+        lookahead_pos = parser%current_token + 1
+
+        ! Skip trivia to find next meaningful token
+        do while (lookahead_pos <= size(parser%tokens))
+            lookahead = parser%tokens(lookahead_pos)
+            if (lookahead%kind == TK_WHITESPACE .or. &
+                lookahead%kind == TK_NEWLINE .or. &
+                lookahead%kind == TK_COMMENT) then
+                lookahead_pos = lookahead_pos + 1
+                cycle
+            end if
+            exit
+        end do
+
+        if (lookahead_pos > size(parser%tokens)) return
+        lookahead = parser%tokens(lookahead_pos)
+        if (lookahead%kind /= TK_KEYWORD) return
+        if (to_lower(lookahead%text) /= "if") return
+
+        ! Consume "end"
+        token = parser%consume()
+
+        ! Skip trivia between "end" and "if"
+        do while (.not. parser%is_at_end())
+            lookahead = parser%peek()
+            if (lookahead%kind == TK_WHITESPACE .or. &
+                lookahead%kind == TK_NEWLINE .or. &
+                lookahead%kind == TK_COMMENT) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+
+        ! Consume "if"
+        if (.not. parser%is_at_end()) then
+            lookahead = parser%peek()
+            if (lookahead%kind == TK_KEYWORD .and. &
+                to_lower(lookahead%text) == "if") then
+                token = parser%consume()
+            end if
+        end if
+
+        consumed = .true.
+    end function consume_end_if
+
+    ! Update if_node with body indices
+    subroutine update_if_node_bodies(arena, if_index, then_body_indices, &
+                                     elseif_indices, else_body_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: if_index
+        integer, allocatable, intent(in) :: then_body_indices(:)
+        integer, allocatable, intent(in) :: elseif_indices(:)
+        integer, allocatable, intent(in) :: else_body_indices(:)
+
+        integer :: i
+
+        if (.not. allocated(arena%entries(if_index)%node)) return
+
+        select type (node => arena%entries(if_index)%node)
+        type is (if_node)
+            if (allocated(then_body_indices)) then
+                node%then_body_indices = then_body_indices
+            end if
+            if (allocated(else_body_indices)) then
+                node%else_body_indices = else_body_indices
+            end if
+            if (allocated(elseif_indices)) then
+                if (size(elseif_indices) > 0 .and. &
+                    mod(size(elseif_indices), 2) == 0) then
+                    allocate (node%elseif_blocks(size(elseif_indices) / 2))
+                    do i = 1, size(elseif_indices) / 2
+                        node%elseif_blocks(i)%condition_index = &
+                            elseif_indices(2 * i - 1)
+                        node%elseif_blocks(i)%body_indices = &
+                            [elseif_indices(2 * i)]
+                    end do
+                end if
+            end if
+        end select
+    end subroutine update_if_node_bodies
+
+    ! Parse inline IF (no THEN keyword)
+    function parse_inline_if(parser, arena, condition_index, if_token, &
+                             then_token, parent_index) result(if_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: condition_index
+        type(token_t), intent(in) :: if_token
+        type(token_t), intent(in) :: then_token
+        integer, intent(in), optional :: parent_index
+        integer :: if_index
+
+        integer, allocatable :: then_body_indices(:), else_body_indices(:)
+        integer, allocatable :: elseif_indices(:)
+        logical :: inline_has_continuation
+
+        ! Handle EOF case
+        if (then_token%kind == TK_EOF .or. parser%is_at_end()) then
+            if_index = handle_eof_inline_if(parser, condition_index)
+            return
+        end if
+
+        ! Check if this looks like a malformed multi-line if construct
+        inline_has_continuation = .false.
+        if (detect_malformed_block_if(parser, inline_has_continuation)) then
+            write (error_unit, '(A)') &
+                "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
+            call parser%error( &
+                "IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
+                "Use 'IF (condition) THEN' for multi-line blocks")
+            if_index = 0
+            return
+        end if
+
+        ! Valid one-line if statement (no then keyword)
+        allocate (then_body_indices(1))
+        then_body_indices(1) = 0
+        call parse_inline_if_body(parser, arena, inline_has_continuation, &
+                                  then_body_indices)
+
+        ! Create if node with no elseif/else blocks
+        allocate (elseif_indices(0))
+        allocate (else_body_indices(0))
+        if_index = push_if(arena, condition_index, then_body_indices, &
+                           elseif_indices=elseif_indices, &
+                           else_body_indices=else_body_indices, &
+                           line=if_token%line, column=if_token%column, &
+                           parent_index=parent_index)
+    end function parse_inline_if
+
+    ! Handle EOF case for inline IF
+    function handle_eof_inline_if(parser, condition_index) result(if_index)
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(in) :: condition_index
+        integer :: if_index
+
+        if_index = 0
+        if (condition_index > 0) then
+            write (error_unit, '(A)') &
+                "  Suggestion: Use 'IF (condition) THEN' for multi-line blocks"
+            call parser%error( &
+                "IF construct Missing 'then' keyword (e.g., 'if x > 0' needs 'then')", &
+                "Use 'IF (condition) THEN' for multi-line blocks")
+        end if
+    end function handle_eof_inline_if
+
+    ! Detect if current position looks like a malformed block IF
+    function detect_malformed_block_if(parser, inline_has_continuation) &
+        result(is_malformed)
+        type(parser_state_t), intent(in) :: parser
+        logical, intent(inout) :: inline_has_continuation
+        logical :: is_malformed
+
+        type(token_t) :: check_tok
+        integer :: check_idx
+
+        is_malformed = .false.
+        check_idx = parser%current_token
+
+        do while (check_idx <= size(parser%tokens))
+            check_tok = parser%tokens(check_idx)
+
+            ! Check for line continuation character
+            if (check_tok%kind == TK_OPERATOR .and. check_tok%text == "&") then
+                inline_has_continuation = .true.
+                check_idx = check_idx + 1
+                cycle
+            end if
+
+            ! If we hit a newline, peek ahead to see if there's code after it
+            if (check_tok%kind == TK_NEWLINE) then
+                is_malformed = check_newline_continuation(parser%tokens, check_idx, &
+                                                          inline_has_continuation)
+                exit
+            end if
+
+            ! Skip whitespace and comments
+            if (check_tok%kind == TK_WHITESPACE .or. &
+                check_tok%kind == TK_COMMENT) then
+                check_idx = check_idx + 1
+                cycle
+            end if
+
+            ! Check for "end if" or "endif" later in the code
+            if (check_tok%kind == TK_KEYWORD) then
+                if (to_lower(check_tok%text) == "end" .or. &
+                    to_lower(check_tok%text) == "endif") then
+                    is_malformed = .true.
+                    exit
+                end if
+            end if
+
+            ! Found a non-whitespace token on same line, might be valid one-liner
+            exit
+        end do
+    end function detect_malformed_block_if
+
+    ! Check if code after newline indicates continuation or block IF
+    function check_newline_continuation(tokens, check_idx, inline_has_continuation) &
+        result(looks_like_block_if)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: check_idx
+        logical, intent(inout) :: inline_has_continuation
+        logical :: looks_like_block_if
+
+        integer :: peek_idx
+        type(token_t) :: peek_tok
+        logical :: found_code_after_newline
+
+        looks_like_block_if = .false.
+        found_code_after_newline = .false.
+        peek_idx = check_idx + 1
+
+        ! Skip any following whitespace/comments/newlines
+        do while (peek_idx <= size(tokens))
+            peek_tok = tokens(peek_idx)
+            if (peek_tok%kind == TK_WHITESPACE .or. &
+                peek_tok%kind == TK_COMMENT .or. &
+                peek_tok%kind == TK_NEWLINE) then
+                peek_idx = peek_idx + 1
+                cycle
+            end if
+            ! Found a non-trivia token
+            if (peek_tok%kind /= TK_EOF) then
+                found_code_after_newline = .true.
+            end if
+            exit
+        end do
+
+        if (found_code_after_newline) then
+            inline_has_continuation = .true.
+        end if
+
+        ! If there's code immediately after newline, it's likely a continued inline IF
+        ! Otherwise, it looks like a block IF
+        if (.not. found_code_after_newline .and. .not. inline_has_continuation) then
+            looks_like_block_if = .true.
+        end if
+    end function check_newline_continuation
+
+    ! Parse the body of an inline IF statement
+    subroutine parse_inline_if_body(parser, arena, inline_has_continuation, &
+                                    then_body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in) :: inline_has_continuation
+        integer, allocatable, intent(inout) :: then_body_indices(:)
+
+        integer :: stmt_start, stmt_end
+        integer, allocatable :: stmt_indices(:)
+        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t) :: tok
+        type(statement_callbacks_t) :: callbacks
+
+        call skip_inline_if_leading_tokens(parser, inline_has_continuation)
+        stmt_start = parser%current_token
+        if (stmt_start <= size(parser%tokens)) then
+            stmt_end = find_statement_end(parser%tokens, stmt_start)
+            if (stmt_end < stmt_start) stmt_end = stmt_start
+            call allocate_stmt_tokens_with_eof(stmt_tokens, parser%tokens, &
+                                               stmt_start, stmt_end)
+
+            callbacks = build_if_body_callbacks()
+            stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                                                      callbacks=callbacks)
+            if (allocated(stmt_indices)) then
+                if (size(stmt_indices) > 0 .and. stmt_indices(1) > 0) then
+                    then_body_indices(1) = stmt_indices(1)
+                end if
+            end if
+
+            if (stmt_end < size(parser%tokens)) then
+                parser%current_token = stmt_end + 1
+            else
+                parser%current_token = size(parser%tokens)
+            end if
+        end if
+
+        ! Advance parser to end of statement to prevent re-parsing
+        do while (.not. parser%is_at_end())
+            tok = parser%peek()
+            if (tok%kind == TK_NEWLINE .or. tok%kind == TK_EOF) exit
+            tok = parser%consume()
+        end do
+    end subroutine parse_inline_if_body
 
     ! Parse if condition (handles parentheses if present)
     function parse_if_condition(parser, arena) result(condition_index)
