@@ -137,6 +137,81 @@ contains
         end if
     end function check_submodule_end
 
+    function handle_specification_statement(parser, arena, prefix_buffer, &
+                                            declaration_indices) result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        logical :: handled
+        type(token_t) :: token
+        integer :: stmt_index
+
+        handled = .false.
+        token = parser%peek()
+
+        if (token%kind == TK_KEYWORD) then
+            if (keyword_should_parse_as_identifier(token, parser)) then
+                call handle_submodule_identifier_assignment(parser, arena, &
+                                                            declaration_indices)
+                handled = .true.
+                return
+            end if
+
+            stmt_index = parse_submodule_declaration_statement(parser, arena, &
+                                                               prefix_buffer)
+            if (stmt_index > 0) then
+                declaration_indices = [declaration_indices, stmt_index]
+                handled = .true.
+            else if (stmt_index == -1) then
+                block
+                    integer, allocatable :: extra_indices(:)
+                    extra_indices = take_implicit_additional_indices()
+                    if (size(extra_indices) > 0) then
+                        declaration_indices = [declaration_indices, extra_indices]
+                    end if
+                end block
+                handled = .true.
+            end if
+        else if (token%kind == TK_IDENTIFIER) then
+            call handle_submodule_identifier_assignment(parser, arena, &
+                                                        declaration_indices)
+            handled = .true.
+        end if
+    end function handle_specification_statement
+
+    function handle_contains_section_statement(parser, arena, prefix_buffer, &
+                                               procedure_indices, lowered) &
+        result(handled)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, allocatable, intent(inout) :: procedure_indices(:)
+        character(len=*), intent(in) :: lowered
+        logical :: handled
+        type(token_t) :: token
+        integer :: stmt_index
+
+        handled = .false.
+        token = parser%peek()
+
+        stmt_index = parse_contains_section_item_submodule(parser, arena, &
+                                                           prefix_buffer)
+        if (stmt_index > 0) then
+            procedure_indices = [procedure_indices, stmt_index]
+            handled = .true.
+        else if (stmt_index == -1) then
+            handled = .true.
+        else
+            if (.not. (token%kind == TK_KEYWORD .and. &
+                       (trim(lowered) == "function" .or. &
+                        trim(lowered) == "subroutine"))) then
+                token = parser%consume()
+                handled = .true.
+            end if
+        end if
+    end function handle_contains_section_statement
+
     subroutine parse_submodule_body(parser, arena, prefix_buffer, &
                                     has_contains, in_contains_section, &
                                     declaration_indices, procedure_indices)
@@ -147,7 +222,6 @@ contains
         integer, allocatable, intent(inout) :: declaration_indices(:)
         integer, allocatable, intent(inout) :: procedure_indices(:)
         type(token_t) :: token
-        integer :: stmt_index
         character(len=:), allocatable :: lowered
 
         do while (.not. parser%is_at_end())
@@ -171,60 +245,19 @@ contains
                 end if
             end if
 
-            if (.not. in_contains_section) then
-                if (token%kind == TK_KEYWORD) then
-                    if (keyword_should_parse_as_identifier(token, parser)) then
-                        call handle_submodule_identifier_assignment(parser, arena, &
-                                                                    declaration_indices)
-                        cycle
-                    end if
-
-                    stmt_index = parse_submodule_declaration_statement(parser, &
-                                                                       arena, &
-                                                                       prefix_buffer)
-                    if (stmt_index > 0) then
-                        declaration_indices = [declaration_indices, stmt_index]
-                        cycle
-                    else if (stmt_index == -1) then
-                        block
-                            integer, allocatable :: extra_indices(:)
-                            extra_indices = take_implicit_additional_indices()
-                            if (size(extra_indices) > 0) then
-                                declaration_indices = [declaration_indices, &
-                                                       extra_indices]
-                            end if
-                        end block
-                        cycle
-                    end if
-                else if (token%kind == TK_IDENTIFIER) then
-                    call handle_submodule_identifier_assignment(parser, arena, &
-                                                                declaration_indices)
-                    cycle
-                end if
-            end if
-
             if (token%kind == TK_COMMENT .or. token%kind == TK_NEWLINE) then
                 token = parser%consume()
                 cycle
             end if
 
-            if (in_contains_section) then
-                stmt_index = parse_contains_section_item_submodule(parser, arena, &
-                                                                   prefix_buffer)
-                if (stmt_index > 0) then
-                    procedure_indices = [procedure_indices, stmt_index]
-                    cycle
-                else if (stmt_index == -1) then
-                    cycle
-                end if
-
-                if (.not. (token%kind == TK_KEYWORD .and. &
-                           (trim(lowered) == "function" .or. trim(lowered) == &
-                            "subroutine"))) then
-                    token = parser%consume()
-                end if
-            else
+            if (.not. in_contains_section) then
+                if (handle_specification_statement(parser, arena, prefix_buffer, &
+                                                   declaration_indices)) cycle
                 token = parser%consume()
+            else
+                if (handle_contains_section_statement(parser, arena, prefix_buffer, &
+                                                      procedure_indices, lowered)) &
+                    cycle
             end if
         end do
     end subroutine parse_submodule_body
