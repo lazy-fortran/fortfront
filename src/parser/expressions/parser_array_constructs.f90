@@ -2,6 +2,7 @@ module parser_array_constructs_module
     ! Parser module for WHERE and ASSOCIATE constructs
     use lexer_core, only: token_t, TK_EOF, TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, &
                           TK_COMMENT, TK_WHITESPACE, TK_IDENTIFIER
+    use string_utils_mod, only: to_lower
     use parser_state_module
     use parser_expressions_module, only: parse_expression, &
                                          parse_expression_until
@@ -461,11 +462,10 @@ contains
             token = parser%peek()
 
             ! Check for 'end associate'
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == &
+                        TK_KEYWORD .and. to_lower(parser%tokens(parser%current_token + 1)%text) == &
                         "associate") then
                         token = parser%consume()  ! consume 'end'
                         token = parser%consume()  ! consume 'associate'
@@ -574,7 +574,7 @@ contains
         line = token%line
         column = token%column
 
-        if (token%kind /= TK_KEYWORD .or. token%text /= "block") then
+        if (token%kind /= TK_KEYWORD .or. to_lower(token%text) /= "block") then
             block_index = 0
             return
         end if
@@ -585,10 +585,10 @@ contains
                                             block_end_keywords, callbacks)
 
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "end") then
+        if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "end") then
             token = parser%consume()
             token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. token%text == "block") then
+            if (token%kind == TK_KEYWORD .and. to_lower(token%text) == "block") then
                 token = parser%consume()
             end if
         end if
