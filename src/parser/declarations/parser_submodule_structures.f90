@@ -4,7 +4,7 @@ module parser_submodule_structures_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE, to_lower
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_submodule_structured
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t

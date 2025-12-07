@@ -486,8 +486,8 @@ contains
             call append_debug(this, "return_type: "//node%return_type)
         end if
         if (allocated(node%param_indices)) then
-            call append_debug(this, &
-                             "param_indices: "//int_array_to_string(node%param_indices))
+            call append_debug(this, "param_indices: "// &
+                              int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_function_def
@@ -499,8 +499,8 @@ contains
         call append_debug(this, "subroutine_def: "//node%name)
         this%indent_level = this%indent_level + 1
         if (allocated(node%param_indices)) then
-            call append_debug(this, &
-                             "param_indices: "//int_array_to_string(node%param_indices))
+            call append_debug(this, "param_indices: "// &
+                              int_array_to_string(node%param_indices))
         end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_subroutine_def
@@ -553,8 +553,8 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(if_node), intent(in) :: node
 
-        call append_debug(this, &
-                        "if_statement: condition="//int_to_string(node%condition_index))
+        call append_debug(this, "if_statement: condition="// &
+                          int_to_string(node%condition_index))
     end subroutine debug_visit_if
 
     subroutine debug_visit_do_loop(this, node)
