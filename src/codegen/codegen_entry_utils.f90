@@ -33,7 +33,11 @@ contains
 
         if (len_trim(clean_params) == 0) return
 
-        if (.not. allocated(param_list)) allocate (param_list(10))
+        if (.not. allocated(param_list)) then
+            allocate (param_list(10))
+            param_list = ""
+            num_params = 0
+        end if
 
         do while (len_trim(clean_params) > 0)
             comma_pos = index(clean_params, ',')
@@ -66,43 +70,54 @@ contains
         temp = param_list
         deallocate (param_list)
         allocate (param_list(new_size * 2))
+        param_list = ""
         param_list(1:old_size) = temp
+        deallocate (temp)
     end subroutine expand_param_list
 
     logical function is_entry_parameter_decl(decl, entry_params, num_params) &
         result(is_entry_param)
         type(declaration_node), intent(in) :: decl
-        character(len=64), intent(in) :: entry_params(:)
+        character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params
         integer :: i
+        integer :: max_params
 
         is_entry_param = .false.
 
-        if (num_params == 0) return
+        if (.not. allocated(entry_params)) return
+        if (num_params <= 0) return
+        max_params = min(num_params, size(entry_params))
+        if (max_params <= 0) return
 
         if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
             do i = 1, size(decl%var_names)
                 if (is_in_entry_params(decl%var_names(i), entry_params, &
-                                       num_params)) then
+                                       max_params)) then
                     is_entry_param = .true.
                     return
                 end if
             end do
         else if (allocated(decl%var_name)) then
             is_entry_param = is_in_entry_params(decl%var_name, entry_params, &
-                                                num_params)
+                                                max_params)
         end if
     end function is_entry_parameter_decl
 
     logical function is_in_entry_params(var_name, entry_params, num_params) &
         result(found)
         character(len=*), intent(in) :: var_name
-        character(len=64), intent(in) :: entry_params(:)
+        character(len=64), allocatable, intent(in) :: entry_params(:)
         integer, intent(in) :: num_params
         integer :: i
+        integer :: max_params
 
         found = .false.
-        do i = 1, num_params
+        if (.not. allocated(entry_params)) return
+        if (num_params <= 0) return
+
+        max_params = min(num_params, size(entry_params))
+        do i = 1, max_params
             if (trim(var_name) == trim(entry_params(i))) then
                 found = .true.
                 return

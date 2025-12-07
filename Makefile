@@ -1,4 +1,4 @@
-.PHONY: all build test test-small-stack check-duplication check-root-cleanliness clean help
+.PHONY: all build test test-small-stack check-duplication check-root-cleanliness clean help libfortfront.a
 
 # Default target
 all: build

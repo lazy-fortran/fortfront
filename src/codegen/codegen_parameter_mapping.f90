@@ -105,18 +105,28 @@ contains
             type is (declaration_node)
                 if (body_node%is_multi_declaration .and. &
                     allocated(body_node%var_names)) then
+                    if (body_node%has_intent) then
+                        intent_str = body_node%intent
+                    else
+                        intent_str = ""
+                    end if
                     do name_idx = 1, size(body_node%var_names)
                         if (len_trim(body_node%var_names(name_idx)) == 0) cycle
                         call update_parameter_entry(param_map, &
                                                     body_node%var_names(name_idx), &
-                                                    body_node%intent, &
+                                                    intent_str, &
                                                     body_node%has_intent, &
                                                     body_node%is_optional, &
                                                     body_node%is_target)
                     end do
                 else
+                    if (body_node%has_intent) then
+                        intent_str = body_node%intent
+                    else
+                        intent_str = ""
+                    end if
                     call update_parameter_entry(param_map, body_node%var_name, &
-                                                body_node%intent, &
+                                                intent_str, &
                                                 body_node%has_intent, &
                                                 body_node%is_optional, &
                                                 body_node%is_target)
@@ -209,7 +219,7 @@ contains
         end select
     end subroutine traverse_mutation_nodes
 
-    subroutine traverse_index_array(arena, indices, param_map)
+    recursive subroutine traverse_index_array(arena, indices, param_map)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: indices(:)
         type(parameter_info_t), intent(inout) :: param_map(:)

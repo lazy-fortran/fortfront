@@ -395,14 +395,17 @@
         type(error_stop_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: code_expr
 
-        ! Generate proper error termination with exit call
+        ! Generate standard-compliant ERROR STOP statement
         if (allocated(node%error_message)) then
-            code = "call exit(2) ! " // node%error_message
-        else if (node%error_code_index > 0) then
-            code = "call exit(2) ! Error termination with code"
+            code = "error stop " // node%error_message
+        else if (node%error_code_index > 0 .and. &
+                 node%error_code_index <= arena%size) then
+            code_expr = generate_code_from_arena(arena, node%error_code_index)
+            code = "error stop " // trim(code_expr)
         else
-            code = "call exit(2) ! Error termination"
+            code = "error stop"
         end if
 
         call prepend_stmt_label(code, node%stmt_label)
