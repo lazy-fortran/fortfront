@@ -251,19 +251,25 @@ contains
                                 is_windows=is_windows)
 
         has_error = .not. result%success
+        if (has_error .and. .not. expect_fail) then
+            if (index(trim(result%error_message), 'roundtrip output differs') > 0) then
+                call print_roundtrip_difference(basename_str, result%first_output, &
+                                                result%second_output)
+            end if
+        end if
+
         call finalize_fixture_result(basename_str, expect_fail, has_error, &
-                                     trim(result%error_message), result, &
+                                     trim(result%error_message), &
                                      pass_count, fail_count, xfail_count, &
                                      xpass_count)
     end subroutine test_single_fixture
 
     subroutine finalize_fixture_result(name, expect_fail, has_error, error_detail, &
-                                       result, pass_count, fail_count, &
-                                       xfail_count, xpass_count)
+                                       pass_count, fail_count, xfail_count, &
+                                       xpass_count)
         character(len=*), intent(in) :: name
         logical, intent(in) :: expect_fail, has_error
         character(len=*), intent(in) :: error_detail
-        type(roundtrip_result_t), intent(in) :: result
         integer, intent(inout) :: pass_count, fail_count, xfail_count, xpass_count
 
         if (has_error) then
@@ -271,9 +277,6 @@ contains
                 print *, "XFAIL"
                 xfail_count = xfail_count + 1
             else
-                if (index(trim(error_detail), 'roundtrip output differs') > 0) then
-                    call print_roundtrip_difference(name, result)
-                end if
                 if (len_trim(error_detail) > 0) then
                     print *, "FAIL (", trim(error_detail), ")"
                 else
@@ -292,38 +295,40 @@ contains
         end if
     end subroutine finalize_fixture_result
 
-    subroutine print_roundtrip_difference(name, result)
+    subroutine print_roundtrip_difference(name, result_first_output, &
+                                          result_second_output)
         character(len=*), intent(in) :: name
-        type(roundtrip_result_t), intent(in) :: result
+        character(len=*), intent(in) :: result_first_output
+        character(len=*), intent(in) :: result_second_output
         integer :: first_len, second_len
         integer :: start_pos
 
         print *, "  Roundtrip difference for fixture: ", trim(name)
-        first_len = len_trim(result%first_output)
-        second_len = len_trim(result%second_output)
+        first_len = len_trim(result_first_output)
+        second_len = len_trim(result_second_output)
         print *, "  First output length: ", first_len
         print *, "  Second output length: ", second_len
         if (first_len > 0) then
             print *, "  First output (prefix):"
-            print *, trim(result%first_output(1:min(first_len, 200)))
+            print *, trim(result_first_output(1:min(first_len, 200)))
             print *, "  First output (full):"
-            print *, trim(result%first_output)
+            print *, trim(result_first_output)
         end if
         if (second_len > 0) then
             print *, "  Second output (prefix):"
-            print *, trim(result%second_output(1:min(second_len, 200)))
+            print *, trim(result_second_output(1:min(second_len, 200)))
             print *, "  Second output (full):"
-            print *, trim(result%second_output)
+            print *, trim(result_second_output)
         end if
         if (first_len > 0) then
             start_pos = max(1, first_len - 199)
             print *, "  First output (suffix):"
-            print *, trim(result%first_output(start_pos:first_len))
+            print *, trim(result_first_output(start_pos:first_len))
         end if
         if (second_len > 0) then
             start_pos = max(1, second_len - 199)
             print *, "  Second output (suffix):"
-            print *, trim(result%second_output(start_pos:second_len))
+            print *, trim(result_second_output(start_pos:second_len))
         end if
     end subroutine print_roundtrip_difference
 
