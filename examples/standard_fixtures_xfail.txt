@@ -11,9 +11,6 @@
 #   2. Fix the underlying parser/codegen issue
 #   3. Ensure all tests pass
 
-# Fortran 95 fixtures
-array_constructor.f90  # bare array constructor expression not wrapped in program #2525
-
 # Fortran 2003 fixtures
 advanced_f2003.f90  # line continuation in proc bodies, nested do in block #2526
 

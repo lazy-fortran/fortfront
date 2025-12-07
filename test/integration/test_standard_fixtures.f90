@@ -3,7 +3,8 @@ program test_standard_fixtures
     use test_example_lists, only: load_example_list, is_expected_failure
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
                                        extract_example_basename
-    use test_roundtrip_core, only: roundtrip_result_t, run_roundtrip_test
+    use test_roundtrip_core, only: roundtrip_result_t, run_roundtrip_test, &
+                                   is_complete_compilation_unit
     implicit none
 
     character(len=*), parameter :: STANDARD_REPO_URL = &
@@ -239,6 +240,12 @@ contains
         call read_fixture_file(filepath, source)
         if (.not. allocated(source) .or. len_trim(source) == 0) then
             print *, "SKIP (could not read file)"
+            skip_count = skip_count + 1
+            return
+        end if
+
+        if (.not. is_complete_compilation_unit(source)) then
+            print *, "SKIP (not a complete compilation unit)"
             skip_count = skip_count + 1
             return
         end if

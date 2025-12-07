@@ -167,11 +167,9 @@ contains
 
         if (index(lower_source, 'program ') > 0) then
             is_complete_compilation_unit = .true.
-        else if (index(lower_source, 'module ') > 0) then
-            if (index(lower_source, 'submodule ') == 0) then
-                is_complete_compilation_unit = .true.
-            end if
         else if (index(lower_source, 'submodule ') > 0) then
+            is_complete_compilation_unit = .true.
+        else if (index(lower_source, 'module ') > 0) then
             is_complete_compilation_unit = .true.
         else if (index(lower_source, 'block data') > 0) then
             is_complete_compilation_unit = .true.
