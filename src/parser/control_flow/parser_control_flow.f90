@@ -4,7 +4,8 @@ module parser_control_flow_module
 
     ! Re-export IF constructs
     use parser_if_constructs_module, only: &
-        parse_if, parse_if_condition, parse_if_body, parse_elseif_block
+        parse_if, parse_if_condition, parse_elseif_block
+    use parser_if_body_module, only: parse_if_body
 
     ! Re-export DO constructs
     use parser_do_constructs_module, only: &
