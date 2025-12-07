@@ -372,16 +372,53 @@ contains
         lhs%has_contains = rhs%has_contains
     end subroutine module_assign
 
-    ! Stub implementations for submodule_node
     subroutine submodule_accept(this, visitor)
         class(submodule_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
+        ! Submodule nodes are not handled by the legacy ast_visitor_base_t
+        ! interface. Fail fast if this entry point is used.
+        error stop "submodule_accept is not supported for ast_visitor_base_t"
     end subroutine submodule_accept
 
     subroutine submodule_to_json(this, json, parent)
         class(submodule_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: node
+        character(len=:), allocatable :: parent_id
+
+        call json%create_object(node, "")
+        call json%add(parent, node)
+
+        call json%add(node, "type", "submodule")
+
+        if (allocated(this%name)) then
+            call json%add(node, "name", this%name)
+        else
+            call json%add(node, "name", "")
+        end if
+
+        if (allocated(this%parent_identifier)) then
+            parent_id = this%parent_identifier
+        else
+            parent_id = ""
+        end if
+        call json%add(node, "parent_identifier", parent_id)
+
+        call json%add(node, "has_contains", this%has_contains)
+
+        if (allocated(this%declaration_indices)) then
+            call json%add(node, "declaration_indices", &
+                          this%declaration_indices)
+        end if
+
+        if (allocated(this%procedure_indices)) then
+            call json%add(node, "procedure_indices", &
+                          this%procedure_indices)
+        end if
+
+        call json%add(node, "line", this%line)
+        call json%add(node, "column", this%column)
     end subroutine submodule_to_json
 
     subroutine submodule_assign(lhs, rhs)
