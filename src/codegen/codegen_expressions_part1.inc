@@ -200,7 +200,7 @@
     end subroutine type_kind_to_string
 
     ! Generate code for binary operations
-    function generate_code_binary_op(arena, node, node_index) result(code)
+    recursive function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         integer, intent(in) :: node_index
