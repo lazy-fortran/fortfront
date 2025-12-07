@@ -24,4 +24,3 @@ basic_submodule.f90  # submodule construct not fully supported #2529
 nested_submodule_reference.f90  # submodule construct not fully supported #2529
 submodule_with_procedures.f90  # submodule construct not fully supported #2529
 enhanced_intrinsics.f90  # roundtrip output differs - F2008 intrinsics #2530
-error_stop.f90  # error stop string literal roundtrip issue #2531
