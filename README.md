@@ -1,5 +1,7 @@
 # FortFront
 
+> **Note**: This project is experimental and subject to major changes. APIs may change without notice.
+
 A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
 ## Features
