@@ -1,4 +1,6 @@
-# FortFront
+# FortFront (Experimental)
+
+**Note:** This project is experimental. The main implementation of a Fortran variant for "lazy" developers is now in [LFortran](https://github.com/lfortran/lfortran) via its interactive mode and planned `infer` mode.
 
 A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
@@ -91,7 +93,6 @@ end if
 
 ### Documentation
 See issue #1642 for the full API specification and docs/LIBRARY_USAGE.md for worked examples.
-
 ## Links
 - Fortrun integration: https://github.com/lazy-fortran/fortrun
 - Examples: `examples/`
