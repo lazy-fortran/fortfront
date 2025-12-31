@@ -208,13 +208,15 @@ contains
         ! Combine error codes (if both present, use the more severe one)
         if (this%severity >= other%severity) then
             combined%error_code = this%error_code
-            if (allocated(this%error_message)) combined%error_message = this%error_message
+            if (allocated(this%error_message)) combined%error_message = &
+                this%error_message
             if (allocated(this%component)) combined%component = this%component
             if (allocated(this%context)) combined%context = this%context
             if (allocated(this%suggestion)) combined%suggestion = this%suggestion
         else
             combined%error_code = other%error_code
-            if (allocated(other%error_message)) combined%error_message = other%error_message
+            if (allocated(other%error_message)) combined%error_message = &
+                other%error_message
             if (allocated(other%component)) combined%component = other%component
             if (allocated(other%context)) combined%context = other%context
             if (allocated(other%suggestion)) combined%suggestion = other%suggestion
@@ -242,7 +244,8 @@ contains
         res%severity = ERROR_INFO
     end function success_result
 
-    function create_error_result(message, code, component, context, suggestion) result(res)
+    function create_error_result(message, code, component, context, suggestion) &
+        result(res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -299,9 +302,11 @@ contains
         case (ERROR_WARNING)
             error_result = warning_result(message, code, component, context, suggestion)
         case (ERROR_CRITICAL)
-            error_result = critical_result(message, code, component, context, suggestion)
+            error_result = critical_result(message, code, component, context, &
+                                           suggestion)
         case default
-            error_result = create_error_result(message, code, component, context, suggestion)
+            error_result = create_error_result(message, code, component, context, &
+                                               suggestion)
         end select
 
         call this%add_result(error_result)

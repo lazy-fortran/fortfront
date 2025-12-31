@@ -219,7 +219,7 @@ contains
                 return
             end if
 
-            ! Check for control characters (except newline and tab which are handled elsewhere)
+     ! Check for control characters (except newline and tab which are handled elsewhere)
             if (ichar(c) < 32 .and. ichar(c) /= 9 .and. ichar(c) /= 10) then
                 has_invalid = .true.
                 return

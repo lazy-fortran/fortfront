@@ -76,7 +76,8 @@ contains
 
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER) then
-            stmt_index = push_literal(arena, "! Error: expected subroutine name after 'call'", &
+            stmt_index = push_literal(arena, &
+                                     "! Error: expected subroutine name after 'call'", &
                                       LITERAL_STRING, line, column)
             return
         end if
@@ -148,7 +149,8 @@ contains
             allocate (arg_indices(0))
         end if
 
-        stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, line, column)
+        stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
+                                          line, column)
     end function parse_call_statement
 
 end module parser_call_module

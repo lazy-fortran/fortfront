@@ -131,7 +131,8 @@ contains
         class(parser_state_t), intent(in) :: this
         type(token_t) :: current_token
 
-        if (associated(this%tokens) .and. this%current_token >= 1 .and. this%current_token <= size(this%tokens)) then
+        if (associated(this%tokens) .and. this%current_token >= 1 .and. &
+            this%current_token <= size(this%tokens)) then
             current_token = this%tokens(this%current_token)
         else
             ! Return EOF token

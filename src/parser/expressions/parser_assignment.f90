@@ -6,7 +6,7 @@ module parser_assignment_module
     use parser_expressions_module, only: parse_range, parse_logical_eqv
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_pointer_assignment, &
-                            push_identifier, push_literal, push_complex_literal
+                           push_identifier, push_literal, push_complex_literal
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     use parser_assignment_shared_module, only: parse_multi_variable_assignment_core
     implicit none
@@ -70,7 +70,8 @@ contains
                     if (value_index > 0) then
                         stmt_index = push_pointer_assignment(arena, target_index, &
                                                              value_index, &
-                                                             id_token%line, id_token%column)
+                                                             id_token%line, &
+                                                             id_token%column)
                     end if
                 case ("(", "%")
                     block
@@ -133,11 +134,13 @@ contains
                         if (assignment_op == "=>") then
                             stmt_index = push_pointer_assignment(arena, target_index, &
                                                                  value_index, &
-                                                                 id_token%line, id_token%column)
+                                                                 id_token%line, &
+                                                                 id_token%column)
                         else
                             stmt_index = push_assignment(arena, target_index, &
                                                          value_index, &
-                                                         id_token%line, id_token%column, &
+                                                         id_token%line, &
+                                                         id_token%column, &
                                                          operator_text=assignment_op)
                         end if
                     end if

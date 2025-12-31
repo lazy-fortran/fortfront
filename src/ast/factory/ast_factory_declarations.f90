@@ -59,7 +59,8 @@ contains
         end if
     end subroutine assign_dimension_metadata
 
-    pure logical function resolve_optional_flag(optional_value, default_value) result(flag)
+    pure logical function resolve_optional_flag(optional_value, default_value) &
+        result(flag)
         logical, intent(in), optional :: optional_value
         logical, intent(in) :: default_value
 
@@ -288,7 +289,8 @@ contains
     function push_parameter_declaration(arena, name, type_name, kind_value, &
                                         intent_value, is_optional, is_target, &
                                         dimension_indices, line, column, &
-                                        parent_index, character_length_expr) result(param_index)
+                                        parent_index, character_length_expr) &
+        result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value

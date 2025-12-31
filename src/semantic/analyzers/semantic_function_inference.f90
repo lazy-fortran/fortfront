@@ -425,8 +425,8 @@ contains
     end subroutine process_where_node
 
     recursive subroutine process_select_case_node(arena, stmt, result_name, &
-                                                   aliases, param_names, &
-                                                   param_types, selected, fallback)
+                                                  aliases, param_names, &
+                                                  param_types, selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         type(select_case_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -439,7 +439,7 @@ contains
 
         if (allocated(stmt%case_indices)) then
             do i = 1, size(stmt%case_indices)
-            call accumulate_result_assignments(arena, stmt%case_indices(i), &
+                call accumulate_result_assignments(arena, stmt%case_indices(i), &
                                                    result_name, aliases, &
                                                    param_names, param_types, &
                                                    selected, fallback)
@@ -451,8 +451,8 @@ contains
     end subroutine process_select_case_node
 
     recursive subroutine process_select_type_node(arena, stmt, result_name, &
-                                                   aliases, param_names, &
-                                                   param_types, selected, fallback)
+                                                  aliases, param_names, &
+                                                  param_types, selected, fallback)
         type(ast_arena_t), intent(in) :: arena
         type(select_type_node), intent(in) :: stmt
         character(len=*), intent(in) :: result_name
@@ -518,11 +518,13 @@ contains
             if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
-            ! Issue #2066 vs scalar accumulation: distinguish array operations from scalar
-            ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to scalar
+          ! Issue #2066 vs scalar accumulation: distinguish array operations from scalar
+          ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to scalar
             ! If RHS is whole-array operation (e.g., x * x), keep as array
-            if (candidate%kind == TARRAY .and. .not. is_array_literal_node(arena, stmt%value_index)) then
-                if (expression_uses_subscripted_params(arena, stmt%value_index, param_names)) then
+            if (candidate%kind == TARRAY .and. .not. is_array_literal_node(arena, &
+                                                                 stmt%value_index)) then
+                if (expression_uses_subscripted_params(arena, stmt%value_index, &
+                                                       param_names)) then
                     candidate = safe_peel_array_to_base(candidate)
                 end if
             end if
@@ -550,7 +552,9 @@ contains
         end select
     end function is_array_literal_node
 
-    recursive function expression_uses_subscripted_params(arena, expr_index, param_names) result(uses_subscripts)
+    recursive function expression_uses_subscripted_params(arena, expr_index, &
+                                                          param_names) &
+                                                              result(uses_subscripts)
         use ast_nodes_core, only: call_or_subscript_node, binary_op_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
@@ -576,9 +580,13 @@ contains
             end if
         type is (binary_op_node)
             ! Recursively check left and right sides
-            uses_subscripts = expression_uses_subscripted_params(arena, node%left_index, param_names)
+            uses_subscripts = expression_uses_subscripted_params(arena, &
+                                                                 node%left_index, &
+                                                                     param_names)
             if (uses_subscripts) return
-            uses_subscripts = expression_uses_subscripted_params(arena, node%right_index, param_names)
+            uses_subscripts = expression_uses_subscripted_params(arena, &
+                                                                 node%right_index, &
+                                                                     param_names)
         end select
     end function expression_uses_subscripted_params
 

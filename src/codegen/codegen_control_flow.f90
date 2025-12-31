@@ -384,7 +384,7 @@ contains
                         end if
                     end if
                 class default
-                    ! If the default entry is not a case_default_node, fall back to direct generation
+       ! If the default entry is not a case_default_node, fall back to direct generation
                     body_code = generate_code_from_arena(arena, node%default_index)
                     if (len(body_code) > 0) then
                         code = code // new_line('A') // body_code
@@ -514,7 +514,7 @@ contains
                             code = code // "rank (*)"
                         else if (rank_node%rank_value >= 0) then
                             ! RANK (n)
-                            write(rank_str, '(I0)') rank_node%rank_value
+                            write (rank_str, '(I0)') rank_node%rank_value
                             code = code // "rank (" // trim(rank_str) // ")"
                         end if
 

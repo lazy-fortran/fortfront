@@ -56,7 +56,8 @@ contains
                         operator_symbol = trim(to_lower(token%text))
                         token = parser%consume()
                         token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                        if (token%kind == TK_OPERATOR .and. trim(token%text) &
+                            == ")") then
                             token = parser%consume()
                         end if
                     end if

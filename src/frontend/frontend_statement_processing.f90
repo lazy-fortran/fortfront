@@ -323,7 +323,8 @@ contains
                                 proc_index = parse_function_definition(parser, arena, &
                                                                        prefix_buffer)
                             end if
-                            if (proc_index > 0) body_indices = [body_indices, proc_index]
+                            if (proc_index > 0) body_indices = [body_indices, &
+                                                                proc_index]
                             deallocate (proc_tokens)
                             deallocate (prefix_list)
                             allocate (prefix_list(0))
@@ -483,8 +484,10 @@ contains
                         pos = pos + 1
                         do while (pos <= size(tokens) .and. paren_depth > 0)
                             if (tokens(pos)%kind == TK_OPERATOR) then
-                                if (tokens(pos)%text == "(") paren_depth = paren_depth + 1
-                                if (tokens(pos)%text == ")") paren_depth = paren_depth - 1
+                                if (tokens(pos)%text == "(") paren_depth = &
+                                    paren_depth + 1
+                                if (tokens(pos)%text == ")") paren_depth = &
+                                    paren_depth - 1
                             end if
                             pos = pos + 1
                         end do
@@ -562,7 +565,8 @@ contains
                                 do while (next_idx <= size(tokens))
                                     if (tokens(next_idx)%kind == TK_WHITESPACE) then
                                         next_idx = next_idx + 1
-                                    else if (tokens(next_idx)%kind == TK_IDENTIFIER .or. &
+                                    else if (tokens(next_idx)%kind == &
+                                             TK_IDENTIFIER .or. &
                                              tokens(next_idx)%kind == TK_KEYWORD) then
                                         end_pos = next_idx
                                         exit

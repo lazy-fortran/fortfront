@@ -36,7 +36,8 @@ contains
             case (TARRAY)
                 ! Arrays must have compatible element types and sizes
                 if (type_has_args(from_type) .and. type_has_args(to_type)) then
-                    assignable = is_assignable(type_get_arg(from_type, 1), type_get_arg(to_type, 1))
+                    assignable = is_assignable(type_get_arg(from_type, 1), &
+                                               type_get_arg(to_type, 1))
                     if (assignable .and. from_type%size > 0 .and. to_type%size > 0) then
                         assignable = (from_type%size == to_type%size)
                     end if
@@ -173,7 +174,8 @@ contains
 
         ! Check element types are compatible
         if (type_has_args(array1) .and. type_has_args(array2)) then
-            if (.not. is_assignable(type_get_arg(array1, 1), type_get_arg(array2, 1))) return
+            if (.not. is_assignable(type_get_arg(array1, 1), type_get_arg(array2, &
+                                                                          1))) return
         else
             return
         end if

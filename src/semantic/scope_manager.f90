@@ -3,7 +3,8 @@ module scope_manager
     use, intrinsic :: iso_fortran_env, only: error_unit
     use type_system_unified
     use identifier_table, only: identifier_table_t, identifier_table_init, &
-                                identifier_table_intern, identifier_table_find, identifier_id_kind
+                                identifier_table_intern, identifier_table_find, &
+                                identifier_id_kind
     use error_handling, only: result_t, create_error_result, &
                               success_result, ERROR_MEMORY
     implicit none
@@ -247,7 +248,7 @@ contains
                         ! Deep copy env via assignment (allocates and copies entries)
                         temp_scopes(i)%env = this%scopes(i)%env
                         call temp_scopes(i)%env%ensure_capacity(max(64, &
-                                                                    temp_scopes(i)%env%count))
+                                                              temp_scopes(i)%env%count))
                         if (associated(this%scopes(i)%identifiers)) then
                             temp_scopes(i)%identifiers => this%identifier_storage
                             temp_scopes(i)%env%identifiers => this%identifier_storage
@@ -275,7 +276,7 @@ contains
         this%scopes(this%depth)%env = new_scope%env
         this%scopes(this%depth)%env%identifiers => this%identifier_storage
         call this%scopes(this%depth)%env%ensure_capacity(max(64, &
-                                                             this%scopes(this%depth)%env%count))
+                                                     this%scopes(this%depth)%env%count))
 
     end subroutine stack_push_scope
 
@@ -322,7 +323,7 @@ contains
         if (this%depth > 0) then
             ! Ensure environment arrays exist for current scope
             call this%scopes(this%depth)%env%ensure_capacity(max(64, &
-                                                                 this%scopes(this%depth)%env%count + 1))
+                                                 this%scopes(this%depth)%env%count + 1))
             ! Use direct scope_define to avoid type-bound procedure issues with arrays
             call scope_define(this%scopes(this%depth), name, scheme)
         else

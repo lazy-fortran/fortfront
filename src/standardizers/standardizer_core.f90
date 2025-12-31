@@ -11,7 +11,8 @@ module standardizer_core
     use standardizer_program
     use standardizer_module
     use standardizer_types, only: string_result_t
-    use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
+    use standardizer_subprograms, only: wrap_function_in_program, &
+                                        wrap_subroutine_in_program
     use debug_trace, only: trace_enter, trace_leave
     use standardizer_parameter, only: set_standardizer_input_mode
     implicit none
@@ -78,8 +79,8 @@ contains
             if (.not. allocated(node%body_indices)) return
 
             ! CRITICAL: Copy indices before loop to prevent dangling pointer access
-            ! standardize_program calls split_multi_variable_declaration which modifies arena,
-            ! potentially invalidating the 'node' selector. Using a local copy prevents this.
+      ! standardize_program calls split_multi_variable_declaration which modifies arena,
+       ! potentially invalidating the 'node' selector. Using a local copy prevents this.
             block
                 integer, allocatable :: local_indices(:)
                 allocate (local_indices(size(node%body_indices)))
