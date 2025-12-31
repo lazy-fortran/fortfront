@@ -166,6 +166,7 @@ module fortfront
 
     ! Re-export utility functions from fortfront_utils
     use fortfront_utils, only: node_exists, get_node_type_at, get_node_location, &
+                               get_node_line, get_node_column, &
                                get_parent, get_next_sibling, get_previous_sibling, &
                                get_block_statements, is_last_in_block, is_block_node, &
                                get_node_type, find_nodes_by_type, ast_to_json, &
