@@ -79,7 +79,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: root_index, line, col
         character(len=*), parameter :: source = 'program test' // new_line('a') // &
-                                                'end program'
+                                       'end program'
 
         test_invalid_index = .true.
         print *, 'Testing invalid index handling...'
@@ -101,7 +101,7 @@ contains
 
         if (col /= 0) then
             print *, '  FAIL: get_node_column(999999) returned', col, &
-                     '(expected 0)'
+                '(expected 0)'
             test_invalid_index = .false.
             return
         end if
@@ -115,7 +115,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: root_index, line1, line2, col1, col2
         character(len=*), parameter :: source = 'program test' // new_line('a') // &
-                                                'end program'
+                                       'end program'
 
         test_type_bound_consistency = .true.
         print *, 'Testing consistency with type-bound procedures...'
@@ -133,14 +133,14 @@ contains
 
         if (line1 /= line2) then
             print *, '  FAIL: standalone vs type-bound line mismatch:', &
-                     line1, '/=', line2
+                line1, '/=', line2
             test_type_bound_consistency = .false.
             return
         end if
 
         if (col1 /= col2) then
             print *, '  FAIL: standalone vs type-bound column mismatch:', &
-                     col1, '/=', col2
+                col1, '/=', col2
             test_type_bound_consistency = .false.
             return
         end if
