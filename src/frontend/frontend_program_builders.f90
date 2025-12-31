@@ -10,6 +10,7 @@ module frontend_program_builders
         end_statement_node, comment_node, directive_node, blank_line_node
     use ast_factory, only: push_implicit_statement
     use standardizer_program, only: insert_contains_statement
+    use procedure_classification, only: procedure_has_entry_statement
     implicit none
     private
 
@@ -22,6 +23,7 @@ module frontend_program_builders
     public :: scan_multi_unit_program
     public :: create_program_from_bare_statements
     public :: merge_procedures_into_program
+    public :: filter_procs_with_entry
 
 contains
 
@@ -60,6 +62,10 @@ contains
                     end select
                 end do
             end if
+
+            ! Filter out procedures with ENTRY statements - they cannot be
+            ! contained in internal program procedures.
+            call filter_procs_with_entry(arena, proc_indices)
 
             if (size(proc_indices) > 0) then
                 if (size(main_stmts) == 0) return
@@ -505,5 +511,26 @@ contains
             is_host = .true.
         end select
     end function is_host_level_statement
+
+    subroutine filter_procs_with_entry(arena, proc_indices)
+        ! Remove procedures containing ENTRY statements from the list.
+        ! ENTRY statements cannot appear in contained (internal) procedures per
+        ! ISO/IEC 1539-1:2018 Section 15.6.2.6.
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(inout) :: proc_indices(:)
+        integer, allocatable :: filtered(:)
+        integer :: i
+
+        if (.not. allocated(proc_indices)) return
+        if (size(proc_indices) == 0) return
+
+        allocate (filtered(0))
+        do i = 1, size(proc_indices)
+            if (.not. procedure_has_entry_statement(arena, proc_indices(i))) then
+                filtered = [filtered, proc_indices(i)]
+            end if
+        end do
+        proc_indices = filtered
+    end subroutine filter_procs_with_entry
 
 end module frontend_program_builders

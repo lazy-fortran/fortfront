@@ -6,7 +6,8 @@ module frontend_transformation_structure
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_data, only: declaration_node, module_node, &
                               mixed_construct_container_node
-    use procedure_classification, only: should_hoist_procedure
+    use procedure_classification, only: should_hoist_procedure, &
+                                        procedure_has_entry_statement
     use frontend_transformation_common, only: transform_context_t, format_options_t
     use compiler_arena, only: compiler_arena_t
     use codegen_arena_interface, only: generate_code_from_arena
@@ -100,6 +101,27 @@ contains
             end if
         end do
     end subroutine filter_hoistable_procedures
+
+    subroutine filter_out_entry_procedures(arena, proc_indices)
+        ! Remove procedures containing ENTRY statements from the list.
+        ! ENTRY statements cannot appear in contained (internal) procedures per
+        ! ISO/IEC 1539-1:2018 Section 15.6.2.6.
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(inout) :: proc_indices(:)
+        integer, allocatable :: filtered(:)
+        integer :: i
+
+        if (.not. allocated(proc_indices)) return
+        if (size(proc_indices) == 0) return
+
+        allocate (filtered(0))
+        do i = 1, size(proc_indices)
+            if (.not. procedure_has_entry_statement(arena, proc_indices(i))) then
+                filtered = [filtered, proc_indices(i)]
+            end if
+        end do
+        proc_indices = filtered
+    end subroutine filter_out_entry_procedures
 
     subroutine remove_procedures_from_body(root_prog, procedures)
         class(program_node), intent(inout) :: root_prog
@@ -407,6 +429,11 @@ contains
         embedded_procs = collect_target_procedures(arena, target_prog_idx)
         call filter_hoistable_procedures(arena, all_procedures, target_prog_idx, &
                                          lifted_procs)
+
+        ! Filter out embedded procedures with ENTRY statements. ENTRY statements
+        ! cannot appear in contained procedures per ISO/IEC 1539-1:2018 Section
+        ! 15.6.2.6. Such procedures must remain external.
+        call filter_out_entry_procedures(arena, embedded_procs)
 
         if (size(embedded_procs) == 0 .and. size(lifted_procs) == 0) return
 
