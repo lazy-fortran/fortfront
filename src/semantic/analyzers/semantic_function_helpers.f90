@@ -52,15 +52,46 @@ contains
         logical, intent(in), optional :: type_locked
         logical :: allow_refinement
         integer :: deduced_kind
+        logical :: has_array_arg
+        type(mono_type_t) :: first_array_type
+        type(mono_type_t), allocatable :: element_args(:)
+        integer :: i
 
         if (size(arg_types) <= 0) return
 
-        allow_refinement = .true.
-        if (present(type_locked)) allow_refinement = .not. type_locked
-        if (.not. allow_refinement) return
+        ! Check if any argument is an array FIRST (Issue #2153)
+        ! For elementwise operations, array input means array output
+        ! This check must happen BEFORE type_locked is checked because
+        ! array-in-array-out is fundamental and overrides type locking
+        has_array_arg = .false.
+        do i = 1, size(arg_types)
+            if (arg_types(i)%kind == TARRAY) then
+                has_array_arg = .true.
+                first_array_type = arg_types(i)
+                exit
+            end if
+        end do
 
         deduced_kind = deduce_return_kind_from_args(arg_types)
         if (deduced_kind <= 0) return
+
+        ! If we have array arguments, create array return type (Issue #2153)
+        ! This MUST happen regardless of type_locked because the locked type
+        ! was inferred from a generic function signature, not this specific
+        ! call with array arguments
+        if (has_array_arg) then
+            allocate (element_args(1))
+            element_args(1) = create_mono_type(deduced_kind)
+            typ = create_mono_type(TARRAY, args=element_args)
+            typ%alloc_info%is_allocatable = .true.
+            deallocate (element_args)
+            return
+        end if
+
+        ! For scalar arguments, respect the type_locked flag
+        allow_refinement = .true.
+        if (present(type_locked)) allow_refinement = .not. type_locked
+        if (.not. allow_refinement) return
 
         select case (typ%kind)
         case (TVAR)
