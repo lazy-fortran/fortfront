@@ -16,6 +16,8 @@ module codegen_program_variables
                                  do_while_node, select_case_node, case_block_node, &
                                  case_default_node, where_node, forall_node, &
                                  block_construct_node
+    use ast_nodes_conditional, only: select_type_node, type_guard_block_node, &
+                                     select_rank_node, rank_block_node
     use codegen_program_decl_utils, only: exists_in_list, &
                                           build_function_return_type_table, &
                                           initialize_program_decl_state, &
@@ -493,6 +495,70 @@ contains
                     call collect_associate_names_recursive(arena, &
                                                            node%body_indices(i), state)
                 end do
+            end if
+        type is (select_type_node)
+            if (allocated(node%guard_indices)) then
+                do i = 1, size(node%guard_indices)
+                    idx = node%guard_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (guard_node => arena%entries(idx)%node)
+                    type is (type_guard_block_node)
+                        if (allocated(guard_node%body_indices)) then
+                            do j = 1, size(guard_node%body_indices)
+                                idx = guard_node%body_indices(j)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end do
+            end if
+            if (node%default_index > 0 .and. node%default_index <= arena%size) then
+                if (allocated(arena%entries(node%default_index)%node)) then
+                    select type (def_node => arena%entries(node%default_index)%node)
+                    type is (type_guard_block_node)
+                        if (allocated(def_node%body_indices)) then
+                            do i = 1, size(def_node%body_indices)
+                                idx = def_node%body_indices(i)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end if
+            end if
+        type is (select_rank_node)
+            if (allocated(node%rank_indices)) then
+                do i = 1, size(node%rank_indices)
+                    idx = node%rank_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (rank_node => arena%entries(idx)%node)
+                    type is (rank_block_node)
+                        if (allocated(rank_node%body_indices)) then
+                            do j = 1, size(rank_node%body_indices)
+                                idx = rank_node%body_indices(j)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end do
+            end if
+            if (node%default_index > 0 .and. node%default_index <= arena%size) then
+                if (allocated(arena%entries(node%default_index)%node)) then
+                    select type (def_node => arena%entries(node%default_index)%node)
+                    type is (rank_block_node)
+                        if (allocated(def_node%body_indices)) then
+                            do i = 1, size(def_node%body_indices)
+                                idx = def_node%body_indices(i)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end if
             end if
         end select
     end subroutine collect_associate_names_recursive
