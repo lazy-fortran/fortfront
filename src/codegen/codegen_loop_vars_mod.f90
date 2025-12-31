@@ -5,7 +5,8 @@ module codegen_loop_vars_mod
 
 contains
 
-    logical function is_var_declared_in_code(code, var_name) result(declared)
+    pure logical function is_var_declared_in_code(code, var_name) &
+        result(declared)
         character(len=*), intent(in) :: code
         character(len=*), intent(in) :: var_name
         integer :: search_start, decl_pos_rel, decl_pos_abs, var_search_start
