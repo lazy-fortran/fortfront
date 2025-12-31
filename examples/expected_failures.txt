@@ -16,7 +16,6 @@ issue_2444_data_trailing_comma.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 8.6.7 (
 
 # Standard Fortran - Codegen bugs
 issue_2455_nested_array_constructor.f90  # nested array constructors generate malformed syntax (#2455)
-control_flow_associate_construct.f90  # associate selector generates spurious deferred-shape declaration (#2519)
 
 # Lazy Fortran - Recent failures needing implementation
 issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
