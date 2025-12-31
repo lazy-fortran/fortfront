@@ -31,6 +31,42 @@ program minimal_example
 end program minimal_example
 ```
 
+## AST Node Position API
+
+Get source locations for AST nodes (useful for linters and diagnostics):
+
+```fortran
+program position_example
+    use fortfront, only: ast_arena_t, create_ast_arena, get_node_line, &
+                         get_node_column, get_node_location, &
+                         tooling_load_ast_from_string
+    implicit none
+    type(ast_arena_t) :: arena
+    integer :: root_index, line, col
+    character(len=:), allocatable :: error_msg
+
+    arena = create_ast_arena()
+    call tooling_load_ast_from_string("x = 5", arena, root_index, error_msg)
+
+    ! Standalone functions (for fluff integration)
+    line = get_node_line(arena, root_index)
+    col = get_node_column(arena, root_index)
+    print '(a,i0,a,i0)', 'Position: line ', line, ', column ', col
+
+    ! Alternative: get both at once
+    call get_node_location(arena, root_index, line, col)
+
+    ! Type-bound procedures also available
+    line = arena%get_node_line(root_index)
+    col = arena%get_node_column(root_index)
+end program
+```
+
+**Available functions**:
+- `get_node_line(arena, index)` - Returns line number (1-based), 0 if invalid
+- `get_node_column(arena, index)` - Returns column number (1-based), 0 if invalid
+- `get_node_location(arena, index, line, col)` - Subroutine returning both
+
 ## Example: Unused Variable Linter
 
 ```fortran
