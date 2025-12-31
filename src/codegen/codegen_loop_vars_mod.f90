@@ -5,6 +5,49 @@ module codegen_loop_vars_mod
 
 contains
 
+    logical function is_var_declared_in_code(code, var_name) result(declared)
+        character(len=*), intent(in) :: code
+        character(len=*), intent(in) :: var_name
+        integer :: search_start, decl_pos_rel, decl_pos_abs, var_search_start
+        integer :: var_pos_rel, var_pos_abs, name_len
+        character(len=1) :: prev_char, next_char
+        character(len=:), allocatable :: name_trimmed
+
+        declared = .false.
+        name_trimmed = trim(adjustl(var_name))
+        name_len = len_trim(name_trimmed)
+        if (name_len == 0) return
+
+        search_start = 1
+        do while (search_start <= len(code))
+            decl_pos_rel = index(code(search_start:), "integer ::")
+            if (decl_pos_rel == 0) exit
+            decl_pos_abs = search_start + decl_pos_rel - 1
+            var_search_start = decl_pos_abs + 10
+            do while (var_search_start <= len(code))
+                var_pos_rel = index(code(var_search_start:), name_trimmed)
+                if (var_pos_rel == 0) exit
+                var_pos_abs = var_search_start + var_pos_rel - 1
+                prev_char = ' '
+                if (var_pos_abs > 1) prev_char = code(var_pos_abs - 1:var_pos_abs - 1)
+                next_char = ' '
+                if (var_pos_abs + name_len <= len(code)) then
+                    next_char = code(var_pos_abs + name_len:var_pos_abs + name_len)
+                end if
+                if ((prev_char == ' ' .or. prev_char == ',' .or. &
+                     prev_char == ':') .and. &
+                    (next_char == ' ' .or. next_char == ',' .or. &
+                     next_char == new_line('A') .or. next_char == '(' .or. &
+                     next_char == char(13))) then
+                    declared = .true.
+                    return
+                end if
+                var_search_start = var_pos_abs + 1
+            end do
+            search_start = decl_pos_abs + 10
+        end do
+    end function is_var_declared_in_code
+
     subroutine add_loop_variable_decls(code, body_code)
         character(len=:), allocatable, intent(inout) :: code
         character(len=:), allocatable, intent(inout) :: body_code
@@ -102,7 +145,7 @@ contains
         if (n_vars > 0) then
             do i = 1, n_vars
                 name_buf = trim(loop_vars(i))
-                already_declared = index(body_code, "integer :: "//name_buf) > 0
+                already_declared = is_var_declared_in_code(body_code, name_buf)
                 if (.not. already_declared) then
                     before_code = before_code // "    integer :: " // &
                                   name_buf // new_line('A')
@@ -127,9 +170,9 @@ contains
         if (n_vars > 0) then
             do i = 1, n_vars
                 name_buf = trim(loop_vars(i))
-                already_declared = index(body_code, "integer :: "//name_buf) > 0
+                already_declared = is_var_declared_in_code(body_code, name_buf)
                 if (.not. already_declared) then
-                    already_declared = index(code, "integer :: "//name_buf) > 0
+                    already_declared = is_var_declared_in_code(code, name_buf)
                 end if
                 if (.not. already_declared) then
                     code = code // "    integer :: " // name_buf // new_line('A')
@@ -145,7 +188,7 @@ contains
         character(len=:), allocatable, intent(inout) :: before_code
 
         if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
-            if (index(body_code, "integer :: i") == 0) then
+            if (.not. is_var_declared_in_code(body_code, "i")) then
                 before_code = before_code // "    integer :: i" // new_line('A')
             end if
         end if
@@ -156,8 +199,8 @@ contains
         character(len=*), intent(in) :: body_code
 
         if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
-            if (index(body_code, "integer :: i") == 0 .and. &
-                index(code, "integer :: i") == 0) then
+            if (.not. is_var_declared_in_code(body_code, "i") .and. &
+                .not. is_var_declared_in_code(code, "i")) then
                 code = code // "    integer :: i" // new_line('A')
             end if
         end if
