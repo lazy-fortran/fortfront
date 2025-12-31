@@ -67,6 +67,30 @@ end program
 - `get_node_column(arena, index)` - Returns column number (1-based), 0 if invalid
 - `get_node_location(arena, index, line, col)` - Subroutine returning both
 
+## CST Trivia Query API
+
+Retrieve whitespace/comments/newlines adjacent to an AST node (for whitespace-aware
+linting and formatting tools):
+
+```fortran
+use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
+    get_trivia_for_ast_node, trivia_t
+
+type(ast_arena_t) :: arena
+integer :: root_index
+character(len=:), allocatable :: error_msg
+type(trivia_t), allocatable :: leading(:), trailing(:)
+logical :: found
+character(len=*), parameter :: source = "! header" // new_line('A') // &
+    "   x = 1"
+
+call tooling_load_ast_from_string(source, arena, root_index, error_msg)
+call get_trivia_for_ast_node(source, arena, root_index, leading, trailing, found)
+```
+
+Direct trivia query at an arbitrary source location:
+`get_source_trivia_at(source, line, column)`.
+
 ## Example: AST Node Counter
 
 Count nodes of each type using callback-based traversal:

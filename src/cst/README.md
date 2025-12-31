@@ -13,6 +13,7 @@ CSTs are primarily used for tools that need to preserve formatting (formatters, 
 | cst_core.f90 | Core CST data structures, node types, tree construction |
 | cst_nodes.f90 | CST node type definitions, token-level representation |
 | cst_arena.f90 | Arena-based allocation for CST nodes (similar to AST arena) |
+| cst_trivia_query.f90 | Public trivia query helpers for CST and AST integration |
 
 ## Key Concepts
 
