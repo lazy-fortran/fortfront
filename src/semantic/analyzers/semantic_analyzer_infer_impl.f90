@@ -9,6 +9,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
     use semantic_type_lookup_wrapper, only: set_semantic_context_for_lookup, &
                                             clear_semantic_context_for_lookup, &
                                             get_type_with_stored_context
+    use semantic_where_validation, only: validate_where_construct
     implicit none
 
     ! Module-level context for wrapper function (not thread-safe, but works around gfortran bug)

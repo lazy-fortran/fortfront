@@ -460,6 +460,9 @@
             type(infer_frame_t) :: post_frame
             integer :: i, j
 
+            ! Validate WHERE body per F2018 Section 10.2.3.2
+            call validate_where_construct(arena, expr, this%errors)
+
             call init_post_frame(current, post_frame)
             call push_frame_local(post_frame)
             if (allocated(expr%elsewhere_clauses)) then

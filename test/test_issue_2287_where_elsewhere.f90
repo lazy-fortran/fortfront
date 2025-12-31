@@ -13,8 +13,8 @@ program test_issue_2287_where_elsewhere
     type(token_t), allocatable :: tokens(:)
     type(ast_arena_t) :: arena
     integer :: program_index
-    integer :: pos_if, pos_stop, pos_end_if
-    integer :: pos_elsewhere, pos_assignment
+    integer :: pos_where, pos_elsewhere, pos_endwhere
+    integer :: pos_assignment1, pos_assignment2
 
     call read_example('examples/f90/issue_2287_where_elsewhere.f90', source_code)
 
@@ -38,37 +38,55 @@ program test_issue_2287_where_elsewhere
         error stop 1
     end if
 
-    pos_elsewhere = index(output_code, 'elsewhere')
-    if (pos_elsewhere == 0) then
+    ! Check for WHERE construct
+    pos_where = index(output_code, 'where (b == 0)')
+    if (pos_where == 0) then
+        write (error_unit, '(A)') 'FAIL: WHERE construct missing in output'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    ! Check for ELSEWHERE block - search after the WHERE construct
+    ! Note: searching from pos_where to avoid matching program name
+    pos_elsewhere = index(output_code(pos_where:), char(10)//'    elsewhere')
+    if (pos_elsewhere > 0) then
+        pos_elsewhere = pos_elsewhere + pos_where - 1  ! Adjust to global position
+    else
         write (error_unit, '(A)') 'FAIL: ELSEWHERE block missing in output'
         write (error_unit, '(A)') output_code
         error stop 1
     end if
 
-    pos_assignment = index(output_code(pos_elsewhere:), 'b = 2')
-    if (pos_assignment == 0) then
+    ! Check for END WHERE
+    pos_endwhere = index(output_code, 'end where')
+    if (pos_endwhere == 0) then
+        write (error_unit, '(A)') 'FAIL: END WHERE missing in output'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    ! Check WHERE body assignment (c = a * 10)
+    pos_assignment1 = index(output_code, 'c = a * 10')
+    if (pos_assignment1 == 0) then
+        pos_assignment1 = index(output_code, 'c = a*10')
+    end if
+    if (pos_assignment1 == 0) then
+        write (error_unit, '(A)') 'FAIL: WHERE body assignment missing'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    ! Check ELSEWHERE assignment (c = a)
+    pos_assignment2 = index(output_code(pos_elsewhere:), 'c = a')
+    if (pos_assignment2 == 0) then
         write (error_unit, '(A)') 'FAIL: ELSEWHERE assignment missing'
         write (error_unit, '(A)') output_code
         error stop 1
     end if
-    pos_assignment = pos_assignment + pos_elsewhere - 1
-    if (pos_assignment <= pos_elsewhere) then
-        write (error_unit, '(A)') 'FAIL: ELSEWHERE assignment out of order'
-        write (error_unit, '(A)') output_code
-        error stop 1
-    end if
 
-    pos_if = index(output_code, 'if (any(b == 0)) then')
-    pos_stop = index(output_code, 'stop 1')
-    pos_end_if = index(output_code, 'end if')
-    if (pos_if == 0 .or. pos_stop == 0 .or. pos_end_if == 0) then
-        write (error_unit, '(A)') 'FAIL: expected IF/STOP/END IF sequence missing'
-        write (error_unit, '(A)') output_code
-        error stop 1
-    end if
-
-    if (.not. (pos_if < pos_stop .and. pos_stop < pos_end_if)) then
-        write (error_unit, '(A)') 'FAIL: STOP statement moved outside IF block'
+    ! Verify structure order: where < elsewhere < endwhere
+    if (.not. (pos_where < pos_elsewhere .and. pos_elsewhere < pos_endwhere)) then
+        write (error_unit, '(A)') 'FAIL: WHERE/ELSEWHERE/END WHERE out of order'
         write (error_unit, '(A)') output_code
         error stop 1
     end if
