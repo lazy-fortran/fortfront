@@ -183,6 +183,18 @@ contains
                 call link_children_to_parent(arena, interface_index, procedure_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(interface_block%name)) deallocate (interface_block%name)
+        if (allocated(interface_block%kind)) deallocate (interface_block%kind)
+        if (allocated(interface_block%operator)) deallocate &
+            (interface_block%operator)
+        if (allocated(interface_block%procedure_indices)) deallocate &
+            (interface_block%procedure_indices)
+        if (allocated(interface_block%stmt_label)) deallocate &
+            (interface_block%stmt_label)
     end function push_interface_block
 
     function push_module_procedure(arena, procedure_names, line, column, &
@@ -201,6 +213,13 @@ contains
                                               has_double_colon=has_double_colon)
         call arena%push(module_proc, "module_procedure", parent_index)
         proc_index = arena%size
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(module_proc%procedure_names)) deallocate &
+            (module_proc%procedure_names)
+        if (allocated(module_proc%stmt_label)) deallocate (module_proc%stmt_label)
     end function push_module_procedure
 
     ! Create module node and add to stack
@@ -284,6 +303,16 @@ contains
                 call link_children_to_parent(arena, module_index, procedure_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(mod_node%name)) deallocate (mod_node%name)
+        if (allocated(mod_node%declaration_indices)) deallocate &
+            (mod_node%declaration_indices)
+        if (allocated(mod_node%procedure_indices)) deallocate &
+            (mod_node%procedure_indices)
+        if (allocated(mod_node%stmt_label)) deallocate (mod_node%stmt_label)
     end function push_module_structured
 
     function push_block_data(arena, name, statement_indices, line, column, &
@@ -322,6 +351,16 @@ contains
                 call link_children_to_parent(arena, block_data_index, statement_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(bd_node%name)) deallocate (bd_node%name)
+        if (allocated(bd_node%header_label)) deallocate (bd_node%header_label)
+        if (allocated(bd_node%end_label)) deallocate (bd_node%end_label)
+        if (allocated(bd_node%statement_indices)) deallocate &
+            (bd_node%statement_indices)
+        if (allocated(bd_node%stmt_label)) deallocate (bd_node%stmt_label)
     end function push_block_data
 
     ! Create complete submodule node (Fortran 2008)
@@ -369,6 +408,18 @@ contains
                 call link_children_to_parent(arena, submod_idx, procedure_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(sub_node%name)) deallocate (sub_node%name)
+        if (allocated(sub_node%parent_identifier)) deallocate &
+            (sub_node%parent_identifier)
+        if (allocated(sub_node%declaration_indices)) deallocate &
+            (sub_node%declaration_indices)
+        if (allocated(sub_node%procedure_indices)) deallocate &
+            (sub_node%procedure_indices)
+        if (allocated(sub_node%stmt_label)) deallocate (sub_node%stmt_label)
     end function push_submodule_structured
 
 end module ast_factory_procedures
