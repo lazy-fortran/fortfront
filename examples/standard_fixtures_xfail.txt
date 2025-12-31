@@ -11,8 +11,14 @@
 #   2. Fix the underlying parser/codegen issue
 #   3. Ensure all tests pass
 
+# Fortran 90 fixtures - parser infinite loops
+invalid_continuation_with_label.f90  # parser hang
+
 # Fortran 2003 fixtures
 advanced_f2003.f90  # line continuation in proc bodies, nested do in block #2526
+type_is_case_variations.f90  # parser infinite loop with select type/type is #issue184
+enhanced_io.f90  # parser hang
+iso_fortran_env_mod.f90  # parser hang
 
 # Fortran 2018 fixtures
 select_rank_minimal.f90  # gfortran14 codegen crash with select rank #2534

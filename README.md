@@ -1,5 +1,7 @@
 # FortFront
 
+> **Note**: This project is experimental and subject to major changes. APIs may change without notice.
+
 A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
 
 ## Features
@@ -93,6 +95,4 @@ end if
 See issue #1642 for the full API specification and docs/LIBRARY_USAGE.md for worked examples.
 
 ## Links
-- Fortrun integration: https://github.com/lazy-fortran/fortrun
-- Examples: `examples/`
-- Architecture docs: `docs/`
+- [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)

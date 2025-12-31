@@ -1,5 +1,5 @@
 program test_standard_fixtures
-    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, output_unit
     use test_example_lists, only: load_example_list, is_expected_failure
     use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
                                        extract_example_basename
@@ -171,6 +171,7 @@ contains
         end if
 
         print *, "=== Testing ", trim(standard_name), " fixtures ==="
+        flush (output_unit)
 
         list_file = 'build/standard_fixtures_' // trim(standard_name) // '.txt'
 
@@ -233,6 +234,7 @@ contains
         inquire (file=trim(filepath), exist=file_exists)
         if (.not. file_exists) then
             print *, "SKIP (file not found)"
+            flush (output_unit)
             skip_count = skip_count + 1
             return
         end if
@@ -240,12 +242,14 @@ contains
         call read_fixture_file(filepath, source)
         if (.not. allocated(source) .or. len_trim(source) == 0) then
             print *, "SKIP (could not read file)"
+            flush (output_unit)
             skip_count = skip_count + 1
             return
         end if
 
         if (.not. is_complete_compilation_unit(source)) then
             print *, "SKIP (not a complete compilation unit)"
+            flush (output_unit)
             skip_count = skip_count + 1
             return
         end if
@@ -257,6 +261,7 @@ contains
         ! Skip expected failures early to avoid crashes from compiler bugs
         if (expect_fail) then
             print *, "XFAIL"
+            flush (output_unit)
             xfail_count = xfail_count + 1
             return
         end if
@@ -307,6 +312,7 @@ contains
                 pass_count = pass_count + 1
             end if
         end if
+        flush (output_unit)
     end subroutine finalize_fixture_result
 
     subroutine print_roundtrip_difference(name, result_first_output, &
