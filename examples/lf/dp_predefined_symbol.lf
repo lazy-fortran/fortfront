@@ -1,0 +1,11 @@
+! Test predefined dp symbol (LFortran Standard)
+! dp is implicitly defined as real64 from iso_fortran_env
+
+! Case 1: dp used as kind suffix in literal
+x = 1.0_dp
+
+! Case 2: dp used in type declaration
+real(dp) :: z
+z = 3.14_dp
+
+print *, x, z
