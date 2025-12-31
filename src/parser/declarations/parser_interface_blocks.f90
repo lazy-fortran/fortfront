@@ -161,12 +161,22 @@ contains
         if (token%kind == TK_KEYWORD) then
             lowered_text = to_lower(token%text)
             if (trim(lowered_text) == "module") then
-                stmt_index = parse_module_procedure_statement(parser, arena)
-                if (stmt_index > 0) then
-                    body_indices = [body_indices, stmt_index]
+                ! Check if this is module procedure :: name1, name2 (declaration)
+                ! or module subroutine/function (procedure definition with prefix)
+                if (is_module_procedure_declaration(parser)) then
+                    stmt_index = parse_module_procedure_statement(parser, arena)
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
+                    handled = .true.
+                    return
+                else
+                    ! Treat module as procedure prefix for module subroutine/function
+                    call append_interface_prefix(prefix_buffer, lowered_text)
+                    consumed_token = parser%consume()
+                    handled = .true.
+                    return
                 end if
-                handled = .true.
-                return
             else if (trim(lowered_text) == "import") then
                 stmt_index = parse_import_statement(parser, arena)
                 if (stmt_index > 0) then
@@ -218,5 +228,40 @@ contains
             handled = .true.
         end select
     end function process_interface_body_token
+
+    logical function is_module_procedure_declaration(parser) result(is_decl)
+        ! Check if current position is a module procedure declaration
+        ! Pattern: module procedure [::] name1, name2 (NOT module subroutine/function)
+        type(parser_state_t), intent(in) :: parser
+        integer :: idx
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+
+        is_decl = .false.
+        idx = parser%current_token + 1
+
+        ! Skip whitespace after module
+        do while (idx <= parser%get_token_count())
+            token = parser%get_token_at_index(idx)
+            if (token%kind /= TK_WHITESPACE .and. token%kind /= TK_NEWLINE) exit
+            idx = idx + 1
+        end do
+
+        if (idx > parser%get_token_count()) return
+
+        ! Check next token
+        token = parser%get_token_at_index(idx)
+        if (token%kind /= TK_KEYWORD) return
+
+        lowered = to_lower(trim(token%text))
+
+        ! If followed by procedure, this is module procedure declaration
+        ! If followed by subroutine/function, this is a procedure definition
+        if (lowered == "procedure") then
+            is_decl = .true.
+        else if (lowered == "subroutine" .or. lowered == "function") then
+            is_decl = .false.
+        end if
+    end function is_module_procedure_declaration
 
 end module parser_interface_blocks_module
