@@ -55,6 +55,26 @@
 
         call arena%push(if_stmt, "if_statement", parent_index)
         if_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (condition_index > 0) then
+            call link_children_to_parent(arena, if_index, [condition_index])
+        end if
+        if (present(then_body_indices)) then
+            if (size(then_body_indices) > 0) then
+                call link_children_to_parent(arena, if_index, then_body_indices)
+            end if
+        end if
+        if (present(elseif_indices)) then
+            if (size(elseif_indices) > 0) then
+                call link_children_to_parent(arena, if_index, elseif_indices)
+            end if
+        end if
+        if (present(else_body_indices)) then
+            if (size(else_body_indices) > 0) then
+                call link_children_to_parent(arena, if_index, else_body_indices)
+            end if
+        end if
     end function push_if
 
     ! Create do loop node and add to stack
@@ -107,6 +127,24 @@
 
         call arena%push(loop_node, "do_loop", parent_index)
         loop_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (start_index > 0) then
+            call link_children_to_parent(arena, loop_index, [start_index])
+        end if
+        if (end_index > 0) then
+            call link_children_to_parent(arena, loop_index, [end_index])
+        end if
+        if (present(step_index)) then
+            if (step_index > 0) then
+                call link_children_to_parent(arena, loop_index, [step_index])
+            end if
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, loop_index, body_indices)
+            end if
+        end if
     end function push_do_loop
 
     ! Create do while loop node and add to stack
@@ -142,6 +180,16 @@
 
         call arena%push(while_node, "do_while", parent_index)
         while_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (condition_index > 0) then
+            call link_children_to_parent(arena, while_index, [condition_index])
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, while_index, body_indices)
+            end if
+        end if
     end function push_do_while
 
     ! Create ASSOCIATE construct node and add to stack
@@ -174,6 +222,13 @@
 
         call arena%push(assoc, "associate", parent_index)
         assoc_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, assoc_index, body_indices)
+            end if
+        end if
     end function push_associate
 
     function push_block_construct(arena, body_indices, line, column, &
@@ -197,6 +252,13 @@
 
         call arena%push(block_construct, "block_construct", parent_index)
         block_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, block_index, body_indices)
+            end if
+        end if
     end function push_block_construct
 
     ! Create forall construct node and add to stack
@@ -398,6 +460,13 @@
             call arena%push(forall_stmt, "forall")
         end if
         forall_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, forall_index, body_indices)
+            end if
+        end if
     end function push_forall
 
     ! Create select case node and add to stack
@@ -429,6 +498,16 @@
 
         call arena%push(select_node, "select_case", parent_index)
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(case_indices)) then
+            if (size(case_indices) > 0) then
+                call link_children_to_parent(arena, select_index, case_indices)
+            end if
+        end if
     end function push_select_case
 
     ! Create select case node with default case and add to stack
@@ -467,6 +546,19 @@
 
         call arena%push(select_node, "select_case", parent_index)
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(case_indices)) then
+            if (size(case_indices) > 0) then
+                call link_children_to_parent(arena, select_index, case_indices)
+            end if
+        end if
+        if (default_index > 0) then
+            call link_children_to_parent(arena, select_index, [default_index])
+        end if
     end function push_select_case_with_default
 
     ! Create case block node and add to stack
@@ -498,6 +590,16 @@
 
         call arena%push(case_node, "case_block", parent_index)
         case_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (size(value_indices) > 0) then
+            call link_children_to_parent(arena, case_index, value_indices)
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, case_index, body_indices)
+            end if
+        end if
     end function push_case_block
 
     ! Create case range node and add to stack
@@ -544,6 +646,13 @@
 
         call arena%push(default_node, "case_default", parent_index)
         default_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, default_index, body_indices)
+            end if
+        end if
     end function push_case_default
 
     ! Create SELECT TYPE node without default and add to stack
@@ -582,6 +691,16 @@
             call arena%push(select_node, "select_type")
         end if
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(guard_indices)) then
+            if (size(guard_indices) > 0) then
+                call link_children_to_parent(arena, select_index, guard_indices)
+            end if
+        end if
     end function push_select_type
 
     ! Create SELECT TYPE node with default and add to stack
@@ -628,6 +747,19 @@
             call arena%push(select_node, "select_type")
         end if
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(guard_indices)) then
+            if (size(guard_indices) > 0) then
+                call link_children_to_parent(arena, select_index, guard_indices)
+            end if
+        end if
+        if (default_index > 0) then
+            call link_children_to_parent(arena, select_index, [default_index])
+        end if
     end function push_select_type_with_default
 
     ! Create type guard block node and add to stack
@@ -665,6 +797,16 @@
             call arena%push(guard_node, "type_guard_block")
         end if
         guard_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (type_name_index > 0) then
+            call link_children_to_parent(arena, guard_index, [type_name_index])
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, guard_index, body_indices)
+            end if
+        end if
     end function push_type_guard_block
 
     ! Create SELECT RANK node and add to stack
@@ -703,6 +845,16 @@
             call arena%push(select_node, "select_rank")
         end if
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(rank_indices)) then
+            if (size(rank_indices) > 0) then
+                call link_children_to_parent(arena, select_index, rank_indices)
+            end if
+        end if
     end function push_select_rank
 
     ! Create SELECT RANK node with default and add to stack
@@ -749,6 +901,19 @@
             call arena%push(select_node, "select_rank")
         end if
         select_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (selector_index > 0) then
+            call link_children_to_parent(arena, select_index, [selector_index])
+        end if
+        if (present(rank_indices)) then
+            if (size(rank_indices) > 0) then
+                call link_children_to_parent(arena, select_index, rank_indices)
+            end if
+        end if
+        if (default_index > 0) then
+            call link_children_to_parent(arena, select_index, [default_index])
+        end if
     end function push_select_rank_with_default
 
     ! Create rank block node and add to stack
@@ -783,4 +948,11 @@
             call arena%push(rank_node, "rank_block")
         end if
         rank_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, rank_index, body_indices)
+            end if
+        end if
     end function push_rank_block

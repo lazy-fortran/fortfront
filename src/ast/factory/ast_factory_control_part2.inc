@@ -133,6 +133,21 @@
 
         call arena%push(where_stmt, "where_node", parent_index)
         where_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (mask_expr_index > 0) then
+            call link_children_to_parent(arena, where_index, [mask_expr_index])
+        end if
+        if (present(where_body_indices)) then
+            if (size(where_body_indices) > 0) then
+                call link_children_to_parent(arena, where_index, where_body_indices)
+            end if
+        end if
+        if (present(elsewhere_body_indices)) then
+            if (size(elsewhere_body_indices) > 0) then
+                call link_children_to_parent(arena, where_index, elsewhere_body_indices)
+            end if
+        end if
     end function push_where
 
     ! Create WHERE construct node and add to stack (simplified interface)

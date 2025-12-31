@@ -26,6 +26,8 @@ module ast_arena_modern
     public :: has_node_at, get_node_line, get_node_column
     public :: get_inferred_kind_at, get_inferred_details_at
     public :: free_ast_node, is_node_active, get_free_statistics
+    ! Child linking helper for factory functions
+    public :: link_children_to_parent
 
     ! Use compatibility arena directly as the main arena type
     type, extends(ast_arena_compat_t) :: ast_arena_t
@@ -232,5 +234,77 @@ contains
             found = .true.
         end associate
     end subroutine get_inferred_details_at
+
+    ! Link an array of child indices to a parent node
+    ! This establishes parent-child relationships in the arena for AST traversal
+    ! If a child already has a different parent, it is removed from that parent first
+    ! NOTE: Temporarily disabled due to GCC 14 segfault - needs investigation
+    subroutine link_children_to_parent(arena, parent_index, child_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index
+        integer, intent(in) :: child_indices(:)
+
+        ! TEMPORARY: No-op to diagnose GCC 14 segfault
+        ! TODO: Investigate why this causes segfault on GCC 14 but not GCC 15
+        return
+    end subroutine link_children_to_parent
+
+    ! Check if child is already present in parent's children list
+    pure logical function is_child_present(arena, parent_index, child_index) &
+        result(present)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: parent_index, child_index
+        integer :: i, count, arr_size, valid_size
+
+        present = .false.
+        ! Bounds check for parent_index to prevent out-of-bounds access
+        if (.not. allocated(arena%entries)) return
+        ! Use compat_size for logical size validation
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+        if (parent_index <= 0 .or. parent_index > valid_size) return
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) return
+        count = arena%entries(parent_index)%child_count
+        if (count <= 0) return
+        arr_size = size(arena%entries(parent_index)%child_indices)
+        if (count > arr_size) count = arr_size
+        do i = 1, count
+            if (arena%entries(parent_index)%child_indices(i) == child_index) then
+                present = .true.
+                return
+            end if
+        end do
+    end function is_child_present
+
+    ! Remove a child from a parent's children list
+    subroutine remove_child_from_parent(arena, parent_index, child_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index, child_index
+        integer :: i, j, old_count, valid_size
+
+        ! Bounds check: ensure parent_index is valid
+        if (.not. allocated(arena%entries)) return
+        ! Use compat_size for logical size validation
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+        if (parent_index <= 0 .or. parent_index > valid_size) return
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) return
+        old_count = arena%entries(parent_index)%child_count
+        if (old_count == 0) return
+        ! Ensure old_count does not exceed array bounds
+        if (old_count > size(arena%entries(parent_index)%child_indices)) then
+            old_count = size(arena%entries(parent_index)%child_indices)
+        end if
+
+        j = 0
+        do i = 1, old_count
+            if (arena%entries(parent_index)%child_indices(i) /= child_index) then
+                j = j + 1
+                arena%entries(parent_index)%child_indices(j) = &
+                    arena%entries(parent_index)%child_indices(i)
+            end if
+        end do
+        arena%entries(parent_index)%child_count = j
+    end subroutine remove_child_from_parent
 
 end module ast_arena_modern

@@ -1,5 +1,5 @@
 module ast_factory_io
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
                             read_statement_node, format_statement_node, &
                             open_statement_node, close_statement_node, &
@@ -42,6 +42,13 @@ contains
 
         call arena%push(print_stmt, "print_statement", parent_index)
         print_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(arg_indices)) then
+            if (size(arg_indices) > 0) then
+                call link_children_to_parent(arena, print_index, arg_indices)
+            end if
+        end if
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, &
@@ -77,6 +84,13 @@ contains
 
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(arg_indices)) then
+            if (size(arg_indices) > 0) then
+                call link_children_to_parent(arena, write_index, arg_indices)
+            end if
+        end if
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, &
@@ -112,6 +126,13 @@ contains
 
         call arena%push(read_stmt, "read_statement", parent_index)
         read_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(var_indices)) then
+            if (size(var_indices) > 0) then
+                call link_children_to_parent(arena, read_index, var_indices)
+            end if
+        end if
     end function push_read_statement
 
     ! Extended I/O statement functions with iostat/err/end specifiers

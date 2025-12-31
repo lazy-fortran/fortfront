@@ -1,5 +1,5 @@
 module ast_factory_procedures
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    create_function_def, create_subroutine_def
@@ -47,6 +47,18 @@ contains
         end if
         call arena%push(func_def, "function_def", parent_index)
         func_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(param_indices)) then
+            if (size(param_indices) > 0) then
+                call link_children_to_parent(arena, func_index, param_indices)
+            end if
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, func_index, body_indices)
+            end if
+        end if
     end function push_function_def
 
     ! Create subroutine definition node and add to stack
@@ -90,6 +102,18 @@ contains
         end if
         call arena%push(sub_def, "subroutine_def", parent_index)
         sub_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(param_indices)) then
+            if (size(param_indices) > 0) then
+                call link_children_to_parent(arena, sub_index, param_indices)
+            end if
+        end if
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, sub_index, body_indices)
+            end if
+        end if
     end function push_subroutine_def
 
     ! Create interface block node and add to stack
@@ -128,6 +152,13 @@ contains
         interface_block%column = column
         call arena%push(interface_block, "interface_block", parent_index)
         interface_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                call link_children_to_parent(arena, interface_index, procedure_indices)
+            end if
+        end if
     end function push_interface_block
 
     function push_module_procedure(arena, procedure_names, line, column, &
@@ -168,6 +199,13 @@ contains
 
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                call link_children_to_parent(arena, module_index, body_indices)
+            end if
+        end if
     end function push_module
 
     ! Create complete module node with declaration and procedure indices
@@ -200,6 +238,18 @@ contains
 
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) then
+                call link_children_to_parent(arena, module_index, declaration_indices)
+            end if
+        end if
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                call link_children_to_parent(arena, module_index, procedure_indices)
+            end if
+        end if
     end function push_module_structured
 
     function push_block_data(arena, name, statement_indices, line, column, &
@@ -231,6 +281,13 @@ contains
 
         call arena%push(bd_node, "block_data_node", parent_index)
         block_data_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(statement_indices)) then
+            if (size(statement_indices) > 0) then
+                call link_children_to_parent(arena, block_data_index, statement_indices)
+            end if
+        end if
     end function push_block_data
 
     ! Create complete submodule node (Fortran 2008)
@@ -266,6 +323,18 @@ contains
 
         call arena%push(sub_node, "submodule_node", parent_index)
         submod_idx = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) then
+                call link_children_to_parent(arena, submod_idx, declaration_indices)
+            end if
+        end if
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                call link_children_to_parent(arena, submod_idx, procedure_indices)
+            end if
+        end if
     end function push_submodule_structured
 
 end module ast_factory_procedures
