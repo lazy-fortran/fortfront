@@ -4,7 +4,7 @@ module variable_usage_stmt_handlers_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_control_handlers_module, only: traversal_context_t, &
-        push_node, validate_node_index
+                                                      push_node, validate_node_index
     implicit none
     private
 

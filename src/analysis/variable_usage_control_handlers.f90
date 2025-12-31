@@ -261,7 +261,7 @@ contains
                     if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
                             call push_node(ctx, node%elsewhere_clauses(i)% &
-                                body_indices(j))
+                                           body_indices(j))
                         end do
                     end if
                 end do

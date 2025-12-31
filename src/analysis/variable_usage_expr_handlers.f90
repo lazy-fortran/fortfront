@@ -4,7 +4,7 @@ module variable_usage_expr_handlers_module
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_control_handlers_module, only: traversal_context_t, &
-        push_node, validate_node_index
+                                                      push_node, validate_node_index
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
                               identifier_node, component_access_node, &
                               assignment_node, program_node, literal_node
