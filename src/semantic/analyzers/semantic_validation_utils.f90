@@ -60,7 +60,8 @@ contains
         ! - INPUT_MODE_STANDARD: Skip propagation (standard .f90 with implicit none)
         ! - Standard .f90 WITHOUT implicit none: Currently unsupported (future work)
         if (present(input_mode)) then
-            if (input_mode == INPUT_MODE_STANDARD) return  ! Skip propagation if standard mode
+            if (input_mode == INPUT_MODE_STANDARD) return
+            ! Skip propagation if standard mode
         end if
         ! Default: Always propagate (needed for lazy Fortran type inference)
 

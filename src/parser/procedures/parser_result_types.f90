@@ -62,7 +62,8 @@ contains
         node_index = this%node_index
     end function parse_result_get_node
 
-    subroutine parse_result_set_error(this, message, code, component, context, suggestion)
+    subroutine parse_result_set_error(this, message, code, component, context, &
+                                      suggestion)
         class(parse_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -111,14 +112,16 @@ contains
         count = this%warnings%get_error_count()
     end function compile_result_get_warning_count
 
-    subroutine compile_result_add_warning(this, message, code, component, context, suggestion)
+    subroutine compile_result_add_warning(this, message, code, component, context, &
+                                          suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
 
         ! Initialize warnings collection if not already done
-        if (this%warnings%get_error_count() == 0 .and. .not. allocated(this%warnings%errors)) then
+        if (this%warnings%get_error_count() == 0 .and. .not. &
+            allocated(this%warnings%errors)) then
             this%warnings = create_error_collection()
         end if
 
@@ -127,7 +130,8 @@ contains
                                      suggestion=suggestion)
     end subroutine compile_result_add_warning
 
-    subroutine compile_result_set_error(this, message, code, component, context, suggestion)
+    subroutine compile_result_set_error(this, message, code, component, context, &
+                                        suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -153,7 +157,8 @@ contains
         call parse_res%set_success(node_index)
     end function success_parse_result
 
-    function error_parse_result(message, code, component, context, suggestion) result(parse_res)
+    function error_parse_result(message, code, component, context, suggestion) &
+        result(parse_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -171,7 +176,8 @@ contains
         call compile_res%set_success(program_index)
     end function success_compile_result
 
-    function error_compile_result(message, code, component, context, suggestion) result(compile_res)
+    function error_compile_result(message, code, component, context, suggestion) &
+        result(compile_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -301,11 +307,11 @@ contains
                 ! Safety check
                 if (tokens_skipped > 200) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: unmatched " // opening_char, &
+                                   "Error recovery failed: unmatched "//opening_char, &
                                    ERROR_PARSER, &
                                    "parser_result_types", &
                                    "recover_to_closing_paren", &
-                                   "Check for missing " // closing_char &
+                                   "Check for missing "//closing_char &
                                    )
                     return
                 end if
@@ -314,11 +320,11 @@ contains
 
         if (nesting_level > 0) then
             recovery_res = create_error_result( &
-                           "Reached end of input with unmatched " // opening_char, &
+                           "Reached end of input with unmatched "//opening_char, &
                            ERROR_PARSER, &
                            "parser_result_types", &
                            "recover_to_closing_paren", &
-                           "Add missing " // closing_char &
+                           "Add missing "//closing_char &
                            )
         else
             recovery_res = success_result()
@@ -326,7 +332,8 @@ contains
     end function recover_to_closing_paren
 
     ! Recover to next occurrence of specific token
-    function recover_to_next_token(parser, target_kind, target_text) result(recovery_res)
+    function recover_to_next_token(parser, target_kind, target_text) &
+        result(recovery_res)
         use parser_state_module, only: parser_state_t
         use lexer_core, only: TK_EOF
         type(parser_state_t), intent(inout) :: parser
@@ -412,11 +419,11 @@ contains
                 ! Safety check
                 if (tokens_skipped > 300) then
                     recovery_res = create_error_result( &
-                                   "Error recovery failed: no synchronization point found", &
+                              "Error recovery failed: no synchronization point found", &
                                    ERROR_PARSER, &
                                    "parser_result_types", &
                                    "skip_to_synchronization_point", &
-                                   "Check for missing end statements or malformed structure" &
+                             "Check for missing end statements or malformed structure" &
                                    )
                     return
                 end if

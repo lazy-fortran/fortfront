@@ -62,7 +62,8 @@ contains
         ! Merge arrays of different ranks (take maximum rank)
         if (current_type%kind == TARRAY .and. candidate_type%kind == TARRAY) then
             call extract_rank_and_base_type(current_type, rank_current, base_current)
-            call extract_rank_and_base_type(candidate_type, rank_candidate, base_candidate)
+            call extract_rank_and_base_type(candidate_type, rank_candidate, &
+                                            base_candidate)
             if (rank_current == rank_candidate) then
                 if (base_current%kind == base_candidate%kind) then
                     if (base_current%kind /= TCHAR .or. &
@@ -385,8 +386,8 @@ contains
     end function node_contains_call
 
     function infer_type_from_enclosing_function_param(arena, identifier_name, &
-                                                       enclosing_func_index, &
-                                                       next_var_id) &
+                                                      enclosing_func_index, &
+                                                      next_var_id) &
         result(inferred_type)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: identifier_name
@@ -563,7 +564,7 @@ contains
     function infer_base_type_from_call_site(arena, func_node, param_position) &
         result(base_type)
         use type_system_unified, only: TARRAY, type_args_allocated, &
-                                        type_args_size, type_args_element
+                                       type_args_size, type_args_element
         use semantic_type_context, only: infer_expression_type_static
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
@@ -686,7 +687,7 @@ contains
                 if (.not. allocated(arena%entries(assign_node%target_index)%node)) &
                     cycle
                 select type (target_node => &
-                            arena%entries(assign_node%target_index)%node)
+                             arena%entries(assign_node%target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target_node%name)) cycle
                     if (trim(target_node%name) == trim(var_name)) then
@@ -773,7 +774,7 @@ contains
     contains
 
         recursive subroutine refine_from_statement(arena, stmt_idx, param_types, &
-                                                    param_names)
+                                                   param_names)
             use ast_nodes_loops, only: do_loop_node
             type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: stmt_idx

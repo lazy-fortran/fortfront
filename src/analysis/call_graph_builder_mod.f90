@@ -127,7 +127,8 @@ contains
             call handle_program_node(builder, arena, node_idx, stack, top, &
                                      capacity, children)
         case ('function_def', 'function', 'subroutine_def', 'subroutine')
-            call handle_procedure_node(builder, arena, node_idx, scope_sym, stack, top, &
+            call handle_procedure_node(builder, arena, node_idx, scope_sym, &
+                                       stack, top, &
                                        capacity, children)
         case ('subroutine_call', 'call')
             call handle_call_node(builder, arena, node_idx, scope_sym)

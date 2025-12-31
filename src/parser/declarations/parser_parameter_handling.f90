@@ -86,7 +86,7 @@ contains
                 do j = 1, size(body_indices)
                     if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
 
-                    ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
+             ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
                     if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
 
                     select type (body_node => arena%entries(body_indices(j))%node)

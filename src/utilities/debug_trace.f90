@@ -29,10 +29,12 @@ contains
         end if
         ! Optional: file logging (open only if tracing enabled)
         if (enabled) then
-            call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
+            call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, &
+                                          status=stat)
             if (stat == 0 .and. len_trim(file_name) > 0) then
                 ! Preserve any early CLI trace lines by appending instead of replacing.
-                open(newunit=file_u, file=trim(file_name), status='unknown', position='append', action='write')
+                open (newunit=file_u, file=trim(file_name), status='unknown', &
+                      position='append', action='write')
             end if
         end if
     end subroutine trace_init
@@ -54,7 +56,8 @@ contains
         if (.not. enabled) return
         depth = depth + 1
         if (depth > MAX_DEPTH) then
-            write (error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', depth, trim(name)
+            write (error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', &
+                depth, trim(name)
             error stop 1
         end if
         write (error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)

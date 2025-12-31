@@ -90,7 +90,8 @@ contains
         if (token%kind == TK_OPERATOR) then
             call process_operator(token, seen_colon, in_brackets, in_attr, &
                                   bracket_depth, var_count, has_init, has_comma)
-        else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. in_brackets) then
+        else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. &
+                 in_brackets) then
             var_count = var_count + 1
         else if (token%kind == TK_KEYWORD) then
             if (pos > 1 .and. .not. is_attribute_keyword(token%text)) then

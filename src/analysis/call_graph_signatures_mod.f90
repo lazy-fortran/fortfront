@@ -98,8 +98,8 @@ contains
     end function signature_exists
 
     subroutine add_signature(map, proc_name, param_kinds, return_kind, &
-                            call_site_node, line, column, param_type_strings, &
-                            return_type_string)
+                             call_site_node, line, column, param_type_strings, &
+                             return_type_string)
         type(signatures_map_t), intent(inout) :: map
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: param_kinds(:)
@@ -129,7 +129,7 @@ contains
             end do
             if (max_len < 1) max_len = 1
             allocate (character(len=max_len) :: new_sig%param_type_strings( &
-                size(param_type_strings)))
+                      size(param_type_strings)))
             do i = 1, size(param_type_strings)
                 new_sig%param_type_strings(i) = trim(param_type_strings(i))
             end do
@@ -138,7 +138,7 @@ contains
         if (present(return_type_string)) then
             if (len_trim(return_type_string) > 0) then
                 allocate (character(len=len_trim(return_type_string)) :: &
-                    new_sig%return_type_string)
+                          new_sig%return_type_string)
                 new_sig%return_type_string = trim(return_type_string)
             end if
         end if
@@ -169,13 +169,13 @@ contains
             map%proc_sigs(proc_idx)%procedure_name = proc_name
             map%proc_sigs(proc_idx)%sig_capacity = 4
             allocate (map%proc_sigs(proc_idx)%signatures( &
-                map%proc_sigs(proc_idx)%sig_capacity))
+                      map%proc_sigs(proc_idx)%sig_capacity))
             map%proc_sigs(proc_idx)%sig_count = 0
         end if
 
         if (allocated(map%proc_sigs(proc_idx)%signatures)) then
             if (signature_exists(map%proc_sigs(proc_idx)%signatures( &
-                1:map%proc_sigs(proc_idx)%sig_count), new_sig)) then
+                                 1:map%proc_sigs(proc_idx)%sig_count), new_sig)) then
                 return
             end if
         end if
@@ -183,8 +183,8 @@ contains
         if (map%proc_sigs(proc_idx)%sig_count >= &
             map%proc_sigs(proc_idx)%sig_capacity) then
             map%proc_sigs(proc_idx)%sig_capacity = max( &
-                map%proc_sigs(proc_idx)%sig_capacity * 2, &
-                map%proc_sigs(proc_idx)%sig_capacity + 4, 4)
+                                             map%proc_sigs(proc_idx)%sig_capacity * 2, &
+                                            map%proc_sigs(proc_idx)%sig_capacity + 4, 4)
             allocate (temp_sigs(map%proc_sigs(proc_idx)%sig_capacity))
             if (map%proc_sigs(proc_idx)%sig_count > 0) then
                 do i = 1, map%proc_sigs(proc_idx)%sig_count
@@ -199,8 +199,8 @@ contains
     end subroutine add_signature
 
     subroutine signatures_map_add_signature(this, proc_name, param_kinds, &
-                                           return_kind, call_site_node, line, column, &
-                                           param_type_strings, return_type_string)
+                                            return_kind, call_site_node, line, column, &
+                                            param_type_strings, return_type_string)
         class(signatures_map_t), intent(inout) :: this
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: param_kinds(:)
@@ -211,8 +211,8 @@ contains
         character(len=*), intent(in), optional :: return_type_string
 
         call add_signature(this, proc_name, param_kinds, return_kind, &
-                          call_site_node, line, column, param_type_strings, &
-                          return_type_string)
+                           call_site_node, line, column, param_type_strings, &
+                           return_type_string)
     end subroutine signatures_map_add_signature
 
     function get_unique_signatures(map, proc_name, unique_sigs) result(count)
@@ -278,11 +278,11 @@ contains
 
                 if (allocated(src%proc_sigs(i)%signatures)) then
                     allocate (dst%proc_sigs(i)%signatures( &
-                        dst%proc_sigs(i)%sig_capacity))
+                              dst%proc_sigs(i)%sig_capacity))
                     do j = 1, dst%proc_sigs(i)%sig_count
                         if (allocated(src%proc_sigs(i)%signatures(j)%param_kinds)) then
                             allocate (dst%proc_sigs(i)%signatures(j)%param_kinds( &
-                                size(src%proc_sigs(i)%signatures(j)%param_kinds)))
+                                      size(src%proc_sigs(i)%signatures(j)%param_kinds)))
                             dst%proc_sigs(i)%signatures(j)%param_kinds = &
                                 src%proc_sigs(i)%signatures(j)%param_kinds
                         end if
@@ -294,26 +294,26 @@ contains
                             src%proc_sigs(i)%signatures(j)%line
                         dst%proc_sigs(i)%signatures(j)%column = &
                             src%proc_sigs(i)%signatures(j)%column
-                        if (allocated(src%proc_sigs(i)%signatures(j)%param_type_strings)) then
+                  if (allocated(src%proc_sigs(i)%signatures(j)%param_type_strings)) then
                             max_len = 0
-                            do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
+                       do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
                                 max_len = max(max_len, len_trim( &
-                                    src%proc_sigs(i)%signatures(j)%param_type_strings(k)))
+                                  src%proc_sigs(i)%signatures(j)%param_type_strings(k)))
                             end do
                             if (max_len < 1) max_len = 1
                             allocate (character(len=max_len) :: &
-                                dst%proc_sigs(i)%signatures(j)%param_type_strings( &
-                                size(src%proc_sigs(i)%signatures(j)%param_type_strings)))
-                            do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
+                                    dst%proc_sigs(i)%signatures(j)%param_type_strings( &
+                               size(src%proc_sigs(i)%signatures(j)%param_type_strings)))
+                       do k = 1, size(src%proc_sigs(i)%signatures(j)%param_type_strings)
                                 dst%proc_sigs(i)%signatures(j)%param_type_strings(k) = &
-                                    trim(src%proc_sigs(i)%signatures(j)%param_type_strings(k))
+                              trim(src%proc_sigs(i)%signatures(j)%param_type_strings(k))
                             end do
                         end if
-                        if (allocated(src%proc_sigs(i)%signatures(j)%return_type_string)) then
-                            max_len = len_trim(src%proc_sigs(i)%signatures(j)%return_type_string)
+                  if (allocated(src%proc_sigs(i)%signatures(j)%return_type_string)) then
+                   max_len = len_trim(src%proc_sigs(i)%signatures(j)%return_type_string)
                             if (max_len < 1) max_len = 1
                             allocate (character(len=max_len) :: &
-                                dst%proc_sigs(i)%signatures(j)%return_type_string)
+                                      dst%proc_sigs(i)%signatures(j)%return_type_string)
                             dst%proc_sigs(i)%signatures(j)%return_type_string = &
                                 trim(src%proc_sigs(i)%signatures(j)%return_type_string)
                         end if

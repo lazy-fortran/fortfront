@@ -37,8 +37,10 @@ module ast_nodes_data
         integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
         logical :: has_kind = .false.  ! Whether kind was specified
-        character(len=:), allocatable :: character_length_expr  ! Character length expression
-        logical :: has_character_length = .false.  ! Whether character length was specified
+        character(len=:), allocatable :: character_length_expr
+        ! Character length expression
+        logical :: has_character_length = .false.
+        ! Whether character length was specified
         character(len=:), allocatable :: intent  ! in, out, inout (for parameters)
         logical :: has_intent = .false.  ! Whether intent was specified
         logical :: is_optional = .false.  ! Whether optional attribute is present
@@ -83,8 +85,10 @@ module ast_nodes_data
         integer :: kind_value = 0  ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
         logical :: has_kind = .false.  ! Whether kind was specified
-        character(len=:), allocatable :: character_length_expr  ! Character length expression
-        logical :: has_character_length = .false.  ! Whether character length was specified
+        character(len=:), allocatable :: character_length_expr
+        ! Character length expression
+        logical :: has_character_length = .false.
+        ! Whether character length was specified
         integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
         logical :: is_optional = .false.  ! Whether parameter is optional
         logical :: is_target = .false.  ! Whether target attribute is present
@@ -185,7 +189,8 @@ module ast_nodes_data
     ! Mixed construct container node (for Issue #511 mixed construct support)
     type, extends(ast_node), public :: mixed_construct_container_node
         character(len=:), allocatable :: module_name  ! Generated module name
-        integer, allocatable :: implicit_declaration_indices(:)  ! Declarations for module
+        integer, allocatable :: implicit_declaration_indices(:)
+        ! Declarations for module
         integer, allocatable :: explicit_program_indices(:)  ! Explicit program units
     contains
         procedure :: accept => mixed_construct_container_accept

@@ -149,7 +149,8 @@ contains
     end function ast_arena_get_next_sibling_compat
 
     ! Compatibility method: get previous sibling
-    function ast_arena_get_previous_sibling_compat(this, node_index) result(prev_sibling)
+    function ast_arena_get_previous_sibling_compat(this, node_index) &
+        result(prev_sibling)
         class(ast_arena_compat_t), intent(in) :: this
         integer, intent(in) :: node_index
         integer :: prev_sibling
@@ -175,7 +176,8 @@ contains
     end function ast_arena_get_previous_sibling_compat
 
     ! Compatibility method: get block statements
-    function ast_arena_get_block_statements_compat(this, block_index) result(stmt_indices)
+    function ast_arena_get_block_statements_compat(this, block_index) &
+        result(stmt_indices)
         class(ast_arena_compat_t), intent(in) :: this
         integer, intent(in) :: block_index
         integer, allocatable :: stmt_indices(:)
@@ -283,7 +285,7 @@ contains
         this%compat_size = this%compat_size + 1
 
         ! Store in compatibility entries array (safe allocation with minimal checking)
-        ! Note: For newly grown entries, node will never be allocated, but we check for safety
+  ! Note: For newly grown entries, node will never be allocated, but we check for safety
         if (allocated(this%entries(this%compat_size)%node)) then
             deallocate (this%entries(this%compat_size)%node)
         end if
@@ -300,7 +302,8 @@ contains
         if (present(parent_index)) then
             this%entries(this%compat_size)%parent_index = parent_index
             if (parent_index > 0 .and. parent_index <= this%compat_size) then
-                this%entries(this%compat_size)%depth = this%entries(parent_index)%depth + 1
+                this%entries(this%compat_size)%depth = &
+                    this%entries(parent_index)%depth + 1
 
                 ! Add this child to parent's children list
                 call add_child_compat(this, parent_index, this%compat_size)
@@ -338,10 +341,11 @@ contains
             ! Only reallocate when we exceed capacity
             if (new_count > size(arena%entries(parent_index)%child_indices)) then
                 ! Double the capacity for amortized O(1) performance
-                allocate (temp_children(size(arena%entries(parent_index)%child_indices) * 2))
+           allocate (temp_children(size(arena%entries(parent_index)%child_indices) * 2))
                 temp_children(1:arena%entries(parent_index)%child_count) = &
-                    arena%entries(parent_index)%child_indices(1:arena%entries(parent_index)%child_count)
-                call move_alloc(temp_children, arena%entries(parent_index)%child_indices)
+    arena%entries(parent_index)%child_indices(1:arena%entries(parent_index)%child_count)
+                call move_alloc(temp_children, &
+                                arena%entries(parent_index)%child_indices)
             end if
 
             ! Add new child at the end

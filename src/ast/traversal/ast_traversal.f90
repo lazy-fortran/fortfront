@@ -29,7 +29,7 @@ module ast_traversal
 contains
 
     subroutine traverse_procedure_def_indices(arena, param_indices, body_indices, &
-                                               visitor, is_preorder)
+                                              visitor, is_preorder)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: param_indices(:), body_indices(:)
         class(ast_visitor_t), intent(inout) :: visitor
@@ -248,7 +248,8 @@ contains
 
         type is (if_node)
             call append_index(node%condition_index)
-            if (allocated(node%then_body_indices)) call append_array(node%then_body_indices)
+            if (allocated(node%then_body_indices)) call &
+                append_array(node%then_body_indices)
             if (allocated(node%elseif_blocks)) then
                 block
                     integer :: i, j
@@ -262,7 +263,8 @@ contains
                     end do
                 end block
             end if
-            if (allocated(node%else_body_indices)) call append_array(node%else_body_indices)
+            if (allocated(node%else_body_indices)) call &
+                append_array(node%else_body_indices)
 
         type is (do_loop_node)
             call append_index(node%start_expr_index)
@@ -280,17 +282,22 @@ contains
             call append_index(node%default_index)
 
         type is (module_node)
-            if (allocated(node%declaration_indices)) call append_array(node%declaration_indices)
-            if (allocated(node%procedure_indices)) call append_array(node%procedure_indices)
+            if (allocated(node%declaration_indices)) call &
+                append_array(node%declaration_indices)
+            if (allocated(node%procedure_indices)) call &
+                append_array(node%procedure_indices)
 
         type is (derived_type_node)
-            if (allocated(node%component_indices)) call append_array(node%component_indices)
+            if (allocated(node%component_indices)) call &
+                append_array(node%component_indices)
 
         type is (interface_block_node)
-            if (allocated(node%procedure_indices)) call append_array(node%procedure_indices)
+            if (allocated(node%procedure_indices)) call &
+                append_array(node%procedure_indices)
 
         type is (print_statement_node)
-            if (allocated(node%expression_indices)) call append_array(node%expression_indices)
+            if (allocated(node%expression_indices)) call &
+                append_array(node%expression_indices)
 
         class default
             ! Other node types intentionally yield no children here
@@ -490,7 +497,7 @@ contains
         logical, intent(in) :: is_preorder
 
         call traverse_procedure_def_indices(arena, n%param_indices, n%body_indices, &
-                                             visitor, is_preorder)
+                                            visitor, is_preorder)
     end subroutine traverse_function_def_children
 
     subroutine traverse_subroutine_def_children(arena, n, visitor, is_preorder)
@@ -500,7 +507,7 @@ contains
         logical, intent(in) :: is_preorder
 
         call traverse_procedure_def_indices(arena, n%param_indices, n%body_indices, &
-                                             visitor, is_preorder)
+                                            visitor, is_preorder)
     end subroutine traverse_subroutine_def_children
 
     subroutine traverse_call_or_subscript_children(arena, n, visitor, is_preorder)
@@ -605,7 +612,8 @@ contains
         integer :: i
         if (allocated(n%declaration_indices)) then
             do i = 1, size(n%declaration_indices)
-                call traverse_node(arena, n%declaration_indices(i), visitor, is_preorder)
+                call traverse_node(arena, n%declaration_indices(i), visitor, &
+                                   is_preorder)
             end do
         end if
         if (allocated(n%procedure_indices)) then
