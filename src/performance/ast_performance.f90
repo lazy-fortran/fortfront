@@ -114,7 +114,8 @@ contains
         cache_entries(cache_index)%file_path = file_path
         cache_entries(cache_index)%source_checksum = source_checksum
         call deep_copy_arena(arena, cache_entries(cache_index)%cached_arena)
-        call deep_copy_semantic_context(semantic_ctx, cache_entries(cache_index)%cached_semantic_ctx)
+        call deep_copy_semantic_context(semantic_ctx, &
+                                        cache_entries(cache_index)%cached_semantic_ctx)
         cache_entries(cache_index)%is_valid = .true.
         cache_entries(cache_index)%creation_time = current_time()
         cache_entries(cache_index)%access_count = 0
@@ -127,7 +128,8 @@ contains
 
     end subroutine cache_ast
 
-    function load_cached_ast(file_path, source_checksum, arena, semantic_ctx) result(loaded)
+    function load_cached_ast(file_path, source_checksum, arena, semantic_ctx) &
+        result(loaded)
         character(len=*), intent(in) :: file_path
         character(len=*), intent(in) :: source_checksum
         type(ast_arena_t), intent(out) :: arena
@@ -148,7 +150,8 @@ contains
 
                 ! Load cached data with deep copy
                 call deep_copy_arena(cache_entries(i)%cached_arena, arena)
-                call deep_copy_semantic_context(cache_entries(i)%cached_semantic_ctx, semantic_ctx)
+                call deep_copy_semantic_context(cache_entries(i)%cached_semantic_ctx, &
+                                                semantic_ctx)
                 cache_entries(i)%access_count = cache_entries(i)%access_count + 1
 
                 loaded = .true.
@@ -501,8 +504,10 @@ contains
             dest_arena%entries(i)%child_count = source_arena%entries(i)%child_count
 
             if (allocated(source_arena%entries(i)%child_indices)) then
-                allocate(dest_arena%entries(i)%child_indices(size(source_arena%entries(i)%child_indices)))
-                dest_arena%entries(i)%child_indices = source_arena%entries(i)%child_indices
+                allocate (dest_arena%entries(i)%child_indices( &
+                    size(source_arena%entries(i)%child_indices)))
+                dest_arena%entries(i)%child_indices = &
+                    source_arena%entries(i)%child_indices
             end if
 
             ! Note: Deep copying AST nodes is complex due to polymorphic types

@@ -1,7 +1,8 @@
 module ast_factory_arrays
     use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: call_or_subscript_node
-    use ast_nodes_bounds, only: array_bounds_node, array_slice_node, range_expression_node
+    use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
+                                range_expression_node
     use ast_factory_core, only: push_literal
     use ast_base, only: LITERAL_INTEGER
     use uid_generator, only: generate_uid
@@ -31,8 +32,10 @@ contains
         end_str = int_to_string(end_idx)
 
         ! Create start and end index literals
-        start_literal_idx = push_literal(arena, trim(start_str), LITERAL_INTEGER, line, column)
-        end_literal_idx = push_literal(arena, trim(end_str), LITERAL_INTEGER, line, column)
+        start_literal_idx = push_literal(arena, trim(start_str), LITERAL_INTEGER, &
+                                         line, column)
+        end_literal_idx = push_literal(arena, trim(end_str), LITERAL_INTEGER, &
+                                       line, column)
 
         ! Create subscript node with array section range
         section%uid = generate_uid()

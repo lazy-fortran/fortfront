@@ -65,7 +65,6 @@ contains
         end if
     end subroutine clear_stmt_util_additional_indices
 
-
     ! Statement parsing for if blocks - moved here to break circular dependency
     function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -305,7 +304,8 @@ contains
 
         ! Look for 'then' keyword
         then_token = parser%peek()
-        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == "then") then
+        if (then_token%kind == TK_KEYWORD .and. to_lower(then_token%text) == &
+            "then") then
             token = parser%consume()
 
             ! Parse then body with efficient growth
@@ -316,7 +316,8 @@ contains
             do while (.not. parser%is_at_end())
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD) then
-                    if (to_lower(token%text) == "else" .or. to_lower(token%text) == "end") then
+                    if (to_lower(token%text) == "else" .or. to_lower(token%text) == &
+                        "end") then
                         exit
                     end if
                 end if
@@ -329,7 +330,7 @@ contains
                         ! Grow array if needed
                         if (then_count >= then_capacity) then
                             then_capacity = then_capacity * 2
-                            allocate(temp_indices(then_capacity))
+                            allocate (temp_indices(then_capacity))
                             temp_indices(1:then_count) = then_body_indices(1:then_count)
                             call move_alloc(temp_indices, then_body_indices)
                         end if
@@ -343,10 +344,10 @@ contains
 
             ! Trim then body to actual size
             if (then_count == 0) then
-                deallocate(then_body_indices)
-                allocate(then_body_indices(0))
+                deallocate (then_body_indices)
+                allocate (then_body_indices(0))
             else if (then_count < then_capacity) then
-                allocate(temp_indices(then_count))
+                allocate (temp_indices(then_count))
                 temp_indices = then_body_indices(1:then_count)
                 call move_alloc(temp_indices, then_body_indices)
             end if
@@ -375,8 +376,9 @@ contains
                             ! Grow array if needed
                             if (else_count >= else_capacity) then
                                 else_capacity = else_capacity * 2
-                                allocate(temp_indices(else_capacity))
-                                temp_indices(1:else_count) = else_body_indices(1:else_count)
+                                allocate (temp_indices(else_capacity))
+                                temp_indices(1:else_count) = &
+                                    else_body_indices(1:else_count)
                                 call move_alloc(temp_indices, else_body_indices)
                             end if
                             else_count = else_count + 1
@@ -390,10 +392,10 @@ contains
 
             ! Trim else body to actual size
             if (else_count == 0) then
-                deallocate(else_body_indices)
-                allocate(else_body_indices(0))
+                deallocate (else_body_indices)
+                allocate (else_body_indices(0))
             else if (else_count < else_capacity) then
-                allocate(temp_indices(else_count))
+                allocate (temp_indices(else_count))
                 temp_indices = else_body_indices(1:else_count)
                 call move_alloc(temp_indices, else_body_indices)
             end if

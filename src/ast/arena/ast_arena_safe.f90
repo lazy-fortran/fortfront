@@ -227,7 +227,8 @@ contains
         class(ast_node), intent(in) :: node
         integer, intent(in) :: index
 
-        write (error_unit, *) "ERROR: Unknown AST node type - creating error placeholder"
+        write (error_unit, *) &
+            "ERROR: Unknown AST node type - creating error placeholder"
         allocate (error_node_t :: arena%entries(index)%node)
         select type (error_node => arena%entries(index)%node)
         type is (error_node_t)

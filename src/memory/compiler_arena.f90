@@ -6,12 +6,14 @@ module compiler_arena
 
     use arena_memory
     use type_system_arena
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, destroy_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, &
+                                destroy_ast_arena
     use, intrinsic :: iso_fortran_env, only: int64, dp => real64
     implicit none
     private
 
-    public :: compiler_arena_t, compiler_arena_stats_t, create_compiler_arena, destroy_compiler_arena
+    public :: compiler_arena_t, compiler_arena_stats_t, create_compiler_arena, &
+              destroy_compiler_arena
 
     ! Future arena types - placeholders for unified architecture
 
@@ -29,7 +31,8 @@ module compiler_arena
         type(type_arena_t) :: types  ! Type system (already implemented)
         type(ast_arena_t) :: ast  ! AST nodes (modern implementation)
         type(symbol_arena_placeholder_t) :: symbols  ! Symbol tables (placeholder)
-        type(literal_arena_placeholder_t) :: literals  ! String/number literals (placeholder)
+        type(literal_arena_placeholder_t) :: literals
+        ! String/number literals (placeholder)
 
         ! Unified management state
         integer :: generation = 1  ! Global generation counter
@@ -102,7 +105,7 @@ contains
 
         size = this%default_chunk_size
 
-        ! PERFORMANCE FIX: Initialize arenas in-place to avoid assignment operator overhead
+     ! PERFORMANCE FIX: Initialize arenas in-place to avoid assignment operator overhead
         ! Initialize type arena directly (avoid assignment operator deep copy)
         this%types%arena = create_arena(size / 4)  ! Types typically need less memory
         this%types%next_type_id = 1
@@ -239,14 +242,16 @@ contains
             stats%total_memory = stats%total_memory + stats%ast_memory
 
             ! Average utilization across arenas (average type and AST utilization)
-            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0_dp
+            stats%average_utilization = (type_stats%utilization + &
+                                         ast_stats%utilization) / 2.0_dp
         end block
 
         ! Future: aggregate statistics from other arenas
 
         ! Calculate allocation rate (allocations per second)
         if (this%total_allocation_time > 0.0_dp) then
-            stats%allocation_rate = real(this%total_allocations, dp) / this%total_allocation_time
+            stats%allocation_rate = real(this%total_allocations, dp) / &
+                                    this%total_allocation_time
         end if
 
         stats%active_generations = this%generation
@@ -310,7 +315,7 @@ contains
 
         ! Optional: Log phase transition for debugging
         ! if (debug_enabled) then
-        !     print *, "Compiler Phase: ", trim(phase_name), " Generation: ", this%generation
+   !     print *, "Compiler Phase: ", trim(phase_name), " Generation: ", this%generation
         ! end if
     end subroutine compiler_arena_next_phase
 

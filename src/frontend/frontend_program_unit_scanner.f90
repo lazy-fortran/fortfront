@@ -430,7 +430,7 @@ contains
 
         if (unit_start <= size(tokens)) then
             select case (tokens(unit_start)%kind)
-            ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be mixed case)
+                ! Check both TK_KEYWORD and TK_IDENTIFIER (keywords can be mixed case)
             case (TK_KEYWORD, TK_IDENTIFIER)
                 unit_type = to_lower(trim(tokens(unit_start)%text))
                 if (unit_type == "block") block_keyword_pos = unit_start
@@ -441,7 +441,7 @@ contains
                     case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
                         next_pos = next_pos + 1
                         cycle
-                    ! Check both TK_KEYWORD and TK_IDENTIFIER
+                        ! Check both TK_KEYWORD and TK_IDENTIFIER
                     case (TK_KEYWORD, TK_IDENTIFIER)
                         unit_type = to_lower(trim(tokens(next_pos)%text))
                         if (unit_type == "block") block_keyword_pos = next_pos
@@ -661,7 +661,7 @@ contains
             if (tokens(i)%kind == TK_EOF) then
                 unit_end = i - 1
                 exit
-            ! Check both TK_KEYWORD and TK_IDENTIFIER
+                ! Check both TK_KEYWORD and TK_IDENTIFIER
             else if (tokens(i)%kind == TK_KEYWORD .or. &
                      tokens(i)%kind == TK_IDENTIFIER) then
                 if (to_lower(trim(tokens(i)%text)) == "end") then
@@ -683,7 +683,8 @@ contains
                     end if
                     if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
                                                 tokens(i + 1)%kind /= TK_KEYWORD .and. &
-                                                tokens(i + 1)%kind /= TK_IDENTIFIER)) then
+                                                tokens(i + 1)%kind /= &
+                                                TK_IDENTIFIER)) then
                         unit_end = i
                         exit
                     end if

@@ -437,7 +437,8 @@ contains
         end if
 
         ! Free the node by incrementing its slot generation (invalidates old handles)
-        this%slot_gen(handle%node_id) = this%slot_gen(handle%node_id) + 1  ! Invalidate old handles
+        this%slot_gen(handle%node_id) = this%slot_gen(handle%node_id) + 1
+        ! Invalidate old handles
         free_result%freed_generation = handle%generation
 
         ! Add slot to free list for reuse

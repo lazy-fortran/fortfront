@@ -35,8 +35,9 @@ contains
                 next_index = parser%current_token + 1
                 lookahead = parser%get_token_at_index(next_index)
                 next_lower = to_lower(trim(lookahead%text))
-                if (trim(next_lower) == "precision" .or. trim(next_lower) == "complex") then
-                    return_type_str = trim(token%text)//" "//trim(lookahead%text)
+                if (trim(next_lower) == "precision" .or. trim(next_lower) == &
+                    "complex") then
+                    return_type_str = trim(token%text) // " " // trim(lookahead%text)
                     token = parser%consume()
                     token = parser%consume()
                 end if

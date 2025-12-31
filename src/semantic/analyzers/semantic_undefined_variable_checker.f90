@@ -35,7 +35,7 @@ contains
         ! which the checker doesn't fully understand yet
         if (input_mode == INPUT_MODE_STANDARD) return
 
-        ! Recursively traverse the AST to find identifier nodes and check if they're defined
+    ! Recursively traverse the AST to find identifier nodes and check if they're defined
         call traverse_for_undefined_variables(scopes, errors, arena, prog_index)
     end subroutine check_undefined_variables_generic
 

@@ -59,8 +59,9 @@ contains
         ! Create compatibility layer with explicit capacity
         arena%ast_arena_compat_t = create_ast_arena_compat(capacity)
 
-        ! CRITICAL FIX: Manually set capacity field to ensure it's available at the ast_arena_t level
-        ! This is needed because the parent assignment may not properly propagate all base fields
+        ! CRITICAL FIX: Manually set capacity field to ensure its available
+        ! at the ast_arena_t level. This is needed because the parent
+        ! assignment may not properly propagate all base fields.
         arena%capacity = capacity
         arena%size = 0  ! Initialize size from base_arena_t
         arena%generation = 1  ! Initialize generation from base_arena_t

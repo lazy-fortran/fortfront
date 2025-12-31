@@ -10,7 +10,8 @@ module codegen_name_mangling
 
 contains
 
-    function mangle_procedure_name(base_name, signature, param_types) result(mangled_name)
+    function mangle_procedure_name(base_name, signature, param_types) &
+        result(mangled_name)
         character(len=*), intent(in) :: base_name
         integer, intent(in) :: signature(:)
         character(len=*), intent(in), optional :: param_types(:)
@@ -120,9 +121,9 @@ contains
         character(len=:), allocatable :: base
 
         if (index(type_desc, 'double precision') > 0 .or. &
-            index(type_desc, 'real(8)') > 0 ) then
+            index(type_desc, 'real(8)') > 0) then
             base = 'r64'
-        else if (index(type_desc, 'real(16)') > 0 ) then
+        else if (index(type_desc, 'real(16)') > 0) then
             base = 'r128'
         else if (index(type_desc, 'real') > 0) then
             base = 'r32'

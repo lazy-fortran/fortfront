@@ -306,7 +306,8 @@ contains
                             ! ISO/IEC 1539-1:2018 Section 8.5.8.2: explicit-shape arrays
                             ! Note: dimension_indices(i)==0 means deferred shape (:)
                             !       dimension_indices(i)>0 means explicit size
-                            if (get_standardizer_input_mode() == INPUT_MODE_STANDARD) then
+                            if (get_standardizer_input_mode() == &
+                                INPUT_MODE_STANDARD) then
                                 if (has_explicit_array_bounds_decl(decl)) then
                                     ! Skip type update - preserve original bounds
                                     return

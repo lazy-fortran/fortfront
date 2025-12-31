@@ -31,8 +31,8 @@ contains
         if (.not. allocated(prog%body_indices)) return
 
         ! CRITICAL: Copy indices before loop to prevent dangling pointer access
-        ! standardize_function_def and standardize_subroutine_def call push_implicit_statement
-        ! which modifies arena, potentially invalidating the prog selector used in select type
+  ! standardize_function_def and standardize_subroutine_def call push_implicit_statement
+  ! which modifies arena, potentially invalidating the prog selector used in select type
         block
             integer, allocatable :: local_indices(:)
             allocate (local_indices(size(prog%body_indices)))
@@ -45,7 +45,8 @@ contains
                         type is (function_def_node)
                             call standardize_function_def(arena, stmt, local_indices(i))
                         type is (subroutine_def_node)
-                            call standardize_subroutine_def(arena, stmt, local_indices(i))
+                            call standardize_subroutine_def(arena, stmt, &
+                                                            local_indices(i))
                         end select
                     end if
                 end if

@@ -268,7 +268,8 @@ contains
                         type is (declaration_node)
                             if (trim(node%var_name) == trim(param_map(i)%name)) then
                                 if (allocated(node%type_name)) then
-                                    if (index(to_lower(trim(node%type_name)), 'procedure(') == 1) then
+                                    if (index(to_lower(trim(node%type_name)), &
+                                              'procedure(') == 1) then
                                         is_procedure_param = .true.
                                         exit
                                     end if
@@ -443,7 +444,7 @@ contains
                     dim_clause = build_parameter_dimensions(arena, param_node)
                     if (len(dim_clause) == 0) then
                         dim_clause = build_assumed_shape_dimensions( &
-                            param_node%inferred_type)
+                                     param_node%inferred_type)
                     end if
                     decl_line = trim(decl_line) // trim(dim_clause)
                 end if

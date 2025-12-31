@@ -201,7 +201,7 @@ contains
         end if
 
         ! Handle allocatable array assignment from function returns (Issue #2075)
-        ! When assigning from a function returning allocatable array, preserve allocatable
+      ! When assigning from a function returning allocatable array, preserve allocatable
         call handle_allocatable_array_assignment(arena, assignment, expr_typ)
 
         ! Force complex type for variables assigned from complex literals
@@ -329,7 +329,7 @@ contains
                     if (value_node%inferred_type%kind == TARRAY) then
                         if (value_node%inferred_type%alloc_info%is_allocatable) then
                             ! Use the full array type from the function call
-                            ! This ensures expr_typ has both TARRAY kind and allocatable flag
+                       ! This ensures expr_typ has both TARRAY kind and allocatable flag
                             expr_typ = value_node%inferred_type
                         end if
                     end if

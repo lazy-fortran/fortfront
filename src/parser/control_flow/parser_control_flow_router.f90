@@ -9,7 +9,7 @@ module parser_control_flow_router_module
     use parser_if_constructs_module, only: parse_if
     use parser_do_constructs_module, only: parse_do_loop
     use parser_select_constructs_module, only: parse_select_case, parse_select_type, &
-                                              parse_select_rank
+                                               parse_select_rank
     use parser_array_constructs_module, only: parse_where_construct, parse_associate, &
                                               parse_block_construct
     use parser_forall_module, only: parse_forall
@@ -49,7 +49,8 @@ contains
         end select
     end function is_control_flow_keyword
 
-    function route_control_flow(parser, arena, callbacks, parent_index) result(node_index)
+    function route_control_flow(parser, arena, callbacks, parent_index) &
+        result(node_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(statement_callbacks_t), intent(in), optional :: callbacks
@@ -103,14 +104,17 @@ contains
 
                 if (found_keyword) then
                     if (lookahead_token%text == "type") then
-                        node_index = invoke_no_parent(local_callbacks%parse_select_type, &
-                                                      parser, arena)
+                        node_index = &
+                            invoke_no_parent(local_callbacks%parse_select_type, &
+                                             parser, arena)
                     else if (lookahead_token%text == "case") then
-                        node_index = invoke_no_parent(local_callbacks%parse_select_case, &
-                                                      parser, arena)
+                        node_index = &
+                            invoke_no_parent(local_callbacks%parse_select_case, &
+                                             parser, arena)
                     else if (lookahead_token%text == "rank") then
-                        node_index = invoke_no_parent(local_callbacks%parse_select_rank, &
-                                                      parser, arena)
+                        node_index = &
+                            invoke_no_parent(local_callbacks%parse_select_rank, &
+                                             parser, arena)
                     end if
                 end if
             end block
@@ -119,7 +123,8 @@ contains
         case ("forall")
             node_index = invoke_no_parent(local_callbacks%parse_forall, parser, arena)
         case ("associate")
-            node_index = invoke_no_parent(local_callbacks%parse_associate, parser, arena)
+            node_index = invoke_no_parent(local_callbacks%parse_associate, &
+                                          parser, arena)
         case ("block")
             node_index = invoke_no_parent(local_callbacks%parse_block, parser, arena)
         case default

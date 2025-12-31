@@ -69,7 +69,7 @@ contains
         ! Pass both declaration and legacy storage code (includes namelist) so that
         ! namelist groups can be identified before variable declarations are generated
         extra_decls = collect_program_variable_decls(arena, node, &
-                                                     declaration_statements_code // &
+                                                     declaration_statements_code// &
                                                      legacy_storage_code)
         if (len_trim(extra_decls) > 0) then
             code = code // extra_decls
@@ -318,10 +318,13 @@ contains
         end if
 
         is_header = process_comment_like_node(arena, body_index, &
-                     is_legacy_storage_text(comment_text), non_use_count, &
-                     header_decl_count, use_statements_code, &
-                     intrinsic_statements_code, implicit_statements_code, &
-                     legacy_storage_code, interface_blocks_code)
+                                              is_legacy_storage_text(comment_text), &
+                                                  non_use_count, &
+                                              header_decl_count, use_statements_code, &
+                                              intrinsic_statements_code, &
+                                                  implicit_statements_code, &
+                                              legacy_storage_code, &
+                                                  interface_blocks_code)
     end function process_comment_node
 
     logical function process_directive_node(arena, body_index, ib, non_use_count, &
@@ -349,10 +352,13 @@ contains
         end if
 
         is_header = process_comment_like_node(arena, body_index, &
-                     is_legacy_storage_text(directive_text), non_use_count, &
-                     header_decl_count, use_statements_code, &
-                     intrinsic_statements_code, implicit_statements_code, &
-                     legacy_storage_code, interface_blocks_code)
+                                              is_legacy_storage_text(directive_text), &
+                                                  non_use_count, &
+                                              header_decl_count, use_statements_code, &
+                                              intrinsic_statements_code, &
+                                                  implicit_statements_code, &
+                                              legacy_storage_code, &
+                                                  interface_blocks_code)
     end function process_directive_node
 
     logical function process_comment_like_node(arena, body_index, is_legacy_storage, &
@@ -376,7 +382,7 @@ contains
 
         is_header = .false.
         if (is_legacy_storage .or. ((non_use_count == 0) .and. &
-            header_decl_count == 0)) then
+                                    header_decl_count == 0)) then
             is_header = .true.
             stmt_code = generate_code_from_arena(arena, body_index)
             if (is_legacy_storage) then
@@ -482,7 +488,8 @@ contains
 
         stmt_code = generate_code_from_arena(arena, body_index)
         if (len_trim(stmt_code) > 0) then
-            legacy_storage_code = legacy_storage_code // "    " // stmt_code // new_line('A')
+            legacy_storage_code = legacy_storage_code // "    " // stmt_code // &
+                                  new_line('A')
         end if
     end subroutine process_namelist_statement
 

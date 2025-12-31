@@ -12,7 +12,8 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
     use semantic_where_validation, only: validate_where_construct
     implicit none
 
-    ! Module-level context for wrapper function (not thread-safe, but works around gfortran bug)
+! Module-level context for wrapper function
+! (not thread-safe, but works around gfortran bug)
     class(semantic_context_t), pointer :: g_current_context => null()
     type(ast_arena_t), pointer :: g_current_arena => null()
 

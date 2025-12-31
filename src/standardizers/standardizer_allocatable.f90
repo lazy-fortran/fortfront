@@ -148,7 +148,8 @@ contains
 
     logical function variable_requires_allocatable(name, assigned_vars, &
                                                    assignment_counts, var_count, &
-                                                   is_parameter, is_array) result(needs_alloc)
+                                                   is_parameter, is_array) &
+        result(needs_alloc)
         character(len=*), intent(in) :: name
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
@@ -328,10 +329,11 @@ contains
         end do
 
         ! Second pass: mark declarations for variables with multiple array assignments
-        ! CRITICAL: Copy indices to local array before iteration to prevent stale access
-        ! When mark_declarations_allocatable modifies the arena (via split_multi_variable_declaration),
-        ! it updates the arena's version of prog%body_indices, but we have a stack copy (intent(in)).
-        ! Using the stale copy causes segfaults when accessing invalid/outdated indices.
+        ! CRITICAL: Copy indices to local array before iteration to prevent stale
+        ! access. When mark_declarations_allocatable modifies the arena (via
+        ! split_multi_variable_declaration), it updates the arenas version of
+        ! prog%body_indices, but we have a stack copy (intent(in)).
+        ! Using stale copy causes segfaults when accessing invalid/outdated indices.
         allocate (local_indices(size(prog%body_indices)))
         local_indices = prog%body_indices
 
@@ -502,7 +504,8 @@ contains
 
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
-            if (.not. (decl%is_multi_declaration .and. allocated(decl%var_names))) return
+            if (.not. (decl%is_multi_declaration .and. &
+                       allocated(decl%var_names))) return
 
             is_parameter = is_procedure_parameter(arena, decl_index)
             do i = 1, size(decl%var_names)
@@ -553,9 +556,9 @@ contains
             if (.not. (decl_orig%is_multi_declaration .and. &
                        allocated(decl_orig%var_names))) return
 
-            ! CRITICAL: Copy declaration to stack before arena pushes to avoid dangling pointer
+     ! CRITICAL: Copy declaration to stack before arena pushes to avoid dangling pointer
             ! When append_split_declaration pushes to arena, it may trigger reallocation
-            ! which would invalidate the decl_orig selector. Using a stack copy prevents this.
+      ! which would invalidate the decl_orig selector. Using a stack copy prevents this.
             template_decl = decl_orig
 
             allocate (new_indices(size(template_decl%var_names)))
@@ -568,7 +571,8 @@ contains
                                     template_decl%var_names(i), assigned_vars, &
                                     assignment_counts, &
                                     var_count, is_parameter, template_decl%is_array)
-                call append_split_declaration(arena, template_decl, template_decl%var_names(i), &
+                call append_split_declaration(arena, template_decl, &
+                                              template_decl%var_names(i), &
                                               needs_allocatable, prog_index, &
                                               new_indices, new_count)
             end do
@@ -606,7 +610,7 @@ contains
 
         new_decl%is_allocatable = is_allocatable
 
-        ! Adjust dimensions for allocatable arrays (but preserve explicit bounds - fixes #1812)
+ ! Adjust dimensions for allocatable arrays (but preserve explicit bounds - fixes #1812)
         if (is_allocatable .and. new_decl%is_array .and. &
             allocated(new_decl%dimension_indices)) then
             ! Only convert to deferred shape if array does NOT have explicit bounds
@@ -899,7 +903,7 @@ contains
         ! - character strings with deferred length
         ! - arrays flagged by assignment tracking (but NOT if they have explicit bounds)
         if (decl%is_array) then
-            ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812, #2149)
+        ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812, #2149)
             ! Arrays like integer :: arr(0:9) or real :: arr(-5:5) must preserve bounds
             ! Arrays from slices like slice1 = arr(1:5) have fixed sizes already set
             if (has_explicit_array_bounds(decl)) then

@@ -218,11 +218,12 @@ contains
         visited_count = 0
         depth = 0
         call collect_array_dimensions_impl(mono_type, dim_spec, &
-                                          visited_ids, visited_count, depth)
+                                           visited_ids, visited_count, depth)
     end subroutine collect_array_dimensions
 
     recursive subroutine collect_array_dimensions_impl(mono_type, dim_spec, &
-                                                       visited_ids, visited_count, depth)
+                                                       visited_ids, &
+                                                       visited_count, depth)
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable, intent(inout) :: dim_spec
         integer, intent(inout) :: visited_ids(100)
@@ -260,7 +261,7 @@ contains
             inner_element = type_args_element(mono_type, 1)
             if (inner_element%kind == TARRAY) then
                 call collect_array_dimensions_impl(inner_element, dim_spec, &
-                                                  visited_ids, visited_count, depth)
+                                                   visited_ids, visited_count, depth)
             end if
         end if
 

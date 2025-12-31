@@ -252,27 +252,31 @@ contains
             if (step_index > 0) then
                 if (allocated(object_exprs)) then
                     node_index = push_io_implied_do( &
-                        arena, value_expr_index, var_name, &
-                        start_expr_index=start_index, end_expr_index=end_index, &
-                        step_expr_index=step_index, line=line, column=column, &
-                        object_indices=object_exprs)
+                                 arena, value_expr_index, var_name, &
+                                 start_expr_index=start_index, &
+                                     end_expr_index=end_index, &
+                                 step_expr_index=step_index, line=line, column=column, &
+                                 object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
-                        arena, value_expr_index, var_name, &
-                        start_expr_index=start_index, end_expr_index=end_index, &
-                        step_expr_index=step_index, line=line, column=column)
+                                 arena, value_expr_index, var_name, &
+                                 start_expr_index=start_index, &
+                                     end_expr_index=end_index, &
+                                 step_expr_index=step_index, line=line, column=column)
                 end if
             else
                 if (allocated(object_exprs)) then
                     node_index = push_io_implied_do( &
-                        arena, value_expr_index, var_name, &
-                        start_expr_index=start_index, end_expr_index=end_index, &
-                        line=line, column=column, object_indices=object_exprs)
+                                 arena, value_expr_index, var_name, &
+                                 start_expr_index=start_index, &
+                                     end_expr_index=end_index, &
+                                 line=line, column=column, object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
-                        arena, value_expr_index, var_name, &
-                        start_expr_index=start_index, end_expr_index=end_index, &
-                        line=line, column=column)
+                                 arena, value_expr_index, var_name, &
+                                 start_expr_index=start_index, &
+                                     end_expr_index=end_index, &
+                                 line=line, column=column)
                 end if
             end if
         end function create_implied_do_node_helper
@@ -387,8 +391,8 @@ contains
                                 current = parser%peek()
                                 if (current%kind == TK_OPERATOR .and. &
                                     trim(current%text) == "/") then
-                                    ! Accept trailing comma as extension (common compiler
-                                    ! tolerance). Parser continues; codegen emits standard
+                                   ! Accept trailing comma as extension (common compiler
+                                  ! tolerance). Parser continues; codegen emits standard
                                     ! Fortran without trailing comma.
                                     exit
                                 end if

@@ -49,7 +49,8 @@ contains
         integer, intent(in), optional :: generation
 
         if (present(start_value)) then
-            current_uid_value = start_value - 1_int64  ! Pre-decrement for first increment
+            current_uid_value = start_value - 1_int64
+            ! Pre-decrement for first increment
         else
             current_uid_value = 0_int64
         end if

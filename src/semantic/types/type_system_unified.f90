@@ -237,7 +237,8 @@ contains
         call ensure_arena_initialized()
 
         ! Convert type vars to handles (simplified - we'll store as empty for now)
-        allocate (var_handles(0))  ! Empty for now - full implementation would convert forall_vars
+        allocate (var_handles(0))
+        ! Empty for now - full implementation would convert forall_vars
         vars_handle = store_type_args(global_arena, var_handles)
 
         arena_poly%forall_vars = vars_handle

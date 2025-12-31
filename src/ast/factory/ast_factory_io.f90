@@ -136,8 +136,10 @@ contains
     end function push_read_statement
 
     ! Extended I/O statement functions with iostat/err/end specifiers
-    function push_write_statement_with_iostat(arena, unit_spec, arg_indices, format_spec, &
-                                              iostat_var, line, column, parent_index) result(write_index)
+    function push_write_statement_with_iostat(arena, unit_spec, arg_indices, &
+                                              format_spec, &
+                                              iostat_var, line, column, parent_index) &
+        result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: arg_indices(:), iostat_var
@@ -158,7 +160,8 @@ contains
     end function push_write_statement_with_iostat
 
     function push_read_statement_with_err(arena, unit_spec, var_indices, format_spec, &
-                                          err_label, line, column, parent_index) result(read_index)
+                                          err_label, line, column, parent_index) &
+        result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), err_label
@@ -179,7 +182,8 @@ contains
     end function push_read_statement_with_err
 
     function push_read_statement_with_end(arena, unit_spec, var_indices, format_spec, &
-                                          end_label, line, column, parent_index) result(read_index)
+                                          end_label, line, column, parent_index) &
+        result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), end_label
@@ -202,7 +206,8 @@ contains
     function push_read_statement_with_all_specifiers(arena, unit_spec, &
                                                      var_indices, format_spec, &
                                                      iostat_var, err_label, end_label, &
-                                                     line, column, parent_index) result(read_index)
+                                                     line, column, parent_index) &
+        result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), iostat_var, err_label, end_label
@@ -225,8 +230,10 @@ contains
     end function push_read_statement_with_all_specifiers
 
     ! Format descriptor support functions
-    function push_write_statement_with_format(arena, unit_spec, arg_indices, format_spec, &
-                                              line, column, parent_index) result(write_index)
+    function push_write_statement_with_format(arena, unit_spec, arg_indices, &
+                                              format_spec, &
+                                              line, column, parent_index) &
+        result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: arg_indices(:)
@@ -248,7 +255,8 @@ contains
 
     function push_write_statement_with_runtime_format(arena, unit_spec, &
                                                       arg_indices, format_var, &
-                                                      line, column, parent_index) result(write_index)
+                                                      line, column, parent_index) &
+        result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in) :: arg_indices(:), format_var
@@ -269,7 +277,7 @@ contains
     end function push_write_statement_with_runtime_format
 
     function push_format_statement(arena, format_spec, line, column, &
-                                    parent_index) result(format_index)
+                                   parent_index) result(format_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: format_spec
         integer, intent(in), optional :: line, column, parent_index

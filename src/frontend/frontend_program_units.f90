@@ -36,7 +36,8 @@ module frontend_program_units
 contains
 
     ! Main program unit parsing dispatch
-    function parse_program_unit(tokens, arena, has_explicit_program, error_msg) result(unit_index)
+    function parse_program_unit(tokens, arena, has_explicit_program, error_msg) &
+        result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         logical, intent(in) :: has_explicit_program
@@ -82,7 +83,8 @@ contains
                 ! Parse the entire module with its content
                 unit_index = parse_module_unit(trimmed_tokens, arena, parse_error)
             else if (is_program_start(trimmed_tokens, 1)) then
-                unit_index = parse_explicit_program_unit(trimmed_tokens, arena, parse_error)
+                unit_index = parse_explicit_program_unit(trimmed_tokens, arena, &
+                                                         parse_error)
             else if (is_block_data_start(trimmed_tokens, 1)) then
                 ! Parse BLOCK DATA unit
                 unit_index = parse_block_data_unit(trimmed_tokens, arena, parse_error)
@@ -92,7 +94,8 @@ contains
             else
                 ! Mixed module/main files still require implicit main detection
                 unit_index = parse_implicit_main_program(trimmed_tokens, arena, &
-                                                         has_explicit_program, parse_error)
+                                                         has_explicit_program, &
+                                                         parse_error)
             end if
         end block
 
@@ -335,7 +338,6 @@ contains
         integer :: prog_index
         type(parser_prefix_buffer_t) :: prefix_buffer
         character(len=:), allocatable :: errors
-
 
         ! Parse explicit program statement
         prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)

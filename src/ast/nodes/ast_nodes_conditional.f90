@@ -34,7 +34,8 @@ module ast_nodes_conditional
     type, extends(ast_node) :: if_node
         integer :: condition_index = 0  ! If condition arena index
         integer, allocatable :: then_body_indices(:)  ! Then body arena indices
-        type(elseif_wrapper_t), allocatable :: elseif_blocks(:)  ! Elseif blocks (optional)
+        type(elseif_wrapper_t), allocatable :: elseif_blocks(:)
+        ! Elseif blocks (optional)
         integer, allocatable :: else_body_indices(:)  ! Else body arena indices &
         ! (optional)
     contains

@@ -111,7 +111,8 @@ contains
                     integer :: n
 
                     n = size(info%variable_names)
-                    allocate(character(len=max(len(info%variable_names), len(var_name))) :: temp_names(n+1))
+                    allocate (character(len=max(len(info%variable_names), &
+                                                len(var_name))) :: temp_names(n + 1))
                     allocate (temp_counts(n + 1))
                     allocate (temp_indices(n + 1))
 
@@ -154,7 +155,8 @@ contains
 
         ! Deep copy allocatable arrays
         if (allocated(rhs%variable_names)) then
-            allocate(character(len(rhs%variable_names)) :: lhs%variable_names(size(rhs%variable_names)))
+            allocate (character(len(rhs%variable_names)) :: &
+                      lhs%variable_names(size(rhs%variable_names)))
             lhs%variable_names = rhs%variable_names
         end if
 

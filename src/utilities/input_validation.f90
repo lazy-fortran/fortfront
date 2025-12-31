@@ -5,7 +5,8 @@ module input_validation
     ! Cleanly separated from frontend concerns with no circular dependencies
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, TK_STRING, &
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN, &
+                          TK_STRING, &
                           TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier

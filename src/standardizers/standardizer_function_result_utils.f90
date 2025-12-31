@@ -415,7 +415,7 @@ contains
             if (decl%inferred_type%kind > 0 .and. len_trim(decl%type_name) == 0) then
                 decl%type_name = mono_type_to_string(decl%inferred_type, &
                                                      include_shape=.false., &
-                                                     standardize_real=type_std_enabled, &
+                                                    standardize_real=type_std_enabled, &
                                                      fallback=decl%type_name)
             end if
         end if

@@ -73,7 +73,7 @@ contains
                                                component_token%text, &
                                                op_token%line, op_token%column)
         else if (component_token%kind == TK_KEYWORD) then
-            ! Keywords are valid component names in Fortran (e.g., "data", "type", "end")
+           ! Keywords are valid component names in Fortran (e.g., "data", "type", "end")
             component_token = parser%consume()
             expr_index = push_component_access(arena, base_expr, &
                                                component_token%text, &

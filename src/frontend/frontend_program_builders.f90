@@ -7,7 +7,8 @@ module frontend_program_builders
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &
-        end_statement_node, comment_node, directive_node, blank_line_node
+                              end_statement_node, comment_node, directive_node, &
+                                  blank_line_node
     use ast_factory, only: push_implicit_statement
     use standardizer_program, only: insert_contains_statement
     use procedure_classification, only: procedure_has_entry_statement
@@ -71,7 +72,8 @@ contains
                 if (size(main_stmts) == 0) return
 
                 implicit_none_index = push_implicit_statement(arena, .true., &
-                     line=1, column=1, parent_index=0)
+                                                              line=1, column=1, &
+                                                                  parent_index=0)
 
                 body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
                 allocate (new_body(body_size))
@@ -158,7 +160,8 @@ contains
                     call collect_program_procedures(arena, child_index, proc_indices)
                     if (.not. child_is_main_candidate) then
                         if (.not. has_procs) then
-                            call append_program_statements(arena, child_index, main_stmts)
+                            call append_program_statements(arena, child_index, &
+                                                           main_stmts)
                         end if
                     else
                         cycle
@@ -246,7 +249,7 @@ contains
     end subroutine create_program_from_bare_statements
 
     subroutine merge_procedures_into_program(arena, main_prog_index, &
-                                            proc_indices, main_stmts)
+                                             proc_indices, main_stmts)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: main_prog_index
         integer, allocatable, intent(in) :: proc_indices(:)

@@ -97,11 +97,15 @@ contains
                 else
                     next_lower = ""
                 end if
-                if (trim(next_lower) == "precision" .or. trim(next_lower) == "complex") then
-                    call set_return_type_from_token(trim(pending_prefixes(i))//" "//trim(pending_prefixes(i + 1)))
+                if (trim(next_lower) == "precision" .or. trim(next_lower) == &
+                    "complex") then
+                    call set_return_type_from_token( &
+                        trim(pending_prefixes(i))//" "// &
+                        trim(pending_prefixes(i + 1)))
                     i = i + 2; cycle
                 else
-                    call set_return_type_from_token(pending_prefixes(i)); i = i + 1; cycle
+                    call set_return_type_from_token(pending_prefixes(i))
+                    i = i + 1; cycle
                 end if
             case ("recursive")
                 has_recursive_keyword = .true.
@@ -158,7 +162,7 @@ contains
                 matches = text(1:prefix_len) == prefix
             end if
         end function starts_with
-        end subroutine append_pending_prefixes
+    end subroutine append_pending_prefixes
 
     subroutine consume_function_prefix_tokens(parser, prefix_keywords, &
                                               has_recursive_keyword)
@@ -358,38 +362,38 @@ contains
 
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            clause_text = trim(clause_text)//"("
+            clause_text = trim(clause_text) // "("
             token = parser%consume()
 
             token = parser%peek()
             if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
-                clause_text = trim(clause_text)//trim(token%text)
+                clause_text = trim(clause_text) // trim(token%text)
                 token = parser%consume()
 
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    clause_text = trim(clause_text)//","
+                    clause_text = trim(clause_text) // ","
                     token = parser%consume()
 
                     token = parser%peek()
                     if (token%kind == TK_WHITESPACE) then
-                        clause_text = trim(clause_text)//" "
+                        clause_text = trim(clause_text) // " "
                         token = parser%consume()
                     end if
 
                     token = parser%peek()
                     if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
-                        clause_text = trim(clause_text)//trim(token%text)
+                        clause_text = trim(clause_text) // trim(token%text)
                         token = parser%consume()
 
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                            clause_text = trim(clause_text)//"="
+                            clause_text = trim(clause_text) // "="
                             token = parser%consume()
 
                             token = parser%peek()
                             if (token%kind == TK_STRING) then
-                                clause_text = trim(clause_text)//trim(token%text)
+                                clause_text = trim(clause_text) // trim(token%text)
                                 token = parser%consume()
                             end if
                         end if
@@ -399,7 +403,7 @@ contains
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                clause_text = trim(clause_text)//")"
+                clause_text = trim(clause_text) // ")"
                 token = parser%consume()
             end if
         end if

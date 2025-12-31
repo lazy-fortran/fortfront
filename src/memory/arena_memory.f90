@@ -77,7 +77,8 @@ module arena_memory
         integer :: generation = 1  ! Global generation
     contains
         procedure :: allocate => arena_allocate
-        procedure :: validate => arena_validate  ! Handle validation with generation check
+        procedure :: validate => arena_validate
+        ! Handle validation with generation check
         procedure :: reset => arena_reset
         procedure :: clear => arena_clear
         procedure :: get_stats => arena_get_stats

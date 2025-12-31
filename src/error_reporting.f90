@@ -66,7 +66,8 @@ contains
     end function create_error_context
 
     ! Create error context from token
-    function create_error_context_from_token(token, filename, source_lines) result(context)
+    function create_error_context_from_token(token, filename, source_lines) &
+        result(context)
         type(token_t), intent(in) :: token
         character(len=*), intent(in), optional :: filename
         character(len=*), intent(in), optional :: source_lines(:)
@@ -79,7 +80,8 @@ contains
             context%filename = filename
         end if
 
-        if (present(source_lines) .and. token%line > 0 .and. token%line <= size(source_lines)) then
+        if (present(source_lines) .and. token%line > 0 .and. token%line <= &
+            size(source_lines)) then
             context%source_line = source_lines(token%line)
         end if
     end function create_error_context_from_token
@@ -120,7 +122,8 @@ contains
     end subroutine error_collection_add_error
 
     ! Add error with token context
-    subroutine error_collection_add_error_with_token(self, message, token, severity, suggestion)
+    subroutine error_collection_add_error_with_token(self, message, token, severity, &
+                                                     suggestion)
         class(error_collection_t), intent(inout) :: self
         character(len=*), intent(in) :: message
         type(token_t), intent(in) :: token
@@ -132,7 +135,8 @@ contains
     end subroutine error_collection_add_error_with_token
 
     ! Add error with explicit context
-    subroutine error_collection_add_error_with_context(self, message, context, severity, suggestion)
+    subroutine error_collection_add_error_with_context(self, message, context, &
+                                                       severity, suggestion)
         class(error_collection_t), intent(inout) :: self
         character(len=*), intent(in) :: message
         type(error_context_t), intent(in) :: context
@@ -200,14 +204,16 @@ contains
 
         ! Format location if available
         if (error%context%line > 0) then
-            write(location_str, '("line ", I0, ", column ", I0)') error%context%line, error%context%column
+            write (location_str, '("line ", I0, ", column ", I0)') error%context%line, &
+                error%context%column
         else
             location_str = ""
         end if
 
         ! Build formatted message
         if (len_trim(location_str) > 0) then
-            formatted = trim(severity_str) // " at " // trim(location_str) // ": " // error%message
+            formatted = trim(severity_str) // " at " // trim(location_str) // ": " // &
+                        error%message
         else
             formatted = trim(severity_str) // ": " // error%message
         end if
@@ -223,7 +229,8 @@ contains
 
         ! Add suggestion if available
         if (allocated(error%suggestion)) then
-            formatted = formatted // new_line('a') // "  Suggestion: " // error%suggestion
+            formatted = formatted // new_line('a') // "  Suggestion: " // &
+                        error%suggestion
         end if
     end function format_error_message
 
