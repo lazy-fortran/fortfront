@@ -1,32 +1,48 @@
 # Expected failures for fortfront examples
 # One filename per line. Lines starting with # are comments.
-# Format: filename  # optional comment with issue reference
+# Format: filename  # comment with issue reference
+#
+# Categories:
+# - BUGS: Real bugs that need fixing (issues reopened)
+# - EXTENSIONS: gfortran rejects nonstandard syntax that fortfront passes through
+# - LIMITATIONS: Expected Fortran behavior (e.g., submodule needs parent)
+# - ERROR-TESTS: Intentionally invalid input to test error handling
 
-# Standard F90 issues still failing
-issue_2349_data_boz_literals.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 7.7 (R764-R767) only allows B/O/Z boz prefixes; X and postfix forms are extensions (#2349)
-issue_2349_data_boz_x_prefix.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 7.7 (R764-R767) forbids X'...' boz literals; extension requires -fallow-invalid-boz (#2349)
-issue_2349_data_boz_postfix.f90  # NON-COMPLIANT: ISO/IEC 1539-1:2018 7.7 (R764-R767) forbids postfix '...'z boz literals; extension requires -fallow-invalid-boz (#2349)
-# Trailing commas now accepted as extension and emitted without trailing comma (#2565)
+# ============================================================================
+# BUGS - Real issues that need fixing
+# ============================================================================
 
-# Unsupported language features
+# Codegen bugs
+issue_2455_nested_array_constructor.f90  # BUG: nested array constructors generate malformed syntax (#2455)
 
-# Lazy Fortran - Partial fixes still need work
+# Type inference / monomorphization bugs
+issue_2075_stop_keyword_collision_in_function_param.lf  # BUG: result array conflicts with stop keyword (#2075)
+issue_2153_array_call_scalar_param.lf  # BUG: array variant returns scalar instead of array (#2153)
 
-# Standard Fortran - Codegen bugs
-issue_2455_nested_array_constructor.f90  # nested array constructors generate malformed syntax (#2455)
+# Fortran 2018 feature bugs
+issue_2238_select_rank_performance.f90  # BUG: assumed-rank arrays (..) not fully supported (#2238)
+select_rank_simple.f90  # BUG: SELECT RANK requires assumed-rank arrays (..) (#2238)
 
-# Lazy Fortran - Recent failures needing implementation
-issue_2075_stop_keyword_collision_in_function_param.lf  # result array still conflicts with stop keyword (#2075 - PR #2081 incomplete)
-issue_2153_array_call_scalar_param.lf  # array variant returns scalar instead of array (segfault in monomorphization) #2153
+# ============================================================================
+# EXTENSIONS - gfortran rejects nonstandard syntax; fortfront passes through
+# ============================================================================
 
-# Fortran 2018 features - Not fully supported
-issue_2238_select_rank_performance.f90  # assumed-rank arrays (..) not fully supported; SELECT RANK requires them #2238
-select_rank_simple.f90  # SELECT RANK requires assumed-rank arrays (..) which are not fully supported #2238
+# BOZ literal extensions (ISO/IEC 1539-1:2018 7.7 only allows B/O/Z prefixes)
+issue_2349_data_boz_literals.f90  # EXTENSION: mixed BOZ forms (#2349)
+issue_2349_data_boz_x_prefix.f90  # EXTENSION: X prefix instead of Z (#2349)
+issue_2349_data_boz_postfix.f90  # EXTENSION: postfix form '...'z (#2349)
 
-# Submodule standalone examples - require parent module compilation
-issue_1827_submodule_simple.f90  # submodule requires parent module to compile (ISO/IEC 1539-1:2008 11.2.3)
-issue_1827_submodule_with_contents.f90  # submodule requires parent module to compile (ISO/IEC 1539-1:2008 11.2.3)
+# ============================================================================
+# LIMITATIONS - Expected Fortran behavior, not fortfront bugs
+# ============================================================================
 
-# Invalid Fortran test cases (error detection tests)
-issue_2459_missing_implicit_type.f90  # intentionally invalid: uses undeclared loop variable with implicit none
-data_statement_scalar_upgrade.f90  # intentionally invalid: DATA with more values than variables in scalar declaration
+# Submodule standalone examples require parent module compilation
+issue_1827_submodule_simple.f90  # LIMITATION: submodule needs parent module (#1827)
+issue_1827_submodule_with_contents.f90  # LIMITATION: submodule needs parent module (#1827)
+
+# ============================================================================
+# ERROR-TESTS - Intentionally invalid input for error detection testing
+# ============================================================================
+
+issue_2459_missing_implicit_type.f90  # ERROR-TEST: undeclared loop variable with implicit none (#2459)
+data_statement_scalar_upgrade.f90  # ERROR-TEST: DATA with more values than variables (#2596)
