@@ -251,8 +251,11 @@ contains
             child_idx = child_indices(i)
             if (child_idx > 0 .and. child_idx <= arena%compat_size) then
                 old_parent = arena%entries(child_idx)%parent_index
-                if (old_parent > 0 .and. old_parent /= parent_index .and. &
-                    old_parent <= arena%compat_size) then
+                if (old_parent == parent_index) then
+                    ! Child is already linked to this parent, skip
+                    cycle
+                end if
+                if (old_parent > 0 .and. old_parent <= arena%compat_size) then
                     call remove_child_from_parent(arena, old_parent, child_idx)
                 end if
                 call arena%add_child(parent_index, child_idx)
