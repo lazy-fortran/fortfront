@@ -1,5 +1,5 @@
 module ast_factory_expressions
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_bounds, only: range_expression_node
     use ast_nodes_procedure, only: subroutine_call_node
@@ -40,6 +40,16 @@ contains
 
         call arena%push(call_node, "call_or_subscript", parent_index)
         call_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (size(arg_indices) > 0) then
+            call link_children_to_parent(arena, call_index, arg_indices)
+        end if
+        if (present(base_expr_index)) then
+            if (base_expr_index > 0) then
+                call link_children_to_parent(arena, call_index, [base_expr_index])
+            end if
+        end if
     end function push_call_or_subscript
 
     ! Create subroutine call node and add to stack
@@ -59,6 +69,11 @@ contains
         if (present(column)) call_node%column = column
         call arena%push(call_node, "subroutine_call", parent_index)
         call_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (size(arg_indices) > 0) then
+            call link_children_to_parent(arena, call_index, arg_indices)
+        end if
     end function push_subroutine_call
 
     ! Create call or subscript with array slice detection

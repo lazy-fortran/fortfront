@@ -26,6 +26,8 @@ module ast_arena_modern
     public :: has_node_at, get_node_line, get_node_column
     public :: get_inferred_kind_at, get_inferred_details_at
     public :: free_ast_node, is_node_active, get_free_statistics
+    ! Child linking helper for factory functions
+    public :: link_children_to_parent
 
     ! Use compatibility arena directly as the main arena type
     type, extends(ast_arena_compat_t) :: ast_arena_t
@@ -232,5 +234,26 @@ contains
             found = .true.
         end associate
     end subroutine get_inferred_details_at
+
+    ! Link an array of child indices to a parent node
+    ! This establishes parent-child relationships in the arena for AST traversal
+    subroutine link_children_to_parent(arena, parent_index, child_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index
+        integer, intent(in) :: child_indices(:)
+        integer :: i, child_idx
+
+        if (parent_index <= 0 .or. parent_index > arena%compat_size) return
+        if (size(child_indices) == 0) return
+
+        do i = 1, size(child_indices)
+            child_idx = child_indices(i)
+            if (child_idx > 0 .and. child_idx <= arena%compat_size) then
+                call arena%add_child(parent_index, child_idx)
+                arena%entries(child_idx)%parent_index = parent_index
+                arena%entries(child_idx)%depth = arena%entries(parent_index)%depth + 1
+            end if
+        end do
+    end subroutine link_children_to_parent
 
 end module ast_arena_modern

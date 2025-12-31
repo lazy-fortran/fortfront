@@ -1,5 +1,5 @@
 module ast_factory_core
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, &
                               identifier_node, literal_node, binary_op_node, &
                               call_or_subscript_node, array_literal_node, &
@@ -129,6 +129,11 @@ contains
         if (present(column)) prog%column = column
         call arena%push(prog, "program", 0)
         prog_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (size(body_indices) > 0) then
+            call link_children_to_parent(arena, prog_index, body_indices)
+        end if
     end function push_program
 
     ! Create assignment node and add to stack
@@ -158,6 +163,14 @@ contains
         if (present(column)) assign%column = column
         call arena%push(assign, "assignment", parent_index)
         assign_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (target_index > 0) then
+            call link_children_to_parent(arena, assign_index, [target_index])
+        end if
+        if (value_index > 0) then
+            call link_children_to_parent(arena, assign_index, [value_index])
+        end if
     end function push_assignment
 
     ! Create pointer assignment node and add to stack
@@ -175,6 +188,14 @@ contains
                                                line, column)
         call arena%push(ptr_assign, "pointer_assignment", parent_index)
         assign_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (pointer_index > 0) then
+            call link_children_to_parent(arena, assign_index, [pointer_index])
+        end if
+        if (target_index > 0) then
+            call link_children_to_parent(arena, assign_index, [target_index])
+        end if
     end function push_pointer_assignment
 
     ! Create binary operation node and add to stack
@@ -195,6 +216,14 @@ contains
         if (present(column)) binop%column = column
         call arena%push(binop, "binary_op", parent_index)
         binop_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (left_index > 0) then
+            call link_children_to_parent(arena, binop_index, [left_index])
+        end if
+        if (right_index > 0) then
+            call link_children_to_parent(arena, binop_index, [right_index])
+        end if
     end function push_binary_op
 
     ! Create identifier node and add to stack
@@ -253,6 +282,11 @@ contains
         end if
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (size(element_indices) > 0) then
+            call link_children_to_parent(arena, array_index, element_indices)
+        end if
     end function push_array_literal
 
     ! Create complex literal node and add to stack
@@ -272,6 +306,14 @@ contains
 
         call arena%push(complex_node, "complex_literal", parent_index)
         complex_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (real_index > 0) then
+            call link_children_to_parent(arena, complex_index, [real_index])
+        end if
+        if (imag_index > 0) then
+            call link_children_to_parent(arena, complex_index, [imag_index])
+        end if
     end function push_complex_literal
 
     ! Create component access node and add to stack
@@ -302,6 +344,11 @@ contains
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (object_index > 0) then
+            call link_children_to_parent(arena, access_index, [object_index])
+        end if
     end function push_component_access
 
     ! Create range subscript node (for array slices or character substrings)
@@ -328,6 +375,21 @@ contains
 
         call arena%push(subscript_node, "range_subscript", parent_index)
         subscript_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (base_expr_index > 0) then
+            call link_children_to_parent(arena, subscript_index, [base_expr_index])
+        end if
+        if (present(start_index)) then
+            if (start_index > 0) then
+                call link_children_to_parent(arena, subscript_index, [start_index])
+            end if
+        end if
+        if (present(end_index)) then
+            if (end_index > 0) then
+                call link_children_to_parent(arena, subscript_index, [end_index])
+            end if
+        end if
     end function push_range_subscript
 
     ! Create type constructor node and add to stack
@@ -354,6 +416,13 @@ contains
 
         call arena%push(constructor_node, "type_constructor", parent_index)
         constructor_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (present(arg_indices)) then
+            if (size(arg_indices) > 0) then
+                call link_children_to_parent(arena, constructor_index, arg_indices)
+            end if
+        end if
     end function push_type_constructor
 
 end module ast_factory_core
