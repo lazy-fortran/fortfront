@@ -22,7 +22,8 @@ module frontend_transformation_pipeline
                                          add_signature, create_signatures_map
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
-    use codegen_type_utils, only: set_type_standardization, get_type_standardization
+    use codegen_type_utils, only: set_type_standardization, &
+                                  get_type_standardization
     use codegen_indent, only: set_indent_config, get_indent_config, &
                               set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
@@ -38,48 +39,53 @@ module frontend_transformation_pipeline
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
-    use frontend_transformation_common, only: format_options_t, transform_context_t, &
-                                              shared_arena, shared_arena_initialized
+    use semantic_operating_mode, only: OPERATING_MODE_STRICT
+    use frontend_transformation_common, only: format_options_t, &
+                                              transform_context_t, shared_arena, &
+                                              shared_arena_initialized
     use frontend_transformation_structure, only: collect_procedures_and_target, &
                                                  filter_hoistable_procedures, &
-                                                     remove_procedures_from_body, &
-                             ensure_contains_exists, insert_procedures_after_contains, &
+                                                 remove_procedures_from_body, &
+                                                 ensure_contains_exists, &
+                                                 insert_procedures_after_contains, &
                                                  clean_external_declarations, &
-                                                     merge_additional_main_programs, &
-                    append_program_body_to_target, remove_target_procedures_from_body, &
+                                                 merge_additional_main_programs, &
+                                                 append_program_body_to_target, &
+                                                 remove_target_procedures_from_body, &
                                                  normalize_multi_unit_container, &
-                                                     collect_procedure_indices, &
+                                                 collect_procedure_indices, &
                                                  create_module_with_procedures, &
-                                                     wrap_ast_in_module_only, &
+                                                 wrap_ast_in_module_only, &
                                                  wrap_ast_in_module_and_program, &
-                                                     run_code_generation_phase, &
+                                                 run_code_generation_phase, &
                                                  is_whitespace_only, &
-                                                     has_leading_comment, &
-                                                     extract_leading_comment_block, &
+                                                 has_leading_comment, &
+                                                 extract_leading_comment_block, &
                                                  contains_binary_data, &
-                                                     save_current_configuration, &
+                                                 save_current_configuration, &
                                                  restore_configuration, &
-                                                     apply_format_options, &
+                                                 apply_format_options, &
                                                  decode_bom_if_needed
     use frontend_transformation_analysis, only: build_procedure_membership, &
                                                 analyze_ast_content, &
-                                                    analyze_single_unit, &
-                                                    collect_host_assignment_names, &
-                 collect_program_assignment_names, collect_procedure_assignment_names, &
+                                                analyze_single_unit, &
+                                                collect_host_assignment_names, &
+                                                collect_program_assignment_names, &
+                                                collect_procedure_assignment_names, &
                                                 collect_assignment_from_node, &
-                                                    record_identifier_name, &
-                                                    append_unique_name, &
+                                                record_identifier_name, &
+                                                append_unique_name, &
                                                 promote_functions_to_internal_program, &
-                                                    requires_lazy_internalization, &
+                                                requires_lazy_internalization, &
                                                 has_existing_module_in_ast
     use frontend_location_validation, only: validate_ast_locations
     use frontend_transformation_semantics, only: analyze_container_semantics, &
                                                  merge_signature_maps, &
-                                                     add_signature_from_entry, &
+                                                 add_signature_from_entry, &
                                                  get_detailed_semantic_errors
     use frontend_diagnostics, only: make_diagnostic, format_diagnostic, &
-                                     DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
-                                     DIAGNOSTIC_ERROR
+                                    DIAG_BINARY_DATA, DIAG_NO_PROGRAM_UNIT, &
+                                    DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR
     use fortfront_types, only: diagnostic_t, source_range_t
     use frontend_pass_manager, only: pass_manager_t, pass_context_t, &
                                      pass_config_t, create_pass_manager, &
@@ -166,9 +172,12 @@ contains
             block
                 type(diagnostic_t) :: diag
                 diag = make_diagnostic(DIAG_BINARY_DATA, DIAGNOSTIC_ERROR, &
-                    "Input appears to be binary data" // new_line('A') // &
-                    "  Source: <binary data omitted>" // new_line('A') // &
-                    "  Suggestion: Provide plain-text Fortran source")
+                                       "Input appears to be binary data"// &
+                                       new_line('A')// &
+                                       "  Source: <binary data omitted>"// &
+                                       new_line('A')// &
+                                       "  Suggestion: Provide plain-text "// &
+                                       "Fortran source")
                 error_msg = format_diagnostic(diag)
             end block
             call create_minimal_program(output)
@@ -290,9 +299,41 @@ contains
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
         type(transform_context_t), intent(in) :: context
+        type(token_t), allocatable :: tokens(:)
 
         ! Set input mode in standardizer to distinguish standard vs lazy Fortran
         call set_standardizer_input_mode(context%input_mode)
+
+        if (context%operating_mode == OPERATING_MODE_STRICT) then
+            call tokenize_core(input, tokens)
+            if (.not. allocated(tokens)) then
+                block
+                    type(diagnostic_t) :: diag
+                    diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
+                                           "Failed to tokenize input for strict "// &
+                                           "mode checks")
+                    error_msg = format_diagnostic(diag)
+                end block
+                call create_minimal_program(output)
+                return
+            end if
+
+            if (.not. tokens_have_explicit_program_unit(tokens)) then
+                block
+                    type(diagnostic_t) :: diag
+                    diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
+                                           "Strict mode forbids bare statements "// &
+                                           "without an explicit "// &
+                                           "program/module/procedure unit"// &
+                                           new_line('A')// &
+                                           "Suggestion: use infer mode for "// &
+                                           "top-level statements")
+                    error_msg = format_diagnostic(diag)
+                end block
+                call create_minimal_program(output)
+                return
+            end if
+        end if
 
         ! For standard Fortran mode, use simple transformation
         if (context%input_mode == INPUT_MODE_STANDARD) then
@@ -362,6 +403,25 @@ contains
             return
         end if
 
+        if (context%operating_mode == OPERATING_MODE_STRICT) then
+            if (.not. tokens_have_explicit_program_unit(tokens)) then
+                block
+                    type(diagnostic_t) :: diag
+                    diag = make_diagnostic(DIAG_SYNTAX_ERROR, DIAGNOSTIC_ERROR, &
+                                           "Strict mode forbids bare statements "// &
+                                           "without an explicit "// &
+                                           "program/module/procedure unit"// &
+                                           new_line('A')// &
+                                           "Suggestion: use infer mode for "// &
+                                           "top-level statements")
+                    error_msg = format_diagnostic(diag)
+                end block
+                call create_minimal_program(output)
+                call trace_leave('transform_lazy_with_ast_wrapping')
+                return
+            end if
+        end if
+
         if (not_meaningful_for_parsing(tokens)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_with_ast_wrapping')
@@ -375,7 +435,8 @@ contains
         end if
 
         ! Run semantic analysis and standardization (but not code generation yet)
-        call run_semantic_analysis_phase(shared_arena, prog_index, error_msg, &
+        call run_semantic_analysis_phase(shared_arena, prog_index, &
+                                         context%operating_mode, error_msg, &
                                          signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             call run_code_generation_phase(shared_arena, prog_index, output)
@@ -434,6 +495,54 @@ contains
         end if
     end function ensure_trailing_newline
 
+    logical function tokens_have_explicit_program_unit(tokens) result(has_unit)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i, next_idx
+        character(len=:), allocatable :: lowered
+
+        has_unit = .false.
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_KEYWORD .and. &
+                tokens(i)%kind /= TK_IDENTIFIER) cycle
+            if (.not. allocated(tokens(i)%text)) cycle
+            lowered = to_lower(trim(tokens(i)%text))
+            select case (lowered)
+            case ("program", "subroutine", "function", "interface", "abstract", &
+                  "submodule", "block")
+                has_unit = .true.
+                return
+            case ("module")
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    if (.not. allocated(tokens(next_idx)%text)) cycle
+                    if (to_lower(trim(tokens(next_idx)%text)) /= "procedure") then
+                        has_unit = .true.
+                        return
+                    end if
+                end if
+            end select
+        end do
+    end function tokens_have_explicit_program_unit
+
+    integer function find_next_identifier_token(tokens, start_pos) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: i
+
+        idx = 0
+        do i = start_pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_IDENTIFIER)
+                idx = i
+                return
+            case (TK_KEYWORD)
+                idx = i
+                return
+            case default
+                cycle
+            end select
+        end do
+    end function find_next_identifier_token
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
@@ -598,7 +707,8 @@ contains
         type(diagnostic_t) :: diag
 
         diag = make_diagnostic(DIAG_NO_PROGRAM_UNIT, DIAGNOSTIC_ERROR, &
-            "Parsing succeeded but no valid program unit was created")
+                               "Parsing succeeded but no valid program unit "// &
+                               "was created")
         error_msg = format_diagnostic(diag)
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
@@ -628,18 +738,18 @@ contains
 
         ! Register passes in order
         call manager%add_pass(PASS_SEMANTIC, "Semantic Analysis", &
-                             "phase:semantic", .true., semantic_pass)
+                              "phase:semantic", .true., semantic_pass)
 
         call manager%add_pass(PASS_STANDARDIZATION, "Standardization", &
-                             "phase:standardization", .true., &
-                             standardization_pass)
+                              "phase:standardization", .true., &
+                              standardization_pass)
 
         call manager%add_pass(PASS_MONOMORPHIZATION, "Monomorphization", &
-                             "phase:monomorphization", .true., &
-                             monomorphization_pass)
+                              "phase:monomorphization", .true., &
+                              monomorphization_pass)
 
         call manager%add_pass(PASS_CODEGEN, "Code Generation", &
-                             "phase:codegen", .true., codegen_pass)
+                              "phase:codegen", .true., codegen_pass)
 
         ! Initialize pass context
         pass_ctx%compiler_arena => compiler_arena
@@ -676,10 +786,11 @@ contains
     end subroutine run_final_phases
 
     ! Run semantic analysis phase
-    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg, &
-                                           signatures)
+    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, &
+                                           operating_mode, error_msg, signatures)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
+        integer, intent(in) :: operating_mode
         character(len=:), allocatable, intent(out) :: error_msg
         type(signatures_map_t), intent(out) :: signatures
 
@@ -690,6 +801,7 @@ contains
 
             handled = .false.
             call create_semantic_context(ctx)
+            ctx%operating_mode = operating_mode
 
             ! Start in LAZY mode, but allow automatic detection of implicit none
             ! which will switch to STANDARD mode for better performance

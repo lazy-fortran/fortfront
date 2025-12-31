@@ -1,5 +1,6 @@
 module frontend_transformation_common
     use semantic_input_mode, only: INPUT_MODE_LAZY
+    use semantic_operating_mode, only: OPERATING_MODE_INFER
     use compiler_arena, only: compiler_arena_t
     implicit none
     private
@@ -26,6 +27,7 @@ module frontend_transformation_common
         character(len=:), allocatable :: program_name
         logical :: has_filename = .false.
         integer :: input_mode = INPUT_MODE_LAZY
+        integer :: operating_mode = OPERATING_MODE_INFER
     end type transform_context_t
 
 end module frontend_transformation_common
