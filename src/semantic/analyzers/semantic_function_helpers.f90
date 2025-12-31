@@ -46,29 +46,41 @@ contains
         end if
     end subroutine gather_call_argument_types
 
-    subroutine refine_type_from_arguments(arg_types, typ, type_locked)
+    subroutine refine_type_from_arguments(arg_types, typ, type_locked, &
+                                          is_intrinsic)
         type(mono_type_t), intent(in) :: arg_types(:)
         type(mono_type_t), intent(inout) :: typ
         logical, intent(in), optional :: type_locked
+        logical, intent(in), optional :: is_intrinsic
         logical :: allow_refinement
         integer :: deduced_kind
         logical :: has_array_arg
         type(mono_type_t), allocatable :: element_args(:)
         integer :: i
+        logical :: skip_array_inference
 
         if (size(arg_types) <= 0) return
+
+        ! For intrinsic functions, do NOT apply array-in-array-out inference.
+        ! Intrinsics like sum, maxval, etc. return scalars from arrays.
+        ! Their return types are already correctly computed by the intrinsic
+        ! handlers in semantic_array_intrinsics.f90 or intrinsic_registry.
+        skip_array_inference = .false.
+        if (present(is_intrinsic)) skip_array_inference = is_intrinsic
 
         ! Check if any argument is an array FIRST (Issue #2153)
         ! For elementwise operations, array input means array output
         ! This check must happen BEFORE type_locked is checked because
         ! array-in-array-out is fundamental and overrides type locking
         has_array_arg = .false.
-        do i = 1, size(arg_types)
-            if (arg_types(i)%kind == TARRAY) then
-                has_array_arg = .true.
-                exit
-            end if
-        end do
+        if (.not. skip_array_inference) then
+            do i = 1, size(arg_types)
+                if (arg_types(i)%kind == TARRAY) then
+                    has_array_arg = .true.
+                    exit
+                end if
+            end do
+        end if
 
         deduced_kind = deduce_return_kind_from_args(arg_types)
         if (deduced_kind <= 0) return
@@ -77,7 +89,9 @@ contains
         ! This MUST happen regardless of type_locked because the locked type
         ! was inferred from a generic function signature, not this specific
         ! call with array arguments
-        if (has_array_arg) then
+        ! However, do NOT override existing array types (e.g., matmul result
+        ! which has correct rank computed by semantic_array_intrinsics)
+        if (has_array_arg .and. typ%kind /= TARRAY) then
             allocate (element_args(1))
             element_args(1) = create_mono_type(deduced_kind)
             typ = create_mono_type(TARRAY, args=element_args)
