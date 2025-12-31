@@ -1,4 +1,5 @@
 module arena_memory
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -93,7 +94,7 @@ module arena_memory
         integer :: total_capacity = 0  ! Total capacity in bytes
         integer :: chunk_count = 0  ! Number of chunks
         integer :: current_generation = 0  ! Current generation number
-        real :: utilization = 0.0  ! Memory utilization (0-1)
+        real(dp) :: utilization = 0.0_dp  ! Memory utilization (0-1)
     end type arena_stats_t
 
     ! Base arena interface types
@@ -368,10 +369,10 @@ contains
         stats%current_generation = this%generation
 
         if (this%total_capacity > 0) then
-            stats%utilization = real(this%total_allocated) / &
-                                real(this%total_capacity)
+            stats%utilization = real(this%total_allocated, dp) / &
+                                real(this%total_capacity, dp)
         else
-            stats%utilization = 0.0
+            stats%utilization = 0.0_dp
         end if
     end function arena_get_stats
 

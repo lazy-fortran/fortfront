@@ -7,7 +7,7 @@ module compiler_arena
     use arena_memory
     use type_system_arena
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, destroy_ast_arena
-    use, intrinsic :: iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64, dp => real64
     implicit none
     private
 
@@ -39,7 +39,7 @@ module compiler_arena
         ! Performance tracking
         integer(int64) :: total_allocations = 0  ! Total allocations across arenas
         integer(int64) :: total_deallocations = 0  ! Total deallocations
-        real :: total_allocation_time = 0.0  ! Cumulative allocation time
+        real(dp) :: total_allocation_time = 0.0_dp  ! Cumulative allocation time
         integer :: checkpoint_generation = 0  ! Last checkpoint generation
 
         ! Configuration
@@ -68,8 +68,8 @@ module compiler_arena
         integer(int64) :: ast_memory  ! AST arena memory
         integer(int64) :: symbols_memory  ! Symbol arena memory
         integer(int64) :: literals_memory  ! Literal arena memory
-        real :: average_utilization  ! Average utilization across arenas
-        real :: allocation_rate  ! Allocations per second
+        real(dp) :: average_utilization  ! Average utilization across arenas
+        real(dp) :: allocation_rate  ! Allocations per second
         integer :: active_generations  ! Number of active generations
     end type compiler_arena_stats_t
 
@@ -125,7 +125,7 @@ contains
         this%total_bytes = 0
         this%total_allocations = 0
         this%total_deallocations = 0
-        this%total_allocation_time = 0.0
+        this%total_allocation_time = 0.0_dp
         this%checkpoint_generation = 1
 
         ! Update total memory from initialized arenas
@@ -152,7 +152,7 @@ contains
         this%total_bytes = 0
         this%total_allocations = 0
         this%total_deallocations = 0
-        this%total_allocation_time = 0.0
+        this%total_allocation_time = 0.0_dp
         this%checkpoint_generation = 0
     end subroutine compiler_arena_destroy
 
@@ -219,8 +219,8 @@ contains
         stats%ast_memory = 0
         stats%symbols_memory = 0
         stats%literals_memory = 0
-        stats%average_utilization = 0.0
-        stats%allocation_rate = 0.0
+        stats%average_utilization = 0.0_dp
+        stats%allocation_rate = 0.0_dp
         stats%active_generations = 1
 
         if (.not. this%is_initialized) return
@@ -239,14 +239,14 @@ contains
             stats%total_memory = stats%total_memory + stats%ast_memory
 
             ! Average utilization across arenas (average type and AST utilization)
-            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0
+            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0_dp
         end block
 
         ! Future: aggregate statistics from other arenas
 
         ! Calculate allocation rate (allocations per second)
-        if (this%total_allocation_time > 0.0) then
-            stats%allocation_rate = real(this%total_allocations) / this%total_allocation_time
+        if (this%total_allocation_time > 0.0_dp) then
+            stats%allocation_rate = real(this%total_allocations, dp) / this%total_allocation_time
         end if
 
         stats%active_generations = this%generation

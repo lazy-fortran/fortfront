@@ -4,6 +4,7 @@ module type_system_arena
     ! Provides 10-100x performance improvement for type inference operations
 
     use arena_memory
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -95,7 +96,7 @@ module type_system_arena
         integer :: poly_types = 0
         integer :: arg_arrays = 0
         integer :: total_memory = 0
-        real :: utilization = 0.0
+        real(dp) :: utilization = 0.0_dp
     end type type_arena_stats_t
 
 contains

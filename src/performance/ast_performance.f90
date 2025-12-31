@@ -15,7 +15,7 @@
 !> @since Issue #15 - Performance optimization implementation
 ! @slow-path
 module ast_performance_module
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, dp => real64
     use ast_arena_modern, only: ast_arena_t, ast_entry_t
     use ast_base, only: ast_node
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
@@ -48,7 +48,7 @@ module ast_performance_module
         type(ast_arena_t) :: cached_arena
         type(semantic_context_t) :: cached_semantic_ctx
         logical :: is_valid = .false.
-        real :: creation_time = 0.0
+        real(dp) :: creation_time = 0.0_dp
         integer :: access_count = 0
     end type ast_cache_entry_t
 
@@ -58,8 +58,8 @@ module ast_performance_module
         integer :: arena_capacity = 0
         integer :: allocated_nodes = 0
         integer :: free_nodes = 0
-        real :: memory_usage_mb = 0.0
-        real :: fragmentation_ratio = 0.0
+        real(dp) :: memory_usage_mb = 0.0_dp
+        real(dp) :: fragmentation_ratio = 0.0_dp
     end type memory_stats_t
 
     ! Module-level configuration constants
@@ -402,7 +402,7 @@ contains
         integer :: slot_index
 
         integer :: i, oldest_index
-        real :: oldest_time, current_time_val
+        real(dp) :: oldest_time, current_time_val
 
         slot_index = 0
 
@@ -440,10 +440,12 @@ contains
     end function find_cache_slot
 
     function current_time() result(time_val)
-        real :: time_val
+        real(dp) :: time_val
+        real :: cpu_time_val
 
         ! Simple time implementation (would use system clock in real version)
-        call cpu_time(time_val)
+        call cpu_time(cpu_time_val)
+        time_val = real(cpu_time_val, dp)
 
     end function current_time
 
@@ -568,7 +570,7 @@ contains
     ! Calculate accurate memory usage for arena
     function calculate_arena_memory_usage(arena) result(memory_mb)
         type(ast_arena_t), intent(in) :: arena
-        real :: memory_mb
+        real(dp) :: memory_mb
 
         integer :: base_size, entry_size, node_size, i
         integer :: total_bytes
@@ -604,7 +606,7 @@ contains
         end if
 
         total_bytes = base_size + entry_size + node_size
-        memory_mb = real(total_bytes) / (1024.0 * 1024.0)
+        memory_mb = real(total_bytes, dp) / (1024.0_dp * 1024.0_dp)
 
     end function calculate_arena_memory_usage
 

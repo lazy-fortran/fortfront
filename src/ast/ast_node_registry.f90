@@ -1,5 +1,6 @@
 module ast_node_registry
     use ast_base, only: ast_node
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -46,7 +47,7 @@ module ast_node_registry
         integer :: free_slots = 0
         integer :: memory_usage = 0
         integer :: ref_count_total = 0
-        real :: fragmentation_ratio = 0.0
+        real(dp) :: fragmentation_ratio = 0.0_dp
     end type registry_stats_t
 
     public :: create_node_registry
