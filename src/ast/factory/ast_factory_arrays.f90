@@ -11,7 +11,7 @@ module ast_factory_arrays
 
     ! Public array node creation functions
     public :: push_array_section, push_array_bounds, push_array_slice
-    public :: push_range_expression, push_assumed_size_bounds
+    public :: push_range_expression, push_assumed_size_bounds, push_assumed_rank_bounds
 
 contains
 
@@ -149,5 +149,26 @@ contains
         call arena%push(bounds, "array_bounds", parent_index)
         bounds_index = arena%size
     end function push_assumed_size_bounds
+
+    ! Create assumed-rank array bounds node (..) and add to stack
+    ! Fortran 2018 feature for SELECT RANK construct
+    function push_assumed_rank_bounds(arena, line, column, parent_index) &
+        result(bounds_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: bounds_index
+        type(array_bounds_node) :: bounds
+
+        bounds%uid = generate_uid()
+        bounds%lower_bound_index = 0
+        bounds%upper_bound_index = 0
+        bounds%stride_index = 0
+        bounds%is_assumed_rank = .true.
+        if (present(line)) bounds%line = line
+        if (present(column)) bounds%column = column
+
+        call arena%push(bounds, "array_bounds", parent_index)
+        bounds_index = arena%size
+    end function push_assumed_rank_bounds
 
 end module ast_factory_arrays

@@ -57,6 +57,7 @@ module ast_nodes_bounds
         logical :: is_assumed_shape = .false.  ! True for (:) bounds
         logical :: is_deferred_shape = .false.  ! True for allocatable/pointer arrays
         logical :: is_assumed_size = .false.  ! True for (*) last dimension
+        logical :: is_assumed_rank = .false.  ! True for (..) assumed-rank arrays
     contains
         procedure :: accept => array_bounds_accept
         procedure :: to_json => array_bounds_to_json
@@ -284,6 +285,7 @@ contains
         call json%add(parent, "is_assumed_shape", this%is_assumed_shape)
         call json%add(parent, "is_deferred_shape", this%is_deferred_shape)
         call json%add(parent, "is_assumed_size", this%is_assumed_size)
+        call json%add(parent, "is_assumed_rank", this%is_assumed_rank)
     end subroutine array_bounds_to_json
 
     subroutine array_slice_to_json(this, json, parent)
