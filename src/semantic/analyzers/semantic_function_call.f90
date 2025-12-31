@@ -62,7 +62,8 @@ contains
         call apply_array_access_rules(call_node, has_function_scheme, &
                                       is_intrinsic_func, typ)
 
-        call refine_type_from_arguments(arg_types, typ, return_type_locked)
+        call refine_type_from_arguments(arg_types, typ, return_type_locked, &
+                                        is_intrinsic_func)
 
         if (is_intrinsic_func) then
             select case (lowered_name)

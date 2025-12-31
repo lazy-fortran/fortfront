@@ -65,10 +65,14 @@ contains
             end if
         end if
         if (deduced_kind <= 0) deduced_kind = type_string_to_kind(return_type_tmp)
-        select case (deduced_kind)
-        case (TINT, TREAL, TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE)
-            return_type = create_mono_type(deduced_kind)
-        end select
+        ! Only update return_type if it's NOT already an array type (Issue #2153)
+        ! Array return types should be preserved from earlier inference
+        if (return_type%kind /= TARRAY) then
+            select case (deduced_kind)
+            case (TINT, TREAL, TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE)
+                return_type = create_mono_type(deduced_kind)
+            end select
+        end if
 
         if (n_args > 0) then
             if (len(return_type_tmp) > 0) then
