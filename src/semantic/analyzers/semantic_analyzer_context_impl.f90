@@ -19,6 +19,7 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use ast_nodes_data, only: declaration_node
     use semantic_context_types, only: semantic_context_base_t
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_operating_mode, only: OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use debug_trace, only: trace_is_enabled
     implicit none
 contains
@@ -40,6 +41,7 @@ contains
         allocate (ctx%subst%types(ctx%subst%capacity))
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1
+        ctx%operating_mode = OPERATING_MODE_INFER
         ctx%respect_implicit_none = .true.
         ctx%type_hierarchy = create_type_hierarchy()
         ctx%signatures = create_signatures_map()
@@ -87,8 +89,10 @@ contains
                     ctx%respect_implicit_none, ' input_mode=', ctx%input_mode
             end if
             if (ctx%respect_implicit_none .and. ctx%input_mode == INPUT_MODE_LAZY) then
-                if (check_implicit_none(arena, ast)) then
-                    ctx%input_mode = INPUT_MODE_STANDARD
+                if (ctx%operating_mode == OPERATING_MODE_INFER) then
+                    if (check_implicit_none(arena, ast)) then
+                        ctx%input_mode = INPUT_MODE_STANDARD
+                    end if
                 end if
             end if
             call analyze_program_node_arena(ctx, arena, ast, root_index)
@@ -139,7 +143,8 @@ contains
                                 else if (allocated(node%var_name)) then
                                     call ctx%scopes%define(node%var_name, scheme)
                                 end if
-                   ! NOTE: update_identifier_type_in_arena available but not needed here
+                                ! NOTE: update_identifier_type_in_arena is available
+                                ! but not needed here.
                             end block
                         class default
                             continue
@@ -147,6 +152,13 @@ contains
                     end if
                 end if
             end do
+        end if
+
+        if (ctx%operating_mode == OPERATING_MODE_STRICT) then
+            call check_undefined_variables_generic(ctx%scopes, ctx%errors, &
+                                                   ctx%input_mode, arena, &
+                                                   prog_index)
+            if (ctx%errors%has_errors()) return
         end if
 
         ! Enable constant folding for lazy Fortran to support constant propagation
@@ -236,6 +248,7 @@ contains
         temp_context%subst = this%subst
         temp_context%errors = this%errors
         temp_context%input_mode = this%input_mode
+        temp_context%operating_mode = this%operating_mode
         temp_context%respect_implicit_none = this%respect_implicit_none
         temp_context%signatures = this%signatures
 

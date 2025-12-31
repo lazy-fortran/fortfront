@@ -42,13 +42,14 @@ contains
         handled = .false.
         call create_semantic_context(ctx)
         ctx%input_mode = INPUT_MODE_LAZY
+        ctx%operating_mode = context%operating_mode
 
         if (context%prog_index > 0 .and. &
             context%prog_index <= context%compiler_arena%ast%size) then
             if (allocated(context%compiler_arena%ast%entries( &
-                         context%prog_index)%node)) then
+                          context%prog_index)%node)) then
                 select type (root_node => context%compiler_arena%ast%entries( &
-                            context%prog_index)%node)
+                             context%prog_index)%node)
                 type is (mixed_construct_container_node)
                     call analyze_container_semantics(context%compiler_arena%ast, &
                                                      root_node, &
@@ -64,7 +65,7 @@ contains
                     handled = .true.
                 class default
                     call analyze_program(ctx, context%compiler_arena%ast, &
-                                        context%prog_index)
+                                         context%prog_index)
                     context%signatures = ctx%signatures
                     if (has_semantic_errors(ctx)) then
                         context%error_msg = get_detailed_semantic_errors(ctx)
@@ -95,16 +96,16 @@ contains
 
         ! Normalize multi-unit containers
         call normalize_multi_unit_container(context%compiler_arena%ast, &
-                                           context%prog_index)
+                                            context%prog_index)
 
         ! Check if we should skip standardization for multi-unit containers
         skip_standardization = .false.
         if (context%prog_index > 0 .and. &
             context%prog_index <= context%compiler_arena%ast%size) then
             if (allocated(context%compiler_arena%ast%entries( &
-                         context%prog_index)%node)) then
+                          context%prog_index)%node)) then
                 select type (node => context%compiler_arena%ast%entries( &
-                            context%prog_index)%node)
+                             context%prog_index)%node)
                 type is (program_node)
                     if (node%name == "__MULTI_UNIT__") then
                         skip_standardization = .true.
@@ -126,12 +127,12 @@ contains
 
         call context%compiler_arena%next_phase("monomorphization")
         call transform_monomorphization(context%compiler_arena%ast, &
-                                       context%prog_index, context%signatures)
+                                        context%prog_index, context%signatures)
 
         ! Analyze AST content after monomorphization
         call analyze_ast_content(context%compiler_arena%ast, context%prog_index, &
-                                context%has_functions, context%has_subroutines, &
-                                context%has_main_code)
+                                 context%has_functions, context%has_subroutines, &
+                                 context%has_main_code)
     end subroutine monomorphization_pass
 
     ! Code generation pass - emit Fortran source
@@ -159,16 +160,16 @@ contains
                         context%compiler_arena%ast, context%prog_index)
                 end if
             else if (context%enable_ast_wrapping .and. &
-                    (context%has_functions .or. context%has_subroutines) .and. &
-                    .not. context%has_main_code) then
+                     (context%has_functions .or. context%has_subroutines) .and. &
+                     .not. context%has_main_code) then
                 call wrap_ast_in_module_only(context%compiler_arena%ast, &
-                                            context%prog_index, transform_ctx)
+                                             context%prog_index, transform_ctx)
             end if
         end if
 
         ! Generate code
         call run_code_generation_phase(context%compiler_arena, &
-                                      context%prog_index, context%output)
+                                       context%prog_index, context%output)
     end subroutine codegen_pass
 
 end module frontend_final_passes

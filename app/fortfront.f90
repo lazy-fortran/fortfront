@@ -2,8 +2,10 @@ program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: &
         input_unit, output_unit, error_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string, &
-        transform_with_context, transform_context_t, INPUT_MODE_LAZY, &
-        INPUT_MODE_STANDARD
+                                  transform_with_context, transform_context_t, &
+                                  INPUT_MODE_LAZY, &
+                                  INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
+                                  OPERATING_MODE_STRICT
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
@@ -33,6 +35,7 @@ program fortfront_cli
     character(len=:), allocatable :: optval
     logical :: end_of_options
     logical :: input_is_empty
+    integer :: operating_mode
     call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
@@ -46,6 +49,7 @@ program fortfront_cli
     has_trace_override = .false.
     has_trace_file_override = .false.
     end_of_options = .false.
+    operating_mode = OPERATING_MODE_INFER
 
     ! Handle command line arguments
     if (num_args > 0) then
@@ -62,7 +66,7 @@ program fortfront_cli
             call get_command_argument(i, value=arg_str)
 
             if (.not. end_of_options) then
-                select case (trim(arg_str))
+                select case (to_lower(trim(arg_str)))
                 case ('--')
                     end_of_options = .true.
                     deallocate (arg_str, stat=alloc_stat)
@@ -90,6 +94,59 @@ program fortfront_cli
                     end if
                     i = i + 1
                     cycle
+                case ('--infer')
+                    operating_mode = OPERATING_MODE_INFER
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
+                case ('--std=lf')
+                    operating_mode = OPERATING_MODE_STRICT
+                    deallocate (arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        call report_deallocation_failure('command argument', &
+                                                         alloc_stat)
+                    end if
+                    i = i + 1
+                    cycle
+                case ('--std')
+                    if (i < num_args) then
+                        call get_command_argument(i + 1, length=next_len)
+                        allocate (character(len=next_len) :: next_arg)
+                        call get_command_argument(i + 1, value=next_arg)
+                        if (len_trim(next_arg) == 0) then
+                            write (error_unit, '(A)') &
+                                'Error: --std requires a value (expected lf)'
+                            call exit_quiet(EXIT_FAILURE)
+                        end if
+                        if (next_arg(1:1) == '-') then
+                            write (error_unit, '(A)') &
+                                'Error: --std requires a value (expected lf)'
+                            call exit_quiet(EXIT_FAILURE)
+                        end if
+                        select case (to_lower(trim(next_arg)))
+                        case ('lf')
+                            operating_mode = OPERATING_MODE_STRICT
+                        case default
+                            write (error_unit, '(A,A)') 'Error: Unknown --std value ', &
+                                trim(next_arg)
+                            call exit_quiet(EXIT_FAILURE)
+                        end select
+                        deallocate (next_arg)
+                        deallocate (arg_str, stat=alloc_stat)
+                        if (alloc_stat /= 0) then
+                            call report_deallocation_failure('command argument', &
+                                                             alloc_stat)
+                        end if
+                        i = i + 2
+                        cycle
+                    end if
+                    write (error_unit, '(A)') &
+                        'Error: --std requires a value (expected lf)'
+                    call exit_quiet(EXIT_FAILURE)
                 case default
                     block
                         logical :: rec, is_file
@@ -103,8 +160,12 @@ program fortfront_cli
                                         allocate (character(len=next_len) :: next_arg)
                                         call get_command_argument(i + 1, &
                                                                   value=next_arg)
-                                        if (len_trim(next_arg) == 0 .or. &
-                                            next_arg(1:1) == '-') then
+                                        if (len_trim(next_arg) == 0) then
+                                            write (error_unit, '(A)') &
+                                                'Error: --trace-file requires a path'
+                                            call exit_quiet(EXIT_FAILURE)
+                                        end if
+                                        if (next_arg(1:1) == '-') then
                                             write (error_unit, '(A)') &
                                                 'Error: --trace-file requires a path'
                                             call exit_quiet(EXIT_FAILURE)
@@ -136,13 +197,15 @@ program fortfront_cli
                             cycle
                         end if
                     end block
-                    if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
-                        write (error_unit, '(A,A)') 'Error: Unknown option ', &
-                            trim(arg_str)
-                        write (error_unit, '(A)') ''
-                        write (error_unit, '(A)') &
-                            'Try ''fortfront --help'' for usage information.'
-                        call exit_quiet(EXIT_FAILURE)
+                    if (len(arg_str) >= 1) then
+                        if (arg_str(1:1) == '-') then
+                            write (error_unit, '(A,A)') 'Error: Unknown option ', &
+                                trim(arg_str)
+                            write (error_unit, '(A)') ''
+                            write (error_unit, '(A)') &
+                                'Try ''fortfront --help'' for usage information.'
+                            call exit_quiet(EXIT_FAILURE)
+                        end if
                     end if
                 end select
             end if
@@ -186,6 +249,8 @@ program fortfront_cli
         write (output_unit, '(A)') 'OPTIONS:'
         write (output_unit, '(A)') '    -h, --help     Show this help message'
         write (output_unit, '(A)') '    -v, --version  Show version information'
+        write (output_unit, '(A)') '        --infer    Enable infer mode (default)'
+        write (output_unit, '(A)') '        --std=lf   Enable strict mode'
         write (output_unit, '(A)') &
             '        --trace[=on|off]   Enable/disable tracing (overrides env)'
         write (output_unit, '(A)') &
@@ -265,7 +330,10 @@ program fortfront_cli
     call cli_trace('CLI: transform begin')
     block
         type(transform_context_t) :: context
-        call create_transform_context(from_file, filename, input_text, context)
+        call create_transform_context(from_file, filename, input_text, &
+                                      operating_mode, context)
+        call enforce_strict_mode_input_rules(operating_mode, input_text, &
+                                             context%input_mode)
         call transform_with_context(input_text, output_text, error_msg, context)
     end block
     call trace_leave('cli:transform')
@@ -291,22 +359,33 @@ program fortfront_cli
     end if
 
     ! Only write output if no errors occurred
-    if (allocated(output_text) .and. len(output_text) > 0) then
-        write (output_unit, '(A)', advance='no') output_text
-        ! Ensure a trailing newline for line-buffered environments (e.g., Windows pipes)
-        if (output_text(len(output_text):len(output_text)) /= new_line('A')) then
-            write (output_unit, '(A)') ''
+    if (allocated(output_text)) then
+        if (len(output_text) > 0) then
+            write (output_unit, '(A)', advance='no') output_text
+            ! Ensure a trailing newline for line-buffered environments
+            ! (e.g., Windows pipes)
+            if (output_text(len(output_text):len(output_text)) /= &
+                new_line('A')) then
+                write (output_unit, '(A)') ''
+            end if
+            flush (output_unit)
         end if
-        flush (output_unit)
     end if
 
     ! If no output was generated and no error was reported, treat as failure
     ! for non-empty inputs. Empty standard Fortran inputs are allowed to
     ! produce no output to preserve strict round-trip semantics.
-    if (.not. allocated(output_text) .or. len(output_text) == 0) then
+    if (.not. allocated(output_text)) then
         if (.not. input_is_empty) then
             write (error_unit, '(A)') 'No output generated'
             call exit_quiet(EXIT_FAILURE)
+        end if
+    else
+        if (len(output_text) == 0) then
+            if (.not. input_is_empty) then
+                write (error_unit, '(A)') 'No output generated'
+                call exit_quiet(EXIT_FAILURE)
+            end if
         end if
     end if
 
@@ -335,10 +414,12 @@ contains
         end do
     end function extract_module_name_from_source
 
-    subroutine create_transform_context(from_file, filename, input_text, context)
+    subroutine create_transform_context(from_file, filename, input_text, &
+                                        operating_mode, context)
         logical, intent(in) :: from_file
         character(len=:), allocatable, intent(in) :: filename
         character(len=*), intent(in) :: input_text
+        integer, intent(in) :: operating_mode
         type(transform_context_t), intent(out) :: context
         character(len=:), allocatable :: actual_module_name
 
@@ -356,7 +437,30 @@ contains
         else
             call configure_context_from_stdin(input_text, context)
         end if
+        context%operating_mode = operating_mode
     end subroutine create_transform_context
+
+    subroutine enforce_strict_mode_input_rules(operating_mode, source, input_mode)
+        integer, intent(in) :: operating_mode
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: input_mode
+        character(len=:), allocatable :: ignored_name
+        logical :: is_standard
+
+        if (operating_mode /= OPERATING_MODE_STRICT) return
+        if (input_mode /= INPUT_MODE_LAZY) return
+
+        is_standard = is_standard_fortran_input(source, ignored_name)
+        if (allocated(ignored_name)) deallocate (ignored_name)
+        if (.not. is_standard) then
+            write (error_unit, '(A)') &
+                'ERROR: Strict mode forbids bare statements without an explicit ' // &
+                'program/module/procedure unit.'
+            write (error_unit, '(A)') &
+                'Suggestion: use --infer for top-level statements.'
+            call exit_quiet(EXIT_FAILURE)
+        end if
+    end subroutine enforce_strict_mode_input_rules
 
     subroutine configure_context_from_file(filename, context)
         character(len=:), allocatable, intent(in) :: filename
@@ -384,8 +488,9 @@ contains
     subroutine configure_context_from_stdin(input_text, context)
         character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
-        character(len=32) :: uuid_str
-        integer :: pid, timestamp
+        character(len=64) :: uuid_str
+        integer :: clock_count, clock_rate, clock_max
+        integer :: values(8)
         character(len=:), allocatable :: prog_name
 
         ! Detect whether stdin input is standard Fortran or lazy Fortran
@@ -396,9 +501,10 @@ contains
             context%input_mode = INPUT_MODE_LAZY
         end if
 
-        call get_pid_impl(pid)
-        call get_timestamp_impl(timestamp)
-        write (uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
+        call date_and_time(values=values)
+        call system_clock(clock_count, clock_rate, clock_max)
+        write (uuid_str, '("stdin_",I0,"_",I0,"_",I0,"_",I0,"_",I0)') &
+            values(5), values(6), values(7), values(8), clock_count
 
         context%source_name = trim(uuid_str)
         if (allocated(prog_name)) then
@@ -426,12 +532,7 @@ contains
         if (.not. allocated(tokens)) return
         if (size(tokens) == 0) return
 
-        ! Look for standard Fortran structure indicators
-        ! Key indicators:
-        ! 1. program <name> statement at top level
-        ! 2. module <name> statement at top level
-        ! 3. subroutine/function at top level (external procedure)
-        ! 4. interface block at top level
+        ! Look for standard Fortran program unit indicators.
         do i = 1, size(tokens)
             if (tokens(i)%kind /= TK_KEYWORD .and. &
                 tokens(i)%kind /= TK_IDENTIFIER) cycle
@@ -449,19 +550,17 @@ contains
                 end if
                 return
             case ("module")
-                ! Check if followed by identifier (module statement, not module procedure)
+                ! Check if followed by identifier (module statement,
+                ! not module procedure)
                 next_idx = find_next_identifier_token(tokens, i)
                 if (next_idx > 0) then
-                    if (to_lower(trim(tokens(next_idx)%text)) /= "procedure") then
+                    if (to_lower(trim(tokens(next_idx)%text)) /= &
+                        "procedure") then
                         is_standard = .true.
                         prog_name = trim(tokens(next_idx)%text)
                         return
                     end if
                 end if
-            case ("interface", "abstract")
-                ! Interface blocks indicate standard Fortran
-                is_standard = .true.
-                return
             case ("subroutine", "function")
                 ! Top-level procedure indicates standard Fortran (external procedure)
                 is_standard = .true.
@@ -470,10 +569,18 @@ contains
                     prog_name = trim(tokens(next_idx)%text)
                 end if
                 return
-            case ("submodule", "block")
-                ! Submodule or block data - standard Fortran
+            case ("submodule")
                 is_standard = .true.
                 return
+            case ("block")
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    if (.not. allocated(tokens(next_idx)%text)) cycle
+                    if (to_lower(trim(tokens(next_idx)%text)) == "data") then
+                        is_standard = .true.
+                        return
+                    end if
+                end if
             end select
         end do
     end function is_standard_fortran_input
@@ -516,21 +623,6 @@ contains
             extension = ''
         end if
     end subroutine split_filename
-
-    subroutine get_pid_impl(pid)
-        integer, intent(out) :: pid
-        ! Simple fallback - just use a constant for now
-        ! TODO: Use actual getpid() via C interop if available
-        pid = 12345
-    end subroutine get_pid_impl
-
-    subroutine get_timestamp_impl(timestamp)
-        integer, intent(out) :: timestamp
-        integer :: values(8)
-        call date_and_time(values=values)
-        ! Combine date/time into a simple integer
-        timestamp = values(5) * 3600 + values(6) * 60 + values(7)
-    end subroutine get_timestamp_impl
 
     subroutine cli_trace(message)
         character(len=*), intent(in) :: message

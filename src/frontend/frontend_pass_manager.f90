@@ -5,6 +5,7 @@ module frontend_pass_manager
     use compiler_arena, only: compiler_arena_t
     use call_graph_signatures_mod, only: signatures_map_t
     use debug_trace, only: trace_enter, trace_leave
+    use semantic_operating_mode, only: OPERATING_MODE_INFER
     implicit none
     private
 
@@ -36,6 +37,7 @@ module frontend_pass_manager
         character(len=:), allocatable :: output
         character(len=:), allocatable :: error_msg
         type(signatures_map_t) :: signatures
+        integer :: operating_mode = OPERATING_MODE_INFER
         logical :: enable_ast_wrapping
         logical :: has_functions
         logical :: has_subroutines

@@ -73,6 +73,7 @@ module semantic_analyzer
     use semantic_call_signature_collector, only: collect_call_signature, &
                                                  collect_subroutine_signature
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_operating_mode, only: OPERATING_MODE_INFER
     implicit none
     private
 
@@ -87,6 +88,7 @@ module semantic_analyzer
         type(substitution_t) :: subst
         type(error_collection_t) :: errors
         integer :: input_mode = INPUT_MODE_LAZY
+        integer :: operating_mode = OPERATING_MODE_INFER
         logical :: respect_implicit_none = .true.
         type(type_annotation_t), allocatable :: parser_type_hints(:)
         type(type_hierarchy_t) :: type_hierarchy
