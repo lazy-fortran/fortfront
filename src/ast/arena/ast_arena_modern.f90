@@ -268,9 +268,16 @@ contains
         integer, intent(in) :: parent_index, child_index
         integer :: i, j, old_count
 
+        ! Bounds check: ensure parent_index is valid
+        if (.not. allocated(arena%entries)) return
+        if (parent_index <= 0 .or. parent_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
         old_count = arena%entries(parent_index)%child_count
         if (old_count == 0) return
+        ! Ensure old_count does not exceed array bounds
+        if (old_count > size(arena%entries(parent_index)%child_indices)) then
+            old_count = size(arena%entries(parent_index)%child_indices)
+        end if
 
         j = 0
         do i = 1, old_count
