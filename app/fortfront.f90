@@ -7,7 +7,7 @@ program fortfront_cli
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
-    use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER
+    use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, TK_IDENTIFIER, to_lower
     use stdout_sanitizer, only: sanitize_redirected_stdout
     use frontend_core, only: normalize_fixed_form_source_text, is_fixed_form_file
     use frontend_tooling_api, only: read_file_contents, message_has_error
@@ -386,20 +386,116 @@ contains
         type(transform_context_t), intent(out) :: context
         character(len=32) :: uuid_str
         integer :: pid, timestamp
+        character(len=:), allocatable :: prog_name
 
-        ! For stdin, default to lazy Fortran mode
-        ! (Standard Fortran should always come from .f90 files with proper extension)
-        context%input_mode = INPUT_MODE_LAZY
+        ! Detect whether stdin input is standard Fortran or lazy Fortran
+        ! Standard Fortran has explicit program/module/subroutine/function structures
+        if (is_standard_fortran_input(input_text, prog_name)) then
+            context%input_mode = INPUT_MODE_STANDARD
+        else
+            context%input_mode = INPUT_MODE_LAZY
+        end if
 
         call get_pid_impl(pid)
         call get_timestamp_impl(timestamp)
         write (uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
 
         context%source_name = trim(uuid_str)
-        context%module_name = trim(uuid_str)
+        if (allocated(prog_name)) then
+            context%module_name = prog_name
+        else
+            context%module_name = trim(uuid_str)
+        end if
         context%program_name = 'main'
         context%has_filename = .false.
     end subroutine configure_context_from_stdin
+
+    function is_standard_fortran_input(source, prog_name) result(is_standard)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable, intent(out) :: prog_name
+        logical :: is_standard
+        type(token_t), allocatable :: tokens(:)
+        integer :: i, next_idx
+        character(len=:), allocatable :: lowered
+
+        is_standard = .false.
+        allocate (character(len=0) :: prog_name)
+
+        ! Tokenize the source
+        call tokenize_core(source, tokens)
+        if (.not. allocated(tokens)) return
+        if (size(tokens) == 0) return
+
+        ! Look for standard Fortran structure indicators
+        ! Key indicators:
+        ! 1. program <name> statement at top level
+        ! 2. module <name> statement at top level
+        ! 3. subroutine/function at top level (external procedure)
+        ! 4. interface block at top level
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_KEYWORD .and. &
+                tokens(i)%kind /= TK_IDENTIFIER) cycle
+
+            lowered = to_lower(trim(tokens(i)%text))
+
+            select case (lowered)
+            case ("program")
+                ! Found program statement - this is standard Fortran
+                is_standard = .true.
+                ! Extract program name
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    prog_name = trim(tokens(next_idx)%text)
+                end if
+                return
+            case ("module")
+                ! Check if followed by identifier (module statement, not module procedure)
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    if (to_lower(trim(tokens(next_idx)%text)) /= "procedure") then
+                        is_standard = .true.
+                        prog_name = trim(tokens(next_idx)%text)
+                        return
+                    end if
+                end if
+            case ("interface", "abstract")
+                ! Interface blocks indicate standard Fortran
+                is_standard = .true.
+                return
+            case ("subroutine", "function")
+                ! Top-level procedure indicates standard Fortran (external procedure)
+                is_standard = .true.
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    prog_name = trim(tokens(next_idx)%text)
+                end if
+                return
+            case ("submodule", "block")
+                ! Submodule or block data - standard Fortran
+                is_standard = .true.
+                return
+            end select
+        end do
+    end function is_standard_fortran_input
+
+    integer function find_next_identifier_token(tokens, start_pos) result(idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: i
+
+        idx = 0
+        do i = start_pos + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_IDENTIFIER)
+                idx = i
+                return
+            case (TK_KEYWORD)
+                ! Some keywords can be used as identifiers in certain contexts
+                idx = i
+                return
+            end select
+        end do
+    end function find_next_identifier_token
 
     subroutine split_filename(filename, basename, extension)
         character(len=:), allocatable, intent(in) :: filename

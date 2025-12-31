@@ -9,6 +9,7 @@ module lexer_api
         token_type_name, &
         tokenize_result_t, &
         lexer_options_t, &
+        to_lower, &
         TK_EOF, &
         TK_IDENTIFIER, &
         TK_NUMBER, &
@@ -50,5 +51,6 @@ module lexer_api
 
     ! Utility functions
     public :: token_type_name
+    public :: to_lower
 
 end module lexer_api

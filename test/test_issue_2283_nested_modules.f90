@@ -7,7 +7,14 @@ program test_issue_2283_nested_modules
 
     character(len=:), allocatable :: source_code, output_code, error_msg
     type(transform_context_t) :: ctx
-    logical :: has_inner_module
+    logical :: has_module_value
+    logical :: has_set_subroutine
+    logical :: has_touch_subroutine
+
+    ! Note: The original issue #2283 reported "nested modules" as valid Fortran,
+    ! but nested module syntax is NOT valid in any Fortran standard.
+    ! This test now validates that a valid module with contained procedures
+    ! survives the round-trip correctly.
 
     call read_example('examples/f90/issue_2283_nested_modules.f90', source_code)
 
@@ -23,16 +30,30 @@ program test_issue_2283_nested_modules
         error stop 1
     end if
 
-    has_inner_module = index(output_code, 'module issue_2283_inner') > 0 .and. &
-        & index(output_code, 'end module issue_2283_inner') > 0
+    ! Verify the module structure is preserved
+    has_module_value = index(output_code, 'module_value') > 0
+    has_set_subroutine = index(output_code, 'set_module_value') > 0
+    has_touch_subroutine = index(output_code, 'touch_value') > 0
 
-    if (.not. has_inner_module) then
-        write (error_unit, '(A)') 'FAIL: nested module lost during round-trip'
+    if (.not. has_module_value) then
+        write (error_unit, '(A)') 'FAIL: module_value lost during round-trip'
         write (error_unit, '(A)') output_code
         error stop 1
     end if
 
-    print *, 'PASS: nested modules survive round-trip'
+    if (.not. has_set_subroutine) then
+        write (error_unit, '(A)') 'FAIL: set_module_value subroutine lost'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    if (.not. has_touch_subroutine) then
+        write (error_unit, '(A)') 'FAIL: touch_value subroutine lost'
+        write (error_unit, '(A)') output_code
+        error stop 1
+    end if
+
+    print *, 'PASS: module with contained procedures survives round-trip'
 
 contains
 
