@@ -12,16 +12,20 @@ module codegen_program_variables
     use ast_nodes_data, only: declaration_node, module_node, derived_type_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_transfer, only: entry_node
+    use ast_nodes_control, only: associate_node, if_node, do_loop_node, &
+                                 do_while_node, select_case_node, case_block_node, &
+                                 case_default_node, where_node, forall_node, &
+                                 block_construct_node
     use codegen_program_decl_utils, only: exists_in_list, &
-                                           build_function_return_type_table, &
-                                           initialize_program_decl_state, &
-                                           program_decl_state_t, &
-                                           program_decl_max_vars, &
-                                           record_declared_name, &
-                                           record_namelist_group, &
-                                           record_use_associated_name, &
-                                           record_use_module_name, &
-                                           seed_namelist_groups_from_text
+                                          build_function_return_type_table, &
+                                          initialize_program_decl_state, &
+                                          program_decl_state_t, &
+                                          program_decl_max_vars, &
+                                          record_declared_name, &
+                                          record_namelist_group, &
+                                          record_use_associated_name, &
+                                          record_use_module_name, &
+                                          seed_namelist_groups_from_text
     use codegen_type_utils, only: get_type_standardization
     use codegen_type_inference_utils, only: canonicalize_type, &
                                             deduce_type_from_arguments, &
@@ -56,6 +60,7 @@ contains
         call collect_local_module_exports(arena, prog, state)
         call collect_auto_module_exports(arena, state)
         call collect_declared_symbols(arena, prog, state)
+        call collect_associate_names(arena, prog, state)
         call collect_namelist_groups(arena, prog, state)
         call collect_assignment_symbols(arena, prog, state)
         call collect_executable_identifier_symbols(arena, prog, state)
@@ -335,6 +340,163 @@ contains
         end do
     end subroutine collect_namelist_groups
 
+    subroutine collect_associate_names(arena, prog, state)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, idx
+        logical :: contains_seen
+
+        if (.not. allocated(prog%body_indices)) return
+
+        contains_seen = .false.
+
+        do i = 1, size(prog%body_indices)
+            idx = prog%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (contains_node)
+                contains_seen = .true.
+                exit
+            end select
+            if (.not. contains_seen) then
+                call collect_associate_names_recursive(arena, idx, state)
+            end if
+        end do
+    end subroutine collect_associate_names
+
+    recursive subroutine collect_associate_names_recursive(arena, node_index, state)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(program_decl_state_t), intent(inout) :: state
+        integer :: i, j, idx
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (associate_node)
+            if (allocated(node%associations)) then
+                do i = 1, size(node%associations)
+                    if (allocated(node%associations(i)%name)) then
+                        call record_declared_name(state, &
+                                                  trim(node%associations(i)%name))
+                    end if
+                end do
+            end if
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%body_indices(i), state)
+                end do
+            end if
+        type is (if_node)
+            if (allocated(node%then_body_indices)) then
+                do i = 1, size(node%then_body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%then_body_indices(i), &
+                                                           state)
+                end do
+            end if
+            if (allocated(node%elseif_blocks)) then
+                do i = 1, size(node%elseif_blocks)
+                    if (allocated(node%elseif_blocks(i)%body_indices)) then
+                        do j = 1, size(node%elseif_blocks(i)%body_indices)
+                            idx = node%elseif_blocks(i)%body_indices(j)
+                            call collect_associate_names_recursive(arena, idx, state)
+                        end do
+                    end if
+                end do
+            end if
+            if (allocated(node%else_body_indices)) then
+                do i = 1, size(node%else_body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%else_body_indices(i), &
+                                                           state)
+                end do
+            end if
+        type is (do_loop_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%body_indices(i), state)
+                end do
+            end if
+        type is (do_while_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%body_indices(i), state)
+                end do
+            end if
+        type is (select_case_node)
+            if (allocated(node%case_indices)) then
+                do i = 1, size(node%case_indices)
+                    idx = node%case_indices(i)
+                    if (idx <= 0 .or. idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    select type (case_node => arena%entries(idx)%node)
+                    type is (case_block_node)
+                        if (allocated(case_node%body_indices)) then
+                            do j = 1, size(case_node%body_indices)
+                                idx = case_node%body_indices(j)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end do
+            end if
+            if (node%default_index > 0 .and. node%default_index <= arena%size) then
+                if (allocated(arena%entries(node%default_index)%node)) then
+                    select type (def_node => arena%entries(node%default_index)%node)
+                    type is (case_default_node)
+                        if (allocated(def_node%body_indices)) then
+                            do i = 1, size(def_node%body_indices)
+                                idx = def_node%body_indices(i)
+                                call collect_associate_names_recursive(arena, &
+                                                                       idx, state)
+                            end do
+                        end if
+                    end select
+                end if
+            end if
+        type is (where_node)
+            if (allocated(node%where_body_indices)) then
+                do i = 1, size(node%where_body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%where_body_indices(i), &
+                                                           state)
+                end do
+            end if
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                        do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                            idx = node%elsewhere_clauses(i)%body_indices(j)
+                            call collect_associate_names_recursive(arena, idx, state)
+                        end do
+                    end if
+                end do
+            end if
+        type is (forall_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%body_indices(i), state)
+                end do
+            end if
+        type is (block_construct_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call collect_associate_names_recursive(arena, &
+                                                           node%body_indices(i), state)
+                end do
+            end if
+        end select
+    end subroutine collect_associate_names_recursive
+
     subroutine try_add_internal_function(state, name)
         type(program_decl_state_t), intent(inout) :: state
         character(len=*), intent(in) :: name
@@ -496,7 +658,6 @@ contains
         end do
     end subroutine collect_identifiers_for_node
 
-
     subroutine process_assignment_target(arena, stmt, state)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: stmt
@@ -557,7 +718,7 @@ contains
                     else if (curr_lower == 'logical' .and. func_lower /= &
                              'logical') then
                         type_buf = func_return_type
-                    ! Issue #2075: Use function return type if it has allocatable
+                        ! Issue #2075: Use function return type if it has allocatable
                     else if (index(func_lower, 'allocatable') > 0 .and. &
                              index(curr_lower, 'allocatable') == 0) then
                         type_buf = func_return_type
@@ -573,7 +734,8 @@ contains
                 use codegen_character_types, only: is_deferred_shape_array
                 logical :: needs_alloc
                 needs_alloc = is_deferred_shape_array(type_buf)
-                if (needs_alloc .and. index(to_lower(trim(type_buf)), 'allocatable') == 0) then
+                if (needs_alloc .and. index(to_lower(trim(type_buf)), &
+                                            'allocatable') == 0) then
                     ! Add allocatable to deferred-shape array
                     type_buf = trim(type_buf) // ', allocatable'
                 end if
@@ -934,7 +1096,7 @@ contains
                 open_paren = 5  ! Position after "type("
                 close_paren = index(normalized_type, ')')
                 if (close_paren > open_paren) then
-                    type_name = normalized_type(open_paren+1:close_paren-1)
+                    type_name = normalized_type(open_paren + 1:close_paren - 1)
                     type_name = trim(adjustl(type_name))
 
                     ! If call name matches the type name, it's a type constructor
