@@ -1,6 +1,6 @@
 # Fortran Ecosystem Architecture
 
-Static-linked Fortran toolchain with zero dependencies.
+Fortfront is the core frontend library in the Lazy Fortran tool ecosystem.
 
 ## Foundation: fortfront
 
@@ -11,24 +11,24 @@ Static-linked Fortran toolchain with zero dependencies.
 - Lazy Fortran (.lf) to standard Fortran transformation
 - Plugin architecture with stable interfaces
 
-**Dependencies**: Zero - completely self-contained
+**Dependencies**: Fortran stdlib (`stdlib`) via `fpm.toml`
 
 ## Tool Architecture
 
-All tools statically link fortfront only:
+The ecosystem tools live in separate repositories and build on fortfront.
 
-| Tool | Purpose |
-|------|---------|
-| **fluff** | Static analysis and formatting |
-| **fortnb** | Notebook processing (.lf support) |
-| **ffc** | Single-file .lf compiler (LLVM backend) |
-| **fortcov** | Coverage analysis |
-| **fortrun** | Universal enhancement service (any compiler) |
-| **fo** | Universal orchestrator (contains all tools) |
+| Tool | Purpose | Status | Repository |
+|------|---------|--------|------------|
+| **fluff** | Static analysis and formatting | Available | https://github.com/lazy-fortran/fluff |
+| **fortnb** | Notebook processing (.lf support) | Available | https://github.com/lazy-fortran/fortnb |
+| **ffc** | Single-file `.lf` compiler backend | Available | https://github.com/lazy-fortran/ffc |
+| **fortcov** | Coverage analysis | Available | https://github.com/lazy-fortran/fortcov |
+| **fortrun** | Build/run enhancement service | Available | https://github.com/lazy-fortran/fortrun |
+| **fo** | Universal orchestrator (contains all tools) | Planned | n/a |
 
-## fo: Universal Orchestrator
+## fo: Universal Orchestrator (planned)
 
-Single executable containing all tools, backward compatible with fpm:
+Planned single executable containing all tools, backward compatible with fpm:
 
 ```bash
 fo new project              # Project initialization
@@ -46,14 +46,14 @@ fo format                   # fluff code formatting
 ffc main.lf                # Fast, simple, no cross-module analysis
 ```
 
-**Multi-file (fo)**: Enhanced compilation via fortrun
+**Multi-file (fo, planned)**: Enhanced compilation via fortrun
 ```bash
 fo run main.lf             # Cross-module type inference, smart caching
 ```
 
 ## VSCode Integration
 
-Single point of integration via fo:
+Single point of integration via fo (planned):
 ```json
 {
   "fortran.languageServer": "fo lsp",
@@ -64,7 +64,7 @@ Single point of integration via fo:
 
 ## Architecture Benefits
 
-- **Zero dependencies**: No library conflicts or version hell
-- **Self-contained**: Single executable includes everything
+- **Minimal dependencies**: Fortfront builds as an `fpm` package with `stdlib`
+- **Unified experience (planned)**: Single orchestrator for common workflows
 - **Consistent parsing**: All tools use identical AST/CST
-- **Unified experience**: One tool interface for all functionality
+- **Shared semantics**: One frontend for parsing and analysis across tools
