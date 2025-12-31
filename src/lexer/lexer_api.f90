@@ -4,7 +4,9 @@ module lexer_api
     use lexer_core, only: &
         token_t, &
         tokenize_core, &
+        tokenize_core_with_trivia, &
         tokenize_safe, &
+        tokenize_safe_with_trivia, &
         tokenize_core_safe, &
         token_type_name, &
         tokenize_result_t, &
@@ -44,7 +46,9 @@ module lexer_api
 
     ! Main tokenization functions
     public :: tokenize_core
+    public :: tokenize_core_with_trivia
     public :: tokenize_safe
+    public :: tokenize_safe_with_trivia
     public :: tokenize_core_safe
     public :: lex_source
     public :: lex_file
