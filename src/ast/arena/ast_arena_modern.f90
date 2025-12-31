@@ -249,11 +249,14 @@ contains
         entries_size = size(arena%entries)
 
         if (parent_index <= 0 .or. parent_index > entries_size) return
+        if (.not. allocated(arena%entries(parent_index)%node)) return
         if (size(child_indices) == 0) return
 
         do i = 1, size(child_indices)
             child_idx = child_indices(i)
             if (child_idx > 0 .and. child_idx <= entries_size) then
+                ! Ensure child entry has valid node before accessing
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
                 old_parent = arena%entries(child_idx)%parent_index
                 if (old_parent == parent_index) then
                     ! Child is already linked to this parent, skip
@@ -277,12 +280,18 @@ contains
         result(present)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: parent_index, child_index
-        integer :: i
+        integer :: i, count, arr_size
 
         present = .false.
+        ! Bounds check for parent_index to prevent out-of-bounds access
+        if (.not. allocated(arena%entries)) return
+        if (parent_index <= 0 .or. parent_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
-        do i = 1, arena%entries(parent_index)%child_count
-            if (i > size(arena%entries(parent_index)%child_indices)) exit
+        count = arena%entries(parent_index)%child_count
+        if (count <= 0) return
+        arr_size = size(arena%entries(parent_index)%child_indices)
+        if (count > arr_size) count = arr_size
+        do i = 1, count
             if (arena%entries(parent_index)%child_indices(i) == child_index) then
                 present = .true.
                 return
