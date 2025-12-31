@@ -262,12 +262,33 @@ contains
                 if (old_parent > 0 .and. old_parent <= entries_size) then
                     call remove_child_from_parent(arena, old_parent, child_idx)
                 end if
-                call arena%add_child(parent_index, child_idx)
+                ! Only add_child if child not already present
+                if (.not. is_child_present(arena, parent_index, child_idx)) then
+                    call arena%add_child(parent_index, child_idx)
+                end if
                 arena%entries(child_idx)%parent_index = parent_index
                 arena%entries(child_idx)%depth = arena%entries(parent_index)%depth + 1
             end if
         end do
     end subroutine link_children_to_parent
+
+    ! Check if child is already present in parent's children list
+    pure logical function is_child_present(arena, parent_index, child_index) &
+        result(present)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: parent_index, child_index
+        integer :: i
+
+        present = .false.
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) return
+        do i = 1, arena%entries(parent_index)%child_count
+            if (i > size(arena%entries(parent_index)%child_indices)) exit
+            if (arena%entries(parent_index)%child_indices(i) == child_index) then
+                present = .true.
+                return
+            end if
+        end do
+    end function is_child_present
 
     ! Remove a child from a parent's children list
     subroutine remove_child_from_parent(arena, parent_index, child_index)
