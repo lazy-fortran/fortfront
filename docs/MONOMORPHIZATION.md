@@ -95,33 +95,12 @@ end module
 
 Fortran merges visible specifics at use site - no library mutation required.
 
-## API for Package Managers
-
-```fortran
-use fortfront_semantic, only: get_function_specializations, get_call_sites
-use fortfront_codegen, only: generate_instantiation_module
-
-! Query specializations
-call get_function_specializations(arena, function_name, specs)
-
-! Query call sites
-call get_call_sites(arena, function_name, calls)
-
-! Generate instantiation module
-call generate_instantiation_module(base_module_name, function_name, &
-                                   signature, fortran_code)
-```
-
 ## Implementation Status
 
-**Phase 1 (Complete)**: Single-file monomorphization
+Single-file monomorphization is complete and production-ready:
 - Call graph tracks unique type signatures per function
 - Codegen generates multiple specifics when needed
 - Generic interface binds all specifics
 
-**Phase 2 (API)**: Package manager infrastructure
-- `get_function_specializations()` API
-- `get_call_sites()` API
-- `generate_instantiation_module()` API
-
-**Phase 3 (External)**: Package managers implement cross-module orchestration
+Cross-module specialization (across file boundaries) is handled by package managers
+using the Fortran generic interface extension mechanism described above.
