@@ -59,6 +59,19 @@ contains
                 call link_children_to_parent(arena, func_index, body_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(func_def%name)) deallocate (func_def%name)
+        if (allocated(func_def%param_indices)) deallocate (func_def%param_indices)
+        if (allocated(func_def%return_type)) deallocate (func_def%return_type)
+        if (allocated(func_def%result_variable)) deallocate (func_def%result_variable)
+        if (allocated(func_def%prefix_keywords)) deallocate (func_def%prefix_keywords)
+        if (allocated(func_def%param_intents)) deallocate (func_def%param_intents)
+        if (allocated(func_def%body_indices)) deallocate (func_def%body_indices)
+        if (allocated(func_def%bind_c_clause)) deallocate (func_def%bind_c_clause)
+        if (allocated(func_def%stmt_label)) deallocate (func_def%stmt_label)
     end function push_function_def
 
     ! Create subroutine definition node and add to stack
@@ -114,6 +127,17 @@ contains
                 call link_children_to_parent(arena, sub_index, body_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(sub_def%name)) deallocate (sub_def%name)
+        if (allocated(sub_def%param_indices)) deallocate (sub_def%param_indices)
+        if (allocated(sub_def%prefix_keywords)) deallocate (sub_def%prefix_keywords)
+        if (allocated(sub_def%param_intents)) deallocate (sub_def%param_intents)
+        if (allocated(sub_def%body_indices)) deallocate (sub_def%body_indices)
+        if (allocated(sub_def%bind_c_clause)) deallocate (sub_def%bind_c_clause)
+        if (allocated(sub_def%stmt_label)) deallocate (sub_def%stmt_label)
     end function push_subroutine_def
 
     ! Create interface block node and add to stack
@@ -206,6 +230,16 @@ contains
                 call link_children_to_parent(arena, module_index, body_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(mod_node%name)) deallocate (mod_node%name)
+        if (allocated(mod_node%declaration_indices)) deallocate &
+            (mod_node%declaration_indices)
+        if (allocated(mod_node%procedure_indices)) deallocate &
+            (mod_node%procedure_indices)
+        if (allocated(mod_node%stmt_label)) deallocate (mod_node%stmt_label)
     end function push_module
 
     ! Create complete module node with declaration and procedure indices

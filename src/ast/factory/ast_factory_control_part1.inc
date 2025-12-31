@@ -43,7 +43,8 @@
                 if (mod(size(elseif_indices), 2) == 0) then
                     allocate (if_stmt%elseif_blocks(size(elseif_indices) / 2))
                     do i = 1, size(elseif_indices) / 2
-                        if_stmt%elseif_blocks(i)%condition_index = elseif_indices(2 * i - 1)
+                        if_stmt%elseif_blocks(i)%condition_index = &
+                            elseif_indices(2 * i - 1)
                         if_stmt%elseif_blocks(i)%body_indices = [elseif_indices(2 * i)]
                     end do
                 end if
@@ -288,7 +289,8 @@
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_forall")
         if (validation%is_failure()) then
-            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                validation%get_full_message()
             forall_index = 0
             return
         end if
@@ -299,7 +301,8 @@
         if (use_multi) then
             num_indices = size(index_vars_all)
             if (num_indices <= 0) then
-                write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL requires at least one index"
+                write (error_unit, '(A)') &
+                    "ERROR [ast_factory_control]: FORALL requires at least one index"
                 forall_index = 0
                 return
             end if
@@ -312,7 +315,7 @@
             if (present(stride_indices_all)) then
                 if (size(stride_indices_all) /= num_indices) then
                     write (error_unit, '(A)') &
-                        "ERROR [ast_factory_control]: FORALL stride array must match index count"
+               "ERROR [ast_factory_control]: FORALL stride array must match index count"
                     forall_index = 0
                     return
                 end if
@@ -349,13 +352,13 @@
 
             if (index_var_len == 0) then
                 write (error_unit, '(A)') &
-                    "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
+               "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
                 forall_index = 0
                 return
             end if
             if (index_var_len > MAX_INDEX_NAME_LENGTH) then
                 write (error_unit, '(A)') &
-                    "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
+        "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
                 forall_index = 0
                 return
             end if
@@ -364,14 +367,16 @@
 
             validation = validate_node_index(arena, lower_vals(i), "push_forall start")
             if (validation%is_failure()) then
-                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                    validation%get_full_message()
                 forall_index = 0
                 return
             end if
 
             validation = validate_node_index(arena, upper_vals(i), "push_forall end")
             if (validation%is_failure()) then
-                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                    validation%get_full_message()
                 forall_index = 0
                 return
             end if
@@ -379,7 +384,8 @@
             if (stride_val > 0) then
                 validation = validate_node_index(arena, stride_val, "push_forall step")
                 if (validation%is_failure()) then
-                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                        validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -396,7 +402,8 @@
             if (mask_index > 0) then
                 validation = validate_node_index(arena, mask_index, "push_forall mask")
                 if (validation%is_failure()) then
-                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                        validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -406,9 +413,11 @@
         ! Validate body indices
         if (present(body_indices)) then
             do i = 1, size(body_indices)
-                validation = validate_node_index(arena, body_indices(i), "push_forall body")
+                validation = validate_node_index(arena, body_indices(i), &
+                                                 "push_forall body")
                 if (validation%is_failure()) then
-                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // &
+                        validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -508,12 +517,19 @@
                 call link_children_to_parent(arena, select_index, case_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(select_node%case_indices)) deallocate (select_node%case_indices)
+        if (allocated(select_node%stmt_label)) deallocate (select_node%stmt_label)
     end function push_select_case
 
     ! Create select case node with default case and add to stack
     function push_select_case_with_default(arena, selector_index, case_indices, &
                                            default_index, &
-                                           line, column, parent_index) result(select_index)
+                                           line, column, parent_index) &
+        result(select_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: selector_index
         integer, intent(in), optional :: case_indices(:)
@@ -559,6 +575,12 @@
         if (default_index > 0) then
             call link_children_to_parent(arena, select_index, [default_index])
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(select_node%case_indices)) deallocate (select_node%case_indices)
+        if (allocated(select_node%stmt_label)) deallocate (select_node%stmt_label)
     end function push_select_case_with_default
 
     ! Create case block node and add to stack
@@ -600,6 +622,13 @@
                 call link_children_to_parent(arena, case_index, body_indices)
             end if
         end if
+
+        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
+        ! function returns to prevent buggy GCC-generated finalizer from crashing
+        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
+        if (allocated(case_node%value_indices)) deallocate (case_node%value_indices)
+        if (allocated(case_node%body_indices)) deallocate (case_node%body_indices)
+        if (allocated(case_node%stmt_label)) deallocate (case_node%stmt_label)
     end function push_case_block
 
     ! Create case range node and add to stack
