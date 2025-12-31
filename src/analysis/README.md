@@ -20,7 +20,10 @@ The analysis phase operates **after** semantic analysis and works with fully typ
 | call_graph_signatures_mod.f90 | Procedure signature extraction and comparison |
 | variable_usage_core.f90 | Core types for variable usage tracking |
 | variable_usage_tracker.f90 | Variable usage tracking implementation |
-| variable_usage_dispatcher.f90 | Dispatcher for variable usage analysis across node types |
+| variable_usage_dispatcher.f90 | Facade module for variable usage dispatching |
+| variable_usage_control_handlers.f90 | Handlers for control flow nodes (if, do, select, where, forall) |
+| variable_usage_stmt_handlers.f90 | Handlers for statement nodes (call, I/O, allocate, procedure defs) |
+| variable_usage_expr_handlers.f90 | Handlers for expression nodes (binary_op, call_or_subscript, assignment) |
 
 ## Key Concepts
 
