@@ -31,6 +31,8 @@ module variable_usage_dispatcher_module
     public :: process_array_slice_children, process_component_access_children
     public :: process_assignment_node_children, process_program_node_children
     public :: process_literal_node_children, process_procedure_def_body
+    public :: process_select_rank_node_children, process_rank_block_node_children
+    public :: process_select_type_node_children, process_type_guard_block_node_children
 
     ! Public interface for recursive collection
     public :: collect_identifiers_recursive
@@ -168,6 +170,14 @@ contains
             call process_do_while_node_children(arena, node_index, info, ctx)
         case ("select_case")
             call process_select_case_node_children(arena, node_index, info, ctx)
+        case ("select_rank")
+            call process_select_rank_node_children(arena, node_index, info, ctx)
+        case ("rank_block")
+            call process_rank_block_node_children(arena, node_index, info, ctx)
+        case ("select_type")
+            call process_select_type_node_children(arena, node_index, info, ctx)
+        case ("type_guard_block")
+            call process_type_guard_block_node_children(arena, node_index, info, ctx)
         case ("where")
             call process_where_node_children(arena, node_index, info, ctx)
         case ("where_stmt")
@@ -307,6 +317,105 @@ contains
             call push_node(ctx, node%default_index)
         end select
     end subroutine process_select_case_node_children
+
+    ! Process select rank node children
+    subroutine process_select_rank_node_children(arena, node_index, info, ctx)
+        use ast_nodes_conditional, only: select_rank_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        select type (node => arena%entries(node_index)%node)
+        type is (select_rank_node)
+            ! Process selector expression
+            call push_node(ctx, node%selector_index)
+
+            ! Process rank blocks
+            if (allocated(node%rank_indices)) then
+                do i = 1, size(node%rank_indices)
+                    call push_node(ctx, node%rank_indices(i))
+                end do
+            end if
+
+            ! Process default rank
+            call push_node(ctx, node%default_index)
+        end select
+    end subroutine process_select_rank_node_children
+
+    ! Process rank block node children
+    subroutine process_rank_block_node_children(arena, node_index, info, ctx)
+        use ast_nodes_conditional, only: rank_block_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        select type (node => arena%entries(node_index)%node)
+        type is (rank_block_node)
+            ! Process rank body statements
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call push_node(ctx, node%body_indices(i))
+                end do
+            end if
+        end select
+    end subroutine process_rank_block_node_children
+
+    ! Process select type node children
+    subroutine process_select_type_node_children(arena, node_index, info, ctx)
+        use ast_nodes_conditional, only: select_type_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        select type (node => arena%entries(node_index)%node)
+        type is (select_type_node)
+            ! Process selector expression
+            call push_node(ctx, node%selector_index)
+
+            ! Process type guard blocks
+            if (allocated(node%guard_indices)) then
+                do i = 1, size(node%guard_indices)
+                    call push_node(ctx, node%guard_indices(i))
+                end do
+            end if
+
+            ! Process default guard
+            call push_node(ctx, node%default_index)
+        end select
+    end subroutine process_select_type_node_children
+
+    ! Process type guard block node children
+    subroutine process_type_guard_block_node_children(arena, node_index, info, ctx)
+        use ast_nodes_conditional, only: type_guard_block_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        select type (node => arena%entries(node_index)%node)
+        type is (type_guard_block_node)
+            ! Process type name if present
+            call push_node(ctx, node%type_name_index)
+
+            ! Process guard body statements
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call push_node(ctx, node%body_indices(i))
+                end do
+            end if
+        end select
+    end subroutine process_type_guard_block_node_children
 
     ! Process where node children
     subroutine process_where_node_children(arena, node_index, info, ctx)
