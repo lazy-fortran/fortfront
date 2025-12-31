@@ -1,14 +1,10 @@
 module symbol_table_api
     ! Symbol Table Query API for external tools (fluff, LSP, etc.)
     ! Provides functions to query symbols from semantic_context_t
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront_types, only: symbol_info_t, scope_info_t
-    use type_system_unified, only: mono_type_t, poly_type_t, TVAR
-    use scope_manager, only: scope_stack_t, scope_t, SCOPE_GLOBAL, SCOPE_MODULE, &
-                             SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
-                             SCOPE_INTERFACE
-    use identifier_table, only: identifier_table_t, identifier_table_get, &
-                                identifier_id_kind
+    use type_system_unified, only: mono_type_t, poly_type_t
+    use scope_manager, only: scope_stack_t, scope_t
+    use identifier_table, only: identifier_table_get
     implicit none
     private
 
