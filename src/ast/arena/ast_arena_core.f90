@@ -3,7 +3,7 @@ module ast_arena_core
     ! Focused on essential arena operations without compatibility layer
 
     use ast_base, only: ast_node
-    use, intrinsic :: iso_fortran_env, only: int64
+    use, intrinsic :: iso_fortran_env, only: int64, dp => real64
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
     implicit none
     private
@@ -33,7 +33,7 @@ module ast_arena_core
         character(len=256) :: string_data = ""  ! String content (names, literals)
         integer :: integer_data = 0  ! Integer content (indices, counts)
         logical :: boolean_data = .false.  ! Boolean flags
-        real :: real_data = 0.0  ! Real values
+        real(dp) :: real_data = 0.0_dp  ! Real values
 
         ! Extended metadata
         integer :: source_line = 0  ! Source code line number
@@ -104,15 +104,15 @@ module ast_arena_core
     type :: ast_arena_stats_t
         integer :: node_count = 0  ! Number of AST nodes
         integer(int64) :: total_memory = 0  ! Total memory usage
-        real :: utilization = 0.0  ! Memory utilization ratio
+        real(dp) :: utilization = 0.0_dp  ! Memory utilization ratio
         integer :: total_allocations = 0  ! Allocation counter
         integer :: total_validations = 0  ! Validation counter
-        real :: allocation_rate = 0.0  ! Nodes per second
+        real(dp) :: allocation_rate = 0.0_dp  ! Nodes per second
         integer :: max_depth = 0  ! Maximum tree depth
         integer :: total_children = 0  ! Total child relationships
         integer :: active_nodes = 0  ! Number of active (non-freed) nodes
         integer :: freed_nodes = 0  ! Number of freed nodes
-        real :: fragmentation = 0.0  ! Memory fragmentation ratio
+        real(dp) :: fragmentation = 0.0_dp  ! Memory fragmentation ratio
 
         ! Compatibility fields for old arena API
         integer :: total_nodes = 0  ! Alias for node_count

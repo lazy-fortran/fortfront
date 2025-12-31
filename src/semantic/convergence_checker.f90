@@ -1,5 +1,6 @@
 module convergence_checker
     use base_analyzer, only: analysis_results_t
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -7,7 +8,7 @@ module convergence_checker
 
     type :: convergence_checker_t
         integer :: max_iterations = 100
-        real :: tolerance = 1.0e-6
+        real(dp) :: tolerance = 1.0d-6
         type(analysis_results_t), allocatable :: previous_state
         integer :: iteration_count = 0
         logical :: enabled = .true.
@@ -76,7 +77,7 @@ contains
 
     subroutine checker_set_tolerance(this, tolerance)
         class(convergence_checker_t), intent(inout) :: this
-        real, intent(in) :: tolerance
+        real(dp), intent(in) :: tolerance
         this%tolerance = tolerance
     end subroutine checker_set_tolerance
 

@@ -1,6 +1,7 @@
 module base_analyzer
     use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -18,7 +19,7 @@ module base_analyzer
         integer :: iteration_count = 0
         integer :: changes_made = 0
         character(len=256) :: status_message = ""
-        real :: confidence_score = 1.0
+        real(dp) :: confidence_score = 1.0_dp
     contains
         procedure :: equals => results_equals
         procedure :: assign => results_assign
@@ -56,7 +57,7 @@ contains
     function results_equals(this, other) result(equal)
         class(analysis_results_t), intent(in) :: this, other
         logical :: equal
-        real, parameter :: tolerance = 1.0e-6
+        real(dp), parameter :: tolerance = 1.0d-6
 
         equal = this%converged .eqv. other%converged .and. &
                 this%iteration_count == other%iteration_count .and. &

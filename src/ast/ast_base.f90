@@ -3,6 +3,7 @@ module ast_base
     use type_system_unified, only: mono_type_t
     use string_types, only: string_t
     use uid_generator, only: uid_t
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
     private
 
@@ -34,7 +35,7 @@ module ast_base
         logical :: is_constant = .false.  ! True if this node is a compile-time constant
         logical :: constant_logical  ! For logical constants
         integer :: constant_integer  ! For integer constants
-        real :: constant_real  ! For real constants
+        real(dp) :: constant_real  ! For real constants
         integer :: constant_type = 0  ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
