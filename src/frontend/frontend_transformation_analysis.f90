@@ -11,7 +11,7 @@ module frontend_transformation_analysis
         requires_lazy_internalization, has_existing_module_in_ast
     use frontend_program_builders, only: handle_mixed_construct_container, &
         scan_multi_unit_program, create_program_from_bare_statements, &
-        merge_procedures_into_program
+        merge_procedures_into_program, filter_procs_with_entry
     implicit none
     private
 
@@ -56,6 +56,10 @@ contains
         class default
             return
         end select
+
+        ! Filter out procedures with ENTRY statements - they cannot be contained
+        ! in internal program procedures per ISO/IEC 1539-1:2018 Section 15.6.2.6.
+        call filter_procs_with_entry(arena, proc_indices)
 
         call create_program_from_bare_statements(arena, root_index, &
                                                  main_prog_index, proc_indices, main_stmts)
