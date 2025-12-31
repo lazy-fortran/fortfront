@@ -117,6 +117,7 @@ contains
         if (node%is_target .or. param_map(first_param_idx)%is_target) then
             code = code // ", target"
         end if
+        if (node%is_allocatable) code = code // ", allocatable"
         if (node%is_pointer) code = code // ", pointer"
     end subroutine add_intent_optional_target
 
@@ -216,6 +217,7 @@ contains
         if (node%is_target .or. param_map(param_idx)%is_target) then
             code = code // ", target"
         end if
+        if (node%is_allocatable) code = code // ", allocatable"
         if (node%is_pointer) code = code // ", pointer"
         dimension_suffix = build_inline_dimension_suffix(arena, node)
         has_dimensions = len(dimension_suffix) > 0

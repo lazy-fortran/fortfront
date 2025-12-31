@@ -9,6 +9,12 @@
 
         select type (bounds_node => node)
         type is (array_bounds_node)
+            ! Assumed-rank takes highest precedence (Fortran 2018 ..)
+            if (bounds_node%is_assumed_rank) then
+                code = ".."
+                return
+            end if
+
             ! Assumed-size takes precedence over other flags
             if (bounds_node%is_assumed_size) then
                 code = "*"

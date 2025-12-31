@@ -9,7 +9,7 @@ module parser_expressions_module
     use ast_nodes_loops, only: do_loop_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_range_expression, push_complex_literal, &
-                           push_assumed_size_bounds
+                           push_assumed_size_bounds, push_assumed_rank_bounds
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expression_helpers_module, only: parse_number_literal, &
                                                 parse_string_literal, &
@@ -734,6 +734,15 @@ contains
         type(token_t) :: op_token
 
         op_token = parser%peek()
+        ! Handle assumed-rank (..) - Fortran 2018 feature for SELECT RANK
+        if (op_token%kind == TK_OPERATOR .and. op_token%text == "..") then
+            op_token = parser%consume()
+            expr_index = push_assumed_rank_bounds(arena, &
+                                                  line=op_token%line, &
+                                                  column=op_token%column)
+            return
+        end if
+
         if (op_token%kind == TK_OPERATOR .and. op_token%text == "*") then
             op_token = parser%consume()
             expr_index = push_assumed_size_bounds(arena, &

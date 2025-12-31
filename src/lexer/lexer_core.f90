@@ -153,9 +153,14 @@ contains
                 call scan_identifier(src, pos, line_num, col_num, &
                                      tokenize_res%tokens, tokenize_res%token_count)
 
-            case ('.')  ! Logical token, decimal number, or separator between numbers
+            case ('.')  ! Logical token, decimal number, assumed-rank, or separator
                 if (pos < source_len) then
-                    if (src(pos + 1:pos + 1) >= '0' .and. src(pos + 1:pos + 1) &
+                    ! Check for assumed-rank (..) - Fortran 2018 feature
+                    if (src(pos + 1:pos + 1) == '.') then
+                        call scan_assumed_rank_operator(src, pos, line_num, col_num, &
+                                                        tokenize_res%tokens, &
+                                                        tokenize_res%token_count)
+                    else if (src(pos + 1:pos + 1) >= '0' .and. src(pos + 1:pos + 1) &
                         <= '9') then
                         ! Treat as decimal only when previous character is not a digit
                         block
@@ -357,4 +362,30 @@ contains
         temp(1:old_size) = trivia
         call move_alloc(temp, trivia)
     end subroutine resize_trivia_buffer
+
+    ! Scan assumed-rank operator (..) - Fortran 2018 feature for SELECT RANK
+    subroutine scan_assumed_rank_operator(source, pos, line_num, col_num, &
+                                          tokens, token_count)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), intent(inout) :: tokens(:)
+        integer :: start_pos, start_col
+
+        start_pos = pos
+        start_col = col_num
+
+        ! Consume both dots (..)
+        pos = pos + 2
+        col_num = col_num + 2
+
+        ! Create operator token for assumed-rank
+        if (token_count < size(tokens)) then
+            token_count = token_count + 1
+            tokens(token_count)%kind = TK_OPERATOR
+            tokens(token_count)%text = ".."
+            tokens(token_count)%line = line_num
+            tokens(token_count)%column = start_col
+        end if
+    end subroutine scan_assumed_rank_operator
+
 end module lexer_core
