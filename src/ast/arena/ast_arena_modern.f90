@@ -242,20 +242,24 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         integer, intent(in) :: child_indices(:)
-        integer :: i, child_idx, old_parent
+        integer :: i, child_idx, old_parent, entries_size
 
-        if (parent_index <= 0 .or. parent_index > arena%compat_size) return
+        ! Validate arena entries are allocated
+        if (.not. allocated(arena%entries)) return
+        entries_size = size(arena%entries)
+
+        if (parent_index <= 0 .or. parent_index > entries_size) return
         if (size(child_indices) == 0) return
 
         do i = 1, size(child_indices)
             child_idx = child_indices(i)
-            if (child_idx > 0 .and. child_idx <= arena%compat_size) then
+            if (child_idx > 0 .and. child_idx <= entries_size) then
                 old_parent = arena%entries(child_idx)%parent_index
                 if (old_parent == parent_index) then
                     ! Child is already linked to this parent, skip
                     cycle
                 end if
-                if (old_parent > 0 .and. old_parent <= arena%compat_size) then
+                if (old_parent > 0 .and. old_parent <= entries_size) then
                     call remove_child_from_parent(arena, old_parent, child_idx)
                 end if
                 call arena%add_child(parent_index, child_idx)
