@@ -241,19 +241,22 @@ jobs:
         # Run full test suite (same as Linux)
         fpm test --flag "-Wl,--stack,16777216"
 
-  # Summary job for branch protection (org ruleset requires "test" check)
+  # Summary job for branch protection - org ruleset requires "test" to pass
+  # This aggregates the matrix build-test results into a single required check
   test:
+    name: test
     needs: [build-test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check test results
         run: |
+          echo "Build-test result: ${{ needs.build-test.result }}"
           if [ "${{ needs.build-test.result }}" != "success" ]; then
-            echo "Tests failed"
+            echo "::error::Tests failed on one or more platforms"
             exit 1
           fi
-          echo "All tests passed"
+          echo "All platform tests passed (Ubuntu + Windows)"
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
