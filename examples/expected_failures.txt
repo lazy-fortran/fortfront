@@ -12,9 +12,6 @@
 # BUGS - Real issues that need fixing
 # ============================================================================
 
-# Codegen bugs
-issue_2455_nested_array_constructor.f90  # BUG: nested array constructors generate malformed syntax (#2455)
-
 # Type inference / monomorphization bugs
 issue_2075_stop_keyword_collision_in_function_param.lf  # BUG: result array conflicts with stop keyword (#2075)
 issue_2153_array_call_scalar_param.lf  # BUG: array variant returns scalar instead of array (#2153)
