@@ -415,11 +415,13 @@ contains
         integer :: expr_index
         type(token_t) :: current
         type(token_t) :: peek_token
+        type(token_t) :: lookahead_token
         integer :: expr_elem_index
         character(len=:), allocatable :: var_name
         integer :: start_index, end_index, step_index
         integer, allocatable :: body_indices(:)
         integer :: saved_pos
+        logical :: is_legacy_array
 
         expr_index = 0
 
@@ -429,7 +431,17 @@ contains
 
         saved_pos = parser%current_token
         peek_token = parser%peek()
+        ! Check if this is a nested implied-do or a legacy array constructor.
+        ! A legacy array starts with (/ so we should NOT try to recurse into it.
+        is_legacy_array = .false.
         if (peek_token%text == "(") then
+            lookahead_token = parser%get_token_at_index(parser%current_token + 1)
+            if (lookahead_token%text == "/") then
+                is_legacy_array = .true.
+            end if
+        end if
+
+        if (peek_token%text == "(" .and. .not. is_legacy_array) then
             expr_elem_index = parse_nested_implied_do(parser, arena, helpers)
             if (expr_elem_index <= 0) then
                 parser%current_token = saved_pos
@@ -496,7 +508,9 @@ contains
         type(array_parse_helpers_t), intent(in) :: helpers
         type(token_t) :: current
         type(token_t) :: peek_ahead
+        type(token_t) :: lookahead_token
         integer :: saved_pos
+        logical :: is_legacy_array
 
         success = .false.
         if (.not. associated(helpers%parse_comparison)) return
@@ -504,7 +518,17 @@ contains
         current = parser%consume()
 
         peek_ahead = parser%peek()
+        ! Check if this is a nested implied-do or a legacy array constructor.
+        ! A legacy array starts with (/ so we should NOT try to recurse into it.
+        is_legacy_array = .false.
         if (peek_ahead%text == "(") then
+            lookahead_token = parser%get_token_at_index(parser%current_token + 1)
+            if (lookahead_token%text == "/") then
+                is_legacy_array = .true.
+            end if
+        end if
+
+        if (peek_ahead%text == "(" .and. .not. is_legacy_array) then
             saved_pos = parser%current_token
             expr_elem_index = parse_nested_implied_do(parser, arena, helpers)
             if (expr_elem_index <= 0) then
