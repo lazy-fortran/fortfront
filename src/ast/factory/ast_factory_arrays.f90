@@ -1,5 +1,5 @@
 module ast_factory_arrays
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, range_expression_node
     use ast_factory_core, only: push_literal
@@ -46,6 +46,10 @@ contains
 
         call arena%push(section, "call_or_subscript", parent_index)
         section_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        call link_children_to_parent(arena, section_index, &
+                                     [start_literal_idx, end_literal_idx])
     end function push_array_section
 
     ! Create array bounds node and add to stack
@@ -67,6 +71,19 @@ contains
 
         call arena%push(bounds, "array_bounds", parent_index)
         bounds_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (lower_index > 0) then
+            call link_children_to_parent(arena, bounds_index, [lower_index])
+        end if
+        if (upper_index > 0) then
+            call link_children_to_parent(arena, bounds_index, [upper_index])
+        end if
+        if (present(stride_index)) then
+            if (stride_index > 0) then
+                call link_children_to_parent(arena, bounds_index, [stride_index])
+            end if
+        end if
     end function push_array_bounds
 
     ! Create array slice node and add to stack
@@ -107,6 +124,14 @@ contains
 
         call arena%push(slice, "array_slice", parent_index)
         slice_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (array_index > 0) then
+            call link_children_to_parent(arena, slice_index, [array_index])
+        end if
+        if (size(bounds_indices) > 0) then
+            call link_children_to_parent(arena, slice_index, bounds_indices)
+        end if
     end function push_array_slice
 
     ! Create range expression node and add to stack
@@ -128,6 +153,19 @@ contains
 
         call arena%push(range, "range_expression", parent_index)
         range_index = arena%size
+
+        ! Link children to this parent for AST traversal
+        if (start_index > 0) then
+            call link_children_to_parent(arena, range_index, [start_index])
+        end if
+        if (end_index > 0) then
+            call link_children_to_parent(arena, range_index, [end_index])
+        end if
+        if (present(stride_index)) then
+            if (stride_index > 0) then
+                call link_children_to_parent(arena, range_index, [stride_index])
+            end if
+        end if
     end function push_range_expression
 
     ! Create assumed-size array bounds node and add to stack
