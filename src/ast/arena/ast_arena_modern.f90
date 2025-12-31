@@ -237,11 +237,12 @@ contains
 
     ! Link an array of child indices to a parent node
     ! This establishes parent-child relationships in the arena for AST traversal
+    ! If a child already has a different parent, it is removed from that parent first
     subroutine link_children_to_parent(arena, parent_index, child_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         integer, intent(in) :: child_indices(:)
-        integer :: i, child_idx
+        integer :: i, child_idx, old_parent
 
         if (parent_index <= 0 .or. parent_index > arena%compat_size) return
         if (size(child_indices) == 0) return
@@ -249,11 +250,37 @@ contains
         do i = 1, size(child_indices)
             child_idx = child_indices(i)
             if (child_idx > 0 .and. child_idx <= arena%compat_size) then
+                old_parent = arena%entries(child_idx)%parent_index
+                if (old_parent > 0 .and. old_parent /= parent_index .and. &
+                    old_parent <= arena%compat_size) then
+                    call remove_child_from_parent(arena, old_parent, child_idx)
+                end if
                 call arena%add_child(parent_index, child_idx)
                 arena%entries(child_idx)%parent_index = parent_index
                 arena%entries(child_idx)%depth = arena%entries(parent_index)%depth + 1
             end if
         end do
     end subroutine link_children_to_parent
+
+    ! Remove a child from a parent's children list
+    subroutine remove_child_from_parent(arena, parent_index, child_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index, child_index
+        integer :: i, j, old_count
+
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) return
+        old_count = arena%entries(parent_index)%child_count
+        if (old_count == 0) return
+
+        j = 0
+        do i = 1, old_count
+            if (arena%entries(parent_index)%child_indices(i) /= child_index) then
+                j = j + 1
+                arena%entries(parent_index)%child_indices(j) = &
+                    arena%entries(parent_index)%child_indices(i)
+            end if
+        end do
+        arena%entries(parent_index)%child_count = j
+    end subroutine remove_child_from_parent
 
 end module ast_arena_modern
