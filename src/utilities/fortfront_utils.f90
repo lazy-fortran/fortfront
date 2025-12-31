@@ -22,6 +22,7 @@ module fortfront_utils
 
     ! Public utility functions
     public :: node_exists, get_node_type_at, get_node_location, &
+              get_node_line, get_node_column, &
               get_parent, get_next_sibling, get_previous_sibling, &
               get_block_statements, is_last_in_block, is_block_node, &
               get_node_type, get_children, traverse_ast, traverse_node, &
@@ -70,6 +71,24 @@ contains
             column = arena%entries(node_index)%node%column
         end if
     end subroutine get_node_location
+
+    ! Get node line number (standalone function for fluff integration)
+    pure function get_node_line(arena, node_index) result(line)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: line
+
+        line = arena%get_node_line(node_index)
+    end function get_node_line
+
+    ! Get node column number (standalone function for fluff integration)
+    pure function get_node_column(arena, node_index) result(column)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: column
+
+        column = arena%get_node_column(node_index)
+    end function get_node_column
 
     ! Get parent node for a given node index
     function get_parent(arena, node_index) result(parent_index)
