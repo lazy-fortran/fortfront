@@ -57,7 +57,7 @@ contains
     function results_equals(this, other) result(equal)
         class(analysis_results_t), intent(in) :: this, other
         logical :: equal
-        real, parameter :: tolerance = 1.0e-6
+        real(dp), parameter :: tolerance = 1.0d-6
 
         equal = this%converged .eqv. other%converged .and. &
                 this%iteration_count == other%iteration_count .and. &
