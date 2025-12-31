@@ -191,6 +191,11 @@ module fortfront
                                  is_procedure_used, &
                                  get_all_procedures_in_graph => get_all_procedures
 
+    ! Symbol table query API (issue #2613)
+    use symbol_table_api, only: get_symbols_in_scope, get_all_symbols, &
+                                is_symbol_defined, lookup_symbol, &
+                                get_scope_info, get_current_scope_depth
+
     implicit none
     public
 contains
