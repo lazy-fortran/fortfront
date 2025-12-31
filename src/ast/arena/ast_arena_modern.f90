@@ -238,45 +238,15 @@ contains
     ! Link an array of child indices to a parent node
     ! This establishes parent-child relationships in the arena for AST traversal
     ! If a child already has a different parent, it is removed from that parent first
+    ! NOTE: Temporarily disabled due to GCC 14 segfault - needs investigation
     subroutine link_children_to_parent(arena, parent_index, child_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         integer, intent(in) :: child_indices(:)
-        integer :: i, child_idx, old_parent, valid_size
 
-        ! Validate arena entries are allocated
-        if (.not. allocated(arena%entries)) return
-
-        ! Use compat_size (logical size) not size(entries) (allocated capacity)
-        ! Entries beyond compat_size may be uninitialized
-        valid_size = arena%compat_size
-        if (valid_size <= 0) return
-
-        if (parent_index <= 0 .or. parent_index > valid_size) return
-        if (.not. allocated(arena%entries(parent_index)%node)) return
-        if (size(child_indices) == 0) return
-
-        do i = 1, size(child_indices)
-            child_idx = child_indices(i)
-            if (child_idx > 0 .and. child_idx <= valid_size) then
-                ! Ensure child entry has valid node before accessing
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
-                old_parent = arena%entries(child_idx)%parent_index
-                if (old_parent == parent_index) then
-                    ! Child is already linked to this parent, skip
-                    cycle
-                end if
-                if (old_parent > 0 .and. old_parent <= valid_size) then
-                    call remove_child_from_parent(arena, old_parent, child_idx)
-                end if
-                ! Only add_child if child not already present
-                if (.not. is_child_present(arena, parent_index, child_idx)) then
-                    call arena%add_child(parent_index, child_idx)
-                end if
-                arena%entries(child_idx)%parent_index = parent_index
-                arena%entries(child_idx)%depth = arena%entries(parent_index)%depth + 1
-            end if
-        end do
+        ! TEMPORARY: No-op to diagnose GCC 14 segfault
+        ! TODO: Investigate why this causes segfault on GCC 14 but not GCC 15
+        return
     end subroutine link_children_to_parent
 
     ! Check if child is already present in parent's children list
