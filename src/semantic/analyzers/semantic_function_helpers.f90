@@ -53,7 +53,6 @@ contains
         logical :: allow_refinement
         integer :: deduced_kind
         logical :: has_array_arg
-        type(mono_type_t) :: first_array_type
         type(mono_type_t), allocatable :: element_args(:)
         integer :: i
 
@@ -67,7 +66,6 @@ contains
         do i = 1, size(arg_types)
             if (arg_types(i)%kind == TARRAY) then
                 has_array_arg = .true.
-                first_array_type = arg_types(i)
                 exit
             end if
         end do
