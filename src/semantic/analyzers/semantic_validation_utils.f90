@@ -59,9 +59,6 @@ contains
         ! - INPUT_MODE_LAZY: Type propagation required (lazy Fortran .lf files)
         ! - INPUT_MODE_STANDARD: Skip propagation (standard .f90 with implicit none)
         ! - Standard .f90 WITHOUT implicit none: Currently unsupported (future work)
-        !
-        ! TODO: Flow context%input_mode from CLI through to semantic analyzer
-        ! TODO: Pass input_mode == INPUT_MODE_STANDARD to skip propagation
         if (present(input_mode)) then
             if (input_mode == INPUT_MODE_STANDARD) return  ! Skip propagation if standard mode
         end if
