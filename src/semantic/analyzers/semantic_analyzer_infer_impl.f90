@@ -6,6 +6,10 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                    TFUN, TARRAY, TLOGICAL, TINT, TCHAR
     use semantic_type_operations, only: get_common_type
     use ast_nodes_misc, only: data_statement_node
+    use semantic_explicit_interface_checker, only: &
+        validate_explicit_interface_for_function_reference, &
+        validate_explicit_interface_for_subroutine_call
+    use semantic_operating_mode, only: OPERATING_MODE_STRICT
     use semantic_type_lookup_wrapper, only: set_semantic_context_for_lookup, &
                                             clear_semantic_context_for_lookup, &
                                             get_type_with_stored_context

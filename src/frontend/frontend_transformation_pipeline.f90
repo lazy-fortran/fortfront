@@ -39,7 +39,7 @@ module frontend_transformation_pipeline
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
-    use semantic_operating_mode, only: OPERATING_MODE_STRICT
+    use semantic_operating_mode, only: OPERATING_MODE_INFER, OPERATING_MODE_STRICT
     use frontend_transformation_common, only: format_options_t, &
                                               transform_context_t, shared_arena, &
                                               shared_arena_initialized
@@ -106,11 +106,12 @@ module frontend_transformation_pipeline
 contains
     ! String-based transformation function for CLI usage
     subroutine transform_lazy_fortran_string(input, output, error_msg, &
-                                             enable_ast_wrapping)
+                                             enable_ast_wrapping, operating_mode)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
         logical, intent(in), optional :: enable_ast_wrapping
+        integer, intent(in), optional :: operating_mode
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable, target :: tokens(:)
@@ -118,6 +119,7 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: source
         logical :: apply_ast_wrapping
+        integer :: local_operating_mode
 
         allocate (character(len=0) :: error_msg)
         error_msg = ""
@@ -126,6 +128,8 @@ contains
         if (present(enable_ast_wrapping)) then
             apply_ast_wrapping = enable_ast_wrapping
         end if
+        local_operating_mode = OPERATING_MODE_INFER
+        if (present(operating_mode)) local_operating_mode = operating_mode
 
         call trace_init()
 
@@ -233,7 +237,7 @@ contains
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
         call run_final_phases(shared_arena, prog_index, output, error_msg, &
-                              apply_ast_wrapping)
+                              apply_ast_wrapping, local_operating_mode)
         call trace_leave('phase:final')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
@@ -338,7 +342,8 @@ contains
         ! For standard Fortran mode, use simple transformation
         if (context%input_mode == INPUT_MODE_STANDARD) then
             call transform_lazy_fortran_string(input, output, error_msg, &
-                                               enable_ast_wrapping=.false.)
+                                               enable_ast_wrapping=.false., &
+                                               operating_mode=context%operating_mode)
             return
         end if
 
@@ -732,12 +737,13 @@ contains
 
     ! Run final phases (semantic, standardization, codegen) using pass manager
     subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, &
-                                enable_ast_wrapping)
+                                enable_ast_wrapping, operating_mode)
         type(compiler_arena_t), target, intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
         logical, intent(in) :: enable_ast_wrapping
+        integer, intent(in) :: operating_mode
         type(pass_manager_t) :: manager
         type(pass_context_t) :: pass_ctx
 
@@ -763,6 +769,7 @@ contains
         pass_ctx%compiler_arena => compiler_arena
         pass_ctx%prog_index = prog_index
         allocate (character(len=0) :: pass_ctx%error_msg)
+        pass_ctx%operating_mode = operating_mode
         pass_ctx%enable_ast_wrapping = enable_ast_wrapping
         pass_ctx%has_functions = .false.
         pass_ctx%has_subroutines = .false.
