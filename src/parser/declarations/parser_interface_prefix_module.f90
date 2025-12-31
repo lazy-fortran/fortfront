@@ -20,7 +20,8 @@ contains
                     trim(lowered_text) == "recursive" .or. &
                     trim(lowered_text) == "impure" .or. &
                     trim(lowered_text) == "nonrecursive" .or. &
-                    trim(lowered_text) == "non_recursive"
+                    trim(lowered_text) == "non_recursive" .or. &
+                    trim(lowered_text) == "module"
     end function is_procedure_prefix
 
     logical function is_interface_return_type_keyword(lowered_text) result(is_type)
