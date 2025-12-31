@@ -248,6 +248,7 @@ contains
         temp_context%subst = this%subst
         temp_context%errors = this%errors
         temp_context%input_mode = this%input_mode
+        temp_context%operating_mode = this%operating_mode
         temp_context%respect_implicit_none = this%respect_implicit_none
         temp_context%signatures = this%signatures
 

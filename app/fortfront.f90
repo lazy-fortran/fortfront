@@ -488,8 +488,9 @@ contains
     subroutine configure_context_from_stdin(input_text, context)
         character(len=*), intent(in) :: input_text
         type(transform_context_t), intent(out) :: context
-        character(len=32) :: uuid_str
-        integer :: pid, timestamp
+        character(len=64) :: uuid_str
+        integer :: clock_count, clock_rate, clock_max
+        integer :: values(8)
         character(len=:), allocatable :: prog_name
 
         ! Detect whether stdin input is standard Fortran or lazy Fortran
@@ -500,9 +501,10 @@ contains
             context%input_mode = INPUT_MODE_LAZY
         end if
 
-        call get_pid_impl(pid)
-        call get_timestamp_impl(timestamp)
-        write (uuid_str, '(A,I0,A,I0)') 'stdin_', pid, '_', timestamp
+        call date_and_time(values=values)
+        call system_clock(clock_count, clock_rate, clock_max)
+        write (uuid_str, '("stdin_",I0,"_",I0,"_",I0,"_",I0,"_",I0)') &
+            values(5), values(6), values(7), values(8), clock_count
 
         context%source_name = trim(uuid_str)
         if (allocated(prog_name)) then
@@ -530,12 +532,7 @@ contains
         if (.not. allocated(tokens)) return
         if (size(tokens) == 0) return
 
-        ! Look for standard Fortran structure indicators
-        ! Key indicators:
-        ! 1. program <name> statement at top level
-        ! 2. module <name> statement at top level
-        ! 3. subroutine/function at top level (external procedure)
-        ! 4. interface block at top level
+        ! Look for standard Fortran program unit indicators.
         do i = 1, size(tokens)
             if (tokens(i)%kind /= TK_KEYWORD .and. &
                 tokens(i)%kind /= TK_IDENTIFIER) cycle
@@ -564,10 +561,6 @@ contains
                         return
                     end if
                 end if
-            case ("interface", "abstract")
-                ! Interface blocks indicate standard Fortran
-                is_standard = .true.
-                return
             case ("subroutine", "function")
                 ! Top-level procedure indicates standard Fortran (external procedure)
                 is_standard = .true.
@@ -576,10 +569,18 @@ contains
                     prog_name = trim(tokens(next_idx)%text)
                 end if
                 return
-            case ("submodule", "block")
-                ! Submodule or block data - standard Fortran
+            case ("submodule")
                 is_standard = .true.
                 return
+            case ("block")
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    if (.not. allocated(tokens(next_idx)%text)) cycle
+                    if (to_lower(trim(tokens(next_idx)%text)) == "data") then
+                        is_standard = .true.
+                        return
+                    end if
+                end if
             end select
         end do
     end function is_standard_fortran_input
@@ -622,21 +623,6 @@ contains
             extension = ''
         end if
     end subroutine split_filename
-
-    subroutine get_pid_impl(pid)
-        integer, intent(out) :: pid
-        ! Simple fallback - just use a constant for now
-        ! TODO: Use actual getpid() via C interop if available
-        pid = 12345
-    end subroutine get_pid_impl
-
-    subroutine get_timestamp_impl(timestamp)
-        integer, intent(out) :: timestamp
-        integer :: values(8)
-        call date_and_time(values=values)
-        ! Combine date/time into a simple integer
-        timestamp = values(5) * 3600 + values(6) * 60 + values(7)
-    end subroutine get_timestamp_impl
 
     subroutine cli_trace(message)
         character(len=*), intent(in) :: message

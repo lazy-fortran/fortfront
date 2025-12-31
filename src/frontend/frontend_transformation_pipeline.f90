@@ -507,10 +507,18 @@ contains
             if (.not. allocated(tokens(i)%text)) cycle
             lowered = to_lower(trim(tokens(i)%text))
             select case (lowered)
-            case ("program", "subroutine", "function", "interface", "abstract", &
-                  "submodule", "block")
+            case ("program", "subroutine", "function", "submodule")
                 has_unit = .true.
                 return
+            case ("block")
+                next_idx = find_next_identifier_token(tokens, i)
+                if (next_idx > 0) then
+                    if (.not. allocated(tokens(next_idx)%text)) cycle
+                    if (to_lower(trim(tokens(next_idx)%text)) == "data") then
+                        has_unit = .true.
+                        return
+                    end if
+                end if
             case ("module")
                 next_idx = find_next_identifier_token(tokens, i)
                 if (next_idx > 0) then

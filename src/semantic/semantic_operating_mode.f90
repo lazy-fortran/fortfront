@@ -2,7 +2,7 @@ module semantic_operating_mode
     ! Operating mode selection for LFortran standard compliance.
     !
     ! STRICT mode: Forbid global inference of undeclared variables and forbid
-    !              bare-statement inputs (enforced at CLI level).
+    !              bare-statement inputs (enforced in transformation pipeline).
     ! INFER mode:  Allow global type inference for lazy Fortran inputs.
     implicit none
     private
