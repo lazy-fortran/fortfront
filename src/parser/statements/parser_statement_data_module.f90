@@ -387,11 +387,10 @@ contains
                                 current = parser%peek()
                                 if (current%kind == TK_OPERATOR .and. &
                                     trim(current%text) == "/") then
-                                    call parser%error("Trailing comma before '/' "// &
-                                                      "in DATA object list is "// &
-                                                      "non-compliant (ISO/IEC "// &
-                                                      "1539-1:2018 8.6.7, R838)")
-                                    return
+                                    ! Accept trailing comma as extension (common compiler
+                                    ! tolerance). Parser continues; codegen emits standard
+                                    ! Fortran without trailing comma.
+                                    exit
                                 end if
                                 cycle
                             case ("/")
@@ -423,11 +422,10 @@ contains
                         current = parser%peek()
                         if (current%kind == TK_OPERATOR .and. &
                             trim(current%text) == "/") then
-                            call parser%error("Trailing comma before '/' in "// &
-                                              "DATA object list is "// &
-                                              "non-compliant (ISO/IEC 1539-1:2018 "// &
-                                              "8.6.7, R838)")
-                            return
+                            ! Accept trailing comma as extension (common compiler
+                            ! tolerance). Parser continues; codegen emits standard
+                            ! Fortran without trailing comma.
+                            exit
                         end if
                         cycle
                     case ("/")
@@ -486,11 +484,10 @@ contains
                                 current = parser%peek()
                                 if (current%kind == TK_OPERATOR .and. &
                                     trim(current%text) == "/") then
-                                    call parser%error("Trailing comma before '/' "// &
-                                                      "in DATA value list is "// &
-                                                      "non-compliant (ISO/IEC "// &
-                                                      "1539-1:2018 8.6.7, R838)")
-                                    return
+                                    ! Accept trailing comma as extension (common
+                                    ! compiler tolerance). Parser continues; codegen
+                                    ! emits standard Fortran without trailing comma.
+                                    exit
                                 end if
                                 cycle
                             case ("/")
@@ -522,11 +519,10 @@ contains
                         current = parser%peek()
                         if (current%kind == TK_OPERATOR .and. &
                             trim(current%text) == "/") then
-                            call parser%error("Trailing comma before '/' in "// &
-                                              "DATA value list is "// &
-                                              "non-compliant (ISO/IEC 1539-1:2018 "// &
-                                              "8.6.7, R838)")
-                            return
+                            ! Accept trailing comma as extension (common compiler
+                            ! tolerance). Parser continues; codegen emits standard
+                            ! Fortran without trailing comma.
+                            exit
                         end if
                         cycle
                     case ("/")
