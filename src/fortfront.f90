@@ -85,12 +85,16 @@ module fortfront
                          CST_IDENTIFIER, CST_LITERAL, CST_OPERATOR, CST_COMMENT, &
                          CST_WHITESPACE, CST_NEWLINE
     use cst_arena, only: cst_arena_t, cst_handle_t, create_cst_arena
+    use cst_trivia_query, only: get_cst_node_for_ast, get_leading_trivia, &
+                                get_trailing_trivia, get_source_trivia_at, &
+                                get_trivia_for_ast_node
 
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
 
     ! Re-export lexer token type
-    use lexer_core, only: token_t, tokenize_core
+    use lexer_core, only: token_t, trivia_token_t, tokenize_core, &
+                          tokenize_core_with_trivia
 
     ! Re-export type system
     use type_system_unified, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, &
