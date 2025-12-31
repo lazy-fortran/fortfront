@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  build-test:
     strategy:
       fail-fast: true  # Cancel all jobs immediately when any OS fails
       matrix:
@@ -240,6 +240,20 @@ jobs:
 
         # Run full test suite (same as Linux)
         fpm test --flag "-Wl,--stack,16777216"
+
+  # Summary job for branch protection (org ruleset requires "test" check)
+  test:
+    needs: [build-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.build-test.result }}" != "success" ]; then
+            echo "Tests failed"
+            exit 1
+          fi
+          echo "All tests passed"
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
