@@ -67,60 +67,41 @@ end program
 - `get_node_column(arena, index)` - Returns column number (1-based), 0 if invalid
 - `get_node_location(arena, index, line, col)` - Subroutine returning both
 
-## Example: Unused Variable Linter
+## Example: AST Node Counter
+
+Count nodes of each type using callback-based traversal:
 
 ```fortran
-module unused_var_linter
-    use fortfront_tooling
-    use fortfront_ast
+program count_nodes
+    use fortfront, only: ast_arena_t, create_ast_arena, tooling_load_ast_from_string, &
+                         traverse_ast, get_node_type_at, node_exists
     implicit none
-    private
-    public :: check_unused_variables
+    type(ast_arena_t) :: arena
+    integer :: root_index
+    character(len=:), allocatable :: error_msg
 
-    type, extends(ast_visitor_base_t) :: unused_var_visitor_t
-        character(len=32), allocatable :: declared_vars(:), used_vars(:)
-        integer :: n_declared, n_used
-    contains
-        procedure :: visit_variable_decl => visit_decl
-        procedure :: visit_identifier => visit_ident
-    end type
+    arena = create_ast_arena()
+    call tooling_load_ast_from_string("x = 5 + 3", arena, root_index, error_msg)
+
+    if (len(error_msg) > 0) then
+        print '(a)', 'Error: ' // error_msg
+        stop 1
+    end if
+
+    call traverse_ast(arena, root_index, count_callback)
 
 contains
-    subroutine check_unused_variables(source_file, unused_names)
-        character(len=*), intent(in) :: source_file
-        character(len=32), allocatable, intent(out) :: unused_names(:)
-        type(ast_arena_t) :: arena
-        integer :: root_index
-        character(len=:), allocatable :: error_msg
-        type(unused_var_visitor_t) :: visitor
+    subroutine count_callback(arena, node_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: node_type
 
-        call tooling_load_ast_from_file(source_file, arena, root_index, error_msg)
-        if (len_trim(error_msg) > 0) then
-            allocate(unused_names(0))
-            return
+        if (node_exists(arena, node_index)) then
+            node_type = get_node_type_at(arena, node_index)
+            print '(a,i0,a,a)', 'Node ', node_index, ': ', node_type
         end if
-
-        allocate(visitor%declared_vars(100), visitor%used_vars(100))
-        visitor%n_declared = 0
-        visitor%n_used = 0
-        call traverse_ast(arena, root_index, visitor)
-        ! Compare declared vs used to find unused variables
-    end subroutine
-
-    subroutine visit_decl(this, node)
-        class(unused_var_visitor_t), intent(inout) :: this
-        type(variable_decl_node), intent(in) :: node
-        this%n_declared = this%n_declared + 1
-        this%declared_vars(this%n_declared) = node%name
-    end subroutine
-
-    subroutine visit_ident(this, node)
-        class(unused_var_visitor_t), intent(inout) :: this
-        type(identifier_node), intent(in) :: node
-        this%n_used = this%n_used + 1
-        this%used_vars(this%n_used) = node%name
-    end subroutine
-end module
+    end subroutine count_callback
+end program
 ```
 
 ## Structured Diagnostics API
