@@ -209,7 +209,7 @@ contains
 
     ! Process if node children
     subroutine process_if_node_children(arena, node_index, info, ctx)
-        use ast_nodes_control, only: if_node, elseif_wrapper
+        use ast_nodes_control, only: if_node, elseif_wrapper_t
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info

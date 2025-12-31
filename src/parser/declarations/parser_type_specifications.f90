@@ -185,16 +185,16 @@ contains
         character(len=:), allocatable :: none_spec
         integer :: line, column
 
-        type :: implicit_spec_info
+        type :: implicit_spec_info_t
             character(len=:), allocatable :: type_name
             logical :: has_kind = .false.
             integer :: kind_value = 0
             logical :: has_length = .false.
             integer :: length_value = 0
             character(len=64), allocatable :: letter_ranges(:)
-        end type implicit_spec_info
+        end type implicit_spec_info_t
 
-        type(implicit_spec_info), allocatable :: specs(:)
+        type(implicit_spec_info_t), allocatable :: specs(:)
         integer :: spec_count, i
         integer, allocatable :: created_indices(:)
         logical :: parse_success
@@ -306,10 +306,10 @@ contains
         logical function parse_single_spec(parser_ref, specs_ref, count) &
             result(success)
             type(parser_state_t), intent(inout) :: parser_ref
-            type(implicit_spec_info), allocatable, intent(inout) :: specs_ref(:)
+            type(implicit_spec_info_t), allocatable, intent(inout) :: specs_ref(:)
             integer, intent(inout) :: count
             type(token_t) :: local_token
-            type(implicit_spec_info) :: spec
+            type(implicit_spec_info_t) :: spec
             integer :: saved_pos
             integer :: range_count
             character(len=64), allocatable :: tmp_ranges(:)
@@ -374,9 +374,9 @@ contains
         end function parse_single_spec
 
         subroutine append_spec(specs_ref, new_count)
-            type(implicit_spec_info), allocatable, intent(inout) :: specs_ref(:)
+            type(implicit_spec_info_t), allocatable, intent(inout) :: specs_ref(:)
             integer, intent(in) :: new_count
-            type(implicit_spec_info), allocatable :: temp(:)
+            type(implicit_spec_info_t), allocatable :: temp(:)
             integer :: old_size
 
             if (.not. allocated(specs_ref)) then
