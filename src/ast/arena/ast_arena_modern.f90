@@ -242,19 +242,23 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         integer, intent(in) :: child_indices(:)
-        integer :: i, child_idx, old_parent, entries_size
+        integer :: i, child_idx, old_parent, valid_size
 
         ! Validate arena entries are allocated
         if (.not. allocated(arena%entries)) return
-        entries_size = size(arena%entries)
 
-        if (parent_index <= 0 .or. parent_index > entries_size) return
+        ! Use compat_size (logical size) not size(entries) (allocated capacity)
+        ! Entries beyond compat_size may be uninitialized
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+
+        if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%node)) return
         if (size(child_indices) == 0) return
 
         do i = 1, size(child_indices)
             child_idx = child_indices(i)
-            if (child_idx > 0 .and. child_idx <= entries_size) then
+            if (child_idx > 0 .and. child_idx <= valid_size) then
                 ! Ensure child entry has valid node before accessing
                 if (.not. allocated(arena%entries(child_idx)%node)) cycle
                 old_parent = arena%entries(child_idx)%parent_index
@@ -262,7 +266,7 @@ contains
                     ! Child is already linked to this parent, skip
                     cycle
                 end if
-                if (old_parent > 0 .and. old_parent <= entries_size) then
+                if (old_parent > 0 .and. old_parent <= valid_size) then
                     call remove_child_from_parent(arena, old_parent, child_idx)
                 end if
                 ! Only add_child if child not already present
@@ -280,12 +284,15 @@ contains
         result(present)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: parent_index, child_index
-        integer :: i, count, arr_size
+        integer :: i, count, arr_size, valid_size
 
         present = .false.
         ! Bounds check for parent_index to prevent out-of-bounds access
         if (.not. allocated(arena%entries)) return
-        if (parent_index <= 0 .or. parent_index > size(arena%entries)) return
+        ! Use compat_size for logical size validation
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+        if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
         count = arena%entries(parent_index)%child_count
         if (count <= 0) return
@@ -303,11 +310,14 @@ contains
     subroutine remove_child_from_parent(arena, parent_index, child_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index, child_index
-        integer :: i, j, old_count
+        integer :: i, j, old_count, valid_size
 
         ! Bounds check: ensure parent_index is valid
         if (.not. allocated(arena%entries)) return
-        if (parent_index <= 0 .or. parent_index > size(arena%entries)) return
+        ! Use compat_size for logical size validation
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+        if (parent_index <= 0 .or. parent_index > valid_size) return
         if (.not. allocated(arena%entries(parent_index)%child_indices)) return
         old_count = arena%entries(parent_index)%child_count
         if (old_count == 0) return
