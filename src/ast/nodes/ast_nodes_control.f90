@@ -2,7 +2,7 @@
 ! This module aggregates all control flow AST nodes from specialized modules
 module ast_nodes_control
     ! Import from specialized modules
-    use ast_nodes_conditional, only: elseif_wrapper, case_wrapper, &
+    use ast_nodes_conditional, only: elseif_wrapper_t, case_wrapper_t, &
                                      if_node, select_case_node, &
                                      case_block_node, case_range_node, &
                                      case_default_node, create_if, &
@@ -27,7 +27,7 @@ module ast_nodes_control
     public :: MAX_INDEX_NAME_LENGTH
 
     ! Re-export utility types
-    public :: elseif_wrapper, case_wrapper, association_t
+    public :: elseif_wrapper_t, case_wrapper_t, association_t
     public :: forall_triplet_t, elsewhere_clause_t
 
     ! Re-export all control flow node types

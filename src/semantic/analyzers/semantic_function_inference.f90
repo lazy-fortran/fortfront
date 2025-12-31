@@ -11,7 +11,7 @@ module semantic_function_inference
                                  type_guard_block_node, where_node, &
                                  where_stmt_node, associate_node, &
                                  block_construct_node, forall_node, &
-                                 elseif_wrapper, elsewhere_clause_t
+                                 elseif_wrapper_t, elsewhere_clause_t
     use ast_nodes_data, only: declaration_node
     use semantic_procedure_utils, only: detect_result_name, &
                                         declaration_type_to_mono

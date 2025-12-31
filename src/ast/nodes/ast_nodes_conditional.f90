@@ -7,7 +7,7 @@ module ast_nodes_conditional
     private
 
     ! Public types
-    public :: elseif_wrapper, case_wrapper
+    public :: elseif_wrapper_t, case_wrapper_t
     public :: if_node, select_case_node, case_block_node
     public :: case_range_node, case_default_node
     public :: select_type_node, type_guard_block_node
@@ -17,24 +17,24 @@ module ast_nodes_conditional
     public :: create_if, create_select_case, create_select_type, create_select_rank
 
     ! Elseif wrapper (not an AST node itself)
-    type :: elseif_wrapper
+    type :: elseif_wrapper_t
         integer :: condition_index = 0  ! Elseif condition arena index
         integer, allocatable :: body_indices(:)  ! Elseif body arena indices
-    end type elseif_wrapper
+    end type elseif_wrapper_t
 
     ! Case statement wrapper (temporary for parser compatibility)
-    type :: case_wrapper
+    type :: case_wrapper_t
         character(len=:), allocatable :: case_type  ! "case", "case_default"
         class(ast_node), allocatable :: value  ! Case value (optional &
         ! for default)
         type(ast_node_wrapper), allocatable :: body(:)  ! Case body
-    end type case_wrapper
+    end type case_wrapper_t
 
     ! If statement node
     type, extends(ast_node) :: if_node
         integer :: condition_index = 0  ! If condition arena index
         integer, allocatable :: then_body_indices(:)  ! Then body arena indices
-        type(elseif_wrapper), allocatable :: elseif_blocks(:)  ! Elseif blocks (optional)
+        type(elseif_wrapper_t), allocatable :: elseif_blocks(:)  ! Elseif blocks (optional)
         integer, allocatable :: else_body_indices(:)  ! Else body arena indices &
         ! (optional)
     contains
@@ -541,7 +541,7 @@ contains
                        else_body_indices, line, column) result(node)
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: then_body_indices(:)
-        type(elseif_wrapper), intent(in), optional :: elseif_blocks(:)
+        type(elseif_wrapper_t), intent(in), optional :: elseif_blocks(:)
         integer, intent(in), optional :: else_body_indices(:)
         integer, intent(in), optional :: line, column
         type(if_node) :: node
