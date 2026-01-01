@@ -1,5 +1,6 @@
 module intrinsic_registry
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -21,7 +22,6 @@ module intrinsic_registry
     ! Registry storage
     type(intrinsic_signature_t), allocatable :: intrinsic_functions(:)
     logical :: registry_initialized = .false.
-    integer, parameter :: MAX_INTRINSIC_FUNCTION_NAME_LEN = 32
     integer, parameter :: MAX_INTRINSIC_SUBROUTINE_NAME_LEN = 32
     integer, parameter :: NUM_INTRINSIC_SUBROUTINES = 41
     character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN), parameter :: &
@@ -52,50 +52,24 @@ module intrinsic_registry
 
 contains
 
-    pure subroutine to_lowercase_ascii_trimmed(text, lowered, trimmed_len)
-        character(len=*), intent(in) :: text
-        character(len=*), intent(out) :: lowered
-        integer, intent(out) :: trimmed_len
-
-        integer :: i
-        integer :: code
-        integer :: max_len
-        integer :: copy_len
-
-        lowered = ""
-        trimmed_len = len_trim(text)
-        max_len = len(lowered)
-        copy_len = min(trimmed_len, max_len)
-        do i = 1, copy_len
-            code = iachar(text(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lowered(i:i) = achar(code + 32)
-            else
-                lowered(i:i) = text(i:i)
-            end if
-        end do
-    end subroutine to_lowercase_ascii_trimmed
-
     ! Combined function to get intrinsic information efficiently
     subroutine get_intrinsic_info(name, is_intrinsic, signature)
         character(len=*), intent(in) :: name
         logical, intent(out) :: is_intrinsic
         character(len=:), allocatable, intent(out) :: signature
         integer :: i
-        integer :: name_trim_len
-        character(len=MAX_INTRINSIC_FUNCTION_NAME_LEN) :: lowered_name
+        character(len=:), allocatable :: lowered_name
 
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate (signature)
         if (.not. allocated(intrinsic_functions)) return
-        call to_lowercase_ascii_trimmed(name, lowered_name, name_trim_len)
-        if (name_trim_len == 0) return
-        if (name_trim_len > len(lowered_name)) return
+        if (len_trim(name) == 0) return
+        lowered_name = to_lower(trim(name))
 
         do i = 1, size(intrinsic_functions)
-            if (intrinsic_functions(i)%name == lowered_name(1:name_trim_len)) then
+            if (intrinsic_functions(i)%name == lowered_name) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
                             intrinsic_functions(i)%arg_types // ")"
