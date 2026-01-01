@@ -76,7 +76,7 @@ contains
         if (len_trim(path) == 0) then
             argument = ''
         else if (is_windows .and. needs_cmd_escape) then
-            argument = '""' // trim(path) // '""'
+            argument = '"' // trim(path) // '"'
         else
             argument = '"' // trim(path) // '"'
         end if
@@ -106,11 +106,11 @@ contains
             stop 1
         end if
         if (is_windows) then
-            if (index(command, '""modules dir""') == 0) then
+            if (index(command, '"modules dir"') == 0) then
                 print *, 'ERROR: module directory not quoted for cmd'
                 stop 1
             end if
-            if (index(command, '""output file.f90""') == 0) then
+            if (index(command, '"output file.f90"') == 0) then
                 print *, 'ERROR: output path not quoted for cmd'
                 stop 1
             end if
@@ -127,7 +127,7 @@ contains
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
                                       escape_for_cmd=.true.), &
-                      '""pipe path""') == 0) then
+                      '"pipe path"') == 0) then
                 print *, 'ERROR: Windows cmd escaping missing'
                 stop 1
             end if
