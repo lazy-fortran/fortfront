@@ -301,10 +301,10 @@ jobs:
         $env:PATH = "C:\tools\fpm;$env:PATH"
 
         # Build with Windows stack size requirement
-        fpm build --flag "-Wl,--stack,16777216"
+        fpm build --link-flag "-Wl,--stack,16777216"
 
         # Run full test suite (same as Linux)
-        fpm test --flag "-Wl,--stack,16777216"
+        fpm test --link-flag "-Wl,--stack,16777216"
 
   # Summary job for branch protection - org ruleset requires "test" to pass
   # This aggregates the matrix build-test results into a single required check
