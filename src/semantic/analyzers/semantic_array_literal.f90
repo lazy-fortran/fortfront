@@ -15,12 +15,12 @@ module semantic_array_literal
     implicit none
 
     abstract interface
-        function get_type_lookup(a, idx) result(t)
+        function get_type_lookup_array_lit(a, idx) result(t)
             import :: mono_type_t, ast_arena_t
             type(ast_arena_t), intent(inout) :: a
             integer, intent(in) :: idx
             type(mono_type_t) :: t
-        end function get_type_lookup
+        end function get_type_lookup_array_lit
     end interface
 
     private
@@ -63,7 +63,7 @@ contains
         result(typ)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
-        procedure(get_type_lookup) :: get_type_fn
+        procedure(get_type_lookup_array_lit) :: get_type_fn
         type(mono_type_t) :: typ
         type(mono_type_t) :: explicit_type
         type(mono_type_t) :: first_type
@@ -170,7 +170,7 @@ contains
                                            first_array_size)
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
-        procedure(get_type_lookup) :: get_type_fn
+        procedure(get_type_lookup_array_lit) :: get_type_fn
         type(mono_type_t), intent(out) :: first_type
         type(mono_type_t), intent(out) :: promoted_type
         logical, intent(out) :: all_arrays
@@ -308,7 +308,7 @@ contains
         result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_index
-        procedure(get_type_lookup) :: get_type_fn
+        procedure(get_type_lookup_array_lit) :: get_type_fn
         type(mono_type_t) :: resolved_type
 
         resolved_type%kind = 0
@@ -331,7 +331,7 @@ contains
         result(resolved_type)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: loop_index
-        procedure(get_type_lookup) :: get_type_fn
+        procedure(get_type_lookup_array_lit) :: get_type_fn
         type(mono_type_t) :: resolved_type
         type(mono_type_t) :: element_type
         integer :: i

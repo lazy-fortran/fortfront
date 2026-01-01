@@ -29,7 +29,8 @@ module frontend_parsing
                                       parse_implicit_main_program, &
                                       not_meaningful_program_unit, &
                                       has_any_non_comment_content, &
-                                      has_executable_statements
+                                      has_executable_statements, &
+                                      is_function_start
     use frontend_statement_processing, only: parse_all_statements, &
                                              process_comment_statement, &
                                              process_regular_statement, &
@@ -341,21 +342,6 @@ contains
             prog_index = push_program(arena, "main", [unit_index], 1, 1)
         end select
     end subroutine finalize_single_unit
-
-    ! Remaining helper functions (preserved for compatibility)
-    function is_function_start(tokens, pos) result(is_start)
-        type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: pos
-        logical :: is_start
-
-        is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == &
-                "function") then
-                is_start = .true.
-            end if
-        end if
-    end function is_function_start
 
     function is_end_construct(tokens, pos, construct_name) result(is_end)
         type(token_t), intent(in) :: tokens(:)

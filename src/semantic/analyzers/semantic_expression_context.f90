@@ -71,7 +71,8 @@ contains
         type is (binary_op_node)
             typ = infer_binary_expression_type(arena, node, param_names, param_types)
         type is (array_literal_node)
-            typ = infer_array_literal_type(arena, node, param_names, param_types)
+            typ = infer_array_literal_type_from_context(arena, node, param_names, &
+                                                        param_types)
         type is (call_or_subscript_node)
             typ = infer_call_expression_type(arena, node, param_names, param_types)
         class default
@@ -160,8 +161,8 @@ contains
         end if
     end function infer_binary_expression_type
 
-    function infer_array_literal_type(arena, node, param_names, param_types) &
-        result(typ)
+    function infer_array_literal_type_from_context(arena, node, param_names, &
+                                                   param_types) result(typ)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -182,7 +183,7 @@ contains
         else
             typ = create_mono_type(TARRAY, args=args)
         end if
-    end function infer_array_literal_type
+    end function infer_array_literal_type_from_context
 
     integer function count_array_elements(node) result(count)
         type(array_literal_node), intent(in) :: node

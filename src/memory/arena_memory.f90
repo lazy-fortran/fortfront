@@ -169,7 +169,7 @@ module arena_memory
     end type basic_arena_t
 
     ! Public interface
-    public :: create_arena, destroy_arena
+    public :: create_arena, init_arena, destroy_arena
     public :: is_valid_handle, null_handle
     public :: arena_checkpoint_t
 
@@ -187,6 +187,36 @@ module arena_memory
     !   call destroy_arena(arena)
 
 contains
+
+    subroutine init_arena(arena, chunk_size)
+        type(arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: chunk_size
+        integer :: size
+
+        if (allocated(arena%chunks)) call destroy_arena(arena)
+
+        if (present(chunk_size)) then
+            size = max(MIN_CHUNK_SIZE, min(chunk_size, MAX_CHUNK_SIZE))
+        else
+            size = DEFAULT_CHUNK_SIZE
+        end if
+
+        if (arena%generation <= 0) arena%generation = 1
+        arena%chunk_size = size
+
+        arena%chunk_count = 1
+        arena%current_chunk = 1
+        allocate (arena%chunks(8))
+
+        arena%chunks(1)%capacity = size
+        allocate (arena%chunks(1)%data(size))
+        arena%chunks(1)%data = 0
+        arena%chunks(1)%used = 0
+        arena%chunks(1)%generation = arena%generation
+
+        arena%total_capacity = size
+        arena%total_allocated = 0
+    end subroutine init_arena
 
     ! Create a new arena with specified chunk size
     function create_arena(chunk_size) result(arena)

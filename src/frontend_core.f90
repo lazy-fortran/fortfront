@@ -37,6 +37,7 @@ module frontend_core
         & path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, &
                                 parse_result_with_index_t
+    use frontend_transformation_semantics, only: get_detailed_semantic_errors
     use frontend_utilities, only: write_output_file, int_to_str
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
 
@@ -203,9 +204,9 @@ contains
         ! Initialize the codegen system
         call initialize_codegen()
 
-     ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
-        ! and memory corruption when called in error paths. Standardization happens once
-        ! in the main transform pipeline only.
+        ! CRITICAL FIX: Do not call standardize_ast here. It causes double
+        ! standardization and memory corruption when called in error paths.
+        ! Standardization happens once in the main transform pipeline.
         fortran_code = generate_code_from_arena(arena, prog_index)
         call normalize_emitted_code(fortran_code)
     end subroutine emit_fortran
@@ -359,47 +360,6 @@ contains
 
         error_msg = ""
     end subroutine run_semantic_analysis
-
-    ! Helper function to get detailed semantic error messages
-    function get_detailed_semantic_errors(ctx) result(error_msg)
-        type(semantic_context_t), intent(in) :: ctx
-        character(len=:), allocatable :: error_msg
-        integer :: i, total_errors
-        character(len=128) :: temp_msg
-
-        total_errors = ctx%errors%count
-        if (total_errors == 0) then
-            error_msg = "No semantic errors found"
-            return
-        end if
-
-        ! Build comprehensive error message
-        temp_msg = ""
-        write (temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
-        error_msg = trim(temp_msg)
-
-        ! Add first few error messages for details
-        do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
-            if (i <= size(ctx%errors%errors)) then
-                if (allocated(ctx%errors%errors(i)%error_message)) then
-                    error_msg = error_msg // new_line('a') // "  - " // &
-                        & ctx%errors%errors(i)%error_message
-                    if (allocated(ctx%errors%errors(i)%suggestion)) then
-                        error_msg = error_msg // new_line('a') // &
-                            "    Suggestion: " // &
-                            & ctx%errors%errors(i)%suggestion
-                    end if
-                end if
-            end if
-        end do
-
-        ! Add summary if there are more errors
-        if (total_errors > 3) then
-            write (temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), &
-                & " more error(s)"
-            error_msg = error_msg // new_line('a') // trim(temp_msg)
-        end if
-    end function get_detailed_semantic_errors
 
     subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, &
                                                     prog_index, &

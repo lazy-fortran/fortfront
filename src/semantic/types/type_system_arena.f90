@@ -11,7 +11,7 @@ module type_system_arena
     ! Public types and interfaces
     public :: mono_handle_t, poly_handle_t, type_arena_t, args_handle_t
     public :: arena_mono_type_t, arena_poly_type_t, type_arena_stats_t
-    public :: create_type_arena, destroy_type_arena
+    public :: create_type_arena, init_type_arena, destroy_type_arena
     public :: store_mono_type, store_poly_type, store_type_args
     public :: get_mono_type, get_poly_type, get_type_args
     public :: null_mono_handle, null_poly_handle, null_args_handle
@@ -100,6 +100,25 @@ module type_system_arena
     end type type_arena_stats_t
 
 contains
+
+    subroutine init_type_arena(type_arena, chunk_size)
+        type(type_arena_t), intent(inout) :: type_arena
+        integer, intent(in), optional :: chunk_size
+
+        if (present(chunk_size)) then
+            call init_arena(type_arena%arena, chunk_size)
+        else
+            call init_arena(type_arena%arena, 32768)
+        end if
+
+        type_arena%next_type_id = 1
+        type_arena%mono_count = 0
+        type_arena%poly_count = 0
+        type_arena%args_count = 0
+        type_arena%size = 0
+        type_arena%capacity = type_arena%arena%total_capacity
+        type_arena%generation = 1
+    end subroutine init_type_arena
 
     ! Create a new type arena
     function create_type_arena(chunk_size) result(type_arena)
@@ -392,9 +411,13 @@ contains
         class(type_arena_t), intent(inout) :: this
 
         call this%arena%reset()
+        this%next_type_id = 1
         this%mono_count = 0
         this%poly_count = 0
         this%args_count = 0
+        this%size = 0
+        this%capacity = this%arena%total_capacity
+        this%generation = this%generation + 1
     end subroutine type_arena_reset
 
     ! Create null handles

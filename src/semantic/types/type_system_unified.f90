@@ -141,7 +141,7 @@ contains
     ! Initialize global arena if needed
     subroutine ensure_arena_initialized()
         if (.not. arena_initialized) then
-            global_arena = create_type_arena(65536)  ! 64KB for types
+            call init_type_arena(global_arena, 65536)
             arena_initialized = .true.
         end if
     end subroutine ensure_arena_initialized
@@ -151,8 +151,7 @@ contains
     ! type IDs from accumulating and causing circular references or slowdowns
     subroutine reset_type_system()
         if (arena_initialized) then
-            call destroy_type_arena(global_arena)
-            global_arena = create_type_arena(65536)
+            call global_arena%reset()
         end if
     end subroutine reset_type_system
 

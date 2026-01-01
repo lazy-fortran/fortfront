@@ -44,7 +44,7 @@ contains
         return_type_tmp = mono_type_to_string(return_type_copy, &
                                               include_shape=.true., fallback='')
         if (len_trim(return_type_tmp) == 0) then
-            return_type_tmp = kind_to_string(return_kind)
+            return_type_tmp = kind_to_type_string(return_kind)
         end if
         return_type_tmp = trim(return_type_tmp)
 
@@ -167,7 +167,7 @@ contains
             param_type_tmp = mono_type_to_string(arg_type, include_shape=.true., &
                                                  fallback='')
             if (len_trim(param_type_tmp) == 0) then
-                param_type_tmp = kind_to_string(param_kinds(i))
+                param_type_tmp = kind_to_type_string(param_kinds(i))
             end if
             if (allocated(param_type_strings)) then
                 param_type_strings(i) = trim(param_type_tmp)
@@ -192,7 +192,7 @@ contains
         a%entries(index)%node%inferred_type = typ
     end function get_inferred_type_from_arena_local
 
-    function kind_to_string(kind_value) result(str)
+    function kind_to_type_string(kind_value) result(str)
         integer, intent(in) :: kind_value
         character(len=:), allocatable :: str
 
@@ -214,7 +214,7 @@ contains
         case default
             str = ""
         end select
-    end function kind_to_string
+    end function kind_to_type_string
 
     integer function type_string_to_kind(type_name) result(kind_value)
         character(len=*), intent(in) :: type_name

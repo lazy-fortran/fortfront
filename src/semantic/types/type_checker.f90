@@ -14,6 +14,10 @@ module type_checker
     integer, parameter, public :: COMPAT_CONVERT = 3  ! Type conversion allowed
     integer, parameter, public :: COMPAT_NONE = 0  ! Not compatible
 
+    interface get_common_type
+        module procedure get_common_type_simple
+    end interface get_common_type
+
 contains
 
     ! Check if a value of type 'from' can be assigned to variable of type 'to'
@@ -106,7 +110,7 @@ contains
     end function is_compatible
 
     ! Get the common type for two compatible types
-    function get_common_type(type1, type2) result(common_type)
+    function get_common_type_simple(type1, type2) result(common_type)
         type(mono_type_t), intent(in) :: type1, type2
         type(mono_type_t) :: common_type
         integer :: compat_level
@@ -135,7 +139,7 @@ contains
         ! Otherwise, no common type
         common_type%kind = 0  ! Invalid type
 
-    end function get_common_type
+    end function get_common_type_simple
 
     ! Check argument types match parameter types
     function check_argument_types(arg_types, param_types, allow_promotion) result(match)
