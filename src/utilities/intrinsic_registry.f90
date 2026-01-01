@@ -1,6 +1,5 @@
 module intrinsic_registry
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use string_utils_mod, only: to_lower
     implicit none
     private
 
@@ -22,34 +21,60 @@ module intrinsic_registry
     ! Registry storage
     type(intrinsic_signature_t), allocatable :: intrinsic_functions(:)
     logical :: registry_initialized = .false.
+    integer, parameter :: MAX_INTRINSIC_FUNCTION_NAME_LEN = 32
     integer, parameter :: MAX_INTRINSIC_SUBROUTINE_NAME_LEN = 32
+    integer, parameter :: NUM_INTRINSIC_SUBROUTINES = 41
     character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN), parameter :: &
-        intrinsic_subroutine_names(*) = &
+        intrinsic_subroutine_names(NUM_INTRINSIC_SUBROUTINES) = &
         [character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN) :: &
-                                         "cpu_time", "date_and_time", &
-                                         "execute_command_line", "get_command", &
-                                         "get_command_argument", &
-                                         "get_environment_variable", "move_alloc", &
-                                         "random_init", "random_number", &
-                                         "random_seed", "system_clock", &
-                                         "sync_all", "sync_images", &
-                                         "sync_memory", "lock", "unlock", &
-                                         "event_post", "event_wait", &
-                                         "event_query", "form_team", &
-                                         "change_team", "end_team", &
-                                         "co_broadcast", "co_sum", &
-                                         "co_max", "co_min", "co_reduce", &
-                                         "co_allgather", "co_gather", &
-                                         "co_scatter", "atomic_define", &
-                                         "atomic_ref", "atomic_cas", &
-                                         "atomic_add", "atomic_and", &
-                                         "atomic_or", "atomic_xor", &
-                                         "atomic_fetch_add", &
-                                         "atomic_fetch_and", &
-                                         "atomic_fetch_or", &
-                                         "atomic_fetch_xor"]
+         "cpu_time", "date_and_time", &
+         "execute_command_line", "get_command", &
+         "get_command_argument", &
+         "get_environment_variable", "move_alloc", &
+         "random_init", "random_number", &
+         "random_seed", "system_clock", &
+         "sync_all", "sync_images", &
+         "sync_memory", "lock", "unlock", &
+         "event_post", "event_wait", &
+         "event_query", "form_team", &
+         "change_team", "end_team", &
+         "co_broadcast", "co_sum", &
+         "co_max", "co_min", "co_reduce", &
+         "co_allgather", "co_gather", &
+         "co_scatter", "atomic_define", &
+         "atomic_ref", "atomic_cas", &
+         "atomic_add", "atomic_and", &
+         "atomic_or", "atomic_xor", &
+         "atomic_fetch_add", &
+         "atomic_fetch_and", &
+         "atomic_fetch_or", &
+         "atomic_fetch_xor"]
 
 contains
+
+    pure subroutine to_lowercase_ascii_trimmed(text, lowered, trimmed_len)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(out) :: lowered
+        integer, intent(out) :: trimmed_len
+
+        integer :: i
+        integer :: code
+        integer :: max_len
+        integer :: copy_len
+
+        lowered = ""
+        trimmed_len = len_trim(text)
+        max_len = len(lowered)
+        copy_len = min(trimmed_len, max_len)
+        do i = 1, copy_len
+            code = iachar(text(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                lowered(i:i) = achar(code + 32)
+            else
+                lowered(i:i) = text(i:i)
+            end if
+        end do
+    end subroutine to_lowercase_ascii_trimmed
 
     ! Combined function to get intrinsic information efficiently
     subroutine get_intrinsic_info(name, is_intrinsic, signature)
@@ -58,19 +83,19 @@ contains
         character(len=:), allocatable, intent(out) :: signature
         integer :: i
         integer :: name_trim_len
-        character(len=len_trim(name)) :: lowered_name
+        character(len=MAX_INTRINSIC_FUNCTION_NAME_LEN) :: lowered_name
 
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate (signature)
         if (.not. allocated(intrinsic_functions)) return
-        name_trim_len = len_trim(name)
+        call to_lowercase_ascii_trimmed(name, lowered_name, name_trim_len)
         if (name_trim_len == 0) return
-        lowered_name = to_lower(name(1:name_trim_len))
+        if (name_trim_len > len(lowered_name)) return
 
         do i = 1, size(intrinsic_functions)
-            if (intrinsic_functions(i)%name == lowered_name) then
+            if (intrinsic_functions(i)%name == lowered_name(1:name_trim_len)) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
                             intrinsic_functions(i)%arg_types // ")"
@@ -95,6 +120,7 @@ contains
 
         is_intrinsic = .false.
         if (len_trim(name) == 0) return
+        if (len_trim(name) > MAX_INTRINSIC_SUBROUTINE_NAME_LEN) return
 
         do i = 1, size(intrinsic_subroutine_names)
             if (equals_case_insensitive_trimmed(name, &
