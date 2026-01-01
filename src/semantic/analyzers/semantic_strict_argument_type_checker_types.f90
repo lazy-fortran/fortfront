@@ -103,7 +103,7 @@ contains
         end select
     end function strict_literal_type
 
-    integer function parse_literal_kind_suffix(text) result(kind_value)
+    pure integer function parse_literal_kind_suffix(text) result(kind_value)
         character(len=*), intent(in) :: text
         integer :: underscore_pos
         integer :: ios
