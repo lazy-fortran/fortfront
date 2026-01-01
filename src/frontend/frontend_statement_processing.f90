@@ -6,7 +6,8 @@ module frontend_statement_processing
                           TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, &
-                                        clear_additional_indices
+                                        clear_additional_indices, &
+                                        get_last_parser_errors
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition, &
@@ -243,13 +244,11 @@ contains
 
         type(contains_node) :: contains_stmt
         type(parser_prefix_buffer_t) :: prefix_buffer
-        type(parser_state_t) :: parser
-        type(token_t), allocatable :: proc_tokens(:)
-        integer :: i, proc_start, proc_end, proc_index
+        integer :: i, proc_start, proc_end
         character(len=:), allocatable :: lowered
         character(len=16), allocatable :: prefix_list(:)
+        logical :: parsed_procedure
 
-        ! Add contains node
         contains_stmt%line = 0
         contains_stmt%column = 0
         call arena%push(contains_stmt, "contains", 0)
@@ -262,130 +261,64 @@ contains
         do while (i <= size(tokens))
             if (tokens(i)%kind == TK_EOF) exit
 
-            ! Skip whitespace and newlines
             if (tokens(i)%kind == TK_WHITESPACE .or. &
-                tokens(i)%kind == TK_NEWLINE) then
+                tokens(i)%kind == TK_NEWLINE .or. &
+                tokens(i)%kind == TK_COMMENT) then
                 i = i + 1
                 cycle
             end if
 
-            ! Skip comments (but we could add them to body_indices if desired)
-            if (tokens(i)%kind == TK_COMMENT) then
+            if (tokens(i)%kind /= TK_KEYWORD .and. tokens(i)%kind /= TK_IDENTIFIER) then
                 i = i + 1
                 cycle
             end if
 
-            if (tokens(i)%kind == TK_KEYWORD .or. tokens(i)%kind == TK_IDENTIFIER) then
-                lowered = to_lower(trim(tokens(i)%text))
+            lowered = to_lower(trim(tokens(i)%text))
 
-                ! Check for end statement
-                if (lowered == "end") then
-                    end_pos = i
-                    exit
-                end if
+            if (lowered == "end") then
+                end_pos = i
+                exit
+            end if
 
-                ! Check for procedure prefix keywords
-                if (lowered == "pure" .or. lowered == "elemental" .or. &
-                    lowered == "impure" .or. lowered == "recursive" .or. &
-                    lowered == "module" .or. lowered == "nonrecursive") then
-                    prefix_list = [prefix_list, adjustl(trim(lowered))]
-                    i = i + 1
-                    cycle
-                end if
+            if (is_contains_proc_prefix_keyword(lowered)) then
+                prefix_list = [prefix_list, adjustl(trim(lowered))]
+                i = i + 1
+                cycle
+            end if
 
-                ! Check for type prefix (like integer, real, etc.)
-                ! These are result type prefixes for functions - scan forward
-                ! to find the function keyword and parse from there
-                if (lowered == "integer" .or. lowered == "real" .or. &
-                    lowered == "logical" .or. lowered == "character" .or. &
-                    lowered == "complex" .or. lowered == "double" .or. &
-                    lowered == "type" .or. lowered == "class") then
-                    ! Find the function/subroutine keyword that follows
-                    proc_start = find_proc_keyword_after_type(tokens, i)
-                    if (proc_start > 0) then
-                        ! Parse from the type prefix start
-                        lowered = to_lower(trim(tokens(proc_start)%text))
-                        if (lowered == "function") then
-                            call find_procedure_end(tokens, proc_start, "function", &
-                                                    proc_end)
-                            allocate (proc_tokens(proc_end - i + 2))
-                            proc_tokens(1:proc_end - i + 1) = tokens(i:proc_end)
-                            proc_tokens(proc_end - i + 2)%kind = TK_EOF
-                            proc_tokens(proc_end - i + 2)%text = ""
+            parsed_procedure = .false.
 
-                            call prefix_buffer%clear()
-                            parser = create_parser_state(proc_tokens)
-                            if (size(prefix_list) > 0) then
-                                proc_index = parse_function_definition(parser, arena, &
-                                                                       prefix_buffer, &
-                                                                       prefix_list)
-                            else
-                                proc_index = parse_function_definition(parser, arena, &
-                                                                       prefix_buffer)
-                            end if
-                            if (proc_index > 0) body_indices = [body_indices, &
-                                                                proc_index]
-                            deallocate (proc_tokens)
-                            deallocate (prefix_list)
-                            allocate (prefix_list(0))
-                            i = proc_end + 1
-                            cycle
-                        end if
-                    end if
-                    ! If no procedure keyword found, just skip the type spec
-                    call skip_type_spec(tokens, i)
-                    cycle
-                end if
-
-                ! Handle function
-                if (lowered == "function") then
-                    proc_start = i
-                    call find_procedure_end(tokens, proc_start, "function", proc_end)
-                    allocate (proc_tokens(proc_end - proc_start + 2))
-                    proc_tokens(1:proc_end - proc_start + 1) = &
-                        tokens(proc_start:proc_end)
-                    proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
-                    proc_tokens(proc_end - proc_start + 2)%text = ""
-
-                    call prefix_buffer%clear()
-                    parser = create_parser_state(proc_tokens)
-                    if (size(prefix_list) > 0) then
-                        proc_index = parse_function_definition(parser, arena, &
-                                                               prefix_buffer, &
-                                                               prefix_list)
-                    else
-                        proc_index = parse_function_definition(parser, arena, &
-                                                               prefix_buffer)
-                    end if
-                    if (proc_index > 0) body_indices = [body_indices, proc_index]
-                    deallocate (proc_tokens)
-                    deallocate (prefix_list)
-                    allocate (prefix_list(0))
+            if (is_contains_type_prefix_keyword(lowered)) then
+                call try_parse_typed_function_in_contains(tokens, i, arena, &
+                                                          prefix_buffer, prefix_list, &
+                                                          body_indices, &
+                                                          parsed_procedure, proc_end)
+                if (parsed_procedure) then
                     i = proc_end + 1
                     cycle
                 end if
+                call skip_type_spec(tokens, i)
+                cycle
+            end if
 
-                ! Handle subroutine
-                if (lowered == "subroutine") then
-                    proc_start = i
-                    call find_procedure_end(tokens, proc_start, "subroutine", proc_end)
-                    allocate (proc_tokens(proc_end - proc_start + 2))
-                    proc_tokens(1:proc_end - proc_start + 1) = &
-                        tokens(proc_start:proc_end)
-                    proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
-                    proc_tokens(proc_end - proc_start + 2)%text = ""
+            if (lowered == "function") then
+                proc_start = i
+                call find_procedure_end(tokens, proc_start, "function", proc_end)
+                call parse_contains_function_span(tokens, proc_start, proc_end, arena, &
+                                                  prefix_buffer, prefix_list, &
+                                                  body_indices)
+                i = proc_end + 1
+                cycle
+            end if
 
-                    call prefix_buffer%clear()
-                    parser = create_parser_state(proc_tokens)
-                    proc_index = parse_subroutine_definition(parser, arena, &
-                                                             prefix_buffer)
-                    if (proc_index > 0) body_indices = [body_indices, proc_index]
-                    deallocate (proc_tokens)
-                    deallocate (prefix_list)
-                    allocate (prefix_list(0))
-                    i = proc_end + 1
-                    cycle
-                end if
+            if (lowered == "subroutine") then
+                proc_start = i
+                call find_procedure_end(tokens, proc_start, "subroutine", proc_end)
+                call parse_contains_subroutine_span(tokens, proc_start, proc_end, &
+                                                    arena, prefix_buffer, &
+                                                    prefix_list, body_indices)
+                i = proc_end + 1
+                cycle
             end if
 
             i = i + 1
@@ -393,6 +326,105 @@ contains
 
         if (allocated(prefix_list)) deallocate (prefix_list)
     end subroutine parse_implicit_contains_section
+
+    logical function is_contains_proc_prefix_keyword(lowered) result(is_prefix)
+        character(len=*), intent(in) :: lowered
+        is_prefix = (lowered == "pure" .or. lowered == "elemental" .or. &
+                     lowered == "impure" .or. lowered == "recursive" .or. &
+                     lowered == "module" .or. lowered == "nonrecursive")
+    end function is_contains_proc_prefix_keyword
+
+    logical function is_contains_type_prefix_keyword(lowered) result(is_type_prefix)
+        character(len=*), intent(in) :: lowered
+        is_type_prefix = (lowered == "integer" .or. lowered == "real" .or. &
+                          lowered == "logical" .or. lowered == "character" .or. &
+                          lowered == "complex" .or. lowered == "double" .or. &
+                          lowered == "type" .or. lowered == "class")
+    end function is_contains_type_prefix_keyword
+
+    subroutine reset_contains_prefix_list(prefix_list)
+        character(len=16), allocatable, intent(inout) :: prefix_list(:)
+        if (allocated(prefix_list)) deallocate (prefix_list)
+        allocate (prefix_list(0))
+    end subroutine reset_contains_prefix_list
+
+    subroutine try_parse_typed_function_in_contains(tokens, type_start, arena, &
+                                                    prefix_buffer, prefix_list, &
+                                                    body_indices, parsed, proc_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: type_start
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), allocatable, intent(inout) :: prefix_list(:)
+        integer, allocatable, intent(inout) :: body_indices(:)
+        logical, intent(out) :: parsed
+        integer, intent(out) :: proc_end
+        integer :: proc_start
+        character(len=:), allocatable :: lowered
+        parsed = .false.
+        proc_end = type_start
+        proc_start = find_proc_keyword_after_type(tokens, type_start)
+        if (proc_start <= 0) return
+        lowered = to_lower(trim(tokens(proc_start)%text))
+        if (lowered /= "function") return
+        call find_procedure_end(tokens, proc_start, "function", proc_end)
+        call parse_contains_function_span(tokens, type_start, proc_end, arena, &
+                                          prefix_buffer, prefix_list, body_indices)
+        parsed = .true.
+    end subroutine try_parse_typed_function_in_contains
+
+    subroutine parse_contains_function_span(tokens, span_start, proc_end, arena, &
+                                            prefix_buffer, prefix_list, body_indices)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: span_start
+        integer, intent(in) :: proc_end
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), allocatable, intent(inout) :: prefix_list(:)
+        integer, allocatable, intent(inout) :: body_indices(:)
+        type(parser_state_t) :: parser
+        type(token_t), allocatable :: proc_tokens(:)
+        integer :: proc_index
+        allocate (proc_tokens(proc_end - span_start + 2))
+        proc_tokens(1:proc_end - span_start + 1) = tokens(span_start:proc_end)
+        proc_tokens(proc_end - span_start + 2)%kind = TK_EOF
+        proc_tokens(proc_end - span_start + 2)%text = ""
+        call prefix_buffer%clear()
+        parser = create_parser_state(proc_tokens)
+        if (size(prefix_list) > 0) then
+            proc_index = parse_function_definition(parser, arena, prefix_buffer, &
+                                                   prefix_list)
+        else
+            proc_index = parse_function_definition(parser, arena, prefix_buffer)
+        end if
+        if (proc_index > 0) body_indices = [body_indices, proc_index]
+        deallocate (proc_tokens)
+        call reset_contains_prefix_list(prefix_list)
+    end subroutine parse_contains_function_span
+
+    subroutine parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
+                                              prefix_buffer, prefix_list, body_indices)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: proc_start
+        integer, intent(in) :: proc_end
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), allocatable, intent(inout) :: prefix_list(:)
+        integer, allocatable, intent(inout) :: body_indices(:)
+        type(parser_state_t) :: parser
+        type(token_t), allocatable :: proc_tokens(:)
+        integer :: proc_index
+        allocate (proc_tokens(proc_end - proc_start + 2))
+        proc_tokens(1:proc_end - proc_start + 1) = tokens(proc_start:proc_end)
+        proc_tokens(proc_end - proc_start + 2)%kind = TK_EOF
+        proc_tokens(proc_end - proc_start + 2)%text = ""
+        call prefix_buffer%clear()
+        parser = create_parser_state(proc_tokens)
+        proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+        if (proc_index > 0) body_indices = [body_indices, proc_index]
+        deallocate (proc_tokens)
+        call reset_contains_prefix_list(prefix_list)
+    end subroutine parse_contains_subroutine_span
 
     ! Find function/subroutine keyword after type specification
     integer function find_proc_keyword_after_type(tokens, start_pos) result(proc_pos)
@@ -622,139 +654,145 @@ contains
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t), allocatable, target :: stmt_tokens(:)
+        integer :: effective_start
 
-        ! Skip empty statements (can happen with consecutive semicolons)
         if (stmt_end < stmt_start) then
             stmt_index = 0
             return
         end if
 
-        ! Heuristic: skip non-Fortran prefixes such as Simple test: before real code
-        ! (fixes #843)
-        block
-            integer :: i, colon_pos, eq_pos, local_start, paren_depth
-            logical :: saw_keyword
-            colon_pos = 0
-            eq_pos = 0
-            saw_keyword = .false.
-            ! Local adjustable start to avoid modifying INTENT(IN) argument
-            local_start = stmt_start
-            paren_depth = 0
+        effective_start = compute_effective_statement_start(tokens, stmt_start, &
+                                                            stmt_end)
+        call build_statement_tokens(tokens, effective_start, stmt_end, stmt_tokens)
+        call parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
+                                                        prefix_buffer, stmt_index)
+        if (stmt_index <= 0) return
 
-            ! Locate first '=' in the statement (assignment anchor)
-            do i = local_start, stmt_end
-                if (tokens(i)%kind == TK_KEYWORD) then
-                    saw_keyword = .true.
-                end if
-                if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
-                    eq_pos = i
-                    exit
-                end if
-            end do
-
-            if (eq_pos > 0) then
-                ! If there's a ':' before '=', and the prefix contains no Fortran
-                ! keywords, treat everything up to and including ':' as a non-Fortran
-                ! label and skip it. Do NOT do this when ':' is inside parentheses
-                ! (e.g., array slices/substrings like a(1:3) or s(2:4)).
-                do i = local_start, eq_pos - 1
-                    if (tokens(i)%kind == TK_OPERATOR) then
-                        select case (tokens(i)%text)
-                        case ("(")
-                            paren_depth = paren_depth + 1
-                        case (")")
-                            if (paren_depth > 0) paren_depth = paren_depth - 1
-                        case (":")
-                            if (paren_depth == 0) then
-                                colon_pos = i
-                                exit
-                            end if
-                        end select
-                    end if
-                end do
-                if (colon_pos > 0 .and. .not. saw_keyword) then
-                    local_start = colon_pos + 1
-                end if
-            end if
-
-            ! Extract statement tokens (after any prefix adjustment)
-            allocate (stmt_tokens(stmt_end - local_start + 2))
-            stmt_tokens(1:stmt_end - local_start + 1) = tokens(local_start:stmt_end)
-            ! Add EOF token
-            stmt_tokens(stmt_end - local_start + 2)%kind = TK_EOF
-            stmt_tokens(stmt_end - local_start + 2)%text = ""
-            stmt_tokens(stmt_end - local_start + 2)%line = tokens(stmt_end)%line
-            stmt_tokens(stmt_end - local_start + 2)%column = &
-                tokens(stmt_end)%column + 1
-        end block
-
-        ! Note: stmt_tokens already allocated and filled in the block above
-
-        ! Handle statement labels (fixes #2077)
-        block
-            character(len=:), allocatable :: stmt_label
-            integer :: label_end_idx, i
-            type(token_t), allocatable :: tokens_without_label(:)
-
-            ! Check if first significant token is a numeric label
-            label_end_idx = 0
-            do i = 1, size(stmt_tokens)
-                if (stmt_tokens(i)%kind == TK_WHITESPACE) cycle
-                if (stmt_tokens(i)%kind == TK_NUMBER) then
-                    ! Found a numeric label
-                    stmt_label = trim(stmt_tokens(i)%text)
-                    label_end_idx = i
-                end if
-                exit  ! Stop after first non-whitespace token
-            end do
-
-            ! If we found a label, remove it from the token stream
-            if (label_end_idx > 0) then
-                ! Create new token array without the label
-                allocate (tokens_without_label(size(stmt_tokens) - label_end_idx))
-                tokens_without_label = stmt_tokens(label_end_idx + 1:size(stmt_tokens))
-                ! Replace stmt_tokens with the version without label
-                deallocate (stmt_tokens)
-                call move_alloc(tokens_without_label, stmt_tokens)
-            end if
-
-            ! Parse the statement
-            stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
-
-            ! Attach the label to the created statement if we have one
-            if (stmt_index > 0 .and. allocated(stmt_label)) then
-                if (stmt_index <= arena%size) then
-                    if (allocated(arena%entries(stmt_index)%node)) then
-                        arena%entries(stmt_index)%node%stmt_label = stmt_label
-                    end if
-                end if
-            end if
-        end block
-
-        if (stmt_index > 0) then
-            body_indices = [body_indices, stmt_index]
-
-            ! Handle additional indices from multi-declaration parsing
-            block
-                integer, allocatable :: extra_indices(:)
-                extra_indices = get_additional_indices()
-                if (size(extra_indices) > 0) then
-                    body_indices = [body_indices, extra_indices]
-                end if
-                call clear_additional_indices()
-            end block
-        end if
+        body_indices = [body_indices, stmt_index]
+        call append_additional_indices_from_dispatcher(body_indices)
     end subroutine process_regular_statement
 
+    integer function compute_effective_statement_start(tokens, stmt_start, stmt_end) &
+        result(effective_start)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start
+        integer, intent(in) :: stmt_end
+        integer :: i, colon_pos, eq_pos, paren_depth
+        logical :: saw_keyword
+
+        effective_start = stmt_start
+        colon_pos = 0
+        eq_pos = 0
+        saw_keyword = .false.
+        paren_depth = 0
+
+        do i = stmt_start, stmt_end
+            if (tokens(i)%kind == TK_KEYWORD) saw_keyword = .true.
+            if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
+                eq_pos = i
+                exit
+            end if
+        end do
+
+        if (eq_pos <= 0) return
+
+        do i = stmt_start, eq_pos - 1
+            if (tokens(i)%kind /= TK_OPERATOR) cycle
+            select case (tokens(i)%text)
+            case ("(")
+                paren_depth = paren_depth + 1
+            case (")")
+                if (paren_depth > 0) paren_depth = paren_depth - 1
+            case (":")
+                if (paren_depth == 0) then
+                    colon_pos = i
+                    exit
+                end if
+            end select
+        end do
+
+        if (colon_pos > 0 .and. .not. saw_keyword) then
+            effective_start = colon_pos + 1
+        end if
+    end function compute_effective_statement_start
+
+    subroutine build_statement_tokens(tokens, stmt_start, stmt_end, stmt_tokens)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: stmt_start
+        integer, intent(in) :: stmt_end
+        type(token_t), allocatable, intent(out), target :: stmt_tokens(:)
+
+        allocate (stmt_tokens(stmt_end - stmt_start + 2))
+        stmt_tokens(1:stmt_end - stmt_start + 1) = tokens(stmt_start:stmt_end)
+        stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
+        stmt_tokens(stmt_end - stmt_start + 2)%text = ""
+        stmt_tokens(stmt_end - stmt_start + 2)%line = tokens(stmt_end)%line
+        stmt_tokens(stmt_end - stmt_start + 2)%column = tokens(stmt_end)%column + 1
+    end subroutine build_statement_tokens
+
+    subroutine parse_statement_tokens_with_optional_label(stmt_tokens, arena, &
+                                                          prefix_buffer, stmt_index)
+        type(token_t), allocatable, intent(inout), target :: stmt_tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        integer, intent(out) :: stmt_index
+        character(len=:), allocatable :: stmt_label
+        integer :: label_end_idx, i
+        type(token_t), allocatable :: tokens_without_label(:)
+
+        label_end_idx = 0
+        do i = 1, size(stmt_tokens)
+            if (stmt_tokens(i)%kind == TK_WHITESPACE) cycle
+            if (stmt_tokens(i)%kind == TK_NUMBER) then
+                stmt_label = trim(stmt_tokens(i)%text)
+                label_end_idx = i
+            end if
+            exit
+        end do
+
+        if (label_end_idx > 0) then
+            allocate (tokens_without_label(size(stmt_tokens) - label_end_idx))
+            tokens_without_label = stmt_tokens(label_end_idx + 1:size(stmt_tokens))
+            call move_alloc(tokens_without_label, stmt_tokens)
+        end if
+
+        stmt_index = parse_statement_dispatcher(stmt_tokens, arena, prefix_buffer)
+        if (stmt_index <= 0 .or. .not. allocated(stmt_label)) return
+
+        if (stmt_index <= arena%size) then
+            if (allocated(arena%entries(stmt_index)%node)) then
+                arena%entries(stmt_index)%node%stmt_label = stmt_label
+            end if
+        end if
+    end subroutine parse_statement_tokens_with_optional_label
+
+    subroutine append_additional_indices_from_dispatcher(body_indices)
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, allocatable :: extra_indices(:)
+
+        extra_indices = get_additional_indices()
+        if (size(extra_indices) > 0) then
+            body_indices = [body_indices, extra_indices]
+        end if
+        call clear_additional_indices()
+    end subroutine append_additional_indices_from_dispatcher
+
     ! Parse explicit program unit
-    function parse_explicit_program_unit(tokens, arena) result(prog_index)
+    function parse_explicit_program_unit(tokens, arena, error_msg) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: prog_index
         type(parser_prefix_buffer_t) :: prefix_buffer
+        character(len=:), allocatable :: errors
 
         ! Parse explicit program statement
         prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+
+        if (present(error_msg)) then
+            errors = get_last_parser_errors()
+            error_msg = errors
+        end if
     end function parse_explicit_program_unit
 
     logical function is_prefix_only_statement(tokens, start_idx, end_idx) &

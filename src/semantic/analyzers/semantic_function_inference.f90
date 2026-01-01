@@ -1,6 +1,7 @@
 module semantic_function_inference
     use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
                                    create_type_var, TVAR, TREAL, TCHAR, TARRAY
+    use type_array_safe, only: safe_peel_array_to_base
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, assignment_node, &
                               call_or_subscript_node
@@ -518,11 +519,11 @@ contains
             if (.not. matches_alias(target%name, aliases)) return
             candidate = infer_expression_type_static(arena, stmt%value_index, &
                                                      param_names, param_types)
-          ! Issue #2066 vs scalar accumulation: distinguish array operations from scalar
-          ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to scalar
-            ! If RHS is whole-array operation (e.g., x * x), keep as array
-            if (candidate%kind == TARRAY .and. .not. is_array_literal_node(arena, &
-                                                                 stmt%value_index)) then
+            ! Issue #2066: Distinguish array operations from scalar accumulation.
+            ! If RHS is array but uses subscripted accesses (e.g., arr(i)), peel to
+            ! scalar. If RHS is whole-array operation (e.g., x * x), keep as array.
+            if (candidate%kind == TARRAY .and. &
+                .not. is_array_literal_node(arena, stmt%value_index)) then
                 if (expression_uses_subscripted_params(arena, stmt%value_index, &
                                                        param_names)) then
                     candidate = safe_peel_array_to_base(candidate)
@@ -554,7 +555,7 @@ contains
 
     recursive function expression_uses_subscripted_params(arena, expr_index, &
                                                           param_names) &
-                                                              result(uses_subscripts)
+        result(uses_subscripts)
         use ast_nodes_core, only: call_or_subscript_node, binary_op_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
@@ -582,25 +583,13 @@ contains
             ! Recursively check left and right sides
             uses_subscripts = expression_uses_subscripted_params(arena, &
                                                                  node%left_index, &
-                                                                     param_names)
+                                                                 param_names)
             if (uses_subscripts) return
             uses_subscripts = expression_uses_subscripted_params(arena, &
                                                                  node%right_index, &
-                                                                     param_names)
+                                                                 param_names)
         end select
     end function expression_uses_subscripted_params
-
-    function safe_peel_array_to_base(array_type) result(base_type)
-        use type_system_unified, only: TARRAY
-        type(mono_type_t), intent(in) :: array_type
-        type(mono_type_t) :: base_type
-
-        base_type = array_type
-        if (array_type%kind /= TARRAY) return
-        if (.not. array_type%has_args()) return
-        if (array_type%get_args_count() == 0) return
-        base_type = array_type%get_arg(1)
-    end function safe_peel_array_to_base
 
     logical function needs_deferred_shape(typ) result(needs)
         use type_system_unified, only: TARRAY

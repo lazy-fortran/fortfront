@@ -25,7 +25,7 @@ contains
 
         do i = 1, size(body_indices)
             call scan_statement(arena, body_indices(i), metadata, &
-                               is_read, is_written)
+                                is_read, is_written)
         end do
 
         do i = 1, n_params
@@ -45,7 +45,7 @@ contains
     end subroutine infer_subroutine_parameter_intents
 
     recursive subroutine scan_statement(arena, node_idx, metadata, &
-                                       is_read, is_written)
+                                        is_read, is_written)
         use ast_nodes_core, only: assignment_node
         use ast_nodes_io, only: print_statement_node, write_statement_node
         use ast_nodes_io, only: read_statement_node
@@ -62,7 +62,7 @@ contains
             ! Skip keyword arguments - they don't modify variables
             if (.not. node%is_keyword_argument) then
                 call mark_lhs_written(arena, node%target_index, metadata, &
-                                     is_read, is_written)
+                                      is_read, is_written)
                 call mark_rhs_read(arena, node%value_index, metadata, is_read)
             else
                 ! For keyword arguments, only the RHS (value) is read
@@ -72,31 +72,31 @@ contains
             if (allocated(node%expression_indices)) then
                 do i = 1, size(node%expression_indices)
                     call mark_rhs_read(arena, node%expression_indices(i), &
-                                      metadata, is_read)
+                                       metadata, is_read)
                 end do
             end if
         type is (write_statement_node)
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     call mark_rhs_read(arena, node%arg_indices(i), &
-                                      metadata, is_read)
+                                       metadata, is_read)
                 end do
             end if
         type is (read_statement_node)
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
                     call mark_lhs_written(arena, node%var_indices(i), &
-                                         metadata, is_read, is_written)
+                                          metadata, is_read, is_written)
                 end do
             end if
         class default
             call scan_children_generic(arena, node_idx, metadata, &
-                                      is_read, is_written)
+                                       is_read, is_written)
         end select
     end subroutine scan_statement
 
     recursive subroutine mark_lhs_written(arena, node_idx, metadata, &
-                                         is_read, is_written)
+                                          is_read, is_written)
         use ast_nodes_core, only: identifier_node, call_or_subscript_node
         use ast_nodes_core, only: component_access_node
         type(ast_arena_t), intent(in) :: arena
@@ -123,18 +123,18 @@ contains
                     if (allocated(node%arg_indices)) then
                         do i = 1, size(node%arg_indices)
                             call mark_rhs_read(arena, node%arg_indices(i), &
-                                              metadata, is_read)
+                                               metadata, is_read)
                         end do
                     end if
                 end if
             else if (node%base_expr_index > 0) then
                 call mark_lhs_written(arena, node%base_expr_index, metadata, &
-                                     is_read, is_written)
+                                      is_read, is_written)
             end if
         type is (component_access_node)
             if (node%base_expr_index > 0) then
                 call mark_lhs_written(arena, node%base_expr_index, metadata, &
-                                     is_read, is_written)
+                                      is_read, is_written)
             end if
         end select
     end subroutine mark_lhs_written
@@ -173,7 +173,7 @@ contains
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     call mark_rhs_read(arena, node%arg_indices(i), metadata, &
-                                      is_read)
+                                       is_read)
                 end do
             end if
         type is (component_access_node)
@@ -186,7 +186,7 @@ contains
     end subroutine mark_rhs_read
 
     subroutine scan_children_generic(arena, node_idx, metadata, &
-                                    is_read, is_written)
+                                     is_read, is_written)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_idx
         type(param_metadata_t), intent(in) :: metadata
@@ -194,8 +194,8 @@ contains
         integer, allocatable :: children(:)
         integer :: i
 
-        children = get_children(arena, node_idx)
-        if (.not. allocated(children)) return
+        children = arena%get_children(node_idx)
+        if (size(children) == 0) return
         do i = 1, size(children)
             call scan_statement(arena, children(i), metadata, is_read, is_written)
         end do
@@ -209,26 +209,11 @@ contains
         integer, allocatable :: children(:)
         integer :: i
 
-        children = get_children(arena, node_idx)
-        if (.not. allocated(children)) return
+        children = arena%get_children(node_idx)
+        if (size(children) == 0) return
         do i = 1, size(children)
             call mark_rhs_read(arena, children(i), metadata, is_read)
         end do
     end subroutine scan_children_for_reads
-
-    function get_children(arena, node_idx) result(children)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_idx
-        integer, allocatable :: children(:)
-        integer :: n
-
-        allocate (children(0))
-        if (.not. node_exists(arena, node_idx)) return
-        n = arena%entries(node_idx)%child_count
-        if (n <= 0) return
-        deallocate (children)
-        allocate (children(n))
-        children = arena%entries(node_idx)%child_indices(1:n)
-    end function get_children
 
 end module standardizer_subroutine_intent

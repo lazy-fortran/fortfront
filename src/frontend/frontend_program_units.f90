@@ -10,8 +10,8 @@ module frontend_program_units
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_last_parser_errors
-    use frontend_statement_processing, only: &
-        parse_all_statements => parse_all_statements
+    use frontend_statement_processing, only: parse_all_statements, &
+                                             parse_explicit_program_unit
     use parser_declarations, only: parse_derived_type_def
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -328,26 +328,6 @@ contains
     end function has_executable_statements
 
     ! Remove single-statement version to avoid shadowing the multi-statement parser
-
-    ! Parse explicit program unit
-    function parse_explicit_program_unit(tokens, arena, error_msg) result(prog_index)
-        use, intrinsic :: iso_fortran_env, only: error_unit
-        type(token_t), intent(in) :: tokens(:)
-        type(ast_arena_t), intent(inout) :: arena
-        character(len=:), allocatable, intent(out), optional :: error_msg
-        integer :: prog_index
-        type(parser_prefix_buffer_t) :: prefix_buffer
-        character(len=:), allocatable :: errors
-
-        ! Parse explicit program statement
-        prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
-
-        ! Extract parser errors from dispatcher
-        if (present(error_msg)) then
-            errors = get_last_parser_errors()
-            error_msg = errors
-        end if
-    end function parse_explicit_program_unit
 
     ! Unit type detection functions
     function is_function_start(tokens, pos) result(is_start)

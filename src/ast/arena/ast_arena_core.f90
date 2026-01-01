@@ -13,6 +13,26 @@ module ast_arena_core
     public :: store_ast_node, get_ast_node, is_valid_ast_handle, null_ast_handle
     public :: ast_free_result_t, free_ast_node, is_node_active, get_free_statistics
 
+    interface store_ast_node
+        module procedure store_ast_node_impl
+    end interface store_ast_node
+
+    interface get_ast_node
+        module procedure get_ast_node_impl
+    end interface get_ast_node
+
+    interface free_ast_node
+        module procedure free_ast_node_impl
+    end interface free_ast_node
+
+    interface is_node_active
+        module procedure is_node_active_impl
+    end interface is_node_active
+
+    interface get_free_statistics
+        module procedure get_free_statistics_impl
+    end interface get_free_statistics
+
     ! Global counter for unique arena IDs
     integer, save :: next_arena_id = 1
 
@@ -209,7 +229,7 @@ contains
     end subroutine destroy_ast_arena_core
 
     ! Store AST node in arena and return handle
-    function store_ast_node(ast_arena, node) result(handle)
+    function store_ast_node_impl(ast_arena, node) result(handle)
         type(ast_arena_core_t), intent(inout) :: ast_arena
         type(ast_node_arena_t), intent(in) :: node
         type(ast_handle_t) :: handle
@@ -245,10 +265,10 @@ contains
         ! Update counters
         ast_arena%node_count = ast_arena%node_count + 1
         ast_arena%total_allocations = ast_arena%total_allocations + 1
-    end function store_ast_node
+    end function store_ast_node_impl
 
     ! Retrieve AST node from arena by handle
-    function get_ast_node(ast_arena, handle) result(node)
+    function get_ast_node_impl(ast_arena, handle) result(node)
         type(ast_arena_core_t), intent(inout) :: ast_arena
         type(ast_handle_t), intent(in) :: handle
         type(ast_node_arena_t) :: node
@@ -267,7 +287,7 @@ contains
 
         ! Return actual stored node
         node = ast_arena%nodes(handle%node_id)
-    end function get_ast_node
+    end function get_ast_node_impl
 
     ! Validate AST handle
     function is_valid_ast_handle(handle) result(is_valid)
@@ -481,30 +501,30 @@ contains
     end function ast_arena_get_free_stats
 
     ! Public interface: Free AST node from arena
-    function free_ast_node(ast_arena, handle) result(free_result)
+    function free_ast_node_impl(ast_arena, handle) result(free_result)
         type(ast_arena_core_t), intent(inout) :: ast_arena
         type(ast_handle_t), intent(in) :: handle
         type(ast_free_result_t) :: free_result
 
         free_result = ast_arena%free_node(handle)
-    end function free_ast_node
+    end function free_ast_node_impl
 
     ! Public interface: Check if node is active
-    function is_node_active(ast_arena, handle) result(is_active)
+    function is_node_active_impl(ast_arena, handle) result(is_active)
         type(ast_arena_core_t), intent(inout) :: ast_arena
         type(ast_handle_t), intent(in) :: handle
         logical :: is_active
 
         is_active = ast_arena%is_active(handle)
-    end function is_node_active
+    end function is_node_active_impl
 
     ! Public interface: Get freeing statistics
-    function get_free_statistics(ast_arena) result(stats)
+    function get_free_statistics_impl(ast_arena) result(stats)
         type(ast_arena_core_t), intent(in) :: ast_arena
         type(ast_arena_stats_t) :: stats
 
         stats = ast_arena%get_free_stats()
-    end function get_free_statistics
+    end function get_free_statistics_impl
 
     ! Pop slot from freelist or allocate new one
     function pop_slot(arena) result(slot_id)

@@ -22,9 +22,17 @@ module ast_traversal_utils
 
     public :: traverse_callback
 
+    interface find_nodes_by_type
+        module procedure find_nodes_by_type_impl
+    end interface find_nodes_by_type
+
+    interface get_children
+        module procedure get_children_impl
+    end interface get_children
+
 contains
 
-    function find_nodes_by_type(arena, root_index, node_type_name) &
+    function find_nodes_by_type_impl(arena, root_index, node_type_name) &
         result(node_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -38,16 +46,16 @@ contains
         allocate (temp_indices(arena%compat_size))
 
         call collect_matching_nodes(arena, root_index, node_type_name, &
-                                     temp_indices, count)
+                                    temp_indices, count)
 
         allocate (node_indices(count))
         do i = 1, count
             node_indices(i) = temp_indices(i)
         end do
-    end function find_nodes_by_type
+    end function find_nodes_by_type_impl
 
     recursive subroutine collect_matching_nodes(arena, node_index, &
-                                                 node_type_name, indices, count)
+                                                node_type_name, indices, count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: node_type_name
@@ -68,7 +76,7 @@ contains
         children = arena%get_children(node_index)
         do i = 1, size(children)
             call collect_matching_nodes(arena, children(i), node_type_name, &
-                                         indices, count)
+                                        indices, count)
         end do
     end subroutine collect_matching_nodes
 
@@ -123,13 +131,13 @@ contains
         end do
     end function has_child_of_type
 
-    function get_children(arena, node_index) result(child_indices)
+    function get_children_impl(arena, node_index) result(child_indices)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, allocatable :: child_indices(:)
 
         child_indices = arena%get_children(node_index)
-    end function get_children
+    end function get_children_impl
 
     subroutine traverse_ast(arena, root_index, callback, user_data)
         type(ast_arena_t), intent(in) :: arena
