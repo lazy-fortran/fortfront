@@ -1,4 +1,6 @@
 program test_issue_1816_multiple_returns
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
+                                            iostat_eor
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -22,6 +24,8 @@ program test_issue_1816_multiple_returns
     end if
 
 contains
+
+    include '../../common/cli_io_reader.inc'
 
     logical function test_result_variable_detection()
         character(len=:), allocatable :: source
@@ -193,21 +197,13 @@ contains
     subroutine read_example(filepath, content)
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character(len=1), allocatable :: buffer(:)
+        integer :: status
 
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=stat) buffer
-        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
+        call read_all_stdin_or_file(.true., filepath, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A,A)') 'FAIL: failed to read ', trim(filepath)
+            error stop 1
+        end if
     end subroutine read_example
 
 end program test_issue_1816_multiple_returns
