@@ -28,6 +28,17 @@ contains
         cst_index = 0
         if (ast_index <= 0) return
         if (.not. allocated(cst_arena%nodes)) return
+        if (allocated(cst_arena%ast_to_cst)) then
+            if (ast_index <= size(cst_arena%ast_to_cst)) then
+                cst_index = cst_arena%ast_to_cst(ast_index)
+                if (cst_index >= 1 .and. cst_index <= cst_arena%size) then
+                    if (cst_arena%nodes(cst_index)%ast_link == ast_index) then
+                        return
+                    end if
+                end if
+                cst_index = 0
+            end if
+        end if
 
         do i = 1, cst_arena%size
             if (cst_arena%nodes(i)%ast_link == ast_index) then

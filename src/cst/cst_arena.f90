@@ -17,6 +17,7 @@ module cst_arena
     type :: cst_arena_t
         type(cst_node_t), allocatable :: nodes(:)  ! CST nodes storage
         integer(int64), allocatable :: generations(:)  ! Generation tracking
+        integer, allocatable :: ast_to_cst(:)  ! AST index -> CST index lookup
         integer :: size  ! Current arena size
         integer :: capacity  ! Arena capacity
         integer(int64) :: next_uid  ! Next UID to assign
@@ -25,6 +26,7 @@ module cst_arena
         procedure :: push => push_cst_node
         procedure :: get => get_cst_node
         procedure :: is_valid_handle => is_valid_cst_handle
+        procedure :: link_ast => link_cst_node_to_ast
         procedure :: clear => clear_cst_arena
         procedure :: resize => resize_cst_arena
     end type cst_arena_t
@@ -50,6 +52,57 @@ contains
         allocate (arena%generations(capacity))
         arena%generations(:) = 0_int64
     end function create_cst_arena
+
+    subroutine link_cst_node_to_ast(this, cst_index, ast_index)
+        class(cst_arena_t), intent(inout) :: this
+        integer, intent(in) :: cst_index
+        integer, intent(in) :: ast_index
+
+        integer :: existing_cst_index
+        integer :: new_size
+        integer :: old_ast_index
+        integer, allocatable :: temp_map(:)
+
+        if (cst_index < 1 .or. cst_index > this%size) return
+        if (ast_index <= 0) return
+
+        old_ast_index = this%nodes(cst_index)%ast_link
+        this%nodes(cst_index)%ast_link = ast_index
+
+        if (allocated(this%ast_to_cst)) then
+            if (old_ast_index > 0) then
+                if (old_ast_index <= size(this%ast_to_cst)) then
+                    if (this%ast_to_cst(old_ast_index) == cst_index) then
+                        this%ast_to_cst(old_ast_index) = 0
+                    end if
+                end if
+            end if
+        end if
+
+        if (.not. allocated(this%ast_to_cst)) then
+            allocate (this%ast_to_cst(ast_index))
+            this%ast_to_cst(:) = 0
+        else if (size(this%ast_to_cst) < ast_index) then
+            new_size = max(ast_index, 2 * size(this%ast_to_cst))
+            allocate (temp_map(new_size))
+            temp_map(:) = 0
+            if (size(this%ast_to_cst) > 0) then
+                temp_map(1:size(this%ast_to_cst)) = this%ast_to_cst
+            end if
+            call move_alloc(temp_map, this%ast_to_cst)
+        end if
+
+        existing_cst_index = this%ast_to_cst(ast_index)
+        if (existing_cst_index /= 0 .and. existing_cst_index /= cst_index) then
+            if (existing_cst_index >= 1 .and. existing_cst_index <= this%size) then
+                if (this%nodes(existing_cst_index)%ast_link == ast_index) then
+                    this%nodes(existing_cst_index)%ast_link = 0
+                end if
+            end if
+        end if
+
+        this%ast_to_cst(ast_index) = cst_index
+    end subroutine link_cst_node_to_ast
 
     ! Push new CST node to arena
     function push_cst_node(this, node) result(handle)
@@ -121,6 +174,7 @@ contains
         this%next_uid = 1_int64
         this%global_generation = this%global_generation + 1_int64
         this%generations(:) = 0_int64
+        if (allocated(this%ast_to_cst)) deallocate (this%ast_to_cst)
     end subroutine clear_cst_arena
 
     ! Resize arena capacity
