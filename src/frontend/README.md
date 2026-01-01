@@ -22,6 +22,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | frontend_mixed_constructs.f90 | Handle `.lf` files with embedded standard Fortran blocks |
 | frontend_program_structure.f90 | Detect program structure (module vs program vs bare statements) |
 | frontend_program_units.f90 | Program unit identification and extraction |
+| frontend_program_unit_detection.f90 | Shared strict-mode program-unit detection helpers |
 | frontend_program_unit_scanner.f90 | Scan for program unit boundaries |
 | frontend_statement_boundary.f90 | Statement boundary detection across program units |
 | frontend_statement_processing.f90 | Statement-level processing and normalization |
