@@ -8,6 +8,10 @@ module semantic_explicit_interface_checker
                                    subroutine_def_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
                               error_collection_t
+    use identifier_table, only: identifier_table_t, identifier_table_find, &
+                                identifier_table_intern, &
+                                identifier_table_init, &
+                                identifier_table_reset, identifier_id_kind
     use intrinsic_registry, only: is_intrinsic_function, is_intrinsic_subroutine
     use scope_manager, only: scope_stack_t
     use string_utils_mod, only: to_lower
@@ -17,14 +21,16 @@ module semantic_explicit_interface_checker
 
     public :: validate_explicit_interface_for_function_reference
     public :: validate_explicit_interface_for_subroutine_call
+    public :: build_explicit_interface_name_cache
 
 contains
 
     subroutine validate_explicit_interface_for_function_reference(arena, scopes, &
-                                                                  errors, expr, &
-                                                                  expr_index)
+                                                                  cache, errors, &
+                                                                  expr, expr_index)
         type(ast_arena_t), intent(in) :: arena
         type(scope_stack_t), intent(inout) :: scopes
+        type(identifier_table_t), intent(in) :: cache
         type(error_collection_t), intent(inout) :: errors
         type(call_or_subscript_node), intent(in) :: expr
         integer, intent(in) :: expr_index
@@ -38,16 +44,17 @@ contains
         proc_name = to_lower(trim(expr%name))
         if (is_intrinsic_function(proc_name)) return
         if (is_known_array_reference(scopes, proc_name)) return
-        if (has_explicit_interface_in_arena(arena, proc_name)) return
+        if (has_explicit_interface_in_cache(cache, proc_name)) return
 
         call emit_missing_explicit_interface(errors, expr%name)
     end subroutine validate_explicit_interface_for_function_reference
 
     subroutine validate_explicit_interface_for_subroutine_call(arena, scopes, &
-                                                               errors, expr, &
-                                                               expr_index)
+                                                               cache, errors, &
+                                                               expr, expr_index)
         type(ast_arena_t), intent(in) :: arena
         type(scope_stack_t), intent(inout) :: scopes
+        type(identifier_table_t), intent(in) :: cache
         type(error_collection_t), intent(inout) :: errors
         type(subroutine_call_node), intent(in) :: expr
         integer, intent(in) :: expr_index
@@ -59,7 +66,7 @@ contains
 
         proc_name = to_lower(trim(expr%name))
         if (is_intrinsic_subroutine(proc_name)) return
-        if (has_explicit_interface_in_arena(arena, proc_name)) return
+        if (has_explicit_interface_in_cache(cache, proc_name)) return
 
         call emit_missing_explicit_interface(errors, expr%name)
     end subroutine validate_explicit_interface_for_subroutine_call
@@ -82,67 +89,62 @@ contains
         is_array = mono%kind == TARRAY
     end function is_known_array_reference
 
-    logical function has_explicit_interface_in_arena(arena, name) result(found)
+    subroutine build_explicit_interface_name_cache(arena, cache)
         type(ast_arena_t), intent(in) :: arena
-        character(len=*), intent(in) :: name
+        type(identifier_table_t), intent(inout) :: cache
 
         integer :: i
 
-        found = .false.
-        if (len_trim(name) == 0) return
+        if (.not. allocated(cache%buckets)) then
+            call identifier_table_init(cache)
+        end if
+        call identifier_table_reset(cache)
 
         do i = 1, arena%size
             if (.not. allocated(arena%entries(i)%node)) cycle
 
             select type (node => arena%entries(i)%node)
             type is (interface_block_node)
-                if (interface_block_has_named_procedure(arena, node, name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_procedure_names_from_indices(arena, &
+                                                        node%procedure_indices, &
+                                                        cache)
             type is (module_node)
-                if (allocated(node%procedure_indices)) then
-                    if (indices_contain_named_procedure(arena, node%procedure_indices, &
-                                                        name)) then
-                        found = .true.
-                        return
-                    end if
-                end if
+                call cache_procedure_names_from_indices(arena, &
+                                                        node%procedure_indices, &
+                                                        cache)
             type is (program_node)
-                if (body_has_internal_procedure_interface(arena, node%body_indices, &
-                                                          name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_internal_procedure_names(arena, node%body_indices, &
+                                                    cache)
             type is (function_def_node)
-                if (body_has_internal_procedure_interface(arena, node%body_indices, &
-                                                          name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_internal_procedure_names(arena, node%body_indices, &
+                                                    cache)
             type is (subroutine_def_node)
-                if (body_has_internal_procedure_interface(arena, node%body_indices, &
-                                                          name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_internal_procedure_names(arena, node%body_indices, &
+                                                    cache)
             class default
                 cycle
             end select
         end do
-    end function has_explicit_interface_in_arena
+    end subroutine build_explicit_interface_name_cache
 
-    logical function body_has_internal_procedure_interface(arena, body_indices, &
-                                                           name) result(found)
+    logical function has_explicit_interface_in_cache(cache, name) result(found)
+        type(identifier_table_t), intent(in) :: cache
+        character(len=*), intent(in) :: name
+
+        found = .false.
+        if (len_trim(name) == 0) return
+
+        found = identifier_table_find(cache, name) > 0
+    end function has_explicit_interface_in_cache
+
+    subroutine cache_internal_procedure_names(arena, body_indices, cache)
         type(ast_arena_t), intent(in) :: arena
         integer, allocatable, intent(in) :: body_indices(:)
-        character(len=*), intent(in) :: name
+        type(identifier_table_t), intent(inout) :: cache
 
         integer :: i
         logical :: in_contains
 
-        found = .false.
-        if (len_trim(name) == 0) return
         if (.not. allocated(body_indices)) return
         if (size(body_indices) == 0) return
 
@@ -155,46 +157,23 @@ contains
             type is (contains_node)
                 in_contains = .true.
             type is (function_def_node)
-                if (.not. in_contains) cycle
-                if (node_name_matches(node%name, name)) then
-                    found = .true.
-                    return
-                end if
+                if (in_contains) call cache_allocated_name(node%name, cache)
             type is (subroutine_def_node)
-                if (.not. in_contains) cycle
-                if (node_name_matches(node%name, name)) then
-                    found = .true.
-                    return
-                end if
+                if (in_contains) call cache_allocated_name(node%name, cache)
             class default
                 cycle
             end select
         end do
-    end function body_has_internal_procedure_interface
+    end subroutine cache_internal_procedure_names
 
-    logical function interface_block_has_named_procedure(arena, iface, name) &
-        result(found)
+    subroutine cache_procedure_names_from_indices(arena, indices, cache)
         type(ast_arena_t), intent(in) :: arena
-        type(interface_block_node), intent(in) :: iface
-        character(len=*), intent(in) :: name
-
-        found = .false.
-        if (.not. allocated(iface%procedure_indices)) return
-        if (size(iface%procedure_indices) == 0) return
-
-        found = indices_contain_named_procedure(arena, iface%procedure_indices, name)
-    end function interface_block_has_named_procedure
-
-    logical function indices_contain_named_procedure(arena, indices, name) &
-        result(found)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: indices(:)
-        character(len=*), intent(in) :: name
+        integer, allocatable, intent(in) :: indices(:)
+        type(identifier_table_t), intent(inout) :: cache
 
         integer :: i
 
-        found = .false.
-        if (len_trim(name) == 0) return
+        if (.not. allocated(indices)) return
         if (size(indices) == 0) return
 
         do i = 1, size(indices)
@@ -203,56 +182,48 @@ contains
 
             select type (proc => arena%entries(indices(i))%node)
             type is (function_def_node)
-                if (node_name_matches(proc%name, name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_allocated_name(proc%name, cache)
             type is (subroutine_def_node)
-                if (node_name_matches(proc%name, name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_allocated_name(proc%name, cache)
             type is (module_procedure_node)
-                if (module_procedure_has_name(proc, name)) then
-                    found = .true.
-                    return
-                end if
+                call cache_module_procedure_names(proc, cache)
             class default
                 cycle
             end select
         end do
-    end function indices_contain_named_procedure
+    end subroutine cache_procedure_names_from_indices
 
-    logical function module_procedure_has_name(node, name) result(found)
-        type(module_procedure_node), intent(in) :: node
-        character(len=*), intent(in) :: name
+    subroutine cache_module_procedure_names(proc, cache)
+        type(module_procedure_node), intent(in) :: proc
+        type(identifier_table_t), intent(inout) :: cache
 
         integer :: i
         character(len=:), allocatable :: lowered
+        integer(identifier_id_kind) :: interned_id
 
-        found = .false.
-        if (len_trim(name) == 0) return
-        if (.not. allocated(node%procedure_names)) return
-        if (size(node%procedure_names) == 0) return
+        if (.not. allocated(proc%procedure_names)) return
+        if (size(proc%procedure_names) == 0) return
 
-        do i = 1, size(node%procedure_names)
-            lowered = to_lower(trim(node%procedure_names(i)%s))
-            if (lowered == name) then
-                found = .true.
-                return
-            end if
+        do i = 1, size(proc%procedure_names)
+            lowered = to_lower(trim(proc%procedure_names(i)%s))
+            if (len_trim(lowered) == 0) cycle
+            interned_id = identifier_table_intern(cache, lowered)
         end do
-    end function module_procedure_has_name
+    end subroutine cache_module_procedure_names
 
-    logical function node_name_matches(node_name, name) result(matches)
+    subroutine cache_allocated_name(node_name, cache)
         character(len=:), allocatable, intent(in) :: node_name
-        character(len=*), intent(in) :: name
+        type(identifier_table_t), intent(inout) :: cache
 
-        matches = .false.
+        character(len=:), allocatable :: lowered
+        integer(identifier_id_kind) :: interned_id
+
         if (.not. allocated(node_name)) return
-        if (len_trim(node_name) == 0) return
-        if (to_lower(trim(node_name)) == name) matches = .true.
-    end function node_name_matches
+        lowered = to_lower(trim(node_name))
+        if (len_trim(lowered) == 0) return
+
+        interned_id = identifier_table_intern(cache, lowered)
+    end subroutine cache_allocated_name
 
     subroutine emit_missing_explicit_interface(errors, original_name)
         type(error_collection_t), intent(inout) :: errors

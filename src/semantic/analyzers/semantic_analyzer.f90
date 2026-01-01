@@ -70,6 +70,7 @@ module semantic_analyzer
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     use type_hierarchy, only: type_hierarchy_t, create_type_hierarchy
     use call_graph_signatures_mod, only: signatures_map_t, create_signatures_map
+    use identifier_table, only: identifier_table_t
     use semantic_call_signature_collector, only: collect_call_signature, &
                                                  collect_subroutine_signature
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
@@ -93,6 +94,9 @@ module semantic_analyzer
         type(type_annotation_t), allocatable :: parser_type_hints(:)
         type(type_hierarchy_t) :: type_hierarchy
         type(signatures_map_t) :: signatures
+        type(identifier_table_t) :: explicit_interface_procedure_names
+        integer :: explicit_interface_cache_arena_size = 0
+        logical :: explicit_interface_cache_valid = .false.
     contains
         procedure :: get_context_name => semantic_get_context_name
         procedure :: clone_context => semantic_clone_context

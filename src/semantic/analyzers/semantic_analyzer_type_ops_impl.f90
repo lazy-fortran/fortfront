@@ -81,6 +81,11 @@ contains
         copy%operating_mode = this%operating_mode
         copy%respect_implicit_none = this%respect_implicit_none
         copy%signatures = this%signatures
+        copy%explicit_interface_procedure_names = &
+            this%explicit_interface_procedure_names
+        copy%explicit_interface_cache_arena_size = &
+            this%explicit_interface_cache_arena_size
+        copy%explicit_interface_cache_valid = this%explicit_interface_cache_valid
     end subroutine semantic_context_deep_copy
 
     module subroutine semantic_context_assign(lhs, rhs)
@@ -95,6 +100,11 @@ contains
         lhs%operating_mode = rhs%operating_mode
         lhs%respect_implicit_none = rhs%respect_implicit_none
         lhs%signatures = rhs%signatures
+        lhs%explicit_interface_procedure_names = &
+            rhs%explicit_interface_procedure_names
+        lhs%explicit_interface_cache_arena_size = &
+            rhs%explicit_interface_cache_arena_size
+        lhs%explicit_interface_cache_valid = rhs%explicit_interface_cache_valid
     end subroutine semantic_context_assign
 
     module function semantic_context_has_errors(this) result(has_errors)
