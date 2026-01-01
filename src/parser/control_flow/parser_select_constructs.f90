@@ -136,6 +136,7 @@ contains
         integer :: expr_index, default_index
         integer, allocatable :: case_indices(:)
         integer :: case_count, line, column
+        character(len=:), allocatable :: keyword
         character(len=20), dimension(2) :: end_keywords
         type(statement_callbacks_t) :: callbacks
         logical :: values_ok
@@ -193,7 +194,9 @@ contains
             case_token = parser%peek()
 
             if (case_token%kind == TK_KEYWORD) then
-                if (case_token%text == "case") then
+                keyword = trim(to_lower(case_token%text))
+                select case (keyword)
+                case ("case")
                     ! Parse case block
                     block
                         type(token_t) :: value_token
@@ -213,7 +216,7 @@ contains
                         end do
 
                         if (value_token%kind == TK_KEYWORD .and. &
-                            value_token%text == "default") then
+                            trim(to_lower(value_token%text)) == "default") then
                             value_token = parser%consume()  ! consume default
 
                             ! Skip rest of current line
@@ -298,23 +301,32 @@ contains
                             end if
                         end if
                     end block
-                else if (case_token%text == "end") then
-                    ! Check for end select
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == &
-                            TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == &
-                            "select") then
-                            ! Found end select, consume both tokens and exit
-                            case_token = parser%consume()  ! consume end
-                            case_token = parser%consume()  ! consume select
+                case ("end")
+                    ! Check for end select (skip whitespace/comments)
+                    block
+                        type(token_t) :: next_token
+
+                        case_token = parser%consume()  ! consume end
+
+                        next_token = parser%peek()
+                        do while (next_token%kind == TK_WHITESPACE .or. &
+                                  next_token%kind == TK_COMMENT .or. &
+                                  next_token%kind == TK_NEWLINE)
+                            next_token = parser%consume()
+                            if (parser%is_at_end()) exit
+                            next_token = parser%peek()
+                        end do
+
+                        if (next_token%kind == TK_KEYWORD .and. &
+                            trim(to_lower(next_token%text)) == "select") then
+                            next_token = parser%consume()  ! consume select
                             exit
                         end if
-                    end if
-                else
+                    end block
+                case default
                     ! Other keyword, skip
                     parser%current_token = parser%current_token + 1
-                end if
+                end select
             else
                 ! Not a keyword, skip
                 parser%current_token = parser%current_token + 1
