@@ -13,8 +13,11 @@ This directory handles parsing of executable statements: assignments, I/O operat
 | parser_statement_utilities.f90 | Statement parsing utilities |
 | parser_statement_callbacks.f90 | Callback interface for statement processing |
 | parser_basic_statement_module.f90 | Basic statement parsing: continue, stop, return |
-| parser_execution_statements.f90 | Executable statement parsing dispatcher |
-| parser_io_statements.f90 | I/O statement parsing: read, write, print, open, close |
+| parser_execution_statements.f90 | Include wrapper for executable statement dispatcher |
+| parser_execution_statements_module.inc | Executable statement parsing dispatcher implementation |
+| parser_io_statements.f90 | Include wrapper for I/O statement parsing |
+| parser_io_statements_common.inc | I/O parsing helpers and implied do parsing |
+| parser_io_statements_parsers.inc | I/O statement parsing: read, write, print, open, close |
 | parser_intrinsic_statements.f90 | Intrinsic statement parsing |
 | parser_external_statements.f90 | External statement parsing (EXTERNAL attribute) |
 | parser_legacy_statements.f90 | Legacy Fortran statement parsing (goto, computed goto) |

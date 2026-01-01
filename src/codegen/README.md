@@ -78,7 +78,10 @@ Program and module structure generation with headers, bodies, and variables.
 | `codegen_program_generation.f90` | Program structure generation |
 | `codegen_program_header.f90` | Program/module/function statements |
 | `codegen_program_body.f90` | Statement emission and internal procedures |
-| `codegen_program_variables.f90` | Variable declaration sections |
+| `codegen_program_variables.f90` | Include wrapper for variable declaration sections |
+| `codegen_program_variables_collect.inc` | Collect declarations and uses |
+| `codegen_program_variables_analysis.inc` | Infer used identifiers and types |
+| `codegen_program_variables_emit.inc` | Emit declaration blocks |
 | `codegen_program_decl_utils.f90` | Program declaration utilities |
 | `codegen_module_generation.f90` | Module structure generation |
 

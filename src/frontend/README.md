@@ -14,7 +14,8 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
 | frontend_pass_manager.f90 | Configurable pass manager for transformation phases |
 | frontend_final_passes.f90 | Pass implementations for semantic, standardization, monomorphization, codegen |
-| frontend_transformation_structure.f90 | Program structure transformation (wrap bare statements in program) |
+| frontend_transformation_structure.f90 | Include wrapper for program structure transformation |
+| frontend_transformation_structure.inc | Program structure transformation implementation (wrap bare statements in program) |
 | frontend_transformation_analysis.f90 | Semantic analysis integration and coordination |
 | frontend_transformation_semantics.f90 | Semantic phase coordination |
 | frontend_transformation_common.f90 | Shared transformation utilities |
