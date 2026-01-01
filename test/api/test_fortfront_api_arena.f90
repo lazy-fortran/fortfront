@@ -54,7 +54,8 @@ contains
             end if
 
             if (arena%capacity <= 0) then
-                print *, '  FAIL: Arena should have positive capacity, got', arena%capacity
+                print *, '  FAIL: Arena should have positive capacity, got', &
+                    arena%capacity
                 test_arena_creation = .false.
                 return
             end if
@@ -85,7 +86,8 @@ contains
             end if
 
             if (get_node_type_at(arena, lit_index) /= "literal") then
-                print *, '  FAIL: Expected literal node type, got ', get_node_type_at(arena, lit_index)
+                print *, '  FAIL: Expected literal node type, got ', &
+                    get_node_type_at(arena, lit_index)
                 test_node_access = .false.
                 return
             end if
@@ -98,22 +100,11 @@ contains
             end if
 
             if (get_node_type_at(arena, id_index) /= "identifier") then
-                print *, '  FAIL: Expected identifier node type, got ', get_node_type_at(arena, id_index)
+                print *, '  FAIL: Expected identifier node type, got ', &
+                    get_node_type_at(arena, id_index)
                 test_node_access = .false.
                 return
             end if
-
-            ! Test invalid index - skip for now due to deallocation issues
-            ! print *, '  DEBUG: Testing invalid index...'
-            ! print *, '  DEBUG: Arena size =', arena%size
-            ! if (allocated(node)) deallocate(node)  ! Clean up previous allocation
-            ! node = get_node(arena, 999)
-            ! print *, '  DEBUG: Invalid node allocated =', allocated(node)
-            ! if (allocated(node)) then
-            !     print *, '  FAIL: Should not get node for invalid index'
-            !     test_node_access = .false.
-            !     return
-            ! end if
 
             print *, '  PASS: Node access'
         end block
@@ -169,7 +160,8 @@ contains
                 select type (prog_node => arena%entries(prog_index)%node)
                 type is (program_node)
                     if (size(prog_node%body_indices) /= 1) then
-                        print *, '  FAIL: Expected 1 body index, got', size(prog_node%body_indices)
+                        print *, '  FAIL: Expected 1 body index, got', &
+                            size(prog_node%body_indices)
                         test_parent_child_navigation = .false.
                         return
                     end if
