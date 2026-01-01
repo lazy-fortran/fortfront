@@ -82,6 +82,7 @@ gfortran output.f90 -o test
 - `derived_type_*.f90` - Derived type examples
 - `legacy_*.f90` - Legacy Fortran features
 - `issue_*.f90` - Issue-specific standard Fortran examples
+- Argument type validation (strict mode): `issue_2593_call_argument_type_mismatch.f90`
 - Regression coverage includes `duplicate_var_decl_regression.f90` for preventing
   auto-generated duplicate local declarations
 - Program scaffold preservation: `program_scaffold_preserve.f90`,

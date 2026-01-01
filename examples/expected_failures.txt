@@ -43,3 +43,4 @@ issue_1827_submodule_with_contents.f90  # LIMITATION: submodule needs parent mod
 
 issue_2459_missing_implicit_type.f90  # ERROR-TEST: undeclared loop variable with implicit none (#2459)
 data_statement_scalar_upgrade.f90  # ERROR-TEST: DATA with more values than variables (#2596)
+issue_2593_call_argument_type_mismatch.f90  # ERROR-TEST: strict mode arg types (#2593)
