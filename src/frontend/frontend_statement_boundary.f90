@@ -113,12 +113,14 @@ contains
         first_token = next_significant_token_index(tokens, where_index + 1)
         if (first_token == 0) return
 
-        if (tokens(first_token)%kind == TK_OPERATOR .and. &
-            tokens(first_token)%text == "(") then
-            is_inline = inline_where_parenthetical(tokens, first_token + 1)
-        else
-            is_inline = inline_where_colon_variant(tokens, first_token)
+        if (tokens(first_token)%kind == TK_OPERATOR) then
+            if (tokens(first_token)%text == "(") then
+                is_inline = inline_where_parenthetical(tokens, first_token + 1)
+                return
+            end if
         end if
+
+        is_inline = inline_where_colon_variant(tokens, first_token)
     end function is_inline_where_statement
 
     pure logical function is_inline_forall_statement(tokens, forall_index) &
@@ -133,7 +135,8 @@ contains
         idx = next_significant_token_index(tokens, forall_index + 1)
         if (idx == 0) return
 
-        if (tokens(idx)%kind /= TK_OPERATOR .or. tokens(idx)%text /= "(") return
+        if (tokens(idx)%kind /= TK_OPERATOR) return
+        if (tokens(idx)%text /= "(") return
 
         depth = 1
         idx = idx + 1
@@ -168,11 +171,20 @@ contains
         integer, intent(in) :: start_pos
 
         idx = start_pos
-        do while (idx <= size(tokens) .and. &
-                  (tokens(idx)%kind == TK_NEWLINE .or. &
-                   (tokens(idx)%kind == TK_OPERATOR .and. &
-                    tokens(idx)%text == ";")))
-            idx = idx + 1
+        do while (idx <= size(tokens))
+            if (tokens(idx)%kind == TK_NEWLINE) then
+                idx = idx + 1
+                cycle
+            end if
+
+            if (tokens(idx)%kind == TK_OPERATOR) then
+                if (tokens(idx)%text == ";") then
+                    idx = idx + 1
+                    cycle
+                end if
+            end if
+
+            exit
         end do
     end function find_statement_start
 
@@ -193,11 +205,12 @@ contains
         case ("if")
             max_idx = min(stmt_start + 20, size(tokens))
             do i = stmt_start + 1, max_idx
-                if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == &
-                    "then") then
-                    is_multiline = .true.
-                    nesting_level = 1
-                    return
+                if (tokens(i)%kind == TK_KEYWORD) then
+                    if (tokens(i)%text == "then") then
+                        is_multiline = .true.
+                        nesting_level = 1
+                        return
+                    end if
                 else if (tokens(i)%kind == TK_NEWLINE) then
                     return
                 end if
@@ -218,12 +231,13 @@ contains
                         is_multiline = .true.
                         nesting_level = 1
                         return
-                    else if (tokens(i)%kind == TK_KEYWORD .and. &
-                             (tokens(i)%text == "end" .or. &
-                              tokens(i)%text == "elsewhere")) then
-                        is_multiline = .true.
-                        nesting_level = 1
-                        return
+                    else if (tokens(i)%kind == TK_KEYWORD) then
+                        if (tokens(i)%text == "end" .or. &
+                            tokens(i)%text == "elsewhere") then
+                            is_multiline = .true.
+                            nesting_level = 1
+                            return
+                        end if
                     end if
                 end do
             end if
@@ -360,10 +374,11 @@ contains
 
         limit = min(idx + 20, size(tokens))
         do j = idx + 1, limit
-            if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == &
-                "then") then
-                nesting_level = nesting_level + 1
-                return
+            if (tokens(j)%kind == TK_KEYWORD) then
+                if (tokens(j)%text == "then") then
+                    nesting_level = nesting_level + 1
+                    return
+                end if
             else if (tokens(j)%kind == TK_NEWLINE) then
                 return
             end if
@@ -380,12 +395,13 @@ contains
 
         found_end = .false.
         if (idx + 1 <= size(tokens)) then
-            if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
-                tokens(idx + 1)%text == "if") then
-                call try_close_construct(tokens, stmt_start, "if", idx + 1, &
-                                         nesting_level, stmt_end, found_end, &
-                                         .false.)
-                if (found_end) return
+            if (tokens(idx + 1)%kind == TK_KEYWORD) then
+                if (tokens(idx + 1)%text == "if") then
+                    call try_close_construct(tokens, stmt_start, "if", idx + 1, &
+                                             nesting_level, stmt_end, found_end, &
+                                             .false.)
+                    if (found_end) return
+                end if
             end if
         end if
 

@@ -86,10 +86,11 @@ contains
                     call find_statement_boundary(tokens, look_ahead, merged_start, &
                                                  merged_end)
                     if (merged_start == look_ahead) then
-                        if (tokens(merged_start)%kind == TK_KEYWORD .and. &
-                            (tokens(merged_start)%text == "function" .or. &
-                             tokens(merged_start)%text == "subroutine")) then
-                            stmt_end = merged_end
+                        if (tokens(merged_start)%kind == TK_KEYWORD) then
+                            if (tokens(merged_start)%text == "function" .or. &
+                                tokens(merged_start)%text == "subroutine") then
+                                stmt_end = merged_end
+                            end if
                         end if
                     end if
                 end if

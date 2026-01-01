@@ -84,9 +84,11 @@ contains
 
         do i = stmt_start, stmt_end
             if (tokens(i)%kind == TK_KEYWORD) saw_keyword = .true.
-            if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
-                eq_pos = i
-                exit
+            if (tokens(i)%kind == TK_OPERATOR) then
+                if (tokens(i)%text == "=") then
+                    eq_pos = i
+                    exit
+                end if
             end if
         end do
 
@@ -221,4 +223,3 @@ contains
     end function is_prefix_only_statement
 
 end module frontend_statement_token_parsing
-
