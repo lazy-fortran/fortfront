@@ -7,6 +7,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
     use semantic_type_operations, only: get_common_type
     use ast_nodes_misc, only: data_statement_node
     use semantic_explicit_interface_checker, only: &
+        build_explicit_interface_name_cache, &
         validate_explicit_interface_for_function_reference, &
         validate_explicit_interface_for_subroutine_call
     use semantic_strict_argument_type_checker, only: &

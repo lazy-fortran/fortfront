@@ -59,6 +59,11 @@ program test_strict_explicit_interface_requirement
     call transform_with_context(source, output, error_msg, ctx)
     call assert_no_error(error_msg)
 
+    call read_example('examples/f90/call_graph_module_program_scopes.f90', source)
+    ctx%operating_mode = OPERATING_MODE_STRICT
+    call transform_with_context(source, output, error_msg, ctx)
+    call assert_no_error(error_msg)
+
     print *, 'PASS: strict mode requires explicit interfaces'
 
 contains

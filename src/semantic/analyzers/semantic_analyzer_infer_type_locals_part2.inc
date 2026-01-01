@@ -441,8 +441,10 @@
             call collect_call_signature(this%signatures, arena, expr, node_type, &
                                         node_index)
             if (this%operating_mode == OPERATING_MODE_STRICT) then
+                call ensure_explicit_interface_cache()
                 call validate_explicit_interface_for_function_reference( &
-                    arena, this%scopes, this%errors, expr, node_index)
+                    arena, this%scopes, this%explicit_interface_procedure_names, &
+                    this%errors, expr, node_index)
                 call validate_strict_argument_types_for_function_reference( &
                     arena, this%errors, expr, node_index)
             end if
@@ -461,9 +463,11 @@
                         call collect_subroutine_signature(this%signatures, arena, &
                                                           call_expr, node_index)
                         if (this%operating_mode == OPERATING_MODE_STRICT) then
+                            call ensure_explicit_interface_cache()
                             call validate_explicit_interface_for_subroutine_call( &
-                                arena, this%scopes, this%errors, call_expr, &
-                                node_index)
+                                arena, this%scopes, &
+                                this%explicit_interface_procedure_names, &
+                                this%errors, call_expr, node_index)
                             call validate_strict_argument_types_for_subroutine_call( &
                                 arena, this%errors, call_expr, node_index)
                         end if
@@ -474,6 +478,19 @@
             node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
             call finalize_node(node_index, node_type)
         end subroutine finalize_subroutine_call
+
+        subroutine ensure_explicit_interface_cache()
+            if (this%explicit_interface_cache_valid) then
+                if (this%explicit_interface_cache_arena_size == arena%size) then
+                    return
+                end if
+            end if
+
+            call build_explicit_interface_name_cache( &
+                arena, this%explicit_interface_procedure_names)
+            this%explicit_interface_cache_arena_size = arena%size
+            this%explicit_interface_cache_valid = .true.
+        end subroutine ensure_explicit_interface_cache
 
         subroutine finalize_do_loop_node(node_index)
             integer, intent(in) :: node_index
