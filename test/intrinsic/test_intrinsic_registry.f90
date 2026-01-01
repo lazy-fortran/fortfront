@@ -3,6 +3,7 @@ program test_intrinsic_registry
     implicit none
 
     call test_intrinsic_function_identification()
+    call test_intrinsic_subroutine_identification()
     call test_intrinsic_signature_retrieval()
     call test_case_insensitive_lookup()
     call test_non_intrinsic_functions()
@@ -89,6 +90,38 @@ contains
 
         print *, "  ✓ Intrinsic function identification tests passed"
     end subroutine test_intrinsic_function_identification
+
+    subroutine test_intrinsic_subroutine_identification()
+        print *, "Testing intrinsic subroutine identification..."
+
+        if (.not. is_intrinsic_subroutine("cpu_time")) then
+            print *, "cpu_time should be intrinsic"
+            stop 1
+        end if
+        if (.not. is_intrinsic_subroutine("random_number")) then
+            print *, "random_number should be intrinsic"
+            stop 1
+        end if
+        if (.not. is_intrinsic_subroutine("system_clock")) then
+            print *, "system_clock should be intrinsic"
+            stop 1
+        end if
+        if (.not. is_intrinsic_subroutine("move_alloc")) then
+            print *, "move_alloc should be intrinsic"
+            stop 1
+        end if
+
+        if (.not. is_intrinsic_subroutine("CPU_TIME")) then
+            print *, "CPU_TIME should be intrinsic (case-insensitive)"
+            stop 1
+        end if
+        if (is_intrinsic_subroutine("my_subroutine")) then
+            print *, "my_subroutine should not be intrinsic"
+            stop 1
+        end if
+
+        print *, "  ✓ Intrinsic subroutine identification tests passed"
+    end subroutine test_intrinsic_subroutine_identification
 
     subroutine test_intrinsic_signature_retrieval()
         character(len=:), allocatable :: signature
