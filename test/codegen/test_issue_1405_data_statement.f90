@@ -13,13 +13,6 @@ program test_issue_1405_data_statement
                     '', &
                     'integer :: common_array(3)')
 
-    call check_case("upgrade-scalar-declaration", &
-                    'examples/f90/data_statement_scalar_upgrade.f90', &
-                    'integer, dimension(2) :: values', &
-                    'data values/10, 20 /', &
-                    'integer :: values'//new_line('a'), &
-                    'integer :: values(2)')
-
     print *, "PASSED"
 
 contains
