@@ -7,22 +7,7 @@ All type assignments go through `create_validated_type()` for validation:
 ```bash
 fortfront examples/lf/docs_type_validation_calculate.lf
 ```
-Output:
-```fortran
-program main
-    implicit none
-    real :: val
-    val = calculate(1.0, 2.0)
-contains
-
-real function calculate(a, b) result(res)
-    implicit none
-    real, intent(in) :: a
-    real, intent(in) :: b
-    res = a + b
-end function calculate
-end program main
-```
+Output: `examples/f90/docs_type_validation_calculate_out.f90` (see `real function calculate(a, b) result(res)`)
 
 ## Character Type Safety
 
@@ -40,7 +25,7 @@ Integer + real operations handled safely:
 ```bash
 fortfront examples/lf/docs_mixed_type_operations.lf
 ```
-Output: `integer, intent(in) :: i` and `real, intent(in) :: x`, with `real` return type
+Output: `examples/f90/docs_mixed_type_operations_out.f90` (see `integer, intent(in) :: i` and `real, intent(in) :: x`)
 
 ## Validation Contexts
 

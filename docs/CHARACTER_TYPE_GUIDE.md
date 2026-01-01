@@ -7,14 +7,7 @@ fortfront calculates character lengths from string literals:
 ```bash
 fortfront examples/lf/docs_character_length_inference.lf
 ```
-Output:
-```fortran
-program main
-    implicit none
-    character(len=5) :: name
-    name = "hello"
-end program main
-```
+Output: `examples/f90/docs_character_length_inference_out.f90` (see `character(len=5) :: name`)
 
 ## String Concatenation
 
@@ -23,14 +16,7 @@ Combined lengths are calculated automatically:
 ```bash
 fortfront examples/lf/docs_string_concatenation.lf
 ```
-Output:
-```fortran
-program main
-    implicit none
-    character(len=11) :: message
-    message = "hello" //" world"
-end program main
-```
+Output: `examples/f90/docs_string_concatenation_out.f90` (see `character(len=11) :: message`)
 
 ## Reassignment With Different Lengths
 
@@ -40,21 +26,13 @@ to the longest value:
 ```bash
 fortfront examples/lf/docs_variable_length_strings.lf
 ```
-Output:
-```fortran
-program main
-    implicit none
-    character(len=5) :: message
-    message = "hello"
-    message = "hi"
-end program main
-```
+Output: `examples/f90/docs_variable_length_strings_out.f90` (see `character(len=5) :: message`)
 
 Same-length assignments use fixed-length:
 ```bash
 fortfront examples/lf/docs_fixed_length_reassignment.lf
 ```
-Output: `character(len=3) :: code`
+Output: `examples/f90/docs_fixed_length_reassignment_out.f90` (see `character(len=3) :: code`)
 
 ## Character Arrays
 
@@ -63,14 +41,7 @@ Arrays use maximum element length with padding:
 ```bash
 fortfront examples/lf/docs_character_arrays.lf
 ```
-Output:
-```fortran
-program main
-    implicit none
-    character(len=7) :: names(3)
-    names = ["alice  ", "bob    ", "charlie"]
-end program main
-```
+Output: `examples/f90/docs_character_arrays_out.f90` (see `character(len=7) :: names(3)`)
 
 ## Limitation
 

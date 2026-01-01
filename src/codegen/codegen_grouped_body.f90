@@ -49,10 +49,11 @@ contains
         code = code // indent_lines(stmt_code, indent) // new_line('A')
     end subroutine process_single_statement
 
-    subroutine process_procedure_def(arena, idx, indent_str, in_contains, i, &
-                                     code)
+    subroutine process_procedure_def(arena, idx, indent, indent_str, in_contains, &
+                                     i, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
+        integer, intent(in) :: indent
         character(len=*), intent(in) :: indent_str
         logical, intent(in) :: in_contains
         integer, intent(in) :: i
@@ -62,7 +63,7 @@ contains
         if (in_contains .and. i > 1) code = code // new_line('A')
         stmt_code = generate_code_from_arena(arena, idx)
         if (in_contains) then
-            code = code // stmt_code // new_line('A')
+            code = code // indent_lines(stmt_code, indent) // new_line('A')
         else
             code = code // indent_str // stmt_code // new_line('A')
         end if
@@ -104,16 +105,17 @@ contains
         i = i + 1
     end subroutine handle_end_statement
 
-    subroutine handle_procedure_entry(arena, body_indices, i, indent_str, &
+    subroutine handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
                                       in_contains_section, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
+        integer, intent(in) :: indent
         character(len=*), intent(in) :: indent_str
         logical, intent(in) :: in_contains_section
         character(len=:), allocatable, intent(inout) :: code
 
-        call process_procedure_def(arena, body_indices(i), indent_str, &
+        call process_procedure_def(arena, body_indices(i), indent, indent_str, &
                                    in_contains_section, i, code)
         i = i + 1
     end subroutine handle_procedure_entry
@@ -193,11 +195,11 @@ contains
             call handle_end_statement(i)
 
         type is (function_def_node)
-            call handle_procedure_entry(arena, body_indices, i, indent_str, &
+            call handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
                                         in_contains_section, code)
 
         type is (subroutine_def_node)
-            call handle_procedure_entry(arena, body_indices, i, indent_str, &
+            call handle_procedure_entry(arena, body_indices, i, indent, indent_str, &
                                         in_contains_section, code)
 
         type is (declaration_node)
