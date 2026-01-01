@@ -201,7 +201,8 @@ contains
         end if
 
         ! Handle allocatable array assignment from function returns (Issue #2075)
-      ! When assigning from a function returning allocatable array, preserve allocatable
+        ! When assigning from a function returning allocatable array, preserve
+        ! allocatable.
         call handle_allocatable_array_assignment(arena, assignment, expr_typ)
 
         ! Force complex type for variables assigned from complex literals
@@ -217,6 +218,20 @@ contains
             end if
         end if
 
+        if (allocated(existing_scheme)) then
+            call existing_scheme%sync_mono()
+            if (existing_scheme%mono_alloc_info%needs_allocatable_string) then
+                final_type%alloc_info%needs_allocatable_string = .true.
+            end if
+            if (existing_scheme%mono_alloc_info%is_allocatable) then
+                if (final_type%kind == TARRAY) then
+                    if (.not. array_has_explicit_extents(final_type)) then
+                        final_type%alloc_info%is_allocatable = .true.
+                    end if
+                end if
+            end if
+        end if
+
         ! Update all identifier nodes in the arena with the inferred type
         ! Skip propagation for standard Fortran (input_mode == INPUT_MODE_STANDARD)
         call update_identifier_type_in_arena(arena, identifier%name, final_type, &
@@ -229,6 +244,25 @@ contains
         call set_assignment_type_fields(arena, assignment_index, &
                                         assignment%value_index, expr_typ)
     end subroutine process_identifier_assignment
+
+    recursive logical function array_has_explicit_extents(typ) &
+        result(has_explicit)
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: element_type
+
+        has_explicit = .false.
+        if (typ%kind /= TARRAY) return
+
+        if (typ%size > 0) then
+            has_explicit = .true.
+            return
+        end if
+
+        if (typ%has_args()) then
+            element_type = typ%get_arg(1)
+            has_explicit = array_has_explicit_extents(element_type)
+        end if
+    end function array_has_explicit_extents
 
     ! Get final type for assignment, handling complex literal override
     function get_final_assignment_type(arena, assignment, expr_typ) &
@@ -327,9 +361,11 @@ contains
                 type is (call_or_subscript_node)
                     ! Check if the call returns an allocatable array
                     if (value_node%inferred_type%kind == TARRAY) then
-                        if (value_node%inferred_type%alloc_info%is_allocatable) then
-                            ! Use the full array type from the function call
-                       ! This ensures expr_typ has both TARRAY kind and allocatable flag
+                        if (value_node%inferred_type%alloc_info% &
+                            is_allocatable) then
+                            ! Use the full array type from the function call.
+                            ! This ensures expr_typ has both TARRAY kind and
+                            ! allocatable flag.
                             expr_typ = value_node%inferred_type
                         end if
                     end if

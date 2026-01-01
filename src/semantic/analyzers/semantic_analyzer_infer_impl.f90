@@ -4,6 +4,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                    create_fun_type, create_poly_type, &
                                    create_type_var, TREAL, TVAR, TCOMPLEX, &
                                    TFUN, TARRAY, TLOGICAL, TINT, TCHAR
+    use error_handling, only: create_error_result, ERROR_SEMANTIC
     use semantic_type_operations, only: get_common_type
     use ast_nodes_misc, only: data_statement_node
     use semantic_explicit_interface_checker, only: &
@@ -18,6 +19,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
                                             clear_semantic_context_for_lookup, &
                                             get_type_with_stored_context
     use semantic_where_validation, only: validate_where_construct
+    use string_utils_mod, only: int_to_string
     implicit none
 
 ! Module-level context for wrapper function

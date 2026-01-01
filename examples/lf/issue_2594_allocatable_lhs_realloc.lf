@@ -1,0 +1,9 @@
+program main
+    use, intrinsic :: iso_fortran_env, only: dp => real64
+    implicit none
+
+    real(dp), allocatable :: arr(:)
+
+    arr = [1.0d0, 2.0d0, 3.0d0]
+    arr = [4.0d0, 5.0d0]
+end program main
