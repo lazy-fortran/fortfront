@@ -1,6 +1,5 @@
 program test_issue_2596_data_statement_scalar_too_many_values
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
-    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
     implicit none
 
@@ -13,8 +12,19 @@ program test_issue_2596_data_statement_scalar_too_many_values
     call read_example('examples/f90/data_statement_scalar_upgrade.f90', source)
     call transform_lazy_fortran_string(source, output, error_msg)
 
-    if (.not. allocated(output)) then
-        write (error_unit, '(A)') "FAIL: expected transformed output"
+    if (error_msg == "") then
+        write (error_unit, '(A)') "FAIL: expected semantic error"
+        error stop 1
+    end if
+
+    if (index(error_msg, "DATA statement has 2 values") == 0) then
+        write (error_unit, '(A)') "FAIL: expected error to mention value count"
+        write (error_unit, '(A)') trim(error_msg)
+        error stop 1
+    end if
+    if (index(error_msg, "scalar object values") == 0) then
+        write (error_unit, '(A)') "FAIL: expected error to mention target name"
+        write (error_unit, '(A)') trim(error_msg)
         error stop 1
     end if
 
