@@ -49,7 +49,7 @@
 
         if (ctx%operating_mode /= OPERATING_MODE_STRICT) return
 
-        name = lhs_identifier_name(arena, assignment%target_index)
+        call get_lhs_identifier_name(arena, assignment%target_index, name)
         if (.not. allocated(name)) return
 
         rhs_size = static_array_literal_size(arena, assignment%value_index)
@@ -79,10 +79,10 @@
                                    'allocate, or use infer mode'))
     end subroutine validate_strict_allocatable_lhs_reallocation
 
-    function lhs_identifier_name(arena, target_index) result(name)
+    subroutine get_lhs_identifier_name(arena, target_index, name)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: target_index
-        character(len=:), allocatable :: name
+        character(len=:), allocatable, intent(out) :: name
 
         if (target_index <= 0 .or. target_index > arena%size) return
         if (.not. allocated(arena%entries(target_index)%node)) return
@@ -94,7 +94,7 @@
         class default
             return
         end select
-    end function lhs_identifier_name
+    end subroutine get_lhs_identifier_name
 
     integer function find_containing_program_index(arena, node_index) &
         result(prog_index)
