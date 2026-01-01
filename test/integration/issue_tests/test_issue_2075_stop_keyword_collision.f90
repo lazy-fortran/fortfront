@@ -40,19 +40,7 @@ program test_issue_2075_stop_keyword_collision
         error stop 1
     end if
 
-    ! Array inference from function return type is a known limitation
-    ! TODO: Enable these checks once array type inference is fully implemented
-    ! if (index(lowered, 'integer, dimension(:), allocatable :: arr') == 0) then
-    !     write (error_unit, '(A)') 'FAIL: result array not inferred for caller'
-    !     error stop 1
-    ! end if
-    !
-    ! if (index(lowered, 'integer :: arr') > 0) then
-    !     write (error_unit, '(A)') 'FAIL: caller array inferred as scalar'
-    !     error stop 1
-    ! end if
-
-    print *, 'PASS: stop parameter preserved (array inference TODO)'
+    print *, 'PASS: stop parameter preserved'
 
 contains
 
