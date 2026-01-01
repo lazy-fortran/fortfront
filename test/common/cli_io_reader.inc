@@ -87,11 +87,11 @@
             text = transfer(buffer, text)
         end if
 
-        call strip_carriage_returns(text, status)
+        call cli_reader_strip_carriage_returns(text, status)
         if (status /= 0) return
     end subroutine read_all_from_file
 
-    subroutine strip_carriage_returns(text, status)
+    subroutine cli_reader_strip_carriage_returns(text, status)
         use, intrinsic :: iso_fortran_env, only: error_unit
         implicit none
         character(len=:), allocatable, intent(inout) :: text
@@ -123,7 +123,7 @@
         end do
 
         call move_alloc(tmp, text)
-    end subroutine strip_carriage_returns
+    end subroutine cli_reader_strip_carriage_returns
 
     subroutine read_all_from_unit(unit_num, text, status)
         use, intrinsic :: iso_fortran_env, only: error_unit, iostat_end, iostat_eor
