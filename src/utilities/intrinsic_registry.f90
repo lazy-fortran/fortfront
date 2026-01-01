@@ -22,6 +22,33 @@ module intrinsic_registry
     ! Registry storage
     type(intrinsic_signature_t), allocatable :: intrinsic_functions(:)
     logical :: registry_initialized = .false.
+    integer, parameter :: MAX_INTRINSIC_SUBROUTINE_NAME_LEN = 32
+    integer, parameter :: NUM_INTRINSIC_SUBROUTINES = 41
+    character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN), parameter :: &
+        intrinsic_subroutine_names(NUM_INTRINSIC_SUBROUTINES) = &
+        [character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN) :: &
+         "cpu_time", "date_and_time", &
+         "execute_command_line", "get_command", &
+         "get_command_argument", &
+         "get_environment_variable", "move_alloc", &
+         "random_init", "random_number", &
+         "random_seed", "system_clock", &
+         "sync_all", "sync_images", &
+         "sync_memory", "lock", "unlock", &
+         "event_post", "event_wait", &
+         "event_query", "form_team", &
+         "change_team", "end_team", &
+         "co_broadcast", "co_sum", &
+         "co_max", "co_min", "co_reduce", &
+         "co_allgather", "co_gather", &
+         "co_scatter", "atomic_define", &
+         "atomic_ref", "atomic_cas", &
+         "atomic_add", "atomic_and", &
+         "atomic_or", "atomic_xor", &
+         "atomic_fetch_add", &
+         "atomic_fetch_and", &
+         "atomic_fetch_or", &
+         "atomic_fetch_xor"]
 
 contains
 
@@ -31,16 +58,18 @@ contains
         logical, intent(out) :: is_intrinsic
         character(len=:), allocatable, intent(out) :: signature
         integer :: i
+        character(len=:), allocatable :: lowered_name
 
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate (signature)
         if (.not. allocated(intrinsic_functions)) return
+        if (len_trim(name) == 0) return
+        lowered_name = to_lower(trim(name))
 
         do i = 1, size(intrinsic_functions)
-            if (trim(to_lower(intrinsic_functions(i)%name)) == &
-                trim(to_lower(name))) then
+            if (intrinsic_functions(i)%name == lowered_name) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
                             intrinsic_functions(i)%arg_types // ")"
@@ -61,29 +90,52 @@ contains
     function is_intrinsic_subroutine(name) result(is_intrinsic)
         character(len=*), intent(in) :: name
         logical :: is_intrinsic
-        character(len=:), allocatable :: lowered
+        integer :: i
 
         is_intrinsic = .false.
         if (len_trim(name) == 0) return
+        if (len_trim(name) > MAX_INTRINSIC_SUBROUTINE_NAME_LEN) return
 
-        lowered = to_lower(trim(name))
-        select case (lowered)
-        case ("cpu_time", "date_and_time", "execute_command_line", &
-              "get_command", "get_command_argument", &
-              "get_environment_variable", "move_alloc", "random_init", &
-              "random_number", "random_seed", "system_clock", "sync_all", &
-              "sync_images", "sync_memory", "lock", "unlock", "event_post", &
-              "event_wait", "event_query", "form_team", "change_team", &
-              "end_team", "co_broadcast", "co_sum", "co_max", "co_min", &
-              "co_reduce", "co_allgather", "co_gather", "co_scatter", &
-              "atomic_define", "atomic_ref", "atomic_cas", "atomic_add", &
-              "atomic_and", "atomic_or", "atomic_xor", "atomic_fetch_add", &
-              "atomic_fetch_and", "atomic_fetch_or", "atomic_fetch_xor")
-            is_intrinsic = .true.
-        case default
-            is_intrinsic = .false.
-        end select
+        do i = 1, size(intrinsic_subroutine_names)
+            if (equals_case_insensitive_trimmed(name, &
+                                                intrinsic_subroutine_names(i))) then
+                is_intrinsic = .true.
+                return
+            end if
+        end do
     end function is_intrinsic_subroutine
+
+    pure logical function equals_case_insensitive_trimmed(text, literal) &
+        result(is_equal)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: literal
+
+        integer :: i
+        integer :: left_len, right_len
+        integer :: left_code
+        integer :: literal_code
+
+        is_equal = .false.
+        left_len = len_trim(text)
+        right_len = len_trim(literal)
+        if (left_len /= right_len) return
+        if (left_len == 0) then
+            is_equal = .true.
+            return
+        end if
+
+        do i = 1, left_len
+            left_code = iachar(text(i:i))
+            if (left_code >= iachar('A') .and. left_code <= iachar('Z')) then
+                left_code = left_code + 32
+            end if
+
+            literal_code = iachar(literal(i:i))
+            if (literal_code /= left_code) return
+        end do
+
+        is_equal = .true.
+    end function equals_case_insensitive_trimmed
 
     ! Get signature information for an intrinsic function
     function get_intrinsic_signature(name) result(signature)

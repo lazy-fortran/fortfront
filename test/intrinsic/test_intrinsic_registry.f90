@@ -9,6 +9,7 @@ program test_intrinsic_registry
     call test_case_insensitive_lookup()
     call test_non_intrinsic_functions()
     call test_registry_initialization()
+    call test_long_names_are_not_intrinsic()
 
     print *, "All intrinsic registry tests passed!"
 
@@ -350,5 +351,24 @@ contains
 
         print *, "  ✓ Registry initialization tests passed"
     end subroutine test_registry_initialization
+
+    subroutine test_long_names_are_not_intrinsic()
+        character(len=128) :: long_name
+
+        print *, "Testing long-name handling..."
+
+        long_name = repeat("a", len(long_name))
+
+        if (is_intrinsic_function(long_name)) then
+            print *, "Long function name should not be intrinsic"
+            stop 1
+        end if
+        if (is_intrinsic_subroutine(long_name)) then
+            print *, "Long subroutine name should not be intrinsic"
+            stop 1
+        end if
+
+        print *, "  ✓ Long-name handling tests passed"
+    end subroutine test_long_names_are_not_intrinsic
 
 end program test_intrinsic_registry
