@@ -143,6 +143,11 @@ contains
         ! Initialize the codegen system (idempotent)
         call initialize_codegen()
 
+        ! Reset type system arena to prevent type accumulation across transformations
+        ! CRITICAL: This prevents circular type references and slowdowns when running
+        ! multiple transformations in sequence (e.g., during test suite execution)
+        call reset_type_system()
+
         ! Obtain the shared compiler arena and reset for a clean run
         ! PERFORMANCE FIX: Initialize in-place to avoid assignment operator overhead
         if (.not. shared_arena_initialized) then
@@ -151,15 +156,6 @@ contains
         else
             call shared_arena%reset()
         end if
-
-        ! Reset type system arena to prevent type accumulation across transformations
-        ! CRITICAL: This prevents circular type references and slowdowns when running
-        ! multiple transformations in sequence (e.g., during test suite execution)
-        !
-        ! IMPORTANT: Reset the AST arena first so any nodes from the previous run
-        ! are deallocated while their inferred_type handles still reference a valid
-        ! arena generation.
-        call reset_type_system()
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(source)) then
