@@ -1,12 +1,20 @@
 program test_monomorphization_simple
     use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront, only: transform_lazy_fortran_string
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    use test_shell_commands, only: build_compile_command
     implicit none
     character(len=:), allocatable :: input, output, error_msg
     character(len=*), parameter :: tmp_file = 'fortfront_mono_simple.f90'
-    character(len=*), parameter :: compile_cmd = 'gfortran -fsyntax-only '
     integer :: module_pos, program_pos
     integer :: exit_code, unit
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    character(len=:), allocatable :: tmp_path
+    character(len=:), allocatable :: compile_cmd
 
     input = 'function add(a, b)' // new_line('A') // &
             '    add = a + b' // new_line('A') // &
@@ -50,17 +58,21 @@ program test_monomorphization_simple
         error stop 1
     end if
 
-    open (newunit=unit, file=tmp_file, status='replace', action='write')
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) error stop 'FAIL: could not create temporary directory'
+    sep = path_separator_for(temp_dir)
+    tmp_path = join_path(temp_dir, tmp_file, sep)
+
+    open (newunit=unit, file=tmp_path, status='replace', action='write')
     write (unit, '(A)') trim(output)
     close (unit)
 
-    call execute_command_line(compile_cmd // tmp_file, exitstat=exit_code, &
-                              wait=.true.)
+    compile_cmd = build_compile_command(tmp_path, '', temp_dir, is_windows)
+    call execute_command_line(compile_cmd, exitstat=exit_code, wait=.true.)
+    call cleanup_temp_directory(temp_dir, is_windows)
     if (exit_code /= 0) then
         write (error_unit, '(A)') 'gfortran rejected generated code'
-        call execute_command_line('rm -f ' // tmp_file, wait=.true.)
         error stop 1
     end if
-
-    call execute_command_line('rm -f ' // tmp_file, wait=.true.)
 end program test_monomorphization_simple

@@ -123,6 +123,7 @@ contains
             end if
         case (TVAR)
             ! Return empty string for type variables - they should be inferred
+            success = .false.
             type_str = ""
         case (TDERIVED)
             type_str = "derived_type"

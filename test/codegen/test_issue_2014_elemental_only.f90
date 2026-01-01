@@ -1,5 +1,8 @@
 program test_issue_2014_elemental_only
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -8,11 +11,25 @@ program test_issue_2014_elemental_only
     integer :: unit, io_status
     logical :: found_elemental_integer
     character(len=256) :: line
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     found_elemental_integer = .false.
 
-    input_file = 'test_issue_2014_elemental_only_input.f90'
-    output_file = 'test_issue_2014_elemental_only_output.f90'
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
+
+    input_file = join_path(temp_dir, 'test_issue_2014_elemental_only_input.f90', sep)
+    output_file = join_path(temp_dir, 'test_issue_2014_elemental_only_output.f90', &
+                            sep)
 
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'program test_elemental_function'
@@ -33,7 +50,8 @@ program test_issue_2014_elemental_only
     call compile_source(input_file, options, error_msg)
     if (len_trim(error_msg) /= 0) then
         print *, 'Compiler reported error: ', trim(error_msg)
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     open (newunit=unit, file=output_file, status='old', action='read')
@@ -53,9 +71,12 @@ program test_issue_2014_elemental_only
 
     if (.not. found_elemental_integer) then
         print *, 'FAIL: elemental integer function keywords missing in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     print *, 'PASS: ELEMENTAL-only function prefix preserved'
-    stop 0
+999 continue
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 end program test_issue_2014_elemental_only

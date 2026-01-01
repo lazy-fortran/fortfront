@@ -1,9 +1,25 @@
 program test_array_features_pipeline
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    implicit none
 
     logical :: all_passed
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     all_passed = .true.
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
 
     print *, '=== Array Features Full Pipeline Tests (RED) ==='
     print *
@@ -17,11 +33,12 @@ program test_array_features_pipeline
     print *
     if (all_passed) then
         print *, 'All pipeline tests passed!'
-        stop 0
     else
         print *, 'Some pipeline tests failed!'
-        stop 1
+        exit_code = 1
     end if
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 
 contains
 
@@ -37,14 +54,14 @@ contains
         print *, 'Testing array literals through full pipeline...'
 
         ! Create test input
-        input_file = 'test_arr_lit.lf'
+        input_file = join_path(temp_dir, 'test_arr_lit.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3]'
         write (unit, '(a)') 'print *, arr'
         close (unit)
 
         ! Compile with frontend
-        output_file = 'test_arr_lit_out.f90'
+        output_file = join_path(temp_dir, 'test_arr_lit_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -97,7 +114,7 @@ contains
         print *, 'Testing array slicing through full pipeline...'
 
         ! Create test input
-        input_file = 'test_slice.lf'
+        input_file = join_path(temp_dir, 'test_slice.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [10, 20, 30, 40, 50]'
         write (unit, '(a)') 'sub = arr(2:4)'
@@ -107,7 +124,7 @@ contains
         close (unit)
 
         ! Compile with frontend
-        output_file = 'test_slice_out.f90'
+        output_file = join_path(temp_dir, 'test_slice_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -132,7 +149,7 @@ contains
         print *, 'Testing array constructors with implied do loops...'
 
         ! Create test input
-        input_file = 'test_constructor.lf'
+        input_file = join_path(temp_dir, 'test_constructor.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'squares = [(i**2, i=1,5)]'
         write (unit, '(a)') 'evens = [(2*i, i=1,10)]'
@@ -141,7 +158,7 @@ contains
         close (unit)
 
         ! Compile with frontend
-        output_file = 'test_constructor_out.f90'
+        output_file = join_path(temp_dir, 'test_constructor_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -170,14 +187,14 @@ contains
         print *, 'Testing string concatenation through full pipeline...'
 
         ! Create test input
-        input_file = 'test_concat.lf'
+        input_file = join_path(temp_dir, 'test_concat.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'greeting = "Hello" // " " // "World"'
         write (unit, '(a)') 'print *, greeting'
         close (unit)
 
         ! Compile with frontend
-        output_file = 'test_concat_out.f90'
+        output_file = join_path(temp_dir, 'test_concat_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)

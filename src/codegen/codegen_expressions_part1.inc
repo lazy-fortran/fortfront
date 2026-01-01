@@ -1,70 +1,3 @@
-
-    ! Remove spaces immediately before string literals only
-    ! Fixes issue #2065 where space is inserted before string literals
-    ! IMPORTANT: Preserves all content inside string literals including spaces
-    function remove_spaces_from_string_literals(input) result(output)
-        character(len=*), intent(in) :: input
-        character(len=:), allocatable :: output
-        integer :: i, j, len_input
-        character :: quote_char
-        logical :: in_string, next_is_quote
-        character(len=:), allocatable :: temp
-
-        len_input = len(input)
-        if (len_input == 0) then
-            output = input
-            return
-        end if
-
-        allocate(character(len=len_input) :: temp)
-
-        in_string = .false.
-        quote_char = ' '
-        j = 0
-
-        do i = 1, len_input
-            ! Check if next character is a quote (to skip leading space)
-            next_is_quote = .false.
-            if (i < len_input .and. .not. in_string) then
-                if (input(i+1:i+1) == "'" .or. input(i+1:i+1) == '"') then
-                    next_is_quote = .true.
-                end if
-            end if
-
-            if (.not. in_string) then
-                ! Not in string
-                if (input(i:i) == "'" .or. input(i:i) == '"') then
-                    ! Start of string
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                    in_string = .true.
-                    quote_char = input(i:i)
-                else if (input(i:i) == ' ' .and. next_is_quote) then
-                    ! Skip space immediately before quote
-                    continue
-                else
-                    ! Copy everything else
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                end if
-            else
-                ! Inside string - preserve ALL characters including spaces
-                if (input(i:i) == quote_char) then
-                    ! End of string
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                    in_string = .false.
-                else
-                    ! Copy all characters inside string including spaces
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                end if
-            end if
-        end do
-
-        output = temp(1:j)
-    end function remove_spaces_from_string_literals
-
     ! Generate code for literal nodes
     function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
@@ -214,16 +147,16 @@
         ! Generate operands
         if (node%left_index > 0) then
             left_code = generate_code_from_arena(arena, node%left_index)
-            left_code = remove_spaces_from_string_literals(left_code)
+            left_code = trim(adjustl(left_code))
         else
             left_code = ""
         end if
 
         if (node%right_index > 0) then
             right_code = generate_code_from_arena(arena, node%right_index)
-            ! WORKAROUND for issue #2065: Remove spurious spaces inside string literals
-            ! caused by nested expression parsing
-            right_code = remove_spaces_from_string_literals(right_code)
+            ! Workaround for issue #2065: Remove leading whitespace that can
+            ! appear before string literals when expressions are nested.
+            right_code = trim(adjustl(right_code))
         else
             right_code = ""
         end if

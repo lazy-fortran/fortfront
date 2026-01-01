@@ -1,5 +1,9 @@
 program test_function_prefix_keywords
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    implicit none
 
     character(len=:), allocatable :: input_file, output_file
     character(len=256) :: error_msg
@@ -10,6 +14,10 @@ program test_function_prefix_keywords
     logical :: found_elemental_intent
     logical :: found_pure_intent_a, found_pure_intent_b
     character(len=256) :: line
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     found_elemental = .false.
     found_pure = .false.
@@ -17,7 +25,16 @@ program test_function_prefix_keywords
     found_pure_intent_a = .false.
     found_pure_intent_b = .false.
 
-    input_file = 'test_prefix_keywords.lf'
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
+
+    input_file = join_path(temp_dir, 'test_prefix_keywords.lf', sep)
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'elemental function square(x)'
     write (unit, '(a)') '    result = x * x'
@@ -28,13 +45,14 @@ program test_function_prefix_keywords
     write (unit, '(a)') 'end function'
     close (unit)
 
-    output_file = 'test_prefix_keywords_out.f90'
+    output_file = join_path(temp_dir, 'test_prefix_keywords_out.f90', sep)
     options%output_file = output_file
 
     call compile_source(input_file, options, error_msg)
     if (len_trim(error_msg) /= 0) then
         print *, 'Compiler reported error: ', trim(error_msg)
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     open (newunit=unit, file=output_file, status='old', action='read')
@@ -76,28 +94,35 @@ program test_function_prefix_keywords
 
     if (.not. found_elemental) then
         print *, 'Did not find ELEMENTAL prefix in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_pure) then
         print *, 'Did not find PURE prefix in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_elemental_intent) then
         print *, 'Did not find intent(in) declaration for elemental function parameter'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_pure_intent_a) then
         print *, 'Did not find intent(in) declaration for pure function argument a'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_pure_intent_b) then
         print *, 'Did not find intent(in) declaration for pure function argument b'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
-    stop 0
+999 continue
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 end program test_function_prefix_keywords

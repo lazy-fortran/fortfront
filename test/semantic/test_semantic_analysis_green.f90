@@ -1,9 +1,25 @@
 program test_semantic_analysis_green
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    implicit none
 
     logical :: all_passed
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     all_passed = .true.
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
 
     print *, '=== Semantic Analysis Tests ==='
     print *, 'These tests check semantic analysis is working correctly'
@@ -17,11 +33,12 @@ program test_semantic_analysis_green
     print *
     if (all_passed) then
         print *, 'All semantic analysis tests passed!'
-        stop 0
     else
         print *, 'Some semantic analysis tests failed!'
-        stop 1
+        exit_code = 1
     end if
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 
 contains
 
@@ -35,7 +52,7 @@ contains
         print *, 'Testing array assignment semantic analysis...'
 
         ! Test 1: Array literal assignment
-        input_file = 'test_sem_arr.lf'
+        input_file = join_path(temp_dir, 'test_sem_arr.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(3)'
@@ -43,7 +60,7 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_sem_arr_out.f90'
+        output_file = join_path(temp_dir, 'test_sem_arr_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -56,7 +73,7 @@ contains
         end if
 
         ! Test 2: Array constructor assignment
-        input_file = 'test_sem_ctor.lf'
+        input_file = join_path(temp_dir, 'test_sem_ctor.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10)'
@@ -64,7 +81,7 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_sem_ctor_out.f90'
+        output_file = join_path(temp_dir, 'test_sem_ctor_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -88,7 +105,7 @@ contains
         print *, 'Testing type consistency in semantic analysis...'
 
         ! Test: Mixed types in array
-        input_file = 'test_sem_mixed.lf'
+        input_file = join_path(temp_dir, 'test_sem_mixed.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    real :: arr(3)'
@@ -96,7 +113,7 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_sem_mixed_out.f90'
+        output_file = join_path(temp_dir, 'test_sem_mixed_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -119,7 +136,7 @@ contains
         print *, 'Testing scope resolution in semantic analysis...'
 
         ! Test: Variable used in implied do loop
-        input_file = 'test_sem_scope.lf'
+        input_file = join_path(temp_dir, 'test_sem_scope.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10), j'
@@ -128,7 +145,7 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_sem_scope_out.f90'
+        output_file = join_path(temp_dir, 'test_sem_scope_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -152,7 +169,7 @@ contains
         print *, 'Testing intrinsic function semantic analysis...'
 
         ! Test: Array intrinsics
-        input_file = 'test_sem_intrinsic.lf'
+        input_file = join_path(temp_dir, 'test_sem_intrinsic.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(5)'
@@ -163,7 +180,7 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_sem_intrinsic_out.f90'
+        output_file = join_path(temp_dir, 'test_sem_intrinsic_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)

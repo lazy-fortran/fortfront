@@ -1,5 +1,8 @@
 program test_issue_1739_program_prefixes
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file, output_file
@@ -11,14 +14,29 @@ program test_issue_1739_program_prefixes
     logical :: found_recursive
     logical :: found_nonrecursive
     character(len=256) :: line
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     found_elemental_pure = .false.
     found_impure_elemental = .false.
     found_recursive = .false.
     found_nonrecursive = .false.
 
-    input_file = 'test_issue_1739_program_prefixes_input.f90'
-    output_file = 'test_issue_1739_program_prefixes_output.f90'
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
+
+    input_file = join_path(temp_dir, 'test_issue_1739_program_prefixes_input.f90', &
+                           sep)
+    output_file = join_path(temp_dir, &
+                            'test_issue_1739_program_prefixes_output.f90', sep)
 
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'program test_issue_1739'
@@ -60,7 +78,8 @@ program test_issue_1739_program_prefixes
     call compile_source(input_file, options, error_msg)
     if (len_trim(error_msg) /= 0) then
         print *, 'Compiler reported error: ', trim(error_msg)
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     open (newunit=unit, file=output_file, status='old', action='read')
@@ -100,24 +119,30 @@ program test_issue_1739_program_prefixes
 
     if (.not. found_elemental_pure) then
         print *, 'FAIL: elemental pure function keywords missing in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_impure_elemental) then
         print *, 'FAIL: impure elemental subroutine keywords missing in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_recursive) then
         print *, 'FAIL: recursive function keyword missing in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     if (.not. found_nonrecursive) then
         print *, 'FAIL: nonrecursive function keyword missing in output'
-        stop 1
+        exit_code = 1
+        goto 999
     end if
 
     print *, 'PASS: Program-contained prefixes preserved'
-    stop 0
+999 continue
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 end program test_issue_1739_program_prefixes

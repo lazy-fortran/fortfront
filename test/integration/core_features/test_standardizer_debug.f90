@@ -5,6 +5,9 @@ program test_standardizer_debug
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     use lexer_core, only: token_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
     implicit none
 
     character(len=:), allocatable :: input_file
@@ -17,14 +20,25 @@ program test_standardizer_debug
     character(len=:), allocatable :: source_code
     integer :: file_size, iostat
     character(len=1) :: ch
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
 
     print *, '=== Standardizer Debug Test ==='
 
     ! Initialize codegen system for arena operations
     call initialize_codegen()
 
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
+
     ! Create test input
-    input_file = 'test_slice_debug.lf'
+    input_file = join_path(temp_dir, 'test_slice_debug.lf', sep)
     open (newunit=unit, file=input_file, status='replace')
     write (unit, '(a)') 'integer :: arr(5)'
     write (unit, '(a)') 'arr(1) = 1'
@@ -75,5 +89,7 @@ program test_standardizer_debug
     print *, 'After standardization:'
     generated_code = codegen_core_generate_arena(arena, root_index)
     print *, trim(generated_code)
+
+    call cleanup_temp_directory(temp_dir, is_windows)
 
 end program test_standardizer_debug

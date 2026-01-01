@@ -31,10 +31,11 @@ module codegen_function_declarations
     use codegen_parameter_info, only: parameter_info_t
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_entry_utils, only: collect_entry_param_names, &
-                                    is_entry_parameter_decl
+                                   is_entry_parameter_decl
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
-    use type_system_unified, only: mono_type_t, TARRAY
+    use type_system_unified, only: mono_type_t, TARRAY, TFUN, type_args_allocated, &
+                                   type_args_size, type_args_element
     implicit none
     private
     public :: generate_code_function_def
