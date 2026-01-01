@@ -1,6 +1,5 @@
 program test_issue_2659_implicit_contains_pure_subroutine
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
-    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
