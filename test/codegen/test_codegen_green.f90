@@ -73,10 +73,13 @@ contains
                 do
                     read (unit, '(a)', iostat=ios) line
                     if (ios /= 0) exit
-                    ! Should generate: arr = (/ 10, 20, 30 /)
+                    ! Should generate a standard Fortran array constructor.
+                    ! Accept both legacy (/ /) and modern [ ] forms.
                     if (index(line, '(/ 10, 20, 30 /)') > 0 .or. &
                         index(line, '(/10, 20, 30/)') > 0 .or. &
-                        index(line, '(/10, 20, 30 /)') > 0) then
+                        index(line, '(/10, 20, 30 /)') > 0 .or. &
+                        index(line, '[10, 20, 30]') > 0 .or. &
+                        index(line, '[10,20,30]') > 0) then
                         generated_correctly = .true.
                         print *, '  Generated: ', trim(line)
                         exit
@@ -114,9 +117,9 @@ contains
                 do
                     read (unit, '(a)', iostat=ios) line
                     if (ios /= 0) exit
-                    if (index(line, '1.0d0') > 0 .and. &
-                        index(line, '2.0d0') > 0 .and. &
-                        index(line, '3.0d0') > 0) then
+                    if ((index(line, '1.0d0') > 0 .or. index(line, '1.0') > 0) .and. &
+                        (index(line, '2.0d0') > 0 .or. index(line, '2.0') > 0) .and. &
+                        (index(line, '3.0d0') > 0 .or. index(line, '3.0') > 0)) then
                         generated_correctly = .true.
                         print *, '  Generated with promotion: ', trim(line)
                         exit

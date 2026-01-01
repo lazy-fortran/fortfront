@@ -400,8 +400,6 @@
             type is (literal_node)
                 if (node%literal_kind == LITERAL_INTEGER) then
                     elem_code = promote_integer_literal_to_real(elem_code)
-                else if (node%literal_kind == LITERAL_REAL) then
-                    elem_code = promote_real_literal_to_double(elem_code)
                 end if
             end select
 
@@ -601,8 +599,7 @@
         if (node%inferred_type%has_args() .and. &
             node%inferred_type%get_args_count() > 0) then
             array_type = node%inferred_type%get_arg(1)
-            is_real_array = (array_type%kind == TREAL) .or. &
-                            (array_type%kind == TDOUBLE)
+            is_real_array = (array_type%kind == TREAL)
             return
         end if
 
@@ -704,13 +701,13 @@
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
                     if (allocated(node%type_spec)) then
-                        code = "(/ " // trim(node%type_spec) // " :: " // &
-                               trim(elements_code) // " /)"
+                        code = "[" // trim(node%type_spec) // " :: " // &
+                               trim(elements_code) // "]"
                     else
-                        code = "(/ " // trim(elements_code) // " /)"
+                        code = "[" // trim(elements_code) // "]"
                     end if
                 else
-                    code = "(/ integer :: /)"
+                    code = "[integer ::]"
                 end if
             else if (node%syntax_style == "implied_do") then
                 if (allocated(node%element_indices) .and. &
@@ -727,7 +724,7 @@
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
-                        code = "(/ integer :: /)"
+                        code = "[integer ::]"
                     end if
                 end if
             else
@@ -743,7 +740,7 @@
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
-                        code = "(/ integer :: /)"
+                        code = "[integer ::]"
                     end if
                 end if
             end if
@@ -760,7 +757,7 @@
                 if (allocated(node%type_spec)) then
                     code = "(/ " // trim(node%type_spec) // " :: /)"
                 else
-                    code = "(/ integer :: /)"
+                    code = "[integer ::]"
                 end if
             end if
         end if
@@ -786,30 +783,8 @@
         if (index(promoted, 'e') /= 0 .or. index(promoted, 'E') /= 0) return
         if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
 
-        promoted = promoted // ".0d0"
+        promoted = promoted // ".0"
     end function promote_integer_literal_to_real
-
-    ! Promote default real literals to double precision form (d exponent) while
-    ! preserving explicit kind suffixes.
-    function promote_real_literal_to_double(code) result(promoted)
-        character(len=*), intent(in) :: code
-        character(len=:), allocatable :: promoted
-        integer :: epos
-
-        promoted = trim(code)
-        if (len_trim(promoted) == 0) return
-        if (index(promoted, '_') /= 0) return
-        if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
-
-        epos = index(promoted, 'e')
-        if (epos == 0) epos = index(promoted, 'E')
-        if (epos > 0) then
-            promoted = promoted(1:epos - 1) // 'd' // promoted(epos + 1:)
-            return
-        end if
-
-        promoted = promoted // 'd0'
-    end function promote_real_literal_to_double
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
     function generate_code_complex_literal(arena, node, node_index) result(code)
