@@ -27,6 +27,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | frontend_statement_boundary.f90 | Statement boundary detection across program units |
 | frontend_statement_processing.f90 | Statement-level processing and normalization |
 | frontend_statement_contains_section.f90 | Implicit contains section parsing helpers |
+| frontend_statement_contains_section_helpers.f90 | Helper module for implicit contains section scanning |
 | frontend_statement_token_parsing.f90 | Statement token preparation and parsing helpers |
 | frontend_statement_spec_section.f90 | Spec-section tracking and statement function conversion |
 | frontend_token_normalization.f90 | Token stream normalization before parsing |

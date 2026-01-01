@@ -26,7 +26,6 @@
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
         integer :: unit_num, ios, file_size, alloc_stat
-        character(len=1), allocatable :: buffer(:)
         integer, parameter :: MAX_INPUT_SIZE = 10485760
 
         status = 0
@@ -55,9 +54,9 @@
             return
         end if
 
-        allocate (buffer(file_size), stat=alloc_stat)
+        allocate (character(len=file_size) :: text, stat=alloc_stat)
         if (alloc_stat /= 0) then
-            write (error_unit, '(A,I0,A)') 'Failed to allocate input buffer (', &
+            write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
                 file_size, ' bytes)'
             status = 5
             close (unit_num)
@@ -65,7 +64,7 @@
         end if
 
         if (file_size > 0) then
-            read (unit_num, iostat=ios) buffer
+            read (unit_num, iostat=ios) text
             if (ios /= 0) then
                 write (error_unit, '(A,A)') 'Failed to read file: ', filename
                 status = 3
@@ -74,18 +73,6 @@
             end if
         end if
         close (unit_num)
-
-        allocate (character(len=file_size) :: text, stat=alloc_stat)
-        if (alloc_stat /= 0) then
-            write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
-                file_size, ' bytes)'
-            status = 5
-            return
-        end if
-
-        if (file_size > 0) then
-            text = transfer(buffer, text)
-        end if
 
         call cli_reader_strip_carriage_returns(text, status)
         if (status /= 0) return
