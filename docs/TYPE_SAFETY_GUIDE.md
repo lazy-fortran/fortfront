@@ -4,19 +4,24 @@
 
 All type assignments go through `create_validated_type()` for validation:
 
+```bash
+fortfront examples/lf/docs_type_validation_calculate.lf
+```
+Output:
 ```fortran
-! Input
-function calculate(a, b) result(sum)
-    sum = a + b
-end function
-
-! Output (types inferred and validated)
-function calculate(a, b) result(sum)
+program main
     implicit none
-    real(8), intent(in) :: a, b
-    real(8) :: sum
-    sum = a + b
+    real :: val
+    val = calculate(1.0, 2.0)
+contains
+
+real function calculate(a, b) result(res)
+    implicit none
+    real, intent(in) :: a
+    real, intent(in) :: b
+    res = a + b
 end function calculate
+end program main
 ```
 
 ## Character Type Safety
@@ -24,7 +29,7 @@ end function calculate
 String concatenation lengths computed accurately:
 
 ```bash
-echo 'message = "hello" // " world"' | fortfront
+fortfront examples/lf/docs_string_concatenation.lf
 ```
 Output: `character(len=11) :: message`
 
@@ -32,12 +37,10 @@ Output: `character(len=11) :: message`
 
 Integer + real operations handled safely:
 
-```fortran
-function mixed_calc(i, x) result(y)
-    y = i + x
-end function
+```bash
+fortfront examples/lf/docs_mixed_type_operations.lf
 ```
-Output: `integer, intent(in) :: i` and `real(8), intent(in) :: x`, with `real(8) :: y`
+Output: `integer, intent(in) :: i` and `real, intent(in) :: x`, with `real` return type
 
 ## Validation Contexts
 

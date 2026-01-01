@@ -89,6 +89,7 @@
         character(len=:), allocatable :: override
         character(len=:), allocatable :: lowered
         logical :: standardize_types_enabled
+        type(mono_type_t) :: inferred_return_type
 
         return_type_code = ""
         is_deferred_char = .false.
@@ -101,6 +102,26 @@
                 if (lowered == 'real') then
                     return_type_code = "real(8)"
                 end if
+            end if
+        end if
+
+        if (len_trim(return_type_code) == 0) then
+            inferred_return_type%kind = 0
+            inferred_return_type = node%inferred_type
+            if (inferred_return_type%kind == TFUN .and. &
+                type_args_allocated(inferred_return_type) .and. &
+                type_args_size(inferred_return_type) >= 2) then
+                inferred_return_type = type_args_element(inferred_return_type, 2)
+            end if
+
+            if (inferred_return_type%kind /= 0 .and. &
+                inferred_return_type%kind /= TARRAY .and. &
+                inferred_return_type%kind /= TFUN) then
+                call get_type_standardization(standardize_types_enabled)
+                return_type_code = mono_type_to_string( &
+                    inferred_return_type, include_shape=.false., &
+                    standardize_real=standardize_types_enabled, &
+                    fallback="")
             end if
         end if
 
@@ -774,7 +795,6 @@
             end if
         end if
         if (.not. header_has_type) header_has_type = func%has_return_type_in_header
-        if (.not. header_has_type) header_has_type = func%inferred_type%kind /= 0
         if (.not. header_has_type) then
             signature = compose_function_signature(arena, func)
             func_pos = index(to_lower(signature), 'function')

@@ -5,7 +5,7 @@
 fortfront calculates character lengths from string literals:
 
 ```bash
-echo 'name = "hello"' | fortfront
+fortfront examples/lf/docs_character_length_inference.lf
 ```
 Output:
 ```fortran
@@ -21,29 +21,30 @@ end program main
 Combined lengths are calculated automatically:
 
 ```bash
-echo 'greeting = "hello" // " world"' | fortfront
+fortfront examples/lf/docs_string_concatenation.lf
 ```
 Output:
 ```fortran
 program main
     implicit none
-    character(len=11) :: greeting
-    greeting = "hello" // " world"
+    character(len=11) :: message
+    message = "hello" //" world"
 end program main
 ```
 
-## Variable-Length Strings
+## Reassignment With Different Lengths
 
-When assigned strings of different lengths, uses allocatable:
+When assigned strings of different lengths, uses a fixed-length character sized
+to the longest value:
 
 ```bash
-echo -e 'message = "hello"\nmessage = "hi"' | fortfront
+fortfront examples/lf/docs_variable_length_strings.lf
 ```
 Output:
 ```fortran
 program main
     implicit none
-    character(len=:), allocatable :: message
+    character(len=5) :: message
     message = "hello"
     message = "hi"
 end program main
@@ -51,23 +52,23 @@ end program main
 
 Same-length assignments use fixed-length:
 ```bash
-echo -e 'code = "ABC"\ncode = "XYZ"' | fortfront
+fortfront examples/lf/docs_fixed_length_reassignment.lf
 ```
 Output: `character(len=3) :: code`
 
 ## Character Arrays
 
-Arrays use maximum element length with proper constructors:
+Arrays use maximum element length with padding:
 
 ```bash
-echo 'names = ["alice", "bob", "charlie"]' | fortfront
+fortfront examples/lf/docs_character_arrays.lf
 ```
 Output:
 ```fortran
 program main
     implicit none
     character(len=7) :: names(3)
-    names = [character(len=7) :: "alice", "bob", "charlie"]
+    names = ["alice  ", "bob    ", "charlie"]
 end program main
 ```
 
