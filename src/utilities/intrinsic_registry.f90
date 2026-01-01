@@ -31,16 +31,20 @@ contains
         logical, intent(out) :: is_intrinsic
         character(len=:), allocatable, intent(out) :: signature
         integer :: i
+        integer :: name_trim_len
+        character(len=len_trim(name)) :: lowered_name
 
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate (signature)
         if (.not. allocated(intrinsic_functions)) return
+        name_trim_len = len_trim(name)
+        if (name_trim_len == 0) return
+        lowered_name = to_lower(name(1:name_trim_len))
 
         do i = 1, size(intrinsic_functions)
-            if (trim(to_lower(intrinsic_functions(i)%name)) == &
-                trim(to_lower(name))) then
+            if (intrinsic_functions(i)%name == lowered_name) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
                             intrinsic_functions(i)%arg_types // ")"
@@ -61,12 +65,14 @@ contains
     function is_intrinsic_subroutine(name) result(is_intrinsic)
         character(len=*), intent(in) :: name
         logical :: is_intrinsic
-        character(len=:), allocatable :: lowered
+        integer :: name_trim_len
+        character(len=len_trim(name)) :: lowered
 
         is_intrinsic = .false.
-        if (len_trim(name) == 0) return
+        name_trim_len = len_trim(name)
+        if (name_trim_len == 0) return
 
-        lowered = to_lower(trim(name))
+        lowered = to_lower(name(1:name_trim_len))
         select case (lowered)
         case ("cpu_time", "date_and_time", "execute_command_line", &
               "get_command", "get_command_argument", &
