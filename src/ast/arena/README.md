@@ -14,6 +14,7 @@ The arena implementation provides multiple interfaces for compatibility with dif
 | ast_arena_compat.f90 | Compatibility layer for legacy allocation patterns |
 | ast_arena_modern.f90 | Modern type-safe allocation interface |
 | ast_arena_safe.f90 | Safety-checked allocation with bounds verification |
+| ast_arena_source_text.f90 | Source text storage and retrieval utilities for arenas |
 
 ## Key Concepts
 
@@ -24,6 +25,7 @@ For complete arena allocation design principles, see [AST README](../README.md#k
 - **Compatibility layer**: `ast_arena_compat.f90` - legacy patterns
 - **Modern interface**: `ast_arena_modern.f90` - type-safe allocation
 - **Safety checks**: `ast_arena_safe.f90` - bounds verification
+- **Source text**: `ast_arena_source_text.f90` - source retrieval for tooling
 
 **Performance**: O(1) allocation, O(1) bulk deallocation, cache-friendly layout
 
