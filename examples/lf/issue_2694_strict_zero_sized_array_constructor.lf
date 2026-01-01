@@ -1,0 +1,8 @@
+program main
+    implicit none
+
+    integer, allocatable :: arr(:)
+
+    arr = [integer ::]
+    arr = [1]
+end program main
