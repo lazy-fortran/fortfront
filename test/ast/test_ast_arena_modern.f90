@@ -7,6 +7,7 @@ program test_ast_arena_modern
                                 ast_handle_t, create_ast_arena, destroy_ast_arena, &
                                 store_ast_node, get_ast_node, is_valid_ast_handle, &
                                 null_ast_handle
+    use ast_nodes_core, only: program_node
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
@@ -178,6 +179,8 @@ contains
         type(ast_arena_t) :: arena
         type(ast_node_arena_t) :: node
         type(ast_handle_t) :: handle
+        type(program_node) :: prog
+        integer :: i
 
         call test_start("Destroy deallocates compatibility entries")
 
@@ -189,6 +192,12 @@ contains
             call destroy_ast_arena(arena)
             return
         end if
+
+        prog%name = "main"
+        prog%body_indices = [integer ::]
+        do i = 1, 2000
+            call arena%push(prog, "program_node")
+        end do
 
         call destroy_ast_arena(arena)
 

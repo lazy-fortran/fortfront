@@ -48,6 +48,26 @@ module ast_arena_modern
 
 contains
 
+    subroutine destroy_compat_entries(arena)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: i
+
+        if (.not. allocated(arena%entries)) return
+
+        do i = 1, size(arena%entries)
+            if (allocated(arena%entries(i)%node)) deallocate (arena%entries(i)%node)
+            if (allocated(arena%entries(i)%node_type)) then
+                deallocate (arena%entries(i)%node_type)
+            end if
+            if (allocated(arena%entries(i)%child_indices)) then
+                deallocate (arena%entries(i)%child_indices)
+            end if
+            arena%entries(i)%parent_index = 0
+            arena%entries(i)%depth = 0
+            arena%entries(i)%child_count = 0
+        end do
+    end subroutine destroy_compat_entries
+
     ! Create modern AST arena with compatibility layer
     function create_ast_arena(initial_capacity) result(arena)
         integer, intent(in), optional :: initial_capacity
@@ -98,6 +118,7 @@ contains
         if (allocated(arena%source_line_starts)) deallocate (arena%source_line_starts)
         call destroy_ast_arena_core(arena%ast_arena_compat_t%ast_arena_core_t)
 
+        call destroy_compat_entries(arena)
         if (allocated(arena%entries)) deallocate (arena%entries)
         arena%compat_size = 0
         arena%max_depth = 0
