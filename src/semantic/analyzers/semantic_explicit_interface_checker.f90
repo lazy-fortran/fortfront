@@ -9,7 +9,9 @@ module semantic_explicit_interface_checker
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
                               error_collection_t
     use identifier_table, only: identifier_table_t, identifier_table_find, &
-                                identifier_table_init, identifier_table_intern, &
+                                identifier_table_intern, &
+                                identifier_table_init, &
+                                identifier_table_is_initialized, &
                                 identifier_table_reset, identifier_id_kind
     use intrinsic_registry, only: is_intrinsic_function, is_intrinsic_subroutine
     use scope_manager, only: scope_stack_t
@@ -94,7 +96,7 @@ contains
 
         integer :: i
 
-        if (.not. allocated(cache%buckets)) then
+        if (.not. identifier_table_is_initialized(cache)) then
             call identifier_table_init(cache)
         end if
         call identifier_table_reset(cache)
@@ -207,6 +209,7 @@ contains
             lowered = to_lower(trim(proc%procedure_names(i)%s))
             if (len_trim(lowered) == 0) cycle
             interned_id = identifier_table_intern(cache, lowered)
+            if (interned_id <= 0_identifier_id_kind) cycle
         end do
     end subroutine cache_module_procedure_names
 
@@ -222,6 +225,7 @@ contains
         if (len_trim(lowered) == 0) return
 
         interned_id = identifier_table_intern(cache, lowered)
+        if (interned_id <= 0_identifier_id_kind) return
     end subroutine cache_allocated_name
 
     subroutine emit_missing_explicit_interface(errors, original_name)
