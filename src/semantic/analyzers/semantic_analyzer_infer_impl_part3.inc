@@ -132,6 +132,7 @@
 
         integer :: i
         integer(int64) :: total_size
+        integer(int64) :: max_arr_size
         integer :: elem_size
 
         arr_size = 0
@@ -142,6 +143,7 @@
         type is (array_literal_node)
             if (.not. allocated(node%element_indices)) return
             total_size = 0_int64
+            max_arr_size = int(huge(arr_size), kind=int64)
             do i = 1, size(node%element_indices)
                 if (node%element_indices(i) <= 0) then
                     arr_size = 0
@@ -160,11 +162,11 @@
                     arr_size = 0
                     return
                 end if
-                total_size = total_size + int(elem_size, kind=int64)
-                if (total_size > int(huge(arr_size), kind=int64)) then
+                if (total_size > max_arr_size - int(elem_size, kind=int64)) then
                     arr_size = 0
                     return
                 end if
+                total_size = total_size + int(elem_size, kind=int64)
             end do
             arr_size = int(total_size, kind=kind(arr_size))
         class default
@@ -202,9 +204,14 @@
         integer :: step_value
         integer :: i
         integer :: body_elem_size
+        integer(int64) :: start64
+        integer(int64) :: end64
+        integer(int64) :: step64
+        integer(int64) :: diff64
         integer(int64) :: iter_count
         integer(int64) :: body_size
         integer(int64) :: total_size
+        integer(int64) :: max_implied_size
 
         implied_size = 0
         if (do_index <= 0 .or. do_index > arena%size) return
@@ -237,14 +244,20 @@
                 end if
             end if
 
-            iter_count = int((end_value - start_value) / step_value + 1, kind=int64)
+            start64 = int(start_value, kind=int64)
+            end64 = int(end_value, kind=int64)
+            step64 = int(step_value, kind=int64)
+            diff64 = end64 - start64
+            iter_count = diff64 / step64 + 1_int64
             if (iter_count <= 0_int64) then
                 implied_size = 0
                 return
             end if
 
             if (.not. allocated(loop%body_indices)) return
+            if (size(loop%body_indices) == 0) return
             body_size = 0_int64
+            max_implied_size = int(huge(implied_size), kind=int64)
             do i = 1, size(loop%body_indices)
                 body_elem_size = static_array_literal_element_size(arena, &
                                                                    loop%body_indices(i))
@@ -252,15 +265,21 @@
                     implied_size = 0
                     return
                 end if
-                body_size = body_size + int(body_elem_size, kind=int64)
-                if (body_size > int(huge(implied_size), kind=int64)) then
+                if (body_size > max_implied_size - int(body_elem_size, kind=int64)) then
                     implied_size = 0
                     return
                 end if
+                body_size = body_size + int(body_elem_size, kind=int64)
             end do
 
+            if (iter_count > 0_int64) then
+                if (body_size > max_implied_size / iter_count) then
+                    implied_size = 0
+                    return
+                end if
+            end if
             total_size = iter_count * body_size
-            if (total_size > int(huge(implied_size), kind=int64)) then
+            if (total_size > max_implied_size) then
                 implied_size = 0
                 return
             end if
