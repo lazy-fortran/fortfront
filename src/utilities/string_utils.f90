@@ -9,10 +9,11 @@ contains
 
     pure function to_lower(text) result(lower_text)
         character(len=*), intent(in) :: text
-        character(len=len(text)) :: lower_text
+        character(len=:), allocatable :: lower_text
         integer :: idx
         integer :: char_code
 
+        allocate (character(len=len(text)) :: lower_text)
         lower_text = text
         do idx = 1, len(text)
             char_code = iachar(lower_text(idx:idx))
