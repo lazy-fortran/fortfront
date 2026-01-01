@@ -1,0 +1,9 @@
+! Regression example: procedure prefixes in implicit-main contains section.
+x = 0
+call bump()
+
+contains
+
+pure subroutine bump()
+    x = x + 1
+end subroutine bump

@@ -402,8 +402,10 @@ contains
         call reset_contains_prefix_list(prefix_list)
     end subroutine parse_contains_function_span
 
-    subroutine parse_contains_subroutine_span(tokens, proc_start, proc_end, arena, &
-                                              prefix_buffer, prefix_list, body_indices)
+    subroutine parse_contains_subroutine_span(tokens, proc_start, &
+                                              proc_end, arena, &
+                                              prefix_buffer, prefix_list, &
+                                              body_indices)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: proc_start
         integer, intent(in) :: proc_end
@@ -420,7 +422,14 @@ contains
         proc_tokens(proc_end - proc_start + 2)%text = ""
         call prefix_buffer%clear()
         parser = create_parser_state(proc_tokens)
-        proc_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+        if (size(prefix_list) > 0) then
+            proc_index = parse_subroutine_definition(parser, arena, &
+                                                     prefix_buffer, &
+                                                     prefix_list)
+        else
+            proc_index = parse_subroutine_definition(parser, arena, &
+                                                     prefix_buffer)
+        end if
         if (proc_index > 0) body_indices = [body_indices, proc_index]
         deallocate (proc_tokens)
         call reset_contains_prefix_list(prefix_list)

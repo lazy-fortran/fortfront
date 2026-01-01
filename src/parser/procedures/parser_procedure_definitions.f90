@@ -9,7 +9,7 @@ module parser_procedure_definitions_module
         merge_parameter_attributes_if_needed, ensure_recursive_prefix, &
         parse_subroutine_header, parse_bind_c_clause
     use parser_procedure_definition_bodies_module, only: parse_procedure_body, &
-                                                        parse_interface_body
+                                                         parse_interface_body
     use parser_interface_blocks_module, only: parse_interface_block, &
                                               set_interface_procedure_parser
     use string_utils_mod, only: to_lower
@@ -199,11 +199,12 @@ contains
                                        bind_c_clause=bind_c_clause)
     end function parse_function_definition
 
-    function parse_subroutine_definition(parser, arena, prefix_buffer) &
+    function parse_subroutine_definition(parser, arena, prefix_buffer, prefix_list) &
         result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+        character(len=16), intent(in), optional :: prefix_list(:)
         integer :: sub_index
 
         character(len=:), allocatable :: subroutine_name
@@ -216,7 +217,7 @@ contains
         has_recursive_keyword = .false.
         infer_recursive_from_body = .false.
 
-        call parse_function_prefix_keywords(parser, prefix_buffer, &
+        call parse_function_prefix_keywords(parser, prefix_buffer, prefix_list, &
                                             prefix_keywords=prefix_keywords, &
                                             has_recursive_keyword=has_recursive_keyword)
         call parse_subroutine_header(parser, subroutine_name, line, column)
