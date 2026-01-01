@@ -7,6 +7,7 @@ program test_build_system_integration
     ! Then: The build system reliably produces all required artifacts
     !
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use test_filesystem_helpers, only: cleanup_file
     implicit none
 
     integer :: test_count, pass_count
@@ -61,9 +62,11 @@ program test_build_system_integration
 
     if (pass_count == test_count) then
         print *, "All build system integration tests passed!"
+        call cleanup_file('libfortfront.a')
         stop 0
     else
         print *, "Some build system integration tests failed!"
+        call cleanup_file('libfortfront.a')
         stop 1
     end if
 
@@ -85,7 +88,8 @@ contains
         ! Check if fpm.toml exists and has build configuration
         inquire (file='fpm.toml', exist=fpm_exists)
         if (fpm_exists) then
-            open (newunit=unit_num, file='fpm.toml', status='old', action='read', iostat=iostat)
+            open (newunit=unit_num, file='fpm.toml', status='old', action='read', &
+                  iostat=iostat)
             if (iostat == 0) then
                 do
                     read (unit_num, '(A)', iostat=iostat) line
@@ -122,22 +126,32 @@ contains
         ! Check if Makefile exists and has libfortfront.a target
         inquire (file='Makefile', exist=makefile_exists)
         if (makefile_exists) then
-            call execute_command_line('grep -q "libfortfront.a" Makefile', exitstat=exit_code)
+            call execute_command_line('grep -q "libfortfront.a" Makefile', &
+                                      exitstat=exit_code)
 
             if (exit_code == 0) then
                 ! Try to build using Makefile (skip in problematic CI environments)
-                call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
+                call execute_command_line('make --version >/dev/null 2>&1', &
+                                          exitstat=exit_code)
                 if (exit_code == 0) then
                     ! Test if GNU find with -printf works (needed by Makefile)
                     call execute_command_line( &
-                        'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+                        'find . -name "Makefile" -type f -printf "%p\\n" '// &
+                        '> /dev/null 2>&1', &
+                        exitstat=exit_code)
                 end if
                 if (exit_code == 0) then
-                    call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+                    call execute_command_line('command -v timeout >/dev/null 2>&1', &
+                                              exitstat=exit_code)
                     if (exit_code == 0) then
-                        call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                        call execute_command_line( &
+                            'timeout 10 make libfortfront.a 2>/dev/null', &
+                            exitstat=exit_code)
                     else
-                        call execute_command_line('scripts/with_timeout.sh 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                        call execute_command_line( &
+                            'scripts/with_timeout.sh 10 make libfortfront.a '// &
+                            '2>/dev/null', &
+                            exitstat=exit_code)
                     end if
                     inquire (file='libfortfront.a', exist=file_exists)
                     makefile_works = (exit_code == 0) .and. file_exists
@@ -155,7 +169,8 @@ contains
 
         call test_result(makefile_works)
         if (.not. makefile_works) then
-            print *, "  ERROR: Makefile target missing or fails to create libfortfront.a"
+            print *, &
+                "  ERROR: Makefile target missing or fails to create libfortfront.a"
         end if
     end subroutine test_makefile_integration
 
@@ -173,15 +188,22 @@ contains
         inquire (file='build_static_lib.sh', exist=file_exists)
         if (file_exists) then
             ! Check if bash is available first
-            call execute_command_line('bash --version >/dev/null 2>&1', exitstat=exit_code)
+            call execute_command_line('bash --version >/dev/null 2>&1', &
+                                      exitstat=exit_code)
             if (exit_code == 0) then
                 ! Try running static library build script with timeout
                 ! Use timeout to prevent hanging during recursive builds
-                call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+                call execute_command_line('command -v timeout >/dev/null 2>&1', &
+                                          exitstat=exit_code)
                 if (exit_code == 0) then
-                    call execute_command_line('timeout 10 ./build_static_lib.sh 2>/dev/null', exitstat=exit_code)
+                    call execute_command_line( &
+                        'timeout 10 ./build_static_lib.sh 2>/dev/null', &
+                        exitstat=exit_code)
                 else
-                    call execute_command_line('scripts/with_timeout.sh 10 ./build_static_lib.sh 2>/dev/null', exitstat=exit_code)
+                    call execute_command_line( &
+                        'scripts/with_timeout.sh 10 ./build_static_lib.sh '// &
+                        '2>/dev/null', &
+                        exitstat=exit_code)
                 end if
                 inquire (file='libfortfront.a', exist=lib_exists)
                 inquire (file='fortfront_modules', exist=modules_exist)
@@ -224,14 +246,21 @@ contains
         if (exit_code == 0) then
             ! Test if GNU find with -printf works (needed by Makefile)
             call execute_command_line( &
-                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', &
+                exitstat=exit_code)
         end if
         if (exit_code == 0) then
-            call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+            call execute_command_line('command -v timeout >/dev/null 2>&1', &
+                                      exitstat=exit_code)
             if (exit_code == 0) then
-                call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                call &
+                    execute_command_line( &
+                    'timeout 10 make libfortfront.a 2>/dev/null', &
+                    exitstat=exit_code)
             else
-                call execute_command_line('scripts/with_timeout.sh 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                call execute_command_line( &
+                    'scripts/with_timeout.sh 10 make libfortfront.a 2>/dev/null', &
+                    exitstat=exit_code)
             end if
             inquire (file='libfortfront.a', exist=file_exists_after)
             clean_rebuild_works = (exit_code == 0) .and. file_exists_after
@@ -265,22 +294,27 @@ contains
         if (exit_code == 0) then
             ! Test if GNU find with -printf works (needed by Makefile)
             call execute_command_line( &
-                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', &
+                exitstat=exit_code)
         end if
         if (exit_code == 0) then
             ! Rebuild to ensure library is current
             if (.not. lib_exists_before) then
-                call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                call &
+                    execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', &
+                                         exitstat=exit_code)
             end if
 
             ! Test incremental build by rebuilding existing library
-            call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+            call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', &
+                                      exitstat=exit_code)
             inquire (file='libfortfront.a', exist=lib_exists_after)
 
             incremental_works = (exit_code == 0) .and. lib_exists_after
         else
             ! make or find not available, skip test
-            print *, "  SKIP: make/find environment not compatible for incremental build"
+            print *, &
+                "  SKIP: make/find environment not compatible for incremental build"
             incremental_works = .true.
         end if
 

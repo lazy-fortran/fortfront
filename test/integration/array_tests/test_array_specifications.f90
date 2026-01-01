@@ -1,12 +1,28 @@
 program test_array_specifications
     use, intrinsic :: iso_fortran_env, only: dp => real64
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    implicit none
 
     logical :: all_passed
     integer :: n_tests, n_passed
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     n_tests = 0
     n_passed = 0
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
 
     print *, '=== Comprehensive Array Specification Tests ==='
     print *
@@ -33,11 +49,12 @@ program test_array_specifications
 
     if (all_passed) then
         print *, 'All array specification tests passed!'
-        stop 0
     else
         print *, 'Some array specification tests failed!'
-        stop 1
+        exit_code = 1
     end if
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 
 contains
 
@@ -50,7 +67,7 @@ contains
         test_dynamic_arrays = .true.
         print *, 'Test 1: Dynamic arrays (dimension(:))'
 
-        input_file = 'test_dynamic_arrays.f90'
+        input_file = join_path(temp_dir, 'test_dynamic_arrays.f90', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'function one_array_dynamic(x) result(res)'
         write (unit, '(a)') '    implicit none'
@@ -60,7 +77,7 @@ contains
         write (unit, '(a)') 'end function one_array_dynamic'
         close (unit)
 
-        output_file = 'test_dynamic_arrays_out.f90'
+        output_file = join_path(temp_dir, 'test_dynamic_arrays_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -83,7 +100,7 @@ contains
         test_fixed_arrays = .true.
         print *, 'Test 2: Fixed arrays (dimension(3))'
 
-        input_file = 'test_fixed_arrays.f90'
+        input_file = join_path(temp_dir, 'test_fixed_arrays.f90', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'subroutine test_fixed()'
         write (unit, '(a)') '    implicit none'
@@ -93,7 +110,7 @@ contains
         write (unit, '(a)') 'end subroutine test_fixed'
         close (unit)
 
-        output_file = 'test_fixed_arrays_out.f90'
+        output_file = join_path(temp_dir, 'test_fixed_arrays_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -116,7 +133,7 @@ contains
         test_explicit_ranges = .true.
         print *, 'Test 3: Explicit ranges (dimension(1:3))'
 
-        input_file = 'test_explicit_ranges.f90'
+        input_file = join_path(temp_dir, 'test_explicit_ranges.f90', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'subroutine test_ranges()'
         write (unit, '(a)') '    implicit none'
@@ -129,7 +146,7 @@ contains
         write (unit, '(a)') 'end subroutine test_ranges'
         close (unit)
 
-        output_file = 'test_explicit_ranges_out.f90'
+        output_file = join_path(temp_dir, 'test_explicit_ranges_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -152,7 +169,7 @@ contains
         test_computed_sizes = .true.
         print *, 'Test 4: Computed sizes (dimension(size(x)))'
 
-        input_file = 'test_computed_sizes.f90'
+        input_file = join_path(temp_dir, 'test_computed_sizes.f90', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'function two_arrays_2d_dynamic(y, x) result(res)'
         write (unit, '(a)') '    implicit none'
@@ -167,7 +184,7 @@ contains
         write (unit, '(a)') 'end function two_arrays_2d_dynamic'
         close (unit)
 
-        output_file = 'test_computed_sizes_out.f90'
+        output_file = join_path(temp_dir, 'test_computed_sizes_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
@@ -190,7 +207,7 @@ contains
         test_multidimensional = .true.
         print *, 'Test 5: Multidimensional combinations'
 
-        input_file = 'test_multidimensional.f90'
+        input_file = join_path(temp_dir, 'test_multidimensional.f90', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'subroutine test_multi()'
         write (unit, '(a)') '    implicit none'
@@ -208,7 +225,7 @@ contains
         write (unit, '(a)') 'end subroutine test_multi'
         close (unit)
 
-        output_file = 'test_multidimensional_out.f90'
+        output_file = join_path(temp_dir, 'test_multidimensional_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)

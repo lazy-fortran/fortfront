@@ -7,6 +7,7 @@ program test_module_distribution
     ! Then: All required Fortran modules should be available for external use
     !
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use test_filesystem_helpers, only: cleanup_file
     implicit none
 
     integer :: test_count, pass_count
@@ -18,13 +19,15 @@ program test_module_distribution
     print *, "=== Module Distribution Tests ==="
     print *, ""
 
-    ! Skip complex module distribution tests in CI environments or when running full test suite
+    ! Skip complex module distribution tests in CI environments or when running full
+    ! test suite.
     ! These tests work locally but are fragile in CI due to shell/command differences
     call get_environment_variable('CI', ci_env)
     call get_environment_variable('GITHUB_ACTIONS', github_env)
     call get_environment_variable('RUN_SYSTEM_TESTS', run_system_tests)
 
-    if (len_trim(ci_env) == 0 .and. len_trim(github_env) == 0 .and. len_trim(run_system_tests) == 0) then
+    if (len_trim(ci_env) == 0 .and. len_trim(github_env) == 0 .and. &
+        len_trim(run_system_tests) == 0) then
         ! Test 1: Core modules are accessible
         call test_core_modules_available()
 
@@ -64,9 +67,11 @@ program test_module_distribution
 
     if (pass_count == test_count) then
         print *, "All module distribution tests passed!"
+        call cleanup_file('libfortfront.a')
         stop 0
     else
         print *, "Some module distribution tests failed!"
+        call cleanup_file('libfortfront.a')
         stop 1
     end if
 
@@ -155,7 +160,8 @@ contains
 
         ! Check key dependency chains
         inquire (file='build/fortfront_modules/lexer_core.mod', exist=lex_exists)
-        inquire (file='build/fortfront_modules/parser_expressions_module.mod', exist=parse_exists)
+        inquire (file='build/fortfront_modules/parser_expressions_module.mod', &
+                 exist=parse_exists)
         inquire (file='build/fortfront_modules/ast_arena_modern.mod', exist=ast_exists)
         inquire (file='build/fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
 
@@ -179,9 +185,10 @@ contains
 
         call test_start("Modules installed in correct location")
 
-        ! Check if fortfront_modules directory exists and has content
+        ! Check if fortfront_modules directory exists and has at least one module file
         call execute_command_line( &
-            'test -d build/fortfront_modules && test "$(ls -A build/fortfront_modules)"', &
+            'find build/fortfront_modules -maxdepth 1 -name "*.mod" -print -quit '// &
+            '> /dev/null 2>&1', &
             exitstat=exit_code, wait=.true.)
 
         location_correct = (exit_code == 0)
@@ -205,9 +212,17 @@ contains
 
         ! Test that modules can be used with gfortran
         call execute_command_line( &
-            'echo "program test; use error_handling; end program" > /tmp/test_mod.f90 && ' // &
-            'gfortran -I build/fortfront_modules/ -c /tmp/test_mod.f90 -o /tmp/test_mod.o 2>/dev/null', &
+            'echo "program test; use error_handling; end program" > '// &
+            '/tmp/test_mod.f90', &
             exitstat=exit_code, wait=.true.)
+        if (exit_code == 0) then
+            call execute_command_line( &
+                'gfortran -I build/fortfront_modules/ -c /tmp/test_mod.f90 -o '// &
+                '/tmp/test_mod.o 2>/dev/null', &
+                exitstat=exit_code, wait=.true.)
+        end if
+        call execute_command_line('rm -f /tmp/test_mod.f90 /tmp/test_mod.o', &
+                                  exitstat=exit_code, wait=.true.)
 
         version_compatible = (exit_code == 0)
 

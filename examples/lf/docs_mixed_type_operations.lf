@@ -1,0 +1,5 @@
+function mixed_calc(i, x) result(y)
+    y = i + x
+end function
+
+value = mixed_calc(1, 2.5)
