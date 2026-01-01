@@ -440,13 +440,14 @@
                                                  module_get_node_type_wrapper)
             call collect_call_signature(this%signatures, arena, expr, node_type, &
                                         node_index)
-                if (this%operating_mode == OPERATING_MODE_STRICT) then
-                    call validate_explicit_interface_for_function_reference( &
-                        arena, this%scopes, this%errors, expr, node_index)
-                    call validate_strict_argument_types_for_function_reference( &
-                        arena, this%errors, expr, node_index)
-                end if
-                call finalize_node(node_index, node_type)
+            if (this%operating_mode == OPERATING_MODE_STRICT) then
+                call validate_explicit_interface_for_function_reference( &
+                    arena, this%scopes, this%errors, expr, node_index)
+                call validate_strict_argument_types_for_function_reference( &
+                    arena, this%errors, expr, node_index)
+            end if
+            call finalize_node(node_index, node_type)
+            call clear_semantic_context_for_lookup()
         end subroutine finalize_call_or_subscript
 
         subroutine finalize_subroutine_call(node_index)
