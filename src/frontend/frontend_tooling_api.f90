@@ -2,6 +2,7 @@ module frontend_tooling_api
     use, intrinsic :: iso_fortran_env, only: int64
     use lexer_core, only: token_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_arena_source_text, only: set_source_text
     use frontend_core, only: lex_source, analyze_semantics
     use frontend_parsing, only: parse_tokens
     implicit none
@@ -45,6 +46,7 @@ contains
         end if
 
         call initialize_arena(arena, opts%reuse_arena)
+        call set_source_text(arena, source_code)
         root_index = 0
 
         parse_error = ''
@@ -126,21 +128,21 @@ contains
 
         inquire (file=path, exist=exists, size=file_size)
         if (.not. exists) then
-            call set_message_from_char('File not found: ' // trim(path), &
+            call set_message_from_char('File not found: '//trim(path), &
                                        error_msg)
             call allocate_empty_string(contents)
             return
         end if
 
         if (file_size < 0_int64) then
-            call set_message_from_char('Unable to determine file size: ' // &
+            call set_message_from_char('Unable to determine file size: '// &
                                        trim(path), error_msg)
             call allocate_empty_string(contents)
             return
         end if
 
         if (file_size > max_default) then
-            call set_message_from_char('File too large to load: ' // &
+            call set_message_from_char('File too large to load: '// &
                                        trim(path), error_msg)
             call allocate_empty_string(contents)
             return
@@ -156,7 +158,7 @@ contains
         open (newunit=unit, file=path, status='old', action='read', &
               access='stream', form='unformatted', iostat=stat)
         if (stat /= 0) then
-            call set_message_from_char('Failed to open file: ' // trim(path), &
+            call set_message_from_char('Failed to open file: '//trim(path), &
                                        error_msg)
             if (allocated(contents)) deallocate (contents)
             call allocate_empty_string(contents)
@@ -166,7 +168,7 @@ contains
         if (len(contents) > 0) then
             read (unit, pos=1, iostat=stat) contents
             if (stat /= 0) then
-                call set_message_from_char('Failed to read file: ' // &
+                call set_message_from_char('Failed to read file: '// &
                                            trim(path), error_msg)
                 close (unit)
                 deallocate (contents)

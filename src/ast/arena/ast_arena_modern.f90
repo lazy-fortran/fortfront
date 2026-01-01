@@ -31,6 +31,8 @@ module ast_arena_modern
 
     ! Use compatibility arena directly as the main arena type
     type, extends(ast_arena_compat_t) :: ast_arena_t
+        character(len=:), allocatable :: source_text
+        integer, allocatable :: source_line_starts(:)
     contains
         ! Compatibility method for old API
         procedure :: clear => clear_ast_arena
@@ -92,6 +94,8 @@ contains
     subroutine destroy_ast_arena(arena)
         type(ast_arena_t), intent(inout) :: arena
 
+        if (allocated(arena%source_text)) deallocate (arena%source_text)
+        if (allocated(arena%source_line_starts)) deallocate (arena%source_line_starts)
         call destroy_ast_arena_core(arena%ast_arena_compat_t%ast_arena_core_t)
     end subroutine destroy_ast_arena
 
@@ -168,6 +172,9 @@ contains
         ! Sync compat_size with actual node count (should be 0 after reset)
         this%ast_arena_compat_t%compat_size = &
             this%ast_arena_compat_t%ast_arena_core_t%get_node_count()
+
+        if (allocated(this%source_text)) deallocate (this%source_text)
+        if (allocated(this%source_line_starts)) deallocate (this%source_line_starts)
     end subroutine clear_ast_arena
 
     ! =============================
@@ -239,16 +246,75 @@ contains
     ! Link an array of child indices to a parent node
     ! This establishes parent-child relationships in the arena for AST traversal
     ! If a child already has a different parent, it is removed from that parent first
-    ! NOTE: Temporarily disabled due to GCC 14 segfault - needs investigation
     subroutine link_children_to_parent(arena, parent_index, child_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: parent_index
         integer, intent(in) :: child_indices(:)
 
-        ! TEMPORARY: No-op to diagnose GCC 14 segfault
-        ! TODO: Investigate why this causes segfault on GCC 14 but not GCC 15
-        return
+        integer :: i, child_index
+        integer :: valid_size
+        integer :: current_parent
+
+        if (.not. allocated(arena%entries)) return
+
+        valid_size = arena%compat_size
+        if (valid_size <= 0) return
+        if (parent_index <= 0 .or. parent_index > valid_size) return
+        if (.not. allocated(arena%entries(parent_index)%node)) return
+
+        do i = 1, size(child_indices)
+            child_index = child_indices(i)
+            if (child_index <= 0 .or. child_index > valid_size) cycle
+            if (.not. allocated(arena%entries(child_index)%node)) cycle
+            if (child_index == parent_index) cycle
+
+            current_parent = arena%entries(child_index)%parent_index
+            if (current_parent > 0 .and. current_parent /= parent_index) then
+                call remove_child_from_parent(arena, current_parent, child_index)
+            end if
+
+            arena%entries(child_index)%parent_index = parent_index
+            arena%entries(child_index)%depth = arena%entries(parent_index)%depth + 1
+            if (arena%entries(child_index)%depth > arena%max_depth) then
+                arena%max_depth = arena%entries(child_index)%depth
+            end if
+
+            if (.not. is_child_present(arena, parent_index, child_index)) then
+                call append_child_index(arena, parent_index, child_index)
+            end if
+        end do
     end subroutine link_children_to_parent
+
+    subroutine append_child_index(arena, parent_index, child_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index, child_index
+
+        integer, allocatable :: tmp(:)
+        integer :: count, new_cap
+
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) then
+            new_cap = 4
+            allocate (arena%entries(parent_index)%child_indices(new_cap))
+            arena%entries(parent_index)%child_count = 1
+            arena%entries(parent_index)%child_indices(1) = child_index
+            return
+        end if
+
+        count = arena%entries(parent_index)%child_count
+        if (count < 0) count = 0
+        if (count >= size(arena%entries(parent_index)%child_indices)) then
+            new_cap = max(2 * &
+                          size(arena%entries(parent_index)%child_indices), count + 1)
+            allocate (tmp(new_cap))
+            if (count > 0) then
+                tmp(1:count) = arena%entries(parent_index)%child_indices(1:count)
+            end if
+            call move_alloc(tmp, arena%entries(parent_index)%child_indices)
+        end if
+
+        arena%entries(parent_index)%child_count = count + 1
+        arena%entries(parent_index)%child_indices(count + 1) = child_index
+    end subroutine append_child_index
 
     ! Check if child is already present in parent's children list
     pure logical function is_child_present(arena, parent_index, child_index) &

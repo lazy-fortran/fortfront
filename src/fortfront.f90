@@ -44,6 +44,9 @@ module fortfront
 
     ! Re-export AST arena and core types
     use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
+    use ast_arena_source_text, only: set_source_text, has_source_text, &
+                                     get_source_text, get_source_line, &
+                                     get_source_range, get_source_range_by_pos
     use ast_base, only: ast_node
     use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
                               identifier_node, literal_node, array_literal_node, &
