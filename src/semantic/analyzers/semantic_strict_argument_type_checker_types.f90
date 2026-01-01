@@ -103,7 +103,7 @@ contains
         end select
     end function strict_literal_type
 
-    pure integer function parse_literal_kind_suffix(text) result(kind_value)
+    integer function parse_literal_kind_suffix(text) result(kind_value)
         character(len=*), intent(in) :: text
         integer :: underscore_pos
         integer :: ios
@@ -194,4 +194,3 @@ contains
     end subroutine strict_type_name
 
 end module semantic_strict_argument_type_checker_types
-
