@@ -13,6 +13,8 @@ program test_cst_ast_lookup
 
     if (.not. test_ast_lookup_map()) all_passed = .false.
     if (.not. test_ast_lookup_stale_map_fallback()) all_passed = .false.
+    if (.not. test_ast_link_clears_previous_cst_node()) all_passed = .false.
+    if (.not. test_ast_relink_clears_old_map_entry()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -93,5 +95,74 @@ contains
 
         print *, '  PASS: stale-map fallback'
     end function test_ast_lookup_stale_map_fallback
+
+    logical function test_ast_link_clears_previous_cst_node()
+        type(cst_arena_t) :: arena
+        type(cst_handle_t) :: handle_x
+        type(cst_handle_t) :: handle_y
+        integer :: cst_index
+
+        test_ast_link_clears_previous_cst_node = .true.
+        print *, 'Testing relinking same AST clears old CST node...'
+
+        arena = create_cst_arena(4)
+        handle_x = arena%push(create_cst_node(CST_IDENTIFIER, 0, 0, 'x'))
+        handle_y = arena%push(create_cst_node(CST_IDENTIFIER, 0, 0, 'y'))
+
+        call arena%link_ast(handle_x%index, 10)
+        call arena%link_ast(handle_y%index, 10)
+
+        if (arena%nodes(handle_x%index)%ast_link /= 0) then
+            print *, '  FAIL: expected old CST node to be unlinked'
+            test_ast_link_clears_previous_cst_node = .false.
+            return
+        end if
+
+        if (arena%nodes(handle_y%index)%ast_link /= 10) then
+            print *, '  FAIL: expected new CST node to be linked to AST 10'
+            test_ast_link_clears_previous_cst_node = .false.
+            return
+        end if
+
+        cst_index = get_cst_node_for_ast(arena, 10)
+        if (cst_index /= handle_y%index) then
+            print *, '  FAIL: expected AST 10 to map to most recent CST node'
+            test_ast_link_clears_previous_cst_node = .false.
+            return
+        end if
+
+        print *, '  PASS: relinking clears old CST node'
+    end function test_ast_link_clears_previous_cst_node
+
+    logical function test_ast_relink_clears_old_map_entry()
+        type(cst_arena_t) :: arena
+        type(cst_handle_t) :: handle_x
+        integer :: cst_index
+
+        test_ast_relink_clears_old_map_entry = .true.
+        print *, 'Testing relinking CST node clears old AST map entry...'
+
+        arena = create_cst_arena(4)
+        handle_x = arena%push(create_cst_node(CST_IDENTIFIER, 0, 0, 'x'))
+
+        call arena%link_ast(handle_x%index, 10)
+        call arena%link_ast(handle_x%index, 20)
+
+        cst_index = get_cst_node_for_ast(arena, 10)
+        if (cst_index /= 0) then
+            print *, '  FAIL: expected old AST 10 map entry to be cleared'
+            test_ast_relink_clears_old_map_entry = .false.
+            return
+        end if
+
+        cst_index = get_cst_node_for_ast(arena, 20)
+        if (cst_index /= handle_x%index) then
+            print *, '  FAIL: expected AST 20 to map to relinked CST node'
+            test_ast_relink_clears_old_map_entry = .false.
+            return
+        end if
+
+        print *, '  PASS: relinking clears old AST map entry'
+    end function test_ast_relink_clears_old_map_entry
 
 end program test_cst_ast_lookup

@@ -1,17 +1,11 @@
 module frontend_transformation_common
     use semantic_input_mode, only: INPUT_MODE_LAZY
     use semantic_operating_mode, only: OPERATING_MODE_INFER
-    use compiler_arena, only: compiler_arena_t
     implicit none
     private
 
     public :: format_options_t
     public :: transform_context_t
-    public :: shared_arena
-    public :: shared_arena_initialized
-
-    type(compiler_arena_t), save :: shared_arena
-    logical, save :: shared_arena_initialized = .false.
 
     type :: format_options_t
         integer :: indent_size = 4

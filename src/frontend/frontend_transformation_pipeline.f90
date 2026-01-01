@@ -43,9 +43,7 @@ module frontend_transformation_pipeline
                                        OPERATING_MODE_STRICT
     use frontend_program_unit_detection, only: tokens_have_explicit_program_unit
     use frontend_transformation_common, only: format_options_t, &
-                                              transform_context_t, &
-                                              shared_arena, &
-                                              shared_arena_initialized
+                                              transform_context_t
     use frontend_transformation_structure, only: collect_procedures_and_target, &
                                                  filter_hoistable_procedures, &
                                                  remove_procedures_from_body, &
@@ -118,7 +116,7 @@ contains
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable, target :: tokens(:)
-        ! Use shared module-level arena for performance
+        type(compiler_arena_t) :: arena
         integer :: prog_index
         character(len=:), allocatable :: source
         logical :: apply_ast_wrapping
@@ -142,15 +140,6 @@ contains
         call trace_enter('transform_lazy_fortran_string')
         ! Initialize the codegen system (idempotent)
         call initialize_codegen()
-
-        ! Obtain the shared compiler arena and reset for a clean run
-        ! PERFORMANCE FIX: Initialize in-place to avoid assignment operator overhead
-        if (.not. shared_arena_initialized) then
-            call shared_arena%init()
-            shared_arena_initialized = .true.
-        else
-            call shared_arena%reset()
-        end if
 
         ! Reset type system arena to prevent type accumulation across transformations
         ! CRITICAL: This prevents circular type references and slowdowns when running
@@ -190,12 +179,15 @@ contains
             return
         end if
 
+        call arena%init()
+
         ! Phase 1: Lexical Analysis
         call trace_enter('phase:lexer')
-        call run_lexical_analysis(source, tokens, shared_arena, error_msg)
+        call run_lexical_analysis(source, tokens, arena, error_msg)
         call trace_leave('phase:lexer')
         if (error_msg /= "") then
-            call handle_lexical_error(source, error_msg, output, shared_arena)
+            call handle_lexical_error(source, error_msg, output, arena)
+            call arena%destroy()
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -203,9 +195,10 @@ contains
         ! Phase 1.5: Enhanced syntax validation with detailed reporting (Issue #256)
         call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(source, tokens, error_msg, output, &
-            & shared_arena)
+            & arena)
         call trace_leave('phase:syntax')
         if (error_msg /= "") then
+            call arena%destroy()
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -219,28 +212,31 @@ contains
             else
                 call create_minimal_program(output)
             end if
+            call arena%destroy()
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Phase 2: Parsing
         call trace_enter('phase:parser')
-        call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
+        call run_parsing_phase(tokens, arena, prog_index, error_msg, output)
         call trace_leave('phase:parser')
         if (error_msg /= "") then
+            call arena%destroy()
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Optional: Validate AST locations after parsing
-        call validate_locations_if_enabled(shared_arena%ast, 'post-parse')
+        call validate_locations_if_enabled(arena%ast, 'post-parse')
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
-        call run_final_phases(shared_arena, prog_index, output, error_msg, &
+        call run_final_phases(arena, prog_index, output, error_msg, &
                               apply_ast_wrapping, local_operating_mode)
         call trace_leave('phase:final')
         if (error_msg /= "") then
+            call arena%destroy()
             call trace_leave('transform_lazy_fortran_string')
             return
         end if
@@ -264,9 +260,8 @@ contains
                 end if
             end block
         end if
+        call arena%destroy()
         call trace_leave('transform_lazy_fortran_string')
-
-        ! Reuse arena: no destroy, it will be reset at next call
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
@@ -359,6 +354,7 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
         type(transform_context_t), intent(in) :: context
         type(token_t), allocatable, target :: tokens(:)
+        type(compiler_arena_t) :: arena
         integer :: prog_index
         logical :: has_functions, has_subroutines, has_main_code
         type(signatures_map_t) :: signatures
@@ -379,14 +375,6 @@ contains
         ! pointers in mono_type_t instances stored in AST nodes
         call reset_type_system()
 
-        ! Initialize or reset shared arena
-        if (.not. shared_arena_initialized) then
-            call shared_arena%init()
-            shared_arena_initialized = .true.
-        else
-            call shared_arena%reset()
-        end if
-
         ! Handle empty input
         if (is_empty_or_whitespace_only(source)) then
             call create_minimal_program(output)
@@ -394,17 +382,21 @@ contains
             return
         end if
 
+        call arena%init()
+
         ! Run transformation pipeline up to AST construction
-        call run_lexical_analysis(source, tokens, shared_arena, error_msg)
+        call run_lexical_analysis(source, tokens, arena, error_msg)
         if (error_msg /= "") then
-            call handle_lexical_error(source, error_msg, output, shared_arena)
+            call handle_lexical_error(source, error_msg, output, arena)
+            call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
         call validate_syntax_with_reporting(source, tokens, error_msg, output, &
-                                            shared_arena)
+                                            arena)
         if (error_msg /= "") then
+            call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
@@ -423,6 +415,7 @@ contains
                     error_msg = format_diagnostic(diag)
                 end block
                 call create_minimal_program(output)
+                call arena%destroy()
                 call trace_leave('transform_lazy_with_ast_wrapping')
                 return
             end if
@@ -430,47 +423,50 @@ contains
 
         if (not_meaningful_for_parsing(tokens)) then
             call create_minimal_program(output)
+            call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
-        call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
+        call run_parsing_phase(tokens, arena, prog_index, error_msg, output)
         if (error_msg /= "") then
+            call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
         ! Run semantic analysis and standardization (but not code generation yet)
-        call run_semantic_analysis_phase(shared_arena, prog_index, &
+        call run_semantic_analysis_phase(arena, prog_index, &
                                          context%operating_mode, error_msg, &
                                          signatures)
         if (allocated(error_msg) .and. len(error_msg) > 0) then
-            call run_code_generation_phase(shared_arena, prog_index, output)
+            call run_code_generation_phase(arena, prog_index, output)
+            call arena%destroy()
             call trace_leave('transform_lazy_with_ast_wrapping')
             return
         end if
 
         ! Run monomorphization (AST transformation)
-        call run_monomorphization_phase(shared_arena, prog_index, signatures)
+        call run_monomorphization_phase(arena, prog_index, signatures)
 
-        call run_standardization_phase(shared_arena, prog_index, .true.)
+        call run_standardization_phase(arena, prog_index, .true.)
 
         ! AST-BASED WRAPPING: Analyze and modify AST directly
-        call analyze_ast_content(shared_arena%ast, prog_index, has_functions, &
+        call analyze_ast_content(arena%ast, prog_index, has_functions, &
                                  has_subroutines, has_main_code)
 
         ! Check if there's already a module in the AST - if so, no wrapping needed
-        if (has_existing_module_in_ast(shared_arena%ast)) then
+        if (has_existing_module_in_ast(arena%ast)) then
             ! Don't wrap - preserve existing module structure
         else if ((has_functions .or. has_subroutines) .and. has_main_code) then
-            call promote_functions_to_internal_program(shared_arena%ast, prog_index)
+            call promote_functions_to_internal_program(arena%ast, prog_index)
         else if ((has_functions .or. has_subroutines) .and. .not. has_main_code) then
-            call wrap_ast_in_module_only(shared_arena%ast, prog_index, context)
+            call wrap_ast_in_module_only(arena%ast, prog_index, context)
         end if
         ! If only main code or nothing to wrap, leave AST as-is
 
         ! Generate code from (possibly wrapped) AST
-        call run_code_generation_phase(shared_arena, prog_index, output)
+        call run_code_generation_phase(arena, prog_index, output)
 
         ! Preserve leading comments
         if (has_leading_comment(source)) then
@@ -483,6 +479,7 @@ contains
             end block
         end if
 
+        call arena%destroy()
         call trace_leave('transform_lazy_with_ast_wrapping')
     end subroutine transform_lazy_with_ast_wrapping
 
