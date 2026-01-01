@@ -260,6 +260,9 @@
         end subroutine infer_data_statement_types
 
         subroutine infer_single_data_object(object_index, value_indices)
+            use ast_nodes_core, only: identifier_node
+            use error_handling, only: create_error_result, &
+                                      ERROR_SEMANTIC, result_t
             integer, intent(in) :: object_index
             integer, intent(in) :: value_indices(:)
             type(assignment_node) :: synthetic_assignment
@@ -267,6 +270,8 @@
             type(mono_type_t) :: updated_expr_typ
             type(mono_type_t) :: declared_type
             logical :: has_declared_type
+            character(len=:), allocatable :: target_name
+            character(len=32) :: value_count_str
 
             if (object_index <= 0) return
             if (size(value_indices) == 0) return
@@ -278,17 +283,50 @@
                 synthetic_assignment%value_index = value_indices(1)
                 expr_typ = get_node_type(value_indices(1))
             else
-                synthetic_assignment%value_index = 0
-                ! For standard Fortran: check if target has declared array shape
-                ! If so, preserve that shape instead of creating 1D from value count
-                has_declared_type = get_data_target_declared_type(object_index, &
-                                                                  declared_type)
-                if (has_declared_type .and. declared_type%kind == TARRAY) then
-                    ! Preserve declared array shape, just use element type from values
+                has_declared_type = &
+                    get_data_target_declared_type(object_index, &
+                                                  declared_type)
+                if (has_declared_type) then
+                    if (declared_type%kind /= TARRAY) then
+                        target_name = "unknown"
+                        if (object_index > 0 .and. object_index <= &
+                            arena%size) then
+                            if (allocated(arena%entries(object_index)%node)) then
+                                select type (target_node => &
+                                             arena%entries(object_index)%node)
+                                type is (identifier_node)
+                                    if (allocated(target_node%name)) then
+                                        if (len_trim(target_node%name) > 0) then
+                                            target_name = trim(target_node%name)
+                                        end if
+                                    end if
+                                class default
+                                    continue
+                                end select
+                            end if
+                        end if
+
+                        write (value_count_str, '(I0)') size(value_indices)
+                        block
+                            type(result_t) :: error_result
+
+                            error_result = create_error_result( &
+                                        "DATA statement has "//trim(value_count_str)// &
+                                      " values for scalar object "//trim(target_name), &
+                                           ERROR_SEMANTIC, &
+                                           "semantic_analyzer", &
+                                           "data_statement", &
+                                           "Declare as array")
+                            call this%errors%add_result(error_result)
+                        end block
+                        return
+                    end if
                     expr_typ = declared_type
                 else
                     expr_typ = build_array_type_from_values(value_indices)
                 end if
+
+                synthetic_assignment%value_index = 0
             end if
 
             updated_expr_typ = expr_typ
@@ -299,17 +337,62 @@
         end subroutine infer_single_data_object
 
         subroutine infer_multi_data_objects(object_indices, value_indices)
+            use error_handling, only: create_error_result, &
+                                      ERROR_SEMANTIC, result_t
             integer, intent(in) :: object_indices(:)
             integer, intent(in) :: value_indices(:)
             type(assignment_node) :: synthetic_assignment
             type(mono_type_t) :: expr_typ
             type(mono_type_t) :: updated_expr_typ
+            type(mono_type_t) :: declared_type
+            logical :: has_declared_type
+            logical :: all_scalar_identifiers
             integer :: cursor
             integer :: i
+            integer :: num_objects
             integer :: value_count
+            character(len=32) :: obj_count_str
+            character(len=32) :: value_count_str
 
             value_count = size(value_indices)
             if (value_count == 0) return
+
+            all_scalar_identifiers = .true.
+            num_objects = 0
+            do i = 1, size(object_indices)
+                if (object_indices(i) <= 0) cycle
+                num_objects = num_objects + 1
+                has_declared_type = &
+                    get_data_target_declared_type(object_indices(i), &
+                                                  declared_type)
+                if (.not. has_declared_type) then
+                    all_scalar_identifiers = .false.
+                    exit
+                end if
+                if (declared_type%kind == TARRAY) then
+                    all_scalar_identifiers = .false.
+                    exit
+                end if
+            end do
+
+            if (num_objects > 0 .and. all_scalar_identifiers .and. &
+                value_count /= num_objects) then
+                write (obj_count_str, '(I0)') num_objects
+                write (value_count_str, '(I0)') value_count
+                block
+                    type(result_t) :: error_result
+
+                    error_result = create_error_result( &
+                                   "DATA statement has "//trim(value_count_str)// &
+                                   " values for "//trim(obj_count_str)// &
+                                   " scalar objects", &
+                                   ERROR_SEMANTIC, "semantic_analyzer", &
+                                   "data_statement", &
+                                   "Match values to objects")
+                    call this%errors%add_result(error_result)
+                end block
+                return
+            end if
 
             cursor = 1
             synthetic_assignment%operator = "="
