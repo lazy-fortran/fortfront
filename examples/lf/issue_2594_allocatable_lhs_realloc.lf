@@ -1,0 +1,8 @@
+program main
+    implicit none
+
+    real, allocatable :: arr(:)
+
+    arr = [1.0, 2.0, 3.0]
+    arr = [4.0, 5.0]
+end program main
