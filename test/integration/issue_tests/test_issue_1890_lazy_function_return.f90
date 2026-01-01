@@ -1,18 +1,13 @@
 program test_issue_1890_lazy_function_return
-    use fortfront, only: transform_lazy_fortran_string
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
     character(len=:), allocatable :: source
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
-    source = 'function quadratic(a, b, c, x)' // new_line('a') // &
-             '    quadratic = a*x**2 + b*x + c' // new_line('a') // &
-             'end function' // new_line('a') // &
-             ' ' // new_line('a') // &
-             'result = quadratic(2.0, -3.0, 1.0, 5.0)' // new_line('a') // &
-             'print *, ''Result:'', result'
-
+    call read_example('examples/lf/issue_1890_lazy_function_return.lf', source)
     call transform_lazy_fortran_string(source, transformed, error_msg)
 
     if (allocated(error_msg)) then
@@ -48,4 +43,20 @@ program test_issue_1890_lazy_function_return
     end if
 
     print *, 'PASS: lazy Fortran infers real return type for quadratic'
+
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 end program test_issue_1890_lazy_function_return

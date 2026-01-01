@@ -42,7 +42,7 @@ program test_docs_examples_ci_verified
         print *, 'PASS: docs examples are CI-verified'
         stop 0
     else
-        error stop 'FAIL: docs examples are CI-verified'
+        error stop 'FAIL: docs examples CI verification failed'
     end if
 
 contains

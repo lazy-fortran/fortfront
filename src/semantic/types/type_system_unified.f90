@@ -185,6 +185,7 @@ contains
         call ensure_arena_initialized()
 
         ! Build arena type
+        arena_type = arena_mono_type_t()
         arena_type%kind = kind
         arena_type%size = 0
         if (present(char_size)) arena_type%size = char_size
@@ -234,6 +235,8 @@ contains
         integer :: i
 
         call ensure_arena_initialized()
+
+        arena_poly = arena_poly_type_t()
 
         ! Convert type vars to handles (simplified - we'll store as empty for now)
         allocate (var_handles(0))
