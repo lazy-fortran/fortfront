@@ -39,9 +39,12 @@ module frontend_transformation_pipeline
     use debug_trace, only: trace_init, trace_enter, trace_leave, trace_is_enabled
     use procedure_classification, only: should_hoist_procedure
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
-    use semantic_operating_mode, only: OPERATING_MODE_INFER, OPERATING_MODE_STRICT
+    use semantic_operating_mode, only: OPERATING_MODE_INFER, &
+                                       OPERATING_MODE_STRICT
+    use frontend_program_unit_detection, only: tokens_have_explicit_program_unit
     use frontend_transformation_common, only: format_options_t, &
-                                              transform_context_t, shared_arena, &
+                                              transform_context_t, &
+                                              shared_arena, &
                                               shared_arena_initialized
     use frontend_transformation_structure, only: collect_procedures_and_target, &
                                                  filter_hoistable_procedures, &
@@ -499,63 +502,6 @@ contains
             with_newline = text // new_line('A')
         end if
     end function ensure_trailing_newline
-
-    logical function tokens_have_explicit_program_unit(tokens) result(has_unit)
-        type(token_t), intent(in) :: tokens(:)
-        integer :: i, next_idx
-        character(len=:), allocatable :: lowered
-
-        has_unit = .false.
-        do i = 1, size(tokens)
-            if (tokens(i)%kind /= TK_KEYWORD .and. &
-                tokens(i)%kind /= TK_IDENTIFIER) cycle
-            if (.not. allocated(tokens(i)%text)) cycle
-            lowered = to_lower(trim(tokens(i)%text))
-            select case (lowered)
-            case ("program", "subroutine", "function", "submodule")
-                has_unit = .true.
-                return
-            case ("block")
-                next_idx = find_next_identifier_token(tokens, i)
-                if (next_idx > 0) then
-                    if (.not. allocated(tokens(next_idx)%text)) cycle
-                    if (to_lower(trim(tokens(next_idx)%text)) == "data") then
-                        has_unit = .true.
-                        return
-                    end if
-                end if
-            case ("module")
-                next_idx = find_next_identifier_token(tokens, i)
-                if (next_idx > 0) then
-                    if (.not. allocated(tokens(next_idx)%text)) cycle
-                    if (to_lower(trim(tokens(next_idx)%text)) /= "procedure") then
-                        has_unit = .true.
-                        return
-                    end if
-                end if
-            end select
-        end do
-    end function tokens_have_explicit_program_unit
-
-    integer function find_next_identifier_token(tokens, start_pos) result(idx)
-        type(token_t), intent(in) :: tokens(:)
-        integer, intent(in) :: start_pos
-        integer :: i
-
-        idx = 0
-        do i = start_pos + 1, size(tokens)
-            select case (tokens(i)%kind)
-            case (TK_IDENTIFIER)
-                idx = i
-                return
-            case (TK_KEYWORD)
-                idx = i
-                return
-            case default
-                cycle
-            end select
-        end do
-    end function find_next_identifier_token
 
     ! Check if input is empty or whitespace only
     function is_empty_or_whitespace_only(input) result(is_empty)
