@@ -28,6 +28,8 @@ contains
         character(len=256) :: envtmp
         integer :: ios, last
         character(len=:), allocatable :: prefix
+        logical :: is_windows
+        logical :: tmp_exists
 
         call get_environment_variable('TMPDIR', envtmp, status=ios)
         if (ios /= 0 .or. len_trim(envtmp) == 0) then
@@ -36,7 +38,22 @@ contains
         if (ios /= 0 .or. len_trim(envtmp) == 0) then
             call get_environment_variable('TMP', envtmp, status=ios)
         end if
-        if (ios /= 0 .or. len_trim(envtmp) == 0) envtmp = '.'
+        if (ios /= 0 .or. len_trim(envtmp) == 0) then
+            is_windows = .false.
+            call get_environment_variable('OS', envtmp, status=ios)
+            if (ios == 0) then
+                if (envtmp(1:7) == 'Windows') is_windows = .true.
+            end if
+            if (.not. is_windows) then
+                call get_environment_variable('WINDIR', envtmp, status=ios)
+                if (ios == 0) is_windows = .true.
+            end if
+            envtmp = '/tmp'
+            if (is_windows) then
+                inquire (file=envtmp, exist=tmp_exists)
+                if (.not. tmp_exists) envtmp = '.'
+            end if
+        end if
 
         last = len_trim(envtmp)
         if (last == 0) then

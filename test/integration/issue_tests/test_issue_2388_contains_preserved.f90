@@ -1,6 +1,6 @@
 program test_issue_2388_contains_preserved
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-        iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+    use, intrinsic :: iso_fortran_env, only: iostat_end, iostat_eor
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use frontend_core, only: emit_fortran, lex_source
     use frontend_parsing, only: parse_tokens
@@ -60,7 +60,8 @@ program test_issue_2388_contains_preserved
     end if
 
     module_contains_pos = index(lowered(module_anchor:), &
-        new_line('a') // 'contains' // new_line('a') // '    subroutine run')
+                                new_line('a')//'contains'//new_line('a')// &
+                                '    subroutine run')
     if (module_contains_pos == 0) then
         write (error_unit, '(A)') 'FAIL: module-level contains stripped'
         error stop 1
@@ -83,7 +84,7 @@ program test_issue_2388_contains_preserved
         error stop 1
     end if
 
-    internal_contains_pos = index(lowered(run_pos:), new_line('a') // 'contains')
+    internal_contains_pos = index(lowered(run_pos:), new_line('a')//'contains')
     if (internal_contains_pos == 0) then
         write (error_unit, '(A)') 'FAIL: internal contains removed'
         error stop 1
@@ -123,7 +124,7 @@ program test_issue_2388_contains_preserved
 
     decl_pos = index(lowered, 'integer :: counter')
     bump_counter_pos = index(lowered, 'subroutine bump_counter')
-    program_contains_pos = index(lowered, new_line('a') // 'contains' // &
+    program_contains_pos = index(lowered, new_line('a')//'contains'// &
                                  new_line('a'))
 
     if (decl_pos == 0 .or. bump_counter_pos == 0) then
@@ -165,17 +166,25 @@ contains
     end subroutine read_example
 
     subroutine assert_compiles(text, basename)
+        use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                           cleanup_temp_directory, join_path, &
+                                           path_separator_for
+        use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: basename
-        character(len=256) :: filename, obj_file, cmd
+        character(len=:), allocatable :: filename
+        character(len=:), allocatable :: cmd
+        logical :: is_windows
+        character(len=:), allocatable :: temp_dir
+        character(len=1) :: sep
         integer :: unit, ios, exit_code
-        character(len=256) :: temp_dir
 
-        call get_environment_variable('TEMP', temp_dir, status=ios)
-        if (ios /= 0 .or. len_trim(temp_dir) == 0) temp_dir = '/tmp'
-
-        filename = trim(temp_dir) // '/' // trim(basename) // '.f90'
-        obj_file = trim(temp_dir) // '/' // trim(basename) // '.o'
+        is_windows = check_if_windows()
+        call create_temp_directory(temp_dir, is_windows)
+        if (len_trim(temp_dir) == 0) error stop &
+            'FAIL: could not create temporary directory'
+        sep = path_separator_for(temp_dir)
+        filename = join_path(temp_dir, trim(basename)//'.f90', sep)
 
         open (newunit=unit, file=filename, status='replace', action='write', &
               iostat=ios)
@@ -186,16 +195,13 @@ contains
         write (unit, '(A)') text
         close (unit)
 
-        cmd = 'gfortran -c ' // trim(filename) // ' -o ' // trim(obj_file) // &
-              ' 2>&1'
+        cmd = build_compile_command(filename, '', temp_dir, is_windows)
         call execute_command_line(cmd, exitstat=exit_code)
+        call cleanup_temp_directory(temp_dir, is_windows)
         if (exit_code /= 0) then
             write (error_unit, '(A)') 'FAIL: generated code does not compile'
             error stop 1
         end if
-
-        call execute_command_line('rm -f ' // trim(filename) // ' ' // &
-            trim(obj_file))
     end subroutine assert_compiles
 
 end program test_issue_2388_contains_preserved

@@ -98,6 +98,7 @@ contains
     end subroutine assert_contains
 
     subroutine test_compilation(source_text, basename)
+        use test_shell_commands, only: build_compile_command
         character(len=*), intent(in) :: source_text, basename
         character(len=256) :: filename, cmd, temp_dir, obj_file
         integer :: unit, ios, exit_code
@@ -122,8 +123,7 @@ contains
         write (unit, '(A)') source_text
         close (unit)
 
-        cmd = 'gfortran -c ' // trim(filename) // ' -o ' // &
-              trim(obj_file) // ' 2>&1'
+        cmd = build_compile_command(trim(filename), '', trim(temp_dir), is_windows)
         call execute_command_line(cmd, exitstat=exit_code)
 
         if (exit_code /= 0) then

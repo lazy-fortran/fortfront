@@ -1,9 +1,25 @@
 program test_codegen_green
     use transformation_api, only: compile_source, compilation_options_t
+    use test_filesystem_helpers, only: check_if_windows, create_temp_directory, &
+                                       cleanup_temp_directory, join_path, &
+                                       path_separator_for
+    implicit none
 
     logical :: all_passed
+    logical :: is_windows
+    character(len=:), allocatable :: temp_dir
+    character(len=1) :: sep
+    integer :: exit_code
 
     all_passed = .true.
+    exit_code = 0
+    is_windows = check_if_windows()
+    call create_temp_directory(temp_dir, is_windows)
+    if (len_trim(temp_dir) == 0) then
+        print *, 'FAIL: could not create temporary directory'
+        stop 1
+    end if
+    sep = path_separator_for(temp_dir)
 
     print *, '=== Code Generation Tests ==='
     print *, 'These tests check code generation is working correctly'
@@ -17,11 +33,12 @@ program test_codegen_green
     print *
     if (all_passed) then
         print *, 'All code generation tests passed!'
-        stop 0
     else
         print *, 'Some code generation tests failed!'
-        stop 1
+        exit_code = 1
     end if
+    call cleanup_temp_directory(temp_dir, is_windows)
+    stop exit_code
 
 contains
 
@@ -29,7 +46,7 @@ contains
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg
         type(compilation_options_t) :: options
-        integer :: unit
+        integer :: unit, ios
         character(len=256) :: line
         logical :: generated_correctly
 
@@ -37,12 +54,12 @@ contains
         print *, 'Testing array literal code generation...'
 
         ! Simple test that should work
-        input_file = 'test_cg_arr.lf'
+        input_file = join_path(temp_dir, 'test_cg_arr.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [10, 20, 30]'
         close (unit)
 
-        output_file = 'test_cg_arr_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_arr_out.f90', sep)
         ! Backend is always Fortran codegen now
         options%output_file = output_file
 
@@ -50,12 +67,12 @@ contains
 
         if (error_msg == '') then
             ! Check the generated code
-            open (newunit=unit, file=output_file, status='old', iostat=unit)
-            if (unit == 0) then
+            open (newunit=unit, file=output_file, status='old', iostat=ios)
+            if (ios == 0) then
                 generated_correctly = .false.
                 do
-                    read (unit, '(a)', iostat=unit) line
-                    if (unit /= 0) exit
+                    read (unit, '(a)', iostat=ios) line
+                    if (ios /= 0) exit
                     ! Should generate: arr = (/ 10, 20, 30 /)
                     if (index(line, '(/ 10, 20, 30 /)') > 0 .or. &
                         index(line, '(/10, 20, 30/)') > 0) then
@@ -78,24 +95,24 @@ contains
         end if
 
         ! Mixed array literal should promote integers to real(8)
-        input_file = 'test_cg_arr_mixed.lf'
+        input_file = join_path(temp_dir, 'test_cg_arr_mixed.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2.0, 3]'
         close (unit)
 
-        output_file = 'test_cg_arr_mixed_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_arr_mixed_out.f90', sep)
         options%output_file = output_file
         error_msg = ''
 
         call compile_source(input_file, options, error_msg)
 
         if (error_msg == '') then
-            open (newunit=unit, file=output_file, status='old', iostat=unit)
-            if (unit == 0) then
+            open (newunit=unit, file=output_file, status='old', iostat=ios)
+            if (ios == 0) then
                 generated_correctly = .false.
                 do
-                    read (unit, '(a)', iostat=unit) line
-                    if (unit /= 0) exit
+                    read (unit, '(a)', iostat=ios) line
+                    if (ios /= 0) exit
                     if (index(line, '1.0d0') > 0 .and. &
                         index(line, '2.0d0') > 0 .and. &
                         index(line, '3.0d0') > 0) then
@@ -129,12 +146,12 @@ contains
         test_implied_do_codegen = .true.
         print *, 'Testing implied do loop code generation...'
 
-        input_file = 'test_cg_do.lf'
+        input_file = join_path(temp_dir, 'test_cg_do.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [(i*i, i=1,5)]'
         close (unit)
 
-        output_file = 'test_cg_do_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_do_out.f90', sep)
         ! Backend is always Fortran codegen now
         options%output_file = output_file
 
@@ -154,31 +171,31 @@ contains
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg
         type(compilation_options_t) :: options
-        integer :: unit
+        integer :: unit, ios
         character(len=256) :: line
         logical :: found_concat
 
         test_string_concat_codegen = .true.
         print *, 'Testing string concatenation code generation...'
 
-        input_file = 'test_cg_concat.lf'
+        input_file = join_path(temp_dir, 'test_cg_concat.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'msg = "Hello" // " " // "World"'
         close (unit)
 
-        output_file = 'test_cg_concat_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_concat_out.f90', sep)
         ! Backend is always Fortran codegen now
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
 
         if (error_msg == '') then
-            open (newunit=unit, file=output_file, status='old', iostat=unit)
-            if (unit == 0) then
+            open (newunit=unit, file=output_file, status='old', iostat=ios)
+            if (ios == 0) then
                 found_concat = .false.
                 do
-                    read (unit, '(a)', iostat=unit) line
-                    if (unit /= 0) exit
+                    read (unit, '(a)', iostat=ios) line
+                    if (ios /= 0) exit
                     if (index(line, '"Hello" // " " // "World"') > 0 .or. &
                         index(line, '"Hello World"') > 0) then
                         found_concat = .true.
@@ -211,12 +228,12 @@ contains
         print *, 'Testing complex expression code generation...'
 
         ! Test: Nested array operations
-        input_file = 'test_cg_complex.lf'
+        input_file = join_path(temp_dir, 'test_cg_complex.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'result = sum([1, 2, 3]) + maxval([(i*2, i=1,5)])'
         close (unit)
 
-        output_file = 'test_cg_complex_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_complex_out.f90', sep)
         ! Backend is always Fortran codegen now
         options%output_file = output_file
 
@@ -230,12 +247,12 @@ contains
         end if
 
         ! Test: Array slice in expression
-        input_file = 'test_cg_slice.lf'
+        input_file = join_path(temp_dir, 'test_cg_slice.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'sub = arr(2:5) + [1, 1, 1, 1]'
         close (unit)
 
-        output_file = 'test_cg_slice_out.f90'
+        output_file = join_path(temp_dir, 'test_cg_slice_out.f90', sep)
         options%output_file = output_file
 
         call compile_source(input_file, options, error_msg)
