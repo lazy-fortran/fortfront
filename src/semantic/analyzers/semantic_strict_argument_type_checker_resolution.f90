@@ -151,6 +151,7 @@ contains
             type is (function_def_node)
                 if (.not. in_contains) cycle
                 if (.not. want_function) cycle
+                if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
                     iface_index = node_index
                     return
@@ -158,6 +159,7 @@ contains
             type is (subroutine_def_node)
                 if (.not. in_contains) cycle
                 if (want_function) cycle
+                if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
                     iface_index = node_index
                     return
@@ -192,12 +194,14 @@ contains
             select type (node => arena%entries(node_index)%node)
             type is (function_def_node)
                 if (.not. want_function) cycle
+                if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
                     iface_index = node_index
                     return
                 end if
             type is (subroutine_def_node)
                 if (want_function) cycle
+                if (.not. allocated(node%name)) cycle
                 if (node_name_matches(node%name, lowered_name)) then
                     iface_index = node_index
                     return
