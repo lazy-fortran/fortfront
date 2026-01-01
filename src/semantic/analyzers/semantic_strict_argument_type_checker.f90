@@ -27,19 +27,24 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(error_collection_t), intent(inout) :: errors
         type(call_or_subscript_node), intent(in) :: call_node
-        type(function_def_node), allocatable :: iface
+        integer :: iface_index
 
         if (.not. allocated(call_node%name)) return
         if (len_trim(call_node%name) == 0) return
         if (call_node%base_expr_index /= 0) return
 
-        call find_function_interface(arena, call_node%name, iface)
-        if (.not. allocated(iface)) return
-
-        call validate_call_against_interface(arena, errors, call_node%name, &
-                                             call_node%arg_indices, &
-                                             iface%param_indices, &
-                                             iface%body_indices)
+        call find_function_interface_index(arena, call_node%name, iface_index)
+        if (iface_index <= 0) return
+        if (.not. allocated(arena%entries(iface_index)%node)) return
+        select type (iface => arena%entries(iface_index)%node)
+        type is (function_def_node)
+            call validate_call_against_interface(arena, errors, call_node%name, &
+                                                 call_node%arg_indices, &
+                                                 iface%param_indices, &
+                                                 iface%body_indices)
+        class default
+            return
+        end select
     end subroutine validate_strict_argument_types_for_function_reference
 
     subroutine validate_strict_argument_types_for_subroutine_call(arena, errors, &
@@ -47,28 +52,33 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(error_collection_t), intent(inout) :: errors
         type(subroutine_call_node), intent(in) :: call_node
-        type(subroutine_def_node), allocatable :: iface
+        integer :: iface_index
 
         if (.not. allocated(call_node%name)) return
         if (len_trim(call_node%name) == 0) return
 
-        call find_subroutine_interface(arena, call_node%name, iface)
-        if (.not. allocated(iface)) return
-
-        call validate_call_against_interface(arena, errors, call_node%name, &
-                                             call_node%arg_indices, &
-                                             iface%param_indices, &
-                                             iface%body_indices)
+        call find_subroutine_interface_index(arena, call_node%name, iface_index)
+        if (iface_index <= 0) return
+        if (.not. allocated(arena%entries(iface_index)%node)) return
+        select type (iface => arena%entries(iface_index)%node)
+        type is (subroutine_def_node)
+            call validate_call_against_interface(arena, errors, call_node%name, &
+                                                 call_node%arg_indices, &
+                                                 iface%param_indices, &
+                                                 iface%body_indices)
+        class default
+            return
+        end select
     end subroutine validate_strict_argument_types_for_subroutine_call
 
-    subroutine find_function_interface(arena, name, iface)
+    subroutine find_function_interface_index(arena, name, iface_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: name
-        type(function_def_node), allocatable, intent(out) :: iface
+        integer, intent(out) :: iface_index
         integer :: i
         character(len=:), allocatable :: lowered
 
-        if (allocated(iface)) deallocate (iface)
+        iface_index = 0
         lowered = to_lower(trim(name))
         if (len_trim(lowered) == 0) return
 
@@ -78,22 +88,22 @@ contains
             type is (function_def_node)
                 if (.not. allocated(node%name)) cycle
                 if (to_lower(trim(node%name)) /= lowered) cycle
-                allocate (iface, source=node)
+                iface_index = i
                 return
             class default
                 cycle
             end select
         end do
-    end subroutine find_function_interface
+    end subroutine find_function_interface_index
 
-    subroutine find_subroutine_interface(arena, name, iface)
+    subroutine find_subroutine_interface_index(arena, name, iface_index)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: name
-        type(subroutine_def_node), allocatable, intent(out) :: iface
+        integer, intent(out) :: iface_index
         integer :: i
         character(len=:), allocatable :: lowered
 
-        if (allocated(iface)) deallocate (iface)
+        iface_index = 0
         lowered = to_lower(trim(name))
         if (len_trim(lowered) == 0) return
 
@@ -103,13 +113,13 @@ contains
             type is (subroutine_def_node)
                 if (.not. allocated(node%name)) cycle
                 if (to_lower(trim(node%name)) /= lowered) cycle
-                allocate (iface, source=node)
+                iface_index = i
                 return
             class default
                 cycle
             end select
         end do
-    end subroutine find_subroutine_interface
+    end subroutine find_subroutine_interface_index
 
     subroutine validate_call_against_interface(arena, errors, proc_name, &
                                                arg_indices, param_indices, body_indices)
