@@ -61,14 +61,13 @@ contains
     end subroutine find_module_node_index
 
     logical function node_name_matches(node_name, lowered_name) result(matches)
-        character(len=:), allocatable, intent(in) :: node_name
+        character(len=*), intent(in) :: node_name
         character(len=*), intent(in) :: lowered_name
 
         matches = .false.
-        if (.not. allocated(node_name)) return
+        if (len_trim(node_name) == 0) return
         if (len_trim(lowered_name) == 0) return
         matches = to_lower(trim(node_name)) == lowered_name
     end function node_name_matches
 
 end module semantic_strict_argument_type_checker_scope_utils
-
