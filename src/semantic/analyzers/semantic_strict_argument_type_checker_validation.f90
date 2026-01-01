@@ -160,9 +160,9 @@ contains
         is_known = .true.
     end function strict_type_is_known
 
-    function strict_type_name(typ) result(name)
+    subroutine strict_type_name(typ, name)
         type(mono_type_t), intent(in) :: typ
-        character(len=:), allocatable :: name
+        character(len=:), allocatable, intent(out) :: name
         type(mono_type_t) :: copy
         character(len=:), allocatable :: converted
 
@@ -190,7 +190,7 @@ contains
         case default
             name = "unknown"
         end select
-    end function strict_type_name
+    end subroutine strict_type_name
 
 end module semantic_strict_argument_type_checker_types
 
@@ -416,8 +416,8 @@ contains
 
         if (strict_types_match(dummy_type, actual_type)) return
 
-        actual_string = strict_type_name(actual_type)
-        dummy_string = strict_type_name(dummy_type)
+        call strict_type_name(actual_type, actual_string)
+        call strict_type_name(dummy_type, dummy_string)
         call emit_argument_error(errors, &
                                  "Type mismatch in call to '"//trim(proc_name)// &
                                  "': actual argument '"//trim(dummy_name)// &
