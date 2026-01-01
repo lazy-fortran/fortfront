@@ -46,9 +46,14 @@ contains
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
                                           options, tokens)
 
-        ! We don't check for semantic errors because the monomorphization
-        ! of optional assumed-rank parameters may not be fully implemented yet.
-        ! The important thing is that it doesn't crash at line 1657.
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                write (error_unit, '(A,1X,A)') '  FAIL: semantic error:', &
+                    trim(error_msg)
+                test_optional_assumed_rank_parsing = .false.
+                return
+            end if
+        end if
 
         if (root_index <= 0) then
             print *, '  FAIL: Parsing failed to produce AST'
