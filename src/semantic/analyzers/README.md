@@ -89,6 +89,8 @@ For complete semantic analysis concepts including type inference, scope manageme
 | semantic_scope_creation.f90 | Create and manage scopes |
 | semantic_explicit_interface_checker.f90 | Strict-mode explicit interface validation for procedure calls |
 | semantic_strict_argument_type_checker.f90 | Strict-mode validation for actual vs dummy argument type matching |
+| semantic_strict_argument_type_checker_resolution.f90 | Strict-mode procedure interface resolution helpers |
+| semantic_strict_argument_type_checker_validation.f90 | Strict-mode call validation, argument mapping, and type checks |
 | semantic_strict_argument_type_checker_scope_utils.f90 | Helpers for strict-mode scoped procedure interface lookup |
 | semantic_validation_utils.f90 | Validation helper utilities |
 | semantic_annotation_utils.f90 | AST annotation with type information |
