@@ -1,5 +1,5 @@
 submodule(semantic_analyzer) semantic_analyzer_context_impl
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, int32
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_fun_type, &
                                    create_poly_type, &
@@ -18,9 +18,9 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use semantic_validation_utils, only: int_to_str
     use ast_nodes_data, only: declaration_node
     use semantic_context_types, only: semantic_context_base_t
-    use identifier_table, only: identifier_table_init
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
-    use semantic_operating_mode, only: OPERATING_MODE_INFER, OPERATING_MODE_STRICT
+    use semantic_operating_mode, only: OPERATING_MODE_INFER, &
+                                       OPERATING_MODE_STRICT
     use debug_trace, only: trace_is_enabled
     implicit none
 contains
@@ -46,7 +46,15 @@ contains
         ctx%respect_implicit_none = .true.
         ctx%type_hierarchy = create_type_hierarchy()
         ctx%signatures = create_signatures_map()
-        call identifier_table_init(ctx%explicit_interface_procedure_names)
+        ctx%explicit_interface_procedure_names%count = 0_int32
+        ctx%explicit_interface_procedure_names%entry_capacity = 0_int32
+        ctx%explicit_interface_procedure_names%bucket_count = 0_int32
+        if (allocated(ctx%explicit_interface_procedure_names%entries)) then
+            deallocate (ctx%explicit_interface_procedure_names%entries)
+        end if
+        if (allocated(ctx%explicit_interface_procedure_names%buckets)) then
+            deallocate (ctx%explicit_interface_procedure_names%buckets)
+        end if
         ctx%explicit_interface_cache_arena_size = 0
         ctx%explicit_interface_cache_valid = .false.
 
