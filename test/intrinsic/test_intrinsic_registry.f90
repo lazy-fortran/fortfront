@@ -1,5 +1,6 @@
 program test_intrinsic_registry
-    use intrinsic_registry
+    use intrinsic_registry, only: get_intrinsic_info, get_intrinsic_signature, &
+                                  is_intrinsic_function, is_intrinsic_subroutine
     implicit none
 
     call test_intrinsic_function_identification()
@@ -14,8 +15,6 @@ program test_intrinsic_registry
 contains
 
     subroutine test_intrinsic_function_identification()
-        logical :: result
-
         print *, "Testing intrinsic function identification..."
 
         ! Test mathematical functions
@@ -220,7 +219,6 @@ contains
     end subroutine test_intrinsic_signature_retrieval
 
     subroutine test_case_insensitive_lookup()
-        logical :: result
         character(len=:), allocatable :: signature
 
         print *, "Testing case insensitive lookup..."
@@ -270,7 +268,6 @@ contains
     end subroutine test_case_insensitive_lookup
 
     subroutine test_non_intrinsic_functions()
-        logical :: result
         character(len=:), allocatable :: signature
 
         print *, "Testing non-intrinsic functions..."
