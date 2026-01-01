@@ -196,7 +196,8 @@ contains
             arena%compat_size == 0 .and. &
             arena%max_depth == 0 .and. &
             arena%size == 0 .and. &
-            arena%capacity == 0) then
+            arena%capacity == 0 .and. &
+            arena%generation == 0) then
             call test_pass()
         else
             call test_fail("Destroy did not fully reset arena compatibility state")
