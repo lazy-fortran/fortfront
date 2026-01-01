@@ -58,6 +58,7 @@ contains
         integer, intent(in) :: cst_index
         integer, intent(in) :: ast_index
 
+        integer :: existing_cst_index
         integer :: new_size
         integer :: old_ast_index
         integer, allocatable :: temp_map(:)
@@ -89,6 +90,15 @@ contains
                 temp_map(1:size(this%ast_to_cst)) = this%ast_to_cst
             end if
             call move_alloc(temp_map, this%ast_to_cst)
+        end if
+
+        existing_cst_index = this%ast_to_cst(ast_index)
+        if (existing_cst_index /= 0 .and. existing_cst_index /= cst_index) then
+            if (existing_cst_index >= 1 .and. existing_cst_index <= this%size) then
+                if (this%nodes(existing_cst_index)%ast_link == ast_index) then
+                    this%nodes(existing_cst_index)%ast_link = 0
+                end if
+            end if
         end if
 
         this%ast_to_cst(ast_index) = cst_index
