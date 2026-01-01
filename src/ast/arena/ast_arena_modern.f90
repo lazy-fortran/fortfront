@@ -46,6 +46,29 @@ module ast_arena_modern
         procedure :: get_inferred_details_at
     end type ast_arena_t
 
+    interface free_ast_node
+        module procedure free_ast_node_modern
+    end interface free_ast_node
+
+    interface is_node_active
+        module procedure is_node_active_modern
+    end interface is_node_active
+
+    interface get_free_statistics
+        module procedure get_free_statistics_modern
+    end interface get_free_statistics
+
+    interface store_ast_node
+        module procedure store_ast_node_modern
+    end interface store_ast_node
+
+    interface get_ast_node
+        module procedure get_ast_node_modern
+    end interface get_ast_node
+
+    private :: free_ast_node_modern, is_node_active_modern, get_free_statistics_modern
+    private :: store_ast_node_modern, get_ast_node_modern
+
 contains
 
     subroutine destroy_compat_entries(arena)
@@ -128,7 +151,7 @@ contains
     end subroutine destroy_ast_arena
 
     ! Free an AST node
-    function free_ast_node(arena, handle) result(free_result)
+    function free_ast_node_modern(arena, handle) result(free_result)
         type(ast_arena_t), intent(inout) :: arena
         type(ast_handle_t), intent(in) :: handle
         type(ast_free_result_t) :: free_result
@@ -141,29 +164,29 @@ contains
             arena%ast_arena_compat_t%compat_size = &
                 arena%ast_arena_compat_t%ast_arena_core_t%get_node_count()
         end if
-    end function free_ast_node
+    end function free_ast_node_modern
 
     ! Check if node is active
-    function is_node_active(arena, handle) result(is_active)
+    function is_node_active_modern(arena, handle) result(is_active)
         type(ast_arena_t), intent(inout) :: arena
         type(ast_handle_t), intent(in) :: handle
         logical :: is_active
 
         ! Use the core implementation through compatibility layer
         is_active = arena%ast_arena_compat_t%is_active(handle)
-    end function is_node_active
+    end function is_node_active_modern
 
     ! Get free statistics
-    function get_free_statistics(arena) result(stats)
+    function get_free_statistics_modern(arena) result(stats)
         type(ast_arena_t), intent(inout) :: arena
         type(ast_arena_stats_t) :: stats
 
         ! Use the core implementation's free stats directly
         stats = arena%ast_arena_compat_t%ast_arena_core_t%get_free_stats()
-    end function get_free_statistics
+    end function get_free_statistics_modern
 
     ! Store an AST node
-    function store_ast_node(arena, node) result(ast_handle)
+    function store_ast_node_modern(arena, node) result(ast_handle)
         use ast_arena_core, only: core_store => store_ast_node
         type(ast_arena_t), intent(inout) :: arena
         type(ast_node_arena_t), intent(in) :: node
@@ -177,10 +200,10 @@ contains
             arena%ast_arena_compat_t%compat_size = &
                 arena%ast_arena_compat_t%ast_arena_core_t%get_node_count()
         end if
-    end function store_ast_node
+    end function store_ast_node_modern
 
     ! Get an AST node
-    function get_ast_node(arena, handle) result(arena_node)
+    function get_ast_node_modern(arena, handle) result(arena_node)
         use ast_arena_core, only: core_get => get_ast_node
         type(ast_arena_t), intent(inout) :: arena
         type(ast_handle_t), intent(in) :: handle
@@ -188,7 +211,7 @@ contains
 
         ! Delegate to core function through inheritance casting
         arena_node = core_get(arena%ast_arena_compat_t%ast_arena_core_t, handle)
-    end function get_ast_node
+    end function get_ast_node_modern
 
     ! Clear/reset arena (compatibility wrapper)
     subroutine clear_ast_arena(this)

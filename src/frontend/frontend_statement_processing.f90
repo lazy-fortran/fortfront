@@ -6,7 +6,8 @@ module frontend_statement_processing
                           TK_OPERATOR, TK_IDENTIFIER, TK_WHITESPACE, TK_NUMBER, to_lower
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, &
-                                        clear_additional_indices
+                                        clear_additional_indices, &
+                                        get_last_parser_errors
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition, &
@@ -747,14 +748,21 @@ contains
     end subroutine process_regular_statement
 
     ! Parse explicit program unit
-    function parse_explicit_program_unit(tokens, arena) result(prog_index)
+    function parse_explicit_program_unit(tokens, arena, error_msg) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
         integer :: prog_index
         type(parser_prefix_buffer_t) :: prefix_buffer
+        character(len=:), allocatable :: errors
 
         ! Parse explicit program statement
         prog_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+
+        if (present(error_msg)) then
+            errors = get_last_parser_errors()
+            error_msg = errors
+        end if
     end function parse_explicit_program_unit
 
     logical function is_prefix_only_statement(tokens, start_idx, end_idx) &

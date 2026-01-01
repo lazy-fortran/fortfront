@@ -147,7 +147,8 @@ contains
     end subroutine parse_kind_specification
 
     ! Check if parentheses contain type specification (extracted logic)
-    function is_type_specification(parser, type_name) result(is_type_spec)
+    function is_type_parameter_specification(parser, type_name) &
+        result(is_type_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: type_name
         logical :: is_type_spec
@@ -175,7 +176,7 @@ contains
 
         ! Restore position
         parser%current_token = saved_pos
-    end function is_type_specification
+    end function is_type_parameter_specification
 
     function parse_implicit_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -325,7 +326,7 @@ contains
             local_token = parser_ref%peek()
             if (local_token%kind == TK_OPERATOR .and. local_token%text == "(") then
                 saved_pos = parser_ref%current_token
-                if (is_type_specification(parser_ref, spec%type_name)) then
+                if (is_type_parameter_specification(parser_ref, spec%type_name)) then
                     local_token = parser_ref%consume()
                     if (spec%type_name == "character") then
                         call parse_character_type_spec(parser_ref, &
