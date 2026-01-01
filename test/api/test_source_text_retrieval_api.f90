@@ -110,6 +110,13 @@ contains
             return
         end if
 
+        call get_source_range(arena, 3, 1, 3, 1, text, found)
+        if (.not. found .or. len(text) /= 0) then
+            print *, '  FAIL: Expected empty range on trailing empty line'
+            test_line_and_range_queries = .false.
+            return
+        end if
+
         call get_source_range(arena, 1, 2, 1, 3, text, found)
         if (.not. found .or. text /= 'bc') then
             print *, '  FAIL: Range mismatch on line 1'

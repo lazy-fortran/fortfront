@@ -75,6 +75,7 @@ contains
         logical, intent(out) :: found
 
         integer :: start_pos, end_pos
+        integer :: src_len
 
         found = .false.
         allocate (character(len=0) :: text)
@@ -86,7 +87,15 @@ contains
 
         if (start_pos <= 0 .or. end_pos <= 0) return
         if (end_pos < start_pos) return
-        if (end_pos > len(arena%source_text)) return
+
+        src_len = len(arena%source_text)
+
+        if (start_pos == src_len + 1 .and. end_pos == start_pos) then
+            found = .true.
+            return
+        end if
+
+        if (end_pos > src_len) return
 
         text = arena%source_text(start_pos:end_pos)
         found = .true.
@@ -98,13 +107,23 @@ contains
         character(len=:), allocatable, intent(out) :: text
         logical, intent(out) :: found
 
+        integer :: src_len
+
         found = .false.
         allocate (character(len=0) :: text)
 
         if (.not. allocated(arena%source_text)) return
         if (start_pos < 1) return
         if (end_pos < start_pos) return
-        if (end_pos > len(arena%source_text)) return
+
+        src_len = len(arena%source_text)
+
+        if (start_pos == src_len + 1 .and. end_pos == start_pos) then
+            found = .true.
+            return
+        end if
+
+        if (end_pos > src_len) return
 
         text = arena%source_text(start_pos:end_pos)
         found = .true.
