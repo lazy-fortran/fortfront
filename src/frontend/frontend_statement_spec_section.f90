@@ -15,6 +15,8 @@ module frontend_statement_spec_section
     implicit none
     private
 
+    integer, parameter :: STMT_FN_MAX_NAME_LEN = 128
+
     public :: convert_statement_function_if_needed
     public :: update_spec_section_state
 
@@ -25,72 +27,122 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         integer, intent(in) :: declaration_indices(:)
-        integer, parameter :: MAX_NAME_LEN = 128
-        integer :: num_args, i, arg_idx
-        character(len=:), allocatable :: base_name
-        character(len=MAX_NAME_LEN), allocatable :: arg_names(:)
         type(statement_function_node) :: stmt_fn
+        logical :: success
 
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        if (.not. arena_index_has_node(arena, stmt_index)) return
 
         select type (assign_node => arena%entries(stmt_index)%node)
         type is (assignment_node)
-            if (assign_node%target_index <= 0 .or. &
-                assign_node%target_index > arena%size) return
-            if (.not. allocated(arena%entries(assign_node%target_index)%node)) return
-            if (assign_node%value_index <= 0) return
-            select type (call_node => arena%entries(assign_node%target_index)%node)
-            type is (call_or_subscript_node)
-                if (.not. allocated(call_node%name)) return
-                if (call_node%base_expr_index /= 0) return
-                if (.not. allocated(call_node%arg_indices)) return
-                num_args = size(call_node%arg_indices)
-                if (num_args <= 0) return
-                base_name = trim(call_node%name)
-                if (len_trim(base_name) == 0) return
-                if (has_array_declaration(arena, declaration_indices, base_name)) &
-                    return
-                allocate (arg_names(num_args))
-                do i = 1, num_args
-                    arg_idx = call_node%arg_indices(i)
-                    if (arg_idx <= 0 .or. arg_idx > arena%size) then
-                        deallocate (arg_names)
-                        return
-                    end if
-                    if (.not. allocated(arena%entries(arg_idx)%node)) then
-                        deallocate (arg_names)
-                        return
-                    end if
-                    select type (arg_node => arena%entries(arg_idx)%node)
-                    type is (identifier_node)
-                        if (.not. allocated(arg_node%name)) then
-                            deallocate (arg_names)
-                            return
-                        end if
-                        arg_names(i) = trim(arg_node%name)
-                    class default
-                        deallocate (arg_names)
-                        return
-                    end select
-                end do
-
-                stmt_fn%uid = assign_node%uid
-                stmt_fn%line = assign_node%line
-                stmt_fn%column = assign_node%column
-                if (allocated(assign_node%stmt_label)) &
-                    stmt_fn%stmt_label = assign_node%stmt_label
-                stmt_fn%name = base_name
-                stmt_fn%arg_names = arg_names
-                stmt_fn%body_expr_index = assign_node%value_index
-                if (allocated(arena%entries(stmt_index)%node)) then
-                    deallocate (arena%entries(stmt_index)%node)
-                end if
-                allocate (arena%entries(stmt_index)%node, source=stmt_fn)
-                deallocate (arg_names)
-            end select
+            success = build_statement_function_from_assignment(arena, assign_node, &
+                                                               declaration_indices, &
+                                                               stmt_fn)
+            if (.not. success) return
+            call replace_statement_with_stmt_fn(arena, stmt_index, stmt_fn)
         end select
     end subroutine convert_statement_function_if_needed
+
+    pure logical function arena_index_has_node(arena, idx) result(valid)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+
+        valid = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        valid = allocated(arena%entries(idx)%node)
+    end function arena_index_has_node
+
+    logical function build_statement_function_from_assignment(arena, assign_node, &
+                                                              declaration_indices, &
+                                                              stmt_fn) result(success)
+        type(ast_arena_t), intent(inout) :: arena
+        type(assignment_node), intent(in) :: assign_node
+        integer, intent(in) :: declaration_indices(:)
+        type(statement_function_node), intent(out) :: stmt_fn
+
+        integer :: num_args
+        character(len=:), allocatable :: base_name
+
+        success = .false.
+        if (assign_node%value_index <= 0) return
+        if (.not. arena_index_has_node(arena, assign_node%target_index)) return
+
+        select type (call_node => arena%entries(assign_node%target_index)%node)
+        type is (call_or_subscript_node)
+            if (.not. statement_function_target_name(call_node, base_name)) return
+            if (has_array_declaration(arena, declaration_indices, base_name)) return
+            if (.not. allocated(call_node%arg_indices)) return
+            num_args = size(call_node%arg_indices)
+            if (num_args <= 0) return
+            if (.not. gather_identifier_arg_names(arena, call_node%arg_indices, &
+                                                  stmt_fn%arg_names)) return
+
+            stmt_fn%uid = assign_node%uid
+            stmt_fn%line = assign_node%line
+            stmt_fn%column = assign_node%column
+            if (allocated(assign_node%stmt_label)) stmt_fn%stmt_label = &
+                assign_node%stmt_label
+            stmt_fn%name = base_name
+            stmt_fn%body_expr_index = assign_node%value_index
+            success = .true.
+        end select
+    end function build_statement_function_from_assignment
+
+    logical function statement_function_target_name(call_node, base_name) &
+        result(success)
+        type(call_or_subscript_node), intent(in) :: call_node
+        character(len=:), allocatable, intent(out) :: base_name
+
+        success = .false.
+        if (.not. allocated(call_node%name)) return
+        if (call_node%base_expr_index /= 0) return
+        base_name = trim(call_node%name)
+        success = (len_trim(base_name) > 0)
+    end function statement_function_target_name
+
+    logical function gather_identifier_arg_names(arena, arg_indices, arg_names) &
+        result(success)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arg_indices(:)
+        character(len=:), allocatable, intent(out) :: arg_names(:)
+
+        integer :: i, arg_idx
+
+        success = .false.
+        if (size(arg_indices) <= 0) return
+        allocate (character(len=STMT_FN_MAX_NAME_LEN) :: arg_names(size(arg_indices)))
+
+        do i = 1, size(arg_indices)
+            arg_idx = arg_indices(i)
+            if (.not. arena_index_has_node(arena, arg_idx)) then
+                deallocate (arg_names)
+                return
+            end if
+            select type (arg_node => arena%entries(arg_idx)%node)
+            type is (identifier_node)
+                if (.not. allocated(arg_node%name)) then
+                    deallocate (arg_names)
+                    return
+                end if
+                arg_names(i) = trim(arg_node%name)
+            class default
+                deallocate (arg_names)
+                return
+            end select
+        end do
+
+        success = .true.
+    end function gather_identifier_arg_names
+
+    subroutine replace_statement_with_stmt_fn(arena, stmt_index, stmt_fn)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: stmt_index
+        type(statement_function_node), intent(in) :: stmt_fn
+
+        if (allocated(arena%entries(stmt_index)%node)) then
+            deallocate (arena%entries(stmt_index)%node)
+        end if
+        allocate (arena%entries(stmt_index)%node, source=stmt_fn)
+    end subroutine replace_statement_with_stmt_fn
 
     subroutine update_spec_section_state(arena, stmt_index, in_spec_section, &
                                          declaration_indices)
@@ -191,4 +243,3 @@ contains
     end function declaration_includes_name
 
 end module frontend_statement_spec_section
-
