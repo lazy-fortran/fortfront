@@ -7,6 +7,7 @@ program test_program_unit_detection
     call check_case('x = 1', .false., '')
     call check_case('program p'//new_line('A')//'end program p', .true., 'p')
     call check_case('module m'//new_line('A')//'end module m', .true., 'm')
+    call check_case('module', .false., '')
     call check_case('subroutine s()'//new_line('A')//'end subroutine s', &
                     .true., 's')
     call check_case('function f() result(r)'//new_line('A')//'end function f', &
@@ -66,4 +67,3 @@ contains
     end subroutine check_case
 
 end program test_program_unit_detection
-

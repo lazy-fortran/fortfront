@@ -39,14 +39,11 @@ contains
                 return
             case ("module")
                 next_idx = find_next_identifier_token(tokens, i)
-                if (next_idx > 0) then
-                    if (.not. allocated(tokens(next_idx)%text)) cycle
-                    if (to_lower(trim(tokens(next_idx)%text)) == "procedure") cycle
-                    has_unit = .true.
-                    if (present(unit_name)) unit_name = trim(tokens(next_idx)%text)
-                    return
-                end if
+                if (next_idx <= 0) cycle
+                if (.not. allocated(tokens(next_idx)%text)) cycle
+                if (to_lower(trim(tokens(next_idx)%text)) == "procedure") cycle
                 has_unit = .true.
+                if (present(unit_name)) unit_name = trim(tokens(next_idx)%text)
                 return
             case ("subroutine", "function")
                 has_unit = .true.
@@ -99,4 +96,3 @@ contains
     end function find_next_identifier_token
 
 end module frontend_program_unit_detection
-
