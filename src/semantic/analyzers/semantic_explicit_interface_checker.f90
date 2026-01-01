@@ -8,7 +8,7 @@ module semantic_explicit_interface_checker
                                    subroutine_def_node
     use error_handling, only: ERROR_SEMANTIC, create_error_result, &
                               error_collection_t
-    use intrinsic_registry, only: is_intrinsic_function
+    use intrinsic_registry, only: is_intrinsic_function, is_intrinsic_subroutine
     use scope_manager, only: scope_stack_t
     use string_utils_mod, only: to_lower
     use type_system_unified, only: TARRAY, mono_type_t, poly_type_t
@@ -253,30 +253,6 @@ contains
         if (len_trim(node_name) == 0) return
         if (to_lower(trim(node_name)) == name) matches = .true.
     end function node_name_matches
-
-    logical function is_intrinsic_subroutine(name) result(found)
-        character(len=*), intent(in) :: name
-
-        found = .false.
-        if (len_trim(name) == 0) return
-
-        select case (name)
-        case ("cpu_time", "date_and_time", "execute_command_line", &
-              "get_command", "get_command_argument", &
-              "get_environment_variable", "move_alloc", "random_init", &
-              "random_number", "random_seed", "system_clock", "sync_all", &
-              "sync_images", "sync_memory", "lock", "unlock", "event_post", &
-              "event_wait", "event_query", "form_team", "change_team", &
-              "end_team", "co_broadcast", "co_sum", "co_max", "co_min", &
-              "co_reduce", "co_allgather", "co_gather", "co_scatter", &
-              "atomic_define", "atomic_ref", "atomic_cas", "atomic_add", &
-              "atomic_and", "atomic_or", "atomic_xor", "atomic_fetch_add", &
-              "atomic_fetch_and", "atomic_fetch_or", "atomic_fetch_xor")
-            found = .true.
-        case default
-            found = .false.
-        end select
-    end function is_intrinsic_subroutine
 
     subroutine emit_missing_explicit_interface(errors, original_name)
         type(error_collection_t), intent(inout) :: errors
