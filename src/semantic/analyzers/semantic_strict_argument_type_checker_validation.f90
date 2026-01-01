@@ -6,7 +6,6 @@ module semantic_strict_argument_type_checker_types
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use semantic_procedure_utils, only: declaration_type_to_mono
     use string_utils_mod, only: to_lower
-    use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, create_mono_type, TARRAY, TDOUBLE, &
                                    TCHAR, TCOMPLEX, TINT, TLOGICAL, TREAL, TVAR
     implicit none
@@ -164,15 +163,10 @@ contains
         type(mono_type_t), intent(in) :: typ
         character(len=:), allocatable, intent(out) :: name
         type(mono_type_t) :: copy
-        character(len=:), allocatable :: converted
+        character(len=64) :: buffer
 
         copy = typ
         call copy%sync_from_arena()
-        converted = mono_type_to_string(copy, include_shape=.true., fallback='')
-        if (len_trim(converted) > 0) then
-            name = trim(converted)
-            return
-        end if
 
         select case (copy%kind)
         case (TINT)
@@ -184,9 +178,16 @@ contains
         case (TLOGICAL)
             name = "logical"
         case (TCHAR)
-            name = "character"
+            if (copy%size > 0) then
+                write (buffer, '("character(len=", I0, ")")') copy%size
+                name = trim(buffer)
+            else
+                name = "character"
+            end if
         case (TCOMPLEX)
             name = "complex"
+        case (TARRAY)
+            name = "array"
         case default
             name = "unknown"
         end select
