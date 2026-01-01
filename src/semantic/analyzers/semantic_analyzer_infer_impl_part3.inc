@@ -53,7 +53,7 @@
         if (.not. allocated(name)) return
 
         rhs_size = static_array_literal_size(arena, assignment%value_index)
-        if (rhs_size <= 0) return
+        if (rhs_size < 0) return
 
         prog_index = find_containing_program_index(arena, assignment_index)
         if (prog_index <= 0) return
@@ -64,7 +64,7 @@
 
         prev_size = find_prev_literal_assignment_size(arena, prog_index, &
                                                       assignment_index, name)
-        if (prev_size <= 0) return
+        if (prev_size < 0) return
         if (prev_size == rhs_size) return
 
         message = 'Strict mode forbids automatic allocatable array ' // &
@@ -135,22 +135,25 @@
         integer(int64) :: max_arr_size
         integer :: elem_size
 
-        arr_size = 0
+        arr_size = -1
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
-            if (.not. allocated(node%element_indices)) return
+            if (.not. allocated(node%element_indices)) then
+                arr_size = 0
+                return
+            end if
             total_size = 0_int64
             max_arr_size = int(huge(arr_size), kind=int64)
             do i = 1, size(node%element_indices)
                 if (node%element_indices(i) <= 0) then
-                    arr_size = 0
+                    arr_size = -1
                     return
                 end if
                 if (node%element_indices(i) > arena%size) then
-                    arr_size = 0
+                    arr_size = -1
                     return
                 end if
                 if (.not. &
@@ -158,12 +161,12 @@
                     return
                 elem_size = static_array_literal_element_size(arena, &
                                                               node%element_indices(i))
-                if (elem_size <= 0) then
-                    arr_size = 0
+                if (elem_size < 0) then
+                    arr_size = -1
                     return
                 end if
                 if (total_size > max_arr_size - int(elem_size, kind=int64)) then
-                    arr_size = 0
+                    arr_size = -1
                     return
                 end if
                 total_size = total_size + int(elem_size, kind=int64)
@@ -179,7 +182,7 @@
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
 
-        elem_size = 0
+        elem_size = -1
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
@@ -213,7 +216,7 @@
         integer(int64) :: total_size
         integer(int64) :: max_implied_size
 
-        implied_size = 0
+        implied_size = -1
         if (do_index <= 0 .or. do_index > arena%size) return
         if (.not. allocated(arena%entries(do_index)%node)) return
 
@@ -261,12 +264,12 @@
             do i = 1, size(loop%body_indices)
                 body_elem_size = static_array_literal_element_size(arena, &
                                                                    loop%body_indices(i))
-                if (body_elem_size <= 0) then
-                    implied_size = 0
+                if (body_elem_size < 0) then
+                    implied_size = -1
                     return
                 end if
                 if (body_size > max_implied_size - int(body_elem_size, kind=int64)) then
-                    implied_size = 0
+                    implied_size = -1
                     return
                 end if
                 body_size = body_size + int(body_elem_size, kind=int64)
@@ -274,13 +277,13 @@
 
             if (iter_count > 0_int64) then
                 if (body_size > max_implied_size / iter_count) then
-                    implied_size = 0
+                    implied_size = -1
                     return
                 end if
             end if
             total_size = iter_count * body_size
             if (total_size > max_implied_size) then
-                implied_size = 0
+                implied_size = -1
                 return
             end if
             implied_size = int(total_size, kind=kind(implied_size))
@@ -369,7 +372,7 @@
         integer :: pos
         integer :: candidate_size
 
-        prev_size = 0
+        prev_size = -1
         pos = program_body_position(arena, prog_index, current_index)
         if (pos <= 1) return
 
@@ -381,7 +384,7 @@
             type is (assignment_node)
                 candidate_size = assignment_literal_size_if_target_name( &
                                  arena, node, name)
-                if (candidate_size > 0) then
+                if (candidate_size >= 0) then
                     prev_size = candidate_size
                     return
                 end if
@@ -447,7 +450,7 @@
 
         integer :: lhs_index
 
-        arr_size = 0
+        arr_size = -1
         lhs_index = assignment%target_index
         if (lhs_index <= 0 .or. lhs_index > arena%size) return
         if (.not. allocated(arena%entries(lhs_index)%node)) return
