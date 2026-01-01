@@ -86,7 +86,44 @@
         if (file_size > 0) then
             text = transfer(buffer, text)
         end if
+
+        call strip_carriage_returns(text, status)
+        if (status /= 0) return
     end subroutine read_all_from_file
+
+    subroutine strip_carriage_returns(text, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
+        character(len=:), allocatable, intent(inout) :: text
+        integer, intent(inout) :: status
+        character(len=:), allocatable :: tmp
+        integer :: i, out_len, pos, alloc_stat
+
+        if (status /= 0) return
+
+        out_len = 0
+        do i = 1, len(text)
+            if (text(i:i) /= achar(13)) out_len = out_len + 1
+        end do
+
+        allocate (character(len=out_len) :: tmp, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
+                out_len, ' bytes)'
+            status = 5
+            return
+        end if
+
+        pos = 0
+        do i = 1, len(text)
+            if (text(i:i) /= achar(13)) then
+                pos = pos + 1
+                tmp(pos:pos) = text(i:i)
+            end if
+        end do
+
+        call move_alloc(tmp, text)
+    end subroutine strip_carriage_returns
 
     subroutine read_all_from_unit(unit_num, text, status)
         use, intrinsic :: iso_fortran_env, only: error_unit, iostat_end, iostat_eor

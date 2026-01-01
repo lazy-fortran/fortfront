@@ -1,22 +1,25 @@
 program test_cli_long_line
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                                iostat_eor
+                                             iostat_eor
     implicit none
 
     character(len=:), allocatable :: tmpfile, text
     integer :: unit, ios, status
     integer, parameter :: N = 5000
     character(len=N) :: line
+    character(len=N + 2) :: file_content
 
     call make_tmpfile(tmpfile)
 
     line = repeat('x', N)
-    open (newunit=unit, file=tmpfile, status='replace', action='write', iostat=ios)
+    file_content = line // char(13) // char(10)
+    open (newunit=unit, file=tmpfile, status='replace', action='write', &
+          access='stream', form='unformatted', iostat=ios)
     if (ios /= 0) then
         write (error_unit, '(A)') 'Failed to open temp file for writing'
         stop 1
     end if
-    write (unit, '(A)') line
+    write (unit) file_content
     close (unit)
 
     call read_all_stdin_or_file(.true., tmpfile, text, status)
