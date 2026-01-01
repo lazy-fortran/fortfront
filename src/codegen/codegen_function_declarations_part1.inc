@@ -40,7 +40,7 @@
         end if
 
         call derive_function_return_type_and_flags(arena, node, return_type_code, &
-                                                    is_deferred_char)
+                                                   is_deferred_char)
 
         if (allocated(node%param_indices)) then
             params_clause = build_parameter_clause(arena, node%param_indices)
@@ -80,8 +80,8 @@
     end function gather_function_prefix
 
     subroutine derive_function_return_type_and_flags(arena, node, &
-                                                      return_type_code, &
-                                                      is_deferred_char)
+                                                     return_type_code, &
+                                                     is_deferred_char)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         character(len=:), allocatable, intent(out) :: return_type_code
@@ -108,10 +108,13 @@
         if (len_trim(return_type_code) == 0) then
             inferred_return_type%kind = 0
             inferred_return_type = node%inferred_type
-            if (inferred_return_type%kind == TFUN .and. &
-                type_args_allocated(inferred_return_type) .and. &
-                type_args_size(inferred_return_type) >= 2) then
-                inferred_return_type = type_args_element(inferred_return_type, 2)
+            if (inferred_return_type%kind == TFUN) then
+                if (type_args_allocated(inferred_return_type)) then
+                    if (type_args_size(inferred_return_type) >= 2) then
+                        inferred_return_type = type_args_element(inferred_return_type, &
+                                                                 2)
+                    end if
+                end if
             end if
 
             if (inferred_return_type%kind /= 0 .and. &
@@ -119,9 +122,9 @@
                 inferred_return_type%kind /= TFUN) then
                 call get_type_standardization(standardize_types_enabled)
                 return_type_code = mono_type_to_string( &
-                    inferred_return_type, include_shape=.false., &
-                    standardize_real=standardize_types_enabled, &
-                    fallback="")
+                                   inferred_return_type, include_shape=.false., &
+                                   standardize_real=standardize_types_enabled, &
+                                   fallback="")
             end if
         end if
 
@@ -189,7 +192,7 @@
                                      missing_result_variable .and. &
                                      has_return_type
         needs_result_for_array = should_use_result_for_array(arena, node) .and. &
-                                missing_result_variable
+                                 missing_result_variable
 
         if (rename_result .or. needs_result_for_recursion .or. &
             needs_result_for_array) then
@@ -265,7 +268,7 @@
         end if
         if (allocated(node%name)) then
             body = dedupe_result_declaration(body, trim(node%name))
-            body = dedupe_result_declaration(body, trim(node%name) // "_result")
+            body = dedupe_result_declaration(body, trim(node%name)//"_result")
         end if
         call reorder_import_lines(body)
         call rename_result_variable_in_body(node, body, arena)
@@ -564,7 +567,7 @@
 
         is_result_var = is_function_result_identifier(func, var_name)
         is_array_result = is_result_var .and. should_use_result_for_array(arena, &
-                           func)
+                                                                          func)
 
         has_header_type = .false.
         if (is_result_var) then
@@ -789,9 +792,9 @@
             if (len_trim(func%return_type) > 0) header_has_type = .true.
             if (len_trim(func%return_type) > 0) then
                 has_fixed_shape_result = .not. is_allocatable_array_return( &
-                                            func%return_type) .and. &
+                                         func%return_type) .and. &
                                          .not. is_deferred_shape_array( &
-                                             func%return_type)
+                                         func%return_type)
             end if
         end if
         if (.not. header_has_type) header_has_type = func%has_return_type_in_header
@@ -887,15 +890,7 @@
         integer :: stmt_idx
         integer :: n_locals
         integer :: capacity
-        character(len=64) :: var_name
         character(len=:), allocatable :: result_name
-        character(len=:), allocatable :: value_code
-        character(len=:), allocatable :: lowered_value
-        character(len=:), allocatable :: lowered_return_type
-        type(mono_type_t) :: decl_type
-        logical :: is_array_value
-        logical :: skip_local_result_decl
-        logical :: array_result_decl_handled
         logical :: skip_result_decl
 
         decl_code = ""
@@ -918,114 +913,13 @@
             if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
             if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
 
-                select type (stmt => arena%entries(stmt_idx)%node)
-                type is (assignment_node)
-                    if (stmt%target_index <= 0 .or. stmt%target_index > &
-                        arena%size) cycle
-                    if (.not. allocated(arena%entries(stmt%target_index)%node)) cycle
-
-                select type (target => arena%entries(stmt%target_index)%node)
-                type is (identifier_node)
-                    if (.not. allocated(target%name)) cycle
-                    if (target%inferred_type%kind == 0) cycle
-                    decl_type = target%inferred_type
-                    is_array_value = assignment_value_is_array(arena, stmt)
-
-                    var_name = trim(target%name)
-
-                    if (is_function_result_identifier(func, var_name)) then
-                        if (skip_result_decl) cycle
-                        skip_local_result_decl = .false.
-                        array_result_decl_handled = .false.
-                        if (allocated(func%return_type)) then
-                            lowered_return_type = to_lower(adjustl(func%return_type))
-                            if (len_trim(lowered_return_type) > 0) then
-                                if (index(lowered_return_type, 'dimension') > 0) then
-                                    if (.not. is_allocatable_array_return( &
-                                            func%return_type) .and. &
-                                        .not. is_deferred_shape_array( &
-                                            func%return_type)) then
-                                        skip_local_result_decl = .true.
-                                    end if
-                                end if
-                            end if
-                        end if
-                        if (skip_local_result_decl) cycle
-
-                        if (should_use_result_for_array(arena, func)) then
-                            array_result_decl_handled = allocated(func%name)
-                            if (array_result_decl_handled) then
-                                array_result_decl_handled = &
-                                    allocated(func%return_type)
-                            end if
-                            if (array_result_decl_handled) then
-                                array_result_decl_handled = &
-                                    len_trim(func%return_type) > 0
-                            end if
-                            if (array_result_decl_handled) then
-                                if (is_allocatable_array_return(func%return_type)) then
-                                    array_result_decl_handled = .false.
-                                end if
-                            end if
-                            if (array_result_decl_handled) then
-                                if (is_deferred_shape_array(func%return_type)) then
-                                    array_result_decl_handled = .false.
-                                end if
-                            end if
-                        end if
-                        if (array_result_decl_handled) cycle
-
-                        if (.not. is_array_value) then
-                            value_code = generate_code_from_arena(arena, &
-                                                                  stmt%value_index)
-                            if (allocated(value_code)) then
-                                lowered_value = to_lower(adjustl(value_code))
-                                if (index(lowered_value, '[') > 0 .or. &
-                                    index(lowered_value, '(/') > 0) then
-                                    is_array_value = .true.
-                                end if
-                            end if
-                        end if
-                        if (should_use_result_for_array(arena, func) .or. &
-                            (is_array_value .and. decl_type%kind /= TARRAY)) then
-                            if (decl_type%kind /= TARRAY) then
-                                decl_type = wrap_scalar_as_deferred_array(decl_type)
-                            end if
-                        end if
-                        if (.not. needs_result_declaration(arena, func, decl_type)) &
-                            cycle
-                        var_name = trim(result_name)
-
-                        if (allocated(func%return_type)) then
-                            lowered_return_type = to_lower(adjustl(func%return_type))
-                            if (index(lowered_return_type, 'dimension') > 0) then
-                                if (.not. is_allocatable_array_return( &
-                                        func%return_type)) then
-                                    if (.not. is_deferred_shape_array( &
-                                            func%return_type)) then
-                                        cycle
-                                    end if
-                                end if
-                            end if
-                        end if
-                    end if
-
-                    if (is_parameter_name(var_name, param_map)) cycle
-                    if (has_explicit_variable_declaration(arena, func, var_name)) cycle
-
-                    if (.not. is_local_var_collected(var_name, local_vars, n_locals)) &
-                        then
-                        call ensure_local_var_capacity(local_vars, capacity, &
-                                                       n_locals + 1)
-                        n_locals = n_locals + 1
-                        local_vars(n_locals) = var_name
-                        decl_code = decl_code // "    " // &
-                                    get_result_type_string(arena, func, &
-                                                           var_name, &
-                                                           decl_type) // &
-                                    " :: " // trim(var_name) // new_line('A')
-                    end if
-                end select
+            select type (stmt => arena%entries(stmt_idx)%node)
+            type is (assignment_node)
+                call collect_local_var_from_assignment(arena, func, stmt, &
+                                                       param_map, result_name, &
+                                                       skip_result_decl, &
+                                                       local_vars, n_locals, &
+                                                       capacity, decl_code)
             type is (print_statement_node)
                 call collect_vars_from_print(arena, stmt, param_map, local_vars, &
                                              n_locals, capacity, result_name, &
@@ -1041,6 +935,184 @@
             end select
         end do
     end function collect_local_variable_decls
+
+    subroutine collect_local_var_from_assignment(arena, func, stmt, param_map, &
+                                                 result_name, skip_result_decl, &
+                                                 local_vars, n_locals, capacity, &
+                                                 decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(assignment_node), intent(in) :: stmt
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=*), intent(in) :: result_name
+        logical, intent(in) :: skip_result_decl
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals
+        integer, intent(inout) :: capacity
+        character(len=:), allocatable, intent(inout) :: decl_code
+
+        character(len=64) :: var_name
+        type(mono_type_t) :: decl_type
+        logical :: is_array_value
+        logical :: ok
+
+        call get_assignment_target_identifier(arena, stmt, var_name, decl_type, &
+                                              is_array_value, ok)
+        if (.not. ok) return
+
+        call apply_result_identifier_rules(arena, func, stmt, result_name, &
+                                           skip_result_decl, var_name, decl_type, &
+                                           is_array_value, ok)
+        if (.not. ok) return
+
+        if (is_parameter_name(var_name, param_map)) return
+        if (has_explicit_variable_declaration(arena, func, var_name)) return
+
+        call add_local_var_decl(arena, func, var_name, decl_type, local_vars, &
+                                n_locals, capacity, decl_code)
+    end subroutine collect_local_var_from_assignment
+
+    subroutine get_assignment_target_identifier(arena, stmt, var_name, decl_type, &
+                                                is_array_value, ok)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: stmt
+        character(len=64), intent(out) :: var_name
+        type(mono_type_t), intent(out) :: decl_type
+        logical, intent(out) :: is_array_value
+        logical, intent(out) :: ok
+
+        ok = .false.
+        var_name = ""
+        is_array_value = .false.
+        decl_type%kind = 0
+
+        if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt%target_index)%node)) return
+
+        select type (target => arena%entries(stmt%target_index)%node)
+        type is (identifier_node)
+            if (.not. allocated(target%name)) return
+            if (target%inferred_type%kind == 0) return
+            decl_type = target%inferred_type
+            is_array_value = assignment_value_is_array(arena, stmt)
+            var_name = trim(target%name)
+            ok = .true.
+        class default
+            return
+        end select
+    end subroutine get_assignment_target_identifier
+
+    subroutine apply_result_identifier_rules(arena, func, stmt, result_name, &
+                                             skip_result_decl, var_name, decl_type, &
+                                             is_array_value, ok)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(assignment_node), intent(in) :: stmt
+        character(len=*), intent(in) :: result_name
+        logical, intent(in) :: skip_result_decl
+        character(len=64), intent(inout) :: var_name
+        type(mono_type_t), intent(inout) :: decl_type
+        logical, intent(inout) :: is_array_value
+        logical, intent(out) :: ok
+
+        character(len=:), allocatable :: lowered_value
+        character(len=:), allocatable :: value_code
+
+        ok = .true.
+
+        if (.not. is_function_result_identifier(func, var_name)) return
+        if (skip_result_decl) then
+            ok = .false.
+            return
+        end if
+
+        if (result_has_fixed_dimension_return(func)) then
+            ok = .false.
+            return
+        end if
+
+        if (array_result_decl_is_handled(arena, func)) then
+            ok = .false.
+            return
+        end if
+
+        if (.not. is_array_value) then
+            value_code = generate_code_from_arena(arena, stmt%value_index)
+            if (allocated(value_code)) then
+                lowered_value = to_lower(adjustl(value_code))
+                if (index(lowered_value, '[') > 0 .or. &
+                    index(lowered_value, '(/') > 0) then
+                    is_array_value = .true.
+                end if
+            end if
+        end if
+
+        if (should_use_result_for_array(arena, func) .or. &
+            (is_array_value .and. decl_type%kind /= TARRAY)) then
+            if (decl_type%kind /= TARRAY) then
+                decl_type = wrap_scalar_as_deferred_array(decl_type)
+            end if
+        end if
+
+        if (.not. needs_result_declaration(arena, func, decl_type)) then
+            ok = .false.
+            return
+        end if
+        var_name = trim(result_name)
+    end subroutine apply_result_identifier_rules
+
+    logical function result_has_fixed_dimension_return(func) result(has_fixed)
+        type(function_def_node), intent(in) :: func
+        character(len=:), allocatable :: lowered_return_type
+
+        has_fixed = .false.
+        if (.not. allocated(func%return_type)) return
+
+        lowered_return_type = to_lower(adjustl(func%return_type))
+        if (len_trim(lowered_return_type) == 0) return
+        if (index(lowered_return_type, 'dimension') == 0) return
+
+        if (.not. is_allocatable_array_return(func%return_type) .and. &
+            .not. is_deferred_shape_array(func%return_type)) then
+            has_fixed = .true.
+        end if
+    end function result_has_fixed_dimension_return
+
+    logical function array_result_decl_is_handled(arena, func) result(handled)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+
+        handled = .false.
+        if (.not. should_use_result_for_array(arena, func)) return
+        if (.not. allocated(func%name)) return
+        if (.not. allocated(func%return_type)) return
+        if (len_trim(func%return_type) == 0) return
+        if (is_allocatable_array_return(func%return_type)) return
+        if (is_deferred_shape_array(func%return_type)) return
+
+        handled = .true.
+    end function array_result_decl_is_handled
+
+    subroutine add_local_var_decl(arena, func, var_name, decl_type, local_vars, &
+                                  n_locals, capacity, decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), intent(in) :: decl_type
+        character(len=64), allocatable, intent(inout) :: local_vars(:)
+        integer, intent(inout) :: n_locals
+        integer, intent(inout) :: capacity
+        character(len=:), allocatable, intent(inout) :: decl_code
+
+        if (is_local_var_collected(var_name, local_vars, n_locals)) return
+
+        call ensure_local_var_capacity(local_vars, capacity, n_locals + 1)
+        n_locals = n_locals + 1
+        local_vars(n_locals) = var_name
+        decl_code = decl_code // "    " // &
+                    get_result_type_string(arena, func, var_name, decl_type) // &
+                    " :: " // trim(var_name) // new_line('A')
+    end subroutine add_local_var_decl
 
     function dedupe_result_declaration(body, result_name) result(clean_body)
         character(len=:), allocatable, intent(in) :: body
@@ -1065,7 +1137,7 @@
             search_pos = search_pos + first_pos + len(pattern) - 1
             line_start = search_pos
             do while (line_start > 1 .and. clean_body(line_start - 1: &
-                                                     line_start - 1) /= &
+                                                      line_start - 1) /= &
                       new_line('A'))
                 line_start = line_start - 1
             end do
