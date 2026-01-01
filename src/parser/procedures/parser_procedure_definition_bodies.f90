@@ -10,8 +10,8 @@ module parser_procedure_definition_bodies_module
                                                parse_select_rank
     use parser_array_constructs_module, only: parse_associate, parse_block_construct
     use parser_block_statement_utils_module, only: is_if_statement_start, &
-                                                    locate_block_statement_end, &
-                                                    locate_single_line_end
+                                                   locate_block_statement_end, &
+                                                   locate_single_line_end
     use parser_statement_utilities_module, only: parse_statement_in_if_block, &
                                                  parse_comment_or_directive, &
                                                  get_stmt_util_additional_indices, &
@@ -42,12 +42,14 @@ module parser_procedure_definition_bodies_module
             integer :: func_index
         end function parse_function_definition_iface
 
-        function parse_subroutine_definition_iface(parser, arena, prefix_buffer) &
+        function parse_subroutine_definition_iface(parser, arena, prefix_buffer, &
+                                                   prefix_list) &
             result(sub_index)
             import :: parser_state_t, ast_arena_t, parser_prefix_buffer_t
             type(parser_state_t), intent(inout) :: parser
             type(ast_arena_t), intent(inout) :: arena
             type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
+            character(len=16), intent(in), optional :: prefix_list(:)
             integer :: sub_index
         end function parse_subroutine_definition_iface
     end interface
@@ -817,8 +819,8 @@ contains
 
             if (token%kind == TK_KEYWORD .and. &
                 handle_contains_procedure(parser, arena, token, prefix_buffer, &
-                                           body_indices, parse_function_proc, &
-                                           parse_subroutine_proc)) then
+                                          body_indices, parse_function_proc, &
+                                          parse_subroutine_proc)) then
                 cycle
             end if
 
