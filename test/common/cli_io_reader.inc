@@ -1,9 +1,10 @@
     subroutine read_all_stdin_or_file(from_file, filename, text, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
+        implicit none
         logical, intent(in) :: from_file
         character(len=*), intent(in), optional :: filename
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
-        integer :: unit_num, ios
 
         status = 0
         if (from_file) then
@@ -12,21 +13,121 @@
                 status = 1
                 return
             end if
-            open (newunit=unit_num, file=filename, status='old', action='read', &
-                iostat=ios)
-            if (ios /= 0) then
-                write (error_unit, '(A,A)') 'Cannot open file: ', filename
-                status = 2
-                return
-            end if
-            call read_all_from_unit(unit_num, text, status)
-            close (unit_num)
+            call read_all_from_file(filename, text, status)
         else
             call read_all_from_unit(input_unit, text, status)
         end if
     end subroutine read_all_stdin_or_file
 
+    subroutine read_all_from_file(filename, text, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
+        character(len=*), intent(in) :: filename
+        character(len=:), allocatable, intent(out) :: text
+        integer, intent(out) :: status
+        integer :: unit_num, ios, file_size, alloc_stat
+        character(len=1), allocatable :: buffer(:)
+        integer, parameter :: MAX_INPUT_SIZE = 10485760
+
+        status = 0
+
+        open (newunit=unit_num, file=filename, status='old', action='read', &
+              access='stream', form='unformatted', iostat=ios)
+        if (ios /= 0) then
+            write (error_unit, '(A,A)') 'Cannot open file: ', filename
+            status = 2
+            return
+        end if
+
+        inquire (unit=unit_num, size=file_size)
+        if (file_size < 0) then
+            write (error_unit, '(A,A)') 'Could not determine size of file: ', filename
+            status = 3
+            close (unit_num)
+            return
+        end if
+
+        if (file_size > MAX_INPUT_SIZE) then
+            write (error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
+                MAX_INPUT_SIZE, ' bytes)'
+            status = 4
+            close (unit_num)
+            return
+        end if
+
+        allocate (buffer(file_size), stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') 'Failed to allocate input buffer (', &
+                file_size, ' bytes)'
+            status = 5
+            close (unit_num)
+            return
+        end if
+
+        if (file_size > 0) then
+            read (unit_num, iostat=ios) buffer
+            if (ios /= 0) then
+                write (error_unit, '(A,A)') 'Failed to read file: ', filename
+                status = 3
+                close (unit_num)
+                return
+            end if
+        end if
+        close (unit_num)
+
+        allocate (character(len=file_size) :: text, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
+                file_size, ' bytes)'
+            status = 5
+            return
+        end if
+
+        if (file_size > 0) then
+            text = transfer(buffer, text)
+        end if
+
+        call cli_reader_strip_carriage_returns(text, status)
+        if (status /= 0) return
+    end subroutine read_all_from_file
+
+    subroutine cli_reader_strip_carriage_returns(text, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
+        character(len=:), allocatable, intent(inout) :: text
+        integer, intent(inout) :: status
+        character(len=:), allocatable :: tmp
+        integer :: i, out_len, pos, alloc_stat
+
+        if (status /= 0) return
+
+        out_len = 0
+        do i = 1, len(text)
+            if (text(i:i) /= achar(13)) out_len = out_len + 1
+        end do
+
+        allocate (character(len=out_len) :: tmp, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
+                out_len, ' bytes)'
+            status = 5
+            return
+        end if
+
+        pos = 0
+        do i = 1, len(text)
+            if (text(i:i) /= achar(13)) then
+                pos = pos + 1
+                tmp(pos:pos) = text(i:i)
+            end if
+        end do
+
+        call move_alloc(tmp, text)
+    end subroutine cli_reader_strip_carriage_returns
+
     subroutine read_all_from_unit(unit_num, text, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit, iostat_end, iostat_eor
+        implicit none
         integer, intent(in) :: unit_num
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
@@ -107,6 +208,8 @@
     end subroutine read_all_from_unit
 
     subroutine append_chunk(chunk, text, total_size, capacity, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
         character(len=*), intent(in) :: chunk
         character(len=:), allocatable, intent(inout) :: text
         integer, intent(inout) :: total_size, capacity
@@ -134,7 +237,8 @@
             allocate (character(len=capacity) :: tmp, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write (error_unit, '(A,I0,A)') &
-                    'Failed to allocate memory for input expansion (', capacity, ' bytes)'
+                    'Failed to allocate memory for input expansion (', capacity, &
+                    ' bytes)'
                 status = 5
                 return
             end if
@@ -146,6 +250,8 @@
     end subroutine append_chunk
 
     subroutine append_newline(text, total_size, capacity, status)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
         character(len=:), allocatable, intent(inout) :: text
         integer, intent(inout) :: total_size, capacity
         integer, intent(inout) :: status
@@ -172,7 +278,8 @@
             allocate (character(len=capacity) :: tmp, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write (error_unit, '(A,I0,A)') &
-                    'Failed to allocate memory for newline expansion (', capacity, ' bytes)'
+                    'Failed to allocate memory for newline expansion (', capacity, &
+                    ' bytes)'
                 status = 5
                 return
             end if
