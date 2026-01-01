@@ -126,10 +126,14 @@
 
     integer function static_array_literal_size(arena, expr_index) &
         result(arr_size)
+        use, intrinsic :: iso_fortran_env, only: int64
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
 
         integer :: i
+        integer(int64) :: total_size
+        integer(int64) :: max_arr_size
+        integer :: elem_size
 
         arr_size = 0
         if (expr_index <= 0 .or. expr_index > arena%size) return
@@ -138,26 +142,169 @@
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
             if (.not. allocated(node%element_indices)) return
+            total_size = 0_int64
+            max_arr_size = int(huge(arr_size), kind=int64)
             do i = 1, size(node%element_indices)
-                if (node%element_indices(i) <= 0) cycle
-                if (node%element_indices(i) > arena%size) cycle
-                if (.not. &
-                    allocated(arena%entries(node%element_indices(i))%node)) &
-                    cycle
-                select type (elem => &
-                             arena%entries(node%element_indices(i))%node)
-                type is (do_loop_node)
+                if (node%element_indices(i) <= 0) then
                     arr_size = 0
                     return
-                class default
-                    continue
-                end select
+                end if
+                if (node%element_indices(i) > arena%size) then
+                    arr_size = 0
+                    return
+                end if
+                if (.not. &
+                    allocated(arena%entries(node%element_indices(i))%node)) &
+                    return
+                elem_size = static_array_literal_element_size(arena, &
+                                                              node%element_indices(i))
+                if (elem_size <= 0) then
+                    arr_size = 0
+                    return
+                end if
+                if (total_size > max_arr_size - int(elem_size, kind=int64)) then
+                    arr_size = 0
+                    return
+                end if
+                total_size = total_size + int(elem_size, kind=int64)
             end do
-            arr_size = size(node%element_indices)
+            arr_size = int(total_size, kind=kind(arr_size))
         class default
             return
         end select
     end function static_array_literal_size
+
+    integer function static_array_literal_element_size(arena, expr_index) &
+        result(elem_size)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+
+        elem_size = 0
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (do_loop_node)
+            elem_size = static_implied_do_size(arena, expr_index)
+        type is (array_literal_node)
+            elem_size = static_array_literal_size(arena, expr_index)
+        class default
+            elem_size = 1
+        end select
+    end function static_array_literal_element_size
+
+    integer function static_implied_do_size(arena, do_index) &
+        result(implied_size)
+        use, intrinsic :: iso_fortran_env, only: int64
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: do_index
+
+        integer :: start_value
+        integer :: end_value
+        integer :: step_value
+        integer :: i
+        integer :: body_elem_size
+        integer(int64) :: start64
+        integer(int64) :: end64
+        integer(int64) :: step64
+        integer(int64) :: diff64
+        integer(int64) :: iter_count
+        integer(int64) :: body_size
+        integer(int64) :: total_size
+        integer(int64) :: max_implied_size
+
+        implied_size = 0
+        if (do_index <= 0 .or. do_index > arena%size) return
+        if (.not. allocated(arena%entries(do_index)%node)) return
+
+        select type (loop => arena%entries(do_index)%node)
+        type is (do_loop_node)
+            if (.not. get_static_integer(arena, loop%start_expr_index, &
+                                         start_value)) return
+            if (.not. get_static_integer(arena, loop%end_expr_index, &
+                                         end_value)) return
+
+            if (loop%step_expr_index > 0) then
+                if (.not. get_static_integer(arena, loop%step_expr_index, &
+                                             step_value)) return
+            else
+                step_value = 1
+            end if
+            if (step_value == 0) return
+
+            if (step_value > 0) then
+                if (start_value > end_value) then
+                    implied_size = 0
+                    return
+                end if
+            else
+                if (start_value < end_value) then
+                    implied_size = 0
+                    return
+                end if
+            end if
+
+            start64 = int(start_value, kind=int64)
+            end64 = int(end_value, kind=int64)
+            step64 = int(step_value, kind=int64)
+            diff64 = end64 - start64
+            iter_count = diff64 / step64 + 1_int64
+            if (iter_count <= 0_int64) then
+                implied_size = 0
+                return
+            end if
+
+            if (.not. allocated(loop%body_indices)) return
+            if (size(loop%body_indices) == 0) return
+            body_size = 0_int64
+            max_implied_size = int(huge(implied_size), kind=int64)
+            do i = 1, size(loop%body_indices)
+                body_elem_size = static_array_literal_element_size(arena, &
+                                                                   loop%body_indices(i))
+                if (body_elem_size <= 0) then
+                    implied_size = 0
+                    return
+                end if
+                if (body_size > max_implied_size - int(body_elem_size, kind=int64)) then
+                    implied_size = 0
+                    return
+                end if
+                body_size = body_size + int(body_elem_size, kind=int64)
+            end do
+
+            if (iter_count > 0_int64) then
+                if (body_size > max_implied_size / iter_count) then
+                    implied_size = 0
+                    return
+                end if
+            end if
+            total_size = iter_count * body_size
+            if (total_size > max_implied_size) then
+                implied_size = 0
+                return
+            end if
+            implied_size = int(total_size, kind=kind(implied_size))
+        class default
+            return
+        end select
+    end function static_implied_do_size
+
+    logical function get_static_integer(arena, expr_index, value) &
+        result(is_static)
+        use standardizer_types, only: get_integer_literal_value, INVALID_INTEGER
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        integer, intent(out) :: value
+
+        value = 0
+        is_static = .false.
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        value = get_integer_literal_value(arena, expr_index)
+        if (value == INVALID_INTEGER) return
+        is_static = .true.
+    end function get_static_integer
 
     logical function is_allocatable_array_decl_in_program(arena, &
                                                           prog_index, name) &
