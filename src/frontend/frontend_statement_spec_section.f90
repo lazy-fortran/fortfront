@@ -15,7 +15,7 @@ module frontend_statement_spec_section
     implicit none
     private
 
-    integer, parameter :: STMT_FN_MAX_NAME_LEN = 128
+    integer, parameter :: STMT_FN_MAX_ARG_NAME_LEN = 128
 
     public :: convert_statement_function_if_needed
     public :: update_spec_section_state
@@ -109,7 +109,8 @@ contains
 
         success = .false.
         if (size(arg_indices) <= 0) return
-        allocate (character(len=STMT_FN_MAX_NAME_LEN) :: arg_names(size(arg_indices)))
+        allocate (character(len=STMT_FN_MAX_ARG_NAME_LEN) :: &
+                  arg_names(size(arg_indices)))
 
         do i = 1, size(arg_indices)
             arg_idx = arg_indices(i)
