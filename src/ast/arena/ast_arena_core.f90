@@ -747,7 +747,7 @@ contains
 
     ! ============================================================================
     ! Base Arena Interface Implementations for AST Arena (Issue #369)
-    ! See ast_arena_base_interface.f90 for actual implementations
+    ! Implementations are in this file.
     ! ============================================================================
 
     ! Insert item into AST arena (base interface)

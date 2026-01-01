@@ -6,7 +6,7 @@ module ast_arena_modern
     ! This module provides a clean interface by re-exporting components from:
     ! - ast_arena_core: Core arena implementation
     ! - ast_arena_compat: Compatibility layer for old API
-    ! - ast_arena_base_interface: Base arena interface implementations
+    ! - base_arena_t interface: Implemented by ast_arena_core_t
 
     use ast_base, only: ast_node
     use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
@@ -97,6 +97,13 @@ contains
         if (allocated(arena%source_text)) deallocate (arena%source_text)
         if (allocated(arena%source_line_starts)) deallocate (arena%source_line_starts)
         call destroy_ast_arena_core(arena%ast_arena_compat_t%ast_arena_core_t)
+
+        if (allocated(arena%entries)) deallocate (arena%entries)
+        arena%compat_size = 0
+        arena%max_depth = 0
+        arena%size = 0
+        arena%capacity = 0
+        arena%generation = 0
     end subroutine destroy_ast_arena
 
     ! Free an AST node

@@ -3,7 +3,10 @@ program test_ast_arena_modern
     ! Validates performance, safety, and API correctness
     ! Demonstrates 5-10x parsing speedup and 8x cache improvement
 
-    use ast_arena_modern
+    use ast_arena_modern, only: ast_arena_t, ast_arena_stats_t, ast_node_arena_t, &
+                                ast_handle_t, create_ast_arena, destroy_ast_arena, &
+                                store_ast_node, get_ast_node, is_valid_ast_handle, &
+                                null_ast_handle
     use, intrinsic :: iso_fortran_env, only: int64
     implicit none
 
@@ -19,6 +22,7 @@ program test_ast_arena_modern
     call test_ast_node_storage()
     call test_handle_validation()
     call test_arena_lifecycle()
+    call test_destroy_deallocates_compat_entries()
 
     ! Safety and error handling
     call test_null_handles()
@@ -101,7 +105,8 @@ contains
         ! Retrieve from arena
         retrieved = get_ast_node(arena, handle)
 
-        ! Verify retrieval (basic check since full implementation would verify all fields)
+        ! Verify retrieval (basic check since full implementation)
+        ! would verify all fields.
         if (len_trim(retrieved%node_type_name) > 0) then
             call test_pass()
         else
@@ -168,6 +173,35 @@ contains
 
         call destroy_ast_arena(arena)
     end subroutine test_arena_lifecycle
+
+    subroutine test_destroy_deallocates_compat_entries()
+        type(ast_arena_t) :: arena
+        type(ast_node_arena_t) :: node
+        type(ast_handle_t) :: handle
+
+        call test_start("Destroy deallocates compatibility entries")
+
+        arena = create_ast_arena()
+        node%node_type_name = "PROGRAM"
+        handle = store_ast_node(arena, node)
+        if (.not. is_valid_ast_handle(handle)) then
+            call test_fail("Failed to store node before destroy")
+            call destroy_ast_arena(arena)
+            return
+        end if
+
+        call destroy_ast_arena(arena)
+
+        if (.not. allocated(arena%entries) .and. &
+            arena%compat_size == 0 .and. &
+            arena%max_depth == 0 .and. &
+            arena%size == 0 .and. &
+            arena%capacity == 0) then
+            call test_pass()
+        else
+            call test_fail("Destroy did not fully reset arena compatibility state")
+        end if
+    end subroutine test_destroy_deallocates_compat_entries
 
     subroutine test_null_handles()
         type(ast_handle_t) :: null_handle
