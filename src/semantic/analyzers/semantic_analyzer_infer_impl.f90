@@ -9,6 +9,9 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
     use semantic_explicit_interface_checker, only: &
         validate_explicit_interface_for_function_reference, &
         validate_explicit_interface_for_subroutine_call
+    use semantic_strict_argument_type_checker, only: &
+        validate_strict_argument_types_for_function_reference, &
+        validate_strict_argument_types_for_subroutine_call
     use semantic_operating_mode, only: OPERATING_MODE_STRICT
     use semantic_type_lookup_wrapper, only: set_semantic_context_for_lookup, &
                                             clear_semantic_context_for_lookup, &
