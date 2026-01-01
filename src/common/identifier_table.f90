@@ -20,7 +20,6 @@ module identifier_table
     end type identifier_table_t
 
     public :: identifier_table_init, identifier_table_reset
-    public :: identifier_table_is_initialized
     public :: identifier_table_intern, identifier_table_find
     public :: identifier_table_get
 
@@ -53,12 +52,6 @@ contains
             table%buckets = 0_int32
         end if
     end subroutine identifier_table_reset
-
-    logical function identifier_table_is_initialized(table) result(initialized)
-        type(identifier_table_t), intent(in) :: table
-
-        initialized = allocated(table%buckets)
-    end function identifier_table_is_initialized
 
     function identifier_table_intern(table, raw_value) result(id)
         type(identifier_table_t), intent(inout) :: table
