@@ -6,7 +6,7 @@ module ast_arena_modern
     ! This module provides a clean interface by re-exporting components from:
     ! - ast_arena_core: Core arena implementation
     ! - ast_arena_compat: Compatibility layer for old API
-    ! - ast_arena_base_interface: Base arena interface implementations
+    ! - base_arena_t interface: Implemented by ast_arena_core_t
 
     use ast_base, only: ast_node
     use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
@@ -47,6 +47,26 @@ module ast_arena_modern
     end type ast_arena_t
 
 contains
+
+    subroutine destroy_compat_entries(arena)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: i
+
+        if (.not. allocated(arena%entries)) return
+
+        do i = 1, size(arena%entries)
+            if (allocated(arena%entries(i)%node)) deallocate (arena%entries(i)%node)
+            if (allocated(arena%entries(i)%node_type)) then
+                deallocate (arena%entries(i)%node_type)
+            end if
+            if (allocated(arena%entries(i)%child_indices)) then
+                deallocate (arena%entries(i)%child_indices)
+            end if
+            arena%entries(i)%parent_index = 0
+            arena%entries(i)%depth = 0
+            arena%entries(i)%child_count = 0
+        end do
+    end subroutine destroy_compat_entries
 
     ! Create modern AST arena with compatibility layer
     function create_ast_arena(initial_capacity) result(arena)
@@ -97,6 +117,14 @@ contains
         if (allocated(arena%source_text)) deallocate (arena%source_text)
         if (allocated(arena%source_line_starts)) deallocate (arena%source_line_starts)
         call destroy_ast_arena_core(arena%ast_arena_compat_t%ast_arena_core_t)
+
+        call destroy_compat_entries(arena)
+        if (allocated(arena%entries)) deallocate (arena%entries)
+        arena%compat_size = 0
+        arena%max_depth = 0
+        arena%size = 0
+        arena%capacity = 0
+        arena%generation = 0
     end subroutine destroy_ast_arena
 
     ! Free an AST node
