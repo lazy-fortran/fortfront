@@ -250,7 +250,7 @@ contains
 
         if (has_dynamic_implied_do) then
             if (has_real .and. result_promoted%kind == TINT) then
-                result_promoted = create_mono_type(TREAL)
+                result_promoted = create_mono_type(TDOUBLE)
             end if
 
             if (result_promoted%kind == TCHAR .and. max_char_len > 0) then
@@ -269,7 +269,7 @@ contains
             if (first_type%has_args() .and. &
                 first_type%get_args_count() > 0) then
                 if (has_real) then
-                    result_promoted = create_mono_type(TREAL)
+                    result_promoted = create_mono_type(TDOUBLE)
                 else
                     result_promoted = first_type%get_arg(1)
                 end if
@@ -288,7 +288,7 @@ contains
             deallocate (inner_args)
         else
             if (has_real .and. result_promoted%kind == TINT) then
-                result_promoted = create_mono_type(TREAL)
+                result_promoted = create_mono_type(TDOUBLE)
             end if
 
             if (result_promoted%kind == TCHAR .and. max_char_len > 0) then

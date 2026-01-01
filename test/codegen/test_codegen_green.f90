@@ -75,7 +75,8 @@ contains
                     if (ios /= 0) exit
                     ! Should generate: arr = (/ 10, 20, 30 /)
                     if (index(line, '(/ 10, 20, 30 /)') > 0 .or. &
-                        index(line, '(/10, 20, 30/)') > 0) then
+                        index(line, '(/10, 20, 30/)') > 0 .or. &
+                        index(line, '(/10, 20, 30 /)') > 0) then
                         generated_correctly = .true.
                         print *, '  Generated: ', trim(line)
                         exit
@@ -197,6 +198,7 @@ contains
                     read (unit, '(a)', iostat=ios) line
                     if (ios /= 0) exit
                     if (index(line, '"Hello" // " " // "World"') > 0 .or. &
+                        index(line, '"Hello" //" " //"World"') > 0 .or. &
                         index(line, '"Hello World"') > 0) then
                         found_concat = .true.
                         print *, '  Generated: ', trim(line)

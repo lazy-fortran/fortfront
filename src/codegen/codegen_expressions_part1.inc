@@ -1,70 +1,3 @@
-
-    ! Remove spaces immediately before string literals only
-    ! Fixes issue #2065 where space is inserted before string literals
-    ! IMPORTANT: Preserves all content inside string literals including spaces
-    function remove_spaces_from_string_literals(input) result(output)
-        character(len=*), intent(in) :: input
-        character(len=:), allocatable :: output
-        integer :: i, j, len_input
-        character :: quote_char
-        logical :: in_string, next_is_quote
-        character(len=:), allocatable :: temp
-
-        len_input = len(input)
-        if (len_input == 0) then
-            output = input
-            return
-        end if
-
-        allocate(character(len=len_input) :: temp)
-
-        in_string = .false.
-        quote_char = ' '
-        j = 0
-
-        do i = 1, len_input
-            ! Check if next character is a quote (to skip leading space)
-            next_is_quote = .false.
-            if (i < len_input .and. .not. in_string) then
-                if (input(i+1:i+1) == "'" .or. input(i+1:i+1) == '"') then
-                    next_is_quote = .true.
-                end if
-            end if
-
-            if (.not. in_string) then
-                ! Not in string
-                if (input(i:i) == "'" .or. input(i:i) == '"') then
-                    ! Start of string
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                    in_string = .true.
-                    quote_char = input(i:i)
-                else if (input(i:i) == ' ' .and. next_is_quote) then
-                    ! Skip space immediately before quote
-                    continue
-                else
-                    ! Copy everything else
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                end if
-            else
-                ! Inside string - preserve ALL characters including spaces
-                if (input(i:i) == quote_char) then
-                    ! End of string
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                    in_string = .false.
-                else
-                    ! Copy all characters inside string including spaces
-                    j = j + 1
-                    temp(j:j) = input(i:i)
-                end if
-            end if
-        end do
-
-        output = temp(1:j)
-    end function remove_spaces_from_string_literals
-
     ! Generate code for literal nodes
     function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
@@ -214,16 +147,16 @@
         ! Generate operands
         if (node%left_index > 0) then
             left_code = generate_code_from_arena(arena, node%left_index)
-            left_code = remove_spaces_from_string_literals(left_code)
+            left_code = trim(adjustl(left_code))
         else
             left_code = ""
         end if
 
         if (node%right_index > 0) then
             right_code = generate_code_from_arena(arena, node%right_index)
-            ! WORKAROUND for issue #2065: Remove spurious spaces inside string literals
-            ! caused by nested expression parsing
-            right_code = remove_spaces_from_string_literals(right_code)
+            ! Workaround for issue #2065: Remove leading whitespace that can
+            ! appear before string literals when expressions are nested.
+            right_code = trim(adjustl(right_code))
         else
             right_code = ""
         end if
@@ -467,6 +400,8 @@
             type is (literal_node)
                 if (node%literal_kind == LITERAL_INTEGER) then
                     elem_code = promote_integer_literal_to_real(elem_code)
+                else if (node%literal_kind == LITERAL_REAL) then
+                    elem_code = promote_real_literal_to_double(elem_code)
                 end if
             end select
 
@@ -666,7 +601,8 @@
         if (node%inferred_type%has_args() .and. &
             node%inferred_type%get_args_count() > 0) then
             array_type = node%inferred_type%get_arg(1)
-            is_real_array = (array_type%kind == TREAL)
+            is_real_array = (array_type%kind == TREAL) .or. &
+                            (array_type%kind == TDOUBLE)
             return
         end if
 
@@ -768,13 +704,13 @@
                 if (allocated(node%element_indices) .and. &
                     size(node%element_indices) > 0) then
                     if (allocated(node%type_spec)) then
-                        code = "[" // trim(node%type_spec) // " :: " // &
-                               trim(elements_code) // "]"
+                        code = "(/ " // trim(node%type_spec) // " :: " // &
+                               trim(elements_code) // " /)"
                     else
-                        code = "[" // trim(elements_code) // "]"
+                        code = "(/ " // trim(elements_code) // " /)"
                     end if
                 else
-                    code = "[integer ::]"
+                    code = "(/ integer :: /)"
                 end if
             else if (node%syntax_style == "implied_do") then
                 if (allocated(node%element_indices) .and. &
@@ -791,7 +727,7 @@
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
-                        code = "[integer ::]"
+                        code = "(/ integer :: /)"
                     end if
                 end if
             else
@@ -807,7 +743,7 @@
                     if (allocated(node%type_spec)) then
                         code = "(/ " // trim(node%type_spec) // " :: /)"
                     else
-                        code = "[integer ::]"
+                        code = "(/ integer :: /)"
                     end if
                 end if
             end if
@@ -824,7 +760,7 @@
                 if (allocated(node%type_spec)) then
                     code = "(/ " // trim(node%type_spec) // " :: /)"
                 else
-                    code = "[integer ::]"
+                    code = "(/ integer :: /)"
                 end if
             end if
         end if
@@ -850,8 +786,30 @@
         if (index(promoted, 'e') /= 0 .or. index(promoted, 'E') /= 0) return
         if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
 
-        promoted = promoted // ".0"
+        promoted = promoted // ".0d0"
     end function promote_integer_literal_to_real
+
+    ! Promote default real literals to double precision form (d exponent) while
+    ! preserving explicit kind suffixes.
+    function promote_real_literal_to_double(code) result(promoted)
+        character(len=*), intent(in) :: code
+        character(len=:), allocatable :: promoted
+        integer :: epos
+
+        promoted = trim(code)
+        if (len_trim(promoted) == 0) return
+        if (index(promoted, '_') /= 0) return
+        if (index(promoted, 'd') /= 0 .or. index(promoted, 'D') /= 0) return
+
+        epos = index(promoted, 'e')
+        if (epos == 0) epos = index(promoted, 'E')
+        if (epos > 0) then
+            promoted = promoted(1:epos - 1) // 'd' // promoted(epos + 1:)
+            return
+        end if
+
+        promoted = promoted // 'd0'
+    end function promote_real_literal_to_double
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
     function generate_code_complex_literal(arena, node, node_index) result(code)
