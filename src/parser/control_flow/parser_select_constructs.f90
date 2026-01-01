@@ -136,27 +136,28 @@ contains
         integer :: expr_index, default_index
         integer, allocatable :: case_indices(:)
         integer :: case_count, line, column
+        character(len=:), allocatable :: keyword
         character(len=20), dimension(2) :: end_keywords
         type(statement_callbacks_t) :: callbacks
         logical :: values_ok
 
-        ! Consume 'select'
+        ! Consume select
         select_token = parser%consume()
         line = select_token%line
         column = select_token%column
 
-        ! Expect 'case'
+        ! Expect case
         case_token = parser%consume()
         if (case_token%kind /= TK_KEYWORD .or. to_lower(case_token%text) /= "case") then
-            ! Error: expected 'case' after 'select'
+            ! Error: expected case after select
             select_index = 0
             return
         end if
 
-        ! Expect '('
+        ! Expect (
         lparen_token = parser%consume()
         if (lparen_token%kind /= TK_OPERATOR .or. lparen_token%text /= "(") then
-            ! Error: expected '(' after 'select case'
+            ! Error: expected ( after select case
             select_index = 0
             return
         end if
@@ -181,9 +182,9 @@ contains
         default_index = 0
 
         ! Define end keywords for statement parsing
-        ! Note: "end" is NOT included because parse_statement_body would stop at
-        ! ANY "end" keyword (end if, end do, etc.), not just "end select".
-        ! We handle "end select" detection in the main loop below.
+        ! Note: end is NOT included because parse_statement_body would stop at
+        ! ANY end keyword (end if, end do, etc.), not just end select.
+        ! We handle end select detection in the main loop below.
         end_keywords = [character(len=20) :: "case", ""]
 
         callbacks = null_statement_callbacks()
@@ -193,14 +194,16 @@ contains
             case_token = parser%peek()
 
             if (case_token%kind == TK_KEYWORD) then
-                if (case_token%text == "case") then
+                keyword = trim(to_lower(case_token%text))
+                select case (keyword)
+                case ("case")
                     ! Parse case block
                     block
                         type(token_t) :: value_token
                         integer :: case_block_index
                         integer, allocatable :: value_indices(:), body_indices(:)
 
-                        case_token = parser%consume()  ! consume 'case'
+                        case_token = parser%consume()  ! consume case
 
                         ! Check for default case
                         value_token = parser%peek()
@@ -213,8 +216,8 @@ contains
                         end do
 
                         if (value_token%kind == TK_KEYWORD .and. &
-                            value_token%text == "default") then
-                            value_token = parser%consume()  ! consume 'default'
+                            trim(to_lower(value_token%text)) == "default") then
+                            value_token = parser%consume()  ! consume default
 
                             ! Skip rest of current line
                             block
@@ -245,7 +248,7 @@ contains
                             if (value_token%kind == TK_OPERATOR .and. &
                                 value_token%text == "(") then
 
-                                value_token = parser%consume()  ! consume '('
+                                value_token = parser%consume()  ! consume (
                                 call parse_case_value_list(parser, arena, case_token, &
                                                            value_indices, values_ok)
                                 if (.not. values_ok) then
@@ -298,23 +301,32 @@ contains
                             end if
                         end if
                     end block
-                else if (case_token%text == "end") then
-                    ! Check for 'end select'
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == &
-                            TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == &
-                                "select") then
-                            ! Found 'end select', consume both tokens and exit
-                            case_token = parser%consume()  ! consume 'end'
-                            case_token = parser%consume()  ! consume 'select'
+                case ("end")
+                    ! Check for end select (skip whitespace/comments)
+                    block
+                        type(token_t) :: next_token
+
+                        case_token = parser%consume()  ! consume end
+
+                        next_token = parser%peek()
+                        do while (next_token%kind == TK_WHITESPACE .or. &
+                                  next_token%kind == TK_COMMENT .or. &
+                                  next_token%kind == TK_NEWLINE)
+                            next_token = parser%consume()
+                            if (parser%is_at_end()) exit
+                            next_token = parser%peek()
+                        end do
+
+                        if (next_token%kind == TK_KEYWORD .and. &
+                            trim(to_lower(next_token%text)) == "select") then
+                            next_token = parser%consume()  ! consume select
                             exit
                         end if
-                    end if
-                else
+                    end block
+                case default
                     ! Other keyword, skip
                     parser%current_token = parser%current_token + 1
-                end if
+                end select
             else
                 ! Not a keyword, skip
                 parser%current_token = parser%current_token + 1
@@ -425,22 +437,23 @@ contains
         integer :: selector_index, default_index
         integer, allocatable :: guard_indices(:)
         integer :: line, column
+        character(len=:), allocatable :: guard_keyword
         character(len=20), dimension(3) :: end_keywords
         type(statement_callbacks_t) :: callbacks
 
-        ! Consume 'select'
+        ! Consume select
         select_token = parser%consume()
         line = select_token%line
         column = select_token%column
 
-        ! Expect 'type'
+        ! Expect type
         type_token = parser%consume()
         if (type_token%kind /= TK_KEYWORD .or. to_lower(type_token%text) /= "type") then
             select_index = 0
             return
         end if
 
-        ! Expect '('
+        ! Expect (
         lparen_token = parser%consume()
         if (lparen_token%kind /= TK_OPERATOR .or. lparen_token%text /= "(") then
             select_index = 0
@@ -478,17 +491,21 @@ contains
             guard_token = parser%peek()
 
             if (guard_token%kind == TK_KEYWORD) then
-                if (guard_token%text == "type" .or. guard_token%text == "class") then
+                guard_keyword = trim(to_lower(guard_token%text))
+                select case (guard_keyword)
+                case ("type", "class")
                     ! Parse type guard block
                     block
                         type(token_t) :: next_token
                         integer :: guard_block_index, type_name_index
                         integer, allocatable :: body_indices(:)
                         character(len=20) :: guard_type
+                        character(len=:), allocatable :: guard_type_keyword
+                        integer :: name_line, name_column
 
-                        guard_token = parser%consume()  ! consume 'type' or 'class'
+                        guard_type_keyword = guard_keyword
+                        guard_token = parser%consume()  ! consume type or class
 
-                        ! Expect 'is'
                         is_token = parser%peek()
                         do while (is_token%kind == TK_WHITESPACE .or. &
                                   is_token%kind == TK_COMMENT .or. &
@@ -498,15 +515,54 @@ contains
                             is_token = parser%peek()
                         end do
 
+                        if (guard_type_keyword == "class") then
+                            if ((is_token%kind == TK_KEYWORD .or. &
+                                 is_token%kind == TK_IDENTIFIER) .and. &
+                                trim(to_lower(is_token%text)) == "default") then
+                                is_token = parser%consume()  ! consume default
+
+                                ! Skip rest of current line
+                                block
+                                    integer :: current_line
+                                    type(token_t) :: skip_token
+
+                                    current_line = is_token%line
+                                    do while (parser%current_token <= &
+                                              size(parser%tokens))
+                                        skip_token = parser%peek()
+                                        if (skip_token%line == current_line) then
+                                            skip_token = parser%consume()
+                                        else
+                                            exit
+                                        end if
+                                    end do
+                                end block
+
+                                ! Parse default guard body
+                                body_indices = parse_statement_body(parser, arena, &
+                                                                    end_keywords, &
+                                                                    callbacks)
+
+                                ! Create default guard
+                                default_index = push_type_guard_block( &
+                                                arena, "class_default", 0, &
+                                                body_indices, &
+                                                line=guard_token%line, &
+                                                column=guard_token%column)
+                                cycle
+                            end if
+                        end if
+
+                        ! Expect is
                         if ((is_token%kind /= TK_KEYWORD .and. &
                              is_token%kind /= TK_IDENTIFIER) .or. &
-                            is_token%text /= "is") then
+                            trim(to_lower(is_token%text)) /= "is") then
                             select_index = 0
                             return
                         end if
-                        is_token = parser%consume()  ! consume 'is'
+                        is_token = parser%consume()  ! consume is
 
-                        ! Expect '('
+                        ! Expect (
                         next_token = parser%peek()
                         do while (next_token%kind == TK_WHITESPACE .or. &
                                   next_token%kind == TK_COMMENT .or. &
@@ -521,7 +577,7 @@ contains
                             select_index = 0
                             return
                         end if
-                        next_token = parser%consume()  ! consume '('
+                        next_token = parser%consume()  ! consume (
 
                         ! Parse type name
                         type_name_token = parser%peek()
@@ -534,11 +590,11 @@ contains
                         end do
 
                         if (type_name_token%kind == TK_KEYWORD .and. &
-                            type_name_token%text == "default") then
+                            trim(to_lower(type_name_token%text)) == "default") then
                             ! CLASS DEFAULT case
-                            type_name_token = parser%consume()  ! consume 'default'
+                            type_name_token = parser%consume()  ! consume default
 
-                            ! Expect ')'
+                            ! Expect )
                             next_token = parser%peek()
                             do while (next_token%kind == TK_WHITESPACE .or. &
                                       next_token%kind == TK_COMMENT .or. &
@@ -553,7 +609,7 @@ contains
                                 select_index = 0
                                 return
                             end if
-                            next_token = parser%consume()  ! consume ')'
+                            next_token = parser%consume()  ! consume )
 
                             ! Skip rest of current line
                             block
@@ -587,13 +643,15 @@ contains
                                 return
                             end if
 
+                            name_line = type_name_token%line
+                            name_column = type_name_token%column
                             type_name_index = push_identifier(arena, &
                                                               type_name_token%text, &
-                                                            line=type_name_token%line, &
-                                                          column=type_name_token%column)
+                                                              line=name_line, &
+                                                              column=name_column)
                             type_name_token = parser%consume()
 
-                            ! Expect ')'
+                            ! Expect )
                             next_token = parser%peek()
                             do while (next_token%kind == TK_WHITESPACE .or. &
                                       next_token%kind == TK_COMMENT .or. &
@@ -608,7 +666,7 @@ contains
                                 select_index = 0
                                 return
                             end if
-                            next_token = parser%consume()  ! consume ')'
+                            next_token = parser%consume()  ! consume )
 
                             ! Skip rest of current line
                             block
@@ -637,7 +695,7 @@ contains
                                                                 end_keywords, callbacks)
 
                             ! Determine guard type
-                            if (guard_token%text == "type") then
+                            if (guard_type_keyword == "type") then
                                 guard_type = "type_is"
                             else
                                 guard_type = "class_is"
@@ -652,12 +710,12 @@ contains
                             guard_indices = [guard_indices, guard_block_index]
                         end if
                     end block
-                else if (guard_token%text == "end") then
-                    ! Check for 'end select' (skip whitespace/comments)
+                case ("end")
+                    ! Check for end select (skip whitespace/comments)
                     block
                         type(token_t) :: next_token
 
-                        guard_token = parser%consume()  ! consume 'end'
+                        guard_token = parser%consume()  ! consume end
 
                         ! Skip whitespace, comments, newlines
                         next_token = parser%peek()
@@ -670,21 +728,21 @@ contains
                         end do
 
                         if (next_token%kind == TK_KEYWORD .and. &
-                            next_token%text == "select") then
-                            next_token = parser%consume()  ! consume 'select'
+                            trim(to_lower(next_token%text)) == "select") then
+                            next_token = parser%consume()  ! consume select
                             exit
                         end if
-                        ! If not 'end select', we already consumed 'end' and
+                        ! If not end select, we already consumed end and
                         ! will continue to next iteration to parse what follows
                     end block
-                else if (guard_token%text == "contains" .or. &
-                         guard_token%text == "function" .or. &
-                         guard_token%text == "subroutine") then
-                    ! We've reached something that shouldn't be inside
+                case ("contains", "function", "subroutine")
+                    ! Weve reached something that shouldnt be inside
                     ! select type - likely we missed an end select.
-                    ! Don't consume; let the parent parser handle it.
+                    ! Dont consume; let the parent parser handle it.
                     exit
-                end if
+                case default
+                    parser%current_token = parser%current_token + 1
+                end select
             else
                 parser%current_token = parser%current_token + 1
             end if
@@ -711,22 +769,23 @@ contains
         integer :: selector_index, default_index
         integer, allocatable :: rank_indices(:)
         integer :: line, column
+        character(len=:), allocatable :: rank_keyword
         character(len=20), dimension(2) :: end_keywords
         type(statement_callbacks_t) :: callbacks
 
-        ! Consume 'select'
+        ! Consume select
         select_token = parser%consume()
         line = select_token%line
         column = select_token%column
 
-        ! Expect 'rank'
+        ! Expect rank
         rank_token = parser%consume()
         if (rank_token%kind /= TK_KEYWORD .or. to_lower(rank_token%text) /= "rank") then
             select_index = 0
             return
         end if
 
-        ! Expect '('
+        ! Expect (
         lparen_token = parser%consume()
         if (lparen_token%kind /= TK_OPERATOR .or. lparen_token%text /= "(") then
             select_index = 0
@@ -752,9 +811,9 @@ contains
         default_index = 0
 
         end_keywords(1) = "rank"
-        ! Note: "end" is NOT included because parse_statement_body would stop at
-        ! ANY "end" keyword (end if, end do, etc.), not just "end select".
-        ! We handle "end select" detection in the main loop below.
+        ! Note: end is NOT included because parse_statement_body would stop at
+        ! ANY end keyword (end if, end do, etc.), not just end select.
+        ! We handle end select detection in the main loop below.
         end_keywords(2) = ""
 
         callbacks = null_statement_callbacks()
@@ -764,13 +823,18 @@ contains
             rank_block_token = parser%peek()
 
             if (rank_block_token%kind == TK_KEYWORD) then
-                if (rank_block_token%text == "rank") then
+                rank_keyword = trim(to_lower(rank_block_token%text))
+                select case (rank_keyword)
+                case ("rank")
                     ! Parse rank block
                     block
                         integer :: rank_block_index, rank_value
                         integer, allocatable :: body_indices(:)
+                        integer :: block_line, block_column
 
-                        rank_block_token = parser%consume()  ! consume 'rank'
+                        rank_block_token = parser%consume()  ! consume rank
+                        block_line = rank_block_token%line
+                        block_column = rank_block_token%column
 
                         ! Check for default or star rank
                         value_token = parser%peek()
@@ -783,9 +847,9 @@ contains
                         end do
 
                         if (value_token%kind == TK_KEYWORD .and. &
-                            value_token%text == "default") then
+                            trim(to_lower(value_token%text)) == "default") then
                             ! RANK DEFAULT case
-                            value_token = parser%consume()  ! consume 'default'
+                            value_token = parser%consume()  ! consume default
 
                             ! Skip rest of current line
                             block
@@ -808,12 +872,12 @@ contains
 
                             ! Create default rank block
                             default_index = push_rank_block(arena, -1, body_indices, &
-                                                           line=rank_block_token%line, &
-                                                         column=rank_block_token%column)
+                                                            line=block_line, &
+                                                            column=block_column)
                         else if (value_token%kind == TK_OPERATOR .and. &
                                  value_token%text == "(") then
                             ! Regular RANK (n) or RANK (*)
-                            value_token = parser%consume()  ! consume '('
+                            value_token = parser%consume()  ! consume (
 
                             ! Get rank value
                             value_token = parser%peek()
@@ -839,7 +903,7 @@ contains
                                 return
                             end if
 
-                            ! Expect ')'
+                            ! Expect )
                             next_token = parser%peek()
                             do while (next_token%kind == TK_WHITESPACE .or. &
                                       next_token%kind == TK_COMMENT .or. &
@@ -854,7 +918,7 @@ contains
                                 select_index = 0
                                 return
                             end if
-                            next_token = parser%consume()  ! consume ')'
+                            next_token = parser%consume()  ! consume )
 
                             ! Skip rest of current line
                             block
@@ -885,17 +949,17 @@ contains
                             ! Create rank block node
                             rank_block_index = push_rank_block(arena, rank_value, &
                                                                body_indices, &
-                                                           line=rank_block_token%line, &
-                                                         column=rank_block_token%column)
+                                                               line=block_line, &
+                                                               column=block_column)
                             rank_indices = [rank_indices, rank_block_index]
                         end if
                     end block
-                else if (rank_block_token%text == "end") then
-                    ! Check for 'end select' (skip whitespace/comments)
+                case ("end")
+                    ! Check for end select (skip whitespace/comments)
                     block
                         type(token_t) :: next_token
 
-                        rank_block_token = parser%consume()  ! consume 'end'
+                        rank_block_token = parser%consume()  ! consume end
 
                         ! Skip whitespace, comments, newlines
                         next_token = parser%peek()
@@ -908,14 +972,16 @@ contains
                         end do
 
                         if (next_token%kind == TK_KEYWORD .and. &
-                            next_token%text == "select") then
-                            next_token = parser%consume()  ! consume 'select'
+                            trim(to_lower(next_token%text)) == "select") then
+                            next_token = parser%consume()  ! consume select
                             exit
                         end if
-                        ! If not 'end select', we already consumed 'end' and
+                        ! If not end select, we already consumed end and
                         ! will continue to next iteration to parse what follows
                     end block
-                end if
+                case default
+                    parser%current_token = parser%current_token + 1
+                end select
             else
                 parser%current_token = parser%current_token + 1
             end if

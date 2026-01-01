@@ -158,7 +158,7 @@ contains
         start_pos = pos
         start_col = col_num
 
-        ! Skip the '!' or '#' character
+        ! Skip the ! or # character
         pos = pos + 1
         col_num = col_num + 1
 
@@ -203,7 +203,7 @@ contains
 
         ! Scan until closing quote, end of line, or end of file
         ! In Fortran, doubled quote characters inside strings represent a
-        ! literal quote (e.g., "can""t" or 'can''t' produces can't)
+        ! literal quote (e.g., cant or cant produces cant)
         do while (pos <= len(source))
             c = source(pos:pos)
 
@@ -236,13 +236,13 @@ contains
             pos = pos + 1
             col_num = col_num + 1
 
-            ! Check if we've reached the end - if so, we have an unclosed string
+            ! Check if weve reached the end - if so, we have an unclosed string
             if (pos > len(source)) then
                 exit
             end if
         end do
 
-        ! Create string token - ensure it's always valid Fortran
+        ! Create string token - ensure its always valid Fortran
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_STRING
@@ -284,6 +284,7 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: c
+        character(len=:), allocatable :: token_text
 
         start_pos = pos
         start_col = col_num
@@ -305,12 +306,13 @@ contains
         ! Create identifier/keyword token
         if (token_count < size(tokens)) then
             token_count = token_count + 1
-            if (is_keyword(source(start_pos:pos - 1))) then
+            token_text = source(start_pos:pos - 1)
+            if (is_keyword(token_text)) then
                 tokens(token_count)%kind = TK_KEYWORD
             else
                 tokens(token_count)%kind = TK_IDENTIFIER
             end if
-            tokens(token_count)%text = source(start_pos:pos - 1)
+            tokens(token_count)%text = token_text
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -428,7 +430,7 @@ contains
         ! Get the token text
         token_text = source(start_pos:pos - 1)
 
-        ! Create token - check if it's a logical constant or logical operator
+        ! Create token - check if its a logical constant or logical operator
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             if (is_logical_constant(token_text)) then
