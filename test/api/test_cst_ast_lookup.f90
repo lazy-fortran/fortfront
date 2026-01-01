@@ -1,6 +1,7 @@
 program test_cst_ast_lookup
-    use fortfront, only: cst_arena_t, cst_handle_t, create_cst_arena, &
-                         create_cst_node, get_cst_node_for_ast, CST_IDENTIFIER
+    use fortfront, only: cst_arena_t, cst_handle_t, cst_node_t, &
+                         create_cst_arena, create_cst_node, get_cst_node_for_ast, &
+                         CST_IDENTIFIER
     implicit none
 
     logical :: all_passed
@@ -28,17 +29,21 @@ contains
         type(cst_arena_t) :: arena
         type(cst_handle_t) :: handle_x
         type(cst_handle_t) :: handle_y
+        type(cst_node_t) :: node_x
+        type(cst_node_t) :: node_y
         integer :: cst_index
 
         test_ast_lookup_map = .true.
         print *, 'Testing get_cst_node_for_ast with arena link map...'
 
         arena = create_cst_arena(4)
-        handle_x = arena%push(create_cst_node(CST_IDENTIFIER, 0, 0, 'x'))
-        handle_y = arena%push(create_cst_node(CST_IDENTIFIER, 0, 0, 'y'))
+        node_x = create_cst_node(CST_IDENTIFIER, 0, 0, 'x')
+        node_x%ast_link = 10
+        handle_x = arena%push(node_x)
 
-        call arena%link_ast(handle_x%index, 10)
-        call arena%link_ast(handle_y%index, 2000)
+        node_y = create_cst_node(CST_IDENTIFIER, 0, 0, 'y')
+        node_y%ast_link = 2000
+        handle_y = arena%push(node_y)
 
         cst_index = get_cst_node_for_ast(arena, 10)
         if (cst_index /= handle_x%index) then

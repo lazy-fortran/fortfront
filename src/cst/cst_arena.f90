@@ -121,6 +121,10 @@ contains
         this%nodes(this%size)%uid = this%next_uid
         this%generations(this%size) = this%global_generation
 
+        if (this%nodes(this%size)%ast_link > 0) then
+            call this%link_ast(this%size, this%nodes(this%size)%ast_link)
+        end if
+
         ! Create handle
         handle%index = this%size
         handle%generation = this%global_generation
