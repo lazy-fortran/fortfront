@@ -65,14 +65,17 @@ contains
     function is_intrinsic_subroutine(name) result(is_intrinsic)
         character(len=*), intent(in) :: name
         logical :: is_intrinsic
+        integer, parameter :: MAX_INTRINSIC_SUBROUTINE_NAME_LEN = 32
         integer :: name_trim_len
-        character(len=len_trim(name)) :: lowered
+        character(len=MAX_INTRINSIC_SUBROUTINE_NAME_LEN) :: lowered
 
         is_intrinsic = .false.
         name_trim_len = len_trim(name)
         if (name_trim_len == 0) return
+        if (name_trim_len > len(lowered)) return
 
-        lowered = to_lower(name(1:name_trim_len))
+        lowered = ""
+        lowered(1:name_trim_len) = to_lower(name(1:name_trim_len))
         select case (lowered)
         case ("cpu_time", "date_and_time", "execute_command_line", &
               "get_command", "get_command_argument", &
