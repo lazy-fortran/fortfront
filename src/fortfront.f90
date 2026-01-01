@@ -87,7 +87,8 @@ module fortfront
     use cst_arena, only: cst_arena_t, cst_handle_t, create_cst_arena
     use cst_trivia_query, only: get_cst_node_for_ast, get_leading_trivia, &
                                 get_trailing_trivia, get_source_trivia_at, &
-                                get_trivia_for_ast_node
+                                get_trivia_for_ast_node, &
+                                get_trivia_for_ast_node_tokens
 
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context

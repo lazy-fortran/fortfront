@@ -88,6 +88,17 @@ call tooling_load_ast_from_string(source, arena, root_index, error_msg)
 call get_trivia_for_ast_node(source, arena, root_index, leading, trailing, found)
 ```
 
+For repeated queries over the same source, tokenize once and reuse:
+
+```fortran
+use fortfront, only: tokenize_core_with_trivia, token_t, get_trivia_for_ast_node_tokens
+
+type(token_t), allocatable :: tokens(:)
+
+call tokenize_core_with_trivia(source, tokens)
+call get_trivia_for_ast_node_tokens(tokens, arena, root_index, leading, trailing, found)
+```
+
 Direct trivia query at an arbitrary source location:
 `get_source_trivia_at(source, line, column)`.
 

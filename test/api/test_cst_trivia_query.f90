@@ -1,7 +1,9 @@
 program test_cst_trivia_query
     use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
                          get_trivia_for_ast_node, get_source_trivia_at, &
-                         get_node_type_id_from_arena
+                         get_node_type_id_from_arena, &
+                         get_trivia_for_ast_node_tokens, tokenize_core_with_trivia, &
+                         token_t
     use fortfront_types, only: NODE_ASSIGNMENT
     use cst_nodes, only: CST_COMMENT, CST_NEWLINE, CST_WHITESPACE, trivia_t
     implicit none
@@ -15,6 +17,7 @@ program test_cst_trivia_query
 
     if (.not. test_source_trivia_at()) all_passed = .false.
     if (.not. test_trivia_for_assignment_node()) all_passed = .false.
+    if (.not. test_trivia_for_assignment_node_reuse_tokens()) all_passed = .false.
 
     print *
     if (all_passed) then
@@ -180,5 +183,101 @@ contains
         print *, '  PASS: get_trivia_for_ast_node'
     end function test_trivia_for_assignment_node
 
-end program test_cst_trivia_query
+    logical function test_trivia_for_assignment_node_reuse_tokens()
+        character(len=*), parameter :: source = "! header" // new_line('A') // &
+                                       "   x = 1"
+        type(ast_arena_t) :: arena
+        integer :: root_index
+        character(len=:), allocatable :: error_msg
+        integer :: i
+        integer :: assignment_index
+        type(token_t), allocatable :: tokens(:)
+        type(trivia_t), allocatable :: leading_1(:), trailing_1(:)
+        type(trivia_t), allocatable :: leading_2(:), trailing_2(:)
+        type(trivia_t), allocatable :: leading_ref(:), trailing_ref(:)
+        logical :: found_1, found_2, found_ref
 
+        test_trivia_for_assignment_node_reuse_tokens = .true.
+        print *, 'Testing get_trivia_for_ast_node_tokens reuse...'
+
+        call tooling_load_ast_from_string(source, arena, root_index, error_msg)
+        if (len_trim(error_msg) > 0) then
+            print *, '  FAIL: tooling_load_ast_from_string: ', trim(error_msg)
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        assignment_index = 0
+        do i = 1, arena%size
+            if (get_node_type_id_from_arena(arena, i) == NODE_ASSIGNMENT) then
+                assignment_index = i
+                exit
+            end if
+        end do
+
+        if (assignment_index == 0) then
+            print *, '  FAIL: did not find assignment node'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        call tokenize_core_with_trivia(source, tokens)
+
+        call get_trivia_for_ast_node_tokens(tokens, arena, assignment_index, &
+                                            leading_1, trailing_1, found_1)
+        call get_trivia_for_ast_node_tokens(tokens, arena, assignment_index, &
+                                            leading_2, trailing_2, found_2)
+        call get_trivia_for_ast_node(source, arena, assignment_index, leading_ref, &
+                                     trailing_ref, found_ref)
+
+        if (.not. found_1 .or. .not. found_2 .or. .not. found_ref) then
+            print *, '  FAIL: expected found=true for all trivia queries'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        if (.not. trivia_equal(leading_1, leading_2)) then
+            print *, '  FAIL: token-reused leading trivia mismatch between calls'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        if (.not. trivia_equal(trailing_1, trailing_2)) then
+            print *, '  FAIL: token-reused trailing trivia mismatch between calls'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        if (.not. trivia_equal(leading_1, leading_ref)) then
+            print *, '  FAIL: leading trivia differs from source-based API'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        if (.not. trivia_equal(trailing_1, trailing_ref)) then
+            print *, '  FAIL: trailing trivia differs from source-based API'
+            test_trivia_for_assignment_node_reuse_tokens = .false.
+            return
+        end if
+
+        print *, '  PASS: get_trivia_for_ast_node_tokens reuse'
+    end function test_trivia_for_assignment_node_reuse_tokens
+
+    logical function trivia_equal(a, b)
+        type(trivia_t), intent(in) :: a(:)
+        type(trivia_t), intent(in) :: b(:)
+
+        integer :: i
+
+        trivia_equal = .false.
+        if (size(a) /= size(b)) return
+
+        do i = 1, size(a)
+            if (a(i)%kind /= b(i)%kind) return
+            if (a(i)%text /= b(i)%text) return
+        end do
+
+        trivia_equal = .true.
+    end function trivia_equal
+
+end program test_cst_trivia_query

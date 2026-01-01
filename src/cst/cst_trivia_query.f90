@@ -14,6 +14,7 @@ module cst_trivia_query
     public :: get_trailing_trivia
     public :: get_source_trivia_at
     public :: get_trivia_for_ast_node
+    public :: get_trivia_for_ast_node_tokens
 
 contains
 
@@ -140,6 +141,21 @@ contains
         logical, intent(out) :: found
 
         type(token_t), allocatable :: tokens(:)
+        call tokenize_core_with_trivia(source, tokens)
+        call get_trivia_for_ast_node_tokens(tokens, ast_arena, &
+                                            ast_index, leading, &
+                                            trailing, found)
+    end subroutine get_trivia_for_ast_node
+
+    subroutine get_trivia_for_ast_node_tokens(tokens, ast_arena, ast_index, &
+                                              leading, trailing, found)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(in) :: ast_arena
+        integer, intent(in) :: ast_index
+        type(trivia_t), allocatable, intent(out) :: leading(:)
+        type(trivia_t), allocatable, intent(out) :: trailing(:)
+        logical, intent(out) :: found
+
         integer :: node_line, node_col
         integer :: token_index
 
@@ -147,18 +163,20 @@ contains
         allocate (trailing(0))
         found = .false.
 
-        call get_node_source_location_from_arena(ast_arena, ast_index, node_line, &
+        call get_node_source_location_from_arena(ast_arena, ast_index, &
+                                                 node_line, &
                                                  node_col)
         if (node_line <= 0 .or. node_col <= 0) return
 
-        call tokenize_core_with_trivia(source, tokens)
         token_index = find_token_at(tokens, node_line, node_col)
         if (token_index <= 0) return
 
         call convert_trivia_tokens(tokens(token_index)%leading_trivia, leading)
-        call convert_trivia_tokens(tokens(token_index)%trailing_trivia, trailing)
+        call &
+            convert_trivia_tokens(tokens(token_index)%trailing_trivia, &
+                                  trailing)
         found = .true.
-    end subroutine get_trivia_for_ast_node
+    end subroutine get_trivia_for_ast_node_tokens
 
     function find_token_at(tokens, line, column) result(token_index)
         type(token_t), intent(in) :: tokens(:)
@@ -297,4 +315,3 @@ contains
     end function line_column_to_pos
 
 end module cst_trivia_query
-
