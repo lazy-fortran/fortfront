@@ -1,5 +1,5 @@
 submodule(semantic_analyzer) semantic_analyzer_context_impl
-    use, intrinsic :: iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit, int32
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    create_mono_type, create_fun_type, &
                                    create_poly_type, &
@@ -47,6 +47,8 @@ contains
         ctx%respect_implicit_none = .true.
         ctx%type_hierarchy = create_type_hierarchy()
         ctx%signatures = create_signatures_map()
+        ctx%explicit_interface_procedure_names%entry_capacity = 0_int32
+        ctx%explicit_interface_procedure_names%bucket_count = 0_int32
         call identifier_table_reset(ctx%explicit_interface_procedure_names)
         ctx%explicit_interface_cache_arena_size = 0
         ctx%explicit_interface_cache_valid = .false.
