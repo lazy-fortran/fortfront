@@ -6,6 +6,7 @@ module intrinsic_registry
 
     ! Public interfaces
     public :: is_intrinsic_function
+    public :: is_intrinsic_subroutine
     public :: get_intrinsic_signature
     public :: get_intrinsic_info
     public :: initialize_intrinsic_registry
@@ -56,6 +57,33 @@ contains
 
         call get_intrinsic_info(name, is_intrinsic, signature)
     end function is_intrinsic_function
+
+    function is_intrinsic_subroutine(name) result(is_intrinsic)
+        character(len=*), intent(in) :: name
+        logical :: is_intrinsic
+        character(len=:), allocatable :: lowered
+
+        is_intrinsic = .false.
+        if (len_trim(name) == 0) return
+
+        lowered = to_lower(trim(name))
+        select case (lowered)
+        case ("cpu_time", "date_and_time", "execute_command_line", &
+              "get_command", "get_command_argument", &
+              "get_environment_variable", "move_alloc", "random_init", &
+              "random_number", "random_seed", "system_clock", "sync_all", &
+              "sync_images", "sync_memory", "lock", "unlock", "event_post", &
+              "event_wait", "event_query", "form_team", "change_team", &
+              "end_team", "co_broadcast", "co_sum", "co_max", "co_min", &
+              "co_reduce", "co_allgather", "co_gather", "co_scatter", &
+              "atomic_define", "atomic_ref", "atomic_cas", "atomic_add", &
+              "atomic_and", "atomic_or", "atomic_xor", "atomic_fetch_add", &
+              "atomic_fetch_and", "atomic_fetch_or", "atomic_fetch_xor")
+            is_intrinsic = .true.
+        case default
+            is_intrinsic = .false.
+        end select
+    end function is_intrinsic_subroutine
 
     ! Get signature information for an intrinsic function
     function get_intrinsic_signature(name) result(signature)
