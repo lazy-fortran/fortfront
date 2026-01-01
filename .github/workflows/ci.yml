@@ -135,45 +135,77 @@ jobs:
       run: |
         Write-Host "🔧 Setting up self-contained MinGW environment..."
 
-        # Use MSYS2 MinGW which is preinstalled on GitHub Actions Windows runners
-        $mingwPath = "C:\msys64\mingw64\bin"
+        # Use MSYS2 toolchains which are preinstalled on GitHub Actions Windows runners
+        # NOTE: Some runner images ship gfortran under ucrt64 instead of mingw64.
+        $candidatePaths = @(
+          "C:\msys64\mingw64\bin",
+          "C:\msys64\ucrt64\bin"
+        )
+
+	        $mingwPath = $null
+	        foreach ($candidate in $candidatePaths) {
+	          $gfortranPath = Join-Path $candidate "gfortran.exe"
+	          if (Test-Path $gfortranPath) {
+	            $mingwPath = $candidate
+	            break
+	          }
+	        }
+	        if ($null -eq $mingwPath) {
+	          foreach ($candidate in $candidatePaths) {
+	            if (Test-Path $candidate) {
+	              $mingwPath = $candidate
+	              break
+	            }
+	          }
+	        }
 
         # Check if path exists
-        if (Test-Path $mingwPath) {
+        if ($null -ne $mingwPath -and (Test-Path $mingwPath)) {
           echo $mingwPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           Write-Host "✅ MinGW path added: $mingwPath"
 
           # Verify gfortran is available
           $gfortranPath = Join-Path $mingwPath "gfortran.exe"
-          if (Test-Path $gfortranPath) {
-            Write-Host "✅ GFortran found at: $gfortranPath"
-          } else {
-            Write-Host "⚠️ GFortran not found, attempting to install..."
-            $mirrorRoot = "C:\msys64\etc\pacman.d"
-            $mingw64List = Join-Path $mirrorRoot "mirrorlist.mingw64"
-            $mingw32List = Join-Path $mirrorRoot "mirrorlist.mingw32"
-            $msysList = Join-Path $mirrorRoot "mirrorlist.msys"
-            $mingw64Mirrors = @(
-              'Server = https://mirror.msys2.org/mingw/mingw64'
-              'Server = https://packages.msys2.org/mirror/mingw/mingw64'
-            )
-            $mingw32Mirrors = @(
-              'Server = https://mirror.msys2.org/mingw/mingw32'
-              'Server = https://packages.msys2.org/mirror/mingw/mingw32'
-            )
-            $msysMirrors = @(
-              'Server = https://mirror.msys2.org/msys/x86_64'
-              'Server = https://packages.msys2.org/mirror/msys/x86_64'
-            )
-            Set-Content -Path $mingw64List -Value $mingw64Mirrors -Encoding ascii
-            Set-Content -Path $mingw32List -Value $mingw32Mirrors -Encoding ascii
-            Set-Content -Path $msysList -Value $msysMirrors -Encoding ascii
-            C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm"
-            C:\msys64\usr\bin\bash.exe -lc "pacman -S --needed --noconfirm --disable-download-timeout mingw-w64-x86_64-gcc-fortran"
-          }
-        } else {
-          Write-Error "❌ MSYS2 MinGW installation path not found at: $mingwPath"
-          Write-Host "Checking other possible locations..."
+	          if (Test-Path $gfortranPath) {
+	            Write-Host "✅ GFortran found at: $gfortranPath"
+	          } else {
+	            Write-Host "⚠️ GFortran not found, attempting to install..."
+	            $mirrorRoot = "C:\msys64\etc\pacman.d"
+	            $mingw64List = Join-Path $mirrorRoot "mirrorlist.mingw64"
+	            $ucrt64List = Join-Path $mirrorRoot "mirrorlist.ucrt64"
+	            $mingw32List = Join-Path $mirrorRoot "mirrorlist.mingw32"
+	            $msysList = Join-Path $mirrorRoot "mirrorlist.msys"
+	            $mingw64Mirrors = @(
+	              'Server = https://mirror.msys2.org/mingw/mingw64'
+	              'Server = https://packages.msys2.org/mirror/mingw/mingw64'
+	            )
+	            $ucrt64Mirrors = @(
+	              'Server = https://mirror.msys2.org/mingw/ucrt64'
+	              'Server = https://packages.msys2.org/mirror/mingw/ucrt64'
+	            )
+	            $mingw32Mirrors = @(
+	              'Server = https://mirror.msys2.org/mingw/mingw32'
+	              'Server = https://packages.msys2.org/mirror/mingw/mingw32'
+	            )
+	            $msysMirrors = @(
+	              'Server = https://mirror.msys2.org/msys/x86_64'
+	              'Server = https://packages.msys2.org/mirror/msys/x86_64'
+	            )
+	            Set-Content -Path $mingw64List -Value $mingw64Mirrors -Encoding ascii
+	            Set-Content -Path $ucrt64List -Value $ucrt64Mirrors -Encoding ascii
+	            Set-Content -Path $mingw32List -Value $mingw32Mirrors -Encoding ascii
+	            Set-Content -Path $msysList -Value $msysMirrors -Encoding ascii
+	            $fortranPackage = "mingw-w64-x86_64-gcc-fortran"
+	            if ($mingwPath -like "*\\ucrt64\\bin") {
+	              $fortranPackage = "mingw-w64-ucrt-x86_64-gcc-fortran"
+	            }
+	            C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm --disable-download-timeout msys2-keyring"
+	            C:\msys64\usr\bin\bash.exe -lc "pacman -Sy --noconfirm --disable-download-timeout"
+	            C:\msys64\usr\bin\bash.exe -lc ("pacman -S --needed --noconfirm --disable-download-timeout " + $fortranPackage)
+	          }
+	        } else {
+	          Write-Error "❌ MSYS2 toolchain path not found (checked: $($candidatePaths -join ', '))"
+	          Write-Host "Checking other possible locations..."
 
           # Try GitHub Actions default MinGW location
           $altPath = "C:\mingw64\bin"
