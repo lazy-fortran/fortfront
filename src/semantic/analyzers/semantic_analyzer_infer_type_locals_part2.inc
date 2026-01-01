@@ -447,6 +447,7 @@
                     arena, this%errors, expr, node_index)
             end if
             call finalize_node(node_index, node_type)
+            call clear_semantic_context_for_lookup()
         end subroutine finalize_call_or_subscript
 
         subroutine finalize_subroutine_call(node_index)
