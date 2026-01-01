@@ -11,6 +11,15 @@ module parser_type_specifications_module
     private
     integer, allocatable, save :: implicit_additional_indices(:)
 
+    type :: implicit_spec_info_t
+        character(len=:), allocatable :: type_name
+        logical :: has_kind = .false.
+        integer :: kind_value = 0
+        logical :: has_length = .false.
+        integer :: length_value = 0
+        character(len=64), allocatable :: letter_ranges(:)
+    end type implicit_spec_info_t
+
     public :: parse_implicit_statement
     public :: take_implicit_additional_indices
 
@@ -183,72 +192,96 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
         type(token_t) :: token
-        character(len=:), allocatable :: none_spec
         integer :: line, column
-
-        type :: implicit_spec_info_t
-            character(len=:), allocatable :: type_name
-            logical :: has_kind = .false.
-            integer :: kind_value = 0
-            logical :: has_length = .false.
-            integer :: length_value = 0
-            character(len=64), allocatable :: letter_ranges(:)
-        end type implicit_spec_info_t
-
         type(implicit_spec_info_t), allocatable :: specs(:)
-        integer :: spec_count, i
-        integer, allocatable :: created_indices(:)
-        logical :: parse_success
+        integer :: spec_count
 
-        ! Reset cached additional indices
-        if (allocated(implicit_additional_indices)) then
-            deallocate (implicit_additional_indices)
-        end if
+        call clear_implicit_additional_indices()
 
         ! Consume 'implicit' keyword
         token = parser%consume()
         line = token%line
         column = token%column
 
-        ! Handle 'implicit none'
-        token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "none") then
-            token = parser%consume()
-            none_spec = ""
-
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                token = parser%consume()  ! consume '('
-                call parse_none_spec_list(parser, none_spec)
-            end if
-
-            if (allocated(none_spec) .and. len_trim(none_spec) == 0) then
-                deallocate (none_spec)
-            end if
-
-            if (allocated(none_spec)) then
-                stmt_index = push_implicit_statement(arena, .true., line=line, &
-                                                     column=column, &
-                                                     parent_index=0, &
-                                                     none_spec=none_spec)
-            else
-                stmt_index = push_implicit_statement(arena, .true., line=line, &
-                                                     column=column, &
-                                                     parent_index=0)
-            end if
-
-            if (allocated(implicit_additional_indices)) then
-                deallocate (implicit_additional_indices)
-            end if
+        if (try_parse_implicit_none(parser, arena, line, column, stmt_index)) then
+            call clear_implicit_additional_indices()
             return
         end if
+
+        call parse_implicit_spec_sequence(parser, specs, spec_count)
+        if (spec_count <= 0) then
+            stmt_index = 0
+            call clear_implicit_additional_indices()
+            return
+        end if
+
+        call push_implicit_specs(arena, specs, line, column, stmt_index)
+    end function parse_implicit_statement
+
+    subroutine clear_implicit_additional_indices()
+        if (allocated(implicit_additional_indices)) then
+            deallocate (implicit_additional_indices)
+        end if
+    end subroutine clear_implicit_additional_indices
+
+    logical function try_parse_implicit_none(parser, arena, line, column, stmt_index) &
+        result(parsed)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: line
+        integer, intent(in) :: column
+        integer, intent(out) :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: none_spec
+
+        parsed = .false.
+        stmt_index = 0
+
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD .or. token%text /= "none") return
+
+        token = parser%consume()
+        none_spec = ""
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()
+            call parse_none_spec_list(parser, none_spec)
+        end if
+
+        if (allocated(none_spec) .and. len_trim(none_spec) == 0) then
+            deallocate (none_spec)
+        end if
+
+        if (allocated(none_spec)) then
+            stmt_index = push_implicit_statement(arena, .true., line=line, &
+                                                 column=column, parent_index=0, &
+                                                 none_spec=none_spec)
+        else
+            stmt_index = push_implicit_statement(arena, .true., line=line, &
+                                                 column=column, parent_index=0)
+        end if
+
+        parsed = (stmt_index > 0)
+    end function try_parse_implicit_none
+
+    subroutine parse_implicit_spec_sequence(parser, specs, spec_count)
+        type(parser_state_t), intent(inout) :: parser
+        type(implicit_spec_info_t), allocatable, intent(out) :: specs(:)
+        integer, intent(out) :: spec_count
+        type(token_t) :: token
+        type(implicit_spec_info_t) :: spec
+        logical :: success
 
         spec_count = 0
         allocate (specs(0))
 
         do
-            parse_success = parse_single_spec(parser, specs, spec_count)
-            if (.not. parse_success) exit
+            success = parse_implicit_single_spec(parser, spec)
+            if (.not. success) exit
+
+            spec_count = spec_count + 1
+            call append_implicit_spec(specs, spec_count, spec)
 
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -257,140 +290,140 @@ contains
             end if
             exit
         end do
+    end subroutine parse_implicit_spec_sequence
 
-        if (spec_count <= 0) then
-            stmt_index = 0
-            if (allocated(implicit_additional_indices)) then
-                deallocate (implicit_additional_indices)
+    logical function parse_implicit_single_spec(parser, spec) result(success)
+        type(parser_state_t), intent(inout) :: parser
+        type(implicit_spec_info_t), intent(out) :: spec
+        type(token_t) :: token
+        integer :: saved_pos
+        integer :: range_count
+        character(len=64), allocatable :: tmp_ranges(:)
+
+        success = .false.
+
+        token = parser%peek()
+        if (token%kind /= TK_KEYWORD) return
+
+        spec%type_name = token%text
+        token = parser%consume()
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            saved_pos = parser%current_token
+            if (is_type_parameter_specification(parser, spec%type_name)) then
+                token = parser%consume()
+                if (spec%type_name == "character") then
+                    call parse_character_type_spec(parser, spec%length_value, &
+                                                   spec%has_length)
+                else
+                    call parse_kind_specification(parser, spec%kind_value, &
+                                                  spec%has_kind)
+                end if
+
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()
+                end if
+            else
+                parser%current_token = saved_pos
             end if
+        end if
+
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()
+            call count_letter_ranges(parser, range_count)
+
+            if (range_count > 0) then
+                allocate (tmp_ranges(range_count))
+                call parse_letter_ranges(parser, tmp_ranges)
+                allocate (spec%letter_ranges(range_count))
+                spec%letter_ranges = tmp_ranges
+                deallocate (tmp_ranges)
+            end if
+
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
+        end if
+
+        success = .true.
+    end function parse_implicit_single_spec
+
+    subroutine append_implicit_spec(specs, count, spec)
+        type(implicit_spec_info_t), allocatable, intent(inout) :: specs(:)
+        integer, intent(in) :: count
+        type(implicit_spec_info_t), intent(in) :: spec
+        type(implicit_spec_info_t), allocatable :: temp(:)
+        integer :: old_size
+
+        if (.not. allocated(specs)) then
+            allocate (specs(count))
+            specs(count) = spec
             return
         end if
 
+        old_size = size(specs)
+        if (old_size < count) then
+            allocate (temp(count))
+            if (old_size > 0) temp(1:old_size) = specs
+            temp(count) = spec
+            call move_alloc(temp, specs)
+        else
+            specs(count) = spec
+        end if
+    end subroutine append_implicit_spec
+
+    subroutine push_implicit_specs(arena, specs, line, column, stmt_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(implicit_spec_info_t), intent(in) :: specs(:)
+        integer, intent(in) :: line
+        integer, intent(in) :: column
+        integer, intent(out) :: stmt_index
+        integer :: spec_count, i
+        integer, allocatable :: created_indices(:)
+
+        spec_count = size(specs)
         allocate (created_indices(spec_count))
+
         do i = 1, spec_count
             associate (spec => specs(i))
                 if (allocated(spec%letter_ranges)) then
-                    created_indices(i) = push_implicit_statement( &
-                                         arena, .false., type_name=spec%type_name, &
-                                         kind_value=spec%kind_value, &
-                                         has_kind=spec%has_kind, &
-                                         length_value=spec%length_value, &
-                                         has_length=spec%has_length, &
-                                         letter_ranges=spec%letter_ranges, line=line, &
-                                         column=column, parent_index=0)
+                    created_indices(i) = push_implicit_statement(arena, .false., &
+                                                             type_name=spec%type_name, &
+                                                           kind_value=spec%kind_value, &
+                                                               has_kind=spec%has_kind, &
+                                                       length_value=spec%length_value, &
+                                                           has_length=spec%has_length, &
+                                                     letter_ranges=spec%letter_ranges, &
+                                                                 line=line, &
+                                                                     column=column, &
+                                                                     parent_index=0)
                 else
-                    created_indices(i) = push_implicit_statement( &
-                                         arena, .false., type_name=spec%type_name, &
-                                         kind_value=spec%kind_value, &
-                                         has_kind=spec%has_kind, &
-                                         length_value=spec%length_value, &
-                                         has_length=spec%has_length, line=line, &
-                                         column=column, parent_index=0)
+                    created_indices(i) = push_implicit_statement(arena, .false., &
+                                                             type_name=spec%type_name, &
+                                                           kind_value=spec%kind_value, &
+                                                               has_kind=spec%has_kind, &
+                                                       length_value=spec%length_value, &
+                                                           has_length=spec%has_length, &
+                                                                 line=line, &
+                                                                     column=column, &
+                                                                     parent_index=0)
                 end if
             end associate
         end do
 
         stmt_index = created_indices(1)
         if (spec_count > 1) then
-            if (allocated(implicit_additional_indices)) then
-                deallocate (implicit_additional_indices)
-            end if
+            call clear_implicit_additional_indices()
             allocate (implicit_additional_indices(spec_count - 1))
             implicit_additional_indices = created_indices(2:)
         else
-            if (allocated(implicit_additional_indices)) then
-                deallocate (implicit_additional_indices)
-            end if
+            call clear_implicit_additional_indices()
         end if
-
-    contains
-        logical function parse_single_spec(parser_ref, specs_ref, count) &
-            result(success)
-            type(parser_state_t), intent(inout) :: parser_ref
-            type(implicit_spec_info_t), allocatable, intent(inout) :: specs_ref(:)
-            integer, intent(inout) :: count
-            type(token_t) :: local_token
-            type(implicit_spec_info_t) :: spec
-            integer :: saved_pos
-            integer :: range_count
-            character(len=64), allocatable :: tmp_ranges(:)
-
-            success = .false.
-
-            local_token = parser_ref%peek()
-            if (local_token%kind /= TK_KEYWORD) return
-
-            spec%type_name = local_token%text
-            local_token = parser_ref%consume()
-
-            local_token = parser_ref%peek()
-            if (local_token%kind == TK_OPERATOR .and. local_token%text == "(") then
-                saved_pos = parser_ref%current_token
-                if (is_type_parameter_specification(parser_ref, spec%type_name)) then
-                    local_token = parser_ref%consume()
-                    if (spec%type_name == "character") then
-                        call parse_character_type_spec(parser_ref, &
-                                                       spec%length_value, &
-                                                       spec%has_length)
-                    else
-                        call parse_kind_specification(parser_ref, &
-                                                      spec%kind_value, &
-                                                      spec%has_kind)
-                    end if
-
-                    local_token = parser_ref%peek()
-                    if (local_token%kind == TK_OPERATOR .and. local_token%text &
-                        == ")") then
-                        local_token = parser_ref%consume()
-                    end if
-                else
-                    parser_ref%current_token = saved_pos
-                end if
-            end if
-
-            local_token = parser_ref%peek()
-            if (local_token%kind == TK_OPERATOR .and. local_token%text == "(") then
-                local_token = parser_ref%consume()
-                call count_letter_ranges(parser_ref, range_count)
-
-                if (range_count > 0) then
-                    allocate (tmp_ranges(range_count))
-                    call parse_letter_ranges(parser_ref, tmp_ranges)
-                    if (allocated(spec%letter_ranges)) deallocate (spec%letter_ranges)
-                    allocate (spec%letter_ranges(range_count))
-                    spec%letter_ranges = tmp_ranges
-                    deallocate (tmp_ranges)
-                end if
-
-                local_token = parser_ref%peek()
-                if (local_token%kind == TK_OPERATOR .and. local_token%text == ")") then
-                    local_token = parser_ref%consume()
-                end if
-            end if
-
-            count = count + 1
-            call append_spec(specs_ref, count)
-            specs_ref(count) = spec
-            success = .true.
-        end function parse_single_spec
-
-        subroutine append_spec(specs_ref, new_count)
-            type(implicit_spec_info_t), allocatable, intent(inout) :: specs_ref(:)
-            integer, intent(in) :: new_count
-            type(implicit_spec_info_t), allocatable :: temp(:)
-            integer :: old_size
-
-            if (.not. allocated(specs_ref)) then
-                allocate (specs_ref(new_count))
-            else
-                old_size = size(specs_ref)
-                if (old_size >= new_count) return
-                allocate (temp(new_count))
-                if (old_size > 0) temp(1:old_size) = specs_ref
-                call move_alloc(temp, specs_ref)
-            end if
-        end subroutine append_spec
-    end function parse_implicit_statement
+    end subroutine push_implicit_specs
 
     function take_implicit_additional_indices() result(indices)
         integer, allocatable :: indices(:)
