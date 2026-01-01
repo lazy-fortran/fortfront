@@ -18,7 +18,6 @@ submodule(semantic_analyzer) semantic_analyzer_context_impl
     use semantic_validation_utils, only: int_to_str
     use ast_nodes_data, only: declaration_node
     use semantic_context_types, only: semantic_context_base_t
-    use identifier_table, only: identifier_table_t
     use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
     use semantic_operating_mode, only: OPERATING_MODE_INFER, &
                                        OPERATING_MODE_STRICT
@@ -47,8 +46,15 @@ contains
         ctx%respect_implicit_none = .true.
         ctx%type_hierarchy = create_type_hierarchy()
         ctx%signatures = create_signatures_map()
-        call reset_explicit_interface_cache_table( &
-            ctx%explicit_interface_procedure_names)
+        ctx%explicit_interface_procedure_names%count = 0_int32
+        ctx%explicit_interface_procedure_names%entry_capacity = 0_int32
+        ctx%explicit_interface_procedure_names%bucket_count = 0_int32
+        if (allocated(ctx%explicit_interface_procedure_names%entries)) then
+            deallocate (ctx%explicit_interface_procedure_names%entries)
+        end if
+        if (allocated(ctx%explicit_interface_procedure_names%buckets)) then
+            deallocate (ctx%explicit_interface_procedure_names%buckets)
+        end if
         ctx%explicit_interface_cache_arena_size = 0
         ctx%explicit_interface_cache_valid = .false.
 
@@ -68,16 +74,6 @@ contains
         call ctx%scopes%define("log", builtin_scheme)
         call ctx%scopes%define("abs", builtin_scheme)
     end subroutine create_semantic_context
-
-    subroutine reset_explicit_interface_cache_table(table)
-        type(identifier_table_t), intent(inout) :: table
-
-        table%count = 0_int32
-        table%entry_capacity = 0_int32
-        table%bucket_count = 0_int32
-        if (allocated(table%entries)) deallocate (table%entries)
-        if (allocated(table%buckets)) deallocate (table%buckets)
-    end subroutine reset_explicit_interface_cache_table
 
     module subroutine analyze_program(ctx, arena, root_index)
         type(semantic_context_t), intent(inout) :: ctx
