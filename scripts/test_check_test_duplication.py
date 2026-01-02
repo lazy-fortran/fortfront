@@ -51,6 +51,13 @@ class TestCheckTestDuplication(unittest.TestCase):
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0], check_test_duplication.InlineBlock(start_line=1, newline_count=2))
 
+    def test_counts_uppercase_new_line_intrinsic(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' // new_line('A') // 'b' // new_line ( 'z' ) // 'c'"]
+        )
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0], check_test_duplication.InlineBlock(start_line=1, newline_count=2))
+
     def test_ignores_non_source_builder(self) -> None:
         blocks = check_test_duplication._statements_with_newlines(
             ["if (len(content) > 0) content = content // new_line('a')"]
