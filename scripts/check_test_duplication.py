@@ -44,6 +44,83 @@ def _strip_fortran_comment(line: str) -> str:
     return line
 
 
+def _find_fortran_assignment_operator(statement: str) -> int | None:
+    in_single = False
+    in_double = False
+    idx = 0
+    while idx < len(statement):
+        ch = statement[idx]
+        if ch == "'" and not in_double:
+            if in_single and idx + 1 < len(statement) and statement[idx + 1] == "'":
+                idx += 2
+                continue
+            in_single = not in_single
+            idx += 1
+            continue
+        if ch == '"' and not in_single:
+            if in_double and idx + 1 < len(statement) and statement[idx + 1] == '"':
+                idx += 2
+                continue
+            in_double = not in_double
+            idx += 1
+            continue
+        if in_single or in_double:
+            idx += 1
+            continue
+        if ch == "=":
+            prev_ch = statement[idx - 1] if idx > 0 else ""
+            next_ch = statement[idx + 1] if idx + 1 < len(statement) else ""
+            if prev_ch in {"<", ">", "/", "="}:
+                idx += 1
+                continue
+            if next_ch in {">", "="}:
+                idx += 1
+                continue
+            return idx
+        idx += 1
+    return None
+
+
+def _leading_identifier(text: str) -> str | None:
+    stripped = text.lstrip()
+    i = 0
+    while i < len(stripped) and stripped[i].isdigit():
+        i += 1
+    stripped = stripped[i:].lstrip()
+    if not stripped:
+        return None
+    first = stripped[0]
+    if not (first.isalpha() or first == "_"):
+        return None
+    i = 1
+    while i < len(stripped) and (stripped[i].isalnum() or stripped[i] == "_"):
+        i += 1
+    return stripped[:i]
+
+def _is_likely_inline_source_statement(statement: str) -> bool:
+    op_index = _find_fortran_assignment_operator(statement)
+    if op_index is None:
+        return False
+    lhs = statement[:op_index]
+    name = _leading_identifier(lhs)
+    if name is None:
+        return False
+    var = name.lower()
+    if var == "src":
+        return True
+    if var == "source":
+        return True
+    if var.startswith("source"):
+        return True
+    if var.startswith("input"):
+        return True
+    if var.endswith("_source"):
+        return True
+    if var in {"input", "input_source", "program_source", "source_text"}:
+        return True
+    return False
+
+
 def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
     blocks: list[InlineBlock] = []
     statement_lines: list[str] = []
@@ -55,7 +132,7 @@ def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
             return
         statement = "\n".join(statement_lines)
         newline_count = statement.count("new_line('a')")
-        if newline_count > 0:
+        if newline_count > 0 and _is_likely_inline_source_statement(statement):
             blocks.append(InlineBlock(start_line=start_line, newline_count=newline_count))
         statement_lines = []
         start_line = end_line + 1
