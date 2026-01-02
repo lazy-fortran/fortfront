@@ -330,3 +330,24 @@
             error stop 1
         end if
     end subroutine read_example
+
+    subroutine write_error_snippet(text)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
+        character(len=*), intent(in) :: text
+        integer :: n, total
+
+        total = len_trim(text)
+        n = min(total, 4000)
+
+        write (error_unit, '(A)') '---- error snippet begin ----'
+        if (n > 0) then
+            write (error_unit, '(A)') text(1:n)
+        end if
+        if (total > n) then
+            write (error_unit, '(A,I0,A)') '---- truncated; total chars=', &
+                total, ' ----'
+        end if
+        write (error_unit, '(A)') '---- error snippet end ----'
+        flush (error_unit)
+    end subroutine write_error_snippet
