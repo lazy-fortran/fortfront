@@ -37,24 +37,32 @@
         character(len=:), allocatable :: open_filename
         character(len=128) :: os_value
         integer :: os_len, os_status, i
+        logical :: is_windows
         integer :: unit_num, ios, file_size, alloc_stat
         integer, parameter :: MAX_INPUT_SIZE = 10485760
 
         status = 0
         open_filename = filename
+        is_windows = .false.
 
         call get_environment_variable('OS', value=os_value, length=os_len, &
                                       status=os_status)
         if (os_status == 0) then
             if (trim(os_value(1:os_len)) == 'Windows_NT') then
-                do i = 1, len(open_filename)
-                    if (open_filename(i:i) == '/') open_filename(i:i) = '\'
-                end do
+                is_windows = .true.
             end if
         end if
 
         open (newunit=unit_num, file=open_filename, status='old', action='read', &
               access='stream', form='unformatted', iostat=ios)
+        if (ios /= 0 .and. is_windows) then
+            open_filename = filename
+            do i = 1, len(open_filename)
+                if (open_filename(i:i) == '/') open_filename(i:i) = '\'
+            end do
+            open (newunit=unit_num, file=open_filename, status='old', action='read', &
+                  access='stream', form='unformatted', iostat=ios)
+        end if
         if (ios /= 0) then
             write (error_unit, '(A,A)') 'Cannot open file: ', filename
             status = 2
@@ -318,6 +326,7 @@
         call read_all_stdin_or_file(.true., filepath, content, status)
         if (status /= 0) then
             write (error_unit, '(A)') 'FAIL: failed to read ' // trim(filepath)
+            flush (error_unit)
             error stop 1
         end if
     end subroutine read_example
