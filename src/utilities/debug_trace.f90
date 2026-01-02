@@ -42,7 +42,7 @@ contains
     subroutine trace_init()
         character(len=64) :: val
         integer :: stat
-        integer(int64) :: rate
+        integer :: rate_default
         if (initialized) return
         val = ''
         call get_environment_variable('FORTFRONT_TRACE', val, status=stat)
@@ -72,8 +72,8 @@ contains
         end if
 
         profile_clock_rate = 0_int64
-        call system_clock(count_rate=rate)
-        if (rate > 0_int64) profile_clock_rate = rate
+        call system_clock(count_rate=rate_default)
+        if (rate_default > 0) profile_clock_rate = int(rate_default, kind=int64)
 
         initialized = .true.
     end subroutine trace_init
@@ -93,6 +93,7 @@ contains
     subroutine trace_enter(name)
         character(len=*), intent(in) :: name
         integer :: section_index
+        integer :: start_default
         integer(int64) :: start_count
 
         if (.not. initialized) call trace_init()
@@ -126,7 +127,8 @@ contains
         end if
 
         section_index = ensure_profile_section(trim(name))
-        call system_clock(count=start_count)
+        call system_clock(count=start_default)
+        start_count = int(start_default, kind=int64)
         profile_sections(section_index)%call_count = &
             profile_sections(section_index)%call_count + 1_int64
 
@@ -137,6 +139,7 @@ contains
 
     subroutine trace_leave(name)
         character(len=*), intent(in) :: name
+        integer :: end_default
         integer(int64) :: end_count
         integer(int64) :: elapsed_counts, self_counts
         integer :: section_index
@@ -156,7 +159,8 @@ contains
         if (.not. profile_enabled) return
         if (profile_depth <= 0) return
 
-        call system_clock(count=end_count)
+        call system_clock(count=end_default)
+        end_count = int(end_default, kind=int64)
 
         section_index = profile_stack(profile_depth)%section_index
         elapsed_counts = end_count - profile_stack(profile_depth)%start_count
