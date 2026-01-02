@@ -1,5 +1,5 @@
 module debug_trace
-    use, intrinsic :: iso_fortran_env, only: error_unit, int64
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, int64
     use cli_env, only: is_truthy
     implicit none
     private
@@ -226,7 +226,7 @@ contains
 
     subroutine trace_finalize()
         integer :: i
-        real :: total_ms, self_ms
+        real(dp) :: total_ms, self_ms
 
         if (.not. initialized) return
         if (.not. profile_enabled) return
@@ -285,12 +285,12 @@ contains
         section_index = size(profile_sections)
     end function ensure_profile_section
 
-    real function counts_to_ms(counts) result(ms)
+    real(dp) function counts_to_ms(counts) result(ms)
         integer(int64), intent(in) :: counts
         if (profile_clock_rate <= 0_int64) then
-            ms = 0.0
+            ms = 0.0_dp
         else
-            ms = 1000.0 * real(counts) / real(profile_clock_rate)
+            ms = 1000.0_dp * real(counts, kind=dp) / real(profile_clock_rate, kind=dp)
         end if
     end function counts_to_ms
 
