@@ -1,5 +1,6 @@
 program test_fortfront_api_integration
     ! Integration test for the complete fortfront public API pipeline
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use fortfront
     implicit none
 
@@ -39,15 +40,7 @@ contains
             type(semantic_context_t) :: ctx
             integer :: prog_index
 
-            ! Simple source code that represents actual Fortran structure
-            source = '! Test program' // new_line('A') // &
-                     'program test' // new_line('A') // &
-                     '    implicit none' // new_line('A') // &
-                     '    real :: x, y' // new_line('A') // &
-                     '    x = 3.0' // new_line('A') // &
-                     '    y = 4.0' // new_line('A') // &
-                     '    print *, x + y' // new_line('A') // &
-                     'end program test'
+            call read_example('examples/f90/api_pipeline_minimal_program.f90', source)
 
             ! Phase 1: Lexical analysis
             call lex_source(source, tokens, error_msg)
@@ -90,11 +83,14 @@ contains
                     if (allocated(arena%entries(prog_index)%node)) then
                         select type (node => arena%entries(prog_index)%node)
                         type is (program_node)
-                            if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
+                            if (allocated(node%body_indices) .and. &
+                                size(node%body_indices) > 0) then
                                 ! Check if types were inferred
                                 block
                                     logical :: type_found
-                                    call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
+                                    call get_type_for_node(arena, &
+                                                           node%body_indices(1), &
+                                                               node_type, type_found)
                                     if (type_found .and. allocated(node_type)) then
                                         print *, '  Note: Type inference successful'
                                     end if
@@ -145,9 +141,7 @@ contains
             integer :: prog_index
             integer, allocatable :: children(:)
 
-            source = 'x = 1' // new_line('A') // &
-                     'y = 2' // new_line('A') // &
-                     'z = x + y'
+            call read_example('examples/lf/api_pipeline_three_assignments.lf', source)
 
             ! Process through pipeline
             call lex_source(source, tokens, error_msg)
@@ -185,12 +179,14 @@ contains
                 type is (program_node)
                     print *, '  INFO: Program node found with name:', prog_node%name
                     if (allocated(prog_node%body_indices)) then
-                        print *, '  INFO: Program has', size(prog_node%body_indices), 'body statements'
+                        print *, '  INFO: Program has', size(prog_node%body_indices), &
+                            'body statements'
                     else
                         print *, '  INFO: Program has no body statements'
                     end if
                 class default
-                    print *, '  INFO: Root node is not a program_node, navigation adapted'
+                    print *, &
+                        '  INFO: Root node is not a program_node, navigation adapted'
                 end select
             end block
 
@@ -249,12 +245,11 @@ contains
             type(token_t), allocatable :: tokens(:)
             type(ast_arena_t) :: arena
             integer :: prog_index
-            integer :: assignment_count, identifier_count, literal_count, binary_op_count
+            integer :: assignment_count, identifier_count, literal_count, &
+                       binary_op_count
             integer :: i
 
-            source = 'do i = 1, 10' // new_line('A') // &
-                     '    x(i) = i * i' // new_line('A') // &
-                     'end do'
+            call read_example('examples/lf/api_pipeline_do_loop_assignments.lf', source)
 
             ! Process through pipeline
             call lex_source(source, tokens, error_msg)
@@ -306,5 +301,19 @@ contains
                 ', binary_ops=', binary_op_count
         end block
     end function test_visitor_pattern_integration
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_fortfront_api_integration

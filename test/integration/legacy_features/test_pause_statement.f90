@@ -1,5 +1,5 @@
 program test_pause_statement
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
     use fortfront, only: transform_lazy_fortran_string
     implicit none
     logical :: all_tests_passed
@@ -28,20 +28,7 @@ contains
 
         test_count = test_count + 1
 
-        input = &
-            "program test_pause" // new_line('A') // &
-            "    implicit none" // new_line('A') // &
-            "    integer :: i" // new_line('A') // &
-            "    " // new_line('A') // &
-            "    do i = 1, 3" // new_line('A') // &
-            "        print *, 'Iteration', i" // new_line('A') // &
-            "        if (i == 2) then" // new_line('A') // &
-            "            pause 'Paused at iteration 2'" // new_line('A') // &
-            "        end if" // new_line('A') // &
-            "    end do" // new_line('A') // &
-            "    " // new_line('A') // &
-            "    print *, 'Done'" // new_line('A') // &
-            "end program test_pause"
+        call read_example('examples/f90/pause_with_string_in_loop.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -64,12 +51,7 @@ contains
 
         test_count = test_count + 1
 
-        input = &
-            "program test_pause_simple" // new_line('A') // &
-            "    implicit none" // new_line('A') // &
-            "    pause" // new_line('A') // &
-            "    print *, 'Continued'" // new_line('A') // &
-            "end program test_pause_simple"
+        call read_example('examples/f90/pause_without_message.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -92,15 +74,7 @@ contains
 
         test_count = test_count + 1
 
-        input = &
-            "program test_pause_if" // new_line('A') // &
-            "    implicit none" // new_line('A') // &
-            "    logical :: debug_mode" // new_line('A') // &
-            "    debug_mode = .true." // new_line('A') // &
-            "    if (debug_mode) then" // new_line('A') // &
-            "        pause 'Debug pause'" // new_line('A') // &
-            "    end if" // new_line('A') // &
-            "end program test_pause_if"
+        call read_example('examples/f90/pause_in_if_block.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -116,5 +90,19 @@ contains
             print *, "Output:", trim(output)
         end if
     end subroutine test_pause_in_if_block
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_pause_statement

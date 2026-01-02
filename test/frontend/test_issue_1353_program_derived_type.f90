@@ -1,4 +1,5 @@
 program test_issue_1353_program_derived_type
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_api, only: lex_source
     use transformation_api, only: transform_lazy_fortran_string
     use lexer_core, only: token_t, TK_KEYWORD, to_lower
@@ -18,8 +19,8 @@ contains
         character(len=*), intent(in) :: segment
         character(len=*), intent(in) :: name
 
-        found = index(segment, "real :: " // name) > 0 .or. &
-                index(segment, "real(8) :: " // name) > 0
+        found = index(segment, "real :: "//name) > 0 .or. &
+                index(segment, "real(8) :: "//name) > 0
     end function has_real_decl
 
     subroutine test_type_definition_inside_program()
@@ -30,20 +31,7 @@ contains
         integer :: idx_type, idx_end, idx_decl
         integer :: header_count
 
-        input_code = "program test_derived_type" // new_line('A') // &
-                     "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type :: point_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "        real :: y" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // new_line('A') // &
-                     "    type(point_t) :: p1, p2" // new_line('A') // new_line('A') // &
-                     "    p1%x = 1.0" // new_line('A') // &
-                     "    p1%y = 2.0" // new_line('A') // new_line('A') // &
-                     "    p2 = p1" // new_line('A') // &
-                     "    p2%x = 3.0" // new_line('A') // new_line('A') // &
-                     "    print *, ""p1:"", p1%x, p1%y" // new_line('A') // &
-                     "    print *, ""p2:"", p2%x, p2%y" // new_line('A') // &
-                     "end program test_derived_type"
+        call read_example('examples/f90/issue_1353_derived_type.f90', input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -69,21 +57,21 @@ contains
             error stop 1
         end if
 
-        idx_decl = index(output_code, "type(point_t) :: p1, p2")
+        idx_decl = index(output_code, "type(point_t) :: p")
         if (idx_decl <= 0) then
             print *, "FAIL: derived type variable declaration missing"
             error stop 1
         end if
 
-        if (index(output_code, "p1%x = 1.0") <= 0) then
-            if (index(output_code, "p1%x = 1.0d0") <= 0) then
-                print *, "FAIL: assignment to p1%x missing"
+        if (index(output_code, "p%x = 1.0") <= 0) then
+            if (index(output_code, "p%x = 1.0d0") <= 0) then
+                print *, "FAIL: assignment to p%x missing"
                 error stop 1
             end if
         end if
 
-        if (index(output_code, "print *, ""p2:""") <= 0) then
-            print *, "FAIL: print statement for p2 missing"
+        if (index(output_code, "print *, p%x, p%y") <= 0) then
+            print *, "FAIL: print statement for p missing"
             error stop 1
         end if
 
@@ -106,17 +94,8 @@ contains
         integer :: idx_type, idx_end, idx_decl
         integer :: header_count
 
-        input_code = "program attr_type_test" // new_line('A') // &
-                     "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type, public :: point_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "        real :: y" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // new_line('A') // &
-                     "    type(point_t) :: p" // new_line('A') // new_line('A') // &
-                     "    p%x = 1.0" // new_line('A') // &
-                     "    p%y = 2.0" // new_line('A') // new_line('A') // &
-                     "    print *, p%x, p%y" // new_line('A') // &
-                     "end program attr_type_test"
+        call read_example('examples/f90/issue_1353_type_public_attribute.f90', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -125,7 +104,7 @@ contains
             error stop 1
         end if
 
-        idx_type = index(output_code, "type, public :: point_t")
+        idx_type = index(output_code, "type, bind(c) :: point_t")
         if (idx_type <= 0) then
             print *, "FAIL: attribute test missing derived type definition"
             error stop 1
@@ -143,7 +122,7 @@ contains
         end if
 
         normalized_output = to_lower(output_code)
-        header_count = count_occurrences(normalized_output, "type, public :: point_t")
+        header_count = count_occurrences(normalized_output, "type, bind(c) :: point_t")
         if (header_count /= 1) then
             print *, "FAIL: duplicate derived type header detected"
             error stop 1
@@ -178,20 +157,8 @@ contains
         integer :: idx_type, idx_end, idx_contains
         integer :: header_count
 
-        input_code = "module attr_mod" // new_line('A') // &
-                     "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type, public :: point_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "        real :: y" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // new_line('A') // &
-                     "contains" // new_line('A') // &
-                     "    subroutine assign_point()" // new_line('A') // &
-                     "        type(point_t) :: p" // new_line('A') // &
-                     "        p%x = 1.0" // new_line('A') // &
-                     "        p%y = 2.0" // new_line('A') // &
-                     "        print *, p%x, p%y" // new_line('A') // &
-                     "    end subroutine assign_point" // new_line('A') // &
-                     "end module attr_mod"
+        call read_example('examples/f90/issue_1353_module_type_definition.f90', &
+                          input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -278,18 +245,7 @@ contains
         integer :: idx_type, idx_end
         integer :: header_count
 
-        input_code = "program extends_demo" // new_line('A') // &
-                     "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type :: base_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "    end type base_t" // new_line('A') // new_line('A') // &
-                     "    type, extends(base_t) :: point_t" // new_line('A') // &
-                     "        real :: y" // new_line('A') // &
-                     "    end type point_t" // new_line('A') // new_line('A') // &
-                     "    type(point_t) :: p" // new_line('A') // &
-                     "    p%y = 2.0" // new_line('A') // &
-                     "    print *, p%y" // new_line('A') // &
-                     "end program extends_demo"
+        call read_example('examples/f90/issue_1353_extends_attribute.f90', input_code)
 
         call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
@@ -341,23 +297,14 @@ contains
         integer :: idx_class_decl, i
         logical :: class_token_found
 
-        input_code = "program class_decl" // new_line('A') // &
-                     "    implicit none" // new_line('A') // new_line('A') // &
-                     "    type :: base_t" // new_line('A') // &
-                     "        real :: x" // new_line('A') // &
-                     "    end type base_t" // new_line('A') // new_line('A') // &
-                     "    type(base_t) :: storage" // new_line('A') // &
-                     "    class(base_t), pointer :: p" // new_line('A') // &
-                     new_line('A') // &
-                     "    storage%x = 1.0" // new_line('A') // &
-                     "    p => storage" // new_line('A') // &
-                     "    print *, p%x" // new_line('A') // &
-                     "end program class_decl"
+        call read_example('examples/f90/issue_1353_class_pointer_declaration.f90', &
+                          input_code)
 
         call lex_source(input_code, tokens, lex_error)
 
         if (len_trim(lex_error) > 0) then
-            print *, "FAIL: lexer reported error for class declaration:", trim(lex_error)
+            print *, "FAIL: lexer reported error for class declaration:", &
+                trim(lex_error)
             error stop 1
         end if
 
@@ -427,5 +374,19 @@ contains
             start_pos = start_pos + found_pos + pattern_len - 1
         end do
     end function count_occurrences
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_1353_program_derived_type

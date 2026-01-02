@@ -1,5 +1,5 @@
 program test_nullify_statement
-    use, intrinsic :: iso_fortran_env, only: dp => real64
+    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit
     use fortfront, only: transform_lazy_fortran_string
     implicit none
     logical :: all_tests_passed
@@ -27,19 +27,13 @@ contains
 
         test_count = test_count + 1
 
-        input = &
-            "program test_nullify_basic" // new_line('A') // &
-            "    implicit none" // new_line('A') // &
-            "    integer, pointer :: ptr1, ptr2" // new_line('A') // &
-            "    nullify(ptr1, ptr2)" // new_line('A') // &
-            "    print *, 'Done'" // new_line('A') // &
-            "end program test_nullify_basic"
+        call read_example('examples/f90/nullify_basic.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
         test_passed = (index(output, "nullify(ptr1, ptr2)") > 0)
         test_passed = test_passed .and. &
-            (index(output, "integer, pointer :: ptr1, ptr2") > 0)
+                      (index(output, "integer, pointer :: ptr1, ptr2") > 0)
 
         if (test_passed .and. len_trim(error_msg) == 0) then
             pass_count = pass_count + 1
@@ -58,16 +52,7 @@ contains
 
         test_count = test_count + 1
 
-        input = &
-            "program test_nullify_if" // new_line('A') // &
-            "    implicit none" // new_line('A') // &
-            "    integer, pointer :: ptr" // new_line('A') // &
-            "    logical :: reset" // new_line('A') // &
-            "    reset = .true." // new_line('A') // &
-            "    if (reset) then" // new_line('A') // &
-            "        nullify(ptr)" // new_line('A') // &
-            "    end if" // new_line('A') // &
-            "end program test_nullify_if"
+        call read_example('examples/f90/nullify_in_if_block.f90', input)
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -84,5 +69,19 @@ contains
             print *, "Output:", trim(output)
         end if
     end subroutine test_nullify_in_if
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_nullify_statement
