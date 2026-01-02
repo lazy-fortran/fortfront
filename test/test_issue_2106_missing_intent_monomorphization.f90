@@ -16,7 +16,7 @@ program test_issue_2106_missing_intent_monomorphization
 
     if (len_trim(errors) > 0) then
         write (error_unit, '(A)') 'FAIL: transformation reported errors'
-        write (error_unit, '(A)') trim(errors)
+        call write_error_snippet(errors)
         error stop 1
     end if
 
