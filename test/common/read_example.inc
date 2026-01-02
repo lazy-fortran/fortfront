@@ -1,4 +1,6 @@
     subroutine read_example(filepath, content)
+        use, intrinsic :: iso_fortran_env, only: error_unit
+        implicit none
         character(len=*), intent(in) :: filepath
         character(len=:), allocatable, intent(out) :: content
         integer :: status
