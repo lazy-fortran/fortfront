@@ -55,7 +55,7 @@
         rhs_size = static_array_literal_size(arena, assignment%value_index)
         if (rhs_size < 0) return
 
-        prog_index = find_containing_program_index(arena, assignment_index)
+        prog_index = find_program_owner(arena, assignment_index)
         if (prog_index <= 0) return
 
         if (.not. is_allocatable_array_decl_in_program(arena, &
@@ -95,34 +95,6 @@
             return
         end select
     end subroutine get_lhs_identifier_name
-
-    integer function find_containing_program_index(arena, node_index) &
-        result(prog_index)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-
-        integer :: i
-        integer :: j
-
-        prog_index = 0
-        if (node_index <= 0 .or. node_index > arena%size) return
-
-        do i = 1, arena%size
-            if (.not. allocated(arena%entries(i)%node)) cycle
-            select type (node => arena%entries(i)%node)
-            type is (program_node)
-                if (.not. allocated(node%body_indices)) cycle
-                do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) == node_index) then
-                        prog_index = i
-                        return
-                    end if
-                end do
-            class default
-                cycle
-            end select
-        end do
-    end function find_containing_program_index
 
     integer function static_array_literal_size(arena, expr_index) &
         result(arr_size)

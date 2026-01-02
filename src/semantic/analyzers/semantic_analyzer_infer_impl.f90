@@ -15,6 +15,7 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
         validate_strict_argument_types_for_function_reference, &
         validate_strict_argument_types_for_subroutine_call
     use semantic_operating_mode, only: OPERATING_MODE_STRICT
+    use semantic_identifier_context, only: find_program_owner
     use semantic_type_lookup_wrapper, only: set_semantic_context_for_lookup, &
                                             clear_semantic_context_for_lookup, &
                                             get_type_with_stored_context
