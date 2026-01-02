@@ -6,6 +6,7 @@ module test_filesystem_helpers
     public :: cleanup_file
     public :: create_temp_directory
     public :: get_temp_base_directory
+    public :: get_environment_value
     public :: make_temp_file_path
     public :: ensure_directory_exists
     public :: cleanup_temp_directory
@@ -24,10 +25,11 @@ contains
         character(len=:), allocatable :: value
         integer :: value_len, status
 
-        value = ''
-
         call get_environment_variable(trim(name), length=value_len, status=status)
-        if (status /= 0 .or. value_len <= 0) return
+        if (status /= 0 .or. value_len <= 0) then
+            value = ''
+            return
+        end if
 
         allocate (character(len=value_len) :: value)
         call get_environment_variable(trim(name), value=value, status=status)
