@@ -1,4 +1,5 @@
 program test_issue_2349_data_trailing_commas
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_transformation, only: INPUT_MODE_STANDARD
     use transformation_api, only: transform_with_context, transform_context_t
     implicit none

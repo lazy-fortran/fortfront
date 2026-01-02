@@ -1,4 +1,5 @@
 program test_issue_1740_keyword_arguments
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use standardizer, only: standardize_ast

@@ -1,4 +1,5 @@
 program test_issue_2458_intrinsic_rank_validation
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     logical :: test_passed

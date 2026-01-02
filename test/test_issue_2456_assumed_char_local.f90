@@ -1,6 +1,7 @@
 ! Test for issue #2456: Assumed character length in wrong context
 ! Ensures fortfront does NOT emit character(len=*) for local variables
 program test_issue_2456
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source, output, error_msg

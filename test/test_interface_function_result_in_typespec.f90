@@ -1,4 +1,5 @@
 program test_interface_function_result_in_typespec
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: source, output, error_msg

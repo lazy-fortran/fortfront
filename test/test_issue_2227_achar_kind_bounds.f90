@@ -1,4 +1,5 @@
 program test_issue_2227_achar_kind_bounds
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input, output, error_msg
