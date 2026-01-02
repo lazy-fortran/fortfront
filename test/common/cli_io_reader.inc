@@ -25,12 +25,26 @@
         character(len=*), intent(in) :: filename
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
+        character(len=:), allocatable :: open_filename
+        character(len=128) :: os_value
+        integer :: os_len, os_status, i
         integer :: unit_num, ios, file_size, alloc_stat
         integer, parameter :: MAX_INPUT_SIZE = 10485760
 
         status = 0
+        open_filename = filename
 
-        open (newunit=unit_num, file=filename, status='old', action='read', &
+        call get_environment_variable('OS', value=os_value, length=os_len, &
+                                      status=os_status)
+        if (os_status == 0) then
+            if (trim(os_value(1:os_len)) == 'Windows_NT') then
+                do i = 1, len(open_filename)
+                    if (open_filename(i:i) == '/') open_filename(i:i) = '\'
+                end do
+            end if
+        end if
+
+        open (newunit=unit_num, file=open_filename, status='old', action='read', &
               access='stream', form='unformatted', iostat=ios)
         if (ios /= 0) then
             write (error_unit, '(A,A)') 'Cannot open file: ', filename
@@ -150,14 +164,14 @@
                 case (iostat_end)
                     if (chunk_size > 0) then
                         call append_chunk(buffer(1:chunk_size), text, total_size, &
-                            capacity, status)
+                                          capacity, status)
                         if (status /= 0) return
                     end if
                     exit
                 case (iostat_eor)
                     if (chunk_size > 0) then
                         call append_chunk(buffer(1:chunk_size), text, total_size, &
-                            capacity, status)
+                                          capacity, status)
                         if (status /= 0) return
                     end if
                     call append_newline(text, total_size, capacity, status)
@@ -166,7 +180,7 @@
                 case (0)
                     if (chunk_size > 0) then
                         call append_chunk(buffer(1:chunk_size), text, total_size, &
-                            capacity, status)
+                                          capacity, status)
                         if (status /= 0) return
                     end if
                 case default
