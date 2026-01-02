@@ -37,6 +37,11 @@ submodule(semantic_analyzer) semantic_analyzer_infer_impl
         type(mono_type_t), allocatable :: param_types(:)
     end type infer_frame_t
 
+    integer, parameter :: UNKNOWN_STATIC_SIZE = -1
+    ! Static size helpers return UNKNOWN_STATIC_SIZE when a size cannot be
+    ! determined. Treat any negative value as unknown and compare with < 0;
+    ! any value >= 0 is a known size, where 0 means known empty.
+
 contains
 
     include 'semantic_analyzer_infer_impl_part1.inc'

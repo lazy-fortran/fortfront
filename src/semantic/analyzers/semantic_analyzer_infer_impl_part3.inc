@@ -135,7 +135,7 @@
         integer(int64) :: max_arr_size
         integer :: elem_size
 
-        arr_size = -1
+        arr_size = UNKNOWN_STATIC_SIZE
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
@@ -149,11 +149,11 @@
             max_arr_size = int(huge(arr_size), kind=int64)
             do i = 1, size(node%element_indices)
                 if (node%element_indices(i) <= 0) then
-                    arr_size = -1
+                    arr_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 if (node%element_indices(i) > arena%size) then
-                    arr_size = -1
+                    arr_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 if (.not. &
@@ -162,11 +162,11 @@
                 elem_size = static_array_literal_element_size(arena, &
                                                               node%element_indices(i))
                 if (elem_size < 0) then
-                    arr_size = -1
+                    arr_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 if (total_size > max_arr_size - int(elem_size, kind=int64)) then
-                    arr_size = -1
+                    arr_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 total_size = total_size + int(elem_size, kind=int64)
@@ -182,7 +182,7 @@
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
 
-        elem_size = -1
+        elem_size = UNKNOWN_STATIC_SIZE
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
@@ -216,7 +216,7 @@
         integer(int64) :: total_size
         integer(int64) :: max_implied_size
 
-        implied_size = -1
+        implied_size = UNKNOWN_STATIC_SIZE
         if (do_index <= 0 .or. do_index > arena%size) return
         if (.not. allocated(arena%entries(do_index)%node)) return
 
@@ -265,11 +265,11 @@
                 body_elem_size = static_array_literal_element_size(arena, &
                                                                    loop%body_indices(i))
                 if (body_elem_size < 0) then
-                    implied_size = -1
+                    implied_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 if (body_size > max_implied_size - int(body_elem_size, kind=int64)) then
-                    implied_size = -1
+                    implied_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
                 body_size = body_size + int(body_elem_size, kind=int64)
@@ -277,13 +277,13 @@
 
             if (iter_count > 0_int64) then
                 if (body_size > max_implied_size / iter_count) then
-                    implied_size = -1
+                    implied_size = UNKNOWN_STATIC_SIZE
                     return
                 end if
             end if
             total_size = iter_count * body_size
             if (total_size > max_implied_size) then
-                implied_size = -1
+                implied_size = UNKNOWN_STATIC_SIZE
                 return
             end if
             implied_size = int(total_size, kind=kind(implied_size))
@@ -372,7 +372,7 @@
         integer :: pos
         integer :: candidate_size
 
-        prev_size = -1
+        prev_size = UNKNOWN_STATIC_SIZE
         pos = program_body_position(arena, prog_index, current_index)
         if (pos <= 1) return
 
@@ -450,7 +450,7 @@
 
         integer :: lhs_index
 
-        arr_size = -1
+        arr_size = UNKNOWN_STATIC_SIZE
         lhs_index = assignment%target_index
         if (lhs_index <= 0 .or. lhs_index > arena%size) return
         if (.not. allocated(arena%entries(lhs_index)%node)) return
