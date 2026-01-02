@@ -8,8 +8,6 @@ generation utilities.
 
 ## File Index
 
-- `cli_io_reader.inc` - Reads all stdin or a file into an allocatable string and
-  normalizes CRLF to LF for cross-platform tests.
 - `read_example.inc` - `read_example()` helper that reads `examples/` files and
   fails tests with a consistent error message (includes CLI reader helpers).
 - `cli_system_tests.inc` - Shared helpers for system-level CLI test programs.

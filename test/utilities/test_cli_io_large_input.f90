@@ -1,6 +1,6 @@
 program test_cli_io_large_input
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                                iostat_eor
+                                             iostat_eor
     implicit none
 
     character(len=:), allocatable :: text
@@ -35,6 +35,6 @@ program test_cli_io_large_input
 
 contains
 
-    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
 
 end program test_cli_io_large_input
