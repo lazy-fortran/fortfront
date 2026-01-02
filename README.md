@@ -58,6 +58,8 @@ echo "x = 5" | fortfront > output.f90
 ### Options
 - `-h, --help` Show help
 - `-v, --version` Show version
+- `--infer` Infer mode (default): accepts top-level statements and infers missing structure
+- `--std=lf`, `--std lf` Strict mode: require explicit `program`/`module`/procedure units (rejects bare statements)
 - `--trace[=on|off]` Enable/disable tracing
 - `--trace-file <path>` Trace output path
 - `--` End of options (for filenames starting with `-`)
@@ -91,8 +93,7 @@ else
 end if
 ```
 
-### Documentation
-See issue #1642 for the full API specification and docs/LIBRARY_USAGE.md for worked examples.
+See docs/LIBRARY_USAGE.md for worked examples (API spec tracked in issue #1642).
 
 ## Links
 - [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)
