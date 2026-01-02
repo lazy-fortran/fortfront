@@ -1,6 +1,6 @@
 program test_issue_2236_optional_assumed_rank
-    use fortfront, only: tooling_parse_options_t, tooling_load_ast_from_file, &
-                         ast_arena_t, token_t
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use fortfront, only: tooling_parse_options_t, ast_arena_t, token_t
     implicit none
 
     logical :: all_passed
@@ -31,36 +31,29 @@ contains
         integer :: root_index
 
         test_optional_assumed_rank_parsing = .true.
-        print *, 'Testing optional assumed-rank parameter parsing and monomorphization...'
+        print *, &
+            'Testing optional assumed-rank parameter parsing and monomorphization...'
 
-        ! Reproducer from issue #2236
-        source = 'program optional_rank_bridge' // new_line('a') // &
-                 '  implicit none' // new_line('a') // &
-                 '  integer :: payload(1)' // new_line('a') // &
-                 '  payload = 5' // new_line('a') // &
-                 '  if (echo() /= 1) stop 1' // new_line('a') // &
-                 '  if (echo(payload) /= 2) stop 2' // new_line('a') // &
-                 'contains' // new_line('a') // &
-                 '  integer function echo(sample)' // new_line('a') // &
-                 '    type(*), optional, dimension(..) :: sample' // new_line('a') // &
-                 '    if (present(sample)) then' // new_line('a') // &
-                 '      echo = 2' // new_line('a') // &
-                 '    else' // new_line('a') // &
-                 '      echo = 1' // new_line('a') // &
-                 '    end if' // new_line('a') // &
-                 '  end function echo' // new_line('a') // &
-                 'end program optional_rank_bridge'
+        call read_example('examples/f90/issue_2236_optional_assumed_rank_bridge.f90', &
+                          source)
 
         options = tooling_parse_options_t()
-        options%run_semantics = .true.  ! Enable semantic analysis including monomorphization
+        options%run_semantics = .true.
+        ! Enable semantic analysis including monomorphization.
 
-        ! Process the source - this should not crash (issue #2236 was a crash at line 1657)
+        ! Process the source. This should not crash.
+        ! Issue #2236 crashed during semantic analysis at line 1657.
         call tooling_load_ast_from_string(source, arena, root_index, error_msg, &
                                           options, tokens)
 
-        ! We don't check for semantic errors because the monomorphization
-        ! of optional assumed-rank parameters may not be fully implemented yet.
-        ! The important thing is that it doesn't crash at line 1657.
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                write (error_unit, '(A,1X,A)') '  FAIL: semantic error:', &
+                    trim(error_msg)
+                test_optional_assumed_rank_parsing = .false.
+                return
+            end if
+        end if
 
         if (root_index <= 0) then
             print *, '  FAIL: Parsing failed to produce AST'
@@ -70,5 +63,19 @@ contains
 
         print *, '  PASS: Optional assumed-rank calls processed without crash'
     end function test_optional_assumed_rank_parsing
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_issue_2236_optional_assumed_rank

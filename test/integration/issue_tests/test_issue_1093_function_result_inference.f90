@@ -4,6 +4,7 @@ program test_issue_1093_function_result_inference
     ! should infer the result variable from first assignment target,
     ! add result(<name>) to the header, and insert a matching declaration.
 
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use standardizer, only: standardize_ast
@@ -25,14 +26,8 @@ program test_issue_1093_function_result_inference
     ! Note: no explicit result(...) and no explicit declaration for the
     ! function name. Standardizer should add implicit none, infer result
     ! name from first assignment target, and emit a declaration.
-    source = &
-        "program p" // new_line('a') // &
-        "contains" // new_line('a') // &
-        "function incr(x)" // new_line('a') // &
-        "integer :: x" // new_line('a') // &
-        "incr = x + 1" // new_line('a') // &
-        "end function incr" // new_line('a') // &
-        "end program p"
+    call read_example('examples/f90/issue_1093_function_result_inference.f90', &
+                      source)
 
     call initialize_codegen()
     call lex_source(source, tokens, error_msg)
@@ -51,17 +46,22 @@ program test_issue_1093_function_result_inference
 
     code = codegen_core_generate_arena(arena, root_index)
 
-    ! When result variable name equals function name, Fortran does NOT allow result() clause
+    ! When result variable name equals function name, Fortran does not allow a
+    ! result() clause in the signature.
     ! Instead, the return type should be in the function signature
-    if (index(code, 'integer function incr') <= 0 .and. index(code, 'result(incr)') > 0) then
-        print *, 'FAIL: function has invalid result(incr) when result name equals function name'
+    if (index(code, 'integer function incr') <= 0 .and. &
+        index(code, 'result(incr)') > 0) then
+        print *, 'FAIL: function has invalid result(incr) when result name ' // &
+            'equals function name'
         print *, trim(code)
         ok = .false.
     end if
 
     ! Check that return type is present (either in signature OR as separate declaration)
-    if (index(code, 'integer function incr') <= 0 .and. index(code, ':: incr') <= 0) then
-        print *, 'FAIL: function lacks return type (neither in signature nor declaration)'
+    if (index(code, 'integer function incr') <= 0 .and. &
+        index(code, ':: incr') <= 0) then
+        print *, &
+            'FAIL: function lacks return type (neither in signature nor declaration)'
         print *, trim(code)
         ok = .false.
     end if
@@ -73,4 +73,19 @@ program test_issue_1093_function_result_inference
     end if
 
     if (.not. ok) stop 1
+contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 end program test_issue_1093_function_result_inference
