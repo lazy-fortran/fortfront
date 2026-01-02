@@ -15,6 +15,9 @@ program test_issue_1353_program_derived_type
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     logical function has_real_decl(segment, name) result(found)
         character(len=*), intent(in) :: segment
         character(len=*), intent(in) :: name
@@ -375,18 +378,5 @@ contains
         end do
     end function count_occurrences
 
-    include '../common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_1353_program_derived_type

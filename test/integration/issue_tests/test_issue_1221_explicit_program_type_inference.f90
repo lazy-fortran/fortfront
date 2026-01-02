@@ -13,6 +13,9 @@ program test_issue_1221_explicit_program_type_inference
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+    include '../../common/read_example.inc'
+
     subroutine test_explicit_program_with_inference()
         character(len=:), allocatable :: input
         print *, "Testing explicit program with type inference..."
@@ -117,18 +120,5 @@ contains
         end if
     end subroutine test_explicit_program_mixed_types
 
-    include '../../common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_1221_explicit_program_type_inference

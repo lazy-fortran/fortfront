@@ -19,6 +19,9 @@ program test_ast_introspection_final_coverage
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     logical function test_missing_node_types()
         type(ast_arena_t) :: arena
         type(token_t), allocatable :: tokens(:)
@@ -146,24 +149,5 @@ contains
         print *, "  Node reference APIs: PASS"
     end function test_node_with_reference
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=stat) buffer
-        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
 
 end program test_ast_introspection_final_coverage

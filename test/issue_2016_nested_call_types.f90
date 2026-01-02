@@ -50,18 +50,8 @@ program test_issue_2016_nested_call_types
 contains
 
     include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., filepath, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'Cannot read file: ' // trim(filepath)
-            stop 1
-        end if
-    end subroutine read_example
 
     subroutine generate_fortran_output(arena, prog_index, fortran_code)
         use codegen_core, only: codegen_core_generate_arena, initialize_codegen

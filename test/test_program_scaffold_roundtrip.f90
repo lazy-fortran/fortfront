@@ -1,4 +1,5 @@
 program test_program_scaffold_roundtrip
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input, output, error_msg
@@ -19,6 +20,9 @@ program test_program_scaffold_roundtrip
     end if
 
 contains
+
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
     subroutine verify_program_preservation(filepath, expected_name)
         character(len=*), intent(in) :: filepath
@@ -50,27 +54,5 @@ contains
         end if
     end subroutine verify_program_preservation
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, ios
-        character(len=10000) :: line
-
-        content = ""
-        open (newunit=unit, file=filepath, status='old', action='read', iostat=ios)
-        if (ios /= 0) then
-            print *, "ERROR: Failed to open example file:", filepath
-            error stop 1
-        end if
-
-        do
-            read (unit, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            if (len(content) > 0) content = content // new_line('a')
-            content = content // trim(line)
-        end do
-
-        close (unit)
-    end subroutine read_example
 
 end program test_program_scaffold_roundtrip

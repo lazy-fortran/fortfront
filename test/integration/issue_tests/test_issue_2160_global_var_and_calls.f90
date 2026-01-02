@@ -20,6 +20,9 @@ program test_issue_2160_global_var_and_calls
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+    include '../../common/read_example.inc'
+
     logical function test_global_var_with_function()
         character(len=:), allocatable :: source
         character(len=:), allocatable :: output
@@ -99,45 +102,6 @@ contains
         end if
     end function test_global_var_with_function
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit_num, ios, file_size
-        character(len=1), allocatable :: buffer(:)
-        integer :: i
-        character(len=1) :: ch
-
-        open (newunit=unit_num, file=filepath, status='old', &
-              action='read', access='stream', iostat=ios)
-        if (ios /= 0) then
-            print *, 'ERROR: Could not open file:', filepath
-            stop 1
-        end if
-
-        inquire (unit=unit_num, size=file_size)
-        if (file_size <= 0) file_size = 10000
-
-        allocate (buffer(file_size))
-        i = 0
-        do
-            if (i >= file_size) exit
-            read (unit_num, iostat=ios) ch
-            if (ios /= 0) exit
-            i = i + 1
-            buffer(i) = ch
-        end do
-
-        close (unit_num)
-
-        if (i > 0) then
-            allocate (character(len=i) :: content)
-            do ios = 1, i
-                content(ios:ios) = buffer(ios)
-            end do
-        else
-            content = ''
-        end if
-    end subroutine read_example
 
     integer function count_program_main_wrappers(text)
         character(len=*), intent(in) :: text

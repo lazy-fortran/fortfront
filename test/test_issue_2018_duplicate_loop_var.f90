@@ -13,18 +13,8 @@ program test_issue_2018_duplicate_loop_var
 contains
 
     include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., filepath, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'Error opening file: ' // trim(filepath)
-            error stop 1
-        end if
-    end subroutine read_example
 
     subroutine test_function_with_explicit_loop_var()
         character(len=:), allocatable :: source

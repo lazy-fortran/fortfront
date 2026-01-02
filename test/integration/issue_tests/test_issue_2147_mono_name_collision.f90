@@ -90,33 +90,9 @@ program test_issue_2147_mono_name_collision
 
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, filesize, stat
-        character(len=1), allocatable :: buffer(:)
+    include '../../common/cli_io_reader.inc'
+    include '../../common/read_example.inc'
 
-        open(newunit=unit, file=filepath, status='old', access='stream', &
-             form='unformatted', iostat=stat)
-        if (stat /= 0) then
-            print *, "ERROR: Cannot open file:", filepath
-            stop 1
-        end if
-
-        inquire(unit=unit, size=filesize)
-        allocate(buffer(filesize))
-        read(unit, iostat=stat) buffer
-        close(unit)
-
-        if (stat /= 0) then
-            print *, "ERROR: Cannot read file:", filepath
-            stop 1
-        end if
-
-        allocate(character(len=filesize) :: content)
-        content = transfer(buffer, content)
-        deallocate(buffer)
-    end subroutine read_example
 
     integer function count_occurrences(text, pattern) result(count)
         character(len=*), intent(in) :: text

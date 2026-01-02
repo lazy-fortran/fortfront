@@ -76,32 +76,10 @@ program test_issue_2142_mono_return_types
 
     write (*, '(A)') 'PASS: All monomorphized functions have correct return types'
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        character(len=1024) :: buffer
-        integer :: unit, ios, total_len
-        character(len=:), allocatable :: temp
+    include 'common/cli_io_reader.inc'
 
-        total_len = 0
-        content = ''
-
-        open (newunit=unit, file=filepath, status='old', action='read', iostat=ios)
-        if (ios /= 0) then
-            write (error_unit, '(A)') 'ERROR: cannot open '//trim(filepath)
-            error stop 1
-        end if
-
-        do
-            read (unit, '(A)', iostat=ios) buffer
-            if (ios /= 0) exit
-            temp = content//trim(buffer)//new_line('A')
-            content = temp
-        end do
-
-        close (unit)
-    end subroutine read_example
-
+    include 'common/read_example.inc'
 end program test_issue_2142_mono_return_types

@@ -18,6 +18,8 @@ program test_intent_inference_subroutine
 contains
 
     include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
 
     subroutine assert_intent_counts(example_path, expected_in, expected_inout)
         character(len=*), intent(in) :: example_path
@@ -100,16 +102,5 @@ contains
         end do
     end subroutine count_intent_markers
 
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(a)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_intent_inference_subroutine

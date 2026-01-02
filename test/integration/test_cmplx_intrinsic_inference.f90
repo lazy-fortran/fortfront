@@ -26,6 +26,8 @@ program test_cmplx_intrinsic_inference
 contains
 
     include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
 
     subroutine run_case(example_path, description, status)
         character(len=*), intent(in) :: example_path
@@ -67,18 +69,6 @@ contains
         end if
     end subroutine report_failure
 
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: io_status
-
-        call read_all_stdin_or_file(.true., path, content, io_status)
-        if (io_status /= 0) then
-            write (error_unit, '(A)') 'FAIL: unable to read example at '
-            write (error_unit, '(A)') trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
     logical function has_complex_declaration(output_code)
         character(len=:), allocatable, intent(in) :: output_code

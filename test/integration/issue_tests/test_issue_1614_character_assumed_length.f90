@@ -26,6 +26,9 @@ program test_issue_1614_character_assumed_length
 
 contains
 
+    include '../../common/cli_io_reader.inc'
+    include '../../common/read_example.inc'
+
     logical function test_case_1_parameter_length()
         character(len=:), allocatable :: source, output, error_msg
 
@@ -203,24 +206,5 @@ contains
         print *, '  PASS: Mixed character attributes work'
     end function test_case_5_mixed_attributes
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=stat) buffer
-        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
 
 end program test_issue_1614_character_assumed_length

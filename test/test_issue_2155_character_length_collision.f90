@@ -51,6 +51,8 @@ program test_issue_2155_character_length_collision
 contains
 
     include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
 
     subroutine assert_contains(text, pattern, message)
         character(len=*), intent(in) :: text
@@ -92,16 +94,5 @@ contains
         end if
     end subroutine assert_no_duplicate_procedure_names
 
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_2155_character_length_collision

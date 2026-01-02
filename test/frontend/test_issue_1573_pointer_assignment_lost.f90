@@ -13,6 +13,9 @@ program test_issue_1573_pointer_assignment_lost
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     subroutine test_pointer_assignment_preserved_case1()
         ! This case works: pointer assignment -> regular assignment -> print
         character(len=:), allocatable :: input_code, output_code, error_msg
@@ -86,18 +89,5 @@ contains
         print *, "PASS case3 (bug fixed): pointer assignment preserved (print before assignment)"
     end subroutine test_pointer_assignment_lost_bug
 
-    include '../common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_1573_pointer_assignment_lost

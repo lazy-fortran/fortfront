@@ -77,26 +77,10 @@ program test_issue_1621_intent_out_shape_inference
 
     print *, 'PASS: intent(out) array shape inference preserved'
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character(len=1), allocatable :: buffer(:)
+    include '../../common/cli_io_reader.inc'
 
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=stat) buffer
-        if (stat /= 0) error stop 'Failed to read example file: ' // filepath
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
-
+    include '../../common/read_example.inc'
 end program test_issue_1621_intent_out_shape_inference
