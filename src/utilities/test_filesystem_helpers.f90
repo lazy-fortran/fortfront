@@ -19,6 +19,26 @@ module test_filesystem_helpers
 
 contains
 
+    function get_environment_value(name) result(value)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: value
+        integer :: value_len, status
+
+        value = ''
+
+        call get_environment_variable(trim(name), length=value_len, status=status)
+        if (status /= 0 .or. value_len <= 0) return
+
+        allocate (character(len=value_len) :: value)
+        call get_environment_variable(trim(name), value=value, status=status)
+        if (status /= 0) then
+            value = ''
+            return
+        end if
+
+        value = trim(value)
+    end function get_environment_value
+
     function find_fortfront_executable(is_windows) result(executable_path)
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: executable_path
@@ -218,33 +238,24 @@ contains
     subroutine create_temp_directory(temp_dir, is_windows)
         character(len=:), allocatable, intent(out) :: temp_dir
         logical, intent(in) :: is_windows
-        character(len=256) :: base_temp
+        character(len=:), allocatable :: base_dir
         character(len=64) :: suffix
         character(len=1) :: sep
-        integer :: ios, last_index
+        integer :: ios
         character(len=:), allocatable :: mkdir_cmd
 
         if (is_windows) then
             sep = '\'
-            call get_environment_variable('TEMP', base_temp, status=ios)
-            if (ios /= 0) base_temp = '.'
         else
             sep = '/'
-            base_temp = '/tmp'
         end if
+        base_dir = get_temp_base_directory(is_windows)
+        if (len_trim(base_dir) == 0) base_dir = '.'
 
         call generate_temp_suffix(suffix)
         if (len_trim(suffix) == 0) suffix = 'default'
 
-        temp_dir = trim(base_temp)
-        last_index = len_trim(temp_dir)
-        if (last_index > 0) then
-            if (temp_dir(last_index:last_index) == sep) then
-                temp_dir = temp_dir(1:last_index - 1)
-            end if
-        end if
-
-        temp_dir = trim(temp_dir) // sep // 'fortfront_test_' // trim(suffix)
+        temp_dir = join_path(base_dir, 'fortfront_test_'//trim(suffix), sep)
 
         if (is_windows) then
             mkdir_cmd = 'cmd /C "if not exist "' // trim(temp_dir) // &
@@ -260,33 +271,57 @@ contains
     function get_temp_base_directory(is_windows) result(base_dir)
         logical, intent(in) :: is_windows
         character(len=:), allocatable :: base_dir
-        character(len=256) :: envtmp
+        character(len=:), allocatable :: envtmp
+        character(len=:), allocatable :: windir
         character(len=1) :: sep
-        integer :: ios, last_index
+        integer :: i, last_index
 
         if (is_windows) then
             sep = '\'
-            call get_environment_variable('TEMP', envtmp, status=ios)
-            if (ios /= 0 .or. len_trim(envtmp) == 0) then
-                call get_environment_variable('TMP', envtmp, status=ios)
-            end if
-            if (ios /= 0 .or. len_trim(envtmp) == 0) then
-                envtmp = '.'
+            envtmp = get_environment_value('TEMP')
+            if (len_trim(envtmp) == 0) envtmp = get_environment_value('TMP')
+            if (len_trim(envtmp) == 0) then
+                windir = get_environment_value('WINDIR')
+                if (len_trim(windir) > 0) then
+                    last_index = len_trim(windir)
+                    do while (last_index > 0)
+                        if (windir(last_index:last_index) == '/' .or. &
+                            windir(last_index:last_index) == '\') then
+                            windir = windir(1:last_index - 1)
+                            last_index = len_trim(windir)
+                        else
+                            exit
+                        end if
+                    end do
+                    envtmp = join_path(windir, 'Temp', sep)
+                else
+                    envtmp = '.'
+                end if
             end if
         else
             sep = '/'
-            call get_environment_variable('TMPDIR', envtmp, status=ios)
-            if (ios /= 0 .or. len_trim(envtmp) == 0) then
-                envtmp = '/tmp'
-            end if
+            envtmp = get_environment_value('TMPDIR')
+            if (len_trim(envtmp) == 0) envtmp = '/tmp'
         end if
 
         base_dir = trim(envtmp)
+        if (is_windows) then
+            do i = 1, len(base_dir)
+                if (base_dir(i:i) == '/') base_dir(i:i) = '\'
+            end do
+        end if
+
         last_index = len_trim(base_dir)
         if (last_index > 0) then
-            if (base_dir(last_index:last_index) == sep) then
-                base_dir = base_dir(1:last_index - 1)
-            end if
+            do while (last_index > 0)
+                if (base_dir(last_index:last_index) == '/' .or. &
+                    base_dir(last_index:last_index) == '\') then
+                    base_dir = base_dir(1:last_index - 1)
+                    last_index = len_trim(base_dir)
+                else
+                    exit
+                end if
+            end do
         end if
     end function get_temp_base_directory
 
