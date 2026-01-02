@@ -254,6 +254,7 @@ program fortfront_cli
         write (output_unit, '(A)') '    -v, --version  Show version information'
         write (output_unit, '(A)') '        --infer    Enable infer mode (default)'
         write (output_unit, '(A)') '        --std=lf   Enable strict mode'
+        write (output_unit, '(A)') '        --std lf   Enable strict mode'
         write (output_unit, '(A)') &
             '        --trace[=on|off]   Enable/disable tracing (overrides env)'
         write (output_unit, '(A)') &
