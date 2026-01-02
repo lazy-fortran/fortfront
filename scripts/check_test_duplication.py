@@ -5,7 +5,7 @@ CLAUDE.md zero-duplication policy applies to end-to-end tests:
 - End-to-end: extract full programs to examples/ and use read_example()
 - Unit tests: small inline snippets are allowed
 
-This script flags *single inline string blocks* built with new_line('a'), not
+This script flags *single inline string blocks* built with new_line('a') (case-insensitive), not
 total file counts (which produce false positives across multiple small cases).
 """
 
@@ -97,6 +97,7 @@ def _leading_identifier(text: str) -> str | None:
         i += 1
     return stripped[:i]
 
+
 def _is_likely_inline_source_statement(statement: str) -> bool:
     op_index = _find_fortran_assignment_operator(statement)
     if op_index is None:
@@ -126,12 +127,78 @@ def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
     statement_lines: list[str] = []
     start_line = 1
 
+    def count_new_line_calls(statement: str) -> int:
+        in_single = False
+        in_double = False
+        idx = 0
+        lower = statement.lower()
+        total = 0
+
+        while idx < len(statement):
+            ch = statement[idx]
+
+            if ch == "'" and not in_double:
+                if in_single and idx + 1 < len(statement) and statement[idx + 1] == "'":
+                    idx += 2
+                    continue
+                in_single = not in_single
+                idx += 1
+                continue
+            if ch == '"' and not in_single:
+                if in_double and idx + 1 < len(statement) and statement[idx + 1] == '"':
+                    idx += 2
+                    continue
+                in_double = not in_double
+                idx += 1
+                continue
+
+            if in_single or in_double:
+                idx += 1
+                continue
+
+            if not lower.startswith("new_line", idx):
+                idx += 1
+                continue
+
+            j = idx + len("new_line")
+            while j < len(statement) and statement[j].isspace():
+                j += 1
+            if j >= len(statement) or statement[j] != "(":
+                idx += 1
+                continue
+            j += 1
+            while j < len(statement) and statement[j].isspace():
+                j += 1
+            if j >= len(statement) or statement[j] not in {"'", '"'}:
+                idx += 1
+                continue
+
+            quote = statement[j]
+            j += 1
+            if j >= len(statement):
+                idx += 1
+                continue
+
+            arg = statement[j]
+            j += 1
+            if arg.lower() != "a":
+                idx += 1
+                continue
+            if j >= len(statement) or statement[j] != quote:
+                idx += 1
+                continue
+
+            total += 1
+            idx = j + 1
+
+        return total
+
     def flush(end_line: int) -> None:
         nonlocal statement_lines, start_line
         if not statement_lines:
             return
         statement = "\n".join(statement_lines)
-        newline_count = statement.count("new_line('a')")
+        newline_count = count_new_line_calls(statement)
         if newline_count > 0 and _is_likely_inline_source_statement(statement):
             blocks.append(InlineBlock(start_line=start_line, newline_count=newline_count))
         statement_lines = []
@@ -197,7 +264,7 @@ def main() -> int:
             warnings.append((test_file, max_block))
 
     if violations:
-        print("VIOLATIONS (single inline block >15 new_line('a') occurrences):")
+        print("VIOLATIONS (single inline block >15 new_line('a') occurrences, case-insensitive):")
         print()
         for test_file, block in sorted(violations, key=lambda x: x[1].newline_count, reverse=True):
             rel_path = test_file.relative_to(project_root)
@@ -205,7 +272,7 @@ def main() -> int:
         print()
 
     if warnings:
-        print("WARNINGS (single inline block 6-15 new_line('a') occurrences):")
+        print("WARNINGS (single inline block 6-15 new_line('a') occurrences, case-insensitive):")
         print()
         for test_file, block in sorted(warnings, key=lambda x: x[1].newline_count, reverse=True):
             rel_path = test_file.relative_to(project_root)

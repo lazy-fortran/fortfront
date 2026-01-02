@@ -1,0 +1,10 @@
+subroutine scale(value, factor)
+    value = value * factor
+end subroutine
+
+integer :: i
+real :: r
+i = 3
+r = 2.5d0
+call scale(i, 2)
+call scale(r, 1.5d0)
