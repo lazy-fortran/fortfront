@@ -160,6 +160,12 @@ def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
                 idx += 1
                 continue
 
+            if idx > 0:
+                prev_ch = statement[idx - 1]
+                if prev_ch.isalnum() or prev_ch in {"_", "%"}:
+                    idx += 1
+                    continue
+
             j = idx + len("new_line")
             while j < len(statement) and statement[j].isspace():
                 j += 1
@@ -185,6 +191,13 @@ def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
                 idx += 1
                 continue
             if j >= len(statement) or statement[j] != quote:
+                idx += 1
+                continue
+
+            j += 1
+            while j < len(statement) and statement[j].isspace():
+                j += 1
+            if j >= len(statement) or statement[j] != ")":
                 idx += 1
                 continue
 

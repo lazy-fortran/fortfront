@@ -57,6 +57,41 @@ class TestCheckTestDuplication(unittest.TestCase):
         )
         self.assertEqual(blocks, [])
 
+    def test_counts_new_line_case_insensitive(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' // NEW_LINE('A') // 'b' // new_line('a') // 'c'"]
+        )
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0], check_test_duplication.InlineBlock(start_line=1, newline_count=2))
+
+    def test_ignores_new_line_inside_string_literal(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'new_line(''a'')' // 'b'"]
+        )
+        self.assertEqual(blocks, [])
+
+    def test_ignores_new_line_in_comment(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' ! new_line('a')"]
+        )
+        self.assertEqual(blocks, [])
+
+    def test_ignores_identifier_containing_new_line_substring(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' // foo_new_line('a') // 'b'"]
+        )
+        self.assertEqual(blocks, [])
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' // mynew_line('a') // 'b'"]
+        )
+        self.assertEqual(blocks, [])
+
+    def test_ignores_type_bound_new_line_call(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["source = 'a' // foo%new_line('a') // 'b'"]
+        )
+        self.assertEqual(blocks, [])
+
 
 if __name__ == "__main__":
     unittest.main()
