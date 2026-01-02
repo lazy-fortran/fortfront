@@ -31,7 +31,6 @@ program test_issue_2389_end_statements
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

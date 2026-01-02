@@ -38,7 +38,6 @@ program test_issue_2150_reshape_literal_vs_variable
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine assert_contains(text, pattern, message)

@@ -39,7 +39,6 @@ program test_implicit_none_dedup
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_implicit_none_dedup

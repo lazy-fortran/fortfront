@@ -15,7 +15,6 @@ program test_module_implicit_none_insertion
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

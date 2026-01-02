@@ -75,7 +75,6 @@ program debug_mixed_constructs
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program debug_mixed_constructs

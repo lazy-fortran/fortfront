@@ -99,7 +99,6 @@ program test_nested_array_reshape
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_nested_array_reshape

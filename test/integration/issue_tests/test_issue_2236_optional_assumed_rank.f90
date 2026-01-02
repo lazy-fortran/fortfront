@@ -21,7 +21,6 @@ program test_issue_2236_optional_assumed_rank
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_optional_assumed_rank_parsing()

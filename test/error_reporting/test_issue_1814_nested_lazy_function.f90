@@ -15,7 +15,6 @@ program test_issue_1814_nested_lazy_function
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

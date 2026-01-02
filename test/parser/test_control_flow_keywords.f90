@@ -37,7 +37,6 @@ program test_control_flow_keywords
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_control_flow(test_name, source, keyword)

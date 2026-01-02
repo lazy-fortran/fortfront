@@ -24,7 +24,6 @@ program test_issue_1583_computed_goto
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

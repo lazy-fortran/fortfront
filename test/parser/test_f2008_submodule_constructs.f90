@@ -37,7 +37,6 @@ program test_f2008_submodule_constructs
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

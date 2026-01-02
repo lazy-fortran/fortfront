@@ -30,7 +30,6 @@ program test_issue_177_line_continuation
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

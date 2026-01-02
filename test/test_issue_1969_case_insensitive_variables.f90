@@ -68,7 +68,6 @@ program test_issue_1969_case_insensitive_variables
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

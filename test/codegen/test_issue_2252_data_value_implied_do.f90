@@ -9,7 +9,6 @@ program test_issue_2252_data_value_implied_do
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine check_value_implied_do()

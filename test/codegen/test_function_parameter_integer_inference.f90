@@ -13,7 +13,6 @@ program test_function_parameter_integer_inference
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     function test_square_integer_inference() result(passed)

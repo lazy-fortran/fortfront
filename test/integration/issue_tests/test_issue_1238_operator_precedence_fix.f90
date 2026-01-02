@@ -24,7 +24,6 @@ program test_issue_1238_operator_precedence_fix
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_concatenation_vs_addition_precedence()

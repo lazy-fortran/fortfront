@@ -19,7 +19,6 @@ program test_issue_1781_deallocate_preserved
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

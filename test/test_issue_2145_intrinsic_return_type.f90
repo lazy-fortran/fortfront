@@ -33,7 +33,6 @@ program test_issue_2145_intrinsic_return_type
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

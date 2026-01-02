@@ -151,7 +151,6 @@ program test_issue_2388_contains_preserved
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

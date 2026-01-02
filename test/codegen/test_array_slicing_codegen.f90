@@ -21,7 +21,6 @@ program test_array_slicing_codegen
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_basic_slices()

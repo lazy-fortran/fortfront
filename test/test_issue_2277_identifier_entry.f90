@@ -50,7 +50,6 @@ program test_issue_2277_identifier_entry
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_2277_identifier_entry

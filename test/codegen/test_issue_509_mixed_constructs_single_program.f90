@@ -51,7 +51,6 @@ program test_issue_509_mixed_constructs_single_program
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine print_with_line_numbers(code)

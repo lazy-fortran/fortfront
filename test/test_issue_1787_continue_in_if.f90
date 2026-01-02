@@ -13,7 +13,6 @@ program test_issue_1787_continue_in_if
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_continue_inside_if()

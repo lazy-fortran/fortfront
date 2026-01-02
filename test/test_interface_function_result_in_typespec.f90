@@ -18,7 +18,6 @@ program test_interface_function_result_in_typespec
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

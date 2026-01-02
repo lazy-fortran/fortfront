@@ -24,7 +24,6 @@ program test_do_loop_issue_637
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_simple_literals()

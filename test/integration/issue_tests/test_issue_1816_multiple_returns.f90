@@ -25,7 +25,6 @@ program test_issue_1816_multiple_returns
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

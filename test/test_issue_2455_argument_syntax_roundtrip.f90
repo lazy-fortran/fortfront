@@ -22,7 +22,6 @@ program test_issue_2455_argument_syntax_roundtrip
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_array_constructor_arg(passed)

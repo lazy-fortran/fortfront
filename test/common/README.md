@@ -8,10 +8,8 @@ generation utilities.
 
 ## File Index
 
-- `cli_io_reader.inc` - Reads all stdin or a file into an allocatable string and
-  normalizes CRLF to LF for cross-platform tests.
-- `read_example.inc` - `read_example()` helper that reads `examples/` files using
-  `cli_io_reader.inc` and fails tests with a consistent error message.
+- `read_example.inc` - `read_example()` helper that reads `examples/` files and
+  fails tests with a consistent error message (includes CLI reader helpers).
 - `cli_system_tests.inc` - Shared helpers for system-level CLI test programs.
 - `test_ast_uid_integration.f90` - Integration coverage for AST UID behavior.
 - `test_debug_uid.f90` - Focused tests for debug UID utilities.
@@ -22,6 +20,7 @@ generation utilities.
 
 - Helpers here are used via Fortran `include` inside test program `contains`
   sections to avoid duplicating internal subroutines across many tests.
+- Tests that need `read_example()` should include only `read_example.inc`.
 - `read_example()` is used by end-to-end tests to keep `examples/` as the single
   canonical source of full-program inputs.
 

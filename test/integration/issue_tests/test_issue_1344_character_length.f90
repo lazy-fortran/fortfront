@@ -21,7 +21,6 @@ program test_issue_1344_character_length
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

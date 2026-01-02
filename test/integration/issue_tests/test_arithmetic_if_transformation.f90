@@ -163,7 +163,6 @@ program test_arithmetic_if_transformation
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine check_no_error(test_name, err)

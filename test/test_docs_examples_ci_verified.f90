@@ -47,7 +47,6 @@ program test_docs_examples_ci_verified
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

@@ -17,6 +17,43 @@ module semantic_expression_context
 
 contains
 
+    recursive function infer_expression_type_static_impl(arena, expr_index, &
+                                                         param_names, param_types, &
+                                                         depth, max_depth) &
+        result(typ)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=64), allocatable, intent(in) :: param_names(:)
+        type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: depth
+        integer, intent(in) :: max_depth
+        type(mono_type_t) :: typ
+
+        typ%kind = 0
+        if (depth > max_depth) return
+        if (.not. expression_available(arena, expr_index)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (literal_node)
+            typ = infer_literal_expression_type(node)
+        type is (identifier_node)
+            typ = infer_identifier_expression_type(node, param_names, param_types)
+        type is (binary_op_node)
+            if (node%left_index == expr_index .or. node%right_index == expr_index) &
+                return
+            typ = infer_binary_expression_type_impl(arena, node, param_names, &
+                                                    param_types, depth + 1, max_depth)
+        type is (array_literal_node)
+            typ = infer_array_literal_type_from_context_impl(arena, node, &
+                                                             param_names, param_types, &
+                                                             depth + 1, max_depth)
+        type is (call_or_subscript_node)
+            typ = infer_call_expression_type(arena, node, param_names, param_types)
+        class default
+            typ%kind = 0
+        end select
+    end function infer_expression_type_static_impl
+
     function infer_type_from_usage_context(var_name, next_var_id) result(typ)
         character(len=*), intent(in) :: var_name
         integer, intent(inout) :: next_var_id
@@ -60,24 +97,8 @@ contains
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
         type(mono_type_t) :: typ
 
-        typ%kind = 0
-        if (.not. expression_available(arena, expr_index)) return
-
-        select type (node => arena%entries(expr_index)%node)
-        type is (literal_node)
-            typ = infer_literal_expression_type(node)
-        type is (identifier_node)
-            typ = infer_identifier_expression_type(node, param_names, param_types)
-        type is (binary_op_node)
-            typ = infer_binary_expression_type(arena, node, param_names, param_types)
-        type is (array_literal_node)
-            typ = infer_array_literal_type_from_context(arena, node, param_names, &
-                                                        param_types)
-        type is (call_or_subscript_node)
-            typ = infer_call_expression_type(arena, node, param_names, param_types)
-        class default
-            typ%kind = 0
-        end select
+        typ = infer_expression_type_static_impl(arena, expr_index, param_names, &
+                                                param_types, 0, arena%size + 1)
     end function infer_expression_type_static
 
     logical function expression_available(arena, expr_index)
@@ -124,15 +145,21 @@ contains
         if (node%inferred_type%kind > 0) typ = node%inferred_type
     end function infer_identifier_expression_type
 
-    recursive function infer_binary_expression_type(arena, node, param_names, &
-                                                    param_types) result(typ)
+    recursive function infer_binary_expression_type_impl(arena, node, param_names, &
+                                                         param_types, depth, &
+                                                         max_depth) result(typ)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: depth
+        integer, intent(in) :: max_depth
         type(mono_type_t) :: typ
         type(mono_type_t) :: left_typ
         type(mono_type_t) :: right_typ
+
+        typ%kind = 0
+        if (depth > max_depth) return
 
         if (node%operator == "==" .or. node%operator == "/=" .or. &
             node%operator == "<" .or. node%operator == "<=" .or. &
@@ -148,10 +175,12 @@ contains
             return
         end if
 
-        left_typ = infer_expression_type_static(arena, node%left_index, param_names, &
-                                                param_types)
-        right_typ = infer_expression_type_static(arena, node%right_index, &
-                                                 param_names, param_types)
+        left_typ = infer_expression_type_static_impl(arena, node%left_index, &
+                                                     param_names, param_types, &
+                                                     depth + 1, max_depth)
+        right_typ = infer_expression_type_static_impl(arena, node%right_index, &
+                                                      param_names, param_types, &
+                                                      depth + 1, max_depth)
         if (left_typ%kind == 0) left_typ = right_typ
         if (right_typ%kind == 0) right_typ = left_typ
         if (left_typ%kind == 0 .and. right_typ%kind == 0) then
@@ -159,22 +188,29 @@ contains
         else
             typ = get_common_type(left_typ, right_typ)
         end if
-    end function infer_binary_expression_type
+    end function infer_binary_expression_type_impl
 
-    function infer_array_literal_type_from_context(arena, node, param_names, &
-                                                   param_types) result(typ)
+    function infer_array_literal_type_from_context_impl(arena, node, param_names, &
+                                                        param_types, depth, &
+                                                        max_depth) result(typ)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: depth
+        integer, intent(in) :: max_depth
         type(mono_type_t) :: typ
         type(mono_type_t) :: element_type
         type(mono_type_t), allocatable :: args(:)
         integer :: elem_count
 
+        typ%kind = 0
+        if (depth > max_depth) return
+
         elem_count = count_array_elements(node)
-        element_type = infer_array_element_type(arena, node, param_names, &
-                                                param_types)
+        element_type = infer_array_element_type_impl(arena, node, param_names, &
+                                                     param_types, depth + 1, &
+                                                     max_depth)
 
         allocate (args(1))
         args(1) = element_type
@@ -183,7 +219,7 @@ contains
         else
             typ = create_mono_type(TARRAY, args=args)
         end if
-    end function infer_array_literal_type_from_context
+    end function infer_array_literal_type_from_context_impl
 
     integer function count_array_elements(node) result(count)
         type(array_literal_node), intent(in) :: node
@@ -195,32 +231,36 @@ contains
         end if
     end function count_array_elements
 
-    function infer_array_element_type(arena, node, param_names, param_types) &
-        result(element_type)
+    function infer_array_element_type_impl(arena, node, param_names, param_types, &
+                                           depth, max_depth) result(element_type)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)
         type(mono_type_t), allocatable, intent(in) :: param_types(:)
+        integer, intent(in) :: depth
+        integer, intent(in) :: max_depth
         type(mono_type_t) :: element_type
         type(mono_type_t) :: other_type
         integer :: elem_idx
         integer :: elem_count
 
         element_type%kind = 0
+        if (depth > max_depth) return
         elem_count = count_array_elements(node)
         if (elem_count == 0) then
             element_type = create_mono_type(TINT)
             return
         end if
 
-        element_type = infer_expression_type_static( &
-                       arena, node%element_indices(1), param_names, param_types)
+        element_type = infer_expression_type_static_impl( &
+                       arena, node%element_indices(1), param_names, param_types, &
+                       depth + 1, max_depth)
         if (element_type%kind == 0) element_type = create_mono_type(TREAL)
 
         do elem_idx = 2, elem_count
-            other_type = infer_expression_type_static( &
+            other_type = infer_expression_type_static_impl( &
                          arena, node%element_indices(elem_idx), param_names, &
-                         param_types)
+                         param_types, depth + 1, max_depth)
             if (other_type%kind == 0) cycle
             if (element_type%kind == TARRAY .and. other_type%kind /= TARRAY) cycle
             if (element_type%kind /= TARRAY .and. other_type%kind == TARRAY) then
@@ -229,7 +269,7 @@ contains
                 element_type = get_common_type(element_type, other_type)
             end if
         end do
-    end function infer_array_element_type
+    end function infer_array_element_type_impl
 
     function infer_call_expression_type(arena, node, param_names, param_types) &
         result(typ)

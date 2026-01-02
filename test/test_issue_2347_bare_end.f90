@@ -11,7 +11,6 @@ program test_issue_2347_bare_end
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine verify_program_unit()

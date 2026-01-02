@@ -45,7 +45,6 @@ program test_issue_2075_stop_keyword_collision
 
 contains
 
-    include '../../common/cli_io_reader.inc'
 
     include '../../common/read_example.inc'
 end program test_issue_2075_stop_keyword_collision

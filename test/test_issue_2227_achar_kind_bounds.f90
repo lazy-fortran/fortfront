@@ -21,7 +21,6 @@ program test_issue_2227_achar_kind_bounds
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_achar_kind_no_crash()

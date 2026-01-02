@@ -90,7 +90,6 @@ program test_issue_2147_mono_name_collision
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

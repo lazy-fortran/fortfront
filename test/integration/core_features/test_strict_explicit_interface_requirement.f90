@@ -68,7 +68,6 @@ program test_strict_explicit_interface_requirement
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

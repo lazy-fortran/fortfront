@@ -32,7 +32,6 @@ call require(idx_assignment < idx_inner_end, 'Assignment emitted outside inner l
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine require(cond, message)

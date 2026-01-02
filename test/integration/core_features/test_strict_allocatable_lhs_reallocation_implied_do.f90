@@ -40,7 +40,6 @@ program test_strict_allocatable_lhs_reallocation_implied_do
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

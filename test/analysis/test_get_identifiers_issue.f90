@@ -27,7 +27,6 @@ program test_get_identifiers_issue
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_print_statement_identifiers()

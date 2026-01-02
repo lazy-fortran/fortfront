@@ -11,7 +11,6 @@ program test_issue_1703_lazy_matrices
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_reshape_integer_matrices()

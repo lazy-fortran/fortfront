@@ -33,7 +33,6 @@ program test_double_free_complex_code
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_double_free_complex_code

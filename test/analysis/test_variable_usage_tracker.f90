@@ -26,7 +26,6 @@ program test_variable_usage_tracker
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_simple_variable_tracking()

@@ -13,7 +13,6 @@ program test_issue_1573_pointer_assignment_lost
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_pointer_assignment_preserved_case1()

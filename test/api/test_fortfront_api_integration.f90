@@ -29,7 +29,6 @@ program test_fortfront_api_integration
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_complete_pipeline()

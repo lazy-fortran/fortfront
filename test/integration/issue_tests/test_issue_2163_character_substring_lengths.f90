@@ -22,7 +22,6 @@ program test_issue_2163_character_substring_lengths
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

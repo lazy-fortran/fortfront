@@ -50,7 +50,6 @@ program test_issue_2348_interface_block_procedures
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

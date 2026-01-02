@@ -43,7 +43,6 @@ program test_issue_1962_matmul_rank
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     logical function has_rank_two_declaration(text) result(has_rank_two)

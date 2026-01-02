@@ -39,7 +39,6 @@ program test_issue_2106_missing_intent_monomorphization
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

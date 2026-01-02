@@ -17,7 +17,6 @@ program test_issue_1350_recursive_keyword
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine run_recursive_if_test()

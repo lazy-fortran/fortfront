@@ -58,7 +58,6 @@ program test_f2003_type_bound_array_call
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

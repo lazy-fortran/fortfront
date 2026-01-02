@@ -53,7 +53,6 @@ program test_issue_2349_data_trailing_commas
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

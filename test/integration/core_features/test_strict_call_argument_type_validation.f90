@@ -30,7 +30,6 @@ program test_strict_call_argument_type_validation
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

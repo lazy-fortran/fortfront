@@ -21,7 +21,6 @@ program test_nullify_statement
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_basic_nullify()

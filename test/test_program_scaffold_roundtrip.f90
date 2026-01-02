@@ -21,7 +21,6 @@ program test_program_scaffold_roundtrip
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine verify_program_preservation(filepath, expected_name)

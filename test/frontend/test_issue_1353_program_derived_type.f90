@@ -15,7 +15,6 @@ program test_issue_1353_program_derived_type
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function has_real_decl(segment, name) result(found)

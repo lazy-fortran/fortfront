@@ -9,7 +9,6 @@ program test_issue_1899_data_scalars
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine check_multiple_sets()
