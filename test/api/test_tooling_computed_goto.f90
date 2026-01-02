@@ -15,15 +15,7 @@ program test_tooling_computed_goto
 
     print *, '=== Test: tooling API preserves computed goto ==='
 
-    source = 'program cg' // new_line('a') // &
-             '    implicit none' // new_line('a') // &
-             '    integer :: choice' // new_line('a') // &
-             '    choice = 2' // new_line('a') // &
-             '    goto (100, 200, 300), choice' // new_line('a') // &
-             '100 print *, ""One""' // new_line('a') // &
-             '200 print *, ""Two""' // new_line('a') // &
-             '300 print *, ""Three""' // new_line('a') // &
-             'end program cg'
+    call read_example('examples/f90/issue_1583_computed_goto.f90', source)
 
     options = tooling_parse_options_t()
     options%run_semantics = .false.
@@ -78,4 +70,19 @@ program test_tooling_computed_goto
     end select
 
     print *, 'PASS: tooling API preserves computed goto selector'
+contains
+
+    include '../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 end program test_tooling_computed_goto
