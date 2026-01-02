@@ -26,6 +26,9 @@ program test_issue_2417_array_intrinsic_timeout
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     subroutine assert_contains(text, pattern, message)
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: pattern
@@ -40,18 +43,6 @@ contains
         end if
     end subroutine assert_contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
 
-        call read_all_stdin_or_file(.true., filepath, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(filepath)
-            stop 1
-        end if
-    end subroutine read_example
-
-    include '../common/cli_io_reader.inc'
 
 end program test_issue_2417_array_intrinsic_timeout

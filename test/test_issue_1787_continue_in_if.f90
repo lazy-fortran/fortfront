@@ -13,6 +13,9 @@ program test_issue_1787_continue_in_if
 
 contains
 
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
     subroutine test_continue_inside_if()
         character(:), allocatable :: input_code
         character(:), allocatable :: output_code
@@ -53,18 +56,5 @@ contains
         print *, "[PASS] Continue statement preserved inside IF block"
     end subroutine test_continue_inside_if
 
-    include 'common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_1787_continue_in_if

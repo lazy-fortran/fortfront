@@ -13,6 +13,8 @@ program test_issue_2254_free_form_continuation
 contains
 
     include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
 
     subroutine exercise_free_form_continuation()
         character(len=:), allocatable :: source
@@ -51,15 +53,4 @@ contains
         end if
     end subroutine exercise_free_form_continuation
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., filepath, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'Failed to read ' // trim(filepath)
-            error stop 1
-        end if
-    end subroutine read_example
 end program test_issue_2254_free_form_continuation

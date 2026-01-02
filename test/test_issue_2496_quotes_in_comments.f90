@@ -49,6 +49,9 @@ program test_issue_2496_quotes_in_comments
 
 contains
 
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
     function verify_contains(text, pattern, description) result(found)
         character(len=*), intent(in) :: text, pattern, description
         logical :: found
@@ -62,18 +65,6 @@ contains
         end if
     end function verify_contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
 
-        call read_all_stdin_or_file(.true., filepath, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(filepath)
-            stop 1
-        end if
-    end subroutine read_example
-
-    include 'common/cli_io_reader.inc'
 
 end program test_issue_2496_quotes_in_comments

@@ -26,36 +26,10 @@ program test_issue_2497_include_line_standalone
 
     print *, "PASS: Standalone INCLUDE line preserved correctly"
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit_num, ios, file_size
-        character(len=1), allocatable :: buffer(:)
-        integer :: i
+    include '../common/cli_io_reader.inc'
 
-        open (newunit=unit_num, file=filepath, status='old', &
-              action='read', access='stream', iostat=ios)
-        if (ios /= 0) then
-            print *, "ERROR: Could not open file:", filepath
-            error stop 1
-        end if
-
-        inquire (unit=unit_num, size=file_size)
-        allocate (buffer(file_size))
-        read (unit_num, iostat=ios) buffer
-        close (unit_num)
-
-        if (ios /= 0) then
-            print *, "ERROR: Could not read file:", filepath
-            error stop 1
-        end if
-
-        allocate (character(len=file_size) :: content)
-        do i = 1, file_size
-            content(i:i) = buffer(i)
-        end do
-    end subroutine read_example
-
+    include '../common/read_example.inc'
 end program test_issue_2497_include_line_standalone

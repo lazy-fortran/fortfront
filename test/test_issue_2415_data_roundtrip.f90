@@ -57,35 +57,10 @@ program test_issue_2415_data_roundtrip
 
     write (output_unit, '(A)') "PASS: DATA statement round-trip succeeded"
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit_num, file_size, iostat_val
-        character(len=1), allocatable :: buffer(:)
+    include 'common/cli_io_reader.inc'
 
-        open (newunit=unit_num, file=filepath, status='old', &
-              action='read', form='unformatted', access='stream', &
-              iostat=iostat_val)
-        if (iostat_val /= 0) then
-            write (output_unit, '(A)') "FAIL: Could not open file: " // filepath
-            error stop 1
-        end if
-
-        inquire (unit=unit_num, size=file_size)
-        allocate (buffer(file_size))
-        read (unit_num, iostat=iostat_val) buffer
-
-        if (iostat_val /= 0) then
-            write (output_unit, '(A)') "FAIL: Could not read file: " // filepath
-            close (unit_num)
-            error stop 1
-        end if
-
-        close (unit_num)
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
-
+    include 'common/read_example.inc'
 end program test_issue_2415_data_roundtrip

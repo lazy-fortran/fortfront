@@ -30,28 +30,10 @@ program test_data_keyword_variable
 
     print *, 'PASS: allocate statement with data identifier parsed'
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, stat
-        character(len=4096) :: buffer
+    include '../common/cli_io_reader.inc'
 
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              iostat=stat)
-        if (stat /= 0) then
-            write (error_unit, '(a)') 'FAIL: unable to open example file'
-            error stop 1
-        end if
-
-        content = ''
-        do
-            read (unit, '(A)', iostat=stat) buffer
-            if (stat /= 0) exit
-            if (len_trim(content) > 0) content = content // new_line('a')
-            content = content // trim(buffer)
-        end do
-        close (unit)
-    end subroutine read_example
+    include '../common/read_example.inc'
 end program test_data_keyword_variable

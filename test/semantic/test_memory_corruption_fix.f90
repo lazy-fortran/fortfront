@@ -37,25 +37,10 @@ program test_memory_corruption_fix
     print *, "Memory corruption fix test PASSED"
     print *, "All 5 rounds of semantic analysis completed without crashes"
 
+
 contains
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character(len=1), allocatable :: buffer(:)
 
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
+    include '../common/cli_io_reader.inc'
 
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=stat) buffer
-        if (stat /= 0) error stop 'Failed to open example file: ' // filepath
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
-
+    include '../common/read_example.inc'
 end program test_memory_corruption_fix

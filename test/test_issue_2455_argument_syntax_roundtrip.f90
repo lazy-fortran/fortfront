@@ -22,6 +22,9 @@ program test_issue_2455_argument_syntax_roundtrip
 
 contains
 
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
     subroutine test_array_constructor_arg(passed)
         logical, intent(inout) :: passed
         character(len=:), allocatable :: source, first_output, second_output
@@ -295,32 +298,5 @@ contains
         write (output_unit, '(A)') "PASS: Nested array constructor roundtrip"
     end subroutine test_nested_array_constructor
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, iostat, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              access='stream', iostat=iostat)
-        if (iostat /= 0) then
-            write (error_unit, '(A,A)') 'Failed to open file: ', filepath
-            error stop 1
-        end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=iostat) buffer
-        close (unit)
-
-        if (iostat /= 0) then
-            write (error_unit, '(A,A)') 'Failed to read file: ', filepath
-            error stop 1
-        end if
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-        deallocate (buffer)
-    end subroutine read_example
 
 end program test_issue_2455_argument_syntax_roundtrip

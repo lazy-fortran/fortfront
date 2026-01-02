@@ -17,32 +17,9 @@ program test_interface_function_result_in_typespec
 
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, stat
-        character :: temp
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              access='stream', iostat=stat)
-        if (stat /= 0) then
-            content = ''
-            return
-        end if
-
-        inquire (unit=unit, size=file_size)
-        if (file_size <= 0) then
-            content = ''
-            close (unit)
-            return
-        end if
-
-        allocate (character(len=file_size) :: content)
-        read (unit, iostat=stat) content
-        close (unit)
-
-        if (stat /= 0) content = ''
-    end subroutine read_example
 
     subroutine test_function_result_in_character_length()
         call read_example('examples/f90/issue_2413_interface_function_result_valid.f90', &

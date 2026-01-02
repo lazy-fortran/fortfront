@@ -36,37 +36,10 @@ program test_io_control_specifiers
 
     print *, "PASS: I/O control specifiers preserved"
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: file_unit, file_size, iostat
-        character(len=1024) :: line
-        logical :: exists
+    include '../common/cli_io_reader.inc'
 
-        inquire(file=filepath, exist=exists, size=file_size)
-        if (.not. exists) then
-            print *, "ERROR: File not found:", filepath
-            error stop 1
-        end if
-
-        open(newunit=file_unit, file=filepath, status='old', action='read', &
-             iostat=iostat)
-        if (iostat /= 0) then
-            print *, "ERROR: Cannot open file:", filepath
-            error stop 1
-        end if
-
-        content = ""
-        do
-            read(file_unit, '(A)', iostat=iostat) line
-            if (iostat /= 0) exit
-            if (len(content) > 0) content = content // new_line('a')
-            content = content // trim(line)
-        end do
-
-        close(file_unit)
-    end subroutine read_example
-
+    include '../common/read_example.inc'
 end program test_io_control_specifiers
