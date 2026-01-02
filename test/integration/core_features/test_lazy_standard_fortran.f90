@@ -26,7 +26,6 @@ program test_lazy_standard_fortran
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_implicit_none_parsing()

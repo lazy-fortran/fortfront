@@ -12,7 +12,6 @@ program test_issue_2290_recursive_interface
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine run_recursive_interface_test()

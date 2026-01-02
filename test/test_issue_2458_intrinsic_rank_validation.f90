@@ -18,7 +18,6 @@ program test_issue_2458_intrinsic_rank_validation
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_multi_array_declaration()

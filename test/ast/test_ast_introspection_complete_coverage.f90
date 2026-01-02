@@ -19,7 +19,6 @@ program test_ast_introspection_complete_coverage
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_all_node_type_ids()

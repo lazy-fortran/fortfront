@@ -13,7 +13,6 @@ program test_issue_1861_nested_do_print
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine verify_print_preserved()

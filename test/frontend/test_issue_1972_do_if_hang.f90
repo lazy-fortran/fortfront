@@ -21,7 +21,6 @@ program test_issue_1972_do_if_hang
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

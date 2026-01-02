@@ -9,7 +9,6 @@ program test_issue_2012_subroutine_local_inference
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

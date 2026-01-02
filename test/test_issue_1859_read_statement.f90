@@ -43,7 +43,6 @@ program test_issue_1859_read_statement
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_1859_read_statement

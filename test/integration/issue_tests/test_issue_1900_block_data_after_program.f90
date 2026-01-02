@@ -48,7 +48,6 @@ program test_issue_1900_block_data_after_program
 
 contains
 
-    include '../../common/cli_io_reader.inc'
 
     include '../../common/read_example.inc'
 end program test_issue_1900_block_data_after_program

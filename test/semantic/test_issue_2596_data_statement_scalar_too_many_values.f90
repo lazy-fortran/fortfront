@@ -44,7 +44,6 @@ program test_issue_2596_data_statement_scalar_too_many_values
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_issue_2596_data_statement_scalar_too_many_values

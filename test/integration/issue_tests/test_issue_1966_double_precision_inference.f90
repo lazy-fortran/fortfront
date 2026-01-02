@@ -16,7 +16,6 @@ program test_issue_1966_double_precision_inference
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

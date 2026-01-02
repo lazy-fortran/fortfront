@@ -20,7 +20,6 @@ program test_issue_1818_assumed_size_array
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

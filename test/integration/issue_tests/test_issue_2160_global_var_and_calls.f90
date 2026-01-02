@@ -20,7 +20,6 @@ program test_issue_2160_global_var_and_calls
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_global_var_with_function()

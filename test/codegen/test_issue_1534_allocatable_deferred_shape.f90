@@ -21,7 +21,6 @@ program test_issue_1534_allocatable_deferred_shape
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     logical function test_single_dimension_allocatable()

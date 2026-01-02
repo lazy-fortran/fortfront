@@ -21,7 +21,6 @@ program test_issue_177_line_length_fix
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_line_breaking()

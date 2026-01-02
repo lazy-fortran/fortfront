@@ -22,7 +22,6 @@ program test_pause_statement
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_pause_with_string()

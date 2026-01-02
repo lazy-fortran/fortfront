@@ -19,7 +19,6 @@ program test_call_graph_consolidation
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_internal_procedures()

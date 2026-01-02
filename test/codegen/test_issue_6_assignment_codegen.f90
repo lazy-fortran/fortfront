@@ -23,7 +23,6 @@ program test_issue_6_assignment_codegen
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_simple_assignment()

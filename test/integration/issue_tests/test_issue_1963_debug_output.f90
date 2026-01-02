@@ -16,7 +16,6 @@ program test_issue_1963_debug_output
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 
