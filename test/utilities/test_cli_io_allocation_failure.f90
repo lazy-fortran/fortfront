@@ -1,22 +1,31 @@
 program test_cli_io_allocation_failure
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
+                                       make_temp_file_path
     implicit none
 
     character(len=:), allocatable :: text
     integer :: status
+    logical :: is_windows
+
+    is_windows = check_if_windows()
 
     ! Test 1: Normal small input should work (status = 0)
-    call test_small_input()
+    call test_small_input(is_windows)
 
     ! Test 2: Deterministically cover allocation-failure branch (status = 5)
-    call test_forced_allocation_failure()
+    call test_forced_allocation_failure(is_windows)
 
     print *, 'PASS: CLI I/O allocation failure branch covered'
 
 contains
 
-    subroutine test_small_input()
-        character(len=*), parameter :: fname = 'tmp_small_test.txt'
+    subroutine test_small_input(is_windows)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: fname
         integer :: u
+
+        fname = make_temp_file_path('ff_cli_io_small_', '.txt', is_windows)
 
         ! Create a small test file
         open (newunit=u, file=fname, status='replace', action='write')
@@ -36,15 +45,17 @@ contains
         end if
 
         ! Cleanup
-        open (newunit=u, file=fname, status='old')
-        close (u, status='delete')
+        call cleanup_file(fname)
 
         print *, 'INFO: Small input test passed (status=0)'
     end subroutine test_small_input
 
-    subroutine test_forced_allocation_failure()
-        character(len=*), parameter :: fname = 'tmp_alloc_fail_test.txt'
+    subroutine test_forced_allocation_failure(is_windows)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: fname
         integer :: u
+
+        fname = make_temp_file_path('ff_cli_io_alloc_fail_', '.txt', is_windows)
 
         open (newunit=u, file=fname, status='replace', action='write')
         write (u, '(A)') 'x = 42'
@@ -54,17 +65,18 @@ contains
                                     test_force_alloc_failure=.true.)
 
         if (status /= 5) then
-            print *, 'FAIL: Expected status=5 for allocation failure, got', status
+            write (error_unit, '(A,I0)') &
+                'FAIL: Expected status=5 for allocation failure, got ', status
             stop 1
         end if
 
         if (allocated(text)) then
-            print *, 'FAIL: Text should not be allocated on allocation failure'
+            write (error_unit, '(A)') &
+                'FAIL: Text should not be allocated on allocation failure'
             stop 1
         end if
 
-        open (newunit=u, file=fname, status='old')
-        close (u, status='delete')
+        call cleanup_file(fname)
 
         print *, 'INFO: Forced allocation failure returned status=5'
     end subroutine test_forced_allocation_failure

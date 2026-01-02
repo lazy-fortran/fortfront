@@ -5,6 +5,8 @@ module test_filesystem_helpers
     public :: check_if_windows
     public :: cleanup_file
     public :: create_temp_directory
+    public :: get_temp_base_directory
+    public :: make_temp_file_path
     public :: ensure_directory_exists
     public :: cleanup_temp_directory
     public :: extract_example_basename
@@ -254,6 +256,61 @@ contains
         call execute_command_line(trim(mkdir_cmd), exitstat=ios)
         if (ios /= 0) temp_dir = ''
     end subroutine create_temp_directory
+
+    function get_temp_base_directory(is_windows) result(base_dir)
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: base_dir
+        character(len=256) :: envtmp
+        character(len=1) :: sep
+        integer :: ios, last_index
+
+        if (is_windows) then
+            sep = '\'
+            call get_environment_variable('TEMP', envtmp, status=ios)
+            if (ios /= 0 .or. len_trim(envtmp) == 0) then
+                call get_environment_variable('TMP', envtmp, status=ios)
+            end if
+            if (ios /= 0 .or. len_trim(envtmp) == 0) then
+                envtmp = '.'
+            end if
+        else
+            sep = '/'
+            call get_environment_variable('TMPDIR', envtmp, status=ios)
+            if (ios /= 0 .or. len_trim(envtmp) == 0) then
+                envtmp = '/tmp'
+            end if
+        end if
+
+        base_dir = trim(envtmp)
+        last_index = len_trim(base_dir)
+        if (last_index > 0) then
+            if (base_dir(last_index:last_index) == sep) then
+                base_dir = base_dir(1:last_index - 1)
+            end if
+        end if
+    end function get_temp_base_directory
+
+    function make_temp_file_path(prefix, extension, is_windows) result(path)
+        character(len=*), intent(in) :: prefix
+        character(len=*), intent(in) :: extension
+        logical, intent(in) :: is_windows
+        character(len=:), allocatable :: path
+        character(len=:), allocatable :: base_dir
+        character(len=64) :: suffix
+        character(len=1) :: sep
+
+        if (is_windows) then
+            sep = '\'
+        else
+            sep = '/'
+        end if
+
+        base_dir = get_temp_base_directory(is_windows)
+        call generate_temp_suffix(suffix)
+        if (len_trim(suffix) == 0) suffix = 'default'
+
+        path = join_path(base_dir, trim(prefix)//trim(suffix)//trim(extension), sep)
+    end function make_temp_file_path
 
     logical function ensure_directory_exists(path, is_windows)
         character(len=*), intent(in) :: path
