@@ -13,9 +13,30 @@ class TestCheckTestDuplication(unittest.TestCase):
         self.assertEqual(len(blocks), 1)
         self.assertEqual(blocks[0], check_test_duplication.InlineBlock(start_line=1, newline_count=1))
 
+    def test_flags_inline_src_assignment(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["src = 'a' // new_line('a') // 'b' // new_line('a') // 'c'"]
+        )
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0], check_test_duplication.InlineBlock(start_line=1, newline_count=2))
+
     def test_ignores_output_assertion_newlines(self) -> None:
         blocks = check_test_duplication._statements_with_newlines(
             ["has_stmt = index(output_code, new_line('a')//'x'//new_line('a')) > 0"]
+        )
+        self.assertEqual(blocks, [])
+
+    def test_ignores_comparison_operators(self) -> None:
+        blocks = check_test_duplication._statements_with_newlines(
+            ["if (source <= new_line('a')) call foo()"]
+        )
+        self.assertEqual(blocks, [])
+        blocks = check_test_duplication._statements_with_newlines(
+            ["if (source == new_line('a')) call foo()"]
+        )
+        self.assertEqual(blocks, [])
+        blocks = check_test_duplication._statements_with_newlines(
+            ["if (source /= new_line('a')) call foo()"]
         )
         self.assertEqual(blocks, [])
 
@@ -39,4 +60,3 @@ class TestCheckTestDuplication(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

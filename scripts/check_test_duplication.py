@@ -70,8 +70,13 @@ def _find_fortran_assignment_operator(statement: str) -> int | None:
         if ch == "=":
             prev_ch = statement[idx - 1] if idx > 0 else ""
             next_ch = statement[idx + 1] if idx + 1 < len(statement) else ""
-            if prev_ch != ">" and next_ch != ">":
-                return idx
+            if prev_ch in {"<", ">", "/", "="}:
+                idx += 1
+                continue
+            if next_ch in {">", "="}:
+                idx += 1
+                continue
+            return idx
         idx += 1
     return None
 
@@ -102,9 +107,13 @@ def _is_likely_inline_source_statement(statement: str) -> bool:
     if name is None:
         return False
     var = name.lower()
+    if var == "src":
+        return True
     if var == "source":
         return True
     if var.startswith("source"):
+        return True
+    if var.startswith("input"):
         return True
     if var.endswith("_source"):
         return True
