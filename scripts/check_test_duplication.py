@@ -97,49 +97,6 @@ def _leading_identifier(text: str) -> str | None:
         i += 1
     return stripped[:i]
 
-
-def _count_fortran_new_line_calls(statement: str) -> int:
-    in_single = False
-    in_double = False
-    idx = 0
-    count = 0
-    while idx < len(statement):
-        ch = statement[idx]
-        if ch == "'" and not in_double:
-            if in_single and idx + 1 < len(statement) and statement[idx + 1] == "'":
-                idx += 2
-                continue
-            in_single = not in_single
-            idx += 1
-            continue
-        if ch == '"' and not in_single:
-            if in_double and idx + 1 < len(statement) and statement[idx + 1] == '"':
-                idx += 2
-                continue
-            in_double = not in_double
-            idx += 1
-            continue
-        if in_single or in_double:
-            idx += 1
-            continue
-        if statement[idx : idx + 8].lower() == "new_line":
-            j = idx + 8
-            while j < len(statement) and statement[j].isspace():
-                j += 1
-            if j >= len(statement) or statement[j] != "(":
-                idx += 1
-                continue
-            k = j + 1
-            while k < len(statement) and statement[k].isspace():
-                k += 1
-            if k < len(statement) and statement[k] in {"'", '"'}:
-                count += 1
-                idx = k + 1
-                continue
-        idx += 1
-    return count
-
-
 def _is_likely_inline_source_statement(statement: str) -> bool:
     op_index = _find_fortran_assignment_operator(statement)
     if op_index is None:
@@ -174,7 +131,7 @@ def _statements_with_newlines(lines: list[str]) -> list[InlineBlock]:
         if not statement_lines:
             return
         statement = "\n".join(statement_lines)
-        newline_count = _count_fortran_new_line_calls(statement)
+        newline_count = statement.count("new_line('a')")
         if newline_count > 0 and _is_likely_inline_source_statement(statement):
             blocks.append(InlineBlock(start_line=start_line, newline_count=newline_count))
         statement_lines = []
