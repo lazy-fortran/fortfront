@@ -21,7 +21,6 @@ program test_optional_parameter_standard_fortran
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_optional_preserved()

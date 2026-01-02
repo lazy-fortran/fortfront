@@ -17,7 +17,6 @@ program test_issue_1811_cmplx_intrinsic
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

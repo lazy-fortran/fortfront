@@ -35,7 +35,6 @@ program test_array_slice_fixed_size_inference
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine assert_contains(text, pattern, message)

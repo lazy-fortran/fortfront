@@ -26,7 +26,6 @@ program test_issue_2417_array_intrinsic_timeout
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine assert_contains(text, pattern, message)

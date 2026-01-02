@@ -10,17 +10,27 @@ build:
 libfortfront.a:
 	@echo "Building fortfront static library..."
 	fpm build
-	@lib_dir=$$(find build/gfortran_* -type f -name 'libfortfront.a' 2>/dev/null | head -n 1 | xargs dirname); \
-	if [ -z "$$lib_dir" ]; then \
+	@lib_path=$$(find build -type f -path 'build/gfortran_*/fortfront/libfortfront.a' 2>/dev/null | xargs ls -t 2>/dev/null | head -n 1); \
+	if [ -z "$$lib_path" ]; then \
 	    echo "ERROR: no libfortfront.a produced by fpm build"; \
 	    exit 1; \
 	fi; \
+	lib_dir=$$(dirname "$$lib_path"); \
 	echo "Found library build directory: $$lib_dir"; \
-	mod_dir=$$(find build/gfortran_* -maxdepth 1 -type f -name '*.mod' 2>/dev/null | head -n 1 | xargs dirname); \
+	build_root=$$(dirname "$$lib_dir"); \
+	mod_dir=""; \
+	if ls "$$build_root"/*.mod >/dev/null 2>&1; then \
+	    mod_dir="$$build_root"; \
+	else \
+	    mod_dir=$$(for d in $$(ls -dt build/gfortran_* 2>/dev/null); do \
+	        if ls "$$d"/*.mod >/dev/null 2>&1; then echo "$$d"; break; fi; \
+	    done); \
+	fi; \
 	if [ -z "$$mod_dir" ]; then \
 	    echo "ERROR: no module files produced by fpm build"; \
 	    exit 1; \
 	fi; \
+	echo "Found module build directory: $$mod_dir"; \
 	rm -rf build/fortfront_modules; \
 	mkdir -p build/fortfront_modules; \
 	find "$$mod_dir" -maxdepth 1 -name '*.mod' -exec cp {} build/fortfront_modules/ \; ; \
@@ -29,7 +39,7 @@ libfortfront.a:
 	    exit 1; \
 	fi; \
 	rm -f libfortfront.a; \
-	cp "$$lib_dir/libfortfront.a" libfortfront.a
+	cp "$$lib_path" libfortfront.a
 
 
 # Run tests (convenience wrapper)

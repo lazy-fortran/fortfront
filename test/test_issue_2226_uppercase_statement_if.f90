@@ -13,7 +13,6 @@ program test_issue_2226_uppercase_statement_if
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine verify_uppercase_statement_if()

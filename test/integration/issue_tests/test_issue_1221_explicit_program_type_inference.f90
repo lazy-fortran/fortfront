@@ -13,7 +13,6 @@ program test_issue_1221_explicit_program_type_inference
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine test_explicit_program_with_inference()

@@ -39,7 +39,6 @@ program test_intrinsic_reduction_scalars
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

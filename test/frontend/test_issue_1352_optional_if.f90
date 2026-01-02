@@ -9,7 +9,6 @@ program test_issue_1352_optional_if
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_optional_program_contains()

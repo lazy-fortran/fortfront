@@ -42,7 +42,6 @@ program test_issue_2292_use_preservation
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

@@ -61,7 +61,6 @@ program test_f2003_abstract_interface
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

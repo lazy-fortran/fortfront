@@ -41,7 +41,6 @@ program test_issue_2391_fixed_form_continuation
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

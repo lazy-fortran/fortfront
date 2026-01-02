@@ -19,7 +19,6 @@ program test_issue_1740_keyword_arguments
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     function check_keyword_argument_preserved() result(passed)

@@ -17,7 +17,6 @@ program test_issue_1895_use_interface_external
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     function run_use_interface_external_case() result(passed)

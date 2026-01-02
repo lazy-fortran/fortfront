@@ -33,7 +33,6 @@ program test_issue_1349_select_case
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine require(cond, message)

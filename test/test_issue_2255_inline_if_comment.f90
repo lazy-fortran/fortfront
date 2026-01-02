@@ -48,7 +48,6 @@ program test_issue_2255_inline_if_comment
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_2255_inline_if_comment

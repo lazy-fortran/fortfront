@@ -102,7 +102,6 @@ program test_do_concurrent_issue_1828
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_do_concurrent_issue_1828

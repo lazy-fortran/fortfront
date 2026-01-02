@@ -17,7 +17,6 @@ program test_issue_2694_strict_zero_sized_array_literals
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

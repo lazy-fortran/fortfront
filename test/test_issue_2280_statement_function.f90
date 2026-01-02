@@ -34,7 +34,6 @@ program test_issue_2280_statement_function
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_2280_statement_function

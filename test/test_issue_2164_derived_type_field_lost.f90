@@ -79,7 +79,6 @@ program test_issue_2164_derived_type_field_lost
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_2164_derived_type_field_lost

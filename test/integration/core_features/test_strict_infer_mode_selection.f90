@@ -37,7 +37,6 @@ program test_strict_infer_mode_selection
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

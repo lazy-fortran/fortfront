@@ -16,7 +16,6 @@ program test_issue_2393_dtio_interfaces
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine test_dtio_basic_write_formatted()

@@ -21,7 +21,6 @@ program test_issue_2077_goto_labeled_statements
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

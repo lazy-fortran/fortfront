@@ -16,7 +16,6 @@ program test_issue_1899_data_multi_objects
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine check_case(name, source_path, expected)

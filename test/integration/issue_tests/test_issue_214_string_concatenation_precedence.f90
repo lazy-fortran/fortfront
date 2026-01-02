@@ -26,7 +26,6 @@ program test_issue_214_string_concatenation_precedence
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_string_concatenation_precedence_with_parentheses()

@@ -88,7 +88,7 @@ The fix adds `stat=` checking to all `allocate` statements in:
   - `read_all_from_unit()` - Initial buffer allocation
   - `append_chunk()` - Buffer expansion during reading
   - `append_newline()` - Newline buffer expansion
-- `test/common/cli_io_reader.inc`: Test helper (identical implementation)
+- `test/common/read_example.inc`: Test helper (includes CLI reader helpers)
 
 All allocation failures now:
 1. Check `alloc_stat /= 0`

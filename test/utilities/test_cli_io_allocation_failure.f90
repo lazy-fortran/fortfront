@@ -2,7 +2,7 @@
 ! This test documents the expected behavior when allocations fail.
 !
 ! To test manually under memory pressure:
-!   ulimit -v 120000  # ~120 MB cap
+!   ulimit -v 120000  ! ~120 MB cap
 !   build/gfortran_*/app/fortfront /tmp/memory_stress.f90
 !
 ! Expected: Status 5 with helpful error message instead of segfault
@@ -12,7 +12,7 @@
 
 program test_cli_io_allocation_failure
     use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                                                                iostat_eor
+                                             iostat_eor
     implicit none
 
     character(len=:), allocatable :: text
@@ -63,10 +63,10 @@ contains
 
         print *, 'INFO: Status code 5 is reserved for allocation failures'
         print *, 'INFO: When allocation fails, fortfront will now report:'
-        print *, 'INFO:   "Failed to allocate input buffer (N bytes)"'
+        print *, 'INFO:   Failed to allocate input buffer (N bytes)'
         print *, 'INFO:   instead of segfaulting'
     end subroutine test_status_propagation
 
-    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
 
 end program test_cli_io_allocation_failure

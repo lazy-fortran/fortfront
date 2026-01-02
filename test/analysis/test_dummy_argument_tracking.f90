@@ -21,7 +21,6 @@ program test_dummy_argument_tracking
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_simple_dummy_argument()

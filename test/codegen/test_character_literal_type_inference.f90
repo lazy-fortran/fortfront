@@ -20,7 +20,6 @@ program test_character_literal_type_inference
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     function test_single_character_assignment() result(passed)

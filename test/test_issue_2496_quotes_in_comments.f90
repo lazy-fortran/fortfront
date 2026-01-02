@@ -49,7 +49,6 @@ program test_issue_2496_quotes_in_comments
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     function verify_contains(text, pattern, description) result(found)

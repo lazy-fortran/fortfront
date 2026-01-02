@@ -19,7 +19,6 @@ program test_array_indexing_brackets
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine test_simple_index()

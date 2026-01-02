@@ -21,7 +21,6 @@ program test_issue_2487_parameter_statement
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

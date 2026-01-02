@@ -70,7 +70,6 @@ program test_issue_2270_identifier_common
 
 contains
 
-    include 'common/cli_io_reader.inc'
 
     include 'common/read_example.inc'
 end program test_issue_2270_identifier_common

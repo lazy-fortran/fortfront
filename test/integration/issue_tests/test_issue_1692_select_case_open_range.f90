@@ -32,7 +32,6 @@ program test_issue_1692_select_case_open_range
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     subroutine require(cond, message)

@@ -35,7 +35,6 @@ program test_issue_2161_function_return_type
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

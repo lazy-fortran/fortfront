@@ -13,7 +13,6 @@ program test_issue_1889_one_line_if
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
     subroutine verify_single_line_if_preserved()

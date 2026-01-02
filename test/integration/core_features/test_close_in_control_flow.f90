@@ -28,7 +28,6 @@ program test_close_in_control_flow
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

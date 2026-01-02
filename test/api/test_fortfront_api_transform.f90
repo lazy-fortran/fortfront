@@ -24,7 +24,6 @@ program test_fortfront_api_transform
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

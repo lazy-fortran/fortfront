@@ -64,7 +64,6 @@ program test_string_transformation
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

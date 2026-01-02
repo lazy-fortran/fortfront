@@ -46,7 +46,6 @@ program test_issue_2489_interface_in_procedure_body
 
 contains
 
-    include 'common/cli_io_reader.inc'
     include 'common/read_example.inc'
 
 

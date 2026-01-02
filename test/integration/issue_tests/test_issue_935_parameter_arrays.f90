@@ -20,7 +20,6 @@ program test_issue_935
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
 

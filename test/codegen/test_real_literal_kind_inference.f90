@@ -31,7 +31,6 @@ program test_real_literal_kind_inference
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
 

@@ -82,7 +82,6 @@ program test_issue_2154_do_loop_with_exit_cycle
 
 contains
 
-    include '../../common/cli_io_reader.inc'
 
     include '../../common/read_example.inc'
 end program test_issue_2154_do_loop_with_exit_cycle

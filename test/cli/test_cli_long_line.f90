@@ -50,7 +50,7 @@ program test_cli_long_line
 
 contains
 
-    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
 
     subroutine make_tmpfile(path)
         character(len=:), allocatable, intent(out) :: path

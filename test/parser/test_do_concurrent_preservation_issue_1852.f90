@@ -55,7 +55,6 @@ program test_do_concurrent_preservation_issue_1852
 
 contains
 
-    include '../common/cli_io_reader.inc'
 
     include '../common/read_example.inc'
 end program test_do_concurrent_preservation_issue_1852

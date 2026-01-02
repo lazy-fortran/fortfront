@@ -63,7 +63,6 @@ program test_issue_2493_char_array_constructor
 
 contains
 
-    include '../../common/cli_io_reader.inc'
 
     include '../../common/read_example.inc'
 end program test_issue_2493_char_array_constructor

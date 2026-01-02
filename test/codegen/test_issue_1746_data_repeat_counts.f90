@@ -28,7 +28,6 @@ program test_issue_1746_data_repeat_counts
 
 contains
 
-    include '../common/cli_io_reader.inc'
     include '../common/read_example.inc'
 
     subroutine check_case(name, source_path, expect_decl, expect_assign, forbidden, &

@@ -20,7 +20,6 @@ program test_issue_2271_identifier_goto
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_identifier_goto_round_trip()

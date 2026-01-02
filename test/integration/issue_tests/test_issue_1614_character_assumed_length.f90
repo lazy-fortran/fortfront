@@ -26,7 +26,6 @@ program test_issue_1614_character_assumed_length
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_case_1_parameter_length()

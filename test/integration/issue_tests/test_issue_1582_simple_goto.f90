@@ -22,7 +22,6 @@ program test_issue_1582_simple_goto
 
 contains
 
-    include '../../common/cli_io_reader.inc'
     include '../../common/read_example.inc'
 
     logical function test_simple_goto_preservation()
