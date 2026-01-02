@@ -1,10 +1,12 @@
-    subroutine read_all_stdin_or_file(from_file, filename, text, status)
+    subroutine read_all_stdin_or_file(from_file, filename, text, status, &
+                                      test_force_alloc_failure)
         use, intrinsic :: iso_fortran_env, only: error_unit, input_unit
         implicit none
         logical, intent(in) :: from_file
         character(len=*), intent(in), optional :: filename
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
+        logical, intent(in), optional :: test_force_alloc_failure
 
         status = 0
         if (from_file) then
@@ -13,18 +15,20 @@
                 status = 1
                 return
             end if
-            call read_all_from_file(filename, text, status)
+            call read_all_from_file(filename, text, status, &
+                                    test_force_alloc_failure=test_force_alloc_failure)
         else
             call read_all_from_unit(input_unit, text, status)
         end if
     end subroutine read_all_stdin_or_file
 
-    subroutine read_all_from_file(filename, text, status)
+    subroutine read_all_from_file(filename, text, status, test_force_alloc_failure)
         use, intrinsic :: iso_fortran_env, only: error_unit
         implicit none
         character(len=*), intent(in) :: filename
         character(len=:), allocatable, intent(out) :: text
         integer, intent(out) :: status
+        logical, intent(in), optional :: test_force_alloc_failure
         character(len=:), allocatable :: open_filename
         character(len=128) :: os_value
         integer :: os_len, os_status, i
@@ -68,7 +72,15 @@
             return
         end if
 
-        allocate (character(len=file_size) :: text, stat=alloc_stat)
+        if (present(test_force_alloc_failure)) then
+            if (test_force_alloc_failure) then
+                alloc_stat = 1
+            else
+                allocate (character(len=file_size) :: text, stat=alloc_stat)
+            end if
+        else
+            allocate (character(len=file_size) :: text, stat=alloc_stat)
+        end if
         if (alloc_stat /= 0) then
             write (error_unit, '(A,I0,A)') 'Failed to allocate text buffer (', &
                 file_size, ' bytes)'
