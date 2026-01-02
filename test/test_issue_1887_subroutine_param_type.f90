@@ -1,7 +1,6 @@
 program test_issue_1887_subroutine_param_type
-    use, intrinsic :: iso_fortran_env, only: dp => real64
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+    use, intrinsic :: iso_fortran_env, only: &
+        error_unit, input_unit, iostat_end, iostat_eor
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
 
@@ -33,7 +32,6 @@ program test_issue_1887_subroutine_param_type
     end if
 
     print *, "PASS: subroutine parameter type inferred as integer from call site"
-
 
 contains
 
