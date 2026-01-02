@@ -27,9 +27,11 @@ program test_cli_io_large_input
     if (status == 4) then
         print *, 'PASS: Large input correctly reported as too large'
     else
-        print *, 'FAIL: Expected status=4 for too large input, got', status
+        write (error_unit, '(A,I0)') &
+            'FAIL: Expected status=4 for too large input, got ', status
         if (allocated(text)) then
-            print *, 'INFO: Partial text length =', len(text)
+            write (error_unit, '(A,I0)') &
+                'INFO: Partial text length = ', len(text)
         end if
         stop 1
     end if
