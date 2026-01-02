@@ -54,28 +54,10 @@ program test_issue_2559_select_type_case_variations
 
     print *, 'PASS: mixed-case SELECT TYPE parsed'
 
+
 contains
 
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit
-        integer :: ios
-        character(len=1024) :: line
+    include '../common/cli_io_reader.inc'
 
-        content = ''
-        open (newunit=unit, file=path, status='old', action='read', iostat=ios)
-        if (ios /= 0) then
-            write (error_unit, '(a)') 'ERROR: unable to open example: ' // trim(path)
-            stop 1
-        end if
-
-        do
-            read (unit, '(A)', iostat=ios) line
-            if (ios /= 0) exit
-            content = content // trim(line) // new_line('a')
-        end do
-        close (unit)
-    end subroutine read_example
-
+    include '../common/read_example.inc'
 end program test_issue_2559_select_type_case_variations

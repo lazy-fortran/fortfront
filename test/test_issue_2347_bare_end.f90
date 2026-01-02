@@ -11,6 +11,9 @@ program test_issue_2347_bare_end
 
 contains
 
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
+
     subroutine verify_program_unit()
         character(len=:), allocatable :: source_code
         character(len=:), allocatable :: output_code
@@ -88,18 +91,5 @@ contains
         end if
     end subroutine assert_has
 
-    include 'common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: unable to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_issue_2347_bare_end

@@ -1,4 +1,5 @@
 program test_issue_2227_achar_kind_bounds
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use transformation_api, only: transform_lazy_fortran_string
     implicit none
     character(len=:), allocatable :: input, output, error_msg
@@ -19,6 +20,9 @@ program test_issue_2227_achar_kind_bounds
     end if
 
 contains
+
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
     subroutine test_achar_kind_no_crash()
         call read_example(example_path, input)
@@ -48,33 +52,5 @@ contains
         print *, "  - achar with kind parameter processed without crash"
     end subroutine test_achar_kind_no_crash
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, stat, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) then
-            print *, "ERROR: Cannot open file:", trim(filepath)
-            error stop 1
-        end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (character(len=file_size) :: content)
-        allocate (buffer(file_size))
-
-        read (unit, iostat=stat) buffer
-        close (unit)
-
-        if (stat /= 0) then
-            print *, "ERROR: Cannot read file:", trim(filepath)
-            error stop 1
-        end if
-
-        content = transfer(buffer, content)
-        deallocate (buffer)
-    end subroutine read_example
 
 end program test_issue_2227_achar_kind_bounds

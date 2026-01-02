@@ -26,6 +26,9 @@ program test_variable_usage_tracker
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     subroutine test_simple_variable_tracking()
         character(len=:), allocatable :: source, error_msg
         type(token_t), allocatable :: tokens(:)
@@ -519,32 +522,5 @@ contains
         end select
     end function find_if_condition_in_program
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, stat, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) then
-            print *, "ERROR: Cannot open file:", trim(filepath)
-            error stop 1
-        end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (character(len=file_size) :: content)
-        allocate (buffer(file_size))
-
-        read (unit, iostat=stat) buffer
-        close (unit)
-
-        if (stat /= 0) then
-            print *, "ERROR: Cannot read file:", trim(filepath)
-            error stop 1
-        end if
-
-        content = transfer(buffer, content)
-    end subroutine read_example
 
 end program test_variable_usage_tracker

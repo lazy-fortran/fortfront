@@ -1,4 +1,5 @@
 program test_issue_2349_data_trailing_commas
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend_transformation, only: INPUT_MODE_STANDARD
     use transformation_api, only: transform_with_context, transform_context_t
     implicit none
@@ -52,22 +53,9 @@ program test_issue_2349_data_trailing_commas
 
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, file_size, read_size
-        character(len=1), allocatable :: buffer(:)
+    include 'common/cli_io_reader.inc'
+    include 'common/read_example.inc'
 
-        open (newunit=unit, file=filepath, status='old', action='read', &
-              access='stream')
-        inquire (unit=unit, size=file_size)
-        allocate (buffer(file_size))
-        read (unit, iostat=read_size) buffer
-        close (unit)
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
 
     subroutine assert(condition, message)
         logical, intent(in) :: condition

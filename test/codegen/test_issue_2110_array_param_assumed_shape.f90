@@ -46,20 +46,10 @@ program test_issue_2110_array_param_assumed_shape
 
     print *, 'PASS: array parameters use assumed-shape instead of hardcoded dimensions'
 
+
 contains
 
     include '../common/cli_io_reader.inc'
 
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
-
+    include '../common/read_example.inc'
 end program test_issue_2110_array_param_assumed_shape

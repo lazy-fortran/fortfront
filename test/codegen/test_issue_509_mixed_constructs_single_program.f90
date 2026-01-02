@@ -51,6 +51,9 @@ program test_issue_509_mixed_constructs_single_program
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     subroutine print_with_line_numbers(code)
         character(len=*), intent(in) :: code
         integer :: i, line_num, start_pos
@@ -79,32 +82,5 @@ contains
         end if
     end subroutine print_with_line_numbers
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: unit, stat, file_size
-        character(len=1), allocatable :: buffer(:)
-
-        open (newunit=unit, file=filepath, status='old', access='stream', &
-              form='unformatted', iostat=stat)
-        if (stat /= 0) then
-            print *, "ERROR: Cannot open file:", trim(filepath)
-            error stop 1
-        end if
-
-        inquire (unit=unit, size=file_size)
-        allocate (character(len=file_size) :: content)
-        allocate (buffer(file_size))
-
-        read (unit, iostat=stat) buffer
-        close (unit)
-
-        if (stat /= 0) then
-            print *, "ERROR: Cannot read file:", trim(filepath)
-            error stop 1
-        end if
-
-        content = transfer(buffer, content)
-    end subroutine read_example
 
 end program test_issue_509_mixed_constructs_single_program

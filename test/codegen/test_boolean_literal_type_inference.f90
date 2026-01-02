@@ -23,6 +23,9 @@ program test_boolean_literal_type_inference
 
 contains
 
+    include '../common/cli_io_reader.inc'
+    include '../common/read_example.inc'
+
     function test_dot_true_infers_logical() result(passed)
         logical :: passed
         character(len=:), allocatable :: out
@@ -134,18 +137,5 @@ contains
         if (.not. allocated(output)) output = ''
     end function compile_example
 
-    include '../common/cli_io_reader.inc'
-
-    subroutine read_example(path, content)
-        character(len=*), intent(in) :: path
-        character(len=:), allocatable, intent(out) :: content
-        integer :: status
-
-        call read_all_stdin_or_file(.true., path, content, status)
-        if (status /= 0) then
-            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
-            error stop 1
-        end if
-    end subroutine read_example
 
 end program test_boolean_literal_type_inference

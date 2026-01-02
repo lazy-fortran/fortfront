@@ -38,33 +38,10 @@ program test_issue_2013_nested_implied_do
 
     write (*, '(a)') 'PASS: nested implied-do array size correctly calculated'
 
+
 contains
 
-    subroutine read_example(filepath, content)
-        character(len=*), intent(in) :: filepath
-        character(len=:), allocatable, intent(out) :: content
-        integer :: file_unit, file_size, ios_read
-        character(len=1), allocatable :: buffer(:)
+    include '../../common/cli_io_reader.inc'
 
-        open (newunit=file_unit, file=filepath, status='old', &
-              action='read', access='stream', iostat=ios_read)
-        if (ios_read /= 0) then
-            print *, "ERROR: cannot open file: ", filepath
-            error stop 1
-        end if
-
-        inquire (unit=file_unit, size=file_size)
-        allocate (buffer(file_size))
-        read (file_unit, iostat=ios_read) buffer
-        close (file_unit)
-
-        if (ios_read /= 0) then
-            print *, "ERROR: cannot read file: ", filepath
-            error stop 1
-        end if
-
-        allocate (character(len=file_size) :: content)
-        content = transfer(buffer, content)
-    end subroutine read_example
-
+    include '../../common/read_example.inc'
 end program test_issue_2013_nested_implied_do
