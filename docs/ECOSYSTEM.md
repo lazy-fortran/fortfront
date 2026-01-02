@@ -19,12 +19,12 @@ The ecosystem tools live in separate repositories and build on fortfront.
 
 | Tool | Purpose | Status | Repository |
 |------|---------|--------|------------|
-| **fluff** | Static analysis and formatting | Available | https://github.com/lazy-fortran/fluff |
-| **fortnb** | Notebook processing (.lf support) | Available | https://github.com/lazy-fortran/fortnb |
-| **ffc** | Single-file `.lf` compiler backend | Available | https://github.com/lazy-fortran/ffc |
-| **fortcov** | Coverage analysis | Available | https://github.com/lazy-fortran/fortcov |
-| **fortrun** | Build/run enhancement service | Available | https://github.com/lazy-fortran/fortrun |
-| **fo** | Universal orchestrator (contains all tools) | Planned | n/a |
+| **fluff** | Static analysis and formatting | Available | [lazy-fortran/fluff](https://github.com/lazy-fortran/fluff) |
+| **fortnb** | Notebook processing (`.lf` support) | Available | [lazy-fortran/fortnb](https://github.com/lazy-fortran/fortnb) |
+| **ffc** | Compiler (LLVM backend) | Available | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
+| **fortcov** | Coverage analysis | Available | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
+| **fortrun** | Build/run enhancement service | Available | [lazy-fortran/fortrun](https://github.com/lazy-fortran/fortrun) |
+| **fo** | Universal orchestrator (contains all tools) | Planned | TBD |
 
 ## fo: Universal Orchestrator (planned)
 
