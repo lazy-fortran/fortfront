@@ -41,7 +41,7 @@ contains
 
         if (index(output, 'integer :: temp') == 0) then
             write (error_unit, '(A)') "FAIL: Local variable 'temp' not declared"
-            write (error_unit, '(A)') trim(output)
+            call write_output_snippet(output)
             error stop 1
         end if
 
@@ -55,5 +55,21 @@ contains
             error stop 1
         end if
     end subroutine test_subroutine_local_variable
+
+    subroutine write_output_snippet(output)
+        character(len=*), intent(in) :: output
+        integer :: n
+
+        n = min(len(output), 4000)
+        write (error_unit, '(A)') '---- output snippet begin ----'
+        if (n > 0) then
+            write (error_unit, '(A)') output(1:n)
+        end if
+        if (len(output) > n) then
+            write (error_unit, '(A,I0,A)') '---- truncated; total chars=', &
+                len(output), ' ----'
+        end if
+        write (error_unit, '(A)') '---- output snippet end ----'
+    end subroutine write_output_snippet
 
 end program test_issue_2012_subroutine_local_inference

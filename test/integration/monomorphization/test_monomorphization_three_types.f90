@@ -15,13 +15,7 @@ program test_monomorphization_three_types
     character(len=:), allocatable :: tmp_path
     character(len=:), allocatable :: compile_cmd
 
-    input = 'function add(a, b)' // new_line('A') // &
-            '    add = a + b' // new_line('A') // &
-            'end function' // new_line('A') // &
-            '' // new_line('A') // &
-            'x = add(5, 3)' // new_line('A') // &
-            'y = add(2.5d0, 1.5d0)' // new_line('A') // &
-            'z = add((1.0, 2.0), (3.0, 4.0))'
+    call read_example('examples/lf/monomorphization_add_three_types.lf', input)
 
     call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -68,5 +62,19 @@ contains
             error stop 1
         end if
     end subroutine assert_contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_monomorphization_three_types

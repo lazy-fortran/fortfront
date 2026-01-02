@@ -16,15 +16,7 @@ program test_monomorphization_subroutine
     character(len=:), allocatable :: tmp_path
     character(len=:), allocatable :: compile_cmd
 
-    input = 'subroutine scale(value, factor)' // new_line('A') // &
-            '    value = value * factor' // new_line('A') // &
-            'end subroutine' // new_line('A') // new_line('A') // &
-            'integer :: i' // new_line('A') // &
-            'real :: r' // new_line('A') // &
-            'i = 3' // new_line('A') // &
-            'r = 2.5d0' // new_line('A') // &
-            'call scale(i, 2)' // new_line('A') // &
-            'call scale(r, 1.5d0)'
+    call read_example('examples/lf/monomorphization_scale_subroutine.lf', input)
 
     call transform_lazy_fortran_string(input, output, error_msg)
 
@@ -84,5 +76,19 @@ contains
             error stop 1
         end if
     end subroutine assert_contains
+
+    include '../../common/cli_io_reader.inc'
+
+    subroutine read_example(path, content)
+        character(len=*), intent(in) :: path
+        character(len=:), allocatable, intent(out) :: content
+        integer :: status
+
+        call read_all_stdin_or_file(.true., path, content, status)
+        if (status /= 0) then
+            write (error_unit, '(A)') 'FAIL: failed to read ' // trim(path)
+            error stop 1
+        end if
+    end subroutine read_example
 
 end program test_monomorphization_subroutine
