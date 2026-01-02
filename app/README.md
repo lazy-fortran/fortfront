@@ -22,7 +22,9 @@ fortfront input.lf > output.f90
 echo "x = 5" | fortfront > output.f90
 
 # With options
-fortfront --trace input.lf > output.f90  # Enable debug tracing
+fortfront --trace input.lf > output.f90   # Enable debug tracing
+fortfront --std=lf input.lf > output.f90  # Strict mode (requires explicit program unit)
+fortfront --std lf input.lf > output.f90  # Strict mode (space-separated form)
 ```
 
 **Command-Line Interface**
@@ -58,6 +60,8 @@ fortfront --trace input.lf > output.f90  # Enable debug tracing
 **CLI Options**
 - `-h, --help` - Show help message
 - `-v, --version` - Show version information
+- `--infer` - Infer mode (default): accepts top-level statements and infers missing structure
+- `--std=lf`, `--std lf` - Strict mode: require explicit `program`/`module`/procedure units (rejects bare statements)
 - `--trace[=on|off]` - Enable/disable debug tracing (overrides FORTFRONT_TRACE env)
 - `--trace-file <path>` - Trace output file path (overrides FORTFRONT_TRACE_FILE env)
 
@@ -66,6 +70,8 @@ fortfront --trace input.lf > output.f90  # Enable debug tracing
 - `--check` - Validate without generating output
 - `--ast` - Print AST in JSON format
 - `--types` - Print inferred types
+
+Planned CLI features are tracked in the GitHub issue tracker.
 
 ## Dependencies
 
