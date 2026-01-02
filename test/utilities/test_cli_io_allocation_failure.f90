@@ -35,12 +35,13 @@ contains
         call read_all_stdin_or_file(.true., fname, text, status)
 
         if (status /= 0) then
-            print *, 'FAIL: Small input failed with status', status
+            write (error_unit, '(A,I0)') &
+                'FAIL: Small input failed with status ', status
             stop 1
         end if
 
         if (.not. allocated(text)) then
-            print *, 'FAIL: Text not allocated for small input'
+            write (error_unit, '(A)') 'FAIL: Text not allocated for small input'
             stop 1
         end if
 
