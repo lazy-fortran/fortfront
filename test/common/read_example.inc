@@ -15,8 +15,13 @@
                 status = 1
                 return
             end if
-            call read_all_from_file(filename, text, status, &
-                                    test_force_alloc_failure=test_force_alloc_failure)
+            if (present(test_force_alloc_failure)) then
+                call read_all_from_file(filename, text, status, &
+                                        test_force_alloc_failure= &
+                                        test_force_alloc_failure)
+            else
+                call read_all_from_file(filename, text, status)
+            end if
         else
             call read_all_from_unit(input_unit, text, status)
         end if
