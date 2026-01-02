@@ -36,7 +36,6 @@
     subroutine validate_strict_allocatable_lhs_reallocation(ctx, arena, &
                                                             assignment, &
                                                             assignment_index)
-        use semantic_identifier_context, only: find_program_owner
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
