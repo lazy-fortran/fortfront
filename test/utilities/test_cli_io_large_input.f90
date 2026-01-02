@@ -1,13 +1,18 @@
 program test_cli_io_large_input
-    use, intrinsic :: iso_fortran_env, only: error_unit, input_unit, iostat_end, &
-                                             iostat_eor
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use test_filesystem_helpers, only: check_if_windows, cleanup_file, &
+                                       make_temp_file_path
     implicit none
 
     character(len=:), allocatable :: text
     integer :: status
-    character(len=*), parameter :: fname = 'tmp_large_input.txt'
+    character(len=:), allocatable :: fname
     integer :: u, i
     character(len=10240) :: line
+    logical :: is_windows
+
+    is_windows = check_if_windows()
+    fname = make_temp_file_path('ff_cli_io_large_', '.txt', is_windows)
 
     line = repeat('a', len(line))
 
@@ -30,8 +35,7 @@ program test_cli_io_large_input
     end if
 
     ! Cleanup
-    open (newunit=u, file=fname, status='old', action='read')
-    close (u, status='delete')
+    call cleanup_file(fname)
 
 contains
 
