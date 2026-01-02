@@ -4,8 +4,9 @@ module semantic_strict_argument_type_checker_resolution
     use ast_nodes_data, only: module_node, submodule_node
     use ast_nodes_misc, only: contains_node, use_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use semantic_strict_argument_type_checker_scope_utils, only: split_rename, &
-        find_module_node_index, node_name_matches
+    use semantic_strict_argument_type_checker_scope_utils, only: split_rename
+    use semantic_strict_argument_type_checker_scope_utils, only: find_module_node_index
+    use semantic_strict_argument_type_checker_scope_utils, only: node_name_matches
     use string_utils_mod, only: to_lower
     implicit none
     private
