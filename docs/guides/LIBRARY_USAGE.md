@@ -23,7 +23,7 @@ program minimal_example
     input = "x = 5"
     call transform_lazy_fortran_string(input, output, error_msg)
 
-    if (len(error_msg) == 0) then
+    if (.not. allocated(error_msg) .or. len_trim(error_msg) == 0) then
         print '(a)', output
     else
         print '(a)', 'Transformation failed: ' // error_msg
@@ -35,32 +35,7 @@ end program minimal_example
 
 Get source locations for AST nodes (useful for linters and diagnostics):
 
-```fortran
-program position_example
-    use fortfront, only: ast_arena_t, create_ast_arena, get_node_line, &
-                         get_node_column, get_node_location, &
-                         tooling_load_ast_from_string
-    implicit none
-    type(ast_arena_t) :: arena
-    integer :: root_index, line, col
-    character(len=:), allocatable :: error_msg
-
-    arena = create_ast_arena()
-    call tooling_load_ast_from_string("x = 5", arena, root_index, error_msg)
-
-    ! Standalone functions (for fluff integration)
-    line = get_node_line(arena, root_index)
-    col = get_node_column(arena, root_index)
-    print '(a,i0,a,i0)', 'Position: line ', line, ', column ', col
-
-    ! Alternative: get both at once
-    call get_node_location(arena, root_index, line, col)
-
-    ! Type-bound procedures also available
-    line = arena%get_node_line(root_index)
-    col = arena%get_node_column(root_index)
-end program
-```
+Example program: [examples/library_usage/ast_node_position.f90](../../examples/library_usage/ast_node_position.f90).
 
 **Available functions**:
 - `get_node_line(arena, index)` - Returns line number (1-based), 0 if invalid
@@ -106,38 +81,7 @@ Direct trivia query at an arbitrary source location:
 
 Count nodes of each type using callback-based traversal:
 
-```fortran
-program count_nodes
-    use fortfront, only: ast_arena_t, create_ast_arena, tooling_load_ast_from_string, &
-                         traverse_ast, get_node_type_at, node_exists
-    implicit none
-    type(ast_arena_t) :: arena
-    integer :: root_index
-    character(len=:), allocatable :: error_msg
-
-    arena = create_ast_arena()
-    call tooling_load_ast_from_string("x = 5 + 3", arena, root_index, error_msg)
-
-    if (len(error_msg) > 0) then
-        print '(a)', 'Error: ' // error_msg
-        stop 1
-    end if
-
-    call traverse_ast(arena, root_index, count_callback)
-
-contains
-    subroutine count_callback(arena, node_index)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: node_type
-
-        if (node_exists(arena, node_index)) then
-            node_type = get_node_type_at(arena, node_index)
-            print '(a,i0,a,a)', 'Node ', node_index, ': ', node_type
-        end if
-    end subroutine count_callback
-end program
-```
+Example program: [examples/library_usage/ast_node_counter.f90](../../examples/library_usage/ast_node_counter.f90).
 
 ## Structured Diagnostics API
 

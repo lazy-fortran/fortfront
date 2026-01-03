@@ -58,7 +58,7 @@ The parser core provides the fundamental infrastructure for parsing operations: 
 - Identify `!fortfront:standard_begin` / `!fortfront:standard_end` markers
 - Route standard blocks to pass-through handler
 - Route lazy blocks to full transformation pipeline
-- See `docs/MIXED_CONSTRUCTS_GUIDE.md`
+- See `docs/guides/MIXED_CONSTRUCTS_GUIDE.md`
 
 **Import Resolution**
 - Track `use module_name` statements

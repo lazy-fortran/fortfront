@@ -19,7 +19,7 @@ This directory implements the type system for semantic analysis: type representa
 
 ## Key Concepts
 
-For complete type system design and type inference concepts, see [Semantic README](../README.md#key-concepts) and [docs/TYPE_SAFETY_GUIDE.md](../../../docs/TYPE_SAFETY_GUIDE.md).
+For complete type system design and type inference concepts, see [Semantic README](../README.md#key-concepts) and [docs/guides/TYPE_SAFETY_GUIDE.md](../../../docs/guides/TYPE_SAFETY_GUIDE.md).
 
 **This Directory's Specifics**:
 - **Type representations**: Mono types (concrete), poly types (generic), type variables
