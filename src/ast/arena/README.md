@@ -18,7 +18,7 @@ The arena implementation provides multiple interfaces for compatibility with dif
 
 ## Key Concepts
 
-For complete arena allocation design principles, see [AST README](../README.md#key-concepts) and [docs/archive/MEMORY_SAFETY_ANALYSIS.md](../../../docs/archive/MEMORY_SAFETY_ANALYSIS.md).
+For complete arena allocation design principles, see [AST README](../README.md#key-concepts) and [src/memory/README.md](../../../src/memory/README.md).
 
 **This Directory's Specifics**:
 - **Core allocator**: `ast_arena_core.f90` - block management, allocation tracking

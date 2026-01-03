@@ -16,22 +16,12 @@
 
 ## Final parse_declaration (37 lines)
 
-```fortran
-function parse_declaration(parser, arena) result(decl_index)
-    type(type_specifier_t) :: type_spec
-    type_spec = parse_type_specifier(parser)
+The final version delegates the work to the extracted helpers and keeps
+`parse_declaration` focused on:
 
-    if (index(type_spec%type_name, "ERROR:") == 1) then
-        decl_index = push_literal(arena, type_spec%type_name, ...)
-        return
-    end if
-
-    call parse_declaration_attributes(parser, arena, attr_info)
-    call parse_variable_with_initialization(parser, arena, type_name, &
-                                            has_kind, kind_value, attr_info, &
-                                            line, column, decl_index)
-end function
-```
+- Parsing the type specifier and handling errors
+- Parsing declaration attributes
+- Parsing the variable name list and any initializations
 
 ## Test Coverage
 

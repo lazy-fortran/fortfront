@@ -58,7 +58,7 @@ The AST subsystem provides the core data structures and operations for represent
 - Arena prevents use-after-free
 - Index-based access prevents dangling pointers
 - Automatic lifetime management
-- See `docs/archive/MEMORY_SAFETY_ANALYSIS.md` for details
+- See `src/memory/README.md` for current arena allocation details
 
 ## Dependencies
 
