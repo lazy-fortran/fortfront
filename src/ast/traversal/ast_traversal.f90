@@ -205,13 +205,7 @@ contains
         integer :: count
 
         count = 0
-        allocate (buffer(0))
-
-        if (node_index <= 0 .or. node_index > arena%size) then
-            allocate (children(0))
-            return
-        end if
-        if (.not. allocated(arena%entries(node_index)%node)) then
+        if (.not. arena%has_node_at(node_index)) then
             allocate (children(0))
             return
         end if
