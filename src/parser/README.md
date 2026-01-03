@@ -21,7 +21,7 @@ The parser is the second phase of compilation, bridging the lexer and semantic a
 - Operator precedence climbing algorithm
 - Left-associative and right-associative operators
 - Handles complex expressions: `a + b * c ** d`
-- See `docs/PRATT_PIPELINE_ARCHITECTURE.md` for details
+- See `docs/architecture/PRATT_PIPELINE_ARCHITECTURE.md` for details
 
 **Recursive Descent for Statements**
 - Top-down parsing with lookahead

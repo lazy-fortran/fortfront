@@ -165,7 +165,7 @@ Type handling, character types, and type inference integration.
 - Normalize character lengths (`*` to explicit length)
 - Handle assumed-length parameters
 - Preserve character kind parameters
-- See `docs/CHARACTER_TYPE_GUIDE.md`
+- See `docs/guides/CHARACTER_TYPE_GUIDE.md`
 
 **Round-Trip Validation**
 - Standard Fortran: parse → AST → codegen → parse again

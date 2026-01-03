@@ -131,7 +131,7 @@ Generate type-specialized procedure variants and rewrite call sites.
 - Name mangling: `add__i32_i32`, `add__f64_f64`
 - Rewrite call sites to use specialized names
 - Use Fortran generic interfaces (standard Fortran)
-- See `docs/MONOMORPHIZATION.md` for detailed strategy
+- See `docs/architecture/MONOMORPHIZATION.md` for detailed strategy
 
 **Multi-Pass Standardization**
 1. **Structure pass**: Add program/module wrappers

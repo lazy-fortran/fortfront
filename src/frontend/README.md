@@ -114,7 +114,7 @@ end subroutine
 - Standard blocks wrapped in special markers: `!fortfront:standard_begin` / `!fortfront:standard_end`
 - Standard blocks passed through unchanged
 - Lazy blocks transformed via full pipeline
-- See `docs/MIXED_CONSTRUCTS_GUIDE.md`
+- See `docs/guides/MIXED_CONSTRUCTS_GUIDE.md`
 
 **Program Structure Detection**
 - **Bare statements**: Wrap in `program main ... end program`

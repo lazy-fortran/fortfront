@@ -93,7 +93,7 @@ else
 end if
 ```
 
-See docs/LIBRARY_USAGE.md for worked examples (API spec tracked in issue #1642).
+See docs/guides/LIBRARY_USAGE.md for worked examples (API spec tracked in issue #1642).
 
 ## Links
 - [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)

@@ -1,4 +1,4 @@
-.PHONY: all build test test-small-stack check-duplication check-root-cleanliness clean help libfortfront.a
+.PHONY: all build test test-small-stack check-duplication check-doc-links check-root-cleanliness clean help libfortfront.a
 
 # Default target
 all: build
@@ -56,6 +56,10 @@ test-small-stack:
 check-duplication:
 	@python3 scripts/check_test_duplication.py
 
+# Check Markdown docs for broken relative links
+check-doc-links:
+	@python3 scripts/check_doc_links.py
+
 # Check project root cleanliness (issue #2148)
 check-root-cleanliness:
 	@echo "Checking project root for polluting files..."
@@ -93,5 +97,6 @@ help:
 	@echo "  make test     - Run tests"
 	@echo "  make test-small-stack [TEST_STACK_KB=1024] - Run tests with small stack"
 	@echo "  make check-duplication - Check for test duplication violations"
+	@echo "  make check-doc-links - Check docs for broken Markdown links"
 	@echo "  make check-root-cleanliness - Check project root for polluting files (issue #2148)"
 	@echo "  make clean    - Clean build artifacts"
