@@ -37,7 +37,7 @@ The AST subsystem provides the core data structures and operations for represent
 **Visitor Pattern**
 - Safe traversal via `visit_node_at(arena, index, visitor_callback)`
 - Visitor receives node reference, never copies
-- Supports pre-order, post-order, and level-order traversal
+- Supports pre-order and post-order traversal
 - Type-safe dispatch to node-specific handlers
 
 **Node Type Organization**
