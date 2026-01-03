@@ -60,6 +60,7 @@ module parser_expressions_module
                                                        reduce_all_operators, &
                                                        reduce_until_group, &
                                                        push_group_marker
+    use parser_inline_instantiation_module, only: consume_inline_instantiation_tokens
     use parser_token_views_module, only: token_view_t, build_token_view, &
                                          view_peek_token, view_lower_token, &
                                          view_consume_token, view_lookahead_token
@@ -909,47 +910,6 @@ contains
             end if
         end do
     end function parse_postfix_ops
-
-    subroutine consume_inline_instantiation_tokens(parser, view, inst_text)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_view_t), intent(in) :: view
-        character(len=:), allocatable, intent(out) :: inst_text
-        type(token_t) :: token
-        type(token_t) :: start_token
-        integer :: nesting
-
-        if (allocated(inst_text)) deallocate (inst_text)
-        token = view_peek_token(view, parser)
-        if (.not. (token%kind == TK_OPERATOR .and. token%text == "{")) then
-            return
-        end if
-
-        start_token = token
-        nesting = 0
-        do while (.not. parser%is_at_end())
-            token = view_consume_token(view, parser)
-            if (token%kind == TK_OPERATOR) then
-                if (token%text == "{") nesting = nesting + 1
-                if (token%text == "}") nesting = nesting - 1
-            end if
-
-            if (.not. allocated(inst_text)) then
-                inst_text = token%text
-            else
-                inst_text = inst_text // token%text
-            end if
-
-            if (nesting == 0) exit
-        end do
-
-        if (nesting /= 0) then
-            if (allocated(inst_text)) deallocate (inst_text)
-            call parser%errors%add_error_with_token( &
-                "Unbalanced inline instantiation braces: expected } "// &
-                "before end of file", &
-                start_token, suggestion="Add a matching } to close the instantiation")
-        end if
-    end subroutine consume_inline_instantiation_tokens
 
     subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
         use ast_nodes_core, only: identifier_node, component_access_node
