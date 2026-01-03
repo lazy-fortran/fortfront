@@ -21,19 +21,27 @@ module codegen_core
                               component_access_node
     use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node, block_construct_node
-    use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
-                              implicit_statement_node, allocate_statement_node, &
+    use ast_nodes_misc, only: complex_literal_node, comment_node, &
+                              blank_line_node, &
+                              implicit_statement_node, &
+                              allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
                               intrinsic_statement_node, import_statement_node, &
                               include_statement_node, statement_function_node, &
-                              visibility_statement_node, namelist_statement_node, &
-                              data_statement_node, contains_node, directive_node, &
+                              visibility_statement_node, &
+                              namelist_statement_node, &
+                              data_statement_node, contains_node, &
+                              directive_node, &
                               end_statement_node, &
                               interface_block_node, module_procedure_node
+    use ast_nodes_generics, only: template_block_node, &
+                                  instantiate_statement_node
     use ast_error_nodes, only: error_node_t
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
+    use codegen_generics, only: generate_code_template_block, &
+                                generate_code_instantiate_statement
     implicit none
     private
 
@@ -207,7 +215,12 @@ contains
         type is (derived_type_node)
             code = generate_code_derived_type(arena, node, node_index)
         type is (mixed_construct_container_node)
-            code = generate_code_mixed_construct_container(arena, node, node_index)
+            code = generate_code_mixed_construct_container(arena, node, &
+                                                           node_index)
+        type is (template_block_node)
+            code = generate_code_template_block(arena, node, node_index)
+        type is (instantiate_statement_node)
+            code = generate_code_instantiate_statement(node)
 
             ! Special nodes
         type is (contains_node)
@@ -313,12 +326,12 @@ contains
         ! Apply namelist spacing for:
         ! 1. NAMELIST I/O: nml=/group/
         ! 2. NAMELIST declarations: namelist/group/vars
-        ! But NOT for slashes inside string literals (e.g., file='/tmp/test.dat')
+        ! Exclude slashes inside string literals, e.g. file=/tmp/test.dat
         if (index(clean, 'nml=') > 0 .or. index(clean, 'nml =') > 0 .or. &
             index(adjustl(clean), 'namelist') == 1) then
             clean = adjust_namelist_spacing(clean)
         else if (index(clean, 'namelist') == 0) then
-            ! Only remove spaces around slashes if there's NO namelist in the text
+            ! Only remove spaces around slashes when namelist is absent
             clean = replace_all(clean, ' / ', '/')
             clean = replace_all(clean, '/ ', '/')
         end if
@@ -336,7 +349,7 @@ contains
 
         trimmed = adjustl(text)
 
-        ! Find first slash that's NOT inside a string literal
+        ! Find first slash not inside a string literal
         in_string = .false.
         quote_char = ' '
         slash1 = 0
@@ -364,7 +377,7 @@ contains
         prefix = trim(trimmed(1:slash1 - 1))
         rest = trimmed(slash1 + 1:)
 
-        ! Find second slash that's NOT inside a string literal
+        ! Find second slash not inside a string literal
         in_string = .false.
         quote_char = ' '
         slash2 = 0
@@ -390,7 +403,7 @@ contains
         end if
 
         group = trim(adjustl(rest(1:slash2 - 1)))
-        remainder = rest(slash2 + 1:)  ! Keep original spacing, don't adjustl!
+        remainder = rest(slash2 + 1:)  ! Keep original spacing, do not adjustl
         ! Add space before first slash, and optionally before remainder if present
         out = trim(prefix) // ' /' // group // '/'
         if (len_trim(remainder) > 0) then

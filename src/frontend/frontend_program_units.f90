@@ -82,6 +82,8 @@ contains
             else if (is_module_start(trimmed_tokens, 1)) then
                 ! Parse the entire module with its content
                 unit_index = parse_module_unit(trimmed_tokens, arena, parse_error)
+            else if (is_template_start(trimmed_tokens, 1)) then
+                unit_index = parse_template_unit(trimmed_tokens, arena, parse_error)
             else if (is_program_start(trimmed_tokens, 1)) then
                 unit_index = parse_explicit_program_unit(trimmed_tokens, arena, &
                                                          parse_error)
@@ -129,6 +131,17 @@ contains
         ! Extract parser errors from dispatcher
         if (present(error_msg)) error_msg = get_last_parser_errors()
     end function parse_module_unit
+
+    function parse_template_unit(tokens, arena, error_msg) result(unit_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=:), allocatable, intent(out), optional :: error_msg
+        integer :: unit_index
+        type(parser_prefix_buffer_t) :: prefix_buffer
+
+        unit_index = parse_statement_dispatcher(tokens, arena, prefix_buffer)
+        if (present(error_msg)) error_msg = get_last_parser_errors()
+    end function parse_template_unit
 
     ! Parse submodule unit with all its content (Fortran 2008)
     function parse_submodule_unit(tokens, arena, error_msg) result(unit_index)
@@ -259,7 +272,7 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: errors
 
-        ! Check if there's meaningful content that should become an implicit main
+        ! Check for meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
             if (has_executable_statements(tokens)) then
                 ! Parse all statements into a program block (multi-statement aware)
@@ -372,6 +385,20 @@ contains
             end if
         end if
     end function is_module_start
+
+    function is_template_start(tokens, pos) result(is_start)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: is_start
+
+        is_start = .false.
+        if (pos <= size(tokens)) then
+            if (tokens(pos)%kind == TK_KEYWORD .and. &
+                to_lower(tokens(pos)%text) == "template") then
+                is_start = .true.
+            end if
+        end if
+    end function is_template_start
 
     function is_submodule_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
