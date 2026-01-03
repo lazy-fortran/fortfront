@@ -20,7 +20,9 @@ module frontend_location_validation
     use ast_nodes_misc, only: interface_block_node, use_statement_node, &
                               visibility_statement_node, &
                               include_statement_node
-    use ast_nodes_generics, only: template_block_node, instantiate_statement_node
+    use ast_nodes_generics, only: template_block_node, instantiate_statement_node, &
+                                  trait_block_node, requirement_block_node, &
+                                  implements_block_node
     use ast_introspection, only: visit_node_at
     implicit none
     private
@@ -65,6 +67,9 @@ module frontend_location_validation
         procedure :: visit_template_block => validate_visit_template_block
         procedure :: visit_instantiate_statement &
             => validate_visit_instantiate_statement
+        procedure :: visit_trait_block => validate_visit_trait_block
+        procedure :: visit_requirement_block => validate_visit_requirement_block
+        procedure :: visit_implements_block => validate_visit_implements_block
         procedure, private :: check_location
         procedure, private :: is_synthesized_node
     end type location_validation_visitor_t
@@ -219,6 +224,24 @@ contains
         class(instantiate_statement_node), intent(in) :: node
         call this%check_location(node, "instantiate_statement")
     end subroutine validate_visit_instantiate_statement
+
+    subroutine validate_visit_trait_block(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(trait_block_node), intent(in) :: node
+        call this%check_location(node, "trait_block")
+    end subroutine validate_visit_trait_block
+
+    subroutine validate_visit_requirement_block(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(requirement_block_node), intent(in) :: node
+        call this%check_location(node, "requirement_block")
+    end subroutine validate_visit_requirement_block
+
+    subroutine validate_visit_implements_block(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(implements_block_node), intent(in) :: node
+        call this%check_location(node, "implements_block")
+    end subroutine validate_visit_implements_block
 
     subroutine validate_visit_declaration(this, node)
         class(location_validation_visitor_t), intent(inout) :: this
