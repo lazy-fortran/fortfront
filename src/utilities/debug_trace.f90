@@ -104,7 +104,8 @@ contains
             if (depth > MAX_DEPTH) then
                 write (error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', &
                     depth, trim(name)
-                error stop 1
+                flush (error_unit)
+                stop 1
             end if
             write (error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)
             if (file_u > 0) then
@@ -123,7 +124,8 @@ contains
         if (profile_depth > MAX_DEPTH) then
             write (error_unit, '(A,I0,1X,A)') 'PROFILE: Max depth exceeded: ', &
                 profile_depth, trim(name)
-            error stop 1
+            flush (error_unit)
+            stop 1
         end if
 
         section_index = ensure_profile_section(trim(name))
@@ -166,17 +168,20 @@ contains
         section_index = profile_stack(profile_depth)%section_index
         if (.not. allocated(profile_sections)) then
             write (error_unit, '(A)') 'PROFILE: Internal error: missing sections'
-            error stop 1
+            flush (error_unit)
+            stop 1
         end if
         if (section_index < 1 .or. section_index > size(profile_sections)) then
             write (error_unit, '(A,1X,I0)') 'PROFILE: Invalid section index:', &
                 section_index
-            error stop 1
+            flush (error_unit)
+            stop 1
         end if
         if (.not. allocated(profile_sections(section_index)%name)) then
             write (error_unit, '(A,1X,I0)') 'PROFILE: Missing section name:', &
                 section_index
-            error stop 1
+            flush (error_unit)
+            stop 1
         end if
 
         names_match = trim(profile_sections(section_index)%name) == trim(name)
@@ -185,7 +190,8 @@ contains
             write (error_unit, '(A,1X,A)') 'expected:', &
                 trim(profile_sections(section_index)%name)
             write (error_unit, '(A,1X,A)') 'got:', trim(name)
-            error stop 1
+            flush (error_unit)
+            stop 1
         end if
 
         elapsed_counts = end_count - profile_stack(profile_depth)%start_count
