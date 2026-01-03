@@ -38,9 +38,11 @@ contains
         arena = create_ast_arena()
         call lex_source(source, tokens, lex_error)
 
-        if (allocated(lex_error) .and. len_trim(lex_error) > 0) then
-            write (output_unit, '(A)') "FAIL: Lexing error: " // trim(lex_error)
-            error stop 1
+        if (allocated(lex_error)) then
+            if (len_trim(lex_error) > 0) then
+                write (output_unit, '(A)') "FAIL: Lexing error: " // trim(lex_error)
+                error stop 1
+            end if
         end if
 
         call parse_tokens(tokens, arena, root_index, parse_error)
