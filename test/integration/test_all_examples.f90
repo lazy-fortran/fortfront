@@ -399,6 +399,7 @@ contains
         character(len=:), allocatable :: input_arg, exe_arg, output_arg, error_arg
         character(len=:), allocatable :: raw_command, timed_command
         integer :: exit_code
+        logical :: stderr_has_error, stderr_has_warning
 
         input_arg = quote_for_shell(filepath, is_windows, &
                                     escape_for_cmd=.true.)
@@ -428,9 +429,53 @@ contains
         has_unparsed = .false.
         has_warning = .false.
 
+        call scan_stderr_for_status(error_file, stderr_has_error, &
+                                    stderr_has_warning)
+        if (stderr_has_error) has_error = .true.
+        if (stderr_has_warning) has_warning = .true.
+
         call scan_error_file(error_file, has_error, has_warning)
         call scan_output_file(output_file, has_error, has_unparsed)
     end subroutine run_transform_and_scan
+
+    subroutine scan_stderr_for_status(filepath, has_error, has_warning)
+        character(len=*), intent(in) :: filepath
+        logical, intent(out) :: has_error, has_warning
+        character(len=512) :: line
+        integer :: unit_num, ios, lines_read
+        logical :: exists
+
+        has_error = .false.
+        has_warning = .false.
+
+        inquire (file=trim(filepath), exist=exists)
+        if (.not. exists) return
+
+        open (newunit=unit_num, file=trim(filepath), status='old', &
+              action='read', iostat=ios)
+        if (ios /= 0) return
+
+        lines_read = 0
+        do
+            read (unit_num, '(A)', iostat=ios) line
+            if (ios /= 0) exit
+            if (index(line, 'WARNING') > 0) has_warning = .true.
+            if (index(line, 'ERROR') > 0 .or. &
+                index(line, 'FATAL') > 0 .or. &
+                index(line, 'semantic error(s)') > 0 .or. &
+                index(line, '[SYNTAX_ERROR]') > 0 .or. &
+                index(line, '[VALIDATION') > 0 .or. &
+                index(line, '[PARSER_') > 0 .or. &
+                index(line, '[UNRECOGNIZED_INPUT]') > 0 .or. &
+                index(line, '[INVALID_INPUT]') > 0) then
+                has_error = .true.
+            end if
+            lines_read = lines_read + 1
+            if (lines_read >= 50) exit
+        end do
+
+        close (unit_num)
+    end subroutine scan_stderr_for_status
 
     subroutine scan_error_file(error_file, has_error, has_warning)
         character(len=*), intent(in) :: error_file
