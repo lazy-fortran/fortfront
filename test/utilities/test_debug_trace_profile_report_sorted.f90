@@ -4,35 +4,24 @@ program test_debug_trace_profile_report_sorted
                            trace_set_profile_enabled, trace_finalize
     implicit none
 
-    character(len=512) :: executable_path
-    character(len=32) :: mode
     character(len=256) :: report_path
-    character(len=1024) :: command
-    integer :: exit_code
+    integer :: report_unit, ios
 
-    executable_path = ''
-    mode = ''
     report_path = ''
-    call get_command_argument(0, executable_path)
-    call get_command_argument(1, mode)
-
-    if (trim(mode) == 'child') then
-        call run_child()
-        stop 0
-    end if
-
-    if (len_trim(executable_path) == 0) then
-        write (error_unit, '(A)') 'FAIL: Could not determine executable path'
-        stop 1
-    end if
 
     call make_tmpfile(report_path)
-    call run_child_process(executable_path, report_path, exit_code)
-    if (exit_code /= 0) then
-        write (error_unit, '(A,I0)') 'FAIL: Child process exit code = ', exit_code
+
+    open (newunit=report_unit, file=trim(report_path), status='replace', &
+          action='write', iostat=ios)
+    if (ios /= 0) then
+        write (error_unit, '(A,1X,A)') 'FAIL: Could not open report file:', &
+            trim(report_path)
         call delete_file(report_path)
         stop 1
     end if
+
+    call run_profile(report_unit)
+    close (report_unit)
 
     call assert_profile_report_sorted(report_path)
     call delete_file(report_path)
@@ -41,7 +30,8 @@ program test_debug_trace_profile_report_sorted
 
 contains
 
-    subroutine run_child()
+    subroutine run_profile(unit_out)
+        integer, intent(in) :: unit_out
         integer :: rate_default
         integer(int64) :: target_fast, target_slow
 
@@ -66,8 +56,8 @@ contains
         call burn_counts(target_slow)
         call trace_leave('profile:slow')
 
-        call trace_finalize()
-    end subroutine run_child
+        call trace_finalize(unit_out)
+    end subroutine run_profile
 
     subroutine burn_counts(target_counts)
         integer(int64), intent(in) :: target_counts
@@ -88,23 +78,6 @@ contains
             if (elapsed < 0_int64) elapsed = 0_int64
         end do
     end subroutine burn_counts
-
-    subroutine run_child_process(exe_path, out_path, exit_code)
-        character(len=*), intent(in) :: exe_path
-        character(len=*), intent(in) :: out_path
-        integer, intent(out) :: exit_code
-        character(len=1024) :: redirect
-
-        redirect = ''
-        if (is_windows()) then
-            redirect = ' > NUL 2> "' // trim(out_path) // '"'
-        else
-            redirect = ' > /dev/null 2> "' // trim(out_path) // '"'
-        end if
-
-        command = '"' // trim(exe_path) // '" child' // trim(redirect)
-        call execute_command_line(trim(command), exitstat=exit_code)
-    end subroutine run_child_process
 
     subroutine assert_profile_report_sorted(path)
         character(len=*), intent(in) :: path

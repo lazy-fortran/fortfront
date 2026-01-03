@@ -259,21 +259,26 @@ contains
         end do
     end subroutine trace_profile_get_stat
 
-    subroutine trace_finalize()
+    subroutine trace_finalize(output_unit)
+        integer, intent(in), optional :: output_unit
         integer :: i
         integer :: n_active
         integer, allocatable :: section_order(:)
         real(dp) :: total_ms, self_ms
+        integer :: unit_out
 
         if (.not. initialized) return
         if (.not. profile_enabled) return
 
-        write (error_unit, '(A)') '=== Fortfront Profile ==='
+        unit_out = error_unit
+        if (present(output_unit)) unit_out = output_unit
+
+        write (unit_out, '(A)') '=== Fortfront Profile ==='
         if (profile_clock_rate > 0_int64) then
             total_ms = counts_to_ms(profile_root_total_counts)
-            write (error_unit, '(A,F10.3)') 'total_ms: ', total_ms
+            write (unit_out, '(A,F10.3)') 'total_ms: ', total_ms
         else
-            write (error_unit, '(A)') 'total_ms: unavailable'
+            write (unit_out, '(A)') 'total_ms: unavailable'
         end if
 
         if (allocated(profile_sections)) then
@@ -295,7 +300,7 @@ contains
                            profile_sections(section_order(i))%total_counts)
                 self_ms = counts_to_ms( &
                           profile_sections(section_order(i))%self_counts)
-                write (error_unit, '(A,1X,I0,1X,A,F10.3,1X,A,F10.3)') &
+                write (unit_out, '(A,1X,I0,1X,A,F10.3,1X,A,F10.3)') &
                     trim(profile_sections(section_order(i))%name), &
                     profile_sections(section_order(i))%call_count, &
                     'self_ms:', self_ms, &
@@ -303,7 +308,7 @@ contains
             end do
             deallocate (section_order)
         end if
-        flush (error_unit)
+        flush (unit_out)
 
         call trace_profile_reset()
         profile_enabled = .false.
