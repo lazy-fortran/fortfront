@@ -64,20 +64,17 @@ contains
     end function int_to_str
 
     ! Check if token sequence starts a type definition
-    function is_type_start(tokens, pos) result(is_start)
+    pure logical function is_type_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
-        logical :: is_start
         integer :: next_idx, prev_idx
         character(len=:), allocatable :: lowered
 
         is_start = .false.
         if (pos < 1 .or. pos > size(tokens)) return
-
         if (tokens(pos)%kind /= TK_KEYWORD) return
         lowered = to_lower(trim(tokens(pos)%text))
         if (lowered /= "type") return
-
         prev_idx = pos - 1
         do while (prev_idx >= 1)
             select case (tokens(prev_idx)%kind)
