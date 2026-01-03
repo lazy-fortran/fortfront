@@ -18,6 +18,7 @@ contains
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: inst_text
         type(token_t) :: token
+        type(token_t) :: start_token
         integer :: nesting
 
         if (allocated(inst_text)) deallocate (inst_text)
@@ -26,6 +27,7 @@ contains
             return
         end if
 
+        start_token = token
         nesting = 0
         do while (.not. parser%is_at_end())
             token = parser%consume()
@@ -41,6 +43,14 @@ contains
             end if
             if (nesting == 0) exit
         end do
+
+        if (nesting /= 0) then
+            if (allocated(inst_text)) deallocate (inst_text)
+            call parser%errors%add_error_with_token( &
+                "Unbalanced inline instantiation braces: expected } "// &
+                "before end of file", &
+                start_token, suggestion="Add a matching } to close the instantiation")
+        end if
     end subroutine consume_inline_instantiation
 
     subroutine parse_call_arguments(parser, arena, arg_indices)

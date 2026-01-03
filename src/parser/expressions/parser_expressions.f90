@@ -915,6 +915,7 @@ contains
         type(token_view_t), intent(in) :: view
         character(len=:), allocatable, intent(out) :: inst_text
         type(token_t) :: token
+        type(token_t) :: start_token
         integer :: nesting
 
         if (allocated(inst_text)) deallocate (inst_text)
@@ -923,6 +924,7 @@ contains
             return
         end if
 
+        start_token = token
         nesting = 0
         do while (.not. parser%is_at_end())
             token = view_consume_token(view, parser)
@@ -939,6 +941,14 @@ contains
 
             if (nesting == 0) exit
         end do
+
+        if (nesting /= 0) then
+            if (allocated(inst_text)) deallocate (inst_text)
+            call parser%errors%add_error_with_token( &
+                "Unbalanced inline instantiation braces: expected } "// &
+                "before end of file", &
+                start_token, suggestion="Add a matching } to close the instantiation")
+        end if
     end subroutine consume_inline_instantiation_tokens
 
     subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
