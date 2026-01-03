@@ -33,9 +33,9 @@ module ast_base
 
         ! Constant folding information
         logical :: is_constant = .false.  ! True if this node is a compile-time constant
-        logical :: constant_logical  ! For logical constants
-        integer :: constant_integer  ! For integer constants
-        real(dp) :: constant_real  ! For real constants
+        logical :: constant_logical = .false.  ! For logical constants
+        integer :: constant_integer = 0  ! For integer constants
+        real(dp) :: constant_real = 0.0_dp  ! For real constants
         integer :: constant_type = 0  ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
