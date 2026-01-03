@@ -88,8 +88,7 @@ contains
         integer :: top
         integer :: capacity
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         capacity = 128
         allocate (stack(capacity))
@@ -101,8 +100,7 @@ contains
             item = stack(top)
             top = top - 1
 
-            if (item%node_index <= 0 .or. item%node_index > arena%size) cycle
-            if (.not. allocated(arena%entries(item%node_index)%node)) cycle
+            if (.not. arena%has_node_at(item%node_index)) cycle
 
             node_type = arena%entries(item%node_index)%node_type
             call process_node(builder, arena, item%node_index, item%scope_symbol, &

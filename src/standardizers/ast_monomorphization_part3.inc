@@ -556,8 +556,7 @@
         integer :: resolved_kind
         type(call_or_subscript_node), pointer :: call_node
 
-        if (call_index <= 0 .or. call_index > arena%size) return
-        if (.not. allocated(arena%entries(call_index)%node)) return
+        if (.not. arena%has_node_at(call_index)) return
         call_node => null()
         select type (node => arena%entries(call_index)%node)
         type is (call_or_subscript_node)

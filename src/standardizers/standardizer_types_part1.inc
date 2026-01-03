@@ -40,8 +40,7 @@ contains
 
         expr_type => null()
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (literal_node)
@@ -242,8 +241,7 @@ contains
 
         is_array = .false.
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
@@ -292,8 +290,7 @@ contains
 
         total_size = -1  ! Return -1 if we can't determine the size
 
-        if (do_node_index <= 0 .or. do_node_index > arena%size) return
-        if (.not. allocated(arena%entries(do_node_index)%node)) return
+        if (.not. arena%has_node_at(do_node_index)) return
 
         select type (do_node => arena%entries(do_node_index)%node)
         type is (do_loop_node)
@@ -455,8 +452,7 @@ contains
             current = pop()
             idx = current%idx
 
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
 
             if (.not. current%processed) then
                 call push(idx, .true.)
@@ -603,8 +599,7 @@ contains
         integer :: i
 
         val = INVALID_INTEGER
-        if (expr_idx <= 0 .or. expr_idx > arena%size) return
-        if (.not. allocated(arena%entries(expr_idx)%node)) return
+        if (.not. arena%has_node_at(expr_idx)) return
 
         select type (node => arena%entries(expr_idx)%node)
         type is (identifier_node)
@@ -644,8 +639,7 @@ contains
 
         var_type = ""
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
@@ -855,8 +849,7 @@ contains
 
         do i = 1, size(node%element_indices)
             elem_idx = node%element_indices(i)
-            if (elem_idx <= 0 .or. elem_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(elem_idx)%node)) cycle
+            if (.not. arena%has_node_at(elem_idx)) cycle
 
             select type (arr_node => arena%entries(elem_idx)%node)
             type is (array_literal_node)

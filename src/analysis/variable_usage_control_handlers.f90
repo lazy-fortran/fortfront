@@ -32,11 +32,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
 
-        is_valid = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        is_valid = .true.
+        is_valid = arena%has_node_at(node_index)
     end function validate_node_index
 
     subroutine ensure_stack_capacity(ctx)

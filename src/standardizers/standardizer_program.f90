@@ -166,7 +166,7 @@ contains
         ! For now, keep it simple - presence of multiple procedures suggests module
         should_be_module = (has_functions .or. has_subroutines) .and. &
                            (count([has_functions, has_subroutines]) > 1 .or. &
-                           has_use_statements)
+                            has_use_statements)
 
     end subroutine analyze_program_content
 
@@ -275,8 +275,7 @@ contains
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
                 pos = i

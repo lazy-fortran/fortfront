@@ -401,8 +401,7 @@
 
         do i = 1, size(node%body_indices)
             decl_index = node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
             select type (decl => arena%entries(decl_index)%node)
             type is (declaration_node)
                 if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
@@ -438,8 +437,7 @@
 
         do i = 1, size(func%param_indices)
             param_idx = func%param_indices(i)
-            if (param_idx <= 0 .or. param_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(param_idx)%node)) cycle
+            if (.not. arena%has_node_at(param_idx)) cycle
 
             has_declaration = parameter_has_declaration(arena, func, param_map, i)
 
@@ -634,7 +632,7 @@
         integer :: parent_index
 
         in_iface = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. arena%has_node_at(node_index)) return
 
         parent_index = arena%entries(node_index)%parent_index
         do while (parent_index > 0 .and. parent_index <= arena%size)
@@ -662,8 +660,7 @@
 
         do i = 1, size(node%body_indices)
             idx = node%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (body_node => arena%entries(idx)%node)
             type is (declaration_node)
                 cycle
@@ -733,8 +730,7 @@
         is_array = stmt%inferred_type%kind == TARRAY
         if (is_array) return
         value_idx = stmt%value_index
-        if (value_idx <= 0 .or. value_idx > arena%size) return
-        if (.not. allocated(arena%entries(value_idx)%node)) return
+        if (.not. arena%has_node_at(value_idx)) return
 
         select type (value => arena%entries(value_idx)%node)
         type is (array_literal_node)
@@ -856,8 +852,7 @@
 
         do i = 1, size(func%body_indices)
             stmt_idx = func%body_indices(i)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
             type is (declaration_node)
@@ -910,8 +905,7 @@
 
         do i = 1, size(func%body_indices)
             stmt_idx = func%body_indices(i)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
             type is (assignment_node)
@@ -986,8 +980,7 @@
         is_array_value = .false.
         decl_type%kind = 0
 
-        if (stmt%target_index <= 0 .or. stmt%target_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt%target_index)%node)) return
+        if (.not. arena%has_node_at(stmt%target_index)) return
 
         select type (target => arena%entries(stmt%target_index)%node)
         type is (identifier_node)
@@ -1171,8 +1164,7 @@
 
         do j = 1, size(stmt%expression_indices)
             expr_idx = stmt%expression_indices(j)
-            if (expr_idx <= 0 .or. expr_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(expr_idx)%node)) cycle
+            if (.not. arena%has_node_at(expr_idx)) cycle
 
             select type (expr => arena%entries(expr_idx)%node)
             type is (identifier_node)
@@ -1212,8 +1204,7 @@
 
         do j = 1, size(stmt%var_indices)
             var_idx = stmt%var_indices(j)
-            if (var_idx <= 0 .or. var_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(var_idx)%node)) cycle
+            if (.not. arena%has_node_at(var_idx)) cycle
 
             select type (var => arena%entries(var_idx)%node)
             type is (identifier_node)
@@ -1272,8 +1263,7 @@
         if (allocated(loop_node%body_indices)) then
             do body_idx = 1, size(loop_node%body_indices)
                 nested_idx = loop_node%body_indices(body_idx)
-                if (nested_idx <= 0 .or. nested_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(nested_idx)%node)) cycle
+                if (.not. arena%has_node_at(nested_idx)) cycle
 
                 select type (nested_stmt => arena%entries(nested_idx)%node)
                 type is (do_loop_node)
@@ -1302,8 +1292,7 @@
 
         do idx = 1, stmt_position - 1
             stmt_idx = func%body_indices(idx)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (decl => arena%entries(stmt_idx)%node)
             type is (declaration_node)
@@ -1338,8 +1327,7 @@
 
         do idx = 1, size(func%body_indices)
             stmt_idx = func%body_indices(idx)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (decl => arena%entries(stmt_idx)%node)
             type is (declaration_node)

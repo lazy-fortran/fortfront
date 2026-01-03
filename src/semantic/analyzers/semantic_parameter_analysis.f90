@@ -124,8 +124,7 @@ contains
         param_name = ''
         param_type%kind = 0
 
-        if (param_index <= 0 .or. param_index > arena%size) return
-        if (.not. allocated(arena%entries(param_index)%node)) return
+        if (.not. arena%has_node_at(param_index)) return
 
         select type (param_node => arena%entries(param_index)%node)
         type is (identifier_node)
@@ -226,8 +225,7 @@ contains
                 if (.not. allocated(call_node%arg_indices)) cycle
                 do i = 1, min(size(call_node%arg_indices), size(param_types))
                     arg_idx = call_node%arg_indices(i)
-                    if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+                    if (.not. arena%has_node_at(arg_idx)) cycle
                     select type (arg_node => arena%entries(arg_idx)%node)
                     type is (literal_node)
                         if (arg_node%literal_kind == LITERAL_STRING) then
@@ -317,13 +315,10 @@ contains
                 return
             end if
 
-            if (stmt_idx > 0 .and. stmt_idx <= arena%size) then
-                if (allocated(arena%entries(stmt_idx)%node)) then
-                    if (node_contains_call(arena, stmt_idx, call_index)) then
-                        is_in_body = .true.
-                        return
-                    end if
-                end if
+            if (.not. arena%has_node_at(stmt_idx)) cycle
+            if (node_contains_call(arena, stmt_idx, call_index)) then
+                is_in_body = .true.
+                return
             end if
         end do
     end function call_is_in_function_body
@@ -341,8 +336,7 @@ contains
             return
         end if
 
-        if (node_idx <= 0 .or. node_idx > arena%size) return
-        if (.not. allocated(arena%entries(node_idx)%node)) return
+        if (.not. arena%has_node_at(node_idx)) return
 
         select type (node => arena%entries(node_idx)%node)
         type is (assignment_node)
@@ -363,15 +357,17 @@ contains
                 contains_call = .true.
                 return
             end if
-            if (node%left_index > 0 .and. &
-                node_contains_call(arena, node%left_index, call_index)) then
-                contains_call = .true.
-                return
+            if (node%left_index > 0) then
+                if (node_contains_call(arena, node%left_index, call_index)) then
+                    contains_call = .true.
+                    return
+                end if
             end if
-            if (node%right_index > 0 .and. &
-                node_contains_call(arena, node%right_index, call_index)) then
-                contains_call = .true.
-                return
+            if (node%right_index > 0) then
+                if (node_contains_call(arena, node%right_index, call_index)) then
+                    contains_call = .true.
+                    return
+                end if
             end if
         type is (call_or_subscript_node)
             if (allocated(node%arg_indices)) then
@@ -432,8 +428,7 @@ contains
                             if (i > size(call_node%arg_indices)) cycle
 
                             arg_idx = call_node%arg_indices(i)
-                            if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-                            if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+                            if (.not. arena%has_node_at(arg_idx)) cycle
 
                             select type (arg_node => arena%entries(arg_idx)%node)
                             type is (literal_node)
@@ -596,8 +591,7 @@ contains
                 if (param_position > size(call_node%arg_indices)) cycle
 
                 arg_idx = call_node%arg_indices(param_position)
-                if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+                if (.not. arena%has_node_at(arg_idx)) cycle
                 call_scope_index = find_enclosing_scope_index(arena, idx)
                 if (call_scope_index <= 0) cycle
 
@@ -782,8 +776,7 @@ contains
             character(len=64), allocatable, intent(in) :: param_names(:)
             integer :: k
 
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) return
-            if (.not. allocated(arena%entries(stmt_idx)%node)) return
+            if (.not. arena%has_node_at(stmt_idx)) return
 
             select type (node => arena%entries(stmt_idx)%node)
             type is (call_or_subscript_node)
@@ -832,8 +825,7 @@ contains
                 if (size(call_node%arg_indices) < 1) return
 
                 arg_idx = call_node%arg_indices(1)
-                if (arg_idx <= 0 .or. arg_idx > arena%size) return
-                if (.not. allocated(arena%entries(arg_idx)%node)) return
+                if (.not. arena%has_node_at(arg_idx)) return
 
                 select type (arg_node => arena%entries(arg_idx)%node)
                 type is (identifier_node)
@@ -930,8 +922,7 @@ contains
             if (size(call_node%arg_indices) < 2) return
 
             dim_arg_idx = call_node%arg_indices(2)
-            if (dim_arg_idx <= 0 .or. dim_arg_idx > arena%size) return
-            if (.not. allocated(arena%entries(dim_arg_idx)%node)) return
+            if (.not. arena%has_node_at(dim_arg_idx)) return
 
             select type (dim_node => arena%entries(dim_arg_idx)%node)
             type is (literal_node)

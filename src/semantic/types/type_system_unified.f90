@@ -534,10 +534,12 @@ contains
 
         ! Get the arguments array
         call get_type_args(this%arena, arena_type%args, arg_handles)
-        if (allocated(arg_handles) .and. size(arg_handles) >= index) then
-            arg_type%handle = arg_handles(index)
-            arg_type%arena => this%arena
-            call arg_type%sync_from_arena()
+        if (allocated(arg_handles)) then
+            if (size(arg_handles) >= index) then
+                arg_type%handle = arg_handles(index)
+                arg_type%arena => this%arena
+                call arg_type%sync_from_arena()
+            end if
         end if
     end function mono_type_get_arg
 

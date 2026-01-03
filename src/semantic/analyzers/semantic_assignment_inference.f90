@@ -39,8 +39,7 @@ contains
         type(mono_type_t) :: assign_type
         character(len=:), allocatable :: type_str
 
-        if (assignment_index <= 0 .or. assignment_index > arena%size) return
-        if (.not. allocated(arena%entries(assignment_index)%node)) return
+        if (.not. arena%has_node_at(assignment_index)) return
 
         select type (assign_node => arena%entries(assignment_index)%node)
         type is (assignment_node)
@@ -446,8 +445,7 @@ contains
         integer, intent(in) :: assignment_index, expr_index
 
         dim_size = 0
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (arg_node => arena%entries(expr_index)%node)
         type is (identifier_node)
@@ -473,7 +471,7 @@ contains
         integer :: body_idx
 
         extent = 0
-        if (start_index <= 0 .or. start_index > arena%size) return
+        if (.not. arena%has_node_at(start_index)) return
 
         parent_idx = arena%entries(start_index)%parent_index
         do while (parent_idx > 0 .and. parent_idx <= arena%size)

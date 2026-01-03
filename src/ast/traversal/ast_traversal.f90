@@ -70,8 +70,7 @@ contains
         integer, allocatable :: children(:)
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         capacity = 128
         allocate (stack(capacity))
@@ -82,8 +81,7 @@ contains
             current_index = stack(top)
             top = top - 1
 
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
 
             select type (node => arena%entries(current_index)%node)
             class is (ast_node)
@@ -129,8 +127,7 @@ contains
         integer, allocatable :: children(:)
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         capacity_stack = 128
         capacity_output = 128
@@ -144,8 +141,7 @@ contains
             current_index = stack(top_stack)
             top_stack = top_stack - 1
 
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
 
             call push_output(current_index)
 
@@ -683,8 +679,7 @@ contains
         logical :: is_program
 
         is_program = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (program_node)
@@ -698,8 +693,7 @@ contains
         logical :: is_assignment
 
         is_assignment = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (assignment_node)
@@ -713,8 +707,7 @@ contains
         logical :: is_binary_op
 
         is_binary_op = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (binary_op_node)
@@ -728,8 +721,7 @@ contains
         logical :: is_function_def
 
         is_function_def = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (function_def_node)
@@ -743,8 +735,7 @@ contains
         logical :: is_subroutine_def
 
         is_subroutine_def = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (subroutine_def_node)
@@ -758,8 +749,7 @@ contains
         logical :: is_identifier
 
         is_identifier = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (identifier_node)
@@ -773,8 +763,7 @@ contains
         logical :: is_literal
 
         is_literal = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (literal_node)
@@ -788,8 +777,7 @@ contains
         logical :: is_declaration
 
         is_declaration = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (declaration_node)
@@ -803,8 +791,7 @@ contains
         logical :: is_if
 
         is_if = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (if_node)
@@ -818,8 +805,7 @@ contains
         logical :: is_do_loop
 
         is_do_loop = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (do_loop_node)
@@ -833,8 +819,7 @@ contains
         logical :: is_do_while
 
         is_do_while = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (do_while_node)
@@ -848,8 +833,7 @@ contains
         logical :: is_call_or_subscript
 
         is_call_or_subscript = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (call_or_subscript_node)
@@ -863,8 +847,7 @@ contains
         logical :: is_subroutine_call
 
         is_subroutine_call = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (subroutine_call_node)
@@ -878,8 +861,7 @@ contains
         logical :: is_print_statement
 
         is_print_statement = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (print_statement_node)
@@ -893,8 +875,7 @@ contains
         logical :: is_use_statement
 
         is_use_statement = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (use_statement_node)
@@ -908,8 +889,7 @@ contains
         logical :: is_select_case
 
         is_select_case = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (select_case_node)
@@ -923,8 +903,7 @@ contains
         logical :: is_derived_type
 
         is_derived_type = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (derived_type_node)
@@ -938,8 +917,7 @@ contains
         logical :: is_module
 
         is_module = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (module_node)
@@ -953,8 +931,7 @@ contains
         logical :: is_interface_block
 
         is_interface_block = .false.
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         select type (n => arena%entries(index)%node)
         type is (interface_block_node)

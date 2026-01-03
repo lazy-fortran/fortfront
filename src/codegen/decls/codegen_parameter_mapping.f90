@@ -61,8 +61,7 @@ contains
             param_map(i)%is_mutated = .false.
 
             idx = param_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
 
             select type (param_node => arena%entries(idx)%node)
             type is (identifier_node)
@@ -93,8 +92,7 @@ contains
 
         do j = 1, size(body_indices)
             idx = body_indices(j)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
 
             select type (body_node => arena%entries(idx)%node)
             type is (parameter_declaration_node)
@@ -154,8 +152,7 @@ contains
         type(parameter_info_t), intent(inout) :: param_map(:)
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
@@ -177,11 +174,13 @@ contains
             end if
             if (allocated(node%elseif_blocks)) then
                 do i = 1, size(node%elseif_blocks)
-                    call traverse_mutation_nodes(arena, &
-                         node%elseif_blocks(i)%condition_index, param_map)
+                    call traverse_mutation_nodes( &
+                        arena, node%elseif_blocks(i)%condition_index, &
+                        param_map)
                     if (allocated(node%elseif_blocks(i)%body_indices)) then
                         call traverse_index_array(arena, &
-                             node%elseif_blocks(i)%body_indices, param_map)
+                                                  node%elseif_blocks(i)%body_indices, &
+                                                  param_map)
                     end if
                 end do
             end if
@@ -236,8 +235,7 @@ contains
         integer, intent(in) :: target_index
         type(parameter_info_t), intent(inout) :: param_map(:)
 
-        if (target_index <= 0 .or. target_index > arena%size) return
-        if (.not. allocated(arena%entries(target_index)%node)) return
+        if (.not. arena%has_node_at(target_index)) return
 
         select type (target => arena%entries(target_index)%node)
         type is (identifier_node)

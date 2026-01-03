@@ -26,8 +26,7 @@
 
      call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
-        if (elem_index <= 0 .or. elem_index > arena%size) return
-        if (.not. allocated(arena%entries(elem_index)%node)) return
+        if (.not. arena%has_node_at(elem_index)) return
 
         select type (elem => arena%entries(elem_index)%node)
         type is (literal_node)

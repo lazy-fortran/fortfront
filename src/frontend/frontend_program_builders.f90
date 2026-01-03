@@ -8,7 +8,7 @@ module frontend_program_builders
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, &
                               end_statement_node, comment_node, directive_node, &
-                                  blank_line_node
+                              blank_line_node
     use ast_factory, only: push_implicit_statement
     use standardizer_program, only: insert_contains_statement
     use procedure_classification, only: procedure_has_entry_statement
@@ -53,8 +53,7 @@ contains
             if (allocated(mixed_root%explicit_program_indices)) then
                 do i = 1, size(mixed_root%explicit_program_indices)
                     child_index = mixed_root%explicit_program_indices(i)
-                    if (child_index <= 0 .or. child_index > arena%size) cycle
-                    if (.not. allocated(arena%entries(child_index)%node)) cycle
+                    if (.not. arena%has_node_at(child_index)) cycle
                     select type (child => arena%entries(child_index)%node)
                     type is (function_def_node)
                         proc_indices = [proc_indices, child_index]
@@ -73,7 +72,7 @@ contains
 
                 implicit_none_index = push_implicit_statement(arena, .true., &
                                                               line=1, column=1, &
-                                                                  parent_index=0)
+                                                              parent_index=0)
 
                 body_size = 1 + size(main_stmts) + 1 + size(proc_indices)
                 allocate (new_body(body_size))
@@ -137,8 +136,7 @@ contains
 
             do i = 1, size(prog_root%body_indices)
                 child_index = prog_root%body_indices(i)
-                if (child_index <= 0 .or. child_index > arena%size) cycle
-                if (.not. allocated(arena%entries(child_index)%node)) cycle
+                if (.not. arena%has_node_at(child_index)) cycle
 
                 select type (child => arena%entries(child_index)%node)
                 type is (program_node)
@@ -270,8 +268,7 @@ contains
             has_contains = .false.
             do i = 1, size(main_prog%body_indices)
                 idx = main_prog%body_indices(i)
-                if (idx <= 0 .or. idx > arena%size) cycle
-                if (.not. allocated(arena%entries(idx)%node)) cycle
+                if (.not. arena%has_node_at(idx)) cycle
                 select type (body_node => arena%entries(idx)%node)
                 type is (contains_node)
                     has_contains = .true.
@@ -287,8 +284,7 @@ contains
                 allocate (filtered_body(0))
                 do i = 1, size(main_prog%body_indices)
                     idx = main_prog%body_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    if (.not. arena%has_node_at(idx)) cycle
                     select type (body_node => arena%entries(idx)%node)
                     type is (function_def_node)
                         cycle
@@ -309,8 +305,7 @@ contains
             contains_pos = 0
             do i = 1, body_size
                 idx = filtered_body(i)
-                if (idx <= 0 .or. idx > arena%size) cycle
-                if (.not. allocated(arena%entries(idx)%node)) cycle
+                if (.not. arena%has_node_at(idx)) cycle
                 select type (body_node => arena%entries(idx)%node)
                 type is (contains_node)
                     contains_pos = i
@@ -364,16 +359,14 @@ contains
         integer, allocatable, intent(inout) :: proc_indices(:)
         integer :: j, stmt_idx
 
-        if (program_idx <= 0 .or. program_idx > arena%size) return
-        if (.not. allocated(arena%entries(program_idx)%node)) return
+        if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
-                if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
                 type is (function_def_node)
                     proc_indices = [proc_indices, stmt_idx]
@@ -390,16 +383,14 @@ contains
         integer, allocatable, intent(inout) :: main_stmts(:)
         integer :: j, stmt_idx
 
-        if (program_idx <= 0 .or. program_idx > arena%size) return
-        if (.not. allocated(arena%entries(program_idx)%node)) return
+        if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
-                if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
                 type is (function_def_node)
                     cycle
@@ -427,16 +418,14 @@ contains
         integer :: j, stmt_idx
 
         has_exec = .false.
-        if (program_idx <= 0 .or. program_idx > arena%size) return
-        if (.not. allocated(arena%entries(program_idx)%node)) return
+        if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
-                if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
                 type is (function_def_node)
                     cycle
@@ -471,16 +460,14 @@ contains
         integer :: j, stmt_idx
 
         has_procs = .false.
-        if (program_idx <= 0 .or. program_idx > arena%size) return
-        if (.not. allocated(arena%entries(program_idx)%node)) return
+        if (.not. arena%has_node_at(program_idx)) return
 
         select type (prog => arena%entries(program_idx)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 stmt_idx = prog%body_indices(j)
-                if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+                if (.not. arena%has_node_at(stmt_idx)) cycle
                 select type (stmt => arena%entries(stmt_idx)%node)
                 type is (function_def_node)
                     has_procs = .true.
@@ -498,8 +485,7 @@ contains
         integer, intent(in) :: node_idx
 
         is_host = .false.
-        if (node_idx <= 0 .or. node_idx > arena%size) return
-        if (.not. allocated(arena%entries(node_idx)%node)) return
+        if (.not. arena%has_node_at(node_idx)) return
 
         select type (stmt => arena%entries(node_idx)%node)
         type is (assignment_node)

@@ -54,12 +54,12 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
 
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
         select type (decl => arena%entries(idx)%node)
         type is (declaration_node)
             if (allocated(decl%var_name)) then
-                print *, '  decl', idx, trim(decl%var_name), 'type=', trim(decl%type_name)
+                print *, '  decl', idx, trim(decl%var_name), 'type=', &
+                    trim(decl%type_name)
             end if
             if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
                 print *, '    vars:', decl%var_names

@@ -218,8 +218,7 @@
         class(program_node), pointer :: target_prog => null()
 
         if (.not. allocated(root_prog%body_indices)) return
-        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        if (.not. arena%has_node_at(target_prog_idx)) return
         select type (target => arena%entries(target_prog_idx)%node)
         type is (program_node)
             target_prog => target
@@ -264,8 +263,7 @@
         integer, intent(in) :: source_prog_idx
         integer :: i, child_idx
 
-        if (source_prog_idx <= 0 .or. source_prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(source_prog_idx)%node)) return
+        if (.not. arena%has_node_at(source_prog_idx)) return
         if (.not. allocated(arena%entries(target_prog_idx)%node)) return
 
         select type (target => arena%entries(target_prog_idx)%node)
@@ -296,16 +294,14 @@
         integer :: i, child_idx
 
         allocate (proc_indices(0))
-        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        if (.not. arena%has_node_at(target_prog_idx)) return
 
         select type (target => arena%entries(target_prog_idx)%node)
         type is (program_node)
             if (.not. allocated(target%body_indices)) return
             do i = 1, size(target%body_indices)
                 child_idx = target%body_indices(i)
-                if (child_idx <= 0 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                if (.not. arena%has_node_at(child_idx)) cycle
                 select type (child => arena%entries(child_idx)%node)
                 type is (function_def_node)
                     proc_indices = [proc_indices, child_idx]
@@ -325,8 +321,7 @@
         integer :: i
 
         if (size(procedures) == 0) return
-        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        if (.not. arena%has_node_at(target_prog_idx)) return
 
         select type (target => arena%entries(target_prog_idx)%node)
         type is (program_node)
@@ -349,8 +344,7 @@
         class(program_node), pointer :: root_prog => null()
         integer :: first_main_idx
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         select type (root => arena%entries(root_index)%node)
         type is (program_node)
@@ -367,8 +361,7 @@
         if (target_prog_idx == 0) return
         if (size(all_procedures) == 0) return
 
-        if (target_prog_idx <= 0 .or. target_prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        if (.not. arena%has_node_at(target_prog_idx)) return
         select type (target_prog => arena%entries(target_prog_idx)%node)
         type is (program_node)
             ! Accept explicit program names as valid hoist targets
@@ -423,8 +416,7 @@
 
         match = .false.
         do k = 1, size(proc_indices)
-            if (proc_indices(k) <= 0 .or. proc_indices(k) > arena%size) cycle
-            if (.not. allocated(arena%entries(proc_indices(k))%node)) cycle
+            if (.not. arena%has_node_at(proc_indices(k))) cycle
             select type (proc_node => arena%entries(proc_indices(k))%node)
             type is (function_def_node)
                 if (trim(proc_node%name) == trim(name)) then

@@ -10,8 +10,8 @@ program test_module_use_statements
 
     character(len=*), parameter :: source = &
                                    "module module_use_demo" // new_line('a') // &
-            "    use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit" // &
-                                   new_line('a') // &
+                                   "    use, intrinsic :: iso_fortran_env, only: " // &
+                                   "dp => real64, error_unit" // new_line('a') // &
                                    "    implicit none" // new_line('a') // &
                                    "contains" // new_line('a') // &
                                    "    subroutine touch()" // new_line('a') // &
@@ -81,8 +81,7 @@ contains
 
         do i = 1, size(decl_indices)
             idx = decl_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (use_node => arena%entries(idx)%node)
             type is (use_statement_node)
                 call assert_use_contents(use_node)

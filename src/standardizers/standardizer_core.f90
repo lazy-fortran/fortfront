@@ -70,17 +70,15 @@ contains
         integer, intent(in) :: root_index
         integer :: i, child_index
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         select type (node => arena%entries(root_index)%node)
         type is (program_node)
             if (node%name /= "__MULTI_UNIT__") return
             if (.not. allocated(node%body_indices)) return
 
-            ! CRITICAL: Copy indices before loop to prevent dangling pointer access
-      ! standardize_program calls split_multi_variable_declaration which modifies arena,
-       ! potentially invalidating the 'node' selector. Using a local copy prevents this.
+            ! CRITICAL: Copy indices before the loop to avoid a dangling selector if
+            ! standardize_program triggers arena reallocation.
             block
                 integer, allocatable :: local_indices(:)
                 allocate (local_indices(size(node%body_indices)))
@@ -88,8 +86,7 @@ contains
 
                 do i = 1, size(local_indices)
                     child_index = local_indices(i)
-                    if (child_index <= 0 .or. child_index > arena%size) cycle
-                    if (.not. allocated(arena%entries(child_index)%node)) cycle
+                    if (.not. arena%has_node_at(child_index)) cycle
 
                     select type (child => arena%entries(child_index)%node)
                     type is (subroutine_def_node)

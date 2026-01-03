@@ -223,6 +223,12 @@ contains
         ! Sync compat_size with actual node count (should be 0 after reset)
         this%ast_arena_compat_t%compat_size = &
             this%ast_arena_compat_t%ast_arena_core_t%get_node_count()
+        this%size = this%compat_size
+        if (allocated(this%entries)) then
+            this%capacity = size(this%entries)
+        else
+            this%capacity = 0
+        end if
 
         if (allocated(this%source_text)) deallocate (this%source_text)
         if (allocated(this%source_line_starts)) deallocate (this%source_line_starts)
@@ -237,10 +243,13 @@ contains
     pure logical function has_node_at(this, index) result(has)
         class(ast_arena_t), intent(in) :: this
         integer, intent(in) :: index
+        integer :: valid_size
+
         has = .false.
         if (index <= 0) return
         if (.not. allocated(this%entries)) return
-        if (index > size(this%entries)) return
+        valid_size = min(this%size, size(this%entries))
+        if (index > valid_size) return
         has = allocated(this%entries(index)%node)
     end function has_node_at
 
@@ -265,7 +274,7 @@ contains
         integer, intent(in) :: index
         kind = 0
         if (.not. this%has_node_at(index)) return
-        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+        if (this%entries(index)%node%inferred_type%kind <= 0) return
         kind = this%entries(index)%node%inferred_type%kind
     end function get_inferred_kind_at
 
@@ -283,7 +292,7 @@ contains
         found = .false.
 
         if (.not. this%has_node_at(index)) return
-        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+        if (this%entries(index)%node%inferred_type%kind <= 0) return
 
         associate (t => this%entries(index)%node%inferred_type)
             kind = t%kind

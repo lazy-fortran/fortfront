@@ -75,7 +75,8 @@ contains
         end do
 
         if (size(identifiers) == 0) then
-            print '(a)', "FAIL: No identifiers found in print statement (reproduces issue #104)"
+            print '(a)', "FAIL: No identifiers found in print statement " // &
+                "(reproduces issue #104)"
             test_print_statement_identifiers = .false.
         else if (size(identifiers) == 1 .and. identifiers(1) == "used_var") then
             print '(a)', "PASS: Found expected identifier 'used_var'"
@@ -101,7 +102,9 @@ contains
 
         print '(a)', "Testing identifiers in assignments..."
 
-        call read_example('examples/f90/issue_104_assignment_identifiers.f90', test_code)
+        call &
+            read_example('examples/f90/issue_104_assignment_identifiers.f90', &
+                         test_code)
 
         ! Tokenize and parse
         call tokenize_core(test_code, tokens)
@@ -261,8 +264,7 @@ contains
 
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         ! Check if this is a print statement
         if (arena%entries(node_index)%node_type == "print_statement") then
@@ -283,7 +285,8 @@ contains
                 type is (program_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
-                            call find_print_nodes(arena, node%body_indices(i), found_nodes)
+                            call find_print_nodes(arena, node%body_indices(i), &
+                                                  found_nodes)
                         end do
                     end if
                 end select
@@ -295,7 +298,8 @@ contains
                 type is (if_node)
                     if (allocated(node%then_body_indices)) then
                         do i = 1, size(node%then_body_indices)
-                            call find_print_nodes(arena, node%then_body_indices(i), found_nodes)
+                            call find_print_nodes(arena, node%then_body_indices(i), &
+                                                  found_nodes)
                         end do
                     end if
                 end select
@@ -311,8 +315,7 @@ contains
 
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         ! Check if this is an assignment
         if (arena%entries(node_index)%node_type == "assignment") then
@@ -333,7 +336,8 @@ contains
                 type is (program_node)
                     if (allocated(node%body_indices)) then
                         do i = 1, size(node%body_indices)
-                            call find_assignment_nodes(arena, node%body_indices(i), found_nodes)
+                            call find_assignment_nodes(arena, node%body_indices(i), &
+                                                       found_nodes)
                         end do
                     end if
                 end select
@@ -349,8 +353,7 @@ contains
 
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         ! Check if this is an if statement
         if (arena%entries(node_index)%node_type == "if_statement") then
@@ -378,6 +381,5 @@ contains
             end block
         end select
     end subroutine find_if_nodes
-
 
 end program test_get_identifiers_issue

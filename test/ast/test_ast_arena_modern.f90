@@ -24,6 +24,7 @@ program test_ast_arena_modern
     call test_handle_validation()
     call test_arena_lifecycle()
     call test_destroy_deallocates_compat_entries()
+    call test_has_node_at_respects_clear()
 
     ! Safety and error handling
     call test_null_handles()
@@ -116,6 +117,31 @@ contains
 
         call destroy_ast_arena(arena)
     end subroutine test_ast_node_storage
+
+    subroutine test_has_node_at_respects_clear()
+        type(ast_arena_t) :: arena
+        type(program_node) :: node
+
+        call test_start("has_node_at respects clear/reset")
+
+        arena = create_ast_arena()
+        call arena%push(node)
+
+        if (.not. arena%has_node_at(1)) then
+            call test_fail("Expected has_node_at(1) after push")
+            call destroy_ast_arena(arena)
+            return
+        end if
+
+        call arena%clear()
+        if (arena%has_node_at(1)) then
+            call test_fail("Expected has_node_at(1) to be false after clear")
+        else
+            call test_pass()
+        end if
+
+        call destroy_ast_arena(arena)
+    end subroutine test_has_node_at_respects_clear
 
     subroutine test_handle_validation()
         type(ast_arena_t) :: arena

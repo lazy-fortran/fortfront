@@ -72,8 +72,7 @@ contains
 
         do while (top > 0)
             current_index = pop()
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
 
             call process_node_for_vars(arena, current_index, var_names, &
                                        var_types, var_declared, var_count, &
@@ -414,8 +413,7 @@ contains
         character(len=:), allocatable :: dimension_spec
         character(len=64) :: var_type
 
-        if (alloc_index <= 0 .or. alloc_index > arena%size) return
-        if (.not. allocated(arena%entries(alloc_index)%node)) return
+        if (.not. arena%has_node_at(alloc_index)) return
 
         select type (alloc_stmt => arena%entries(alloc_index)%node)
         type is (allocate_statement_node)
@@ -423,8 +421,7 @@ contains
 
             do i = 1, size(alloc_stmt%var_indices)
                 var_index = alloc_stmt%var_indices(i)
-                if (var_index <= 0 .or. var_index > arena%size) cycle
-                if (.not. allocated(arena%entries(var_index)%node)) cycle
+                if (.not. arena%has_node_at(var_index)) cycle
 
                 select type (node => arena%entries(var_index)%node)
                 type is (identifier_node)
@@ -534,8 +531,7 @@ contains
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
 
-        if (assign_index <= 0 .or. assign_index > arena%size) return
-        if (.not. allocated(arena%entries(assign_index)%node)) return
+        if (.not. arena%has_node_at(assign_index)) return
 
         select type (assign => arena%entries(assign_index)%node)
         type is (assignment_node)
@@ -689,7 +685,7 @@ contains
         if (index(to_lower(var_types(existing_idx)), 'allocatable') > 0) then
             ! Keep existing allocatable type
         else if (is_character_type_string(var_types(existing_idx)) &
-            .and. is_character_type_string(var_type)) then
+                 .and. is_character_type_string(var_type)) then
             var_types(existing_idx) = merge_character_type_lengths( &
                                       var_types(existing_idx), var_type)
         else
@@ -761,8 +757,7 @@ contains
         character(len=64) :: var_type
         integer :: existing_idx
 
-        if (ptr_assign_index <= 0 .or. ptr_assign_index > arena%size) return
-        if (.not. allocated(arena%entries(ptr_assign_index)%node)) return
+        if (.not. arena%has_node_at(ptr_assign_index)) return
 
         select type (ptr_assign => arena%entries(ptr_assign_index)%node)
         type is (pointer_assignment_node)
@@ -867,8 +862,7 @@ contains
         integer, intent(in) :: expr_index
 
         is_null_target = .false.
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (target_node => arena%entries(expr_index)%node)
         type is (call_or_subscript_node)

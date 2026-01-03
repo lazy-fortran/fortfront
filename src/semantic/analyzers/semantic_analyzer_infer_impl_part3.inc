@@ -84,8 +84,7 @@
         integer, intent(in) :: target_index
         character(len=:), allocatable, intent(out) :: name
 
-        if (target_index <= 0 .or. target_index > arena%size) return
-        if (.not. allocated(arena%entries(target_index)%node)) return
+        if (.not. arena%has_node_at(target_index)) return
 
         select type (lhs => arena%entries(target_index)%node)
         type is (identifier_node)
@@ -108,8 +107,7 @@
         integer :: elem_size
 
         arr_size = UNKNOWN_STATIC_SIZE
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
@@ -155,8 +153,7 @@
         integer, intent(in) :: expr_index
 
         elem_size = UNKNOWN_STATIC_SIZE
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (do_loop_node)
@@ -189,8 +186,7 @@
         integer(int64) :: max_implied_size
 
         implied_size = UNKNOWN_STATIC_SIZE
-        if (do_index <= 0 .or. do_index > arena%size) return
-        if (.not. allocated(arena%entries(do_index)%node)) return
+        if (.not. arena%has_node_at(do_index)) return
 
         select type (loop => arena%entries(do_index)%node)
         type is (do_loop_node)
@@ -273,8 +269,7 @@
 
         value = 0
         is_static = .false.
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         value = get_integer_literal_value(arena, expr_index)
         if (value == INVALID_INTEGER) return
@@ -293,16 +288,14 @@
         integer :: idx
 
         is_allocatable = .false.
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do i = 1, size(prog%body_indices)
                 idx = prog%body_indices(i)
-                if (idx <= 0 .or. idx > arena%size) cycle
-                if (.not. allocated(arena%entries(idx)%node)) cycle
+                if (.not. arena%has_node_at(idx)) cycle
                 select type (node => arena%entries(idx)%node)
                 type is (declaration_node)
                     if (.not. node%is_array) cycle
@@ -376,8 +369,7 @@
         integer :: idx
 
         pos = 0
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
@@ -400,8 +392,7 @@
         integer, intent(in) :: pos
 
         idx = 0
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
@@ -424,8 +415,7 @@
 
         arr_size = UNKNOWN_STATIC_SIZE
         lhs_index = assignment%target_index
-        if (lhs_index <= 0 .or. lhs_index > arena%size) return
-        if (.not. allocated(arena%entries(lhs_index)%node)) return
+        if (.not. arena%has_node_at(lhs_index)) return
 
         select type (lhs => arena%entries(lhs_index)%node)
         type is (identifier_node)
@@ -495,8 +485,7 @@
         integer, intent(in) :: expr_index
 
         is_null_target = .false.
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (target_node => arena%entries(expr_index)%node)
         type is (call_or_subscript_node)

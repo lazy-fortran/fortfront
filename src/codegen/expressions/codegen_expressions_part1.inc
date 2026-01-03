@@ -470,7 +470,7 @@
 
         do i = 1, num_rows
             row_index = node%element_indices(i)
-            if (row_index <= 0 .or. row_index > arena%size) return
+            if (.not. arena%has_node_at(row_index)) return
 
             select type (row => arena%entries(row_index)%node)
             type is (array_literal_node)
@@ -480,7 +480,7 @@
 
                 do j = 1, current_cols
                     elem_index = row%element_indices(j)
-                    if (elem_index <= 0 .or. elem_index > arena%size) return
+                    if (.not. arena%has_node_at(elem_index)) return
                     select type (inner => arena%entries(elem_index)%node)
                     type is (array_literal_node)
                         return
@@ -521,7 +521,7 @@
 
         do row_idx = 1, num_rows
             row_index = node%element_indices(row_idx)
-            if (row_index <= 0 .or. row_index > arena%size) cycle
+            if (.not. arena%has_node_at(row_index)) cycle
 
             select type (row => arena%entries(row_index)%node)
             type is (array_literal_node)
@@ -529,7 +529,7 @@
                 do col_idx = 1, num_cols
                     if (col_idx > size(row%element_indices)) cycle
                     elem_index = row%element_indices(col_idx)
-                    if (elem_index <= 0 .or. elem_index > arena%size) cycle
+                    if (.not. arena%has_node_at(elem_index)) cycle
 
                     elem_code = generate_code_from_arena(arena, elem_index)
                     elem_code = trim(adjustl(elem_code))

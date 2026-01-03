@@ -30,7 +30,7 @@ contains
         type(statement_function_node) :: stmt_fn
         logical :: success
 
-        if (.not. arena_index_has_node(arena, stmt_index)) return
+        if (.not. arena%has_node_at(stmt_index)) return
 
         select type (assign_node => arena%entries(stmt_index)%node)
         type is (assignment_node)
@@ -41,15 +41,6 @@ contains
             call replace_statement_with_stmt_fn(arena, stmt_index, stmt_fn)
         end select
     end subroutine convert_statement_function_if_needed
-
-    pure logical function arena_index_has_node(arena, idx) result(valid)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: idx
-
-        valid = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        valid = allocated(arena%entries(idx)%node)
-    end function arena_index_has_node
 
     logical function build_statement_function_from_assignment(arena, assign_node, &
                                                               declaration_indices, &
@@ -64,7 +55,7 @@ contains
 
         success = .false.
         if (assign_node%value_index <= 0) return
-        if (.not. arena_index_has_node(arena, assign_node%target_index)) return
+        if (.not. arena%has_node_at(assign_node%target_index)) return
 
         select type (call_node => arena%entries(assign_node%target_index)%node)
         type is (call_or_subscript_node)
@@ -114,7 +105,7 @@ contains
 
         do i = 1, size(arg_indices)
             arg_idx = arg_indices(i)
-            if (.not. arena_index_has_node(arena, arg_idx)) then
+            if (.not. arena%has_node_at(arg_idx)) then
                 deallocate (arg_names)
                 return
             end if
@@ -152,8 +143,7 @@ contains
         logical, intent(inout) :: in_spec_section
         integer, allocatable, intent(inout) :: declaration_indices(:)
 
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        if (.not. arena%has_node_at(stmt_index)) return
 
         select type (node => arena%entries(stmt_index)%node)
         type is (comment_node)
@@ -204,9 +194,7 @@ contains
         if (len_trim(target) == 0) return
 
         do i = 1, size(declaration_indices)
-            if (declaration_indices(i) <= 0 .or. &
-                declaration_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(declaration_indices(i))%node)) cycle
+            if (.not. arena%has_node_at(declaration_indices(i))) cycle
             select type (decl => arena%entries(declaration_indices(i))%node)
             type is (declaration_node)
                 if (.not. declaration_includes_name(decl, target)) cycle

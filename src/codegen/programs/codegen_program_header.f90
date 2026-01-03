@@ -168,8 +168,7 @@ contains
         integer, intent(inout) :: header_decl_count
         logical :: is_header_stmt
 
-        if (body_index <= 0 .or. body_index > arena%size) return
-        if (.not. allocated(arena%entries(body_index)%node)) return
+        if (.not. arena%has_node_at(body_index)) return
 
         is_header_stmt = classify_and_process_header_node(arena, body_index, &
                                                           has_implicit, &
@@ -319,12 +318,12 @@ contains
 
         is_header = process_comment_like_node(arena, body_index, &
                                               is_legacy_storage_text(comment_text), &
-                                                  non_use_count, &
+                                              non_use_count, &
                                               header_decl_count, use_statements_code, &
                                               intrinsic_statements_code, &
-                                                  implicit_statements_code, &
+                                              implicit_statements_code, &
                                               legacy_storage_code, &
-                                                  interface_blocks_code)
+                                              interface_blocks_code)
     end function process_comment_node
 
     logical function process_directive_node(arena, body_index, ib, non_use_count, &
@@ -353,12 +352,12 @@ contains
 
         is_header = process_comment_like_node(arena, body_index, &
                                               is_legacy_storage_text(directive_text), &
-                                                  non_use_count, &
+                                              non_use_count, &
                                               header_decl_count, use_statements_code, &
                                               intrinsic_statements_code, &
-                                                  implicit_statements_code, &
+                                              implicit_statements_code, &
                                               legacy_storage_code, &
-                                                  interface_blocks_code)
+                                              interface_blocks_code)
     end function process_directive_node
 
     logical function process_comment_like_node(arena, body_index, is_legacy_storage, &

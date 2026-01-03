@@ -136,8 +136,8 @@ contains
         integer :: current_idx, max_depth
 
         belongs = .false.
-        if (node_idx <= 0 .or. node_idx > arena%size) return
-        if (func_index <= 0 .or. func_index > arena%size) return
+        if (.not. arena%has_node_at(node_idx)) return
+        if (.not. arena%has_node_at(func_index)) return
 
         ! Direct match
         if (node_idx == func_index) then
@@ -150,8 +150,7 @@ contains
         max_depth = 100  ! Prevent infinite loops
         do while (max_depth > 0)
             max_depth = max_depth - 1
-            if (current_idx <= 0 .or. current_idx > arena%size) exit
-            if (.not. allocated(arena%entries(current_idx)%node)) exit
+            if (.not. arena%has_node_at(current_idx)) exit
 
             ! Check if we reached the target function
             if (current_idx == func_index) then
@@ -196,8 +195,7 @@ contains
         type(identifier_node) :: temp_identifier
         type(declaration_node) :: temp_decl
 
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (identifier_node)

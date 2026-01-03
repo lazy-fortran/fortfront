@@ -2,7 +2,8 @@ module variable_collection
     ! Unified variable collection utilities
     ! Consolidates DRY violations from multiple collection implementations
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, call_or_subscript_node
+    use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, &
+                              call_or_subscript_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_loops, only: do_loop_node
     use type_system_arena, only: mono_handle_t, null_mono_handle
@@ -155,7 +156,8 @@ contains
 
     ! Core recursive collection implementation
     recursive subroutine collect_variables_recursive(arena, node_index, collection, &
-                                                     filter_type, function_names, func_count)
+                                                     filter_type, function_names, &
+                                                     func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_collection_t), intent(inout) :: collection
@@ -164,8 +166,7 @@ contains
         integer, intent(in) :: func_count
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (identifier_node)

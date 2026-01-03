@@ -95,8 +95,7 @@ contains
 
         do i = 1, size(body_indices)
             stmt_index = body_indices(i)
-            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            if (.not. arena%has_node_at(stmt_index)) cycle
             select type (node => arena%entries(stmt_index)%node)
             type is (declaration_node)
                 if (node%is_multi_declaration .and. allocated(node%var_names)) then
@@ -205,10 +204,8 @@ contains
         character(len=:), allocatable :: actual_string
         character(len=:), allocatable :: dummy_string
 
-        if (arg_expr_index <= 0 .or. arg_expr_index > arena%size) return
-        if (dummy_index <= 0 .or. dummy_index > arena%size) return
-        if (.not. allocated(arena%entries(arg_expr_index)%node)) return
-        if (.not. allocated(arena%entries(dummy_index)%node)) return
+        if (.not. arena%has_node_at(arg_expr_index)) return
+        if (.not. arena%has_node_at(dummy_index)) return
 
         actual_type = strict_actual_argument_type(arena, arg_expr_index)
         dummy_type = strict_dummy_type(arena, dummy_index)
@@ -237,8 +234,7 @@ contains
 
         keyword = ""
         is_keyword = .false.
-        if (arg_index <= 0 .or. arg_index > arena%size) return
-        if (.not. allocated(arena%entries(arg_index)%node)) return
+        if (.not. arena%has_node_at(arg_index)) return
 
         select type (node => arena%entries(arg_index)%node)
         type is (assignment_node)
@@ -256,8 +252,7 @@ contains
         integer, intent(in) :: arg_index
 
         value_index = arg_index
-        if (arg_index <= 0 .or. arg_index > arena%size) return
-        if (.not. allocated(arena%entries(arg_index)%node)) return
+        if (.not. arena%has_node_at(arg_index)) return
 
         select type (node => arena%entries(arg_index)%node)
         type is (assignment_node)
@@ -273,8 +268,7 @@ contains
         integer, intent(in) :: target_index
 
         name = ""
-        if (target_index <= 0 .or. target_index > arena%size) return
-        if (.not. allocated(arena%entries(target_index)%node)) return
+        if (.not. arena%has_node_at(target_index)) return
 
         select type (node => arena%entries(target_index)%node)
         type is (identifier_node)
@@ -306,19 +300,25 @@ contains
 
         select type (node => arena%entries(param_index)%node)
         type is (identifier_node)
-            if (allocated(node%name) .and. len_trim(node%name) > 0) then
-                name = trim(node%name)
-                return
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    name = trim(node%name)
+                    return
+                end if
             end if
         type is (parameter_declaration_node)
-            if (allocated(node%name) .and. len_trim(node%name) > 0) then
-                name = trim(node%name)
-                return
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    name = trim(node%name)
+                    return
+                end if
             end if
         type is (declaration_node)
-            if (allocated(node%var_name) .and. len_trim(node%var_name) > 0) then
-                name = trim(node%var_name)
-                return
+            if (allocated(node%var_name)) then
+                if (len_trim(node%var_name) > 0) then
+                    name = trim(node%var_name)
+                    return
+                end if
             end if
         class default
             continue

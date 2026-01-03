@@ -357,8 +357,7 @@ contains
         integer, intent(in) :: idx
 
         is_spec = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (declaration_node)
@@ -397,8 +396,7 @@ contains
         integer, intent(in) :: idx
 
         is_implicit = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (implicit_statement_node)
@@ -413,8 +411,7 @@ contains
         integer, intent(in) :: idx
 
         is_use_like = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (use_statement_node)
@@ -433,8 +430,7 @@ contains
         integer, intent(in) :: idx
 
         is_data = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (data_statement_node)
@@ -449,8 +445,7 @@ contains
         integer, intent(in) :: idx
 
         is_contains = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (node => arena%entries(idx)%node)
         type is (contains_node)

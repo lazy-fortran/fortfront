@@ -58,8 +58,7 @@ contains
         logical :: ok
 
         is_int = .false.
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         cap = 16
         allocate (node_stack(cap))
@@ -131,8 +130,7 @@ contains
         logical function push_if_valid(index) result(success)
             integer, intent(in) :: index
             success = .false.
-            if (index <= 0 .or. index > arena%size) return
-            if (.not. allocated(arena%entries(index)%node)) return
+            if (.not. arena%has_node_at(index)) return
             call push(index)
             success = .true.
         end function push_if_valid

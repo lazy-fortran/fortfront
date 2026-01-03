@@ -340,8 +340,7 @@ contains
 
         ndims = 0
         has_literals = .false.
-        if (shape_idx <= 0 .or. shape_idx > arena%size) return
-        if (.not. allocated(arena%entries(shape_idx)%node)) return
+        if (.not. arena%has_node_at(shape_idx)) return
 
         select type (shape_node => arena%entries(shape_idx)%node)
         type is (array_literal_node)

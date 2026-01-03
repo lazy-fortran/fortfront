@@ -29,8 +29,7 @@ contains
 
         type_name = ""
         value_idx = stmt%value_index
-        if (value_idx <= 0 .or. value_idx > arena%size) return
-        if (.not. allocated(arena%entries(value_idx)%node)) return
+        if (.not. arena%has_node_at(value_idx)) return
 
         select type (rhs => arena%entries(value_idx)%node)
         type is (call_or_subscript_node)
@@ -115,8 +114,7 @@ contains
 
         do i = 1, size(call_node%arg_indices)
             arg_idx = call_node%arg_indices(i)
-            if (arg_idx <= 0 .or. arg_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(arg_idx)%node)) cycle
+            if (.not. arena%has_node_at(arg_idx)) cycle
 
             select type (arg_node => arena%entries(arg_idx)%node)
             class default
