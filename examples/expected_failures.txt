@@ -28,6 +28,7 @@ select_rank_simple.f90  # BUG: SELECT RANK requires assumed-rank arrays (..) (#2
 issue_2349_data_boz_literals.f90  # EXTENSION: mixed BOZ forms (#2349)
 issue_2349_data_boz_x_prefix.f90  # EXTENSION: X prefix instead of Z (#2349)
 issue_2349_data_boz_postfix.f90  # EXTENSION: postfix form '...'z (#2349)
+issue_2591_unsigned_declarations.f90  # EXTENSION: gfortran rejects unsigned integer attribute (#2591)
 
 # ============================================================================
 # LIMITATIONS - Expected Fortran behavior, not fortfront bugs
