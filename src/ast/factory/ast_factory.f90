@@ -68,6 +68,10 @@ module ast_factory
     ! Error nodes
     use ast_factory_errors, only: push_error_node
 
+    ! LFortran generics nodes
+    use ast_factory_generics, only: push_template_block, &
+                                    push_instantiate_statement
+
     implicit none
     private
 
@@ -128,7 +132,11 @@ module ast_factory
     ! Error nodes
     public :: push_error_node
 
-    ! Note: No module body needed - all functionality is provided by re-exported modules
-    ! This maintains full API compatibility while achieving architectural compliance
+    ! LFortran generics nodes
+    public :: push_template_block, push_instantiate_statement
+
+    ! Note: No module body needed - all functionality is provided by re-exported
+    ! modules. This maintains full API compatibility while achieving architectural
+    ! compliance.
 
 end module ast_factory

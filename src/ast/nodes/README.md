@@ -24,6 +24,7 @@ Node types cover the complete Fortran language: programs, modules, procedures, e
 | ast_nodes_misc.f90 | Miscellaneous nodes facade (includes two parts below) |
 | ast_nodes_misc_part1.inc | Miscellaneous nodes part 1: interface blocks, use statements, imports |
 | ast_nodes_misc_part2.inc | Miscellaneous nodes part 2: save attributes, equivalence, compiler directives |
+| ast_nodes_generics.f90 | LFortran generics extensions: template blocks and instantiate statements |
 
 ## Key Concepts
 

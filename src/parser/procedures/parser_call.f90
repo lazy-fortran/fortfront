@@ -14,6 +14,35 @@ module parser_call_module
 
 contains
 
+    subroutine consume_inline_instantiation(parser, inst_text)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: inst_text
+        type(token_t) :: token
+        integer :: nesting
+
+        if (allocated(inst_text)) deallocate (inst_text)
+        token = parser%peek()
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "{")) then
+            return
+        end if
+
+        nesting = 0
+        do while (.not. parser%is_at_end())
+            token = parser%consume()
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == "{") nesting = nesting + 1
+                if (token%text == "}") nesting = nesting - 1
+            end if
+
+            if (.not. allocated(inst_text)) then
+                inst_text = token%text
+            else
+                inst_text = inst_text // token%text
+            end if
+            if (nesting == 0) exit
+        end do
+    end subroutine consume_inline_instantiation
+
     subroutine parse_call_arguments(parser, arena, arg_indices)
         use ast_nodes_core, only: assignment_node
         type(parser_state_t), intent(inout) :: parser
@@ -65,6 +94,7 @@ contains
         integer :: stmt_index
         type(token_t) :: token
         character(len=:), allocatable :: subroutine_name
+        character(len=:), allocatable :: instantiation_text
         integer, allocatable :: arg_indices(:)
         integer :: line, column
 
@@ -77,13 +107,21 @@ contains
         token = parser%peek()
         if (token%kind /= TK_IDENTIFIER) then
             stmt_index = push_literal(arena, &
-                                     "! Error: expected subroutine name after 'call'", &
+                                      "! Error: expected subroutine name after "// &
+                                      "call", &
                                       LITERAL_STRING, line, column)
             return
         end if
 
         subroutine_name = token%text
         token = parser%consume()
+
+        do while (.not. parser%is_at_end())
+            call consume_inline_instantiation(parser, instantiation_text)
+            if (.not. allocated(instantiation_text)) exit
+            subroutine_name = subroutine_name // instantiation_text
+            deallocate (instantiation_text)
+        end do
 
         ! Handle component access: call foo%bar%baz(...) or call arr(1)%method()
         do while (.not. parser%is_at_end())
@@ -94,8 +132,20 @@ contains
                 if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
                     subroutine_name = subroutine_name // "%" // token%text
                     token = parser%consume()
+                    do while (.not. parser%is_at_end())
+                        call consume_inline_instantiation(parser, instantiation_text)
+                        if (.not. allocated(instantiation_text)) exit
+                        subroutine_name = subroutine_name // instantiation_text
+                        deallocate (instantiation_text)
+                    end do
                 else
                     exit
+                end if
+            else if (token%kind == TK_OPERATOR .and. token%text == "{") then
+                call consume_inline_instantiation(parser, instantiation_text)
+                if (allocated(instantiation_text)) then
+                    subroutine_name = subroutine_name // instantiation_text
+                    deallocate (instantiation_text)
                 end if
             else if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 ! This might be array indices (arr(i)%method) or final arguments

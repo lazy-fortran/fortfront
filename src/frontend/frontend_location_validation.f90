@@ -20,6 +20,7 @@ module frontend_location_validation
     use ast_nodes_misc, only: interface_block_node, use_statement_node, &
                               visibility_statement_node, &
                               include_statement_node
+    use ast_nodes_generics, only: template_block_node, instantiate_statement_node
     use ast_introspection, only: visit_node_at
     implicit none
     private
@@ -61,6 +62,9 @@ module frontend_location_validation
         procedure :: visit_include_statement => validate_visit_include_statement
         procedure :: visit_call_or_subscript &
             => validate_visit_call_or_subscript
+        procedure :: visit_template_block => validate_visit_template_block
+        procedure :: visit_instantiate_statement &
+            => validate_visit_instantiate_statement
         procedure, private :: check_location
         procedure, private :: is_synthesized_node
     end type location_validation_visitor_t
@@ -203,6 +207,18 @@ contains
         class(literal_node), intent(in) :: node
         call this%check_location(node, "literal")
     end subroutine validate_visit_literal
+
+    subroutine validate_visit_template_block(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(template_block_node), intent(in) :: node
+        call this%check_location(node, "template_block")
+    end subroutine validate_visit_template_block
+
+    subroutine validate_visit_instantiate_statement(this, node)
+        class(location_validation_visitor_t), intent(inout) :: this
+        class(instantiate_statement_node), intent(in) :: node
+        call this%check_location(node, "instantiate_statement")
+    end subroutine validate_visit_instantiate_statement
 
     subroutine validate_visit_declaration(this, node)
         class(location_validation_visitor_t), intent(inout) :: this

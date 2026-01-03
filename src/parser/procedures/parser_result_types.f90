@@ -225,8 +225,10 @@ contains
                           "endmodule", "endprogram", "endinterface")
                         exit  ! Found end keyword - statement boundary
                     case ("integer", "real", "logical", "character", &
-                          "complex", "type", "procedure", "function", "subroutine", &
-                          "program", "module", "if", "do", "select", &
+                          "complex", "type", "procedure", "function", &
+                          "subroutine", &
+                          "program", "module", "template", "instantiate", &
+                          "if", "do", "select", &
                           "use", "include", "call", "print", "write", &
                           "read", "allocate", "deallocate")
                         exit  ! Found statement-starting keyword
@@ -419,11 +421,13 @@ contains
                 ! Safety check
                 if (tokens_skipped > 300) then
                     recovery_res = create_error_result( &
-                              "Error recovery failed: no synchronization point found", &
+                                   "Error recovery failed: no "// &
+                                   "synchronization point found", &
                                    ERROR_PARSER, &
                                    "parser_result_types", &
                                    "skip_to_synchronization_point", &
-                             "Check for missing end statements or malformed structure" &
+                                   "Check for missing end statements or "// &
+                                   "malformed structure" &
                                    )
                     return
                 end if

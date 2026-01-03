@@ -138,7 +138,7 @@ contains
             tokens(keyword_idx)%kind /= TK_IDENTIFIER) return
 
         select case (to_lower(trim(tokens(keyword_idx)%text)))
-        case ("program", "module", "function", "subroutine", "interface")
+        case ("program", "module", "function", "subroutine", "interface", "template")
             is_start = .true.
         case ("abstract")
             lookahead = keyword_idx + 1
@@ -383,6 +383,8 @@ contains
             call handle_interface_unit(tokens, unit_start, unit_end)
         else if (unit_type == "module") then
             call handle_module_unit(tokens, unit_start, unit_end)
+        else if (unit_type == "template") then
+            call handle_template_unit(tokens, unit_start, unit_end)
         else if (unit_type == "submodule") then
             call handle_submodule_unit(tokens, unit_start, unit_end)
         else if (unit_type == "subroutine" .or. unit_type == "function") then
@@ -593,6 +595,67 @@ contains
             unit_end = i
         end do
     end subroutine handle_module_unit
+
+    subroutine handle_template_unit(tokens, unit_start, unit_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: unit_start
+        integer, intent(out) :: unit_end
+        integer :: i, nesting_level
+        logical :: in_template_contains
+        character(len=:), allocatable :: keyword_text
+
+        in_template_contains = .false.
+        nesting_level = 1
+        unit_end = unit_start
+
+        do i = unit_start + 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF) then
+                unit_end = i - 1
+                exit
+            else if (tokens(i)%kind == TK_KEYWORD) then
+                keyword_text = to_lower(trim(tokens(i)%text))
+                if (keyword_text == "contains") then
+                    in_template_contains = .true.
+                else if (keyword_text == "endtemplate") then
+                    nesting_level = nesting_level - 1
+                    if (nesting_level == 0) then
+                        unit_end = i
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                                unit_end = i + 1
+                            end if
+                        end if
+                        exit
+                    end if
+                else if (keyword_text == "end") then
+                    if (i + 1 <= size(tokens)) then
+                        if (tokens(i + 1)%kind == TK_KEYWORD) then
+                            if (to_lower(trim(tokens(i + 1)%text)) == "template") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    unit_end = i + 1
+                                    if (i + 2 <= size(tokens)) then
+                                        if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                            unit_end = i + 2
+                                        end if
+                                    end if
+                                    exit
+                                end if
+                            end if
+                        end if
+                    end if
+                else if (keyword_text == "template" .and. .not. &
+                         in_template_contains) then
+                    if (i + 1 <= size(tokens)) then
+                        if (tokens(i + 1)%kind == TK_IDENTIFIER) then
+                            nesting_level = nesting_level + 1
+                        end if
+                    end if
+                end if
+            end if
+            unit_end = i
+        end do
+    end subroutine handle_template_unit
 
     subroutine handle_submodule_unit(tokens, unit_start, unit_end)
         type(token_t), intent(in) :: tokens(:)
