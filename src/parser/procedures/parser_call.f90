@@ -52,7 +52,7 @@ contains
         integer :: arg_index
 
         allocate (arg_indices(0))
-        token = parser%consume()  ! consume '('
+        token = parser%consume()  ! consume left parenthesis
 
         do while (.not. parser%is_at_end())
             token = parser%peek()

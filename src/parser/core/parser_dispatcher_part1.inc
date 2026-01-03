@@ -763,7 +763,7 @@
         end do
     end function has_double_colon
 
-    ! Check if this looks like a function definition (e.g., "real function foo()")
+    ! Check if this looks like a function definition, e.g. real function foo()
     logical function looks_like_function_definition(parser)
         type(parser_state_t), intent(inout) :: parser
         integer :: i

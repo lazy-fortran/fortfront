@@ -238,7 +238,7 @@ contains
                 token = parser%consume()
                 tokens_skipped = tokens_skipped + 1
 
-                ! Safety check - don't skip too many tokens
+                ! Safety check - do not skip too many tokens
                 if (tokens_skipped > 100) then
                     recovery_res = create_error_result( &
                                    "Error recovery failed: too many tokens skipped", &

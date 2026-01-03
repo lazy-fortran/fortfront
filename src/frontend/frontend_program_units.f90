@@ -272,7 +272,7 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: errors
 
-        ! Check if there's meaningful content that should become an implicit main
+        ! Check for meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
             if (has_executable_statements(tokens)) then
                 ! Parse all statements into a program block (multi-statement aware)

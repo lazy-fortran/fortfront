@@ -11,21 +11,8 @@ program test_lfortran_template_instantiation_parsing
     type(token_t), allocatable :: tokens(:)
     integer :: root_index
 
-    source = "template swap(T)" // new_line('A') // &
-             "contains" // new_line('A') // &
-             "    subroutine swap(a, b)" // new_line('A') // &
-             "        type(T), intent(inout) :: a, b" // new_line('A') // &
-             "    end subroutine swap" // new_line('A') // &
-             "end template swap" // new_line('A') // new_line('A') // &
-             "module m" // new_line('A') // &
-             "    instantiate swap{integer}" // new_line('A') // &
-             "contains" // new_line('A') // &
-             "    subroutine demo(a, b)" // new_line('A') // &
-             "        integer, intent(inout) :: a, b" // new_line('A') // &
-             "        call swap{integer}(a, b)" // new_line('A') // &
-             "        a = identity{integer}(a)" // new_line('A') // &
-             "    end subroutine demo" // new_line('A') // &
-             "end module m" // new_line('A')
+    call read_example('examples/f90/issue_2737_lfortran_template_instantiate.f90', &
+                      source)
 
     arena = create_ast_arena()
     call lex_source(source, tokens, error_msg)
@@ -71,4 +58,9 @@ program test_lfortran_template_instantiation_parsing
     end if
 
     write (output_unit, '(A)') "PASS: Parsed template/instantiate and inline {}"
+
+contains
+
+
+    include '../common/read_example.inc'
 end program test_lfortran_template_instantiation_parsing

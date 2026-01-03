@@ -688,7 +688,7 @@ contains
         type(token_t) :: token
         integer :: nesting_level
 
-        nesting_level = 1  ! We're already inside a procedure
+        nesting_level = 1  ! Already inside a procedure
 
         ! Consume the procedure keyword
         token = parser%consume()
@@ -699,7 +699,7 @@ contains
             token = parser%consume()
         end if
 
-        ! Skip until matching "end <proc_type>"
+        ! Skip until matching end <proc_type>
         do while (.not. parser%is_at_end() .and. nesting_level > 0)
             token = parser%peek()
 

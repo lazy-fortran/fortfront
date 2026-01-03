@@ -105,7 +105,7 @@ contains
         end if
     end subroutine validate_ast_locations
 
-    ! Check if a node's location is valid
+    ! Check whether a node location is valid
     subroutine check_location(this, node, node_kind)
         class(location_validation_visitor_t), intent(inout) :: this
         class(ast_node), intent(in) :: node
