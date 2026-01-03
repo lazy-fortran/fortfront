@@ -65,6 +65,7 @@ end program
 - `test_<subsystem>_<feature>.f90` - Feature tests
 - `test_issue_NNNN_<description>.f90` - Issue regression tests
 - Descriptive names that explain what's being tested
+- Example: `test/integration/issue_tests/test_issue_2563_dot_notation_member_access.f90`
 
 **Test Execution**
 ```bash

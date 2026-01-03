@@ -73,7 +73,7 @@ contains
                                                              id_token%line, &
                                                              id_token%column)
                     end if
-                case ("(", "%")
+                case ("(", "%", ".")
                     block
                         integer :: start_pos, pos, paren_depth, left_end, lhs_len
                         type(token_t), allocatable, target :: lhs_tokens(:)

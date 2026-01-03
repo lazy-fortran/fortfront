@@ -38,6 +38,7 @@ This directory contains canonical example source files for both lazy Fortran (`.
 - Document resolved issues with working code
 - Serve as regression tests
 - Keep issue number for traceability: `issue_1234_array_bounds.lf`
+- Example: `examples/lf/issue_2563_dot_notation_member_access.lf` (LFortran `.` member access)
 - Referenced by `test_issue_1234_*.f90` tests
 
 **Example Quality Standards**
