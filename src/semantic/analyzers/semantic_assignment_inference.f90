@@ -136,9 +136,14 @@ contains
                                           "wrap_mul")
                                         rhs_is_int = .true.
                                         rhs_is_unsigned = .true.
+                                        updated_expr_typ = create_mono_type( &
+                                                           TINT, is_unsigned=.true.)
+                                        rhs_node%inferred_type = updated_expr_typ
                                     case ("int")
                                         rhs_is_int = .true.
                                         rhs_is_unsigned = .false.
+                                        updated_expr_typ = create_mono_type(TINT)
+                                        rhs_node%inferred_type = updated_expr_typ
                                     end select
                                 end if
                             end select

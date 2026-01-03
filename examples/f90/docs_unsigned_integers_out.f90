@@ -1,6 +1,7 @@
 program main
     implicit none
-    integer :: i, sum, u, v
+    integer :: i
+    integer, unsigned :: sum, u, v
     i = 5
     u = uint(i)
     v = uint(7)
