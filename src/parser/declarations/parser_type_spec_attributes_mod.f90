@@ -23,7 +23,7 @@ contains
 
         select case (normalized)
         case ("public", "private", "sequence", "abstract", "extends", "bind", &
-              "protected", "non_overridable", "final", "deferred")
+              "implements", "protected", "non_overridable", "final", "deferred")
             is_attribute = .true.
         case default
             is_attribute = .false.
@@ -266,8 +266,9 @@ contains
                     if (len_trim(last_attribute) == 0) return
                     normalized_attribute = to_lower(trim(adjustl(last_attribute)))
                     select case (normalized_attribute)
-                    case ("extends", "bind")
-                        if (.not. advance_parenthesized_tokens(parser, pos)) return
+                    case ("extends", "bind", "implements")
+                        if (.not. advance_parenthesized_tokens(parser, &
+                                                               pos)) return
                         last_attribute = ""
                     case default
                         return

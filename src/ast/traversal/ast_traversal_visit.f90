@@ -12,7 +12,9 @@ module ast_traversal_visit
                               use_statement_node, visibility_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
                                    subroutine_def_node
-    use ast_nodes_generics, only: template_block_node, instantiate_statement_node
+    use ast_nodes_generics, only: template_block_node, instantiate_statement_node, &
+                                  trait_block_node, requirement_block_node, &
+                                  implements_block_node
     use ast_visitor, only: ast_visitor_t
     implicit none
     private
@@ -75,6 +77,12 @@ contains
             call visitor%visit_template_block(n)
         type is (instantiate_statement_node)
             call visitor%visit_instantiate_statement(n)
+        type is (trait_block_node)
+            call visitor%visit_trait_block(n)
+        type is (requirement_block_node)
+            call visitor%visit_requirement_block(n)
+        type is (implements_block_node)
+            call visitor%visit_implements_block(n)
         end select
     end subroutine visit_node
 

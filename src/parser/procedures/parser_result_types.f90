@@ -228,6 +228,7 @@ contains
                           "complex", "type", "procedure", "function", &
                           "subroutine", &
                           "program", "module", "template", "instantiate", &
+                          "trait", "requirement", "implements", &
                           "if", "do", "select", &
                           "use", "include", "call", "print", "write", &
                           "read", "allocate", "deallocate")

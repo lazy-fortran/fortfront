@@ -70,7 +70,8 @@ module ast_factory
 
     ! LFortran generics nodes
     use ast_factory_generics, only: push_template_block, &
-                                    push_instantiate_statement
+                                    push_instantiate_statement, push_trait_block, &
+                                    push_requirement_block, push_implements_block
 
     implicit none
     private
@@ -133,7 +134,8 @@ module ast_factory
     public :: push_error_node
 
     ! LFortran generics nodes
-    public :: push_template_block, push_instantiate_statement
+    public :: push_template_block, push_instantiate_statement, push_trait_block, &
+              push_requirement_block, push_implements_block
 
     ! Note: No module body needed - all functionality is provided by re-exported
     ! modules. This maintains full API compatibility while achieving architectural

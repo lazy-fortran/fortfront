@@ -35,13 +35,17 @@ module codegen_core
                               end_statement_node, &
                               interface_block_node, module_procedure_node
     use ast_nodes_generics, only: template_block_node, &
-                                  instantiate_statement_node
+                                  instantiate_statement_node, trait_block_node, &
+                                  requirement_block_node, implements_block_node
     use ast_error_nodes, only: error_node_t
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
     use codegen_generics, only: generate_code_template_block, &
-                                generate_code_instantiate_statement
+                                generate_code_instantiate_statement, &
+                                generate_code_trait_block, &
+                                generate_code_requirement_block, &
+                                generate_code_implements_block
     implicit none
     private
 
@@ -221,6 +225,12 @@ contains
             code = generate_code_template_block(arena, node, node_index)
         type is (instantiate_statement_node)
             code = generate_code_instantiate_statement(node)
+        type is (trait_block_node)
+            code = generate_code_trait_block(arena, node, node_index)
+        type is (requirement_block_node)
+            code = generate_code_requirement_block(arena, node, node_index)
+        type is (implements_block_node)
+            code = generate_code_implements_block(arena, node, node_index)
 
             ! Special nodes
         type is (contains_node)
