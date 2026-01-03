@@ -8,6 +8,7 @@ module parser_type_hooks_module
         character(len=:), allocatable :: var_names(:)
         logical :: has_kind = .false.
         integer :: kind_value = 0
+        logical :: is_unsigned = .false.
         logical :: is_parameter = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
@@ -26,13 +27,15 @@ contains
 
     subroutine register_type_annotation(decl_index, type_name, var_names, has_kind, &
                                         kind_value, &
-                                        is_parameter, is_allocatable, is_pointer, &
+                                        is_unsigned, is_parameter, is_allocatable, &
+                                        is_pointer, &
                                         dimension_indices)
         integer, intent(in) :: decl_index
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
         logical, intent(in), optional :: has_kind
         integer, intent(in), optional :: kind_value
+        logical, intent(in), optional :: is_unsigned
         logical, intent(in), optional :: is_parameter, is_allocatable, is_pointer
         integer, intent(in), optional :: dimension_indices(:)
         type(type_annotation_t), allocatable :: temp(:)
@@ -71,6 +74,12 @@ contains
             registry(entry_index)%kind_value = kind_value
         else
             registry(entry_index)%kind_value = 0
+        end if
+
+        if (present(is_unsigned)) then
+            registry(entry_index)%is_unsigned = is_unsigned
+        else
+            registry(entry_index)%is_unsigned = .false.
         end if
 
         if (present(is_parameter)) then

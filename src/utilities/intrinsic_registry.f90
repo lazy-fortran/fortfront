@@ -149,7 +149,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 54
+        integer, parameter :: NUM_INTRINSICS = 58
         integer :: i
 
         if (registry_initialized) return
@@ -243,6 +243,12 @@ contains
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="uint", return_type="unsigned_integer", &
+                                 arg_types="integer", &
+                                 description="Convert to unsigned integer")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
                                  name="real", return_type="real", &
                                  arg_types="integer", &
                                  description="Convert to real")
@@ -276,6 +282,24 @@ contains
                                  name="aimag", return_type="real", &
                                  arg_types="complex", &
                                  description="Imaginary part of complex")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="wrap_add", return_type="unsigned_integer", &
+                                 arg_types="unsigned_integer,unsigned_integer", &
+                                 description="Wraparound unsigned addition")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="wrap_sub", return_type="unsigned_integer", &
+                                 arg_types="unsigned_integer,unsigned_integer", &
+                                 description="Wraparound unsigned subtraction")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+                                 name="wrap_mul", return_type="unsigned_integer", &
+                                 arg_types="unsigned_integer,unsigned_integer", &
+                                 description="Wraparound unsigned multiplication")
     end subroutine register_type_conversion_intrinsics
 
     subroutine register_array_intrinsics(i)

@@ -58,6 +58,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_external = .false.  ! Whether external
         ! attribute is present
+        logical :: is_unsigned = .false.  ! Whether unsigned
+        ! attribute is present (nonstandard extension)
         logical :: is_parameter = .false.  ! Whether parameter
         ! attribute is present (for constants)
         logical :: is_save = .false.  ! Whether save
@@ -249,6 +251,7 @@ contains
         lhs%is_pointer = rhs%is_pointer
         lhs%is_target = rhs%is_target
         lhs%is_external = rhs%is_external
+        lhs%is_unsigned = rhs%is_unsigned
         lhs%is_parameter = rhs%is_parameter
         lhs%is_save = rhs%is_save
         lhs%is_volatile = rhs%is_volatile

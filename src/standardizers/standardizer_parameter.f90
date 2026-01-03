@@ -19,6 +19,7 @@ module standardizer_parameter
         logical, allocatable :: optional(:)
         character(len=:), allocatable :: intent(:)
         character(len=:), allocatable :: type_name(:)
+        logical, allocatable :: is_unsigned(:)
         logical, allocatable :: has_kind(:)
         integer, allocatable :: kind_value(:)
         logical, allocatable :: is_array(:)
@@ -452,6 +453,7 @@ contains
         decl%is_array = .false.
         decl%is_allocatable = .false.
         decl%is_multi_declaration = .false.
+        decl%is_unsigned = .false.
         decl%is_parameter = .false.
         decl%var_name = ""
         decl%intent = ""
@@ -474,6 +476,7 @@ contains
         if (allocated(metadata%optional)) deallocate (metadata%optional)
         if (allocated(metadata%intent)) deallocate (metadata%intent)
         if (allocated(metadata%type_name)) deallocate (metadata%type_name)
+        if (allocated(metadata%is_unsigned)) deallocate (metadata%is_unsigned)
         if (allocated(metadata%has_kind)) deallocate (metadata%has_kind)
         if (allocated(metadata%kind_value)) deallocate (metadata%kind_value)
         if (allocated(metadata%is_array)) deallocate (metadata%is_array)
@@ -488,6 +491,7 @@ contains
         allocate (metadata%optional(n_params))
         allocate (character(len=8) :: metadata%intent(n_params))
         allocate (character(len=64) :: metadata%type_name(n_params))
+        allocate (metadata%is_unsigned(n_params))
         allocate (metadata%has_kind(n_params))
         allocate (metadata%kind_value(n_params))
         allocate (metadata%is_array(n_params))
@@ -501,6 +505,7 @@ contains
         metadata%optional = .false.
         metadata%intent = ""
         metadata%type_name = ""
+        metadata%is_unsigned = .false.
         metadata%has_kind = .false.
         metadata%kind_value = 0
         metadata%is_array = .false.
@@ -541,6 +546,15 @@ contains
                                       decl%has_kind, decl%kind_value)
             decl%type_name = trim(inferred_type)
             inferred_local = .true.
+        end if
+
+        if (decl%type_name == "unsigned_integer") then
+            decl%type_name = "integer"
+            decl%is_unsigned = .true.
+        else if (decl%type_name == "integer") then
+            decl%is_unsigned = metadata%is_unsigned(idx)
+        else
+            decl%is_unsigned = .false.
         end if
 
         if (decl%type_name == "real" .and. type_std_enabled .and. &

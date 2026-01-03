@@ -39,6 +39,7 @@ program fortfront_cli
     logical :: end_of_options
     logical :: input_is_empty
     integer :: operating_mode
+    logical :: has_fatal_error
     call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
@@ -53,6 +54,7 @@ program fortfront_cli
     has_trace_file_override = .false.
     end_of_options = .false.
     operating_mode = OPERATING_MODE_INFER
+    has_fatal_error = .false.
 
     ! Handle command line arguments
     if (num_args > 0) then
@@ -347,15 +349,15 @@ program fortfront_cli
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
             write (error_unit, '(A)') trim(error_msg)
-            ! Exit with failure for any ERROR-level message (not just specific markers)
-            ! This includes parser errors, validation errors, syntax errors, etc.
-            if (index(error_msg, 'ERROR') > 0 .or. &
-                index(error_msg, 'FATAL') > 0 .or. &
-                index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
-                index(error_msg, '[VALIDATION') > 0 .or. &
-                index(error_msg, '[PARSER_') > 0 .or. &
-                index(error_msg, '[UNRECOGNIZED_INPUT]') > 0 .or. &
-                index(error_msg, '[INVALID_INPUT]') > 0) then
+            has_fatal_error = index(error_msg, 'ERROR') > 0 .or. &
+                              index(error_msg, 'FATAL') > 0 .or. &
+                              index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
+                              index(error_msg, '[VALIDATION') > 0 .or. &
+                              index(error_msg, '[PARSER_') > 0 .or. &
+                              index(error_msg, '[UNRECOGNIZED_INPUT]') > 0 .or. &
+                              index(error_msg, '[INVALID_INPUT]') > 0 .or. &
+                              index(error_msg, ' semantic error(s):') > 0
+            if (has_fatal_error) then
                 call exit_quiet(EXIT_FAILURE)
             end if
             ! INFO/WARNING messages are advisory only; continue with success

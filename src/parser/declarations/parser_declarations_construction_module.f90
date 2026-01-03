@@ -78,6 +78,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -98,6 +99,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -116,6 +118,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -135,6 +138,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -165,6 +169,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -184,6 +189,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -201,6 +207,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -219,6 +226,7 @@ contains
                          is_pointer=attr_info%is_pointer, &
                          is_target=attr_info%is_target, &
                          is_external=attr_info%is_external, &
+                         is_unsigned=attr_info%is_unsigned, &
                          intent_value=attr_info%intent, &
                          is_optional=attr_info%is_optional, &
                          is_parameter=attr_info%is_parameter, &
@@ -276,6 +284,7 @@ contains
                 decl_index, type_spec%type_name, [name_buffer], &
                 has_kind=type_spec%has_kind, &
                 kind_value=type_spec%kind_value, &
+                is_unsigned=attr_info%is_unsigned, &
                 is_parameter=attr_info%is_parameter, &
                 is_allocatable=attr_info%is_allocatable, &
                 is_pointer=attr_info%is_pointer, &
@@ -285,6 +294,7 @@ contains
                 decl_index, type_spec%type_name, [name_buffer], &
                 has_kind=type_spec%has_kind, &
                 kind_value=type_spec%kind_value, &
+                is_unsigned=attr_info%is_unsigned, &
                 is_parameter=attr_info%is_parameter, &
                 is_allocatable=attr_info%is_allocatable, &
                 is_pointer=attr_info%is_pointer)
@@ -307,6 +317,7 @@ contains
                              kind_value=type_spec%kind_value, &
                              dimension_indices=attr_info%global_dimension_indices, &
                              is_external=attr_info%is_external, &
+                             is_unsigned=attr_info%is_unsigned, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
                              is_target=attr_info%is_target, &
@@ -326,6 +337,7 @@ contains
                              is_pointer=attr_info%is_pointer, &
                              is_target=attr_info%is_target, &
                              is_external=attr_info%is_external, &
+                             is_unsigned=attr_info%is_unsigned, &
                              intent_value=attr_info%intent, &
                              is_optional=attr_info%is_optional, &
                              is_parameter=attr_info%is_parameter, &
@@ -345,6 +357,7 @@ contains
                              is_allocatable=attr_info%is_allocatable, &
                              is_target=attr_info%is_target, &
                              is_external=attr_info%is_external, &
+                             is_unsigned=attr_info%is_unsigned, &
                              is_pointer=attr_info%is_pointer, &
                              is_parameter=attr_info%is_parameter, &
                              is_save=attr_info%is_save, &
@@ -358,6 +371,7 @@ contains
                              intent_value=attr_info%intent, &
                              is_optional=attr_info%is_optional, &
                              is_external=attr_info%is_external, &
+                             is_unsigned=attr_info%is_unsigned, &
                              is_allocatable=attr_info%is_allocatable, &
                              is_pointer=attr_info%is_pointer, &
                              is_target=attr_info%is_target, &
@@ -376,6 +390,7 @@ contains
                     decl_index, type_spec%type_name, var_names, &
                     has_kind=type_spec%has_kind, &
                     kind_value=type_spec%kind_value, &
+                    is_unsigned=attr_info%is_unsigned, &
                     is_parameter=attr_info%is_parameter, &
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
@@ -385,6 +400,7 @@ contains
                     decl_index, type_spec%type_name, var_names, &
                     has_kind=type_spec%has_kind, &
                     kind_value=type_spec%kind_value, &
+                    is_unsigned=attr_info%is_unsigned, &
                     is_parameter=attr_info%is_parameter, &
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer)

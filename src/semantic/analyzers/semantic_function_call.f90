@@ -144,6 +144,9 @@ contains
         else if (index(intrinsic_sig, "integer(") == 1) then
             typ = create_mono_type(TINT)
             return_type_locked = .true.
+        else if (index(intrinsic_sig, "unsigned_integer(") == 1) then
+            typ = create_mono_type(TINT, is_unsigned=.true.)
+            return_type_locked = .true.
         else if (index(intrinsic_sig, "logical(") == 1) then
             typ = create_mono_type(TLOGICAL)
             return_type_locked = .true.

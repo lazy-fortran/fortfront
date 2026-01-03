@@ -205,6 +205,8 @@ contains
                 var_type = "real"
             else if (index(intrinsic_sig, "integer(") == 1) then
                 var_type = "integer"
+            else if (index(intrinsic_sig, "unsigned_integer(") == 1) then
+                var_type = "integer, unsigned"
             else if (index(intrinsic_sig, "logical(") == 1) then
                 var_type = "logical"
             else if (index(intrinsic_sig, "character(") == 1) then

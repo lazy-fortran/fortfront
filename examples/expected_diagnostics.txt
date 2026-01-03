@@ -5,3 +5,4 @@ f90/issue_256_invalid_syntax.f90
 f90/issue_256_garbage_input.f90
 f90/issue_256_incomplete_expression.f90
 f90/issue_2562_where_invalid_if.f90
+f90/issue_2591_unsigned_mixing_error.f90

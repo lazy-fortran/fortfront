@@ -309,14 +309,18 @@
                         write (value_count_str, '(I0)') size(value_indices)
                         block
                             type(result_t) :: error_result
+                            character(len=:), allocatable :: message
 
+                            message = "DATA statement has " // &
+                                      trim(value_count_str)
+                            message = message // &
+                                      " values for scalar object " // &
+                                      trim(target_name)
                             error_result = create_error_result( &
-                                        "DATA statement has "//trim(value_count_str)// &
-                                      " values for scalar object "//trim(target_name), &
-                                           ERROR_SEMANTIC, &
-                                           "semantic_analyzer", &
-                                           "data_statement", &
-                                           "Declare as array")
+                                           trim(message), ERROR_SEMANTIC, &
+                                           component="semantic_analyzer", &
+                                           context="data_statement", &
+                                           suggestion="Declare as array")
                             call this%errors%add_result(error_result)
                         end block
                         return
@@ -473,17 +477,47 @@
         end function get_data_target_declared_type
 
         subroutine finalize_binary_operation(node_index, expr)
+            use error_handling, only: create_error_result, ERROR_SEMANTIC
             integer, intent(in) :: node_index
             type(binary_op_node), intent(in) :: expr
             type(mono_type_t) :: left_t
             type(mono_type_t) :: right_t
             type(mono_type_t) :: node_type
             type(mono_type_t) :: common_t
+            logical :: left_is_int
+            logical :: right_is_int
+            logical :: left_is_unsigned
+            logical :: right_is_unsigned
+            logical :: left_is_int_literal
+            logical :: right_is_int_literal
+            character(len=:), allocatable :: message
 
             left_t = get_node_type(expr%left_index)
             right_t = get_node_type(expr%right_index)
             node_type = infer_binary_operation(arena, node_index, expr, &
                                                left_t, right_t)
+
+            call extract_integer_signedness(left_t, left_is_int, left_is_unsigned)
+            call extract_integer_signedness(right_t, right_is_int, right_is_unsigned)
+
+            left_is_int_literal = is_integer_literal_expr(arena, expr%left_index)
+            right_is_int_literal = is_integer_literal_expr(arena, expr%right_index)
+
+            if (left_is_int .and. right_is_int) then
+                if (left_is_unsigned .neqv. right_is_unsigned) then
+                    if (.not. left_is_int_literal .and. &
+                        .not. right_is_int_literal) then
+                        message = "Implicit mixing of signed and unsigned " // &
+                                  "integers is forbidden; use uint() or int()"
+                        call this%errors%add_result(create_error_result( &
+                                                    trim(message), ERROR_SEMANTIC, &
+                                                    component="semantic_analyzer", &
+                                                    context="unsigned_integer_mix", &
+                                                    suggestion="Convert explicitly "// &
+                                                    "with uint(...) or int(...)"))
+                    end if
+                end if
+            end if
 
             ! Unify operand types based on operator kind
             if (expr%operator == "//") then
@@ -508,6 +542,46 @@
 
             call finalize_node(node_index, node_type)
         end subroutine finalize_binary_operation
+
+        subroutine extract_integer_signedness(typ, is_int, is_unsigned)
+            use type_system_unified, only: TARRAY, TINT
+            type(mono_type_t), intent(in) :: typ
+            logical, intent(out) :: is_int
+            logical, intent(out) :: is_unsigned
+            type(mono_type_t) :: base
+
+            base = typ
+            do while (base%kind == TARRAY)
+                if (.not. base%has_args()) exit
+                if (base%get_args_count() < 1) exit
+                base = base%get_arg(1)
+            end do
+
+            is_int = base%kind == TINT
+            if (is_int) then
+                is_unsigned = base%is_unsigned
+            else
+                is_unsigned = .false.
+            end if
+        end subroutine extract_integer_signedness
+
+        logical function is_integer_literal_expr(arena, expr_index) result(is_lit)
+            use ast_arena_modern, only: ast_arena_t
+            use ast_base, only: LITERAL_INTEGER
+            use ast_nodes_core, only: literal_node
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: expr_index
+
+            is_lit = .false.
+            if (.not. arena%has_node_at(expr_index)) return
+
+            select type (lit => arena%entries(expr_index)%node)
+            type is (literal_node)
+                is_lit = lit%literal_kind == LITERAL_INTEGER
+            class default
+                is_lit = .false.
+            end select
+        end function is_integer_literal_expr
 
         subroutine finalize_call_or_subscript(node_index, expr)
             integer, intent(in) :: node_index

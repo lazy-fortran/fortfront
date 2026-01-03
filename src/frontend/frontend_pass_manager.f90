@@ -1,7 +1,6 @@
 module frontend_pass_manager
     ! Lightweight pass manager for frontend transformation pipeline
     ! Based on GCC's gfc_run_passes architecture
-    use, intrinsic :: iso_fortran_env, only: error_unit, dp => real64
     use compiler_arena, only: compiler_arena_t
     use call_graph_signatures_mod, only: signatures_map_t
     use debug_trace, only: trace_enter, trace_leave
@@ -54,10 +53,10 @@ module frontend_pass_manager
 
     ! Pass metadata
     type :: pass_t
-        integer :: pass_id
-        character(len=:), allocatable :: name
-        character(len=:), allocatable :: trace_key
-        logical :: required
+        integer :: pass_id = 0
+        character(len=64) :: name = ""
+        character(len=64) :: trace_key = ""
+        logical :: required = .false.
         procedure(pass_proc), nopass, pointer :: execute => null()
     end type pass_t
 
@@ -110,7 +109,15 @@ contains
         ! Reallocate passes array
         allocate (temp_passes(this%num_passes + 1))
         do i = 1, this%num_passes
-            temp_passes(i) = this%passes(i)
+            temp_passes(i)%pass_id = this%passes(i)%pass_id
+            temp_passes(i)%name = this%passes(i)%name
+            temp_passes(i)%trace_key = this%passes(i)%trace_key
+            temp_passes(i)%required = this%passes(i)%required
+            if (associated(this%passes(i)%execute)) then
+                temp_passes(i)%execute => this%passes(i)%execute
+            else
+                temp_passes(i)%execute => null()
+            end if
         end do
 
         ! Add new pass
@@ -138,8 +145,8 @@ contains
 
             if (should_run) then
                 ! Trace enter
-                if (allocated(this%passes(i)%trace_key)) then
-                    call trace_enter(this%passes(i)%trace_key)
+                if (len_trim(this%passes(i)%trace_key) > 0) then
+                    call trace_enter(trim(this%passes(i)%trace_key))
                 end if
 
                 ! Execute pass
@@ -148,8 +155,8 @@ contains
                 end if
 
                 ! Trace leave
-                if (allocated(this%passes(i)%trace_key)) then
-                    call trace_leave(this%passes(i)%trace_key)
+                if (len_trim(this%passes(i)%trace_key) > 0) then
+                    call trace_leave(trim(this%passes(i)%trace_key))
                 end if
 
                 ! Check for errors - stop pipeline if error in required pass
