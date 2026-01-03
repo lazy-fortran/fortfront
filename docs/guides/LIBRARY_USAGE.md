@@ -35,7 +35,7 @@ end program minimal_example
 
 Get source locations for AST nodes (useful for linters and diagnostics):
 
-Example program: [examples/library_usage/ast_node_position.f90](../../examples/library_usage/ast_node_position.f90).
+Example program: [examples/f90/library_usage_ast_node_position.f90](../../examples/f90/library_usage_ast_node_position.f90).
 
 **Available functions**:
 - `get_node_line(arena, index)` - Returns line number (1-based), 0 if invalid
@@ -81,7 +81,7 @@ Direct trivia query at an arbitrary source location:
 
 Count nodes of each type using callback-based traversal:
 
-Example program: [examples/library_usage/ast_node_counter.f90](../../examples/library_usage/ast_node_counter.f90).
+Example program: [examples/f90/library_usage_ast_node_counter.f90](../../examples/f90/library_usage_ast_node_counter.f90).
 
 ## Structured Diagnostics API
 

@@ -16,8 +16,8 @@ end module ast_node_counter_callbacks
 program ast_node_counter
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_node_counter_callbacks, only: count_callback
-    use fortfront, only: ast_arena_t, create_ast_arena, tooling_load_ast_from_string, &
-                         traverse_ast
+    use fortfront, only: ast_arena_t, create_ast_arena, &
+                         tooling_load_ast_from_string, traverse_ast
     implicit none
 
     type(ast_arena_t) :: arena
