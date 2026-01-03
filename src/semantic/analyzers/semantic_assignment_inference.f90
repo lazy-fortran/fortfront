@@ -11,23 +11,26 @@ module semantic_assignment_inference
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
-    use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
-    use scope_manager, only: scope_stack_t
-    use standardizer_types, only: calculate_loop_size
+	    use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
+	    use scope_manager, only: scope_stack_t
+	    use semantic_unsigned_integer_mix_diagnostics, only: &
+	        emit_unsigned_integer_mix_error, extract_integer_signedness, &
+	        is_integer_literal_expr
+	    use standardizer_types, only: calculate_loop_size
     ! No direct dependency on function analysis here
     use error_handling, only: error_collection_t
     use parser_type_hooks_module, only: type_annotation_t
     use semantic_annotation_utils, only: type_from_annotation
     use semantic_declaration_utils, only: fetch_declaration_type
     use lexer_core, only: to_lower
-    use string_utils_mod, only: int_to_string
-    implicit none
-    private
+	    use string_utils_mod, only: int_to_string
+	    implicit none
+	    private
 
-    public :: process_assignment_inference
-    public :: ensure_var_declared_from_arena
+	    public :: process_assignment_inference
+	    public :: ensure_var_declared_from_arena
 
-contains
+	contains
 
     ! Set assignment node type fields for standardizer (Issue #1851)
     subroutine set_assignment_type_fields(arena, assignment_index, &
@@ -60,10 +63,10 @@ contains
     end subroutine set_assignment_type_fields
 
     ! Process assignment inference with scope and error handling
-    subroutine process_assignment_inference(arena, assignment, assignment_index, &
-                                            lhs_index, expr_typ, updated_expr_typ, &
-                                            scopes, errors, input_mode, next_var_id, &
-                                            type_hints)
+	    subroutine process_assignment_inference(arena, assignment, assignment_index, &
+	                                            lhs_index, expr_typ, updated_expr_typ, &
+	                                            scopes, errors, input_mode, next_var_id, &
+	                                            type_hints)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index, lhs_index
@@ -83,22 +86,79 @@ contains
         ! Normalize inquiry intrinsic return types
         call normalize_intrinsic_return_types(arena, assignment, updated_expr_typ)
 
-        ! Process LHS based on node type
-        if (lhs_index > 0 .and. lhs_index <= arena%size) then
-            if (allocated(arena%entries(lhs_index)%node)) then
-                select type (lhs_node => arena%entries(lhs_index)%node)
-                type is (identifier_node)
-                    call process_identifier_assignment(arena, assignment, &
-                                                       assignment_index, lhs_node, &
-                                                       updated_expr_typ, scopes, &
-                                                       input_mode, type_hints)
-                type is (call_or_subscript_node)
-                    call handle_array_assignment(arena, assignment_index, lhs_node, &
-                                                 expr_typ, updated_expr_typ, scopes)
-                end select
-            end if
-        end if
-    end subroutine process_assignment_inference
+	        ! Process LHS based on node type
+	        if (lhs_index > 0 .and. lhs_index <= arena%size) then
+	            if (allocated(arena%entries(lhs_index)%node)) then
+	                select type (lhs_node => arena%entries(lhs_index)%node)
+	                type is (identifier_node)
+	                    block
+	                        type(mono_type_t) :: lhs_typ
+	                        type(poly_type_t), allocatable :: scheme
+	                        logical :: lhs_is_int
+	                        logical :: rhs_is_int
+	                        logical :: lhs_is_unsigned
+	                        logical :: rhs_is_unsigned
+	                        logical :: rhs_is_int_literal
+	                        character(len=:), allocatable :: lowered
+
+	                        lhs_typ%kind = 0
+	                        call scopes%lookup(lhs_node%name, scheme)
+	                        if (allocated(scheme)) then
+	                            call scheme%sync_mono()
+	                            lhs_typ = scheme%get_mono()
+	                        else if (.not. fetch_declaration_type(arena, lhs_node%name, &
+	                                                             lhs_typ)) then
+	                            lhs_typ = lhs_node%inferred_type
+	                        end if
+
+	                        call extract_integer_signedness(lhs_typ, lhs_is_int, &
+	                                                       lhs_is_unsigned)
+	                        rhs_is_int_literal = is_integer_literal_expr(arena, &
+	                                                                     assignment% &
+	                                                                     value_index)
+
+	                        rhs_is_int = .false.
+	                        rhs_is_unsigned = .false.
+	                        call extract_integer_signedness(updated_expr_typ, rhs_is_int, &
+	                                                       rhs_is_unsigned)
+
+	                        if (arena%has_node_at(assignment%value_index)) then
+	                            select type (rhs_node => arena%entries( &
+	                                           assignment%value_index)%node)
+	                            type is (call_or_subscript_node)
+	                                if (allocated(rhs_node%name)) then
+	                                    lowered = to_lower(trim(rhs_node%name))
+	                                    select case (lowered)
+	                                    case ("uint", "wrap_add", "wrap_sub", "wrap_mul")
+	                                        rhs_is_int = .true.
+	                                        rhs_is_unsigned = .true.
+	                                    case ("int")
+	                                        rhs_is_int = .true.
+	                                        rhs_is_unsigned = .false.
+	                                    end select
+	                                end if
+	                            end select
+	                        end if
+
+	                        if (lhs_is_int .and. rhs_is_int) then
+	                            if (lhs_is_unsigned .neqv. rhs_is_unsigned) then
+	                                if (.not. rhs_is_int_literal) then
+	                                    call emit_unsigned_integer_mix_error(errors)
+	                                end if
+	                            end if
+	                        end if
+	                    end block
+	                    call process_identifier_assignment(arena, assignment, &
+	                                                       assignment_index, lhs_node, &
+	                                                       updated_expr_typ, scopes, &
+	                                                       input_mode, type_hints)
+	                type is (call_or_subscript_node)
+	                    call handle_array_assignment(arena, assignment_index, lhs_node, &
+	                                                 expr_typ, updated_expr_typ, scopes)
+	                end select
+	            end if
+	        end if
+	    end subroutine process_assignment_inference
 
     ! Override type for complex literal values
     subroutine override_type_for_complex_literal(arena, assignment, expr_typ)

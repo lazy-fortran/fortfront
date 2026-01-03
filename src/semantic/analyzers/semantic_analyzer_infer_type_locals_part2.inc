@@ -476,21 +476,22 @@
             found = fetch_declaration_type(arena, var_name, decl_type)
         end function get_data_target_declared_type
 
-        subroutine finalize_binary_operation(node_index, expr)
-            use error_handling, only: create_error_result, ERROR_SEMANTIC
-            integer, intent(in) :: node_index
-            type(binary_op_node), intent(in) :: expr
-            type(mono_type_t) :: left_t
-            type(mono_type_t) :: right_t
+	        subroutine finalize_binary_operation(node_index, expr)
+	            use semantic_unsigned_integer_mix_diagnostics, only: &
+	                emit_unsigned_integer_mix_error, extract_integer_signedness, &
+	                is_integer_literal_expr
+	            integer, intent(in) :: node_index
+	            type(binary_op_node), intent(in) :: expr
+	            type(mono_type_t) :: left_t
+	            type(mono_type_t) :: right_t
             type(mono_type_t) :: node_type
             type(mono_type_t) :: common_t
             logical :: left_is_int
             logical :: right_is_int
-            logical :: left_is_unsigned
-            logical :: right_is_unsigned
-            logical :: left_is_int_literal
-            logical :: right_is_int_literal
-            character(len=:), allocatable :: message
+	            logical :: left_is_unsigned
+	            logical :: right_is_unsigned
+	            logical :: left_is_int_literal
+	            logical :: right_is_int_literal
 
             left_t = get_node_type(expr%left_index)
             right_t = get_node_type(expr%right_index)
@@ -503,21 +504,14 @@
             left_is_int_literal = is_integer_literal_expr(arena, expr%left_index)
             right_is_int_literal = is_integer_literal_expr(arena, expr%right_index)
 
-            if (left_is_int .and. right_is_int) then
-                if (left_is_unsigned .neqv. right_is_unsigned) then
-                    if (.not. left_is_int_literal .and. &
-                        .not. right_is_int_literal) then
-                        message = "Implicit mixing of signed and unsigned " // &
-                                  "integers is forbidden; use uint() or int()"
-                        call this%errors%add_result(create_error_result( &
-                                                    trim(message), ERROR_SEMANTIC, &
-                                                    component="semantic_analyzer", &
-                                                    context="unsigned_integer_mix", &
-                                                    suggestion="Convert explicitly "// &
-                                                    "with uint(...) or int(...)"))
-                    end if
-                end if
-            end if
+	            if (left_is_int .and. right_is_int) then
+	                if (left_is_unsigned .neqv. right_is_unsigned) then
+	                    if (.not. left_is_int_literal .and. &
+	                        .not. right_is_int_literal) then
+	                        call emit_unsigned_integer_mix_error(this%errors)
+	                    end if
+	                end if
+	            end if
 
             ! Unify operand types based on operator kind
             if (expr%operator == "//") then
@@ -541,52 +535,18 @@
             end if
 
             call finalize_node(node_index, node_type)
-        end subroutine finalize_binary_operation
+	        end subroutine finalize_binary_operation
 
-        subroutine extract_integer_signedness(typ, is_int, is_unsigned)
-            use type_system_unified, only: TARRAY, TINT
-            type(mono_type_t), intent(in) :: typ
-            logical, intent(out) :: is_int
-            logical, intent(out) :: is_unsigned
-            type(mono_type_t) :: base
-
-            base = typ
-            do while (base%kind == TARRAY)
-                if (.not. base%has_args()) exit
-                if (base%get_args_count() < 1) exit
-                base = base%get_arg(1)
-            end do
-
-            is_int = base%kind == TINT
-            if (is_int) then
-                is_unsigned = base%is_unsigned
-            else
-                is_unsigned = .false.
-            end if
-        end subroutine extract_integer_signedness
-
-        logical function is_integer_literal_expr(arena, expr_index) result(is_lit)
-            use ast_arena_modern, only: ast_arena_t
-            use ast_base, only: LITERAL_INTEGER
-            use ast_nodes_core, only: literal_node
-            type(ast_arena_t), intent(in) :: arena
-            integer, intent(in) :: expr_index
-
-            is_lit = .false.
-            if (.not. arena%has_node_at(expr_index)) return
-
-            select type (lit => arena%entries(expr_index)%node)
-            type is (literal_node)
-                is_lit = lit%literal_kind == LITERAL_INTEGER
-            class default
-                is_lit = .false.
-            end select
-        end function is_integer_literal_expr
-
-        subroutine finalize_call_or_subscript(node_index, expr)
-            integer, intent(in) :: node_index
-            type(call_or_subscript_node), intent(inout) :: expr
-            type(mono_type_t) :: node_type
+	        subroutine finalize_call_or_subscript(node_index, expr)
+	            use semantic_unsigned_integer_mix_diagnostics, only: &
+	                emit_unsigned_integer_mix_error, extract_integer_signedness, &
+	                is_integer_literal_expr
+	            use intrinsic_registry, only: get_intrinsic_signature, &
+	                                          is_intrinsic_function
+	            use string_utils_mod, only: to_lower
+	            integer, intent(in) :: node_index
+	            type(call_or_subscript_node), intent(inout) :: expr
+	            type(mono_type_t) :: node_type
 
             ! Set the semantic context for the wrapper function
             call set_semantic_context_for_lookup(this)
@@ -594,19 +554,103 @@
             ! Use the wrapper function instead of the internal procedure
             node_type = infer_function_call_type(arena, expr, this%scopes, &
                                                  module_get_node_type_wrapper)
-            call collect_call_signature(this%signatures, arena, expr, node_type, &
-                                        node_index)
-            if (this%operating_mode == OPERATING_MODE_STRICT) then
-                call ensure_explicit_interface_cache()
+	            call collect_call_signature(this%signatures, arena, expr, node_type, &
+	                                        node_index)
+	            call validate_unsigned_integer_intrinsic_argument_mixing(expr)
+	            if (this%operating_mode == OPERATING_MODE_STRICT) then
+	                call ensure_explicit_interface_cache()
                 call validate_explicit_interface_for_function_reference( &
                     arena, this%scopes, this%explicit_interface_procedure_names, &
                     this%errors, expr, node_index)
                 call validate_strict_argument_types_for_function_reference( &
                     arena, this%errors, expr, node_index)
             end if
-            call finalize_node(node_index, node_type)
-            call clear_semantic_context_for_lookup()
-        end subroutine finalize_call_or_subscript
+	            call finalize_node(node_index, node_type)
+	            call clear_semantic_context_for_lookup()
+	        end subroutine finalize_call_or_subscript
+
+	        subroutine validate_unsigned_integer_intrinsic_argument_mixing(expr)
+	            type(call_or_subscript_node), intent(in) :: expr
+	            character(len=:), allocatable :: lowered
+	            character(len=:), allocatable :: sig
+	            character(len=:), allocatable :: args_str
+	            character(len=:), allocatable :: expected_arg
+	            integer :: open_paren
+	            integer :: close_paren
+	            integer :: i
+	            integer :: start
+	            integer :: arg_pos
+	            integer :: arg_index
+	            type(mono_type_t) :: actual_type
+	            logical :: actual_is_int
+	            logical :: actual_is_unsigned
+	            logical :: expected_is_int
+	            logical :: expected_is_unsigned
+	            logical :: actual_is_int_literal
+
+	            if (.not. allocated(expr%name)) return
+	            if (.not. allocated(expr%arg_indices)) return
+	            if (size(expr%arg_indices) <= 0) return
+
+	            lowered = to_lower(trim(expr%name))
+	            if (.not. is_intrinsic_function(lowered)) return
+	            if (lowered == "uint" .or. lowered == "int") return
+
+	            sig = get_intrinsic_signature(lowered)
+	            if (len_trim(sig) == 0) return
+	            if (index(sig, "unsigned_integer") == 0) return
+
+	            open_paren = index(sig, "(")
+	            close_paren = len_trim(sig)
+	            if (open_paren <= 0) return
+	            if (close_paren <= open_paren) return
+	            if (sig(close_paren:close_paren) /= ")") return
+
+	            args_str = sig(open_paren + 1:close_paren - 1)
+	            if (len_trim(args_str) == 0) return
+
+	            start = 1
+	            arg_pos = 1
+	            do i = 1, len_trim(args_str) + 1
+	                if (i <= len_trim(args_str)) then
+	                    if (args_str(i:i) /= ",") cycle
+	                end if
+
+	                expected_arg = trim(adjustl(args_str(start:i - 1)))
+	                start = i + 1
+
+	                expected_is_int = .false.
+	                expected_is_unsigned = .false.
+	                if (expected_arg == "integer") then
+	                    expected_is_int = .true.
+	                    expected_is_unsigned = .false.
+	                else if (expected_arg == "unsigned_integer") then
+	                    expected_is_int = .true.
+	                    expected_is_unsigned = .true.
+	                end if
+
+	                if (expected_is_int) then
+	                    if (arg_pos <= size(expr%arg_indices)) then
+	                        arg_index = expr%arg_indices(arg_pos)
+	                        actual_is_int_literal = is_integer_literal_expr(arena, &
+	                                                                       arg_index)
+	                        actual_type = get_node_type(arg_index)
+	                        call extract_integer_signedness(actual_type, actual_is_int, &
+	                                                       actual_is_unsigned)
+	                        if (actual_is_int) then
+	                            if (actual_is_unsigned .neqv. expected_is_unsigned) then
+	                                if (.not. actual_is_int_literal) then
+	                                    call emit_unsigned_integer_mix_error(this% &
+	                                                                         errors)
+	                                end if
+	                            end if
+	                        end if
+	                    end if
+	                end if
+
+	                arg_pos = arg_pos + 1
+	            end do
+	        end subroutine validate_unsigned_integer_intrinsic_argument_mixing
 
         subroutine finalize_subroutine_call(node_index)
             integer, intent(in) :: node_index

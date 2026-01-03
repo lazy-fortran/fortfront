@@ -19,11 +19,11 @@ module semantic_strict_argument_type_checker_types
 
 contains
 
-    function strict_dummy_type(arena, decl_index) result(typ)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: decl_index
-        type(mono_type_t) :: typ
-        character(len=:), allocatable :: lowered
+	    function strict_dummy_type(arena, decl_index) result(typ)
+	        type(ast_arena_t), intent(in) :: arena
+	        integer, intent(in) :: decl_index
+	        type(mono_type_t) :: typ
+	        character(len=:), allocatable :: lowered
 
         typ%kind = 0
         if (.not. arena%has_node_at(decl_index)) return
@@ -39,16 +39,26 @@ contains
                 end if
             end if
             typ = declaration_type_to_mono(node%type_name)
-        type is (declaration_node)
-            if (allocated(node%type_name)) then
-                typ = declaration_type_to_mono(node%type_name)
-            else
-                typ = node%inferred_type
+            if (node%is_unsigned) then
+                if (typ%kind == TINT) then
+                    typ%is_unsigned = .true.
+                end if
             end if
-        class default
-            typ = arena%entries(decl_index)%node%inferred_type
-        end select
-    end function strict_dummy_type
+        type is (declaration_node)
+	            if (allocated(node%type_name)) then
+	                typ = declaration_type_to_mono(node%type_name)
+	            else
+	                typ = node%inferred_type
+	            end if
+	            if (node%is_unsigned) then
+	                if (typ%kind == TINT) then
+	                    typ%is_unsigned = .true.
+	                end if
+	            end if
+	        class default
+	            typ = arena%entries(decl_index)%node%inferred_type
+	        end select
+	    end function strict_dummy_type
 
     recursive function strict_actual_argument_type(arena, expr_index) result(typ)
         type(ast_arena_t), intent(in) :: arena

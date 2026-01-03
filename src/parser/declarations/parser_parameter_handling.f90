@@ -24,6 +24,7 @@ module parser_parameter_handling_module
         integer :: intent_value = INTENT_NONE
         logical :: is_optional = .false.
         logical :: is_target = .false.
+        logical :: is_unsigned = .false.
         integer :: line = 0
         integer :: column = 0
     end type parameter_type_info_t
@@ -53,6 +54,7 @@ contains
 
         ! Update target flag
         param_node%is_target = body_node%is_target
+        param_node%is_unsigned = body_node%is_unsigned
 
         ! Update type if not already set
         if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
@@ -198,6 +200,7 @@ contains
         info%intent_value = INTENT_NONE
         info%is_optional = .false.
         info%is_target = .false.
+        info%is_unsigned = .false.
         info%line = type_token%line
         info%column = type_token%column
     end subroutine initialize_type_info
@@ -294,6 +297,9 @@ contains
                     call consume_token(parser)
                 case ("target")
                     info%is_target = .true.
+                    call consume_token(parser)
+                case ("unsigned")
+                    info%is_unsigned = .true.
                     call consume_token(parser)
                 case default
                     call consume_token(parser)
@@ -455,6 +461,7 @@ contains
                               info%intent_value, &
                               info%is_optional, &
                               info%is_target, &
+                              info%is_unsigned, &
                               dim_indices, &
                               line=info%line, &
                               column=info%column, &
@@ -467,6 +474,7 @@ contains
                               info%intent_value, &
                               info%is_optional, &
                               info%is_target, &
+                              info%is_unsigned, &
                               dim_indices, &
                               line=info%line, &
                               column=info%column)
@@ -480,6 +488,7 @@ contains
                               intent_value=info%intent_value, &
                               is_optional=info%is_optional, &
                               is_target=info%is_target, &
+                              is_unsigned=info%is_unsigned, &
                               line=info%line, &
                               column=info%column, &
                               character_length_expr=length_expr)
@@ -491,6 +500,7 @@ contains
                               intent_value=info%intent_value, &
                               is_optional=info%is_optional, &
                               is_target=info%is_target, &
+                              is_unsigned=info%is_unsigned, &
                               line=info%line, &
                               column=info%column)
             end if
