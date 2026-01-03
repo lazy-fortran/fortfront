@@ -7,8 +7,14 @@ program test_issue_1890_lazy_function_return
     character(len=:), allocatable :: transformed
     character(len=:), allocatable :: error_msg
 
+    write (error_unit, '(A)') 'INFO: issue_1890 test start'
+    flush (error_unit)
     call read_example('examples/lf/issue_1890_lazy_function_return.lf', source)
+    write (error_unit, '(A,I0)') 'INFO: example loaded, len=', len(source)
+    flush (error_unit)
     call transform_lazy_fortran_string(source, transformed, error_msg)
+    write (error_unit, '(A,I0)') 'INFO: transform done, len=', len(transformed)
+    flush (error_unit)
 
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
@@ -44,9 +50,7 @@ program test_issue_1890_lazy_function_return
 
     print *, 'PASS: lazy Fortran infers real return type for quadratic'
 
-
 contains
-
 
     include '../../common/read_example.inc'
 end program test_issue_1890_lazy_function_return
