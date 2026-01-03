@@ -14,6 +14,7 @@ debug tracing/profiling, environment handling, and string helpers.
 | `test_cli_io_large_input.f90` | CLI large input handling tests. |
 | `test_debug_trace_profile.f90` | Profiling stats collection test for `debug_trace`. |
 | `test_debug_trace_profile_mismatch.f90` | Profiling enter/leave name mismatch validation test. |
+| `test_debug_trace_profile_report_sorted.f90` | Profile report output is sorted by total time. |
 | `test_environment_value.f90` | Environment value parsing tests. |
 | `test_shell_commands_windows_quotes.f90` | Windows quoting tests for shell command helpers. |
 | `test_type_string_utils.f90` | Type string utility tests. |
