@@ -477,10 +477,7 @@
         end function get_data_target_declared_type
 
         subroutine finalize_binary_operation(node_index, expr)
-            use ast_base, only: LITERAL_INTEGER
-            use ast_nodes_core, only: literal_node
             use error_handling, only: create_error_result, ERROR_SEMANTIC
-            use type_system_unified, only: TARRAY, TINT
             integer, intent(in) :: node_index
             type(binary_op_node), intent(in) :: expr
             type(mono_type_t) :: left_t
