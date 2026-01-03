@@ -6,7 +6,7 @@ program fortfront_cli
                                   INPUT_MODE_LAZY, &
                                   INPUT_MODE_STANDARD, OPERATING_MODE_INFER, &
                                   OPERATING_MODE_STRICT
-    use debug_trace, only: trace_init, trace_enter, trace_leave
+    use debug_trace, only: trace_finalize, trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use process_exit, only: exit_quiet
     use lexer_api, only: token_t, tokenize_core, TK_KEYWORD, &
@@ -394,6 +394,7 @@ program fortfront_cli
     end if
 
     call trace_leave('cli:main')
+    call trace_finalize()
 
 contains
 

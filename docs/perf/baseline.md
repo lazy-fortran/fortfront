@@ -1,6 +1,12 @@
-# CLI Profiling Baseline (2025-09-18)
+# CLI Profiling Baseline (2026-01-02)
 
 ## Perf Changelog
+### 2026-01-02
+- Added `FORTFRONT_PROFILE=1` timing output for CLI runs (written to stderr on
+  exit), using existing `trace_enter` and `trace_leave` scope names.
+- Refreshed baseline measurements against current pipeline phase names
+  (`phase:lexer`, `phase:syntax`, `phase:parser`, `phase:semantic`,
+  `phase:codegen`).
 ### 2025-09-19
 - Introduced `frontend_tooling_api::tooling_load_ast_from_string`, letting
   tooling reuse the Pratt arena without semantics; cold-start latency for
@@ -16,31 +22,37 @@
   consumer explicitly opts in, reducing default traversals.
 
 ## Remaining Bottlenecks
-- `setup:*` stages still dominate end-to-end time because `initialize_codegen`
-  loads formatting tables on every run.
-- Deep Pratt ranges allocate temporary slices while materializing array
-  literals; profiling shows transient spikes that merit a dedicated scratch pool.
-- Semantic strict-mode toggles still rebuild type environments; threading the
-  flag earlier would avoid the extra copy.
-- Lightweight tooling API still copies entire files into memory; streaming
-  reads and shared token buffers remain follow-up items.
+- For small `.lf` inputs, `phase:parser` and `phase:codegen` are the dominant
+  phases in the profile report.
+- Nested expression inputs increase `phase:semantic` time due to additional
+  semantic passes and constant folding.
 
 ## Baseline Metrics
 
-Environment: local fpm build (default profile), `FORTFRONT_PROFILE=1`
+Environment: local fpm build, `FORTFRONT_PROFILE=1`
 
-| Input | Description | setup:arena (ms) | lex:tokenize (ms) | phase:syntax (ms) | parser:parse_tokens (ms) | final:semantic (ms) | total (ms) |
-|-------|-------------|-----------------:|------------------:|------------------:|------------------------:|--------------------:|-----------:|
-| inline snippet | `program p; x = 1` (stdin) | 109 | 0 | 0 | 0 | 1 | 108 |
-| test_semicolons_simple.lf | small multi-statement sample | 110 | 0 | 0 | 0 | 0 | 110 |
-| test_expression_iterative_extreme.lf | deep-nesting stress | 110 | 5 | 3 | 8 | 0 | 126 |
+Profile output is emitted to stderr at process exit and looks like:
+
+```
+=== Fortfront Profile ===
+total_ms:      1.520
+phase:lexer 1 self_ms:     0.080 total_ms:     0.080
+...
+```
+
+All per-phase values below use `self_ms` (exclusive time), so nested scopes do
+not double-count time.
+
+| Input | Description | phase:lexer (ms) | phase:syntax (ms) | phase:parser (ms) | phase:semantic (ms) | phase:codegen (ms) | total (ms) |
+|-------|-------------|-----------------:|------------------:|------------------:|--------------------:|-------------------:|-----------:|
+| inline snippet | `program p; x = 1` (stdin) | 0.065 | 0.028 | 0.129 | 0.105 | 0.118 | 1.111 |
+| examples/lf/api_complex_transform.lf | function + assignments + print | 0.080 | 0.032 | 0.248 | 0.116 | 0.184 | 1.520 |
+| examples/lf/issue_1238_nested_expressions.lf | nested expression sample | 0.107 | 0.046 | 0.320 | 0.265 | 0.288 | 1.885 |
 
 ## Notes
-- `setup:*` captures trace initialization, env queries, codegen initialization,
-  and arena reset (currently dominating cost).
-- `total` is measured from entry to exit; sub-stage times may not sum to total
-  because only selected stages are recorded.
-- Values are rendered with microsecond precision (milliseconds with six
-  decimals) using the high-resolution `system_clock` counter.
+- `total_ms` is the wall time captured for the `cli:main` scope, from entry to
+  exit.
+- `total_ms` and per-phase times are captured via `system_clock` and rendered
+  as milliseconds with millisecond precision.
 - Future improvements should aim to shrink the setup cost and expose additional
   sub-stages as needed.

@@ -52,17 +52,20 @@
                 is_windows = .true.
             end if
         end if
+        if (.not. is_windows) then
+            call get_environment_variable('WINDIR', value=os_value, length=os_len, &
+                                          status=os_status)
+            is_windows = (os_status == 0)
+        end if
+
+        if (is_windows) then
+            do i = 1, len(open_filename)
+                if (open_filename(i:i) == '/') open_filename(i:i) = achar(92)
+            end do
+        end if
 
         open (newunit=unit_num, file=open_filename, status='old', action='read', &
               access='stream', form='unformatted', iostat=ios)
-        if (ios /= 0 .and. is_windows) then
-            open_filename = filename
-            do i = 1, len(open_filename)
-                if (open_filename(i:i) == '/') open_filename(i:i) = '\'
-            end do
-            open (newunit=unit_num, file=open_filename, status='old', action='read', &
-                  access='stream', form='unformatted', iostat=ios)
-        end if
         if (ios /= 0) then
             write (error_unit, '(A,A)') 'Cannot open file: ', filename
             status = 2

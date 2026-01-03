@@ -122,6 +122,9 @@ contains
         logical :: apply_ast_wrapping
         integer :: local_operating_mode
 
+        allocate (character(len=0) :: output)
+        output = ""
+
         allocate (character(len=0) :: error_msg)
         error_msg = ""
 
