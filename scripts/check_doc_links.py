@@ -5,6 +5,15 @@ This checker validates links that point to files or directories within the repo:
 - Ignores URLs (http/https), anchors (#...), and mailto links
 - Skips fenced code blocks to avoid false positives
 - Supports inline links: [text](path) and reference definitions: [id]: path
+
+Files checked:
+- Root: README.md and DESIGN.md (if present)
+- docs/**/*.md
+- src/**/README.md
+- app/**/README.md
+- examples/**/README.md
+- test/**/README.md
+- .github/**/*.md
 """
 
 from __future__ import annotations
@@ -112,17 +121,27 @@ def _check_markdown_file(path: Path, repo_root: Path) -> list[BrokenLink]:
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
 
-    markdown_files: list[Path] = []
+    markdown_files: set[Path] = set()
+
     for candidate in [repo_root / "README.md", repo_root / "DESIGN.md"]:
         if candidate.exists():
-            markdown_files.append(candidate)
+            markdown_files.add(candidate)
 
     docs_dir = repo_root / "docs"
     if docs_dir.exists():
-        markdown_files.extend(sorted(docs_dir.rglob("*.md")))
+        markdown_files.update(docs_dir.rglob("*.md"))
+
+    for directory in ["src", "app", "examples", "test"]:
+        root = repo_root / directory
+        if root.exists():
+            markdown_files.update(root.rglob("README.md"))
+
+    github_dir = repo_root / ".github"
+    if github_dir.exists():
+        markdown_files.update(github_dir.rglob("*.md"))
 
     broken: list[BrokenLink] = []
-    for md in markdown_files:
+    for md in sorted(markdown_files):
         broken.extend(_check_markdown_file(md, repo_root))
 
     if not broken:
