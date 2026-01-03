@@ -18,10 +18,17 @@ program test_issue_2282_external_subroutine
 
     call transform_with_context(source, transformed, error_msg, context)
 
-    if (len_trim(error_msg) > 0) then
-        write (error_unit, '(A)') 'FAIL: unexpected error message'
-        write (error_unit, '(A)') trim(error_msg)
-        error stop 'FAIL: transform_with_context returned error'
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write (error_unit, '(A)') 'FAIL: unexpected error message'
+            write (error_unit, '(A)') trim(error_msg)
+            error stop 'FAIL: transform_with_context returned error'
+        end if
+    end if
+
+    if (.not. allocated(transformed)) then
+        write (error_unit, '(A)') 'FAIL: transformation produced no output'
+        error stop 'FAIL: missing transformed output'
     end if
 
     if (index(transformed, 'program main') > 0) then

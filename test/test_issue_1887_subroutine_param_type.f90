@@ -17,8 +17,15 @@ program test_issue_1887_subroutine_param_type
 
     call transform_lazy_fortran_string(input_code, output_code, error_msg)
 
-    if (len_trim(error_msg) > 0) then
-        print *, "FAIL: transformation returned error:", trim(error_msg)
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            print *, "FAIL: transformation returned error:", trim(error_msg)
+            error stop 1
+        end if
+    end if
+
+    if (.not. allocated(output_code)) then
+        print *, "FAIL: transformation produced no output"
         error stop 1
     end if
 
