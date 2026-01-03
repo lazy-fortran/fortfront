@@ -32,6 +32,9 @@ Output: `examples/f90/docs_mixed_type_operations_out.f90` (see `integer, intent(
 Fortfront tracks signedness for integer operations. Mixing signed and unsigned
 integers implicitly is forbidden; use explicit conversion intrinsics.
 
+Note: `uint` and `wrap_*` are fortfront intrinsics, not standard Fortran. Many
+compilers will reject output that uses them (see `examples/expected_failures.txt`).
+
 ```bash
 fortfront examples/lf/docs_unsigned_integers.lf
 ```
