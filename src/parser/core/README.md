@@ -16,6 +16,7 @@ The parser core provides the fundamental infrastructure for parsing operations: 
 | parser_utilities.f90 | General parsing utilities: lookahead, backtracking, synchronization |
 | parser_utils.f90 | Low-level parser utilities: token matching, consumption |
 | parser_token_views.f90 | Token stream view abstraction for lookahead |
+| parser_inline_instantiation.f90 | Shared helpers for consuming inline instantiation braces |
 | parser_implicit_shared.f90 | Shared implicit typing utilities |
 | parser_import_resolution.f90 | Import statement resolution and dependency tracking |
 | mixed_construct_detector.f90 | Detect mixed lazy/standard Fortran constructs |
