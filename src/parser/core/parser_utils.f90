@@ -1,6 +1,6 @@
 module parser_utils
     use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, &
-                          TK_NEWLINE
+                          TK_COMMENT, TK_NEWLINE, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -11,11 +11,9 @@ contains
 
     ! Analyze declaration structure to determine if single or multi-variable
     subroutine analyze_declaration_structure(parser, has_initializer, has_comma)
-        use, intrinsic :: iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: has_initializer, has_comma
         integer :: lookahead_pos
-        type(token_t) :: lookahead_token
         type(token_t), allocatable, target :: tokens(:)
 
         has_initializer = .false.
@@ -60,6 +58,12 @@ contains
             lookahead_token = tokens(lookahead_pos)
             relative_pos = lookahead_pos - start_pos + 1  ! Calculate relative position
 
+            if (lookahead_token%kind == TK_NEWLINE) then
+                if (.not. is_line_continued(tokens, lookahead_pos)) exit
+                lookahead_pos = lookahead_pos + 1
+                cycle
+            end if
+
             call process_token(lookahead_token, relative_pos, &
                                seen_double_colon, in_brackets, in_attributes, &
                                bracket_depth, variable_count_after_colon, &
@@ -91,8 +95,6 @@ contains
         if (token%kind == TK_OPERATOR) then
             call process_operator(token, seen_colon, in_brackets, in_attr, &
                                   bracket_depth, var_count, has_init, has_comma)
-        else if (token%kind == TK_NEWLINE) then
-            should_exit = .true.
         else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. &
                  in_brackets) then
             var_count = var_count + 1
@@ -145,5 +147,28 @@ contains
                                 keyword == "private" .or. &
                                 keyword == "precision")  ! For double precision
     end function is_attribute_keyword
+
+    logical function is_line_continued(tokens, newline_idx)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: newline_idx
+        integer :: idx
+
+        is_line_continued = .false.
+        idx = newline_idx - 1
+        do while (idx >= 1)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                idx = idx - 1
+                cycle
+            case (TK_OPERATOR)
+                if (tokens(idx)%text == "&") is_line_continued = .true.
+                return
+            case (TK_NEWLINE)
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_line_continued
 
 end module parser_utils
