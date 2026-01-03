@@ -211,86 +211,8 @@ contains
         end if
 
         select type (node => arena%entries(node_index)%node)
-        type is (program_node)
-            if (allocated(node%body_indices)) call append_array(node%body_indices)
-
-        type is (assignment_node)
-            call append_index(node%target_index)
-            call append_index(node%value_index)
-
-        type is (binary_op_node)
-            call append_index(node%left_index)
-            call append_index(node%right_index)
-
-        type is (function_def_node)
-            if (allocated(node%param_indices)) call append_array(node%param_indices)
-            if (allocated(node%body_indices)) call append_array(node%body_indices)
-
-        type is (subroutine_def_node)
-            if (allocated(node%param_indices)) call append_array(node%param_indices)
-            if (allocated(node%body_indices)) call append_array(node%body_indices)
-
-        type is (call_or_subscript_node)
-            if (allocated(node%arg_indices)) call append_array(node%arg_indices)
-
-        type is (subroutine_call_node)
-            if (allocated(node%arg_indices)) call append_array(node%arg_indices)
-
-        type is (if_node)
-            call append_index(node%condition_index)
-            if (allocated(node%then_body_indices)) call &
-                append_array(node%then_body_indices)
-            if (allocated(node%elseif_blocks)) then
-                block
-                    integer :: i, j
-                    do i = 1, size(node%elseif_blocks)
-                        call append_index(node%elseif_blocks(i)%condition_index)
-                        if (allocated(node%elseif_blocks(i)%body_indices)) then
-                            do j = 1, size(node%elseif_blocks(i)%body_indices)
-                                call append_index(node%elseif_blocks(i)%body_indices(j))
-                            end do
-                        end if
-                    end do
-                end block
-            end if
-            if (allocated(node%else_body_indices)) call &
-                append_array(node%else_body_indices)
-
-        type is (do_loop_node)
-            call append_index(node%start_expr_index)
-            call append_index(node%end_expr_index)
-            call append_index(node%step_expr_index)
-            if (allocated(node%body_indices)) call append_array(node%body_indices)
-
-        type is (do_while_node)
-            call append_index(node%condition_index)
-            if (allocated(node%body_indices)) call append_array(node%body_indices)
-
-        type is (select_case_node)
-            call append_index(node%selector_index)
-            if (allocated(node%case_indices)) call append_array(node%case_indices)
-            call append_index(node%default_index)
-
-        type is (module_node)
-            if (allocated(node%declaration_indices)) call &
-                append_array(node%declaration_indices)
-            if (allocated(node%procedure_indices)) call &
-                append_array(node%procedure_indices)
-
-        type is (derived_type_node)
-            if (allocated(node%component_indices)) call &
-                append_array(node%component_indices)
-
-        type is (interface_block_node)
-            if (allocated(node%procedure_indices)) call &
-                append_array(node%procedure_indices)
-
-        type is (print_statement_node)
-            if (allocated(node%expression_indices)) call &
-                append_array(node%expression_indices)
-
-        class default
-            ! Other node types intentionally yield no children here
+        class is (ast_node)
+            call append_children_for_node(node, buffer, count)
         end select
 
         if (count == 0) then
@@ -303,46 +225,178 @@ contains
             if (allocated(buffer)) deallocate (buffer)
         end if
 
-    contains
-        subroutine ensure_capacity(required)
-            integer, intent(in) :: required
-            integer, allocatable :: tmp(:)
-            integer :: current_size
+    end subroutine gather_child_indices
 
-            if (.not. allocated(buffer)) then
-                allocate (buffer(max(32, required)))
-                return
+    subroutine ensure_child_buffer_capacity(buffer, count, required)
+        integer, allocatable, intent(inout) :: buffer(:)
+        integer, intent(in) :: count
+        integer, intent(in) :: required
+        integer, allocatable :: tmp(:)
+        integer :: current_size
+
+        if (.not. allocated(buffer)) then
+            allocate (buffer(max(32, required)))
+            return
+        end if
+
+        current_size = size(buffer)
+        if (required <= current_size) return
+
+        allocate (tmp(max(current_size * 2, required)))
+        if (count > 0) tmp(1:count) = buffer(1:count)
+        call move_alloc(tmp, buffer)
+    end subroutine ensure_child_buffer_capacity
+
+    subroutine append_child_index(buffer, count, idx)
+        integer, allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+        integer, intent(in) :: idx
+
+        if (idx <= 0) return
+        call ensure_child_buffer_capacity(buffer, count, count + 1)
+        count = count + 1
+        buffer(count) = idx
+    end subroutine append_child_index
+
+    subroutine append_child_array(buffer, count, values)
+        integer, allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+        integer, intent(in) :: values(:)
+        integer :: k
+
+        if (size(values) <= 0) return
+        call ensure_child_buffer_capacity(buffer, count, count + size(values))
+        do k = 1, size(values)
+            if (values(k) > 0) then
+                count = count + 1
+                buffer(count) = values(k)
             end if
+        end do
+    end subroutine append_child_array
 
-            current_size = size(buffer)
-            if (required <= current_size) return
+    subroutine append_if_node_children(node, buffer, count)
+        type(if_node), intent(in) :: node
+        integer, allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+        integer :: i
 
-            allocate (tmp(max(current_size * 2, required)))
-            if (count > 0) tmp(1:count) = buffer(1:count)
-            call move_alloc(tmp, buffer)
-        end subroutine ensure_capacity
+        call append_child_index(buffer, count, node%condition_index)
+        if (allocated(node%then_body_indices)) then
+            call append_child_array(buffer, count, node%then_body_indices)
+        end if
 
-        subroutine append_index(idx)
-            integer, intent(in) :: idx
-            if (idx <= 0) return
-            call ensure_capacity(count + 1)
-            count = count + 1
-            buffer(count) = idx
-        end subroutine append_index
-
-        subroutine append_array(values)
-            integer, intent(in) :: values(:)
-            integer :: k
-            if (size(values) <= 0) return
-            call ensure_capacity(count + size(values))
-            do k = 1, size(values)
-                if (values(k) > 0) then
-                    count = count + 1
-                    buffer(count) = values(k)
+        if (allocated(node%elseif_blocks)) then
+            do i = 1, size(node%elseif_blocks)
+                call append_child_index(buffer, count, &
+                                        node%elseif_blocks(i)%condition_index)
+                if (allocated(node%elseif_blocks(i)%body_indices)) then
+                    call append_child_array(buffer, count, &
+                                            node%elseif_blocks(i)%body_indices)
                 end if
             end do
-        end subroutine append_array
-    end subroutine gather_child_indices
+        end if
+
+        if (allocated(node%else_body_indices)) then
+            call append_child_array(buffer, count, node%else_body_indices)
+        end if
+    end subroutine append_if_node_children
+
+    subroutine append_children_for_node(node, buffer, count)
+        class(ast_node), intent(in) :: node
+        integer, allocatable, intent(inout) :: buffer(:)
+        integer, intent(inout) :: count
+
+        select type (node)
+        type is (program_node)
+            if (allocated(node%body_indices)) then
+                call append_child_array(buffer, count, node%body_indices)
+            end if
+
+        type is (assignment_node)
+            call append_child_index(buffer, count, node%target_index)
+            call append_child_index(buffer, count, node%value_index)
+
+        type is (binary_op_node)
+            call append_child_index(buffer, count, node%left_index)
+            call append_child_index(buffer, count, node%right_index)
+
+        type is (function_def_node)
+            if (allocated(node%param_indices)) then
+                call append_child_array(buffer, count, node%param_indices)
+            end if
+            if (allocated(node%body_indices)) then
+                call append_child_array(buffer, count, node%body_indices)
+            end if
+
+        type is (subroutine_def_node)
+            if (allocated(node%param_indices)) then
+                call append_child_array(buffer, count, node%param_indices)
+            end if
+            if (allocated(node%body_indices)) then
+                call append_child_array(buffer, count, node%body_indices)
+            end if
+
+        type is (call_or_subscript_node)
+            if (allocated(node%arg_indices)) then
+                call append_child_array(buffer, count, node%arg_indices)
+            end if
+
+        type is (subroutine_call_node)
+            if (allocated(node%arg_indices)) then
+                call append_child_array(buffer, count, node%arg_indices)
+            end if
+
+        type is (if_node)
+            call append_if_node_children(node, buffer, count)
+
+        type is (do_loop_node)
+            call append_child_index(buffer, count, node%start_expr_index)
+            call append_child_index(buffer, count, node%end_expr_index)
+            call append_child_index(buffer, count, node%step_expr_index)
+            if (allocated(node%body_indices)) then
+                call append_child_array(buffer, count, node%body_indices)
+            end if
+
+        type is (do_while_node)
+            call append_child_index(buffer, count, node%condition_index)
+            if (allocated(node%body_indices)) then
+                call append_child_array(buffer, count, node%body_indices)
+            end if
+
+        type is (select_case_node)
+            call append_child_index(buffer, count, node%selector_index)
+            if (allocated(node%case_indices)) then
+                call append_child_array(buffer, count, node%case_indices)
+            end if
+            call append_child_index(buffer, count, node%default_index)
+
+        type is (module_node)
+            if (allocated(node%declaration_indices)) then
+                call append_child_array(buffer, count, node%declaration_indices)
+            end if
+            if (allocated(node%procedure_indices)) then
+                call append_child_array(buffer, count, node%procedure_indices)
+            end if
+
+        type is (derived_type_node)
+            if (allocated(node%component_indices)) then
+                call append_child_array(buffer, count, node%component_indices)
+            end if
+
+        type is (interface_block_node)
+            if (allocated(node%procedure_indices)) then
+                call append_child_array(buffer, count, node%procedure_indices)
+            end if
+
+        type is (print_statement_node)
+            if (allocated(node%expression_indices)) then
+                call append_child_array(buffer, count, node%expression_indices)
+            end if
+
+        class default
+            ! Other node types intentionally yield no children here
+        end select
+    end subroutine append_children_for_node
 
     ! Helper to visit a node using the visitor pattern
     subroutine visit_node(node, visitor)
