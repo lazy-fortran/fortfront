@@ -3,7 +3,8 @@ module frontend_utilities
     ! Contains helper functions and utilities
 
     use string_utils_mod, only: int_to_string
-    use lexer_core, only: token_t, TK_KEYWORD
+    use lexer_core, only: token_t, TK_COMMENT, TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, &
+                          TK_WHITESPACE, to_lower
     implicit none
     private
 
@@ -67,13 +68,53 @@ contains
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
         logical :: is_start
+        integer :: next_idx, prev_idx
+        character(len=:), allocatable :: lowered
 
         is_start = .false.
-        if (pos <= size(tokens)) then
-            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "type") then
-                is_start = .true.
+        if (pos < 1 .or. pos > size(tokens)) return
+
+        if (tokens(pos)%kind /= TK_KEYWORD) return
+        lowered = to_lower(trim(tokens(pos)%text))
+        if (lowered /= "type") return
+
+        prev_idx = pos - 1
+        do while (prev_idx >= 1)
+            select case (tokens(prev_idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                prev_idx = prev_idx - 1
+            case default
+                exit
+            end select
+        end do
+
+        if (prev_idx >= 1) then
+            if (tokens(prev_idx)%kind == TK_KEYWORD) then
+                lowered = to_lower(trim(tokens(prev_idx)%text))
+                if (lowered == "end" .or. lowered == "select") return
             end if
         end if
+
+        next_idx = pos + 1
+        do while (next_idx <= size(tokens))
+            select case (tokens(next_idx)%kind)
+            case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                next_idx = next_idx + 1
+            case default
+                exit
+            end select
+        end do
+
+        if (next_idx <= size(tokens)) then
+            if (tokens(next_idx)%kind == TK_OPERATOR) then
+                if (tokens(next_idx)%text == "(") return
+            else if (tokens(next_idx)%kind == TK_KEYWORD) then
+                lowered = to_lower(trim(tokens(next_idx)%text))
+                if (lowered == "is") return
+            end if
+        end if
+
+        is_start = .true.
     end function is_type_start
 
 end module frontend_utilities

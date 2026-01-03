@@ -1,5 +1,6 @@
 module parser_utils
-    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, TK_EOF
+    use lexer_core, only: token_t, TK_OPERATOR, TK_KEYWORD, TK_IDENTIFIER, TK_EOF, &
+                          TK_NEWLINE
     use parser_state_module, only: parser_state_t
     implicit none
     private
@@ -90,6 +91,8 @@ contains
         if (token%kind == TK_OPERATOR) then
             call process_operator(token, seen_colon, in_brackets, in_attr, &
                                   bracket_depth, var_count, has_init, has_comma)
+        else if (token%kind == TK_NEWLINE) then
+            should_exit = .true.
         else if (token%kind == TK_IDENTIFIER .and. seen_colon .and. .not. &
                  in_brackets) then
             var_count = var_count + 1

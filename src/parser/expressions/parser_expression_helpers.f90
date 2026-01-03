@@ -56,7 +56,7 @@ contains
                                   current_token%line, current_token%column)
     end function parse_boolean_literal
 
-    ! Parse component access postfix operator (%)
+    ! Parse component access postfix operator (% or LFortran .)
     function parse_component_access_postfix(parser, arena, base_expr, op_token) &
         result(expr_index)
         type(parser_state_t), intent(inout) :: parser
@@ -73,13 +73,13 @@ contains
                                                component_token%text, &
                                                op_token%line, op_token%column)
         else if (component_token%kind == TK_KEYWORD) then
-           ! Keywords are valid component names in Fortran (e.g., "data", "type", "end")
+            ! Keywords are valid component names in Fortran
             component_token = parser%consume()
             expr_index = push_component_access(arena, base_expr, &
                                                component_token%text, &
                                                op_token%line, op_token%column)
         else
-            call parser%error("Expected identifier after % operator")
+            call parser%error("Expected identifier after component access operator")
             expr_index = base_expr
         end if
     end function parse_component_access_postfix
