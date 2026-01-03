@@ -318,7 +318,10 @@ contains
     subroutine append_contains_prefix(prefix_list, lowered)
         character(len=16), allocatable, intent(inout) :: prefix_list(:)
         character(len=*), intent(in) :: lowered
-        prefix_list = [prefix_list, adjustl(trim(lowered))]
+        character(len=16) :: padded_prefix
+
+        padded_prefix = adjustl(trim(lowered))
+        prefix_list = [prefix_list, padded_prefix]
     end subroutine append_contains_prefix
 
     logical function handle_contains_procedure_keyword(tokens, lowered, pos, arena, &
