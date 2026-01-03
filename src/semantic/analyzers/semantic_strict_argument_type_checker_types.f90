@@ -39,11 +39,21 @@ contains
                 end if
             end if
             typ = declaration_type_to_mono(node%type_name)
+            if (node%is_unsigned) then
+                if (typ%kind == TINT) then
+                    typ%is_unsigned = .true.
+                end if
+            end if
         type is (declaration_node)
             if (allocated(node%type_name)) then
                 typ = declaration_type_to_mono(node%type_name)
             else
                 typ = node%inferred_type
+            end if
+            if (node%is_unsigned) then
+                if (typ%kind == TINT) then
+                    typ%is_unsigned = .true.
+                end if
             end if
         class default
             typ = arena%entries(decl_index)%node%inferred_type

@@ -421,6 +421,7 @@ contains
 
         attr_info%is_optional = node%is_optional
         attr_info%is_target = node%is_target
+        attr_info%is_unsigned = node%is_unsigned
     end subroutine populate_parameter_attributes
 
     function build_parameter_dimensions(arena, node) result(dim_clause)
