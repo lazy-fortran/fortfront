@@ -47,6 +47,7 @@ Emission of variable, type, and procedure declarations with grouping and inferen
 | `decls/codegen_declarations_programs.f90` | Program declarations |
 | `decls/codegen_declaration_grouping.f90` | Group by type/intent for clean output |
 | `decls/codegen_procedure_shared.f90` | Shared procedure utilities |
+| `decls/codegen_generics.f90` | LFortran generics constructs: template blocks and instantiate statements |
 
 ### Expressions (3 files)
 Emission of expressions, operators, literals, function calls, and array indexing.

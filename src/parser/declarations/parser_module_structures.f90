@@ -18,17 +18,19 @@ module parser_module_structures_module
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t, append_prefix_token
     use parser_procedure_shared_module, only: consume_optional_kind_spec
     use parser_import_resolution_module, only: parse_use_statement, &
-                                              parse_include_statement
+                                               parse_include_statement
     use ast_types, only: LITERAL_STRING
     use parser_type_specifications_module, only: parse_implicit_statement, &
                                                  take_implicit_additional_indices
     use parser_keyword_disambiguation_module, only: keyword_should_parse_as_identifier
+    use parser_instantiate_statement_module, only: parse_instantiate_statement
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
     implicit none
     private
 
     public :: parse_module
+    public :: parse_module_body
 
 contains
 
@@ -159,6 +161,8 @@ contains
         case ("abstract")
             stmt_index = parse_abstract_interface_in_module(parser, arena, &
                                                             prefix_buffer)
+        case ("instantiate")
+            stmt_index = parse_instantiate_statement(parser, arena)
         case ("enum", "enumerator")
             stmt_index = handle_enum_construct(parser, arena, to_lower(token%text))
         end select
@@ -247,8 +251,11 @@ contains
         end if
     end function parse_contains_section_item
 
-    function check_module_end(parser) result(at_end)
+    function check_named_block_end(parser, compact_end_keyword, paired_end_keyword) &
+        result(at_end)
         type(parser_state_t), intent(inout) :: parser
+        character(len=*), intent(in) :: compact_end_keyword
+        character(len=*), intent(in) :: paired_end_keyword
         logical :: at_end
         type(token_t) :: token, lookahead
         character(len=:), allocatable :: lookahead_lower
@@ -259,18 +266,33 @@ contains
         if (token%kind == TK_KEYWORD) then
             lookahead_lower = to_lower(trim(token%text))
             select case (trim(lookahead_lower))
-            case ("endmodule")
-                token = parser%consume()
-                at_end = .true.
+            case default
+                if (trim(lookahead_lower) == to_lower(trim(compact_end_keyword))) then
+                    token = parser%consume()
+                    at_end = .true.
+                    if (parser%current_token <= size(parser%tokens)) then
+                        lookahead = parser%tokens(parser%current_token)
+                        if (lookahead%kind == TK_IDENTIFIER) then
+                            token = parser%consume()
+                        end if
+                    end if
+                    return
+                end if
             case ("end")
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     lookahead = parser%tokens(parser%current_token + 1)
                     lookahead_lower = to_lower(trim(lookahead%text))
                     if (lookahead%kind == TK_KEYWORD .and. &
-                        lookahead_lower == "module") then
+                        lookahead_lower == to_lower(trim(paired_end_keyword))) then
                         token = parser%consume()
                         token = parser%consume()
                         at_end = .true.
+                        if (parser%current_token <= size(parser%tokens)) then
+                            lookahead = parser%tokens(parser%current_token)
+                            if (lookahead%kind == TK_IDENTIFIER) then
+                                token = parser%consume()
+                            end if
+                        end if
                     else if (lookahead%kind == TK_NEWLINE .or. &
                              lookahead%kind == TK_COMMENT .or. &
                              lookahead%kind == TK_EOF) then
@@ -283,23 +305,27 @@ contains
                 end if
             end select
         end if
-    end function check_module_end
+    end function check_named_block_end
 
     subroutine parse_module_body(parser, arena, prefix_buffer, &
                                  has_contains, in_contains_section, &
-                                 declaration_indices, procedure_indices)
+                                 declaration_indices, procedure_indices, &
+                                 compact_end_keyword, paired_end_keyword)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parser_prefix_buffer_t), intent(inout) :: prefix_buffer
         logical, intent(inout) :: has_contains, in_contains_section
         integer, allocatable, intent(inout) :: declaration_indices(:)
         integer, allocatable, intent(inout) :: procedure_indices(:)
+        character(len=*), intent(in) :: compact_end_keyword
+        character(len=*), intent(in) :: paired_end_keyword
         type(token_t) :: token
         integer :: stmt_index
         character(len=:), allocatable :: lowered
 
         do while (.not. parser%is_at_end())
-            if (check_module_end(parser)) exit
+            if (check_named_block_end(parser, compact_end_keyword, &
+                                      paired_end_keyword)) exit
 
             token = parser%peek()
             select case (token%kind)
@@ -404,7 +430,9 @@ contains
 
         call parse_module_body(parser, arena, prefix_buffer, &
                                has_contains, in_contains_section, &
-                               declaration_indices, procedure_indices)
+                               declaration_indices, procedure_indices, &
+                               compact_end_keyword="endmodule", &
+                               paired_end_keyword="module")
 
         module_index = push_module_structured(arena, module_name, &
                                               declaration_indices, &
@@ -660,7 +688,7 @@ contains
         type(token_t) :: token
         integer :: nesting_level
 
-        nesting_level = 1  ! We're already inside a procedure
+        nesting_level = 1  ! Already inside a procedure
 
         ! Consume the procedure keyword
         token = parser%consume()
@@ -671,7 +699,7 @@ contains
             token = parser%consume()
         end if
 
-        ! Skip until matching "end <proc_type>"
+        ! Skip until matching end <proc_type>
         do while (.not. parser%is_at_end() .and. nesting_level > 0)
             token = parser%peek()
 

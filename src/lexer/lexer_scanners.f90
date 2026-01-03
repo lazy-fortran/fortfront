@@ -541,16 +541,21 @@ contains
         lower_word = to_lower(word)
 
         select case (trim(lower_word))
-        case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
+        case ('program', 'end', 'function', 'subroutine', 'if', &
+              'then', 'else', &
               'go', 'goto', 'cycle', 'exit', 'stop', 'pause', 'return', &
               'entry', 'error', &
-              'continue', 'nullify', 'do', 'while', 'concurrent', 'for', 'integer', &
-              'real', 'logical', 'character', 'complex', 'double', 'precision', &
+              'continue', 'nullify', 'do', 'while', 'concurrent', 'for', &
+              'integer', &
+              'real', 'logical', 'character', 'complex', 'double', &
+              'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'use', 'module', 'contains', 'public', 'private', &
               'namelist', 'data', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'import', 'include', 'generic', 'operator', &
-              'assignment', 'print', 'read', 'write', 'open', 'close', 'inquire', &
+              'procedure', 'interface', 'import', 'include', 'generic', &
+              'operator', &
+              'assignment', 'print', 'read', 'write', 'open', 'close', &
+              'inquire', &
               'backspace', 'rewind', &
               'call', 'format', 'allocate', 'deallocate', 'select', 'case', &
               'default', &
@@ -558,9 +563,11 @@ contains
               'submodule', 'rank', 'elseif', 'elsewhere', 'blockdata', &
               'doubleprecision', 'doublecomplex', 'selectcase', 'equivalence', &
               'common', 'endif', 'enddo', 'endwhere', 'endforall', &
-              'endassociate', 'endblock', 'endblockdata', 'endenum', 'endfile', &
+              'endassociate', 'endblock', 'endblockdata', 'endenum', &
+              'endfile', &
               'endfunction', 'endinterface', 'endmodule', 'endprogram', &
               'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
+              'template', 'endtemplate', 'instantiate', &
               'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
               'non_recursive', 'intrinsic', 'non_intrinsic')
             keyword = .true.

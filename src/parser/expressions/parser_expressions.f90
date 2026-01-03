@@ -869,6 +869,7 @@ contains
         type(token_t) :: op_token
         integer :: loop_count
         type(array_parse_helpers_t) :: array_helpers
+        character(len=:), allocatable :: instantiation_text
 
         array_helpers%parse_comparison => parse_comparison
         array_helpers%parse_unary => parse_unary
@@ -889,6 +890,14 @@ contains
                 expr_index = parse_component_access_postfix(parser, arena, &
                                                             expr_index, op_token)
                 if (expr_index <= 0) exit
+            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "{") then
+                call consume_inline_instantiation_tokens(parser, view, &
+                                                         instantiation_text)
+                if (allocated(instantiation_text)) then
+                    call append_inline_instantiation_to_name(arena, expr_index, &
+                                                             instantiation_text)
+                    deallocate (instantiation_text)
+                end if
             else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
                 expr_index = parse_array_indexing_postfix(parser, arena, expr_index, &
                                                           array_helpers)
@@ -900,6 +909,60 @@ contains
             end if
         end do
     end function parse_postfix_ops
+
+    subroutine consume_inline_instantiation_tokens(parser, view, inst_text)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_view_t), intent(in) :: view
+        character(len=:), allocatable, intent(out) :: inst_text
+        type(token_t) :: token
+        integer :: nesting
+
+        if (allocated(inst_text)) deallocate (inst_text)
+        token = view_peek_token(view, parser)
+        if (.not. (token%kind == TK_OPERATOR .and. token%text == "{")) then
+            return
+        end if
+
+        nesting = 0
+        do while (.not. parser%is_at_end())
+            token = view_consume_token(view, parser)
+            if (token%kind == TK_OPERATOR) then
+                if (token%text == "{") nesting = nesting + 1
+                if (token%text == "}") nesting = nesting - 1
+            end if
+
+            if (.not. allocated(inst_text)) then
+                inst_text = token%text
+            else
+                inst_text = inst_text // token%text
+            end if
+
+            if (nesting == 0) exit
+        end do
+    end subroutine consume_inline_instantiation_tokens
+
+    subroutine append_inline_instantiation_to_name(arena, expr_index, inst_text)
+        use ast_nodes_core, only: identifier_node, component_access_node
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: expr_index
+        character(len=*), intent(in) :: inst_text
+
+        if (.not. arena%has_node_at(expr_index)) return
+
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+
+        select type (node => arena%entries(expr_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name)) then
+                node%name = node%name // inst_text
+            end if
+        type is (component_access_node)
+            if (allocated(node%component_name)) then
+                node%component_name = node%component_name // inst_text
+            end if
+        class default
+        end select
+    end subroutine append_inline_instantiation_to_name
 
     !=================================================================================
     ! PRIMARY EXPRESSION PARSING SECTION

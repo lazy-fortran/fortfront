@@ -30,6 +30,8 @@ This directory handles parsing of all Fortran declaration constructs: type speci
 | parser_interface_import_module.f90 | Interface import statements |
 | parser_interface_module_procedures_module.f90 | Module procedure declarations in interfaces |
 | parser_module_structures.f90 | Module declaration parsing |
+| parser_template_blocks.f90 | LFortran generics parsing: template blocks |
+| parser_instantiate_statement.f90 | LFortran generics parsing: instantiate statements |
 | parser_block_data.f90 | Block data construct parsing (legacy) |
 | parser_definition_statements.f90 | Definition statement parsing |
 

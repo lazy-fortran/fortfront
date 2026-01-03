@@ -9,6 +9,8 @@ module ast_visitor
     use ast_nodes_data, only: declaration_node, module_node, submodule_node, &
                               derived_type_node
     use ast_nodes_misc
+    use ast_nodes_generics, only: template_block_node, &
+                                  instantiate_statement_node
     use string_utils_mod, only: int_to_string
     implicit none
     private
@@ -41,6 +43,10 @@ module ast_visitor
             visit_visibility_statement
         procedure(visit_include_statement_interface), deferred :: &
             visit_include_statement
+        procedure(visit_template_block_interface), deferred :: &
+            visit_template_block
+        procedure(visit_instantiate_statement_interface), deferred :: &
+            visit_instantiate_statement
     end type ast_visitor_t
 
     ! Concrete visitor implementation for debugging/printing
@@ -67,9 +73,13 @@ module ast_visitor
         procedure :: visit_module => debug_visit_module
         procedure :: visit_submodule => debug_visit_submodule
         procedure :: visit_use_statement => debug_visit_use_statement
-        procedure :: visit_visibility_statement => debug_visit_visibility_statement
+        procedure :: visit_visibility_statement => &
+            debug_visit_visibility_statement
         procedure :: visit_include_statement => debug_visit_include_statement
         procedure :: visit_call_or_subscript => debug_visit_call_or_subscript
+        procedure :: visit_template_block => debug_visit_template_block
+        procedure :: visit_instantiate_statement => &
+            debug_visit_instantiate_statement
     end type debug_visitor_t
 
     ! Abstract interfaces for visitor methods
@@ -205,6 +215,18 @@ module ast_visitor
             class(ast_visitor_t), intent(inout) :: this
             class(include_statement_node), intent(in) :: node
         end subroutine visit_include_statement_interface
+
+        subroutine visit_template_block_interface(this, node)
+            import :: ast_visitor_t, template_block_node
+            class(ast_visitor_t), intent(inout) :: this
+            class(template_block_node), intent(in) :: node
+        end subroutine visit_template_block_interface
+
+        subroutine visit_instantiate_statement_interface(this, node)
+            import :: ast_visitor_t, instantiate_statement_node
+            class(ast_visitor_t), intent(inout) :: this
+            class(instantiate_statement_node), intent(in) :: node
+        end subroutine visit_instantiate_statement_interface
     end interface
 
     ! Public interface
@@ -666,6 +688,24 @@ contains
 
         call append_debug(this, "include_statement: "//node%filename)
     end subroutine debug_visit_include_statement
+
+    subroutine debug_visit_template_block(this, node)
+        class(debug_visitor_t), intent(inout) :: this
+        class(template_block_node), intent(in) :: node
+
+        call append_debug(this, "template_block: "//node%name)
+    end subroutine debug_visit_template_block
+
+    subroutine debug_visit_instantiate_statement(this, node)
+        class(debug_visitor_t), intent(inout) :: this
+        class(instantiate_statement_node), intent(in) :: node
+
+        if (allocated(node%spec_text)) then
+            call append_debug(this, "instantiate: "//node%spec_text)
+        else
+            call append_debug(this, "instantiate")
+        end if
+    end subroutine debug_visit_instantiate_statement
 
     subroutine debug_visit_call_or_subscript(this, node)
         class(debug_visitor_t), intent(inout) :: this

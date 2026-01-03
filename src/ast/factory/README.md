@@ -22,6 +22,7 @@ Factory methods handle arena allocation, node initialization, field assignment, 
 | ast_factory_arrays.f90 | Array node factories: constructors, slicing, indexing, reshape |
 | ast_factory_io.f90 | I/O node factories: read, write, print, open, close, format |
 | ast_factory_errors.f90 | Error node factories: parse error recovery nodes |
+| ast_factory_generics.f90 | LFortran generics factories: template blocks and instantiate statements |
 
 ## Key Concepts
 

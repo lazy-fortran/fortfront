@@ -31,12 +31,8 @@ contains
         test_lazy_function_inference = .true.
         print *, 'Testing lazy function inference...'
 
-        source = 'function add(a, b)' // new_line('a') // &
-                 '    result = a + b' // new_line('a') // &
-                 'end function' // new_line('a') // &
-                 '' // new_line('a') // &
-                 'x = add(5, 3)' // new_line('a') // &
-                 'print *, x'
+        call read_example('examples/lf/issue_1343_lazy_function_inference.lf', &
+                          source)
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
@@ -79,4 +75,5 @@ contains
         end if
     end function test_lazy_function_inference
 
+    include '../../common/read_example.inc'
 end program test_issue_1343_lazy_function_inference
