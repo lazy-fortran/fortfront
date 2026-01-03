@@ -9,7 +9,6 @@ debug tracing/profiling, environment handling, and string helpers.
 
 | File | Description |
 | --- | --- |
-| `README_issue_2235.md` | Notes related to issue 2235 utilities work. |
 | `string_utils.f90` | Test helpers for string utilities. |
 | `test_cli_io_allocation_failure.f90` | CLI I/O allocation failure handling tests. |
 | `test_cli_io_large_input.f90` | CLI large input handling tests. |

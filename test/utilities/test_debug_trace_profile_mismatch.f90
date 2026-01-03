@@ -29,7 +29,7 @@ program test_debug_trace_profile_mismatch
     end if
 
     command = '"' // trim(executable_path) // '" child'
-    if (is_windows_platform()) then
+    if (is_windows()) then
         command = trim(command) // ' > NUL 2>&1'
     else
         command = trim(command) // ' > /dev/null 2>&1'
@@ -45,18 +45,6 @@ program test_debug_trace_profile_mismatch
 
 contains
 
-    logical function is_windows_platform()
-        character(len=16) :: os_name
-        integer :: stat
-
-        call get_environment_variable('OS', os_name, status=stat)
-        if (stat == 0) then
-            is_windows_platform = index(os_name, 'Windows') > 0
-            return
-        end if
-
-        call get_environment_variable('WINDIR', os_name, status=stat)
-        is_windows_platform = (stat == 0)
-    end function is_windows_platform
+    include '../common/cli_system_tests.inc'
 
 end program test_debug_trace_profile_mismatch
