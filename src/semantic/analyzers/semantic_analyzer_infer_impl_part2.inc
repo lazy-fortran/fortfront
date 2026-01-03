@@ -13,8 +13,7 @@
         integer, parameter :: STATE_ASSOC_DEFINE = 2
 
         typ = create_mono_type(TREAL)
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         ! Set global context for module_get_node_type_wrapper (workaround for gfortran bug)
         g_current_context => this

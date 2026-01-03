@@ -160,8 +160,7 @@ contains
         if (size(node%then_body_indices) /= 1) return
 
         stmt_index = node%then_body_indices(1)
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        if (.not. arena%has_node_at(stmt_index)) return
 
         if (trim(arena%entries(stmt_index)%node_type) == "print_statement") return
 
@@ -373,7 +372,7 @@ contains
             code = code // new_line('A') // repeat("    ", indent_level) // &
                    "case default"
 
-            if (allocated(arena%entries(node%default_index)%node)) then
+            if (arena%has_node_at(node%default_index)) then
                 select type (default_node => arena%entries(node%default_index)%node)
                 type is (case_default_node)
                     if (allocated(default_node%body_indices)) then
@@ -384,7 +383,8 @@ contains
                         end if
                     end if
                 class default
-       ! If the default entry is not a case_default_node, fall back to direct generation
+                    ! If the default entry is not a case_default_node, fall back to
+                    ! direct generation.
                     body_code = generate_code_from_arena(arena, node%default_index)
                     if (len(body_code) > 0) then
                         code = code // new_line('A') // body_code

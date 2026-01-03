@@ -285,16 +285,14 @@ contains
 
         target_name = to_lower(trim(var_name))
 
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do i = 1, size(prog%body_indices)
                 node_idx = prog%body_indices(i)
-                if (node_idx <= 0 .or. node_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(node_idx)%node)) cycle
+                if (.not. arena%has_node_at(node_idx)) cycle
                 select type (decl => arena%entries(node_idx)%node)
                 type is (declaration_node)
                     if (.not. decl%is_multi_declaration) then

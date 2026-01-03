@@ -46,8 +46,7 @@ contains
         if (.not. allocated(node%body_indices)) return
         do i = 1, size(node%body_indices)
             decl_index = node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
             type is (declaration_node)
                 if (len_trim(stmt%var_name) == 0) cycle
@@ -127,7 +126,7 @@ contains
 
         lowered = to_lower(trim(text))
         is_alloc_array = (index(lowered, 'dimension') > 0 .or. &
-                         index(lowered, '(') > 0) .and. &
+                          index(lowered, '(') > 0) .and. &
                          (index(lowered, 'allocatable') > 0)
     end function is_allocatable_array_return
 
@@ -182,8 +181,7 @@ contains
 
         do i = 1, size(node%body_indices)
             decl_index = node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
             type is (declaration_node)
                 if (is_character_len_declaration(stmt%type_name)) then

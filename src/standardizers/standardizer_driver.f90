@@ -31,8 +31,7 @@ contains
         integer :: root_tracker
         integer :: original_index
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         root_tracker = root_index
         allocate (visited(arena%size))
@@ -45,8 +44,7 @@ contains
 
         do while (top > 0)
             call pop(current_index, tmp_inmod)
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
             if (visited(current_index)) cycle
             visited(current_index) = .true.
 

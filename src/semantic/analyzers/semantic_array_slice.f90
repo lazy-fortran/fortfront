@@ -190,8 +190,7 @@ contains
         if (slice_node%num_dimensions <= 0) return
 
         bounds_idx = slice_node%bounds_indices(1)
-        if (bounds_idx <= 0 .or. bounds_idx > arena%size) return
-        if (.not. allocated(arena%entries(bounds_idx)%node)) return
+        if (.not. arena%has_node_at(bounds_idx)) return
 
         select type (bounds => arena%entries(bounds_idx)%node)
         type is (range_expression_node)

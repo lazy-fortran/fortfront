@@ -41,13 +41,11 @@ contains
 
         do i = 1, size(func_def%body_indices)
             body_index = func_def%body_indices(i)
-            if (body_index <= 0 .or. body_index > arena%size) cycle
-            if (.not. allocated(arena%entries(body_index)%node)) cycle
+            if (.not. arena%has_node_at(body_index)) cycle
             select type (stmt => arena%entries(body_index)%node)
             type is (assignment_node)
                 target_index = stmt%target_index
-                if (target_index <= 0 .or. target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(target_index)%node)) cycle
+                if (.not. arena%has_node_at(target_index)) cycle
                 select type (target_node => arena%entries(target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target_node%name)) cycle
@@ -72,8 +70,7 @@ contains
             if (.not. in_interface_block) then
                 do i = 1, size(func_def%body_indices)
                     body_index = func_def%body_indices(i)
-                    if (body_index <= 0 .or. body_index > arena%size) cycle
-                    if (.not. allocated(arena%entries(body_index)%node)) cycle
+                    if (.not. arena%has_node_at(body_index)) cycle
                     select type (stmt => arena%entries(body_index)%node)
                     type is (declaration_node)
                         if (allocated(stmt%var_name)) then
@@ -216,8 +213,7 @@ contains
 
         do i = 1, size(func_def%body_indices)
             decl_index = func_def%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
             select type (stmt => arena%entries(decl_index)%node)
             type is (declaration_node)
                 if (trim(stmt%var_name) == trim(func_def%result_variable)) then
@@ -353,8 +349,7 @@ contains
         if (allocated(func_def%body_indices)) then
             do i = 1, size(func_def%body_indices)
                 body_idx = func_def%body_indices(i)
-                if (body_idx <= 0 .or. body_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(body_idx)%node)) cycle
+                if (.not. arena%has_node_at(body_idx)) cycle
                 select type (stmt => arena%entries(body_idx)%node)
                 type is (declaration_node)
                     if (allocated(stmt%var_name)) then
@@ -413,10 +408,10 @@ contains
             end if
             ! Only use inferred type for type_name if not already set by return_type
             if (decl%inferred_type%kind > 0 .and. len_trim(decl%type_name) == 0) then
-                decl%type_name = mono_type_to_string(decl%inferred_type, &
-                                                     include_shape=.false., &
-                                                    standardize_real=type_std_enabled, &
-                                                     fallback=decl%type_name)
+                decl%type_name = mono_type_to_string( &
+                                 decl%inferred_type, include_shape=.false., &
+                                 standardize_real=type_std_enabled, &
+                                 fallback=decl%type_name)
             end if
         end if
 
@@ -572,8 +567,7 @@ contains
         integer :: length_hint
         character(len=:), allocatable :: temp_names(:)
 
-        if (decl_index <= 0 .or. decl_index > arena%size) return
-        if (.not. allocated(arena%entries(decl_index)%node)) return
+        if (.not. arena%has_node_at(decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)
@@ -650,8 +644,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
 
-        if (decl_index <= 0 .or. decl_index > arena%size) return
-        if (.not. allocated(arena%entries(decl_index)%node)) return
+        if (.not. arena%has_node_at(decl_index)) return
 
         select type (decl => arena%entries(decl_index)%node)
         type is (declaration_node)

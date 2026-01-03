@@ -27,8 +27,7 @@ contains
 
         do i = 1, size(func_node%body_indices)
             decl_index = func_node%body_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
             select type (decl => arena%entries(decl_index)%node)
             type is (declaration_node)
                 if (trim(decl%var_name) /= trim(result_name)) cycle

@@ -50,8 +50,7 @@ contains
 
         do i = 1, size(body_indices)
             stmt_index = body_indices(i)
-            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            if (.not. arena%has_node_at(stmt_index)) cycle
 
             is_valid = is_valid_where_body_stmt(arena, stmt_index)
 
@@ -148,8 +147,7 @@ contains
 
         name = "unknown statement"
 
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        if (.not. arena%has_node_at(stmt_index)) return
 
         select type (node => arena%entries(stmt_index)%node)
         type is (if_node)

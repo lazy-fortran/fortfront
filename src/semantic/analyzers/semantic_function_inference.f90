@@ -107,8 +107,7 @@ contains
 
         do i = 1, size(func_node%body_indices)
             stmt_index = func_node%body_indices(i)
-            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            if (.not. arena%has_node_at(stmt_index)) cycle
             select type (stmt => arena%entries(stmt_index)%node)
             type is (declaration_node)
                 if (trim(stmt%var_name) == trim(result_name)) then
@@ -270,8 +269,7 @@ contains
         type(mono_type_t), intent(inout) :: fallback
         type(mono_type_t) :: candidate
 
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        if (.not. arena%has_node_at(stmt_index)) return
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (assignment_node)
@@ -511,8 +509,7 @@ contains
 
         candidate%kind = 0
         target_index = stmt%target_index
-        if (target_index <= 0 .or. target_index > arena%size) return
-        if (.not. allocated(arena%entries(target_index)%node)) return
+        if (.not. arena%has_node_at(target_index)) return
 
         select type (target => arena%entries(target_index)%node)
         type is (identifier_node)
@@ -545,8 +542,7 @@ contains
         integer, intent(in) :: node_index
 
         is_array_literal_node = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
         select type (value_node => arena%entries(node_index)%node)
         type is (array_literal_node)
             is_array_literal_node = .true.
@@ -564,8 +560,7 @@ contains
         integer :: i
 
         uses_subscripts = .false.
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (call_or_subscript_node)

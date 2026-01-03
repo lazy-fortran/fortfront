@@ -44,7 +44,6 @@ contains
 
     include '../common/read_example.inc'
 
-
     subroutine assert_use_survives(arena, root_index)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -65,8 +64,7 @@ contains
             end if
             do i = 1, size(prog%body_indices)
                 idx = prog%body_indices(i)
-                if (idx <= 0 .or. idx > arena%size) cycle
-                if (.not. allocated(arena%entries(idx)%node)) cycle
+                if (.not. arena%has_node_at(idx)) cycle
                 select type (sub => arena%entries(idx)%node)
                 type is (subroutine_def_node)
                     found_subroutine = .true.
@@ -97,8 +95,7 @@ contains
 
         do i = 1, size(sub_def%body_indices)
             idx = sub_def%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (use_statement_node)
                 return

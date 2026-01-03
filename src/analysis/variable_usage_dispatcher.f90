@@ -90,8 +90,7 @@ contains
         character(len=:), allocatable :: node_type
         integer :: current
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         if (arena%size > 0) then
             allocate (visited(arena%size))
@@ -102,8 +101,7 @@ contains
 
         do while (ctx%top > 0)
             current = pop_node(ctx)
-            if (current <= 0 .or. current > arena%size) cycle
-            if (.not. allocated(arena%entries(current)%node)) cycle
+            if (.not. arena%has_node_at(current)) cycle
             if (allocated(visited)) then
                 if (visited(current)) cycle
                 visited(current) = .true.

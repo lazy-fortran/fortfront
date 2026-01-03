@@ -12,8 +12,7 @@
         ! variables are registered before processing assignments
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
                 contains_seen = .true.
@@ -28,8 +27,7 @@
         ! Second pass: process assignments after allocate statements
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
                 contains_seen = .true.
@@ -54,8 +52,7 @@
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
 
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
@@ -104,8 +101,7 @@
         type(variable_usage_info_t) :: usage
         integer :: i, ident_index
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         usage = create_variable_usage_info()
         call collect_identifiers_recursive(arena, node_index, usage)
@@ -114,8 +110,7 @@
 
         do i = 1, size(usage%variable_names)
             ident_index = usage%node_indices(i)
-            if (ident_index <= 0 .or. ident_index > arena%size) cycle
-            if (.not. allocated(arena%entries(ident_index)%node)) cycle
+            if (.not. arena%has_node_at(ident_index)) cycle
             select type (id => arena%entries(ident_index)%node)
             type is (identifier_node)
                 call register_identifier_reference(state, trim(id%name), &
@@ -142,8 +137,7 @@
         call get_type_standardization(standardize_types_enabled)
 
         target_idx = stmt%target_index
-        if (target_idx <= 0 .or. target_idx > arena%size) return
-        if (.not. allocated(arena%entries(target_idx)%node)) return
+        if (.not. arena%has_node_at(target_idx)) return
 
         select type (id => arena%entries(target_idx)%node)
         type is (identifier_node)
@@ -225,8 +219,7 @@
         call get_type_standardization(standardize_types_enabled)
 
         value_idx = stmt%value_index
-        if (value_idx <= 0 .or. value_idx > arena%size) return
-        if (.not. allocated(arena%entries(value_idx)%node)) return
+        if (.not. arena%has_node_at(value_idx)) return
 
         select type (val => arena%entries(value_idx)%node)
         type is (call_or_subscript_node)
@@ -281,8 +274,7 @@
         logical, intent(in) :: standardize_types_enabled
         integer :: i
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (expr => arena%entries(expr_index)%node)
         type is (identifier_node)
@@ -384,8 +376,7 @@
 
         do i = 1, size(stmt%var_indices)
             var_index = stmt%var_indices(i)
-            if (var_index <= 0 .or. var_index > arena%size) cycle
-            if (.not. allocated(arena%entries(var_index)%node)) cycle
+            if (.not. arena%has_node_at(var_index)) cycle
 
             select type (node => arena%entries(var_index)%node)
             type is (identifier_node)

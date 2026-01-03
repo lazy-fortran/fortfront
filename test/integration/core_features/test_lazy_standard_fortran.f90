@@ -236,8 +236,7 @@ contains
         character(len=20) :: indent
         integer :: j
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         indent = repeat("  ", depth)
 
@@ -255,6 +254,5 @@ contains
             print *, trim(indent) // "other_node"
         end select
     end subroutine debug_ast_structure
-
 
 end program test_lazy_standard_fortran

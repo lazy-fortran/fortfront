@@ -248,8 +248,7 @@ contains
         character(len=:), allocatable :: name
 
         name = ""
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         select type (base => arena%entries(idx)%node)
         type is (identifier_node)
@@ -274,8 +273,7 @@ contains
         integer :: count_children
 
         allocate (indices(0))
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
         count_children = arena%entries(node_index)%child_count
         if (count_children <= 0) return
         if (allocated(indices)) deallocate (indices)

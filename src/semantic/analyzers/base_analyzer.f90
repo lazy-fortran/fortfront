@@ -91,7 +91,10 @@ contains
     function analyzer_has_dependencies(this) result(has_deps)
         class(base_analyzer_t), intent(in) :: this
         logical :: has_deps
-        has_deps = allocated(this%depends_on) .and. size(this%depends_on) > 0
+        has_deps = .false.
+        if (allocated(this%depends_on)) then
+            has_deps = (size(this%depends_on) > 0)
+        end if
     end function analyzer_has_dependencies
 
 end module base_analyzer

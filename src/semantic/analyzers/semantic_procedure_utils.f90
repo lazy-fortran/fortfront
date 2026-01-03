@@ -110,13 +110,11 @@ contains
 
         do i = 1, size(func_node%body_indices)
             stmt_index = func_node%body_indices(i)
-            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            if (.not. arena%has_node_at(stmt_index)) cycle
             select type (stmt => arena%entries(stmt_index)%node)
             type is (assignment_node)
                 target_index = stmt%target_index
-                if (target_index <= 0 .or. target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(target_index)%node)) cycle
+                if (.not. arena%has_node_at(target_index)) cycle
                 select type (target => arena%entries(target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle

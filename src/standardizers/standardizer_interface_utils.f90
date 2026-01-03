@@ -14,7 +14,7 @@ contains
         integer :: iface_index
 
         in_iface = .false.
-        if (func_index <= 0 .or. func_index > arena%size) return
+        if (.not. arena%has_node_at(func_index)) return
 
         parent_index = arena%entries(func_index)%parent_index
         do while (parent_index > 0 .and. parent_index <= arena%size)
@@ -32,7 +32,7 @@ contains
         end do
 
         do iface_index = 1, arena%size
-            if (.not. allocated(arena%entries(iface_index)%node)) cycle
+            if (.not. arena%has_node_at(iface_index)) cycle
             select type (iface => arena%entries(iface_index)%node)
             type is (interface_block_node)
                 if (.not. allocated(iface%procedure_indices)) cycle

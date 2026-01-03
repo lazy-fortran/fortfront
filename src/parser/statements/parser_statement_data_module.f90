@@ -254,14 +254,14 @@ contains
                     node_index = push_io_implied_do( &
                                  arena, value_expr_index, var_name, &
                                  start_expr_index=start_index, &
-                                     end_expr_index=end_index, &
+                                 end_expr_index=end_index, &
                                  step_expr_index=step_index, line=line, column=column, &
                                  object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
                                  arena, value_expr_index, var_name, &
                                  start_expr_index=start_index, &
-                                     end_expr_index=end_index, &
+                                 end_expr_index=end_index, &
                                  step_expr_index=step_index, line=line, column=column)
                 end if
             else
@@ -269,13 +269,13 @@ contains
                     node_index = push_io_implied_do( &
                                  arena, value_expr_index, var_name, &
                                  start_expr_index=start_index, &
-                                     end_expr_index=end_index, &
+                                 end_expr_index=end_index, &
                                  line=line, column=column, object_indices=object_exprs)
                 else
                     node_index = push_io_implied_do( &
                                  arena, value_expr_index, var_name, &
                                  start_expr_index=start_index, &
-                                     end_expr_index=end_index, &
+                                 end_expr_index=end_index, &
                                  line=line, column=column)
                 end if
             end if
@@ -391,9 +391,9 @@ contains
                                 current = parser%peek()
                                 if (current%kind == TK_OPERATOR .and. &
                                     trim(current%text) == "/") then
-                                   ! Accept trailing comma as extension (common compiler
-                                  ! tolerance). Parser continues; codegen emits standard
-                                    ! Fortran without trailing comma.
+                                    ! Accept trailing comma as extension (common)
+                                    ! compiler tolerance. Parser continues; codegen
+                                    ! emits standard Fortran without trailing comma.
                                     exit
                                 end if
                                 cycle
@@ -724,8 +724,7 @@ contains
             integer, intent(in) :: node_index
 
             is_ident = .false.
-            if (node_index <= 0 .or. node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
+            if (.not. arena%has_node_at(node_index)) return
 
             select type (obj_node => arena%entries(node_index)%node)
             type is (identifier_node)

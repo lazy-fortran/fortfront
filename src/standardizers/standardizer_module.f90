@@ -22,8 +22,7 @@ contains
         integer, intent(inout) :: root_index
         logical, intent(in), optional :: in_module
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         ! For module contents, we only need to handle function/subroutine definitions
         ! All other declarations are left as-is

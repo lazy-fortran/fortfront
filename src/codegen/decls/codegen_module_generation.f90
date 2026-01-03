@@ -110,8 +110,7 @@ contains
 
         do i = 1, size(node%declaration_indices)
             decl_index = node%declaration_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
 
             select type (decl => arena%entries(decl_index)%node)
             type is (implicit_statement_node)
@@ -275,8 +274,7 @@ contains
 
         do i = 1, size(node%declaration_indices)
             decl_index = node%declaration_indices(i)
-            if (decl_index <= 0 .or. decl_index > arena%size) cycle
-            if (.not. allocated(arena%entries(decl_index)%node)) cycle
+            if (.not. arena%has_node_at(decl_index)) cycle
 
             select type (decl => arena%entries(decl_index)%node)
             type is (implicit_statement_node)
@@ -406,8 +404,7 @@ contains
         character(len=:), allocatable :: proc_code
 
         proc_code = ""
-        if (procedure_index <= 0 .or. procedure_index > arena%size) return
-        if (.not. allocated(arena%entries(procedure_index)%node)) return
+        if (.not. arena%has_node_at(procedure_index)) return
 
         proc_code = generate_code_from_arena(arena, procedure_index)
     end function collect_contained_procedure

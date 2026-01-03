@@ -138,8 +138,7 @@ contains
                 has_meaningful = .false.
                 do i = 1, size(prog_node%body_indices)
                     idx = prog_node%body_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    if (.not. arena%has_node_at(idx)) cycle
                     select type (child => arena%entries(idx)%node)
                     type is (comment_node)
                         cycle

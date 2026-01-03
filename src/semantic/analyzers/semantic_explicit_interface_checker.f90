@@ -150,8 +150,7 @@ contains
 
         in_contains = .false.
         do i = 1, size(body_indices)
-            if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
+            if (.not. arena%has_node_at(body_indices(i))) cycle
 
             select type (node => arena%entries(body_indices(i))%node)
             type is (contains_node)
@@ -177,8 +176,7 @@ contains
         if (size(indices) == 0) return
 
         do i = 1, size(indices)
-            if (indices(i) <= 0 .or. indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(indices(i))%node)) cycle
+            if (.not. arena%has_node_at(indices(i))) cycle
 
             select type (proc => arena%entries(indices(i))%node)
             type is (function_def_node)

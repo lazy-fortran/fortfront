@@ -80,8 +80,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         if (trace_is_enabled()) then
             select type (ast => arena%entries(root_index)%node)
@@ -202,8 +201,7 @@ contains
         integer, intent(in) :: node_index
         type(mono_type_t) :: inferred
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         inferred = ctx%infer_stmt(arena, node_index)
     end subroutine infer_and_store_type
@@ -213,8 +211,7 @@ contains
         integer, intent(in) :: index
         type(mono_type_t), intent(in) :: typ
 
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
         arena%entries(index)%node%inferred_type = typ
     end subroutine set_node_inferred_type
 
@@ -225,8 +222,7 @@ contains
         type(mono_type_t) :: typ
 
         typ = create_mono_type(TREAL)
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
 
         typ = ctx%apply_subst_to_type(arena%entries(index)%node%inferred_type)
         if (typ%kind == TVAR) then

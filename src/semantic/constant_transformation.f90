@@ -69,8 +69,7 @@ contains
             end if
 
             current = pop()
-            if (current%idx <= 0 .or. current%idx > arena%size) cycle
-            if (.not. allocated(arena%entries(current%idx)%node)) cycle
+            if (.not. arena%has_node_at(current%idx)) cycle
 
             if (.not. current%processed) then
                 ! Schedule node for processing after its children
@@ -415,8 +414,7 @@ contains
                     end if
                 end if
             type is (assignment_node)
-                if (entry%target_index <= 0 .or. entry%target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(entry%target_index)%node)) cycle
+                if (.not. arena%has_node_at(entry%target_index)) cycle
                 select type (target => arena%entries(entry%target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle

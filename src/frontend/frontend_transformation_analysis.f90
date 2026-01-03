@@ -6,17 +6,17 @@ module frontend_transformation_analysis
     use frontend_analysis_helpers, only: build_procedure_membership, &
                                          analyze_ast_content, analyze_single_unit, &
                                          collect_host_assignment_names, &
-                                             collect_program_assignment_names, &
+                                         collect_program_assignment_names, &
                                          collect_procedure_assignment_names, &
-                                             collect_assignment_from_node, &
+                                         collect_assignment_from_node, &
                                          record_identifier_name, append_unique_name, &
                                          requires_lazy_internalization, &
-                                             has_existing_module_in_ast
+                                         has_existing_module_in_ast
     use frontend_program_builders, only: handle_mixed_construct_container, &
                                          scan_multi_unit_program, &
-                                             create_program_from_bare_statements, &
+                                         create_program_from_bare_statements, &
                                          merge_procedures_into_program, &
-                                             filter_procs_with_entry
+                                         filter_procs_with_entry
     implicit none
     private
 
@@ -42,8 +42,7 @@ contains
         integer, allocatable :: proc_indices(:)
         integer, allocatable :: main_stmts(:)
 
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         allocate (proc_indices(0))
         allocate (main_stmts(0))

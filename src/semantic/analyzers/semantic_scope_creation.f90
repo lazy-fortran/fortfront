@@ -101,8 +101,7 @@ contains
         character(len=:), allocatable :: type_string
         logical :: type_success
 
-        if (func_index <= 0 .or. func_index > arena%size) return
-        if (.not. allocated(arena%entries(func_index)%node)) return
+        if (.not. arena%has_node_at(func_index)) return
 
         type_string = build_function_return_string(return_type, type_success)
         call apply_result_metadata(arena, func_index, result_name, return_type, &
@@ -146,8 +145,7 @@ contains
         character(len=:), allocatable :: resolved_result_name
         type(mono_type_t) :: return_copy
 
-        if (func_index <= 0 .or. func_index > arena%size) return
-        if (.not. allocated(arena%entries(func_index)%node)) return
+        if (.not. arena%has_node_at(func_index)) return
 
         return_copy = return_type
         call return_copy%sync_from_arena()
@@ -225,8 +223,7 @@ contains
         integer :: stmt_index
         integer :: target_index
 
-        if (func_index <= 0 .or. func_index > arena%size) return
-        if (.not. allocated(arena%entries(func_index)%node)) return
+        if (.not. arena%has_node_at(func_index)) return
 
         target_name = trim(result_name)
         if (len_trim(target_name) == 0) target_name = trim(function_name)
@@ -237,13 +234,11 @@ contains
             if (.not. allocated(func%body_indices)) return
             do i = 1, size(func%body_indices)
                 stmt_index = func%body_indices(i)
-                if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-                if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+                if (.not. arena%has_node_at(stmt_index)) cycle
                 select type (stmt => arena%entries(stmt_index)%node)
                 type is (assignment_node)
                     target_index = stmt%target_index
-                    if (target_index <= 0 .or. target_index > arena%size) cycle
-                    if (.not. allocated(arena%entries(target_index)%node)) cycle
+                    if (.not. arena%has_node_at(target_index)) cycle
                     select type (target => arena%entries(target_index)%node)
                     type is (identifier_node)
                         if (trim(target%name) /= trim(target_name)) cycle
@@ -269,7 +264,7 @@ contains
     end subroutine refine_return_type_from_body
 
     logical function requires_explicit_result_name(return_type, result_name, &
-                                                    function_name) result(required)
+                                                   function_name) result(required)
         use type_system_unified, only: TARRAY
         type(mono_type_t), intent(in) :: return_type
         character(len=*), intent(in) :: result_name
@@ -299,13 +294,11 @@ contains
 
         do i = 1, size(func_node%body_indices)
             stmt_index = func_node%body_indices(i)
-            if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+            if (.not. arena%has_node_at(stmt_index)) cycle
             select type (stmt => arena%entries(stmt_index)%node)
             type is (assignment_node)
                 target_index = stmt%target_index
-                if (target_index <= 0 .or. target_index > arena%size) cycle
-                if (.not. allocated(arena%entries(target_index)%node)) cycle
+                if (.not. arena%has_node_at(target_index)) cycle
                 select type (target => arena%entries(target_index)%node)
                 type is (identifier_node)
                     if (.not. allocated(target%name)) cycle

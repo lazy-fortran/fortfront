@@ -455,8 +455,7 @@
             character(len=:), allocatable :: var_name
 
             found = .false.
-            if (object_index <= 0 .or. object_index > arena%size) return
-            if (.not. allocated(arena%entries(object_index)%node)) return
+            if (.not. arena%has_node_at(object_index)) return
 
             ! Get the variable name from the DATA target
             select type (target_node => arena%entries(object_index)%node)

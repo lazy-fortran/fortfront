@@ -514,9 +514,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
 
-        has_node = .false.
-        if (index <= 0 .or. index > arena%size) return
-        has_node = allocated(arena%entries(index)%node)
+        has_node = arena%has_node_at(index)
     end function node_exists
 
     subroutine fill_parameter_declaration(decl, metadata, idx, type_std_enabled, &

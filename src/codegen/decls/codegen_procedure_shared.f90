@@ -60,8 +60,7 @@ contains
 
         name = "param" // trim(adjustl(int_to_string(fallback_index)))
 
-        if (param_index <= 0 .or. param_index > arena%size) return
-        if (.not. allocated(arena%entries(param_index)%node)) return
+        if (.not. arena%has_node_at(param_index)) return
 
         select type (param_node => arena%entries(param_index)%node)
         type is (identifier_node)
@@ -128,8 +127,7 @@ contains
         has_other_implicit = .false.
 
         do j = 1, size(body_indices)
-            if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
-            if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
+            if (.not. arena%has_node_at(body_indices(j))) cycle
             select type (body_node => arena%entries(body_indices(j))%node)
             type is (implicit_statement_node)
                 if (body_node%is_none) then
@@ -155,11 +153,10 @@ contains
         integer :: parent_index
 
         has_implicit = .false.
-        if (procedure_index <= 0 .or. procedure_index > arena%size) return
+        if (.not. arena%has_node_at(procedure_index)) return
 
         parent_index = arena%entries(procedure_index)%parent_index
-        if (parent_index <= 0 .or. parent_index > arena%size) return
-        if (.not. allocated(arena%entries(parent_index)%node)) return
+        if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
         type is (module_node)
@@ -210,8 +207,7 @@ contains
         character(len=:), allocatable :: lowered_text
 
         has_implicit = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (stmt => arena%entries(node_index)%node)
         type is (implicit_statement_node)
@@ -262,8 +258,7 @@ contains
                 if (present(arena) .and. present(body_indices)) then
                     do j = 1, size(body_indices)
                         idx = body_indices(j)
-                        if (idx <= 0 .or. idx > arena%size) cycle
-                        if (.not. allocated(arena%entries(idx)%node)) cycle
+                        if (.not. arena%has_node_at(idx)) cycle
                         select type (node => arena%entries(idx)%node)
                         type is (declaration_node)
                             if (trim(node%var_name) == trim(param_map(i)%name)) then

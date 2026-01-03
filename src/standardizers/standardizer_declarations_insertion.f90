@@ -215,8 +215,7 @@ contains
         if (pos < 1 .or. pos > size(prog%body_indices)) return
 
         node_index = prog%body_indices(pos)
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (stmt => arena%entries(node_index)%node)
         type is (comment_node)

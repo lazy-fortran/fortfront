@@ -140,8 +140,7 @@
 
             node_index = current%node_index
             if (current%leave_scope) call this%scopes%leave_scope()
-            if (node_index <= 0 .or. node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
+            if (.not. arena%has_node_at(node_index)) return
 
             select type (expr => arena%entries(node_index)%node)
             type is (binary_op_node)
@@ -232,8 +231,7 @@
 
             parent_index = current%node_index
             assoc_index = current%aux_index
-            if (parent_index <= 0 .or. parent_index > arena%size) return
-            if (.not. allocated(arena%entries(parent_index)%node)) return
+            if (.not. arena%has_node_at(parent_index)) return
 
             select type (assoc_node => arena%entries(parent_index)%node)
             type is (associate_node)

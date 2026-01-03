@@ -35,7 +35,8 @@ contains
         ! which the checker doesn't fully understand yet
         if (input_mode == INPUT_MODE_STANDARD) return
 
-    ! Recursively traverse the AST to find identifier nodes and check if they're defined
+        ! Recursively traverse the AST to find identifier nodes and check if they are
+        ! defined.
         call traverse_for_undefined_variables(scopes, errors, arena, prog_index)
     end subroutine check_undefined_variables_generic
 
@@ -64,8 +65,7 @@ contains
 
         do while (top > 0)
             current_index = pop()
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
 
             select type (node => arena%entries(current_index)%node)
             type is (identifier_node)

@@ -199,8 +199,7 @@ contains
         integer, allocatable :: child_indices(:)
         integer :: i
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         ! Pre-order visit
         if (pre_order) then
@@ -612,7 +611,7 @@ contains
 
         max_depth = current_depth
 
-        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. arena%has_node_at(node_index)) return
 
         children = get_children(arena, node_index)
         if (allocated(children)) then
@@ -632,8 +631,7 @@ contains
 
         node_type = NODE_UNKNOWN
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         ! Map node type string to constant (handle both with and without _node suffix)
         select case (trim(arena%entries(node_index)%node_type))
