@@ -292,7 +292,7 @@ contains
         character(len=*), intent(in) :: second_text
         character(len=:), allocatable :: literal
 
-        literal = trim(first_text)//trim(second_text)
+        literal = trim(first_text) // trim(second_text)
     end function combine_boz_literal_text
 
     subroutine handle_closing_paren(parser, arena, view, operators, operands, &
@@ -883,7 +883,8 @@ contains
             loop_count = loop_count + 1
             op_token = view_peek_token(view, parser)
 
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
+            if (op_token%kind == TK_OPERATOR .and. &
+                (op_token%text == "%" .or. op_token%text == ".")) then
                 op_token = view_consume_token(view, parser)
                 expr_index = parse_component_access_postfix(parser, arena, &
                                                             expr_index, op_token)

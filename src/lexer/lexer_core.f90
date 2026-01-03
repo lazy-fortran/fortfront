@@ -336,17 +336,21 @@ contains
 
         integer :: source_len
         logical :: prev_is_digit
+        character :: next_char
+        integer :: probe_pos
+        logical :: looks_like_dot_word_dot
 
         source_len = len(source)
         prev_is_digit = .false.
+        looks_like_dot_word_dot = .false.
 
         if (pos < source_len) then
-            if (source(pos + 1:pos + 1) == '.') then
+            next_char = source(pos + 1:pos + 1)
+            if (next_char == '.') then
                 call scan_assumed_rank_operator(source, pos, &
                                                 line_num, col_num, &
                                                 tokens, token_count)
-            else if (source(pos + 1:pos + 1) >= '0' .and. &
-                     source(pos + 1:pos + 1) <= '9') then
+            else if (next_char >= '0' .and. next_char <= '9') then
                 if (pos > 1) then
                     prev_is_digit = (source(pos - 1:pos - 1) >= '0' .and. &
                                      source(pos - 1:pos - 1) <= '9')
@@ -357,6 +361,36 @@ contains
                 else
                     call scan_number(source, pos, line_num, col_num, tokens, &
                                      token_count)
+                end if
+            else if ((next_char >= 'a' .and. next_char <= 'z') .or. &
+                     (next_char >= 'A' .and. next_char <= 'Z') .or. &
+                     next_char == '_') then
+                ! Disambiguation:
+                ! - .and. / .or. / .op. / .true. etc: dot + identifier + dot
+                ! - LFortran member access: identifier.identifier (no trailing dot)
+                probe_pos = pos + 1
+                do while (probe_pos <= source_len)
+                    next_char = source(probe_pos:probe_pos)
+                    if ((next_char >= 'a' .and. next_char <= 'z') .or. &
+                        (next_char >= 'A' .and. next_char <= 'Z') .or. &
+                        (next_char >= '0' .and. next_char <= '9') .or. &
+                        next_char == '_') then
+                        probe_pos = probe_pos + 1
+                        cycle
+                    end if
+                    exit
+                end do
+                if (probe_pos <= source_len) then
+                    looks_like_dot_word_dot = (source(probe_pos:probe_pos) == '.')
+                end if
+
+                if (looks_like_dot_word_dot) then
+                    call scan_logical_token(source, pos, line_num, &
+                                            col_num, tokens, &
+                                            token_count)
+                else
+                    call scan_operator(source, pos, line_num, col_num, tokens, &
+                                       token_count)
                 end if
             else
                 call scan_logical_token(source, pos, line_num, &

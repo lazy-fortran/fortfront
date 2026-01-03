@@ -1,0 +1,7 @@
+type :: particle_t
+    real :: x
+end type particle_t
+
+type(particle_t) :: p
+p.x = 1.0
+print *, p.x

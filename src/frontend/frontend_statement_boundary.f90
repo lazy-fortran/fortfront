@@ -245,6 +245,25 @@ contains
             is_multiline = .true.
             nesting_level = 1
         case ("type")
+            ! Distinguish derived type definitions from derived type declarations.
+            ! Declarations use type(name) :: var and should not consume until end type.
+            max_idx = min(stmt_start + 20, size(tokens))
+            do i = stmt_start + 1, max_idx
+                select case (tokens(i)%kind)
+                case (TK_WHITESPACE, TK_COMMENT)
+                    cycle
+                case (TK_NEWLINE)
+                    exit
+                case (TK_OPERATOR)
+                    if (tokens(i)%text == "(") return
+                    exit
+                case (TK_KEYWORD)
+                    if (tokens(i)%text == "is") return
+                    exit
+                case default
+                    exit
+                end select
+            end do
             is_multiline = .true.
             nesting_level = 1
         case ("forall")
