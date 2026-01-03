@@ -15,10 +15,9 @@ module codegen_generics
 
 contains
 
-    function generate_code_template_block(arena, node, node_index) result(code)
+    function generate_code_template_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(template_block_node), intent(in) :: node
-        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: header
         character(len=:), allocatable :: decl_code
@@ -85,10 +84,9 @@ contains
         end if
     end function generate_code_instantiate_statement
 
-    function generate_code_trait_block(arena, node, node_index) result(code)
+    function generate_code_trait_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(trait_block_node), intent(in) :: node
-        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: header
         character(len=:), allocatable :: decl_code
@@ -142,10 +140,9 @@ contains
         code = code // "end trait " // node%name
     end function generate_code_trait_block
 
-    function generate_code_requirement_block(arena, node, node_index) result(code)
+    function generate_code_requirement_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(requirement_block_node), intent(in) :: node
-        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: header
         character(len=:), allocatable :: decl_code
@@ -199,10 +196,9 @@ contains
         code = code // "end requirement " // node%name
     end function generate_code_requirement_block
 
-    function generate_code_implements_block(arena, node, node_index) result(code)
+    function generate_code_implements_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(implements_block_node), intent(in) :: node
-        integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: header
         character(len=:), allocatable :: decl_code
