@@ -6,7 +6,7 @@ program test_debug_trace_profile_report_sorted
 
     character(len=512) :: executable_path
     character(len=32) :: mode
-    character(len=32) :: report_path
+    character(len=256) :: report_path
     character(len=1024) :: command
     integer :: exit_code
 
@@ -156,4 +156,3 @@ contains
     include '../common/cli_system_tests.inc'
 
 end program test_debug_trace_profile_report_sorted
-
