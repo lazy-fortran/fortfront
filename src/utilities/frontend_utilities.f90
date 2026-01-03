@@ -36,9 +36,10 @@ contains
     function strip_space_before_comma(text) result(clean)
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: clean
-        character(len=len(text)) :: buffer
+        character(len=:), allocatable :: buffer
         integer :: i, pos
 
+        allocate (character(len=len(text)) :: buffer)
         pos = 0
         do i = 1, len(text)
             if (text(i:i) == ',' .and. pos > 0) then

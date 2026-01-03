@@ -168,7 +168,7 @@ contains
 
     logical function can_keyword_be_identifier(token) result(can_be_id)
         type(token_t), intent(in) :: token
-        character(len=len(token%text)) :: lower_text
+        character(len=:), allocatable :: lower_text
 
         lower_text = to_lower(token%text)
         can_be_id = lower_text == "stop" .or. lower_text == "pause" .or. &

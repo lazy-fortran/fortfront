@@ -536,7 +536,7 @@ contains
     function is_keyword(word) result(keyword)
         character(len=*), intent(in) :: word
         logical :: keyword
-        character(len=len(word)) :: lower_word
+        character(len=:), allocatable :: lower_word
 
         lower_word = to_lower(word)
 
@@ -582,7 +582,7 @@ contains
     function is_logical_constant(token_text) result(is_constant)
         character(len=*), intent(in) :: token_text
         logical :: is_constant
-        character(len=len(token_text)) :: lower_text
+        character(len=:), allocatable :: lower_text
 
         lower_text = to_lower(token_text)
 

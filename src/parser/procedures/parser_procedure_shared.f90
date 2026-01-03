@@ -96,7 +96,7 @@ contains
         type(parser_state_t), intent(in) :: parser
         type(token_t), intent(in) :: token
         type(token_t) :: lookahead
-        character(len=len(token%text)) :: token_lower
+        character(len=:), allocatable :: token_lower
         character(len=:), allocatable :: next_lower
         integer :: next_index
 
