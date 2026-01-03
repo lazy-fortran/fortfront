@@ -72,11 +72,9 @@ contains
 
         is_start = .false.
         if (pos < 1 .or. pos > size(tokens)) return
-
         if (tokens(pos)%kind /= TK_KEYWORD) return
         lowered = to_lower(trim(tokens(pos)%text))
         if (lowered /= "type") return
-
         prev_idx = pos - 1
         do while (prev_idx >= 1)
             select case (tokens(prev_idx)%kind)
