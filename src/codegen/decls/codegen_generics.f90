@@ -94,52 +94,23 @@ contains
         type(template_block_node), intent(in) :: node
         character(len=:), allocatable :: code
         character(len=:), allocatable :: header
-        character(len=:), allocatable :: decl_code
-        character(len=:), allocatable :: proc_code
         character(len=:), allocatable :: params
-        integer :: i
 
         code = ""
-        params = ""
-
-        if (allocated(node%parameter_names)) then
-            do i = 1, size(node%parameter_names)
-                if (i == 1) then
-                    params = node%parameter_names(i)
-                else
-                    params = params // ", " // node%parameter_names(i)
-                end if
-            end do
-        end if
+        call build_parameter_list(node%parameter_names, params)
 
         header = "template " // node%name
         if (len(params) > 0) header = header // "(" // params // ")"
         header = header // new_line('A')
         code = header
 
-        if (allocated(node%declaration_indices)) then
-            do i = 1, size(node%declaration_indices)
-                if (.not. arena%has_node_at(node%declaration_indices(i))) cycle
-                decl_code = generate_code_from_arena(arena, node%declaration_indices(i))
-                if (len(decl_code) == 0) cycle
-                code = code // "    " // decl_code // new_line('A')
-            end do
-        end if
+        call append_node_code_lines(arena, node%declaration_indices, code, &
+                                    add_blank_lines=.false.)
 
         if (node%has_contains) then
             code = code // "contains" // new_line('A')
-            if (allocated(node%procedure_indices)) then
-                do i = 1, size(node%procedure_indices)
-                    if (.not. arena%has_node_at(node%procedure_indices(i))) cycle
-                    proc_code = generate_code_from_arena(arena, &
-                                                         node%procedure_indices(i))
-                    if (len(proc_code) == 0) cycle
-                    code = code // "    " // proc_code // new_line('A')
-                    if (i < size(node%procedure_indices)) then
-                        code = code // new_line('A')
-                    end if
-                end do
-            end if
+            call append_node_code_lines(arena, node%procedure_indices, code, &
+                                        add_blank_lines=.true.)
         end if
 
         code = code // "end template " // node%name
