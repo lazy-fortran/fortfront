@@ -1,0 +1,7 @@
+! Issue 1343: lazy function inference
+function add(a, b)
+    result = a + b
+end function
+
+x = add(5, 3)
+print *, x
