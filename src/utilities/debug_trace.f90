@@ -259,35 +259,56 @@ contains
         end do
     end subroutine trace_profile_get_stat
 
-    subroutine trace_finalize()
+    subroutine trace_finalize(output_unit)
+        integer, intent(in), optional :: output_unit
         integer :: i
+        integer :: n_active
+        integer, allocatable :: section_order(:)
         real(dp) :: total_ms, self_ms
+        integer :: unit_out
 
         if (.not. initialized) return
         if (.not. profile_enabled) return
 
-        write (error_unit, '(A)') '=== Fortfront Profile ==='
+        unit_out = error_unit
+        if (present(output_unit)) unit_out = output_unit
+
+        write (unit_out, '(A)') '=== Fortfront Profile ==='
         if (profile_clock_rate > 0_int64) then
             total_ms = counts_to_ms(profile_root_total_counts)
-            write (error_unit, '(A,F10.3)') 'total_ms: ', total_ms
+            write (unit_out, '(A,F10.3)') 'total_ms: ', total_ms
         else
-            write (error_unit, '(A)') 'total_ms: unavailable'
+            write (unit_out, '(A)') 'total_ms: unavailable'
         end if
 
         if (allocated(profile_sections)) then
+            allocate (section_order(size(profile_sections)))
+            n_active = 0
             do i = 1, size(profile_sections)
                 if (.not. allocated(profile_sections(i)%name)) cycle
                 if (profile_sections(i)%call_count <= 0_int64) cycle
-                total_ms = counts_to_ms(profile_sections(i)%total_counts)
-                self_ms = counts_to_ms(profile_sections(i)%self_counts)
-                write (error_unit, '(A,1X,I0,1X,A,F10.3,1X,A,F10.3)') &
-                    trim(profile_sections(i)%name), &
-                    profile_sections(i)%call_count, &
+                n_active = n_active + 1
+                section_order(n_active) = i
+            end do
+
+            if (n_active > 1) then
+                call sort_profile_sections_by_total_time(section_order(1:n_active))
+            end if
+
+            do i = 1, n_active
+                total_ms = counts_to_ms( &
+                           profile_sections(section_order(i))%total_counts)
+                self_ms = counts_to_ms( &
+                          profile_sections(section_order(i))%self_counts)
+                write (unit_out, '(A,1X,I0,1X,A,F10.3,1X,A,F10.3)') &
+                    trim(profile_sections(section_order(i))%name), &
+                    profile_sections(section_order(i))%call_count, &
                     'self_ms:', self_ms, &
                     'total_ms:', total_ms
             end do
+            deallocate (section_order)
         end if
-        flush (error_unit)
+        flush (unit_out)
 
         call trace_profile_reset()
         profile_enabled = .false.
@@ -328,5 +349,53 @@ contains
             ms = 1000.0_dp * real(counts, kind=dp) / real(profile_clock_rate, kind=dp)
         end if
     end function counts_to_ms
+
+    subroutine sort_profile_sections_by_total_time(section_order)
+        integer, intent(inout) :: section_order(:)
+        integer :: i, j
+        integer :: key
+
+        do i = 2, size(section_order)
+            key = section_order(i)
+            j = i - 1
+            do while (j >= 1)
+                if (.not. profile_section_precedes(key, section_order(j))) exit
+                section_order(j + 1) = section_order(j)
+                j = j - 1
+            end do
+            section_order(j + 1) = key
+        end do
+    end subroutine sort_profile_sections_by_total_time
+
+    logical function profile_section_precedes(left, right) result(precedes)
+        integer, intent(in) :: left
+        integer, intent(in) :: right
+        integer(int64) :: left_total, right_total
+        integer(int64) :: left_self, right_self
+
+        left_total = profile_sections(left)%total_counts
+        right_total = profile_sections(right)%total_counts
+        if (left_total /= right_total) then
+            precedes = left_total > right_total
+            return
+        end if
+
+        left_self = profile_sections(left)%self_counts
+        right_self = profile_sections(right)%self_counts
+        if (left_self /= right_self) then
+            precedes = left_self > right_self
+            return
+        end if
+
+        precedes = .false.
+        if (.not. allocated(profile_sections(left)%name)) return
+        if (.not. allocated(profile_sections(right)%name)) then
+            precedes = .true.
+            return
+        end if
+
+        precedes = trim(profile_sections(left)%name) < &
+                   trim(profile_sections(right)%name)
+    end function profile_section_precedes
 
 end module debug_trace
