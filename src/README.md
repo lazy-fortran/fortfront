@@ -143,7 +143,7 @@ frontend → parser → lexer → common → utilities
 **Internal Use Only**:
 - Most subsystem modules are internal
 - Use facade modules for external integration
-- See `docs/LIBRARY_USAGE.md` for API examples
+- See `docs/guides/LIBRARY_USAGE.md` for API examples
 
 ## Build System
 
@@ -209,6 +209,6 @@ For complete design patterns and implementation details, see [CLAUDE.md Architec
 
 - **Arena Allocation**: `memory/README.md`
 - **Visitor Pattern**: `ast/traversal/README.md`
-- **Pratt Parser**: `parser/expressions/README.md`, `docs/PRATT_PIPELINE_ARCHITECTURE.md`
-- **Type Inference**: `semantic/README.md`, `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md`
-- **Monomorphization**: `standardizers/README.md`, `docs/MONOMORPHIZATION.md`
+- **Pratt Parser**: `parser/expressions/README.md`, `docs/architecture/PRATT_PIPELINE_ARCHITECTURE.md`
+- **Type Inference**: `semantic/README.md`, `docs/architecture/SEMANTIC_PIPELINE_ARCHITECTURE.md`
+- **Monomorphization**: `standardizers/README.md`, `docs/architecture/MONOMORPHIZATION.md`

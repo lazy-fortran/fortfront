@@ -438,7 +438,7 @@ Fortfront processes **both standard and lazy Fortran** through a multi-stage pip
 - Single-file: fortfront generates all type specializations used in file
 - Cross-module: package managers orchestrate using fortfront API
 - Uses Fortran generic interfaces (standard Fortran, no extensions)
-- See `docs/MONOMORPHIZATION.md` for detailed design
+- See `docs/architecture/MONOMORPHIZATION.md` for detailed design
 - **Not applicable to standard Fortran** - only for lazy Fortran type inference
 
 ### Module Organization
@@ -606,7 +606,7 @@ What are you doing?
 │
 ├─ Understanding architecture
 │  ├─ Read src/README.md (pipeline overview)
-│  ├─ Read docs/LIBRARY_USAGE.md (API guide)
+│  ├─ Read docs/guides/LIBRARY_USAGE.md (API guide)
 │  ├─ Follow pipeline: lexer → parser → semantic → codegen
 │  └─ Check subsystem READMEs for details
 │
@@ -642,19 +642,19 @@ What are you doing?
 ### Key Documentation
 
 #### Essential Docs (read these first)
-- `docs/MONOMORPHIZATION.md` - Type inference and specialization strategy
-- `docs/LIBRARY_USAGE.md` - API usage examples for tool developers
-- `docs/TYPE_SAFETY_GUIDE.md` - Type system implementation details
+- `docs/architecture/MONOMORPHIZATION.md` - Type inference and specialization strategy
+- `docs/guides/LIBRARY_USAGE.md` - API usage examples for tool developers
+- `docs/guides/TYPE_SAFETY_GUIDE.md` - Type system implementation details
 
 #### Implementation Guides
-- `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md` - Semantic analysis design
-- `docs/PRATT_PIPELINE_ARCHITECTURE.md` - Parser implementation (Pratt parsing)
-- `docs/MIXED_CONSTRUCTS_GUIDE.md` - Handling `.lf` files with embedded Fortran
-- `docs/NODE_TYPE_IDENTIFICATION.md` - AST node type patterns
-- `docs/CHARACTER_TYPE_GUIDE.md` - String handling in Fortran
+- `docs/architecture/SEMANTIC_PIPELINE_ARCHITECTURE.md` - Semantic analysis design
+- `docs/architecture/PRATT_PIPELINE_ARCHITECTURE.md` - Parser implementation (Pratt parsing)
+- `docs/guides/MIXED_CONSTRUCTS_GUIDE.md` - Handling `.lf` files with embedded Fortran
+- `docs/reference/NODE_TYPE_IDENTIFICATION.md` - AST node type patterns
+- `docs/guides/CHARACTER_TYPE_GUIDE.md` - String handling in Fortran
 
 #### Reference
-- `docs/AST_MIGRATION.md` - AST architecture evolution
+- `docs/archive/AST_MIGRATION.md` - AST architecture evolution
 - `docs/archive/MEMORY_SAFETY_ANALYSIS.md` - Historical memory safety notes
 - `docs/archive/PARSE_DECLARATION_REFACTORING.md` - Historical parser refactoring notes
 - `docs/ECOSYSTEM.md` - Integration with fortrun and package managers

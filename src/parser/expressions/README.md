@@ -22,7 +22,7 @@ This directory implements expression parsing using a Pratt parser (precedence cl
 ## Key Concepts
 
 **Pratt Parsing (Precedence Climbing)**
-- For complete Pratt parser design, see [Parser README](../README.md#key-concepts) and [docs/PRATT_PIPELINE_ARCHITECTURE.md](../../../docs/PRATT_PIPELINE_ARCHITECTURE.md)
+- For complete Pratt parser design, see [Parser README](../README.md#key-concepts) and [docs/architecture/PRATT_PIPELINE_ARCHITECTURE.md](../../../docs/architecture/PRATT_PIPELINE_ARCHITECTURE.md)
 - Elegant operator precedence via left/right binding power
 - Naturally handles associativity and prefix/infix/postfix operators
 
