@@ -60,7 +60,7 @@ module parser_expressions_module
                                                        reduce_all_operators, &
                                                        reduce_until_group, &
                                                        push_group_marker
-    use parser_inline_instantiation_module, only: consume_inline_instantiation_tokens
+    use parser_inline_instantiation_module, only: consume_inline_instantiation
     use parser_token_views_module, only: token_view_t, build_token_view, &
                                          view_peek_token, view_lower_token, &
                                          view_consume_token, view_lookahead_token
@@ -892,8 +892,7 @@ contains
                                                             expr_index, op_token)
                 if (expr_index <= 0) exit
             else if (op_token%kind == TK_OPERATOR .and. op_token%text == "{") then
-                call consume_inline_instantiation_tokens(parser, view, &
-                                                         instantiation_text)
+                call consume_inline_instantiation(parser, instantiation_text, view)
                 if (allocated(instantiation_text)) then
                     call append_inline_instantiation_to_name(arena, expr_index, &
                                                              instantiation_text)

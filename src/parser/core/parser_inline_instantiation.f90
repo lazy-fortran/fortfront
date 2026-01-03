@@ -8,24 +8,20 @@ module parser_inline_instantiation_module
     private
 
     public :: consume_inline_instantiation
-    public :: consume_inline_instantiation_tokens
 
 contains
 
-    subroutine consume_inline_instantiation(parser, inst_text)
+    subroutine consume_inline_instantiation(parser, inst_text, view)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: inst_text
+        type(token_view_t), intent(in), optional :: view
 
-        call consume_inline_instantiation_core(parser, inst_text)
+        if (present(view)) then
+            call consume_inline_instantiation_core(parser, inst_text, view)
+        else
+            call consume_inline_instantiation_core(parser, inst_text)
+        end if
     end subroutine consume_inline_instantiation
-
-    subroutine consume_inline_instantiation_tokens(parser, view, inst_text)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_view_t), intent(in) :: view
-        character(len=:), allocatable, intent(out) :: inst_text
-
-        call consume_inline_instantiation_core(parser, inst_text, view)
-    end subroutine consume_inline_instantiation_tokens
 
     subroutine consume_inline_instantiation_core(parser, inst_text, view)
         type(parser_state_t), intent(inout) :: parser
