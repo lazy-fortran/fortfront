@@ -300,19 +300,25 @@ contains
 
         select type (node => arena%entries(param_index)%node)
         type is (identifier_node)
-            if (allocated(node%name) .and. len_trim(node%name) > 0) then
-                name = trim(node%name)
-                return
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    name = trim(node%name)
+                    return
+                end if
             end if
         type is (parameter_declaration_node)
-            if (allocated(node%name) .and. len_trim(node%name) > 0) then
-                name = trim(node%name)
-                return
+            if (allocated(node%name)) then
+                if (len_trim(node%name) > 0) then
+                    name = trim(node%name)
+                    return
+                end if
             end if
         type is (declaration_node)
-            if (allocated(node%var_name) .and. len_trim(node%var_name) > 0) then
-                name = trim(node%var_name)
-                return
+            if (allocated(node%var_name)) then
+                if (len_trim(node%var_name) > 0) then
+                    name = trim(node%var_name)
+                    return
+                end if
             end if
         class default
             continue

@@ -72,10 +72,11 @@ contains
         type is (declaration_node)
             if (allocated(arg%var_name)) then
                 param_name = arg%var_name
-                if (allocated(arg%type_name) .and. len_trim(arg%type_name) > 0) then
-                    seed_type = declaration_type_to_mono(arg%type_name)
-                else
-                    seed_type = arg%inferred_type
+                seed_type = arg%inferred_type
+                if (allocated(arg%type_name)) then
+                    if (len_trim(arg%type_name) > 0) then
+                        seed_type = declaration_type_to_mono(arg%type_name)
+                    end if
                 end if
             end if
         end select

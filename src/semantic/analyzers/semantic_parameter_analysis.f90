@@ -315,13 +315,10 @@ contains
                 return
             end if
 
-            if (stmt_idx > 0 .and. stmt_idx <= arena%size) then
-                if (allocated(arena%entries(stmt_idx)%node)) then
-                    if (node_contains_call(arena, stmt_idx, call_index)) then
-                        is_in_body = .true.
-                        return
-                    end if
-                end if
+            if (.not. arena%has_node_at(stmt_idx)) cycle
+            if (node_contains_call(arena, stmt_idx, call_index)) then
+                is_in_body = .true.
+                return
             end if
         end do
     end function call_is_in_function_body
@@ -360,15 +357,17 @@ contains
                 contains_call = .true.
                 return
             end if
-            if (node%left_index > 0 .and. &
-                node_contains_call(arena, node%left_index, call_index)) then
-                contains_call = .true.
-                return
+            if (node%left_index > 0) then
+                if (node_contains_call(arena, node%left_index, call_index)) then
+                    contains_call = .true.
+                    return
+                end if
             end if
-            if (node%right_index > 0 .and. &
-                node_contains_call(arena, node%right_index, call_index)) then
-                contains_call = .true.
-                return
+            if (node%right_index > 0) then
+                if (node_contains_call(arena, node%right_index, call_index)) then
+                    contains_call = .true.
+                    return
+                end if
             end if
         type is (call_or_subscript_node)
             if (allocated(node%arg_indices)) then
