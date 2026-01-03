@@ -4,11 +4,12 @@ module ast_traversal_visit
     use ast_nodes_core, only: assignment_node, binary_op_node, &
                               call_or_subscript_node, identifier_node, &
                               literal_node, program_node
-    use ast_nodes_data, only: declaration_node, derived_type_node, module_node
+    use ast_nodes_data, only: declaration_node, derived_type_node, module_node, &
+                              submodule_node
     use ast_nodes_io, only: print_statement_node
     use ast_nodes_loops, only: do_loop_node, do_while_node
     use ast_nodes_misc, only: include_statement_node, interface_block_node, &
-                              use_statement_node
+                              use_statement_node, visibility_statement_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node, &
                                    subroutine_def_node
     use ast_visitor, only: ast_visitor_t
@@ -61,8 +62,12 @@ contains
             call visitor%visit_interface_block(n)
         type is (module_node)
             call visitor%visit_module(n)
+        type is (submodule_node)
+            call visitor%visit_submodule(n)
         type is (use_statement_node)
             call visitor%visit_use_statement(n)
+        type is (visibility_statement_node)
+            call visitor%visit_visibility_statement(n)
         type is (include_statement_node)
             call visitor%visit_include_statement(n)
         end select
