@@ -19,16 +19,20 @@ program test_lfortran_traits_requirements_implements_parsing
     arena = create_ast_arena()
     call lex_source(source, tokens, error_msg)
 
-    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-        write (output_unit, '(A)') "FAIL: Lexing error: " // trim(error_msg)
-        error stop 1
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write (output_unit, '(A)') "FAIL: Lexing error: " // trim(error_msg)
+            error stop 1
+        end if
     end if
 
     call parse_tokens(tokens, arena, root_index, error_msg)
 
-    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-        write (output_unit, '(A)') "FAIL: Parsing error: " // trim(error_msg)
-        error stop 1
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write (output_unit, '(A)') "FAIL: Parsing error: " // trim(error_msg)
+            error stop 1
+        end if
     end if
 
     call emit_fortran(arena, root_index, output_code)
