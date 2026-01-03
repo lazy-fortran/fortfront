@@ -15,9 +15,9 @@ module codegen_generics
 
 contains
 
-    function join_parameter_list(parameter_names) result(params)
+    subroutine build_parameter_list(parameter_names, params)
         character(len=:), allocatable, intent(in), optional :: parameter_names(:)
-        character(len=:), allocatable :: params
+        character(len=:), allocatable, intent(out) :: params
         integer :: i
 
         params = ""
@@ -31,11 +31,33 @@ contains
                 params = params // ", " // parameter_names(i)
             end if
         end do
-    end function join_parameter_list
+    end subroutine build_parameter_list
 
-    function generate_code_named_block(arena, keyword, name, parameter_names, &
-                                       declaration_indices, procedure_indices, &
-                                       has_contains) result(code)
+    subroutine append_node_code_lines(arena, indices, code, add_blank_lines)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in), optional :: indices(:)
+        character(len=:), allocatable, intent(inout) :: code
+        logical, intent(in) :: add_blank_lines
+        character(len=:), allocatable :: node_code
+        integer :: i
+
+        if (.not. present(indices)) return
+        if (.not. allocated(indices)) return
+
+        do i = 1, size(indices)
+            if (.not. arena%has_node_at(indices(i))) cycle
+            node_code = generate_code_from_arena(arena, indices(i))
+            if (len(node_code) == 0) cycle
+            code = code // "    " // node_code // new_line('A')
+            if (add_blank_lines) then
+                if (i < size(indices)) code = code // new_line('A')
+            end if
+        end do
+    end subroutine append_node_code_lines
+
+    subroutine generate_code_named_block(arena, keyword, name, parameter_names, &
+                                         declaration_indices, procedure_indices, &
+                                         has_contains, code)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: keyword
         character(len=*), intent(in) :: name
@@ -43,52 +65,29 @@ contains
         integer, allocatable, intent(in), optional :: declaration_indices(:)
         integer, allocatable, intent(in), optional :: procedure_indices(:)
         logical, intent(in) :: has_contains
-        character(len=:), allocatable :: code
+        character(len=:), allocatable, intent(out) :: code
         character(len=:), allocatable :: header
-        character(len=:), allocatable :: decl_code
-        character(len=:), allocatable :: proc_code
         character(len=:), allocatable :: params
-        integer :: i
 
         code = ""
 
-        params = join_parameter_list(parameter_names)
+        call build_parameter_list(parameter_names, params)
         header = keyword // " " // name
         if (len(params) > 0) header = header // "(" // params // ")"
         header = header // new_line('A')
         code = header
 
-        if (present(declaration_indices)) then
-            if (allocated(declaration_indices)) then
-                do i = 1, size(declaration_indices)
-                    if (.not. arena%has_node_at(declaration_indices(i))) cycle
-                    decl_code = generate_code_from_arena(arena, declaration_indices(i))
-                    if (len(decl_code) == 0) cycle
-                    code = code // "    " // decl_code // new_line('A')
-                end do
-            end if
-        end if
+        call append_node_code_lines(arena, declaration_indices, code, &
+                                    add_blank_lines=.false.)
 
         if (has_contains) then
             code = code // "contains" // new_line('A')
-            if (present(procedure_indices)) then
-                if (allocated(procedure_indices)) then
-                    do i = 1, size(procedure_indices)
-                        if (.not. arena%has_node_at(procedure_indices(i))) cycle
-                        proc_code = generate_code_from_arena(arena, &
-                                                             procedure_indices(i))
-                        if (len(proc_code) == 0) cycle
-                        code = code // "    " // proc_code // new_line('A')
-                        if (i < size(procedure_indices)) then
-                            code = code // new_line('A')
-                        end if
-                    end do
-                end if
-            end if
+            call append_node_code_lines(arena, procedure_indices, code, &
+                                        add_blank_lines=.true.)
         end if
 
         code = code // "end " // keyword // " " // name
-    end function generate_code_named_block
+    end subroutine generate_code_named_block
 
     function generate_code_template_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -163,33 +162,36 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(trait_block_node), intent(in) :: node
         character(len=:), allocatable :: code
-        code = generate_code_named_block(arena, "trait", node%name, &
-                                         parameter_names=node%parameter_names, &
-                                         declaration_indices=node%declaration_indices, &
-                                         procedure_indices=node%procedure_indices, &
-                                         has_contains=node%has_contains)
+        call generate_code_named_block(arena, "trait", node%name, &
+                                       parameter_names=node%parameter_names, &
+                                       declaration_indices=node%declaration_indices, &
+                                       procedure_indices=node%procedure_indices, &
+                                       has_contains=node%has_contains, &
+                                       code=code)
     end function generate_code_trait_block
 
     function generate_code_requirement_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(requirement_block_node), intent(in) :: node
         character(len=:), allocatable :: code
-        code = generate_code_named_block(arena, "requirement", node%name, &
-                                         parameter_names=node%parameter_names, &
-                                         declaration_indices=node%declaration_indices, &
-                                         procedure_indices=node%procedure_indices, &
-                                         has_contains=node%has_contains)
+        call generate_code_named_block(arena, "requirement", node%name, &
+                                       parameter_names=node%parameter_names, &
+                                       declaration_indices=node%declaration_indices, &
+                                       procedure_indices=node%procedure_indices, &
+                                       has_contains=node%has_contains, &
+                                       code=code)
     end function generate_code_requirement_block
 
     function generate_code_implements_block(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(implements_block_node), intent(in) :: node
         character(len=:), allocatable :: code
-        code = generate_code_named_block(arena, "implements", node%name, &
-                                         parameter_names=node%parameter_names, &
-                                         declaration_indices=node%declaration_indices, &
-                                         procedure_indices=node%procedure_indices, &
-                                         has_contains=node%has_contains)
+        call generate_code_named_block(arena, "implements", node%name, &
+                                       parameter_names=node%parameter_names, &
+                                       declaration_indices=node%declaration_indices, &
+                                       procedure_indices=node%procedure_indices, &
+                                       has_contains=node%has_contains, &
+                                       code=code)
     end function generate_code_implements_block
 
 end module codegen_generics
