@@ -10,10 +10,18 @@ program test_issue_1890_lazy_function_return
     write (error_unit, '(A)') 'INFO: issue_1890 test start'
     flush (error_unit)
     call read_example('examples/lf/issue_1890_lazy_function_return.lf', source)
-    write (error_unit, '(A,I0)') 'INFO: example loaded, len=', len(source)
+    if (allocated(source)) then
+        write (error_unit, '(A,I0)') 'INFO: example loaded, len=', len(source)
+    else
+        write (error_unit, '(A)') 'INFO: example loaded, unallocated'
+    end if
     flush (error_unit)
     call transform_lazy_fortran_string(source, transformed, error_msg)
-    write (error_unit, '(A,I0)') 'INFO: transform done, len=', len(transformed)
+    if (allocated(transformed)) then
+        write (error_unit, '(A,I0)') 'INFO: transform done, len=', len(transformed)
+    else
+        write (error_unit, '(A)') 'INFO: transform done, unallocated'
+    end if
     flush (error_unit)
 
     if (allocated(error_msg)) then
@@ -21,6 +29,11 @@ program test_issue_1890_lazy_function_return
             print *, 'FAIL: unexpected error:', trim(error_msg)
             stop 1
         end if
+    end if
+
+    if (.not. allocated(transformed)) then
+        print *, 'FAIL: transformation produced no output'
+        stop 1
     end if
 
     if (index(transformed, 'integer function quadratic') /= 0) then
