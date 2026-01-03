@@ -281,28 +281,166 @@ contains
         type(substitution_t), intent(in) :: s1, s2
         type(substitution_t) :: composed
 
-        ! Basic composition - merge substitutions
-        composed = s1  ! Start with first substitution
-        ! Simple composition: s2 combined with s1
+        integer :: i
+        type(mono_type_t) :: applied
+
+        composed%count = 0
+        composed%capacity = 0
+
+        if (s1%count + s2%count > 0) then
+            call composed%ensure_capacity(s1%count + s2%count)
+        end if
+
+        do i = 1, s2%count
+            call s1%apply(s2%types(i), applied)
+            call composed%add(s2%vars(i), applied)
+        end do
+
+        do i = 1, s1%count
+            if (substitution_find_var(composed, s1%vars(i)%id) == 0) then
+                call composed%add(s1%vars(i), s1%types(i))
+            end if
+        end do
     end function compose_substitutions
 
-    ! Occurs check (stub for now)
+    ! Occurs check - detect whether a type variable appears within a type.
     function occurs_check(var, typ) result(occurs)
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
         logical :: occurs
 
-        ! Basic occurs check - prevent infinite recursion in unification
-        occurs = .false.  ! Conservative safe default to prevent cycles
+        type(mono_type_t), allocatable :: stack(:)
+        integer, allocatable :: seen(:)
+        integer :: top
+        integer :: seen_count
+        integer :: i
+        integer :: type_id
+        type(mono_type_t) :: current
+
+        occurs = .false.
+        if (var%id <= 0) return
+        if (typ%kind == 0) return
+
+        allocate (stack(16))
+        allocate (seen(32))
+        top = 1
+        stack(top) = typ
+        seen_count = 0
+
+        do while (top > 0)
+            current = stack(top)
+            top = top - 1
+
+            if (current%kind == TVAR) then
+                if (current%var%id == var%id) then
+                    occurs = .true.
+                    exit
+                end if
+                cycle
+            end if
+
+            type_id = current%handle%type_id
+            if (type_id > 0) then
+                if (seen_count > 0) then
+                    if (any(seen(1:seen_count) == type_id)) cycle
+                end if
+                if (seen_count >= size(seen)) then
+                    call grow_seen_array(seen)
+                end if
+                seen_count = seen_count + 1
+                seen(seen_count) = type_id
+            end if
+
+            if (.not. current%has_args()) cycle
+            do i = 1, current%get_args_count()
+                if (top >= size(stack)) then
+                    call grow_type_stack(stack)
+                end if
+                top = top + 1
+                stack(top) = current%get_arg(i)
+            end do
+        end do
     end function occurs_check
 
-    ! Free type variables (stub for now)
+    ! Collect free type variables appearing within a type (uniqued by ID).
     subroutine free_type_vars(typ, vars)
         type(mono_type_t), intent(in) :: typ
         type(type_var_t), allocatable, intent(out) :: vars(:)
 
-        ! Basic free variable collection - return empty set for now
-        allocate (vars(0))  ! Conservative approach
+        type(type_var_t), allocatable :: found(:)
+        type(mono_type_t), allocatable :: stack(:)
+        integer, allocatable :: seen(:)
+        integer :: top
+        integer :: found_count
+        integer :: seen_count
+        integer :: i
+        integer :: j
+        integer :: type_id
+        logical :: already_present
+        type(mono_type_t) :: current
+
+        if (allocated(vars)) deallocate (vars)
+        if (typ%kind == 0) then
+            allocate (vars(0))
+            return
+        end if
+
+        allocate (found(16))
+        allocate (stack(16))
+        allocate (seen(32))
+        top = 1
+        stack(top) = typ
+        found_count = 0
+        seen_count = 0
+
+        do while (top > 0)
+            current = stack(top)
+            top = top - 1
+
+            if (current%kind == TVAR) then
+                if (current%var%id > 0) then
+                    already_present = .false.
+                    do j = 1, found_count
+                        if (found(j)%id == current%var%id) then
+                            already_present = .true.
+                            exit
+                        end if
+                    end do
+                    if (.not. already_present) then
+                        if (found_count >= size(found)) then
+                            call grow_type_var_array(found)
+                        end if
+                        found_count = found_count + 1
+                        found(found_count) = current%var
+                    end if
+                end if
+                cycle
+            end if
+
+            type_id = current%handle%type_id
+            if (type_id > 0) then
+                if (seen_count > 0) then
+                    if (any(seen(1:seen_count) == type_id)) cycle
+                end if
+                if (seen_count >= size(seen)) then
+                    call grow_seen_array(seen)
+                end if
+                seen_count = seen_count + 1
+                seen(seen_count) = type_id
+            end if
+
+            if (.not. current%has_args()) cycle
+            do i = 1, current%get_args_count()
+                if (top >= size(stack)) then
+                    call grow_type_stack(stack)
+                end if
+                top = top + 1
+                stack(top) = current%get_arg(i)
+            end do
+        end do
+
+        allocate (vars(found_count))
+        if (found_count > 0) vars = found(1:found_count)
     end subroutine free_type_vars
 
     ! Type variable assignment
@@ -618,9 +756,99 @@ contains
         type(mono_type_t), intent(in) :: input
         type(mono_type_t), intent(out) :: output
 
-        ! Basic substitution application - identity for now
-        output = input  ! No substitution changes applied
+        type(mono_type_t), allocatable :: args(:)
+        type(mono_handle_t), allocatable :: arg_handles(:)
+        type(mono_type_t) :: arg_in
+        type(mono_type_t) :: arg_out
+        type(arena_mono_type_t) :: arena_type
+        integer :: idx
+        integer :: i
+        logical :: changed
+
+        output = input
+        if (this%count <= 0) return
+        if (input%kind == 0) return
+
+        if (input%kind == TVAR) then
+            idx = substitution_find_var(this, input%var%id)
+            if (idx > 0) output = this%types(idx)
+            return
+        end if
+
+        if (.not. input%has_args()) return
+
+        allocate (args(input%get_args_count()))
+        changed = .false.
+        do i = 1, size(args)
+            arg_in = input%get_arg(i)
+            call this%apply(arg_in, arg_out)
+            args(i) = arg_out
+            if (arg_out%handle%type_id /= arg_in%handle%type_id) then
+                changed = .true.
+            end if
+        end do
+        if (.not. changed) return
+
+        if (.not. associated(input%arena)) return
+        arena_type = get_mono_type(input%arena, input%handle)
+        allocate (arg_handles(size(args)))
+        do i = 1, size(args)
+            arg_handles(i) = args(i)%handle
+        end do
+        call ensure_arena_initialized()
+        arena_type%args = store_type_args(global_arena, arg_handles)
+        output%handle = store_mono_type(global_arena, arena_type)
+        output%arena => global_arena
+        call output%sync_from_arena()
     end subroutine substitution_apply
+
+    integer function substitution_find_var(subst, var_id) result(index)
+        type(substitution_t), intent(in) :: subst
+        integer, intent(in) :: var_id
+        integer :: i
+
+        index = 0
+        if (var_id <= 0) return
+        do i = 1, subst%count
+            if (subst%vars(i)%id == var_id) then
+                index = i
+                return
+            end if
+        end do
+    end function substitution_find_var
+
+    subroutine grow_type_stack(stack)
+        type(mono_type_t), allocatable, intent(inout) :: stack(:)
+        type(mono_type_t), allocatable :: tmp(:)
+        integer :: new_size
+
+        new_size = max(2 * size(stack), 16)
+        allocate (tmp(new_size))
+        tmp(1:size(stack)) = stack
+        call move_alloc(tmp, stack)
+    end subroutine grow_type_stack
+
+    subroutine grow_seen_array(seen)
+        integer, allocatable, intent(inout) :: seen(:)
+        integer, allocatable :: tmp(:)
+        integer :: new_size
+
+        new_size = max(2 * size(seen), 32)
+        allocate (tmp(new_size))
+        tmp(1:size(seen)) = seen
+        call move_alloc(tmp, seen)
+    end subroutine grow_seen_array
+
+    subroutine grow_type_var_array(vars)
+        type(type_var_t), allocatable, intent(inout) :: vars(:)
+        type(type_var_t), allocatable :: tmp(:)
+        integer :: new_size
+
+        new_size = max(2 * size(vars), 16)
+        allocate (tmp(new_size))
+        tmp(1:size(vars)) = vars
+        call move_alloc(tmp, vars)
+    end subroutine grow_type_var_array
 
     ! Type environment helper functions
     subroutine type_env_extend(this, name, scheme)
