@@ -644,7 +644,6 @@ What are you doing?
 #### Essential Docs (read these first)
 - `docs/MONOMORPHIZATION.md` - Type inference and specialization strategy
 - `docs/LIBRARY_USAGE.md` - API usage examples for tool developers
-- `docs/MEMORY_SAFETY_ANALYSIS.md` - Arena allocation and AST safety rules
 - `docs/TYPE_SAFETY_GUIDE.md` - Type system implementation details
 
 #### Implementation Guides
@@ -656,7 +655,8 @@ What are you doing?
 
 #### Reference
 - `docs/AST_MIGRATION.md` - AST architecture evolution
-- `docs/PARSE_DECLARATION_REFACTORING.md` - Parser refactoring history
+- `docs/archive/MEMORY_SAFETY_ANALYSIS.md` - Historical memory safety notes
+- `docs/archive/PARSE_DECLARATION_REFACTORING.md` - Historical parser refactoring notes
 - `docs/ECOSYSTEM.md` - Integration with fortrun and package managers
 
 ## Common Development Workflows

@@ -207,7 +207,7 @@ Each subdirectory has a `README.md` with:
 
 For complete design patterns and implementation details, see [CLAUDE.md Architecture Overview](../CLAUDE.md#architecture-overview) and the following documentation:
 
-- **Arena Allocation**: `memory/README.md`, `docs/MEMORY_SAFETY_ANALYSIS.md`
+- **Arena Allocation**: `memory/README.md`
 - **Visitor Pattern**: `ast/traversal/README.md`
 - **Pratt Parser**: `parser/expressions/README.md`, `docs/PRATT_PIPELINE_ARCHITECTURE.md`
 - **Type Inference**: `semantic/README.md`, `docs/SEMANTIC_PIPELINE_ARCHITECTURE.md`
