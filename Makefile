@@ -56,7 +56,7 @@ test-small-stack:
 check-duplication:
 	@python3 scripts/check_test_duplication.py
 
-# Check Markdown docs for broken relative links
+# Check repository Markdown files for broken relative links
 check-doc-links:
 	@python3 scripts/check_doc_links.py
 
@@ -97,6 +97,6 @@ help:
 	@echo "  make test     - Run tests"
 	@echo "  make test-small-stack [TEST_STACK_KB=1024] - Run tests with small stack"
 	@echo "  make check-duplication - Check for test duplication violations"
-	@echo "  make check-doc-links - Check docs for broken Markdown links"
+	@echo "  make check-doc-links - Check repository Markdown for broken relative links"
 	@echo "  make check-root-cleanliness - Check project root for polluting files (issue #2148)"
 	@echo "  make clean    - Clean build artifacts"
