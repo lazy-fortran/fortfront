@@ -259,8 +259,7 @@ contains
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: new_operator
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (binary_op_node)

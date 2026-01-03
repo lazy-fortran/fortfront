@@ -28,8 +28,7 @@ contains
 
         info = create_variable_usage_info()
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         call collect_identifiers_recursive(arena, expr_index, info)
     end function get_variables_in_expression
@@ -70,8 +69,7 @@ contains
         integer :: current_index
 
         if (.not. associated(visitor%visit)) return
-        if (root_index <= 0 .or. root_index > arena%size) return
-        if (.not. allocated(arena%entries(root_index)%node)) return
+        if (.not. arena%has_node_at(root_index)) return
 
         capacity = 128
         allocate (stack(capacity))
@@ -82,8 +80,7 @@ contains
             current_index = stack(top)%node_index
             top = top - 1
 
-            if (current_index <= 0 .or. current_index > arena%size) cycle
-            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (.not. arena%has_node_at(current_index)) cycle
 
             node_type = arena%entries(current_index)%node_type
             call visitor%visit(arena, current_index, node_type, user_data)

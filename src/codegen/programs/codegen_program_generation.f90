@@ -70,8 +70,7 @@ contains
         if (.not. allocated(node%body_indices)) return
 
         do i = 1, size(node%body_indices)
-            if (node%body_indices(i) <= 0 .or. node%body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(node%body_indices(i))%node)) cycle
+            if (.not. arena%has_node_at(node%body_indices(i))) cycle
             select type (body_node => arena%entries(node%body_indices(i))%node)
             type is (contains_node)
                 found_contains = .true.
@@ -97,8 +96,7 @@ contains
         has_only_interfaces = .false.
         found_interface = .false.
 
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
@@ -106,8 +104,7 @@ contains
             has_only_interfaces = .true.
             do j = 1, size(prog%body_indices)
                 child_idx = prog%body_indices(j)
-                if (child_idx <= 0 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                if (.not. arena%has_node_at(child_idx)) cycle
                 select type (body => arena%entries(child_idx)%node)
                 type is (interface_block_node)
                     found_interface = .true.
@@ -143,8 +140,7 @@ contains
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 child_idx = prog%body_indices(j)
-                if (child_idx <= 0 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                if (.not. arena%has_node_at(child_idx)) cycle
                 select type (body => arena%entries(child_idx)%node)
                 type is (interface_block_node)
                 type is (comment_node)
@@ -176,8 +172,7 @@ contains
 
         do j = 1, size(node%body_indices)
             child_idx = node%body_indices(j)
-            if (child_idx <= 0 .or. child_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            if (.not. arena%has_node_at(child_idx)) cycle
             select type (body => arena%entries(child_idx)%node)
             type is (module_node)
                 is_wrapper = .true.
@@ -216,8 +211,7 @@ contains
 
         do j = 1, size(node%body_indices)
             child_idx = node%body_indices(j)
-            if (child_idx <= 0 .or. child_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            if (.not. arena%has_node_at(child_idx)) cycle
             select type (mod_node => arena%entries(child_idx)%node)
             type is (module_node)
                 module_code = generate_code_from_arena(arena, child_idx)
@@ -245,8 +239,7 @@ contains
 
         do i = 1, size(node%body_indices)
             child_index = node%body_indices(i)
-            if (child_index <= 0 .or. child_index > arena%size) cycle
-            if (.not. allocated(arena%entries(child_index)%node)) cycle
+            if (.not. arena%has_node_at(child_index)) cycle
 
             select type (child => arena%entries(child_index)%node)
             type is (program_node)
@@ -358,8 +351,7 @@ contains
 
         do j = 1, position - 1
             idx = node%body_indices(j)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (prev => arena%entries(idx)%node)
             type is (subroutine_def_node)
                 if (prev%name == name) then
@@ -383,8 +375,7 @@ contains
 
         do j = 1, position - 1
             idx = node%body_indices(j)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (prev => arena%entries(idx)%node)
             type is (interface_block_node)
                 if (interface_declares_procedure(prev, child_index)) then
@@ -413,8 +404,7 @@ contains
         integer :: j, child_idx
 
         is_trivial = .false.
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
@@ -429,8 +419,7 @@ contains
             is_trivial = .true.
             do j = 1, size(prog%body_indices)
                 child_idx = prog%body_indices(j)
-                if (child_idx <= 0 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                if (.not. arena%has_node_at(child_idx)) cycle
                 select type (body => arena%entries(child_idx)%node)
                 type is (comment_node)
                     cycle
@@ -464,16 +453,14 @@ contains
         character(len=:), allocatable :: snippet
 
         trivia_code = ""
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (prog => arena%entries(prog_index)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
             do j = 1, size(prog%body_indices)
                 child_idx = prog%body_indices(j)
-                if (child_idx <= 0 .or. child_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                if (.not. arena%has_node_at(child_idx)) cycle
                 select type (body => arena%entries(child_idx)%node)
                 type is (comment_node)
                     snippet = generate_code_from_arena(arena, child_idx)

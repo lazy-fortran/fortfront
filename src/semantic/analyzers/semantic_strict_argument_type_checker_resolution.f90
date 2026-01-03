@@ -60,7 +60,7 @@ contains
 
         iface_index = 0
         if (len_trim(lowered_name) == 0) return
-        if (call_index <= 0 .or. call_index > arena%size) return
+        if (.not. arena%has_node_at(call_index)) return
 
         current = call_index
         do while (current > 0 .and. current <= arena%size)
@@ -142,8 +142,7 @@ contains
         in_contains = .false.
         do i = 1, size(body_indices)
             node_index = body_indices(i)
-            if (node_index <= 0 .or. node_index > arena%size) cycle
-            if (.not. allocated(arena%entries(node_index)%node)) cycle
+            if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
             type is (contains_node)
@@ -188,8 +187,7 @@ contains
 
         do i = 1, size(proc_indices)
             node_index = proc_indices(i)
-            if (node_index <= 0 .or. node_index > arena%size) cycle
-            if (.not. allocated(arena%entries(node_index)%node)) cycle
+            if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
             type is (function_def_node)
@@ -230,8 +228,7 @@ contains
 
         do i = 1, size(body_indices)
             node_index = body_indices(i)
-            if (node_index <= 0 .or. node_index > arena%size) cycle
-            if (.not. allocated(arena%entries(node_index)%node)) cycle
+            if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
             type is (contains_node)
@@ -264,8 +261,7 @@ contains
 
         do i = 1, size(spec_indices)
             node_index = spec_indices(i)
-            if (node_index <= 0 .or. node_index > arena%size) cycle
-            if (.not. allocated(arena%entries(node_index)%node)) cycle
+            if (.not. arena%has_node_at(node_index)) cycle
 
             select type (node => arena%entries(node_index)%node)
             type is (use_statement_node)

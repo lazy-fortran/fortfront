@@ -109,8 +109,7 @@ contains
         dimensions_known = .true.
         do i = 1, ndims
             dim_idx_local = decl_node%dimension_indices(i)
-            if (dim_idx_local <= 0 .or. dim_idx_local > arena%size) cycle
-            if (.not. allocated(arena%entries(dim_idx_local)%node)) then
+            if (.not. arena%has_node_at(dim_idx_local)) then
                 dimensions_known = .false.
                 exit
             end if

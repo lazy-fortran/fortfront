@@ -556,9 +556,8 @@ contains
             if (.not. (decl_orig%is_multi_declaration .and. &
                        allocated(decl_orig%var_names))) return
 
-     ! CRITICAL: Copy declaration to stack before arena pushes to avoid dangling pointer
-            ! When append_split_declaration pushes to arena, it may trigger reallocation
-      ! which would invalidate the decl_orig selector. Using a stack copy prevents this.
+            ! CRITICAL: Copy declaration to the stack before arena pushes to avoid a
+            ! dangling selector if the arena reallocates during split declaration.
             template_decl = decl_orig
 
             allocate (new_indices(size(template_decl%var_names)))
@@ -610,7 +609,8 @@ contains
 
         new_decl%is_allocatable = is_allocatable
 
- ! Adjust dimensions for allocatable arrays (but preserve explicit bounds - fixes #1812)
+        ! Adjust dimensions for allocatable arrays, but preserve explicit bounds
+        ! (fixes #1812).
         if (is_allocatable .and. new_decl%is_array .and. &
             allocated(new_decl%dimension_indices)) then
             ! Only convert to deferred shape if array does NOT have explicit bounds
@@ -678,8 +678,7 @@ contains
 
         is_array = .false.
 
-        if (value_index <= 0 .or. value_index > arena%size) return
-        if (.not. allocated(arena%entries(value_index)%node)) return
+        if (.not. arena%has_node_at(value_index)) return
 
         select type (value => arena%entries(value_index)%node)
         type is (array_literal_node)
@@ -699,11 +698,10 @@ contains
 
         is_param = .false.
 
-        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. arena%has_node_at(decl_index)) return
 
         parent_index = arena%entries(decl_index)%parent_index
-        if (parent_index <= 0 .or. parent_index > arena%size) return
-        if (.not. allocated(arena%entries(parent_index)%node)) return
+        if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
         type is (function_def_node)
@@ -723,11 +721,10 @@ contains
 
         is_component = .false.
 
-        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. arena%has_node_at(decl_index)) return
 
         parent_index = arena%entries(decl_index)%parent_index
-        if (parent_index <= 0 .or. parent_index > arena%size) return
-        if (.not. allocated(arena%entries(parent_index)%node)) return
+        if (.not. arena%has_node_at(parent_index)) return
 
         select type (parent => arena%entries(parent_index)%node)
         type is (derived_type_node)
@@ -903,7 +900,8 @@ contains
         ! - character strings with deferred length
         ! - arrays flagged by assignment tracking (but NOT if they have explicit bounds)
         if (decl%is_array) then
-        ! Do NOT convert arrays with explicit bounds to allocatable (fixes #1812, #2149)
+            ! Do NOT convert arrays with explicit bounds to allocatable
+            ! (fixes #1812, #2149).
             ! Arrays like integer :: arr(0:9) or real :: arr(-5:5) must preserve bounds
             ! Arrays from slices like slice1 = arr(1:5) have fixed sizes already set
             if (has_explicit_array_bounds(decl)) then

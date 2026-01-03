@@ -250,7 +250,7 @@ contains
             if (size(node%dimension_indices) > 0) then
                 attr_info%has_global_dimensions = .true.
                 allocate (attr_info%global_dimension_indices(size( &
-                          node%dimension_indices)))
+                                                             node%dimension_indices)))
                 attr_info%global_dimension_indices = node%dimension_indices
             end if
         end if
@@ -531,8 +531,7 @@ contains
 
         do i = 1, size(node%component_indices)
             component_index = node%component_indices(i)
-            if (component_index <= 0 .or. component_index > arena%size) cycle
-            if (.not. allocated(arena%entries(component_index)%node)) cycle
+            if (.not. arena%has_node_at(component_index)) cycle
 
             select type (child => arena%entries(component_index)%node)
             type is (derived_type_node)
@@ -598,8 +597,7 @@ contains
 
         do i = 1, size(node%binding_indices)
             binding_index = node%binding_indices(i)
-            if (binding_index <= 0 .or. binding_index > arena%size) cycle
-            if (.not. allocated(arena%entries(binding_index)%node)) cycle
+            if (.not. arena%has_node_at(binding_index)) cycle
 
             select type (binding => arena%entries(binding_index)%node)
             type is (type_binding_node)

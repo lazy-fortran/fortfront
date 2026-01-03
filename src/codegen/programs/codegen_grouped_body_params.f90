@@ -11,7 +11,7 @@ module codegen_grouped_body_params
                                                    process_param_decl_node, &
                                                    should_skip_result_decl
     use codegen_entry_utils, only: collect_entry_param_names, &
-                                    is_entry_parameter_decl
+                                   is_entry_parameter_decl
     use codegen_import_reorder, only: reorder_import_lines
     use codegen_parameter_info, only: parameter_info_t, find_parameter_info
     use codegen_type_utils, only: get_type_standardization
@@ -77,8 +77,7 @@ contains
         if (size(param_map) == 0) return
 
         do i = 1, size(body_indices)
-            if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
+            if (.not. arena%has_node_at(body_indices(i))) cycle
             select type (node => arena%entries(body_indices(i))%node)
             type is (declaration_node)
                 if (node%is_multi_declaration .and. allocated(node%var_names)) then
@@ -127,8 +126,7 @@ contains
 
         do i = 1, size(body_indices)
             should_skip = .false.
-            if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena%entries(body_indices(i))%node)) cycle
+            if (.not. arena%has_node_at(body_indices(i))) cycle
 
             select type (node => arena%entries(body_indices(i))%node)
             type is (entry_node)

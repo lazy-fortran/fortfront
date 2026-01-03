@@ -2,9 +2,10 @@ module frontend_analysis_helpers
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node, identifier_node, &
-        call_or_subscript_node, assignment_node, component_access_node
+                              call_or_subscript_node, assignment_node, &
+                              component_access_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
-        subroutine_call_node
+                                   subroutine_call_node
     use ast_nodes_data, only: module_node, submodule_node
     use string_utils_mod, only: to_lower
     implicit none
@@ -157,8 +158,7 @@ contains
         logical, intent(inout) :: has_functions, has_subroutines, has_main_code
         integer :: i
 
-        if (unit_index <= 0 .or. unit_index > arena%size) return
-        if (.not. allocated(arena%entries(unit_index)%node)) return
+        if (.not. arena%has_node_at(unit_index)) return
 
         select type (unit => arena%entries(unit_index)%node)
         type is (function_def_node)
@@ -223,8 +223,7 @@ contains
         character(len=64), allocatable :: proc_names(:)
 
         needs_wrapping = .false.
-        if (prog_index <= 0 .or. prog_index > arena%size) return
-        if (.not. allocated(arena%entries(prog_index)%node)) return
+        if (.not. arena%has_node_at(prog_index)) return
 
         select type (root => arena%entries(prog_index)%node)
         type is (program_node)
@@ -235,8 +234,7 @@ contains
             call collect_host_assignment_names(arena, root, host_names)
             do i = 1, size(root%body_indices)
                 idx = root%body_indices(i)
-                if (idx <= 0 .or. idx > arena%size) cycle
-                if (.not. allocated(arena%entries(idx)%node)) cycle
+                if (.not. arena%has_node_at(idx)) cycle
                 select type (child => arena%entries(idx)%node)
                 type is (program_node)
                     if (.not. is_implicit_program_name(child%name)) then
@@ -281,8 +279,7 @@ contains
 
         do i = 1, size(root_prog%body_indices)
             child_idx = root_prog%body_indices(i)
-            if (child_idx <= 0 .or. child_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(child_idx)%node)) cycle
+            if (.not. arena%has_node_at(child_idx)) cycle
             select type (child => arena%entries(child_idx)%node)
             type is (program_node)
                 if (is_implicit_program_name(child%name)) then
@@ -299,8 +296,7 @@ contains
         character(len=64), allocatable, intent(inout) :: names(:)
         integer :: i, stmt_idx
 
-        if (prog_idx <= 0 .or. prog_idx > arena%size) return
-        if (.not. allocated(arena%entries(prog_idx)%node)) return
+        if (.not. arena%has_node_at(prog_idx)) return
         select type (prog => arena%entries(prog_idx)%node)
         type is (program_node)
             if (.not. allocated(prog%body_indices)) return
@@ -318,8 +314,7 @@ contains
         character(len=64), allocatable, intent(inout) :: names(:)
         integer :: i, stmt_idx
 
-        if (proc_idx <= 0 .or. proc_idx > arena%size) return
-        if (.not. allocated(arena%entries(proc_idx)%node)) return
+        if (.not. arena%has_node_at(proc_idx)) return
 
         select type (proc => arena%entries(proc_idx)%node)
         type is (function_def_node)
@@ -347,8 +342,7 @@ contains
         logical, intent(in) :: skip_procedures
         integer :: child_i, child_target
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
@@ -363,7 +357,7 @@ contains
             do child_i = 1, size(node%body_indices)
                 child_target = node%body_indices(child_i)
                 call collect_assignment_from_node(arena, child_target, names, &
-                     skip_procedures)
+                                                  skip_procedures)
             end do
             return
         end select
@@ -372,7 +366,7 @@ contains
             do child_i = 1, size(arena%entries(node_index)%child_indices)
                 child_target = arena%entries(node_index)%child_indices(child_i)
                 call collect_assignment_from_node(arena, child_target, names, &
-                     skip_procedures)
+                                                  skip_procedures)
             end do
         end if
     end subroutine collect_assignment_from_node
@@ -382,8 +376,7 @@ contains
         integer, intent(in) :: node_index
         character(len=64), allocatable, intent(inout) :: names(:)
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (id => arena%entries(node_index)%node)
         type is (identifier_node)

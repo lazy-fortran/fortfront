@@ -56,8 +56,7 @@ contains
 
         param_name = ''
         seed_type%kind = 0
-        if (entry_index <= 0 .or. entry_index > arena%size) return
-        if (.not. allocated(arena%entries(entry_index)%node)) return
+        if (.not. arena%has_node_at(entry_index)) return
 
         select type (arg => arena%entries(entry_index)%node)
         type is (identifier_node)
@@ -127,8 +126,7 @@ contains
 
         do i = 1, size(param_types)
             idx = sub_node%param_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
 
             select type (arg => arena%entries(idx)%node)
             type is (parameter_declaration_node)
@@ -230,8 +228,7 @@ contains
 
         if (param_index <= 0) return
         if (param_index > size(param_types)) return
-        if (arg_idx <= 0 .or. arg_idx > arena%size) return
-        if (.not. allocated(arena%entries(arg_idx)%node)) return
+        if (.not. arena%has_node_at(arg_idx)) return
 
         select type (arg_node => arena%entries(arg_idx)%node)
         type is (literal_node)

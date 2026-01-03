@@ -131,8 +131,7 @@ contains
         integer, intent(in) :: expr_index
 
         expression_available = .false.
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
         expression_available = .true.
     end function expression_available
 

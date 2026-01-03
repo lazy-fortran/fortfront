@@ -315,8 +315,7 @@
 
         do i = 1, size(func%body_indices)
             stmt_idx = func%body_indices(i)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
             type is (entry_node)
@@ -501,8 +500,7 @@
         has_array_declaration = .false.
         do i = 1, size(node%body_indices)
             stmt_idx = node%body_indices(i)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
                 select type (decl => arena%entries(stmt_idx)%node)
                 type is (declaration_node)
@@ -545,8 +543,7 @@
         ! Otherwise, check for inferred array type from assignments
         do i = 1, size(node%body_indices)
             stmt_idx = node%body_indices(i)
-            if (stmt_idx <= 0 .or. stmt_idx > arena%size) cycle
-            if (.not. allocated(arena%entries(stmt_idx)%node)) cycle
+            if (.not. arena%has_node_at(stmt_idx)) cycle
 
             select type (stmt => arena%entries(stmt_idx)%node)
                 type is (assignment_node)

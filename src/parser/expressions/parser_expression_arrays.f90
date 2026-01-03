@@ -863,8 +863,7 @@ contains
         integer, intent(in) :: expr_index
         character(len=:), allocatable, intent(out) :: call_name
 
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (component_access_node)

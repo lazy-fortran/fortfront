@@ -44,8 +44,7 @@
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (use_stmt => arena%entries(idx)%node)
             type is (use_statement_node)
                 if (allocated(use_stmt%module_name)) then
@@ -84,8 +83,7 @@
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (mod => arena%entries(idx)%node)
             type is (module_node)
                 if (.not. allocated(mod%name)) cycle
@@ -142,8 +140,7 @@
         if (allocated(mod_node%declaration_indices)) then
             do j = 1, size(mod_node%declaration_indices)
                 decl_idx = mod_node%declaration_indices(j)
-                if (decl_idx <= 0 .or. decl_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(decl_idx)%node)) cycle
+                if (.not. arena%has_node_at(decl_idx)) cycle
                 call extract_declaration_names(arena, decl_idx, state)
             end do
         end if
@@ -151,8 +148,7 @@
         if (allocated(mod_node%procedure_indices)) then
             do j = 1, size(mod_node%procedure_indices)
                 proc_idx = mod_node%procedure_indices(j)
-                if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
-                if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+                if (.not. arena%has_node_at(proc_idx)) cycle
                 call extract_procedure_names(arena, proc_idx, state)
             end do
         end if
@@ -185,8 +181,7 @@
             if (allocated(decl%procedure_indices)) then
                 do k = 1, size(decl%procedure_indices)
                     proc_idx = decl%procedure_indices(k)
-                    if (proc_idx <= 0 .or. proc_idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(proc_idx)%node)) cycle
+                    if (.not. arena%has_node_at(proc_idx)) cycle
                     select type (iface_item => arena%entries(proc_idx)%node)
                     type is (module_procedure_node)
                         if (.not. allocated(iface_item%procedure_names)) cycle
@@ -242,8 +237,7 @@
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (decl => arena%entries(idx)%node)
             type is (contains_node)
                 contains_seen = .true.
@@ -309,8 +303,7 @@
 
         do i = 1, size(prog%body_indices)
             idx = prog%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (contains_node)
                 contains_seen = .true.
@@ -328,8 +321,7 @@
         type(program_decl_state_t), intent(inout) :: state
         integer :: i, j, idx
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (associate_node)
@@ -390,8 +382,7 @@
             if (allocated(node%case_indices)) then
                 do i = 1, size(node%case_indices)
                     idx = node%case_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    if (.not. arena%has_node_at(idx)) cycle
                     select type (case_node => arena%entries(idx)%node)
                     type is (case_block_node)
                         if (allocated(case_node%body_indices)) then
@@ -454,8 +445,7 @@
             if (allocated(node%guard_indices)) then
                 do i = 1, size(node%guard_indices)
                     idx = node%guard_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    if (.not. arena%has_node_at(idx)) cycle
                     select type (guard_node => arena%entries(idx)%node)
                     type is (type_guard_block_node)
                         if (allocated(guard_node%body_indices)) then
@@ -486,8 +476,7 @@
             if (allocated(node%rank_indices)) then
                 do i = 1, size(node%rank_indices)
                     idx = node%rank_indices(i)
-                    if (idx <= 0 .or. idx > arena%size) cycle
-                    if (.not. allocated(arena%entries(idx)%node)) cycle
+                    if (.not. arena%has_node_at(idx)) cycle
                     select type (rank_node => arena%entries(idx)%node)
                     type is (rank_block_node)
                         if (allocated(rank_node%body_indices)) then
@@ -541,8 +530,7 @@
 
         do i = 1, size(func%body_indices)
             idx = func%body_indices(i)
-            if (idx <= 0 .or. idx > arena%size) cycle
-            if (.not. allocated(arena%entries(idx)%node)) cycle
+            if (.not. arena%has_node_at(idx)) cycle
             select type (stmt => arena%entries(idx)%node)
             type is (entry_node)
                 if (allocated(stmt%name)) then

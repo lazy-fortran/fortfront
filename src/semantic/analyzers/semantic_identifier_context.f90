@@ -224,8 +224,7 @@ contains
 
         candidate%kind = 0
         target_index = node%target_index
-        if (target_index <= 0 .or. target_index > arena%size) return
-        if (.not. allocated(arena%entries(target_index)%node)) return
+        if (.not. arena%has_node_at(target_index)) return
 
         select type (target => arena%entries(target_index)%node)
         type is (identifier_node)
@@ -317,8 +316,7 @@ contains
         character(len=*), intent(in) :: lowered_name
 
         is_identifier_reference = .false.
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (.not. arena%has_node_at(node_index)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (identifier_node)
@@ -386,8 +384,7 @@ contains
         integer :: candidate_program
 
         is_visible = .false.
-        if (candidate_index <= 0 .or. candidate_index > arena%size) return
-        if (.not. allocated(arena%entries(candidate_index)%node)) return
+        if (.not. arena%has_node_at(candidate_index)) return
 
         if (scope_index < 0) then
             is_visible = .true.

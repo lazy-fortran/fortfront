@@ -26,8 +26,7 @@ contains
         character(len=:), allocatable :: lowered
 
         typ%kind = 0
-        if (decl_index <= 0 .or. decl_index > arena%size) return
-        if (.not. allocated(arena%entries(decl_index)%node)) return
+        if (.not. arena%has_node_at(decl_index)) return
 
         select type (node => arena%entries(decl_index)%node)
         type is (parameter_declaration_node)
@@ -57,8 +56,7 @@ contains
         type(mono_type_t) :: typ
 
         typ%kind = 0
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
+        if (.not. arena%has_node_at(expr_index)) return
 
         select type (node => arena%entries(expr_index)%node)
         type is (literal_node)

@@ -26,7 +26,7 @@ contains
 
     !> Clear the stored context
     subroutine clear_semantic_context_for_lookup()
-        nullify(g_semantic_ctx)
+        nullify (g_semantic_ctx)
     end subroutine clear_semantic_context_for_lookup
 
     !> Get type using the stored semantic context
@@ -40,8 +40,7 @@ contains
         ! Simply return the inferred type from the node
         ! The substitution will be applied by the caller if needed
         typ = create_mono_type(TREAL)
-        if (idx <= 0 .or. idx > arena%size) return
-        if (.not. allocated(arena%entries(idx)%node)) return
+        if (.not. arena%has_node_at(idx)) return
 
         typ = arena%entries(idx)%node%inferred_type
         if (typ%kind == TVAR .and. len_trim(typ%var%name) == 0) then
