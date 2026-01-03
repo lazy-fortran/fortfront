@@ -222,15 +222,15 @@ contains
             code = generate_code_mixed_construct_container(arena, node, &
                                                            node_index)
         type is (template_block_node)
-            code = generate_code_template_block(arena, node, node_index)
+            code = generate_code_template_block(arena, node)
         type is (instantiate_statement_node)
             code = generate_code_instantiate_statement(node)
         type is (trait_block_node)
-            code = generate_code_trait_block(arena, node, node_index)
+            code = generate_code_trait_block(arena, node)
         type is (requirement_block_node)
-            code = generate_code_requirement_block(arena, node, node_index)
+            code = generate_code_requirement_block(arena, node)
         type is (implements_block_node)
-            code = generate_code_implements_block(arena, node, node_index)
+            code = generate_code_implements_block(arena, node)
 
             ! Special nodes
         type is (contains_node)
