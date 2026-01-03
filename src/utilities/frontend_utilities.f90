@@ -64,10 +64,9 @@ contains
     end function int_to_str
 
     ! Check if token sequence starts a type definition
-    function is_type_start(tokens, pos) result(is_start)
+    pure logical function is_type_start(tokens, pos) result(is_start)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: pos
-        logical :: is_start
         integer :: next_idx, prev_idx
         character(len=:), allocatable :: lowered
 
