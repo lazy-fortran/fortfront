@@ -568,6 +568,8 @@ contains
               'endfunction', 'endinterface', 'endmodule', 'endprogram', &
               'endselect', 'endsubmodule', 'endsubroutine', 'endtype', &
               'template', 'endtemplate', 'instantiate', &
+              'trait', 'endtrait', 'requirement', 'endrequirement', &
+              'implements', 'endimplements', &
               'elemental', 'pure', 'impure', 'recursive', 'nonrecursive', &
               'non_recursive', 'intrinsic', 'non_intrinsic')
             keyword = .true.

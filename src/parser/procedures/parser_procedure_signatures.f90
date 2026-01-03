@@ -238,10 +238,12 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
             token = parser%consume()
+            call consume_optional_inline_instantiations(parser, function_name)
         else if (token%kind == TK_KEYWORD .and. &
                  keyword_can_be_function_name(parser, token)) then
             function_name = token%text
             token = parser%consume()
+            call consume_optional_inline_instantiations(parser, function_name)
         else
             function_name = "unnamed_function"
         end if
@@ -337,10 +339,59 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             subroutine_name = token%text
             token = parser%consume()
+            call consume_optional_inline_instantiations(parser, subroutine_name)
         else
             subroutine_name = "unnamed_subroutine"
         end if
     end subroutine parse_subroutine_header
+
+    subroutine consume_optional_inline_instantiations(parser, procedure_name)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(inout) :: procedure_name
+        type(token_t) :: token
+        type(token_t) :: start_token
+        character(len=:), allocatable :: inst_text
+        integer :: nesting
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (.not. (token%kind == TK_OPERATOR .and. token%text == "{")) then
+                exit
+            end if
+
+            start_token = token
+            if (allocated(inst_text)) deallocate (inst_text)
+            nesting = 0
+
+            do while (.not. parser%is_at_end())
+                token = parser%consume()
+                if (token%kind == TK_OPERATOR) then
+                    if (token%text == "{") nesting = nesting + 1
+                    if (token%text == "}") nesting = nesting - 1
+                end if
+
+                if (.not. allocated(inst_text)) then
+                    inst_text = token%text
+                else
+                    inst_text = inst_text // token%text
+                end if
+
+                if (nesting == 0) exit
+            end do
+
+            if (nesting /= 0) then
+                call parser%errors%add_error_with_token( &
+                    "Unbalanced inline instantiation braces", start_token, &
+                    suggestion="Add matching }")
+                exit
+            end if
+
+            if (allocated(inst_text)) then
+                procedure_name = procedure_name // inst_text
+                deallocate (inst_text)
+            end if
+        end do
+    end subroutine consume_optional_inline_instantiations
 
     subroutine parse_bind_c_clause(parser, bind_c_clause)
         type(parser_state_t), intent(inout) :: parser

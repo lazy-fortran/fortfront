@@ -138,34 +138,40 @@
         integer, intent(out) :: stmt_index
 
         handled = .true.
-	        select case (keyword)
-	        case ("use")
-	            stmt_index = parse_use_statement(parser, arena)
-	        case ("intrinsic")
-	            stmt_index = parse_intrinsic_statement(parser, arena)
-	        case ("include")
-	            stmt_index = parse_include_statement(parser, arena)
-	        case ("instantiate")
-	            stmt_index = parse_instantiate_statement(parser, arena)
-	        case ("function")
-	            stmt_index = parse_function_definition(parser, arena, prefix_buffer)
-	        case ("subroutine")
-	            stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
-	        case ("interface")
-	            stmt_index = parse_interface_block(parser, arena, prefix_buffer)
-	        case ("abstract")
-	            call handle_abstract_keyword(parser, arena, prefix_buffer, stmt_index)
-	        case ("module")
-	            call handle_module_keyword(parser, arena, first_token, stmt_index)
-	        case ("template")
-	            stmt_index = parse_template_block(parser, arena)
-	        case ("submodule")
-	            stmt_index = parse_submodule_statement(parser, arena)
-	        case ("program")
-	            call handle_program_keyword(parser, arena, first_token, stmt_index)
-	        case default
-	            handled = .false.
-	        end select
+        select case (keyword)
+        case ("use")
+            stmt_index = parse_use_statement(parser, arena)
+        case ("intrinsic")
+            stmt_index = parse_intrinsic_statement(parser, arena)
+        case ("include")
+            stmt_index = parse_include_statement(parser, arena)
+        case ("instantiate")
+            stmt_index = parse_instantiate_statement(parser, arena)
+        case ("function")
+            stmt_index = parse_function_definition(parser, arena, prefix_buffer)
+        case ("subroutine")
+            stmt_index = parse_subroutine_definition(parser, arena, prefix_buffer)
+        case ("interface")
+            stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+        case ("abstract")
+            call handle_abstract_keyword(parser, arena, prefix_buffer, stmt_index)
+        case ("module")
+            call handle_module_keyword(parser, arena, first_token, stmt_index)
+        case ("template")
+            stmt_index = parse_template_block(parser, arena)
+        case ("trait")
+            stmt_index = parse_trait_block(parser, arena)
+        case ("requirement")
+            stmt_index = parse_requirement_block(parser, arena)
+        case ("implements")
+            stmt_index = parse_implements_block(parser, arena)
+        case ("submodule")
+            stmt_index = parse_submodule_statement(parser, arena)
+        case ("program")
+            call handle_program_keyword(parser, arena, first_token, stmt_index)
+        case default
+            handled = .false.
+        end select
     end function try_dispatch_definition_keyword
 
     logical function try_dispatch_declaration_keyword(parser, arena, &
