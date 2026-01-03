@@ -27,6 +27,9 @@ program test_docs_examples_ci_verified
     character(len=*), parameter :: EXPECTED_MIXED_TYPE_OPERATIONS = &
                                    EXAMPLES_F90_DIR // &
                                    'docs_mixed_type_operations_out.f90'
+    character(len=*), parameter :: EXPECTED_UNSIGNED_INTEGERS = &
+                                   EXAMPLES_F90_DIR // &
+                                   'docs_unsigned_integers_out.f90'
 
     all_passed = .true.
 
@@ -37,6 +40,7 @@ program test_docs_examples_ci_verified
     if (.not. test_character_arrays()) all_passed = .false.
     if (.not. test_type_validation_calculate()) all_passed = .false.
     if (.not. test_mixed_type_operations()) all_passed = .false.
+    if (.not. test_unsigned_integers()) all_passed = .false.
 
     if (all_passed) then
         print *, 'PASS: docs examples are CI-verified'
@@ -48,7 +52,6 @@ program test_docs_examples_ci_verified
 contains
 
     include 'common/read_example.inc'
-
 
     subroutine assert_output_matches_example(test_name, output, expected_path, passed)
         character(len=*), intent(in) :: test_name
@@ -300,6 +303,39 @@ contains
         call assert_contains('docs_mixed_type_operations', output, &
                              'y = i + x', test_mixed_type_operations)
     end function test_mixed_type_operations
+
+    logical function test_unsigned_integers()
+        type(transform_context_t) :: context
+        character(len=:), allocatable :: input
+        character(len=:), allocatable :: output
+        character(len=:), allocatable :: error_msg
+
+        test_unsigned_integers = .true.
+
+        call read_example('examples/lf/docs_unsigned_integers.lf', input)
+        context%source_name = 'examples/lf/docs_unsigned_integers.lf'
+        context%has_filename = .true.
+        context%input_mode = INPUT_MODE_LAZY
+        context%operating_mode = OPERATING_MODE_INFER
+        call transform_with_context(input, output, error_msg, context)
+
+        call assert_transform_ok('docs_unsigned_integers', output, error_msg, &
+                                 test_unsigned_integers)
+        if (.not. test_unsigned_integers) return
+
+        call assert_output_matches_example('docs_unsigned_integers', output, &
+                                           EXPECTED_UNSIGNED_INTEGERS, &
+                                           test_unsigned_integers)
+        if (.not. test_unsigned_integers) return
+
+        call assert_contains('docs_unsigned_integers', output, &
+                             'integer :: i, sum, u, v', &
+                             test_unsigned_integers)
+        call assert_contains('docs_unsigned_integers', output, 'u = uint(i)', &
+                             test_unsigned_integers)
+        call assert_contains('docs_unsigned_integers', output, 'sum = wrap_add(u, v)', &
+                             test_unsigned_integers)
+    end function test_unsigned_integers
 
     subroutine assert_transform_ok(test_name, output, error_msg, passed)
         character(len=*), intent(in) :: test_name
