@@ -71,6 +71,10 @@ contains
             attr_info%is_external = .true.
             token = parser%consume()
             handled = .true.
+        case ("unsigned")
+            attr_info%is_unsigned = .true.
+            token = parser%consume()
+            handled = .true.
         case ("dimension")
             token = parser%consume()
             call handle_dimension_attribute(parser, arena, attr_info, handled)

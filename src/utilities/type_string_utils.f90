@@ -92,7 +92,11 @@ contains
 
         select case (mono_type%kind)
         case (TINT)
-            type_str = "integer"
+            if (mono_type%is_unsigned) then
+                type_str = "integer, unsigned"
+            else
+                type_str = "integer"
+            end if
         case (TREAL)
             type_str = "real"
             if (standardize_real) type_str = "real(8)"

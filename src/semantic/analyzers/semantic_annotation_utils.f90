@@ -38,7 +38,12 @@ contains
             end if
         end select
 
-        var_type = create_mono_type(kind_id)
+        if (kind_id == TINT) then
+            var_type = create_mono_type(kind_id, &
+                                        is_unsigned=annotation%is_unsigned)
+        else
+            var_type = create_mono_type(kind_id)
+        end if
 
         if (annotation%has_kind) then
             if (kind_id == TCHAR) then

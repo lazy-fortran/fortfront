@@ -166,6 +166,8 @@ contains
             typ = create_mono_type(TREAL)
         else if (index(intrinsic_sig, "integer(") == 1) then
             typ = create_mono_type(TINT)
+        else if (index(intrinsic_sig, "unsigned_integer(") == 1) then
+            typ = create_mono_type(TINT, is_unsigned=.true.)
         else if (index(intrinsic_sig, "logical(") == 1) then
             typ = create_mono_type(TLOGICAL)
         else if (index(intrinsic_sig, "character(") == 1) then

@@ -16,6 +16,7 @@ module declaration_attribute_utils
         logical :: is_target = .false.
         logical :: is_parameter = .false.
         logical :: is_external = .false.
+        logical :: is_unsigned = .false.
         logical :: is_optional = .false.
         logical :: is_save = .false.
         logical :: is_volatile = .false.
@@ -38,6 +39,7 @@ contains
         attr%is_target = .false.
         attr%is_parameter = .false.
         attr%is_external = .false.
+        attr%is_unsigned = .false.
         attr%is_optional = .false.
         attr%is_save = .false.
         attr%is_volatile = .false.
@@ -133,6 +135,13 @@ contains
         if (attr%is_parameter) then
             if (index(lowered, 'parameter') == 0) then
                 code = trim(code) // ", parameter"
+                lowered = to_lower(trim(code))
+            end if
+        end if
+
+        if (attr%is_unsigned) then
+            if (index(lowered, 'unsigned') == 0) then
+                code = trim(code) // ", unsigned"
                 lowered = to_lower(trim(code))
             end if
         end if

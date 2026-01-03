@@ -3,6 +3,7 @@ module standardizer_function_parameters
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_data, only: INTENT_IN, INTENT_INOUT, INTENT_OUT
     use ast_nodes_procedure, only: function_def_node
+    use type_system_unified, only: TINT
     use standardizer_function_param_scanner, only: analyze_parameter_usage
     use standardizer_function_parameter_builders, only: &
         add_missing_parameter_declarations_ext, &
@@ -138,7 +139,13 @@ contains
         character(len=:), allocatable :: inferred_text
 
         metadata%names(slot) = param%name
-        inferred_text = param%inferred_type%to_string()
+        metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
+                                     param%inferred_type%is_unsigned
+        if (metadata%is_unsigned(slot)) then
+            inferred_text = "integer"
+        else
+            inferred_text = param%inferred_type%to_string()
+        end if
         call apply_function_type(metadata, slot, .false., "", .false., 0, &
                                  param%inferred_type%kind > 0, inferred_text, &
                                  .false., .false.)
@@ -155,13 +162,20 @@ contains
 
         metadata%names(slot) = param%name
         metadata%optional(slot) = param%is_optional
-        inferred_text = param%inferred_type%to_string()
         has_explicit_type = allocated(param%type_name) .and. &
                             len_trim(param%type_name) > 0
         if (has_explicit_type) then
             explicit_type = trim(param%type_name)
+            metadata%is_unsigned(slot) = .false.
         else
             explicit_type = ""
+            metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
+                                         param%inferred_type%is_unsigned
+        end if
+        if (metadata%is_unsigned(slot)) then
+            inferred_text = "integer"
+        else
+            inferred_text = param%inferred_type%to_string()
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
                                  explicit_type, &
@@ -181,13 +195,20 @@ contains
         logical :: has_explicit_type
 
         metadata%names(slot) = param%var_name
-        inferred_text = param%inferred_type%to_string()
         has_explicit_type = allocated(param%type_name) .and. &
                             len_trim(param%type_name) > 0
         if (has_explicit_type) then
             explicit_type = trim(param%type_name)
+            metadata%is_unsigned(slot) = param%is_unsigned
         else
             explicit_type = ""
+            metadata%is_unsigned(slot) = param%inferred_type%kind == TINT .and. &
+                                         param%inferred_type%is_unsigned
+        end if
+        if (metadata%is_unsigned(slot)) then
+            inferred_text = "integer"
+        else
+            inferred_text = param%inferred_type%to_string()
         end if
         call apply_function_type(metadata, slot, has_explicit_type, &
                                  explicit_type, &
