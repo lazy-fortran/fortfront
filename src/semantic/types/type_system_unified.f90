@@ -57,6 +57,7 @@ module type_system_unified
         integer :: kind = 0
         type(type_var_t) :: var
         integer :: size = 0
+        logical :: is_unsigned = .false.
         type(allocation_info_t) :: alloc_info
     contains
         procedure :: to_string => mono_type_to_string
@@ -79,6 +80,7 @@ module type_system_unified
         integer :: mono_size = 0
         type(type_var_t) :: mono_var
         type(allocation_info_t) :: mono_alloc_info
+        logical :: mono_is_unsigned = .false.
         logical :: mono_synced = .false.
     contains
         procedure :: assign => poly_type_assign
@@ -170,11 +172,13 @@ contains
     end function create_type_var
 
     ! Create monomorphic type (compatibility function)
-    function create_mono_type(kind, var, args, char_size, array_size) result(mt)
+    function create_mono_type(kind, var, args, char_size, array_size, is_unsigned) &
+        result(mt)
         integer, intent(in) :: kind
         type(type_var_t), intent(in), optional :: var
         type(mono_type_t), intent(in), optional :: args(:)
         integer, intent(in), optional :: char_size, array_size
+        logical, intent(in), optional :: is_unsigned
         type(mono_type_t) :: mt
 
         type(arena_mono_type_t) :: arena_type
@@ -190,6 +194,7 @@ contains
         arena_type%size = 0
         if (present(char_size)) arena_type%size = char_size
         if (present(array_size)) arena_type%size = array_size
+        if (present(is_unsigned)) arena_type%is_unsigned = is_unsigned
 
         if (present(var)) then
             arena_type%var_id = var%id
@@ -215,6 +220,7 @@ contains
         ! Cache values for immediate access
         mt%kind = kind
         mt%size = arena_type%size
+        mt%is_unsigned = arena_type%is_unsigned
         if (present(var)) mt%var = var
 
         ! Set allocation info if needed
@@ -254,6 +260,7 @@ contains
         pt%mono_size = mono%size
         pt%mono_var = mono%var
         pt%mono_alloc_info = mono%alloc_info
+        pt%mono_is_unsigned = mono%is_unsigned
         pt%mono_synced = .true.
     end function create_poly_type
 
@@ -319,6 +326,7 @@ contains
         lhs%kind = rhs%kind
         lhs%var = rhs%var
         lhs%size = rhs%size
+        lhs%is_unsigned = rhs%is_unsigned
         lhs%alloc_info = rhs%alloc_info
     end subroutine mono_type_assign
 
@@ -333,6 +341,7 @@ contains
         lhs%mono_size = rhs%mono_size
         lhs%mono_var = rhs%mono_var
         lhs%mono_alloc_info = rhs%mono_alloc_info
+        lhs%mono_is_unsigned = rhs%mono_is_unsigned
         lhs%mono_synced = rhs%mono_synced
     end subroutine poly_type_assign
 
@@ -418,7 +427,11 @@ contains
         case (TVAR)
             write (str, '("''", A)') trim(arena_type%var_name)
         case (TINT)
-            str = "integer"
+            if (arena_type%is_unsigned) then
+                str = "unsigned_integer"
+            else
+                str = "integer"
+            end if
         case (TREAL)
             str = "real"
         case (TCHAR)
@@ -477,6 +490,7 @@ contains
         this%size = arena_type%size
         this%var%id = arena_type%var_id
         this%var%name = arena_type%var_name
+        this%is_unsigned = arena_type%is_unsigned
         this%alloc_info%is_allocatable = arena_type%is_allocatable
         this%alloc_info%is_pointer = arena_type%is_pointer
         this%alloc_info%is_target = arena_type%is_target
@@ -784,6 +798,7 @@ contains
             this%mono_alloc_info%is_allocatable = arena_mono%is_allocatable
             this%mono_alloc_info%is_pointer = arena_mono%is_pointer
             this%mono_alloc_info%is_target = arena_mono%is_target
+            this%mono_is_unsigned = arena_mono%is_unsigned
         end if
         this%mono_synced = .true.
     end subroutine poly_type_sync_mono
@@ -814,6 +829,7 @@ contains
         mono%kind = this%mono_kind
         mono%size = this%mono_size
         mono%var = this%mono_var
+        mono%is_unsigned = this%mono_is_unsigned
         mono%alloc_info = this%mono_alloc_info
     end function poly_type_get_mono
 

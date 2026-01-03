@@ -324,6 +324,7 @@ contains
             call register_type_annotation(index, template%type_name, decl%var_names, &
                                           has_kind=template%has_kind, &
                                           kind_value=template%kind_value, &
+                                          is_unsigned=template%is_unsigned, &
                                           is_parameter=template%is_parameter, &
                                           is_allocatable=template%is_allocatable, &
                                           is_pointer=template%is_pointer)
@@ -332,6 +333,7 @@ contains
                                           [decl%var_name], &
                                           has_kind=template%has_kind, &
                                           kind_value=template%kind_value, &
+                                          is_unsigned=template%is_unsigned, &
                                           is_parameter=template%is_parameter, &
                                           is_allocatable=template%is_allocatable, &
                                           is_pointer=template%is_pointer)

@@ -174,7 +174,12 @@ contains
         end select
 
         ! Create element type
-        element_type = create_mono_type(var_type_kind)
+        if (var_type_kind == TINT) then
+            element_type = create_mono_type(var_type_kind, &
+                                            is_unsigned=decl%is_unsigned)
+        else
+            element_type = create_mono_type(var_type_kind)
+        end if
 
         ! Handle kind parameter if present
         if (decl%has_kind) then

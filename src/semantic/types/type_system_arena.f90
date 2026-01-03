@@ -42,6 +42,7 @@ module type_system_arena
         character(len=64) :: var_name = ""  ! Fixed-size name to avoid allocatable
         type(args_handle_t) :: args  ! Handle to argument array
         integer :: size = 0  ! For TCHAR(len=size), TARRAY(size)
+        logical :: is_unsigned = .false.
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
         logical :: is_target = .false.

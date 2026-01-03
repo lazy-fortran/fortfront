@@ -238,6 +238,7 @@ contains
         attr_info%is_pointer = node%is_pointer
         attr_info%is_target = node%is_target
         attr_info%is_external = node%is_external
+        attr_info%is_unsigned = node%is_unsigned
         attr_info%is_parameter = node%is_parameter
         attr_info%is_save = node%is_save
         attr_info%is_volatile = node%is_volatile

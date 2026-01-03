@@ -72,6 +72,7 @@ contains
                                               initializer_index, is_allocatable, &
                                               is_pointer, &
                                               is_target, is_external, intent_value, &
+                                              is_unsigned, &
                                               is_optional, is_parameter, is_save, &
                                               is_volatile, is_protected, &
                                               is_asynchronous, is_contiguous, &
@@ -84,6 +85,7 @@ contains
         logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
         logical, intent(in), optional :: is_external
+        logical, intent(in), optional :: is_unsigned
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
@@ -116,6 +118,7 @@ contains
         decl%is_pointer = resolve_optional_flag(is_pointer, .false.)
         decl%is_target = resolve_optional_flag(is_target, .false.)
         decl%is_external = resolve_optional_flag(is_external, .false.)
+        decl%is_unsigned = resolve_optional_flag(is_unsigned, .false.)
 
         if (present(intent_value)) then
             decl%intent = intent_value
@@ -218,7 +221,7 @@ contains
     function push_declaration(arena, type_name, names, kind_value, &
                               dimension_indices, initializer_index, &
                               is_allocatable, is_pointer, is_target, &
-                              is_external, intent_value, is_optional, &
+                              is_external, is_unsigned, intent_value, is_optional, &
                               is_parameter, is_save, is_volatile, is_protected, &
                               is_asynchronous, is_contiguous, line, column, &
                               parent_index, character_length_expr) &
@@ -234,6 +237,7 @@ contains
         logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
         logical, intent(in), optional :: is_external
+        logical, intent(in), optional :: is_unsigned
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
@@ -271,6 +275,7 @@ contains
                                             is_pointer=is_pointer, &
                                             is_target=is_target, &
                                             is_external=is_external, &
+                                            is_unsigned=is_unsigned, &
                                             intent_value=intent_value, &
                                             is_optional=is_optional, &
                                             is_parameter=is_parameter, &
