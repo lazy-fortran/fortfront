@@ -27,11 +27,7 @@ class default
 ! SAFE: Type validation + proper assignment
 class default
     call log_error("Unknown type in allocation")
-    allocate(error_placeholder_t :: target)
-    select type(target)
-    type is (error_placeholder_t)
-        target%error_message = "Unknown type"
-    end select
+    error stop
 ```
 
 ## Current Recommendation
@@ -41,12 +37,10 @@ Until a comprehensive type registry is implemented:
 1. **Avoid `source=` with unknown types** - use explicit type allocation
 2. **Use proper assignment operators** - define them for complex types
 3. **Log unknown types** - make failures visible for debugging
-4. **Use error placeholders** - graceful degradation instead of silent failures
 
 ## Future Work
 
 If revisiting this issue:
 1. Create centralized `safe_allocation_registry` module
 2. Add comprehensive type handling with proper assignment operators
-3. Implement `error_placeholder_t` for unknown type handling
-4. Add unit tests for safe allocation patterns
+3. Add unit tests for safe allocation patterns
