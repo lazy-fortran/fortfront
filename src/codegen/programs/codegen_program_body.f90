@@ -229,11 +229,12 @@ contains
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: normalized
         integer :: i, length_text, pos
-        character(len=len(text)) :: buffer
+        character(len=:), allocatable :: buffer
         character(len=1) :: ch
 
         length_text = len(text)
         pos = 0
+        allocate (character(len=length_text) :: buffer)
 
         do i = 1, length_text
             ch = text(i:i)
