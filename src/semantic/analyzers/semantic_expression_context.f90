@@ -19,10 +19,10 @@ module semantic_expression_context
 
 contains
 
-    recursive function infer_expression_type_static_impl(arena, expr_index, &
-                                                         param_names, param_types, &
-                                                         visiting, depth, max_depth) &
-        result(typ)
+    recursive subroutine infer_expression_type_static_impl(arena, expr_index, &
+                                                           param_names, param_types, &
+                                                           visiting, depth, max_depth, &
+                                                           typ)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -30,13 +30,13 @@ contains
         logical, intent(inout) :: visiting(:)
         integer, intent(in) :: depth
         integer, intent(in) :: max_depth
-        type(mono_type_t) :: typ
+        type(mono_type_t), intent(out) :: typ
         logical :: abort_eval
 
         typ%kind = 0
         if (depth > max_depth) return
         if (.not. expression_available(arena, expr_index)) return
-        if (size(visiting) >= expr_index) then
+        if (expr_index <= size(visiting)) then
             if (visiting(expr_index)) return
             visiting(expr_index) = .true.
         end if
@@ -51,9 +51,9 @@ contains
             if (node%left_index == expr_index .or. node%right_index == expr_index) then
                 abort_eval = .true.
             else
-                typ = infer_binary_expression_type_impl(arena, node, param_names, &
-                                                        param_types, visiting, &
-                                                        depth + 1, max_depth)
+                call infer_binary_expression_type_impl(arena, node, param_names, &
+                                                       param_types, visiting, &
+                                                       depth + 1, max_depth, typ)
             end if
         type is (array_literal_node)
             typ = infer_array_literal_type_from_context_impl(arena, node, &
@@ -67,8 +67,8 @@ contains
         end select
 
         if (abort_eval) typ%kind = 0
-        if (size(visiting) >= expr_index) visiting(expr_index) = .false.
-    end function infer_expression_type_static_impl
+        if (expr_index <= size(visiting)) visiting(expr_index) = .false.
+    end subroutine infer_expression_type_static_impl
 
     function infer_type_from_usage_context(var_name, next_var_id) result(typ)
         character(len=*), intent(in) :: var_name
@@ -121,9 +121,9 @@ contains
         end if
         visiting = .false.
 
-        typ = infer_expression_type_static_impl(arena, expr_index, param_names, &
-                                                param_types, visiting, 0, &
-                                                MAX_EXPR_RECURSION_DEPTH)
+        call infer_expression_type_static_impl(arena, expr_index, param_names, &
+                                               param_types, visiting, 0, &
+                                               MAX_EXPR_RECURSION_DEPTH, typ)
     end function infer_expression_type_static
 
     logical function expression_available(arena, expr_index)
@@ -170,9 +170,9 @@ contains
         if (node%inferred_type%kind > 0) typ = node%inferred_type
     end function infer_identifier_expression_type
 
-    recursive function infer_binary_expression_type_impl(arena, node, param_names, &
-                                                         param_types, visiting, depth, &
-                                                         max_depth) result(typ)
+    recursive subroutine infer_binary_expression_type_impl(arena, node, param_names, &
+                                                           param_types, visiting, &
+                                                           depth, max_depth, typ)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         character(len=64), allocatable, intent(in) :: param_names(:)
@@ -180,7 +180,7 @@ contains
         logical, intent(inout) :: visiting(:)
         integer, intent(in) :: depth
         integer, intent(in) :: max_depth
-        type(mono_type_t) :: typ
+        type(mono_type_t), intent(out) :: typ
         type(mono_type_t) :: left_typ
         type(mono_type_t) :: right_typ
 
@@ -201,12 +201,12 @@ contains
             return
         end if
 
-        left_typ = infer_expression_type_static_impl(arena, node%left_index, &
-                                                     param_names, param_types, &
-                                                     visiting, depth + 1, max_depth)
-        right_typ = infer_expression_type_static_impl(arena, node%right_index, &
-                                                      param_names, param_types, &
-                                                      visiting, depth + 1, max_depth)
+        call infer_expression_type_static_impl(arena, node%left_index, param_names, &
+                                               param_types, visiting, depth + 1, &
+                                               max_depth, left_typ)
+        call infer_expression_type_static_impl(arena, node%right_index, param_names, &
+                                               param_types, visiting, depth + 1, &
+                                               max_depth, right_typ)
         if (left_typ%kind == 0) left_typ = right_typ
         if (right_typ%kind == 0) right_typ = left_typ
         if (left_typ%kind == 0 .and. right_typ%kind == 0) then
@@ -214,7 +214,7 @@ contains
         else
             typ = get_common_type(left_typ, right_typ)
         end if
-    end function infer_binary_expression_type_impl
+    end subroutine infer_binary_expression_type_impl
 
     function infer_array_literal_type_from_context_impl(arena, node, param_names, &
                                                         param_types, visiting, depth, &
@@ -281,15 +281,16 @@ contains
             return
         end if
 
-        element_type = infer_expression_type_static_impl( &
-                       arena, node%element_indices(1), param_names, param_types, &
-                       visiting, depth + 1, max_depth)
+        call infer_expression_type_static_impl(arena, node%element_indices(1), &
+                                               param_names, param_types, visiting, &
+                                               depth + 1, max_depth, element_type)
         if (element_type%kind == 0) element_type = create_mono_type(TREAL)
 
         do elem_idx = 2, elem_count
-            other_type = infer_expression_type_static_impl( &
-                         arena, node%element_indices(elem_idx), param_names, &
-                         param_types, visiting, depth + 1, max_depth)
+            call infer_expression_type_static_impl(arena, &
+                                                   node%element_indices(elem_idx), &
+                                                   param_names, param_types, visiting, &
+                                                   depth + 1, max_depth, other_type)
             if (other_type%kind == 0) cycle
             if (element_type%kind == TARRAY .and. other_type%kind /= TARRAY) cycle
             if (element_type%kind /= TARRAY .and. other_type%kind == TARRAY) then
