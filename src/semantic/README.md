@@ -17,6 +17,7 @@ The semantic analysis subsystem performs type inference, scope resolution, and v
 | scope_manager.f90 | Scope stack management, symbol table, variable declarations |
 | semantic_inference_helpers.f90 | Type inference helper functions |
 | semantic_input_mode.f90 | Input mode enum (lazy vs standard Fortran) |
+| semantic_unsigned_integer_mix_diagnostics.f90 | Shared diagnostics for signed/unsigned integer mixing |
 | type_hierarchy.f90 | Type hierarchy and subtype relationships |
 | constant_transformation.f90 | Constant folding and compile-time evaluation |
 | convergence_checker.f90 | Check type inference convergence (multi-pass) |

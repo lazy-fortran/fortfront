@@ -2,10 +2,15 @@ module semantic_strict_argument_type_checker_validation
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: assignment_node, identifier_node
     use ast_nodes_data, only: declaration_node, parameter_declaration_node
-    use error_handling, only: ERROR_SEMANTIC, create_error_result, error_collection_t
+    use error_handling, only: ERROR_SEMANTIC, create_error_result, &
+                              error_collection_t
+    use semantic_unsigned_integer_mix_diagnostics, only: &
+        emit_unsigned_integer_mix_error, extract_integer_signedness, &
+        is_integer_literal_expr
     use semantic_strict_argument_type_checker_types, only: &
         strict_actual_argument_type, &
-        strict_dummy_type, strict_type_is_known, strict_type_name, strict_types_match
+        strict_dummy_type, strict_type_is_known, strict_type_name, &
+        strict_types_match
     use string_utils_mod, only: to_lower
     use type_system_unified, only: mono_type_t
     implicit none
@@ -203,6 +208,11 @@ contains
         type(mono_type_t) :: dummy_type
         character(len=:), allocatable :: actual_string
         character(len=:), allocatable :: dummy_string
+        logical :: actual_is_int
+        logical :: dummy_is_int
+        logical :: actual_is_unsigned
+        logical :: dummy_is_unsigned
+        logical :: actual_is_int_literal
 
         if (.not. arena%has_node_at(arg_expr_index)) return
         if (.not. arena%has_node_at(dummy_index)) return
@@ -214,6 +224,21 @@ contains
 
         if (.not. strict_type_is_known(actual_type)) return
         if (.not. strict_type_is_known(dummy_type)) return
+
+        call extract_integer_signedness(actual_type, actual_is_int, &
+                                        actual_is_unsigned)
+        call extract_integer_signedness(dummy_type, dummy_is_int, &
+                                        dummy_is_unsigned)
+        actual_is_int_literal = is_integer_literal_expr(arena, arg_expr_index)
+
+        if (actual_is_int .and. dummy_is_int) then
+            if (actual_is_unsigned .neqv. dummy_is_unsigned) then
+                if (.not. actual_is_int_literal) then
+                    call emit_unsigned_integer_mix_error(errors)
+                    return
+                end if
+            end if
+        end if
 
         if (strict_types_match(dummy_type, actual_type)) return
 

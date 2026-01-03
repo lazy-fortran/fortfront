@@ -329,7 +329,10 @@ contains
         if (.not. test_unsigned_integers) return
 
         call assert_contains('docs_unsigned_integers', output, &
-                             'integer :: i, sum, u, v', &
+                             'integer :: i', &
+                             test_unsigned_integers)
+        call assert_contains('docs_unsigned_integers', output, &
+                             'integer, unsigned :: sum, u, v', &
                              test_unsigned_integers)
         call assert_contains('docs_unsigned_integers', output, 'u = uint(i)', &
                              test_unsigned_integers)

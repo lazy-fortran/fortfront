@@ -38,7 +38,8 @@ compilers will reject output that uses them (see `examples/expected_failures.txt
 ```bash
 fortfront examples/lf/docs_unsigned_integers.lf
 ```
-Output: `examples/f90/docs_unsigned_integers_out.f90` (see `u = uint(i)`)
+Output: `examples/f90/docs_unsigned_integers_out.f90` (see `integer, unsigned` and
+`u = uint(i)`)
 
 To emit the nonstandard unsigned attribute in Fortran, use `integer, unsigned`
 in standard Fortran input. See `examples/f90/issue_2591_unsigned_declarations.f90`

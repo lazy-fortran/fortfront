@@ -606,11 +606,13 @@ contains
                     block
                         integer, allocatable :: empty_dims(:)
                         allocate (empty_dims(0))
-                        param_index = push_parameter_declaration(arena, token%text, &
-                                                                 "", 0, 0, .false., &
-                                                                 empty_dims, &
-                                                                 token%line, &
-                                                                 token%column)
+                        param_index = push_parameter_declaration( &
+                                      arena, name=token%text, type_name="", &
+                                      kind_value=0, intent_value=0, &
+                                      is_optional=.false., is_target=.false., &
+                                      is_unsigned=.false., &
+                                      dimension_indices=empty_dims, &
+                                      line=token%line, column=token%column)
                     end block
                     local_indices = [local_indices, param_index]
                 end block

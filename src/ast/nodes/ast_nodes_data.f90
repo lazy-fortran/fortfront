@@ -94,6 +94,7 @@ module ast_nodes_data
         integer :: intent_type = INTENT_NONE  ! INTENT_IN/OUT/INOUT
         logical :: is_optional = .false.  ! Whether parameter is optional
         logical :: is_target = .false.  ! Whether target attribute is present
+        logical :: is_unsigned = .false.  ! Whether unsigned attribute is present
         ! Array dimension support
         logical :: is_array = .false.  ! Whether this is
         ! an array parameter
@@ -287,6 +288,7 @@ contains
         call json%add(node, 'kind_value', this%kind_value)
         call json%add(node, 'has_kind', this%has_kind)
         call json%add(node, 'is_optional', this%is_optional)
+        call json%add(node, 'is_unsigned', this%is_unsigned)
         call json%add(node, 'is_array', this%is_array)
 
         ! Add intent as a readable string (single field for clarity)
@@ -333,6 +335,7 @@ contains
         lhs%intent_type = rhs%intent_type
         lhs%is_optional = rhs%is_optional
         lhs%is_target = rhs%is_target
+        lhs%is_unsigned = rhs%is_unsigned
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
