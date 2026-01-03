@@ -274,7 +274,7 @@ contains
         integer, intent(in) :: index
         kind = 0
         if (.not. this%has_node_at(index)) return
-        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+        if (this%entries(index)%node%inferred_type%kind <= 0) return
         kind = this%entries(index)%node%inferred_type%kind
     end function get_inferred_kind_at
 
@@ -292,7 +292,7 @@ contains
         found = .false.
 
         if (.not. this%has_node_at(index)) return
-        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+        if (this%entries(index)%node%inferred_type%kind <= 0) return
 
         associate (t => this%entries(index)%node%inferred_type)
             kind = t%kind
