@@ -12,6 +12,8 @@ module ast_introspection
     use ast_nodes_data
     use ast_nodes_io
     use ast_nodes_misc
+    use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
+                                range_expression_node, array_operation_node
     use type_system_unified, only: mono_type_t
     implicit none
     private
@@ -173,14 +175,80 @@ contains
         type is (implicit_statement_node)
             type_id = 43  ! NODE_IMPLICIT_STATEMENT
         type is (module_procedure_node)
-            type_id = 44  ! NODE_MODULE_PROCEDURE
+            type_id = 83  ! NODE_MODULE_PROCEDURE
         type is (continue_node)
             type_id = 45  ! NODE_CONTINUE
         type is (directive_node)
             type_id = 48  ! NODE_DIRECTIVE
+        type is (pause_node)
+            type_id = 46  ! NODE_PAUSE
+        type is (nullify_node)
+            type_id = 47  ! NODE_NULLIFY
+        type is (array_bounds_node)
+            type_id = 50  ! NODE_ARRAY_BOUNDS
+        type is (array_slice_node)
+            type_id = 51  ! NODE_ARRAY_SLICE
+        type is (range_expression_node)
+            type_id = 52  ! NODE_RANGE_EXPRESSION
+        type is (array_operation_node)
+            type_id = 53  ! NODE_ARRAY_OPERATION
+        type is (submodule_node)
+            type_id = 54  ! NODE_SUBMODULE
+        type is (block_data_node)
+            type_id = 55  ! NODE_BLOCK_DATA
+        type is (type_binding_node)
+            type_id = 56  ! NODE_TYPE_BINDING
+        type is (mixed_construct_container_node)
+            type_id = 57  ! NODE_MIXED_CONSTRUCT
+        type is (where_stmt_node)
+            type_id = 58  ! NODE_WHERE_STMT
+        type is (select_type_node)
+            type_id = 59  ! NODE_SELECT_TYPE
+        type is (type_guard_block_node)
+            type_id = 61  ! NODE_TYPE_GUARD_BLOCK
+        type is (select_rank_node)
+            type_id = 62  ! NODE_SELECT_RANK
+        type is (rank_block_node)
+            type_id = 63  ! NODE_RANK_BLOCK
+        type is (associate_node)
+            type_id = 64  ! NODE_ASSOCIATE
+        type is (block_construct_node)
+            type_id = 65  ! NODE_BLOCK_CONSTRUCT
+        type is (io_implied_do_node)
+            type_id = 66  ! NODE_IO_IMPLIED_DO
+        type is (open_statement_node)
+            type_id = 67  ! NODE_OPEN_STATEMENT
+        type is (close_statement_node)
+            type_id = 68  ! NODE_CLOSE_STATEMENT
+        type is (inquire_statement_node)
+            type_id = 69  ! NODE_INQUIRE_STATEMENT
+        type is (backspace_statement_node)
+            type_id = 70  ! NODE_BACKSPACE_STATEMENT
+        type is (rewind_statement_node)
+            type_id = 71  ! NODE_REWIND_STATEMENT
+        type is (endfile_statement_node)
+            type_id = 72  ! NODE_ENDFILE_STATEMENT
+        type is (component_access_node)
+            type_id = 73  ! NODE_COMPONENT_ACCESS
+        type is (range_subscript_node)
+            type_id = 74  ! NODE_RANGE_SUBSCRIPT
+        type is (blank_line_node)
+            type_id = 75  ! NODE_BLANK_LINE
+        type is (end_statement_node)
+            type_id = 76  ! NODE_END_STATEMENT
+        type is (intrinsic_statement_node)
+            type_id = 77  ! NODE_INTRINSIC_STATEMENT
+        type is (visibility_statement_node)
+            type_id = 78  ! NODE_VISIBILITY_STATEMENT
+        type is (namelist_statement_node)
+            type_id = 79  ! NODE_NAMELIST_STATEMENT
+        type is (data_statement_node)
+            type_id = 80  ! NODE_DATA_STATEMENT
+        type is (import_statement_node)
+            type_id = 81  ! NODE_IMPORT_STATEMENT
+        type is (statement_function_node)
+            type_id = 82  ! NODE_STATEMENT_FUNCTION
         class default
-            ! Log warning for debugging purposes
-            write (error_unit, '(A)') "Warning: Unknown node type in get_node_type_id"
             type_id = 99  ! NODE_UNKNOWN
         end select
     end function get_node_type_id
