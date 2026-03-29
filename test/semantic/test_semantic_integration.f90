@@ -1,34 +1,120 @@
 program test_semantic_integration
-    ! TEMPORARY DISABLED: Semantic pipeline types commented out in fortfront module
-    ! This test will be re-enabled when FMP build system is fully restored
-    ! or when CMAKE-only strategy is chosen and FMP tests are deprecated
-
-    use fortfront, only: semantic_analyzer_t, semantic_context_t, create_semantic_context
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use fortfront, only: semantic_analyzer_t, semantic_context_t, &
+                         create_semantic_context, &
+                         lex_source, parse_tokens, &
+                         create_ast_arena, token_t, ast_arena_t, &
+                         analyze_program
+    use semantic_analyzer, only: has_semantic_errors
+    use semantic_input_mode, only: INPUT_MODE_LAZY
+    use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
 
-    type(semantic_context_t) :: context
-    type(ast_arena_t) :: arena
-    integer :: root_node_index
+    integer :: test_count, pass_count
 
-    print *, "=== Semantic Integration Test (LIMITED) ==="
+    test_count = 0
+    pass_count = 0
 
-    ! Initialize test environment
-    arena = create_ast_arena()
-    call create_semantic_context(context)
-    root_node_index = 1  ! Dummy root node index
+    print *, "=== Semantic Integration Test ==="
 
-    ! Test 1: Basic semantic types available
-    print *, "PASS: semantic_context_t available through fortfront API"
+    call test_types_accessible_through_api()
+    call test_semantic_analysis_on_parsed_ast()
+    call test_semantic_analysis_empty_arena()
 
-    ! Test 2: Basic semantic analyzer type available
-    print *, "PASS: semantic_analyzer_t available through fortfront API"
+    write (*, '(A,I0,A,I0,A)') "Passed ", pass_count, " out of ", &
+        test_count, " tests."
+    if (pass_count /= test_count) then
+        write (error_unit, '(A)') "FAIL"
+        stop 1
+    end if
 
-    ! Test 3: AST arena integration works
-    print *, "PASS: AST arena integration functional"
+contains
 
-    print *, ""
-    print *, "=== BASIC TESTS PASSED ==="
-    print *, "Core semantic types available - full pipeline disabled pending FMP/CMAKE decision"
+    subroutine test_types_accessible_through_api()
+        type(semantic_context_t) :: ctx
+        type(ast_arena_t) :: arena
+
+        test_count = test_count + 1
+
+        call create_semantic_context(ctx)
+        arena = create_ast_arena()
+
+        if (ctx%next_var_id < 1) then
+            write (*, '(A)') "FAIL: semantic context next_var_id not initialized"
+            return
+        end if
+        if (arena%size /= 0) then
+            write (*, '(A)') "FAIL: fresh arena should have size 0"
+            return
+        end if
+
+        pass_count = pass_count + 1
+        write (*, '(A)') "PASS: semantic pipeline types accessible through fortfront API"
+    end subroutine test_types_accessible_through_api
+
+    subroutine test_semantic_analysis_on_parsed_ast()
+        type(semantic_context_t), allocatable :: ctx
+        type(ast_arena_t) :: arena
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: source, error_msg
+        integer :: prog_index
+
+        test_count = test_count + 1
+
+        source = &
+            'x = 5' // new_line('a') // &
+            'y = x + 3'
+
+        call lex_source(source, tokens, error_msg)
+        if (len_trim(error_msg) > 0) then
+            write (*, '(A,A)') "FAIL: lex error: ", error_msg
+            return
+        end if
+
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        if (len_trim(error_msg) > 0) then
+            write (*, '(A,A)') "FAIL: parse error: ", error_msg
+            return
+        end if
+
+        if (prog_index < 1) then
+            write (*, '(A)') "FAIL: parse returned invalid prog_index"
+            return
+        end if
+
+        allocate (ctx)
+        call create_semantic_context(ctx)
+        ctx%input_mode = INPUT_MODE_LAZY
+        call analyze_program(ctx, arena, prog_index)
+
+        if (has_semantic_errors(ctx)) then
+            write (*, '(A)') "FAIL: semantic analysis reported errors on valid program"
+            return
+        end if
+
+        pass_count = pass_count + 1
+        write (*, '(A)') "PASS: semantic analysis completes without errors on parsed AST"
+    end subroutine test_semantic_analysis_on_parsed_ast
+
+    subroutine test_semantic_analysis_empty_arena()
+        type(semantic_context_t), allocatable :: ctx
+        type(ast_arena_t) :: arena
+
+        test_count = test_count + 1
+
+        arena = create_ast_arena()
+        allocate (ctx)
+        call create_semantic_context(ctx)
+
+        call analyze_program(ctx, arena, 0)
+
+        if (has_semantic_errors(ctx)) then
+            write (*, '(A)') "FAIL: empty arena should not produce semantic errors"
+            return
+        end if
+
+        pass_count = pass_count + 1
+        write (*, '(A)') "PASS: semantic analysis handles empty arena gracefully"
+    end subroutine test_semantic_analysis_empty_arena
 
 end program test_semantic_integration
