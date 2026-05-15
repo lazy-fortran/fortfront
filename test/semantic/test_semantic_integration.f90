@@ -1,34 +1,54 @@
 program test_semantic_integration
-    ! TEMPORARY DISABLED: Semantic pipeline types commented out in fortfront module
-    ! This test will be re-enabled when FMP build system is fully restored
-    ! or when CMAKE-only strategy is chosen and FMP tests are deprecated
-
-    use fortfront, only: semantic_analyzer_t, semantic_context_t, create_semantic_context
+    use fortfront, only: lex_source, parse_tokens, analyze_semantics, &
+                          semantic_context_t, create_semantic_context, &
+                          emit_fortran, token_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 
     type(semantic_context_t) :: context
     type(ast_arena_t) :: arena
-    integer :: root_node_index
+    type(token_t), allocatable :: tokens(:)
+    character(len=:), allocatable :: error_msg, code
+    integer :: prog_index
+    logical :: ok
 
-    print *, "=== Semantic Integration Test (LIMITED) ==="
+    ok = .true.
 
-    ! Initialize test environment
+    print *, "=== Semantic Integration Test ==="
+
     arena = create_ast_arena()
     call create_semantic_context(context)
-    root_node_index = 1  ! Dummy root node index
 
-    ! Test 1: Basic semantic types available
-    print *, "PASS: semantic_context_t available through fortfront API"
+    call lex_source('x = 42', tokens, error_msg)
+    if (error_msg /= "") then
+        print *, "FAIL: lex_source error: ", error_msg
+        ok = .false.
+    end if
 
-    ! Test 2: Basic semantic analyzer type available
-    print *, "PASS: semantic_analyzer_t available through fortfront API"
+    call parse_tokens(tokens, arena, prog_index, error_msg)
+    if (error_msg /= "") then
+        print *, "FAIL: parse_tokens error: ", error_msg
+        ok = .false.
+    end if
 
-    ! Test 3: AST arena integration works
-    print *, "PASS: AST arena integration functional"
+    call analyze_semantics(arena, prog_index)
+    call emit_fortran(arena, prog_index, code)
 
-    print *, ""
-    print *, "=== BASIC TESTS PASSED ==="
-    print *, "Core semantic types available - full pipeline disabled pending FMP/CMAKE decision"
+    if (.not. allocated(code)) then
+        print *, "FAIL: no code emitted after semantic analysis"
+        ok = .false.
+    else if (index(code, 'integer') == 0) then
+        print *, "FAIL: emitted code lacks inferred 'integer' declaration"
+        print *, "code: ", code
+        ok = .false.
+    else
+        print *, "PASS: semantic pipeline inferred type for 'x = 42'"
+    end if
 
+    if (.not. ok) then
+        print *, "=== FAILED ==="
+        error stop 1
+    end if
+
+    print *, "=== PASSED ==="
 end program test_semantic_integration
