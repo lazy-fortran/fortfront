@@ -18,10 +18,10 @@
 
 contains
 
-    ! Local implementation of get_standardizer_type_standardization
+    ! Shared implementation of get_standardizer_type_standardization
     subroutine get_standardizer_type_standardization(enabled)
         logical, intent(out) :: enabled
-        enabled = standardizer_type_standardization_enabled
+        call get_shared_type_standardization(enabled)
     end subroutine get_standardizer_type_standardization
 
     ! Check if a mono_type is an array type

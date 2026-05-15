@@ -15,14 +15,11 @@ module standardizer_core
                                         wrap_subroutine_in_program
     use debug_trace, only: trace_enter, trace_leave
     use standardizer_parameter, only: set_standardizer_input_mode
+    use standardizer_declarations_state, only: &
+        set_declaration_type_standardization => set_standardizer_type_standardization, &
+        get_declaration_type_standardization => get_standardizer_type_standardization
     implicit none
     private
-
-    ! Type standardization configuration for standardizer
-    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
-    ! depend on exact type matching. Users should explicitly use real(8) or
-    ! kind parameters if they want double precision.
-    logical, save :: standardizer_type_standardization_enabled = .false.
 
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
@@ -50,12 +47,12 @@ contains
     ! Configuration setters/getters
     subroutine set_standardizer_type_standardization(enabled)
         logical, intent(in) :: enabled
-        standardizer_type_standardization_enabled = enabled
+        call set_declaration_type_standardization(enabled)
     end subroutine set_standardizer_type_standardization
 
     subroutine get_standardizer_type_standardization(enabled)
         logical, intent(out) :: enabled
-        enabled = standardizer_type_standardization_enabled
+        call get_declaration_type_standardization(enabled)
     end subroutine get_standardizer_type_standardization
 
     ! String result methods now in standardizer_types

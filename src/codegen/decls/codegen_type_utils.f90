@@ -2,10 +2,9 @@ module codegen_type_utils
     implicit none
     private
 
-    ! Type standardization configuration
-    ! DISABLED: Converting real -> real(8) breaks generic interfaces that
-    ! depend on exact type matching. Users should explicitly use real(8) or
-    ! kind parameters if they want double precision.
+    ! Type standardization configuration.
+    ! Lazy Fortran transformations enable this explicitly while standard
+    ! Fortran round-trips keep source spelling for generic resolution.
     logical, save :: standardize_types_enabled = .false.
 
     public :: set_type_standardization, get_type_standardization
