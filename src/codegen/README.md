@@ -37,7 +37,7 @@ uses fortfront as a frontend and targets LIRIC through its own backend layer.
 | `arena/codegen_arena_interface.f90` | Arena memory interface for safe node access |
 | `arena/codegen_arena_utils.f90` | Arena-based utilities for node traversal |
 
-### Declarations (7 files)
+### Declarations
 Emission of variable, type, and procedure declarations with grouping and inference support.
 
 | File | Description |
@@ -45,10 +45,12 @@ Emission of variable, type, and procedure declarations with grouping and inferen
 | `decls/codegen_declarations.f90` | Declaration emission facade |
 | `decls/codegen_declarations_core.f90` | Core variable, type, parameter emission |
 | `decls/codegen_declarations_inference.f90` | Inferred declarations for lazy Fortran |
-| `decls/codegen_declarations_procedures.f90` | Procedure declarations |
-| `decls/codegen_declarations_programs.f90` | Program declarations |
 | `decls/codegen_declaration_grouping.f90` | Group by type/intent for clean output |
+| `decls/codegen_function_declarations.f90` | Function declaration facade |
+| `decls/codegen_module_generation.f90` | Module structure generation |
+| `decls/codegen_program_decl_utils.f90` | Program declaration utilities |
 | `decls/codegen_procedure_shared.f90` | Shared procedure utilities |
+| `decls/codegen_subroutine_declarations.f90` | Subroutine declaration emission |
 | `decls/codegen_generics.f90` | LFortran generics constructs: template blocks and instantiate statements |
 
 ### Expressions (3 files)

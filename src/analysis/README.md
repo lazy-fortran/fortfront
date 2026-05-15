@@ -10,7 +10,7 @@ The analysis phase operates **after** semantic analysis and works with fully typ
 
 | File | Description |
 |------|-------------|
-| call_graph.f90 | Public API facade for call graph functionality |
+| call_graph.f90 | Public API facade over split call graph implementation modules |
 | call_graph_core_mod.f90 | Core call graph data structures and types |
 | call_graph_builder_mod.f90 | Primary call graph construction from AST |
 | call_graph_builder_state_mod.f90 | State management during call graph construction |
@@ -32,6 +32,8 @@ The analysis phase operates **after** semantic analysis and works with fully typ
 - Detects unused procedures and call cycles
 - Extracts procedure signatures for type inference
 - Handles internal procedures and nested scopes
+- Exposes `call_graph_module` as the stable import point while implementation
+  details remain split by responsibility.
 
 **Variable Usage Analysis**
 - Tracks which variables are referenced where

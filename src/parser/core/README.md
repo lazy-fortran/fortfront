@@ -20,8 +20,8 @@ The parser core provides the fundamental infrastructure for parsing operations: 
 | parser_implicit_shared.f90 | Shared implicit typing utilities |
 | parser_import_resolution.f90 | Import statement resolution and dependency tracking |
 | mixed_construct_detector.f90 | Detect mixed lazy/standard Fortran constructs |
-| ensure_if_do_registration_bridge.f90 | Bridge for if/do control flow registration |
-| ensure_forall_array_registration_bridge.f90 | Bridge for forall/array construct registration |
+| ensure_if_do_registration_bridge.f90 | External cycle breaker for if/do control flow registration |
+| ensure_forall_array_registration_bridge.f90 | External cycle breaker for forall/array construct registration |
 | url_utilities.f90 | URL handling utilities (for error reporting with links) |
 
 ## Key Concepts
@@ -60,6 +60,11 @@ The parser core provides the fundamental infrastructure for parsing operations: 
 - Route standard blocks to pass-through handler
 - Route lazy blocks to full transformation pipeline
 - See `docs/guides/MIXED_CONSTRUCTS_GUIDE.md`
+
+**Registration Bridges**
+- The `ensure_*_registration_bridge` files are external subroutines, not
+  convenience facades. They let mutually recursive parser modules register
+  callbacks lazily without introducing compile-time module cycles.
 
 **Import Resolution**
 - Track `use module_name` statements
