@@ -18,12 +18,10 @@ It is currently a transformer and tooling frontend, not a compiler backend.
 
 The ecosystem tools live in separate repositories and build on fortfront.
 
-| Tool | Purpose | Status | Repository |
-|------|---------|--------|------------|
 | Tool | Purpose | Current status | Repository |
 |------|---------|----------------|------------|
 | **fluff** | Static analysis and formatting | Experimental; built on FortFront; some README-level feature claims are roadmap items | [lazy-fortran/fluff](https://github.com/lazy-fortran/fluff) |
-| **ffc** | Compiler driver/backend | Not a working compiler yet; current MLIR path is obsolete for the LIRIC direction | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
+| **ffc** | Compiler driver/backend | Not a working compiler yet; the active backend direction is LIRIC via its C API | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
 | **fortrun** | Build/run enhancement service | Experimental and currently on hold | [lazy-fortran/fortrun](https://github.com/lazy-fortran/fortrun) |
 | **fortnb** | Notebook processing | Experimental and currently on hold | [lazy-fortran/fortnb](https://github.com/lazy-fortran/fortnb) |
 | **fortcov** | Coverage analysis | Independent gcov/FPM coverage tool; not part of compiler bootstrap | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
