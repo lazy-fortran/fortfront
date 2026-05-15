@@ -105,7 +105,7 @@ contains
                 write (error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', &
                     depth, trim(name)
                 flush (error_unit)
-                stop 1
+                error stop 'debug_trace: TRACE max depth exceeded'
             end if
             write (error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)
             if (file_u > 0) then
@@ -125,7 +125,7 @@ contains
             write (error_unit, '(A,I0,1X,A)') 'PROFILE: Max depth exceeded: ', &
                 profile_depth, trim(name)
             flush (error_unit)
-            stop 1
+            error stop 'debug_trace: PROFILE max depth exceeded'
         end if
 
         section_index = ensure_profile_section(trim(name))
@@ -169,19 +169,19 @@ contains
         if (.not. allocated(profile_sections)) then
             write (error_unit, '(A)') 'PROFILE: Internal error: missing sections'
             flush (error_unit)
-            stop 1
+            error stop 'debug_trace: profile sections not allocated'
         end if
         if (section_index < 1 .or. section_index > size(profile_sections)) then
             write (error_unit, '(A,1X,I0)') 'PROFILE: Invalid section index:', &
                 section_index
             flush (error_unit)
-            stop 1
+            error stop 'debug_trace: invalid profile section index'
         end if
         if (.not. allocated(profile_sections(section_index)%name)) then
             write (error_unit, '(A,1X,I0)') 'PROFILE: Missing section name:', &
                 section_index
             flush (error_unit)
-            stop 1
+            error stop 'debug_trace: missing profile section name'
         end if
 
         names_match = trim(profile_sections(section_index)%name) == trim(name)
@@ -191,7 +191,7 @@ contains
                 trim(profile_sections(section_index)%name)
             write (error_unit, '(A,1X,A)') 'got:', trim(name)
             flush (error_unit)
-            stop 1
+            error stop 'debug_trace: trace_leave name mismatch'
         end if
 
         elapsed_counts = end_count - profile_stack(profile_depth)%start_count
