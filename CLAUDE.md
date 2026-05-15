@@ -580,7 +580,6 @@ Utilities:
 - `src/common/README.md` - Shared utilities (identifiers, UIDs)
 - `src/utilities/README.md` - String handling, debug tracing
 - `src/interfaces/README.md` - C API bindings
-- `src/performance/README.md` - Performance metrics
 - `src/cst/README.md` - Concrete syntax tree
 - `src/shims/README.md` - Compatibility shims
 
@@ -689,4 +688,4 @@ What are you doing?
 2. Check arena allocation patterns (excessive growth?)
 3. Review AST traversal counts (redundant passes?)
 4. Measure stack usage: `ulimit -s 1024; fpm test`
-5. See `src/performance/ast_performance.f90` for metrics
+5. Use external profilers for detailed timing and allocation data
