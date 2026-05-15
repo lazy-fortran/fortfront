@@ -14,7 +14,7 @@
 Fortfront is a **Fortran frontend library** that parses and analyzes **both standard Fortran and Lazy Fortran**. It provides a complete AST, semantic analysis, and type inference infrastructure for building tools like:
 
 - **Linters and formatters** (fluff)
-- **Compilers** (LLVM HLIR emission)
+- **Compilers** (frontend input for downstream LIRIC lowering in `ffc`)
 - **Static analyzers**
 - **Language servers**
 - **Code transformation tools**
@@ -447,7 +447,7 @@ Fortfront processes **both standard and lazy Fortran** through a multi-stage pip
 src/
 ├── analysis/        # Call graph, variable usage (foundation for tools)
 ├── ast/            # AST node types, arena, traversal (for both .f90 and .lf)
-├── codegen/        # Standard Fortran emission (NOT LLVM - that's ffc's job)
+├── codegen/        # Standard Fortran emission (NOT backend IR)
 ├── common/         # Shared utilities (identifiers, UIDs)
 ├── cst/            # Concrete syntax tree (preserves all source details)
 ├── frontend/       # High-level pipeline orchestration
@@ -473,7 +473,7 @@ examples/
 
 **1. As a Library (Primary Use Case)**
 - **Linters/Formatters (fluff):** Parse → AST → (fluff does analysis) → report/format
-- **Compilers (ffc):** Parse → AST → semantic → (ffc emits LLVM HLIR)
+- **Compilers (ffc):** Parse → AST → semantic → (ffc lowers to LIRIC)
 - **Build Tools (fortrun):** Parse → AST → semantic → cross-module inference
 - **Language Servers:** Parse → AST → semantic context → provide completions/diagnostics
 - **Fortfront provides: Lexer, Parser, AST, Type Inference, Basic Analysis**
@@ -530,7 +530,7 @@ make check-duplication                     # Validate zero-duplication policy
 echo "x = 5" | ./build/gfortran_<hash>/app/fortfront > output.f90
 
 # Format code
-fprettify -c .fprettify <file.f90>        # Uses project .fprettify config
+fprettify <file.f90>
 ```
 
 ### Critical Rules (fortfront-specific)
