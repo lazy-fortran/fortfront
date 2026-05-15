@@ -10,6 +10,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 
 | File | Description |
 |------|-------------|
+| frontend_compiler_api.f90 | Public compiler-facing API returning AST, semantic context, tokens, and diagnostics without codegen |
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
 | frontend_pass_manager.f90 | Configurable pass manager for transformation phases |
@@ -137,7 +138,12 @@ end subroutine
 **API Interfaces**
 - **CLI**: `fortfront input.lf > output.f90`
 - **Library**: `transform_lazy_fortran_string(input, output, errors)`
-- **Tooling**: `parse_fortran_for_tools(source, ast, context)`
+- **Tooling**: `tooling_load_ast_from_string(source, arena, root, errors)`
+- **Compiler**: `compile_frontend_from_string(source, result)` returns a
+  `compiler_frontend_result_t` that owns the AST arena, root index, semantic
+  context, token stream, diagnostics, and source text. The compiler API stops
+  after parsing and semantic analysis by default; it does not run standardization
+  or Fortran code generation unless a separate caller invokes those APIs.
 
 ## Dependencies
 
