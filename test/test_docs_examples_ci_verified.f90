@@ -252,9 +252,9 @@ contains
                              'program main', &
                              test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real :: val', test_type_validation_calculate)
+                             'real(dp) :: val', test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
-                             'real function calculate(a, b) result(res)', &
+                             'real(dp) function calculate(a, b) result(res)', &
                              test_type_validation_calculate)
         call assert_contains('docs_type_validation_calculate', output, &
                              'real, intent(in) :: a', test_type_validation_calculate)
@@ -292,9 +292,9 @@ contains
                              'program main', &
                              test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'real :: value', test_mixed_type_operations)
+                             'real(dp) :: value', test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
-                             'real function mixed_calc(i, x) result(y)', &
+                             'real(dp) function mixed_calc(i, x) result(y)', &
                              test_mixed_type_operations)
         call assert_contains('docs_mixed_type_operations', output, &
                              'integer, intent(in) :: i', test_mixed_type_operations)

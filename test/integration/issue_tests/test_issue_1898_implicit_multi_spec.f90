@@ -35,7 +35,8 @@ program test_issue_1898_implicit_multi_spec
         error stop "FAIL: invalid declaration generated"
     end if
 
-    if (index(result_code, "real :: x") == 0) then
+    if (index(result_code, "real :: x") == 0 .and. &
+        index(result_code, "real(dp) :: x") == 0) then
         print *, "ERROR: missing real :: x declaration"
         print *, result_code
         error stop "FAIL: real declaration missing"

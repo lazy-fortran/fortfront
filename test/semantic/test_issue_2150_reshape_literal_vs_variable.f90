@@ -23,10 +23,19 @@ program test_issue_2150_reshape_literal_vs_variable
                              'integer :: matrix_literal(2,3)', &
                              'Expected fixed-size for literal shape [2, 3]')
 
-    ! Check variable shape produces fixed-size array
-    call assert_contains_any(output, 'real :: matrix_var(3, 3)', &
-                             'real :: matrix_var(3,3)', &
-                             'Expected fixed-size for variable shape [n, n] where n=3')
+    ! Check variable shape produces fixed-size array (accept any real kind)
+    if (index(output, 'real :: matrix_var(3, 3)') == 0 .and. &
+        index(output, 'real :: matrix_var(3,3)') == 0 .and. &
+        index(output, 'real(dp) :: matrix_var(3, 3)') == 0 .and. &
+        index(output, 'real(dp) :: matrix_var(3,3)') == 0 .and. &
+        index(output, 'real(8) :: matrix_var(3, 3)') == 0 .and. &
+        index(output, 'real(8) :: matrix_var(3,3)') == 0) then
+        write (error_unit, '(A)') 'FAIL: Expected fixed-size for variable shape ' // &
+            '[n, n] where n=3'
+        write (error_unit, '(A)') 'Output:'
+        write (error_unit, '(A)') output
+        stop 1
+    end if
 
     ! Ensure neither is allocatable
     call ensure_absent(output, 'allocatable :: matrix_literal', &

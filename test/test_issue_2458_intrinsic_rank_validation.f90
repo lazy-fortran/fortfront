@@ -31,7 +31,9 @@ contains
             return
         end if
 
-        if (index(output, 'real, intent(in) :: a(:, :), b(:, :)') == 0) then
+        if (index(output, 'real, intent(in) :: a(:, :), b(:, :)') == 0 .and. &
+            index(output, 'real(8), intent(in) :: a(:, :), b(:, :)') == 0 .and. &
+            index(output, 'real(dp), intent(in) :: a(:, :), b(:, :)') == 0) then
             print *, "FAIL: Multi-array declaration not preserved"
             print *, "Expected: real, intent(in) :: a(:, :), b(:, :)"
             print *, "Output:", trim(output)
