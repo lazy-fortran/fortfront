@@ -92,10 +92,6 @@ Source Text → [Lexer] → [Parser] → [Semantic] → [Standardizers] → [Cod
 - C-compatible interface
 - Enables integration with non-Fortran tools
 
-**`performance/`** - Performance Metrics
-- Profiling infrastructure
-- AST performance tracking
-
 **`shims/`** - Compatibility Shims
 - Optional dependency handling
 - JSON library shim

@@ -33,27 +33,13 @@ Lazy Fortran omits boilerplate that fortfront infers automatically:
 - **Array bounds**: automatic shape inference for allocatables
 - **Program structure**: wraps bare statements in `program main ... end program`
 
-Example transformation:
+Example:
 ```fortran
 ! input.lf
 function add(a, b)
     result = a + b
 end function
 x = add(5, 3)
-
-! output.f90
-program main
-    implicit none
-    integer :: x
-contains
-    function add(a, b)
-        implicit none
-        integer, intent(in) :: a, b
-        integer :: add
-        add = a + b
-    end function
-    x = add(5, 3)
-end program
 ```
 
 ## Building
@@ -91,23 +77,8 @@ the stable compiler-facing contract is still a roadmap item.
 - `fortfront_ast` - AST node types and traversal utilities
 - `fortfront_semantic` - Type inference and semantic validation
 - `fortfront_codegen` - Standard Fortran code generation
-- `fortfront_error` - Error handling and reporting
 - `fortfront_transform` - High-level transformation pipeline
 - `fortfront_tooling` - Convenience functions for tool developers
-
-### Quick Example
-
-```fortran
-use fortfront_transform, only: transform_lazy_fortran_string
-character(len=:), allocatable :: input, output, error_msg
-input = "x = 5"
-call transform_lazy_fortran_string(input, output, error_msg)
-if (len(error_msg) == 0) then
-    print '(a)', output
-else
-    print '(a)', 'Transformation failed: ' // error_msg
-end if
-```
 
 See docs/guides/LIBRARY_USAGE.md for worked examples.
 
