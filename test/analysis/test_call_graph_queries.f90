@@ -1,6 +1,7 @@
 program test_call_graph_queries
     use fortfront, only: ast_arena_t, build_call_graph, call_graph_t, &
-                         create_ast_arena, is_procedure_used, lex_source, &
+                         create_ast_arena, get_call_count, get_callees, &
+                         get_callers, is_procedure_used, lex_source, &
                          parse_tokens, token_t
     use, intrinsic :: iso_fortran_env, only: error_unit
     implicit none
@@ -11,6 +12,7 @@ program test_call_graph_queries
 
     call test_mutual_recursion_edges()
     call test_unused_procedure_query()
+    call test_caller_callee_queries()
 
     if (all_passed) then
         print '(a)', "All call graph query tests passed"
@@ -47,6 +49,41 @@ contains
             call report_failure('unused procedure reported as used')
         end if
     end subroutine test_unused_procedure_query
+
+    subroutine test_caller_callee_queries()
+        type(call_graph_t) :: graph
+        character(len=:), allocatable :: callers(:), callees(:)
+
+        call parse_example('examples/f90/call_graph_mutual_recursion.f90', graph)
+
+        callers = get_callers(graph, 'first')
+        if (.not. names_contains(callers, 'second')) then
+            call report_failure('expected second among callers of first')
+        end if
+
+        callees = get_callees(graph, 'first')
+        if (.not. names_contains(callees, 'second')) then
+            call report_failure('expected second among callees of first')
+        end if
+
+        if (get_call_count(graph) < 2) then
+            call report_failure('expected at least 2 calls in mutual recursion')
+        end if
+    end subroutine test_caller_callee_queries
+
+    logical function names_contains(names, target)
+        character(len=*), intent(in) :: names(:)
+        character(len=*), intent(in) :: target
+        integer :: i
+
+        names_contains = .false.
+        do i = 1, size(names)
+            if (trim(names(i)) == trim(target)) then
+                names_contains = .true.
+                return
+            end if
+        end do
+    end function names_contains
 
     subroutine parse_example(example_path, graph)
         character(len=*), intent(in) :: example_path
