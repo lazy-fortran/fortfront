@@ -1,15 +1,16 @@
 # Fortran Ecosystem Architecture
 
 Fortfront is the core frontend library in the Lazy Fortran tool ecosystem.
+It is currently a transformer and tooling frontend, not a compiler backend.
 
 ## Foundation: fortfront
 
-**Static library** (`libfortfront.a`) providing:
+**Fortran library** providing:
 - CST/AST split for source fidelity and semantic analysis
 - Arena-based memory management
 - Hindley-Milner type inference
 - Lazy Fortran (.lf) to standard Fortran transformation
-- Plugin architecture with stable interfaces
+- Tooling APIs for linters, formatters, and experimental compilers
 
 **Dependencies**: Fortran stdlib (`stdlib`) via `fpm.toml`
 
@@ -19,12 +20,14 @@ The ecosystem tools live in separate repositories and build on fortfront.
 
 | Tool | Purpose | Status | Repository |
 |------|---------|--------|------------|
-| **fluff** | Static analysis and formatting | Available | [lazy-fortran/fluff](https://github.com/lazy-fortran/fluff) |
-| **fortnb** | Notebook processing (`.lf` support) | Available | [lazy-fortran/fortnb](https://github.com/lazy-fortran/fortnb) |
-| **ffc** | Compiler (LLVM backend) | Available | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
-| **fortcov** | Coverage analysis | Available | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
-| **fortrun** | Build/run enhancement service | Available | [lazy-fortran/fortrun](https://github.com/lazy-fortran/fortrun) |
-| **fo** | Universal orchestrator (contains all tools) | Planned | TBD |
+| Tool | Purpose | Current status | Repository |
+|------|---------|----------------|------------|
+| **fluff** | Static analysis and formatting | Experimental; built on FortFront; some README-level feature claims are roadmap items | [lazy-fortran/fluff](https://github.com/lazy-fortran/fluff) |
+| **ffc** | Compiler driver/backend | Not a working compiler yet; current MLIR path is obsolete for the LIRIC direction | [lazy-fortran/ffc](https://github.com/lazy-fortran/ffc) |
+| **fortrun** | Build/run enhancement service | Experimental and currently on hold | [lazy-fortran/fortrun](https://github.com/lazy-fortran/fortrun) |
+| **fortnb** | Notebook processing | Experimental and currently on hold | [lazy-fortran/fortnb](https://github.com/lazy-fortran/fortnb) |
+| **fortcov** | Coverage analysis | Independent gcov/FPM coverage tool; not part of compiler bootstrap | [lazy-fortran/fortcov](https://github.com/lazy-fortran/fortcov) |
+| **standard** | Language-mode specifications and grammar references | Source of truth for the intended LFortran Standard/Infer behavior | [lazy-fortran/standard](https://github.com/lazy-fortran/standard) |
 
 ## fo: Universal Orchestrator (planned)
 
@@ -39,17 +42,21 @@ fo analyze                  # fluff static analysis
 fo format                   # fluff code formatting
 ```
 
-## Dual .lf Compilation Strategy
+## Compiler Direction
 
-**Single-file (ffc)**: Direct compilation with local inference only
-```bash
-ffc main.lf                # Fast, simple, no cross-module analysis
-```
+The near-term compiler path is:
 
-**Multi-file (fo, planned)**: Enhanced compilation via fortrun
-```bash
-fo run main.lf             # Cross-module type inference, smart caching
-```
+1. Keep FortFront responsible for lexing, parsing, type inference, AST
+   standardization, and diagnostics.
+2. Add a stable compiler-facing FortFront API that returns a typed AST and
+   semantic data without forcing standard Fortran emission.
+3. Rework `ffc` as the compiler driver.
+4. Add a LIRIC backend in `ffc` through ISO C bindings to LIRIC's C API.
+5. Start with a small executable subset, then expand language coverage.
+
+LIRIC should not be coupled directly into FortFront. FortFront should remain
+backend-neutral so `fluff`, `fortrun`, and other tools can keep using the same
+frontend.
 
 ## VSCode Integration
 
@@ -65,6 +72,6 @@ Single point of integration via fo (planned):
 ## Architecture Benefits
 
 - **Minimal dependencies**: Fortfront builds as an `fpm` package with `stdlib`
-- **Unified experience (planned)**: Single orchestrator for common workflows
-- **Consistent parsing**: All tools use identical AST/CST
-- **Shared semantics**: One frontend for parsing and analysis across tools
+- **Consistent parsing**: Tools can share one frontend instead of re-parsing
+- **Shared semantics**: Type inference and diagnostics are centralized
+- **Backend separation**: Native code generation stays in compiler drivers
