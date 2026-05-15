@@ -29,7 +29,8 @@ program test_issue_1891_result_declaration
         error stop 1
     end if
 
-    has_result_decl = index(output_code, "real :: area") > 0
+    has_result_decl = index(output_code, "real :: area") > 0 .or. &
+                      index(output_code, "real(dp) :: area") > 0
     if (.not. has_result_decl) then
         print *, "FAIL: result variable declaration missing in output"
         print *, "Output:" // new_line('A') // trim(output_code)

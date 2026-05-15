@@ -56,12 +56,35 @@ contains
         character(len=*), intent(in) :: pattern_primary
         character(len=*), intent(in) :: pattern_alt
         character(len=*), intent(in) :: message
+        character(len=:), allocatable :: pdp_primary, pdp_alt
+        character(len=:), allocatable :: p8_primary, p8_alt
 
-        if (index(text, pattern_primary) == 0 .and. &
-            index(text, pattern_alt) == 0) then
-            call assert_contains(text, pattern_primary, message)
-        end if
+        if (index(text, pattern_primary) > 0) return
+        if (index(text, pattern_alt) > 0) return
+        ! Also accept real(dp) / real(8) kind-promoted forms.
+        pdp_primary = replace_first(pattern_primary, 'real ::', 'real(dp) ::')
+        pdp_alt = replace_first(pattern_alt, 'real ::', 'real(dp) ::')
+        p8_primary = replace_first(pattern_primary, 'real ::', 'real(8) ::')
+        p8_alt = replace_first(pattern_alt, 'real ::', 'real(8) ::')
+        if (index(text, pdp_primary) > 0) return
+        if (index(text, pdp_alt) > 0) return
+        if (index(text, p8_primary) > 0) return
+        if (index(text, p8_alt) > 0) return
+        call assert_contains(text, pattern_primary, message)
     end subroutine assert_contains_any
+
+    function replace_first(text, needle, replacement) result(out)
+        character(len=*), intent(in) :: text, needle, replacement
+        character(len=:), allocatable :: out
+        integer :: pos
+
+        pos = index(text, needle)
+        if (pos == 0) then
+            out = text
+        else
+            out = text(1:pos - 1) // replacement // text(pos + len(needle):)
+        end if
+    end function replace_first
 
     subroutine ensure_absent(text, pattern, message)
         character(len=*), intent(in) :: text

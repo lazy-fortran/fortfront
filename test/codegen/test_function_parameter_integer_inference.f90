@@ -47,11 +47,13 @@ contains
             write (error_unit, '(A)') 'unexpected real parameter declaration'
             passed = .false.
         end if
-        if (index(generated, 'real function noise()') == 0) then
+        if (index(generated, 'real(dp) function noise()') == 0 .and. &
+            index(generated, 'real function noise()') == 0) then
             write (error_unit, '(A)') 'missing noise function signature'
             passed = .false.
         end if
-        if (index(generated, 'real :: noise') > 0) then
+        if (index(generated, 'real :: noise') > 0 .or. &
+            index(generated, 'real(dp) :: noise') > 0) then
             write (error_unit, '(A)') &
                 'noise function name declared as variable'
             passed = .false.

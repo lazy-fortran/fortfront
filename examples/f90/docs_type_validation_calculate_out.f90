@@ -1,10 +1,11 @@
 program main
+    use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
-    real :: val
+    real(dp) :: val
     val = calculate(1.0, 2.0)
 contains
 
-    real function calculate(a, b) result(res)
+    real(dp) function calculate(a, b) result(res)
         implicit none
         real, intent(in) :: a
         real, intent(in) :: b

@@ -17,7 +17,9 @@ program test_issue_1859_read_statement
         error stop 1
     end if
 
-    if (index(output_code, "real :: x") == 0) then
+    if (index(output_code, "real :: x") == 0 .and. &
+        index(output_code, "real(dp) :: x") == 0 .and. &
+        index(output_code, "real(8) :: x") == 0) then
         print *, "FAIL: Variable x not declared in output"
         print *, "Output:"
         print *, output_code

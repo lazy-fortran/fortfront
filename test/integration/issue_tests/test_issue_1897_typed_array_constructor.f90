@@ -18,7 +18,8 @@ program test_issue_1897_typed_array_constructor
         end if
     end if
 
-    if (index(transformed, 'real :: arr1(5)') == 0) then
+    if (index(transformed, 'real :: arr1(5)') == 0 .and. &
+        index(transformed, 'real(dp) :: arr1(5)') == 0) then
         print *, 'FAIL: arr1 declaration lost or incorrect'
         print *, transformed
         stop 1
@@ -36,7 +37,8 @@ program test_issue_1897_typed_array_constructor
         stop 1
     end if
 
-    if (index(transformed, 'real :: arr2') /= 0) then
+    if (index(transformed, 'real :: arr2') /= 0 .or. &
+        index(transformed, 'real(dp) :: arr2') /= 0) then
         print *, 'FAIL: arr2 declaration changed to real'
         print *, transformed
         stop 1

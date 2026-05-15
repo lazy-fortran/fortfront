@@ -41,7 +41,7 @@ program test_string_transformation
         'complex expression', &
         'examples/lf/string_transform_complex_expression.lf', &
         [character(len=48) :: 'result = (x * 2 + y) / 3.0', 'integer :: x', &
-         'real :: result, y'])) then
+         'real(dp) :: result, y'])) then
         all_passed = .false.
     end if
 

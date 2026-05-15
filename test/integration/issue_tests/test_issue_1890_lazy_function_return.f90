@@ -42,20 +42,24 @@ program test_issue_1890_lazy_function_return
         stop 1
     end if
 
-    if (index(transformed, 'real function quadratic') == 0) then
+    if (index(transformed, 'real function quadratic') == 0 .and. &
+        index(transformed, 'real(dp) function quadratic') == 0) then
         print *, 'FAIL: quadratic not declared as real function'
         print *, trim(transformed)
         stop 1
     end if
 
-    if (index(transformed, 'real :: result') == 0) then
+    if (index(transformed, 'real :: result') == 0 .and. &
+        index(transformed, 'real(dp) :: result') == 0) then
         print *, 'FAIL: result variable not inferred as real'
         print *, trim(transformed)
         stop 1
     end if
 
     if (index(transformed, 'real, intent(in) :: a') == 0 .and. &
-        index(transformed, 'real :: a') == 0) then
+        index(transformed, 'real(dp), intent(in) :: a') == 0 .and. &
+        index(transformed, 'real :: a') == 0 .and. &
+        index(transformed, 'real(dp) :: a') == 0) then
         print *, 'FAIL: parameter a not inferred as real'
         print *, trim(transformed)
         stop 1

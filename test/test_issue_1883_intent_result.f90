@@ -18,7 +18,9 @@ program test_issue_1883_intent_result
         error stop 1
     end if
 
-    has_intent = index(output_code, 'real, intent(in) :: a, b') > 0
+    has_intent = index(output_code, 'real, intent(in) :: a, b') > 0 .or. &
+                 index(output_code, 'real(8), intent(in) :: a, b') > 0 .or. &
+                 index(output_code, 'real(dp), intent(in) :: a, b') > 0
     if (.not. has_intent) then
         write (error_unit, '(A)') 'FAIL: intent attributes dropped from parameters'
         write (error_unit, '(A)') trim(output_code)
