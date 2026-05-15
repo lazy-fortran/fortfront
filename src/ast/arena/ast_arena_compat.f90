@@ -5,6 +5,7 @@ module ast_arena_compat
     use ast_base, only: ast_node
     use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
                               ast_arena_stats_t, create_ast_arena_core
+    use fortfront_constants, only: AST_ARENA_GROWTH_MINIMUM
     implicit none
     private
 
@@ -364,7 +365,7 @@ contains
         if (.not. allocated(this%entries)) then
             stats = this%get_stats()
             core_capacity = stats%capacity  ! Use core arena capacity from stats
-            new_capacity = max(core_capacity, 1024)
+            new_capacity = max(core_capacity, AST_ARENA_GROWTH_MINIMUM)
             allocate (this%entries(new_capacity))
             ! CRITICAL FIX: Synchronize base arena capacity field
             this%capacity = new_capacity
@@ -376,7 +377,8 @@ contains
 
         ! Grow compatibility array if needed (also ensure capacity growth)
         if (this%compat_size >= size(this%entries)) then
-            new_capacity = max(size(this%entries) * 2, this%compat_size + 1024)
+            new_capacity = max(size(this%entries) * 2, &
+                               this%compat_size + AST_ARENA_GROWTH_MINIMUM)
 
             allocate (temp_entries(new_capacity))
             if (this%compat_size > 0) then

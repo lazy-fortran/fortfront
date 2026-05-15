@@ -1,6 +1,7 @@
 module debug_trace
     use, intrinsic :: iso_fortran_env, only: dp => real64, error_unit, int64
     use cli_env, only: is_truthy
+    use fortfront_constants, only: MAX_DEBUG_TRACE_FILE_NAME_LEN
     implicit none
     private
 
@@ -9,7 +10,7 @@ module debug_trace
     logical, save :: initialized = .false.
     integer, parameter :: MAX_DEPTH = 2000
     integer, save :: file_u = -1
-    character(len=256), save :: file_name = ''
+    character(len=MAX_DEBUG_TRACE_FILE_NAME_LEN), save :: file_name = ''
     logical, save :: profile_enabled = .false.
     integer(int64), save :: profile_clock_rate = 0_int64
 

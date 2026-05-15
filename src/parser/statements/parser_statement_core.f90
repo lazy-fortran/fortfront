@@ -1,4 +1,5 @@
 module parser_statement_core_module
+    use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module, only: parser_state_t, create_parser_state
@@ -695,7 +696,7 @@ contains
     subroutine report_unparsed_statement(parser, tokens)
         type(parser_state_t), intent(inout) :: parser
         type(token_t), intent(in) :: tokens(:)
-        character(len=256) :: message
+        character(len=MAX_DIAGNOSTIC_MESSAGE_LEN) :: message
         character(len=64) :: token_text
         integer :: i, msg_len
 

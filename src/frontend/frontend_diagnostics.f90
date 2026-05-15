@@ -1,4 +1,5 @@
 module frontend_diagnostics
+    use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use fortfront_types, only: diagnostic_t, source_range_t, source_location_t, &
         DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT
     use, intrinsic :: iso_fortran_env, only: dp => real64
@@ -58,7 +59,7 @@ contains
         type(diagnostic_t), intent(in) :: diag
         character(len=:), allocatable :: formatted
         character(len=:), allocatable :: severity_str
-        character(len=256) :: buffer
+        character(len=MAX_DIAGNOSTIC_MESSAGE_LEN) :: buffer
 
         ! Determine severity string
         select case (diag%severity)

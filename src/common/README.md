@@ -8,6 +8,7 @@ This directory provides shared utilities used throughout the fortfront compiler 
 
 | File | Description |
 |------|-------------|
+| fortfront_constants.f90 | Shared capacity and buffer-size constants |
 | identifier_table.f90 | String interning for identifiers, case-insensitive lookup, memory-efficient storage |
 | uid_generator.f90 | Unique ID generation for AST nodes, deterministic ID assignment with OpenMP-guarded global state |
 | declaration_attribute_utils.f90 | Parse and manipulate Fortran declaration attributes (intent, allocatable, etc.) |
@@ -42,6 +43,10 @@ id2 = identifier_table_add("myvar")
 - Separate ID spaces for different entity types
 - The compatibility generator uses module state guarded by OpenMP critical
   regions when FortFront is built with OpenMP.
+
+**Shared Limits**
+- Capacity and buffer-size limits live in `fortfront_constants`.
+- Subsystems may re-export local aliases when preserving an existing API.
 
 **Declaration Attributes**
 - Parse attribute strings: `intent(in)`, `allocatable`, `pointer`, etc.

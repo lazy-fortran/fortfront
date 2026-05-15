@@ -1,5 +1,6 @@
 module frontend_tooling_api
     use, intrinsic :: iso_fortran_env, only: int64
+    use fortfront_constants, only: MAX_PARSE_ERROR_LEN
     use lexer_core, only: token_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_arena_source_text, only: set_source_text
@@ -32,7 +33,7 @@ contains
         type(tooling_parse_options_t) :: opts
         type(token_t), allocatable :: local_tokens(:)
         character(len=:), allocatable :: lex_error
-        character(len=512) :: parse_error
+        character(len=MAX_PARSE_ERROR_LEN) :: parse_error
 
         opts = tooling_parse_options_t()
         if (present(options)) opts = options

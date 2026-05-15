@@ -897,7 +897,7 @@
         character(len=*), intent(in) :: type_str
         character(len=:), allocatable :: stripped
         integer :: dim_start, paren_end, paren_count, i
-        character(len=512) :: before_dim, after_dim
+        character(len=MAX_DIMENSION_BUFFER_LEN) :: before_dim, after_dim
 
         stripped = type_str
 

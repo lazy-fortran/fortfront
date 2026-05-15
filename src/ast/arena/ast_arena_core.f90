@@ -5,6 +5,7 @@ module ast_arena_core
     use ast_base, only: ast_node
     use, intrinsic :: iso_fortran_env, only: int64, dp => real64
     use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
+    use fortfront_constants, only: MAX_AST_STRING_DATA_LEN
     implicit none
     private
 
@@ -50,7 +51,7 @@ module ast_arena_core
         integer :: child_count = 0  ! Number of direct children
 
         ! Node-specific data (expandable without breaking compatibility)
-        character(len=256) :: string_data = ""  ! String content (names, literals)
+        character(len=MAX_AST_STRING_DATA_LEN) :: string_data = ""
         integer :: integer_data = 0  ! Integer content (indices, counts)
         logical :: boolean_data = .false.  ! Boolean flags
         real(dp) :: real_data = 0.0_dp  ! Real values

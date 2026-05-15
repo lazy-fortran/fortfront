@@ -3,6 +3,7 @@ module frontend_core
     ! Main entry points for compilation pipeline
 
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use fortfront_constants, only: MAX_FRONTEND_ERROR_LEN
     use string_builder_mod, only: join_strings
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
@@ -190,7 +191,7 @@ contains
     subroutine analyze_semantics(arena, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
-        character(len=256) :: error_msg
+        character(len=MAX_FRONTEND_ERROR_LEN) :: error_msg
 
         call run_semantic_analysis(arena, prog_index, error_msg)
         ! Note: For backward compatibility, this version doesn't propagate errors
@@ -387,7 +388,7 @@ contains
     subroutine run_compilation_pipeline_from_phase3(compiler_arena, prog_index)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
-        character(len=256) :: error_msg
+        character(len=MAX_FRONTEND_ERROR_LEN) :: error_msg
 
         ! Phase 3: Semantic Analysis
         call compiler_arena%next_phase("semantic")

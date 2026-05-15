@@ -18,6 +18,7 @@ module ast_monomorphization
     use ast_base, only: string_t
     use call_graph_signatures_mod, only: signatures_map_t, type_signature_t
     use codegen_name_mangling, only: mangle_procedure_name
+    use fortfront_constants, only: MAX_DIMENSION_BUFFER_LEN
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: mono_type_t, create_mono_type, TINT, TREAL, &
                                    TLOGICAL, TCHAR, TCOMPLEX, TDOUBLE, TARRAY, &
