@@ -208,7 +208,7 @@ contains
         case (TCOMPLEX)
             str = "complex"
         case (TDOUBLE)
-            str = "real(8)"
+            str = "real(dp)"
         case (TARRAY)
             str = "array"
         case default
@@ -230,12 +230,13 @@ contains
             kind_value = TLOGICAL
         case ('complex')
             kind_value = TCOMPLEX
-        case ('real(8)', 'double precision')
+        case ('real(8)', 'real(dp)', 'double precision')
             kind_value = TDOUBLE
         case default
             if (index(lowered, 'character') == 1) then
                 kind_value = TCHAR
-            else if (index(lowered, 'real(8)') == 1) then
+            else if (index(lowered, 'real(8)') == 1 .or. &
+                     index(lowered, 'real(dp)') == 1) then
                 kind_value = TDOUBLE
             else if (index(lowered, 'real(') == 1) then
                 kind_value = TREAL

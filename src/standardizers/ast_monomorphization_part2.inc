@@ -639,6 +639,7 @@
 
         if (index(lowered, 'double precision') == 1 .or. &
             index(lowered, 'real(8)') == 1 .or. &
+            index(lowered, 'real(dp)') == 1 .or. &
             index(lowered, 'real(kind=8)') == 1) then
             kind_val = TDOUBLE
         else if (index(lowered, 'complex') == 1) then

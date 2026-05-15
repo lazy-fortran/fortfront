@@ -475,7 +475,9 @@ contains
         integer :: pos
 
         param_type = mono_type_to_string(param_node%inferred_type, &
-                                         include_shape=.true., fallback='real')
+                                         include_shape=.true., &
+                                         standardize_real=.true., &
+                                         fallback='real')
         if (len_trim(param_type) == 0) param_type = 'real'
 
         pos = index(param_type, 'character(len=:)')
@@ -487,6 +489,7 @@ contains
     function get_param_type_from_param_decl(param_node) result(param_type)
         type(parameter_declaration_node), intent(in) :: param_node
         character(len=:), allocatable :: param_type
+        character(len=:), allocatable :: lowered
 
         if (allocated(param_node%type_name) .and. &
             len_trim(param_node%type_name) > 0) then
@@ -495,6 +498,17 @@ contains
             param_type = mono_type_to_string(param_node%inferred_type, &
                                              include_shape=.false., fallback='real')
             if (len_trim(param_type) == 0) param_type = 'real'
+        end if
+
+        if (.not. param_node%has_kind) return
+        if (param_node%kind_value <= 0) return
+
+        lowered = to_lower(trim(param_type))
+        if (lowered == 'real' .and. param_node%kind_value == 8) then
+            param_type = 'real(dp)'
+        else if (lowered == 'real') then
+            param_type = trim(param_type) // '(' // &
+                         trim(adjustl(int_to_string(param_node%kind_value))) // ')'
         end if
     end function get_param_type_from_param_decl
 

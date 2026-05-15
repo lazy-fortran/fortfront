@@ -98,7 +98,7 @@ contains
             print *, '  EXPECTED FAIL: ', trim(error_msg)
         end if
 
-        ! Mixed array literal should promote integers to real(8)
+        ! Mixed array literal should promote integers to real(dp)
         input_file = join_path(temp_dir, 'test_cg_arr_mixed.lf', sep)
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2.0, 3]'
@@ -128,7 +128,7 @@ contains
                 close (unit)
 
                 if (generated_correctly) then
-                    print *, '  SUCCESS: Mixed array literals promoted to real(8)'
+                    print *, '  SUCCESS: Mixed array literals promoted to real(dp)'
                 else
                     print *, '  FAIL: Mixed array literal did not promote integers'
                     test_array_literal_codegen = .false.

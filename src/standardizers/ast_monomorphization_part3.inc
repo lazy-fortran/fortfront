@@ -308,17 +308,19 @@
         idx = arena%size
     end function create_interface_node
 
-    function create_module_for_function(arena, func_name, interface_idx, &
-                                        variant_indices) result(idx)
+    function create_module_for_function(arena, func_name, iso_use_idx, &
+                                        interface_idx, variant_indices) result(idx)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: func_name
+        integer, intent(in) :: iso_use_idx
         integer, intent(in) :: interface_idx
         integer, intent(in) :: variant_indices(:)
         integer :: idx
         type(module_node) :: mod
-        integer :: decl_indices(1)
+        integer :: decl_indices(2)
 
-        decl_indices(1) = interface_idx
+        decl_indices(1) = iso_use_idx
+        decl_indices(2) = interface_idx
 
         mod = create_module( &
               name="auto_"//func_name, &
@@ -329,6 +331,21 @@
         call arena%push(mod)
         idx = arena%size
     end function create_module_for_function
+
+    function create_dp_kind_use_statement_node(arena) result(idx)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: idx
+        type(use_statement_node) :: use_stmt
+        character(len=6) :: rename_list(2)
+
+        rename_list = [character(len=6) :: "dp", "real64"]
+        use_stmt = create_use_statement("iso_fortran_env", &
+                                        rename_list=rename_list, &
+                                        has_only=.true., &
+                                        is_intrinsic=.true.)
+        call arena%push(use_stmt)
+        idx = arena%size
+    end function create_dp_kind_use_statement_node
 
     function create_use_statement_node(arena, module_name) result(idx)
         type(ast_arena_t), intent(inout) :: arena
@@ -591,14 +608,15 @@
             kind_value = TLOGICAL
         case ('complex')
             kind_value = TCOMPLEX
-        case ('real(8)')
+        case ('real(8)', 'real(dp)')
             kind_value = TDOUBLE
         case ('double precision')
             kind_value = TDOUBLE
         case default
             if (index(lowered, 'character') == 1) then
                 kind_value = TCHAR
-            else if (index(lowered, 'real(8)') == 1) then
+            else if (index(lowered, 'real(8)') == 1 .or. &
+                     index(lowered, 'real(dp)') == 1) then
                 kind_value = TDOUBLE
             else if (index(lowered, 'real(') == 1) then
                 kind_value = TREAL
@@ -623,7 +641,7 @@
             select case (param_kinds(i))
             case (9)  ! TDOUBLE
                 if (best_rank < 4) then
-                    type_str = "real(8)"
+                    type_str = "real(dp)"
                     best_rank = 4
                 end if
             case (8)  ! TCOMPLEX
@@ -678,7 +696,7 @@
         case (8)  ! TCOMPLEX
             type_str = "complex"
         case (9)  ! TDOUBLE
-            type_str = "real(8)"
+            type_str = "real(dp)"
         case default
             type_str = ""
         end select
@@ -693,7 +711,7 @@
         case (2)  ! TINT
             kind_val = 4  ! integer(4)
         case (3)  ! TREAL
-            kind_val = 8  ! real(8)
+            kind_val = 8  ! real(dp)
         case (4)  ! TCHAR
             kind_val = 1  ! character(len=1)
         case (5)  ! TLOGICAL

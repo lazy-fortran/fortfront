@@ -59,7 +59,7 @@ contains
         if (is_character_type_string(type_name)) then
             type_name = normalize_character_type(node, type_name)
         else if (standardize_types .and. to_lower(trim(type_name)) == "real") then
-            if (.not. node%has_kind) type_name = "real(8)"
+            if (.not. node%has_kind) type_name = "real(dp)"
         end if
 
         append_kind = node%has_kind .and. .not. is_character_type_string(type_name)
@@ -162,7 +162,7 @@ contains
         local_append_kind = node%has_kind .and. .not. type_is_character
         if (local_type == "real" .and. .not. local_append_kind .and. &
             standardize_types) then
-            local_type = "real(8)"
+            local_type = "real(dp)"
         end if
         code = code // indent_str // local_type
         if (local_append_kind) then
@@ -194,7 +194,7 @@ contains
             type_name = normalize_character_type(node, type_name)
         else if (standardize_types .and. to_lower(trim(type_name)) == "real" &
                  .and. .not. node%has_kind) then
-            type_name = "real(8)"
+            type_name = "real(dp)"
         end if
         append_kind_single = node%has_kind .and. .not. &
                              is_character_type_string(type_name)

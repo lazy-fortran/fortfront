@@ -14,7 +14,7 @@
                 code = node%value
                 ! Do NOT automatically promote real literals to double precision
                 ! because it breaks generic interface resolution that depends on
-                ! exact type matching (real vs real(8)). Users should explicitly
+                ! exact type matching (real vs real(dp)). Users should explicitly
                 ! write 5.0d0 or use kind parameters if they want double precision.
             end if
         else

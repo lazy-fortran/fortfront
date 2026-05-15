@@ -188,6 +188,8 @@ contains
             if (iostat /= 0) exit
             if (index(line, 'real :: coords(2,2)') > 0 .or. &
                 index(line, 'real :: coords(2, 2)') > 0 .or. &
+                index(line, 'real(dp) :: coords(2,2)') > 0 .or. &
+                index(line, 'real(dp) :: coords(2, 2)') > 0 .or. &
                 index(line, 'real(8) :: coords(2,2)') > 0 .or. &
                 index(line, 'real(8) :: coords(2, 2)') > 0) then
                 found_correct_declaration = .true.

@@ -58,7 +58,8 @@ program test_issue_2142_mono_return_types
     ! Check that double specialization has double precision return type
     r64_pos = index(output, 'double precision function add__r64_r64')
     if (r64_pos <= 0) then
-        r64_pos = index(output, 'real(8) function add__r64_r64')
+        r64_pos = index(output, 'real(dp) function add__r64_r64')
+        if (r64_pos <= 0) r64_pos = index(output, 'real(8) function add__r64_r64')
         if (r64_pos <= 0) then
             r64_pos = index(output, 'function add__r64_r64')
             if (r64_pos > 0) then

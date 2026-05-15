@@ -24,8 +24,9 @@ program test_issue_1406_namelist
 
     if (success) then
         if (index(output, 'namelist /weather/ temperature') == 0) success = .false.
-        ! Accept both real and real(8)
-        if (index(output, 'real(8) :: temperature') == 0 .and. &
+        ! Accept plain real, real(dp), and legacy real(8)
+        if (index(output, 'real(dp) :: temperature') == 0 .and. &
+            index(output, 'real(8) :: temperature') == 0 .and. &
             index(output, 'real :: temperature') == 0) success = .false.
     end if
 

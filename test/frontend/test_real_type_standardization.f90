@@ -28,7 +28,13 @@ contains
             return
         end if
 
-        if (index(output, 'real(8) :: x') == 0) then
+        if (index(output, 'use, intrinsic :: iso_fortran_env, only: dp => real64') == 0) then
+            print *, 'FAIL: lazy real assignment did not import real64 kind'
+            print *, trim(output)
+            ok = .false.
+        end if
+
+        if (index(output, 'real(dp) :: x') == 0) then
             print *, 'FAIL: lazy real assignment did not standardize real kind'
             print *, trim(output)
             ok = .false.

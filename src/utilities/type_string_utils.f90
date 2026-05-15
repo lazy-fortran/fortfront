@@ -99,7 +99,7 @@ contains
             end if
         case (TREAL)
             type_str = "real"
-            if (standardize_real) type_str = "real(8)"
+            if (standardize_real) type_str = "real(dp)"
         case (TLOGICAL)
             type_str = "logical"
         case (TCHAR)

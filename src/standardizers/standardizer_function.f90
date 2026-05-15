@@ -38,7 +38,7 @@ contains
         if (allocated(func_def%return_type)) then
             if (func_def%return_type == "real") then
                 if (standardizer_type_standardization_enabled) then
-                    func_def%return_type = "real(8)"
+                    func_def%return_type = "real(dp)"
                 else
                     func_def%return_type = "real"
                 end if

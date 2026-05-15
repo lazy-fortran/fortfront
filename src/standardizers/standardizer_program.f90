@@ -78,7 +78,7 @@ contains
             return
         end if
 
-        ! Standardize existing declarations (e.g., real -> real(8))
+        ! Standardize existing declarations (e.g., real -> real(dp))
         call standardize_declarations(arena, prog)
 
         ! First, mark allocatable needs and split multi-declarations as needed

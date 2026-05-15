@@ -45,4 +45,4 @@ Output: `examples/f90/docs_character_arrays_out.f90` (see `character(len=7) :: n
 
 ## Limitation
 
-Function parameters used in character operations default to `real(8)` instead of being inferred from context. This is a known limitation.
+Function parameters used in character operations default to `real(dp)` instead of being inferred from context. This is a known limitation.

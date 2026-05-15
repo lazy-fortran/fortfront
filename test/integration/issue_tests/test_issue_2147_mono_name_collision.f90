@@ -51,6 +51,8 @@ program test_issue_2147_mono_name_collision
         index(output, "integer, dimension(:), intent(in) :: arr") > 0) then
         if (index(output, "real, intent(in) :: arr(:)") > 0 .or. &
             index(output, "real, dimension(:), intent(in) :: arr") > 0 .or. &
+            index(output, "real(dp), intent(in) :: arr(:)") > 0 .or. &
+            index(output, "real(dp), dimension(:), intent(in) :: arr") > 0 .or. &
             index(output, "real(8), intent(in) :: arr(:)") > 0 .or. &
             index(output, "real(8), dimension(:), intent(in) :: arr") > 0) then
             test_passed = .true.
