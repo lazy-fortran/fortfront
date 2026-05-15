@@ -2,6 +2,18 @@
 
 ## Quick Start
 
+FortFront has two practical integration levels:
+
+- Transformation APIs: Lazy Fortran or standard Fortran input to emitted
+  standard Fortran text.
+- Tooling APIs: parse source to an arena/root index, optionally running
+  semantic analysis.
+
+It does not yet expose a stable compiler IR, durable semantic-result object, or
+complete C ABI for AST traversal. Downstream compiler work should use the
+Fortran tooling APIs for now and track the compiler-facing API work before
+building a large backend directly on FortFront internals.
+
 ### Project Setup with fpm
 
 ```toml
@@ -163,6 +175,23 @@ Use the ISO_C_BINDING bridge in `src/interfaces/fortfront_c_interface.f90`:
 - `fortfront_parse_source_c`
 - `fortfront_get_last_error_c`
 - `fortfront_get_version_c`
+
+This bridge currently validates/parses via the transformation path and reports
+status/errors. It does not return transformed source, AST handles, semantic
+contexts, or diagnostics arrays.
+
+## Compiler Integration Status
+
+The intended compiler boundary is:
+
+1. Parse source into an arena and root index.
+2. Run semantic analysis and collect diagnostics.
+3. Return the typed AST plus semantic data to the compiler driver.
+4. Let the compiler driver lower to its backend IR.
+
+Today, step 3 is incomplete as a stable public contract. Existing APIs are
+usable for experiments, but `ffc` should avoid depending on private AST layout
+until that contract is formalized.
 
 ## See Also
 

@@ -63,7 +63,8 @@ Examples:
 
 ## Scope and Limitations
 
-**Fortfront handles**: Single-file monomorphization (complete solution)
+**Fortfront handles**: Single-file monomorphization experiments for Lazy
+Fortran transformation.
 
 **Package managers handle**: Cross-module specialization, caching, dependency resolution
 
@@ -97,10 +98,16 @@ Fortran merges visible specifics at use site - no library mutation required.
 
 ## Implementation Status
 
-Single-file monomorphization is complete and production-ready:
-- Call graph tracks unique type signatures per function
-- Codegen generates multiple specifics when needed
-- Generic interface binds all specifics
+Single-file monomorphization exists in the transformation pipeline, but it
+should not be treated as a finished compiler feature. It is useful for examples
+and local Lazy Fortran standardization; it is not a complete generic system.
 
-Cross-module specialization (across file boundaries) is handled by package managers
-using the Fortran generic interface extension mechanism described above.
+Before compiler backends depend on it, the following must be made explicit:
+
+- Which call-site signatures are collected and which are ignored.
+- How diagnostics are reported when specialization fails.
+- How generated specifics interact with module boundaries.
+- Which behavior intentionally differs from LFortran Infer mode.
+
+Cross-module specialization remains outside FortFront. Package/build tooling or
+a compiler driver must own dependency order, caching, and cross-file decisions.

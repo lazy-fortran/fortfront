@@ -2,13 +2,27 @@
 
 > **Note**: This project is experimental. The main implementation of a Fortran variant for "lazy" developers is now in [LFortran](https://github.com/lfortran/lfortran) via its interactive mode and planned `infer` mode.
 
-A Fortran frontend that transforms Lazy Fortran to standard-conforming Fortran.
+A Fortran frontend that transforms Lazy Fortran to standard-conforming
+Fortran and exposes AST/tooling APIs for downstream tools.
+
+FortFront is not a complete compiler backend. It does not emit LLVM IR,
+objects, or executables. Compiler work belongs in downstream drivers such as
+`ffc`.
 
 ## Features
 
 - End-to-end pipeline: lexing, parsing, semantic checks, and Fortran emission
 - Lazy Fortran to standard Fortran conversion with automatic type inference
 - CLI and library APIs for scripting, pipelines, and embedding in larger tools
+
+Current limits:
+
+- Cross-file inference and specialization are not implemented here.
+- The C API is a small validation/status bridge, not a full AST or semantic API.
+- Nested internal procedures and some newer/legacy Fortran constructs remain
+  unsupported.
+- The compiler-facing API should be improved before a native backend consumes
+  FortFront directly.
 
 ## Lazy Fortran vs Standard Fortran
 
@@ -66,7 +80,9 @@ echo "x = 5" | fortfront > output.f90
 
 ## Library API
 
-FortFront provides a modular API for integration into downstream tools such as linters, compilers, and formatters.
+FortFront provides a modular API for integration into downstream tools such as
+linters and formatters. Compiler drivers can use the current Fortran APIs, but
+the stable compiler-facing contract is still a roadmap item.
 
 ### API Modules
 
@@ -93,7 +109,7 @@ else
 end if
 ```
 
-See docs/guides/LIBRARY_USAGE.md for worked examples (API spec tracked in issue #1642).
+See docs/guides/LIBRARY_USAGE.md for worked examples.
 
 ## Links
-- [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)
+- [ffc](https://github.com/lazy-fortran/ffc) | [fluff](https://github.com/lazy-fortran/fluff) | [fortrun](https://github.com/lazy-fortran/fortrun) | [examples/](examples/) | [docs/](docs/)
