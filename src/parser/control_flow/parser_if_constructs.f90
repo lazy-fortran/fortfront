@@ -13,7 +13,7 @@ module parser_if_constructs_module
     use parser_arithmetic_if_module, only: is_arithmetic_if, parse_arithmetic_if
     use parser_if_inline_module, only: parse_inline_if
     use parser_if_body_module, only: parse_if_body
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, link_children_to_parent
     use ast_nodes_control, only: if_node
     use ast_factory, only: push_if
     implicit none
@@ -170,6 +170,9 @@ contains
         safety_counter = 0
         do while (.not. parser%is_at_end() .and. safety_counter < 10000)
             safety_counter = safety_counter + 1
+            call skip_whitespace_and_semicolons(parser)
+            if (parser%is_at_end()) exit
+
             token = parser%peek()
 
             if (token%kind /= TK_KEYWORD) exit
@@ -184,7 +187,7 @@ contains
                 end if
                 call parse_else_body(parser, arena, if_index, else_body_indices, &
                                      callbacks)
-                exit
+                cycle
             case ("endif")
                 token = parser%consume()
                 exit
@@ -229,7 +232,7 @@ contains
 
         type(token_t) :: token
 
-        token = parser%consume()  ! consume 'else'
+        token = parser%consume() ! consume 'else'
 
         ! Skip optional semicolon after 'else'
         if (.not. parser%is_at_end()) then
@@ -314,13 +317,16 @@ contains
         type is (if_node)
             if (allocated(then_body_indices)) then
                 node%then_body_indices = then_body_indices
+                call link_children_to_parent(arena, if_index, then_body_indices)
             end if
             if (allocated(else_body_indices)) then
                 node%else_body_indices = else_body_indices
+                call link_children_to_parent(arena, if_index, else_body_indices)
             end if
             if (allocated(elseif_indices)) then
                 if (size(elseif_indices) > 0 .and. &
                     mod(size(elseif_indices), 2) == 0) then
+                    call link_children_to_parent(arena, if_index, elseif_indices)
                     allocate (node%elseif_blocks(size(elseif_indices) / 2))
                     do i = 1, size(elseif_indices) / 2
                         node%elseif_blocks(i)%condition_index = &
@@ -449,7 +455,7 @@ contains
     function parse_elseif_block(parser, arena) result(elseif_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        integer :: elseif_indices(2)  ! condition_index, body_indices_start
+        integer :: elseif_indices(2) ! condition_index, body_indices_start
         type(token_t) :: elseif_token
         type(statement_callbacks_t) :: callbacks
 
@@ -477,7 +483,7 @@ contains
             integer, allocatable :: body_indices(:)
             body_indices = parse_if_body(parser, arena, callbacks=callbacks)
             if (allocated(body_indices) .and. size(body_indices) > 0) then
-                elseif_indices(2) = body_indices(1)  ! Store first body statement index
+                elseif_indices(2) = body_indices(1) ! Store first body statement index
             else
                 elseif_indices(2) = 0
             end if
