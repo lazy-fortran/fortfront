@@ -4,7 +4,9 @@
 
 The code generation subsystem transforms typed ASTs back into standard Fortran source code. This is the final stage of the lazy Fortran transformation pipeline and also supports round-trip validation for standard Fortran. The codegen emits properly formatted, idiomatic Fortran with inferred declarations, proper indentation, and correct program structure.
 
-**Important**: This codegen emits **standard Fortran source**, not LLVM IR. LLVM HLIR emission is handled by the separate `ffc` compiler which uses fortfront as a library.
+**Important**: This codegen emits **standard Fortran source**, not backend IR.
+Native compilation belongs in separate compiler drivers such as `ffc`, which
+uses fortfront as a frontend and targets LIRIC through its own backend layer.
 
 ## File Index
 
