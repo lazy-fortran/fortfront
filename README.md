@@ -67,8 +67,8 @@ echo "x = 5" | fortfront > output.f90
 ## Library API
 
 FortFront provides a modular API for integration into downstream tools such as
-linters and formatters. Compiler drivers can use the current Fortran APIs, but
-the stable compiler-facing contract is still a roadmap item.
+linters and formatters. Compiler drivers should use `fortfront_compiler`; more
+specialized semantic query helpers are still a roadmap item.
 
 ### API Modules
 
@@ -79,6 +79,10 @@ the stable compiler-facing contract is still a roadmap item.
 - `fortfront_codegen` - Standard Fortran code generation
 - `fortfront_transform` - High-level transformation pipeline
 - `fortfront_tooling` - Convenience functions for tool developers
+- `fortfront_compiler` - Compiler-facing parse and semantic result API
+
+The existing `fortfront` module remains as a broad compatibility facade. New
+users should prefer the narrower modules above.
 
 See docs/guides/LIBRARY_USAGE.md for worked examples.
 
