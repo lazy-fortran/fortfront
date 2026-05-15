@@ -1,5 +1,6 @@
 module cli_env
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use fortfront_constants, only: MAX_TRACE_FILE_PATH_LEN
     use string_utils_mod, only: to_lower
     implicit none
     private
@@ -16,7 +17,7 @@ contains
         logical, intent(out) :: trace_enabled
         character(len=:), allocatable, intent(out) :: trace_file_path
         character(len=64) :: trace_env
-        character(len=512) :: file_env
+        character(len=MAX_TRACE_FILE_PATH_LEN) :: file_env
         integer :: s1, s2
 
         trace_env = ''

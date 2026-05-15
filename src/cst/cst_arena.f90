@@ -1,5 +1,6 @@
 module cst_arena
     use, intrinsic :: iso_fortran_env, only: int64
+    use fortfront_constants, only: DEFAULT_CST_ARENA_CAPACITY
     use cst_nodes, only: cst_node_t
     implicit none
     private
@@ -40,7 +41,7 @@ contains
 
         integer :: capacity
 
-        capacity = 1024  ! Default capacity
+        capacity = DEFAULT_CST_ARENA_CAPACITY
         if (present(initial_capacity)) capacity = initial_capacity
 
         arena%size = 0

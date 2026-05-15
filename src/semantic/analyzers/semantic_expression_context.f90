@@ -1,4 +1,5 @@
 module semantic_expression_context
+    use fortfront_constants, only: MAX_EXPR_RECURSION_DEPTH
     use type_system_unified, only: type_var_t, mono_type_t, create_mono_type, &
                                    create_type_var, TVAR, TINT, TREAL, TCHAR, &
                                    TLOGICAL, TARRAY, TDOUBLE
@@ -14,8 +15,6 @@ module semantic_expression_context
 
     public :: infer_type_from_usage_context
     public :: infer_expression_type_static
-
-    integer, parameter :: MAX_EXPR_RECURSION_DEPTH = 256
 
 contains
 

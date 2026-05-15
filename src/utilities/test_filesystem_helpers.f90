@@ -1,4 +1,5 @@
 module test_filesystem_helpers
+    use fortfront_constants, only: MAX_EXAMPLE_PATH_LEN, MAX_TEST_SEARCH_LINE_LEN
     implicit none
     private
     public :: find_fortfront_executable
@@ -169,7 +170,7 @@ contains
         character(len=*), intent(in) :: preferred_suffix
         character(len=:), allocatable, intent(inout) :: executable_path
         character(len=:), allocatable :: fallback
-        character(len=512) :: line
+        character(len=MAX_TEST_SEARCH_LINE_LEN) :: line
         integer :: unit_num, ios
         logical :: exists
 
@@ -416,7 +417,7 @@ contains
 
     pure function extract_example_basename(filepath) result(name)
         character(len=*), intent(in) :: filepath
-        character(len=256) :: name
+        character(len=MAX_EXAMPLE_PATH_LEN) :: name
         character(len=:), allocatable :: trimmed
         integer :: sep_pos
 
@@ -436,8 +437,8 @@ contains
 
     pure function extract_relative_example_path(filepath) result(relative)
         character(len=*), intent(in) :: filepath
-        character(len=256) :: relative
-        character(len=256) :: normalized
+        character(len=MAX_EXAMPLE_PATH_LEN) :: relative
+        character(len=MAX_EXAMPLE_PATH_LEN) :: normalized
         character(len=:), allocatable :: trimmed
         integer :: pos
 
@@ -469,7 +470,7 @@ contains
 
     pure function normalize_path_string(value) result(normalized)
         character(len=*), intent(in) :: value
-        character(len=256) :: normalized
+        character(len=MAX_EXAMPLE_PATH_LEN) :: normalized
         integer :: i
 
         normalized = adjustl(trim(value))

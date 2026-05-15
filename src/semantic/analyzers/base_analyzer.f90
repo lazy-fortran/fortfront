@@ -1,5 +1,6 @@
 module base_analyzer
     use ast_arena_modern, only: ast_arena_t
+    use fortfront_constants, only: MAX_ANALYZER_STATUS_LEN
     use semantic_analyzer, only: semantic_context_t
     use, intrinsic :: iso_fortran_env, only: dp => real64
     implicit none
@@ -18,7 +19,7 @@ module base_analyzer
         logical :: converged = .false.
         integer :: iteration_count = 0
         integer :: changes_made = 0
-        character(len=256) :: status_message = ""
+        character(len=MAX_ANALYZER_STATUS_LEN) :: status_message = ""
         real(dp) :: confidence_score = 1.0_dp
     contains
         procedure :: equals => results_equals

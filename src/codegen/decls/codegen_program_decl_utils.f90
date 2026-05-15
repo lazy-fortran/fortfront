@@ -2,6 +2,7 @@ module codegen_program_decl_utils
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: module_node
     use ast_nodes_procedure, only: function_def_node
+    use fortfront_constants, only: MAX_PROGRAM_VARIABLES
     use string_utils_mod, only: to_lower
     use type_string_utils, only: mono_type_to_string
     use type_system_unified, only: TFUN, type_args_allocated, type_args_size, &
@@ -15,7 +16,7 @@ module codegen_program_decl_utils
     public :: record_use_associated_name, record_use_module_name
     public :: seed_namelist_groups_from_text
 
-    integer, parameter :: program_decl_max_vars = 256
+    integer, parameter :: program_decl_max_vars = MAX_PROGRAM_VARIABLES
 
     type :: program_decl_state_t
         character(len=64) :: declared_names(program_decl_max_vars)

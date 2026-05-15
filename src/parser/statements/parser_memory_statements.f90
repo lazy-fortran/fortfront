@@ -1,5 +1,6 @@
 module parser_memory_statements_module
     ! Parser module for memory management statement types (allocate, deallocate)
+    use fortfront_constants, only: MAX_TYPE_SPEC_BUFFER_LEN
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
                           TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
                           TK_WHITESPACE
@@ -145,7 +146,7 @@ contains
         character(len=:), allocatable, intent(out) :: type_spec_str
         integer :: i, saved_current
         type(token_t) :: token
-        character(len=1024) :: buffer
+        character(len=MAX_TYPE_SPEC_BUFFER_LEN) :: buffer
 
         buffer = ""
         saved_current = parser%current_token

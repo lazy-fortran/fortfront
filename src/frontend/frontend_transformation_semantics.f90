@@ -2,6 +2,7 @@ module frontend_transformation_semantics
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: mixed_construct_container_node
+    use fortfront_constants, only: MAX_DIAGNOSTIC_MESSAGE_LEN
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program, has_semantic_errors
     use semantic_input_mode, only: INPUT_MODE_LAZY
@@ -158,7 +159,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
-        character(len=256) :: buffer
+        character(len=MAX_DIAGNOSTIC_MESSAGE_LEN) :: buffer
 
         total_errors = ctx%errors%count
         if (total_errors == 0) then

@@ -1,6 +1,7 @@
 module frontend_transformation_pipeline
     use string_utils_mod, only: to_lower
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use fortfront_constants, only: MAX_ENV_VALUE_LEN
     ! fortfront - Transformation functions module
     ! Contains string-based transformation functionality
 
@@ -925,7 +926,7 @@ contains
     subroutine validate_locations_if_enabled(arena, phase_name)
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: phase_name
-        character(len=256) :: env_value
+        character(len=MAX_ENV_VALUE_LEN) :: env_value
         character(len=:), allocatable :: normalized
         integer :: status, violations
         logical :: strict_mode_enabled

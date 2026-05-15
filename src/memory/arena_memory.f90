@@ -1,5 +1,6 @@
 module arena_memory
     use, intrinsic :: iso_fortran_env, only: dp => real64
+    use fortfront_constants, only: BASIC_ARENA_POLYMORPHIC_ITEM_SIZE
     implicit none
     private
 
@@ -645,7 +646,7 @@ contains
 
         ! Calculate size needed for the item
         ! For simplicity, use a fixed size for polymorphic items
-        item_size = 256  ! Fixed buffer size for testing
+        item_size = BASIC_ARENA_POLYMORPHIC_ITEM_SIZE
 
         ! Allocate from internal arena
         handle = this%internal_arena%allocate(item_size)
