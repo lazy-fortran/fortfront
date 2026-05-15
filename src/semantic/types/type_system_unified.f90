@@ -276,7 +276,8 @@ contains
         fun_type = create_mono_type(TFUN, args=args)
     end function create_fun_type
 
-    ! Compose substitutions (stub for now)
+    ! (s1 . s2)(x) = s1(s2(x)): map every var in s2 to s1 applied to its
+    ! image, then carry over any s1-only bindings.
     function compose_substitutions(s1, s2) result(composed)
         type(substitution_t), intent(in) :: s1, s2
         type(substitution_t) :: composed
