@@ -13,8 +13,6 @@ and program/module declaration structure.
 | `codegen_declarations.f90` | Declaration emission facade |
 | `codegen_declarations_core.f90` | Core variable, type, parameter emission |
 | `codegen_declarations_inference.f90` | Inferred declarations for lazy Fortran |
-| `codegen_declarations_procedures.f90` | Procedure declarations |
-| `codegen_declarations_programs.f90` | Program declarations |
 | `codegen_function_declarations.f90` | Function declaration facade |
 | `codegen_function_declarations_part1.inc` | Signature and parameter emission |
 | `codegen_function_declarations_part2.inc` | Result type and attribute handling |
@@ -36,4 +34,3 @@ and program/module declaration structure.
 
 - Uses indentation and shared helpers from `../api/` and `../utils/`.
 - Uses typed AST information provided by the semantic pipeline.
-

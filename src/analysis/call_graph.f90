@@ -1,4 +1,6 @@
 module call_graph_module
+    ! Public facade over the split call graph implementation modules. Consumers
+    ! import this module instead of depending on the internal module layout.
     use call_graph_core_mod, only: call_graph_t, procedure_info_t, call_edge_t, &
                                    create_call_graph
     use call_graph_queries_mod, only: get_callers, get_callees, is_procedure_used, &
