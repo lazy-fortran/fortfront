@@ -93,27 +93,12 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(template_block_node), intent(in) :: node
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: header
-        character(len=:), allocatable :: params
-
-        code = ""
-        call build_parameter_list(node%parameter_names, params)
-
-        header = "template " // node%name
-        if (len(params) > 0) header = header // "(" // params // ")"
-        header = header // new_line('A')
-        code = header
-
-        call append_node_code_lines(arena, node%declaration_indices, code, &
-                                    add_blank_lines=.false.)
-
-        if (node%has_contains) then
-            code = code // "contains" // new_line('A')
-            call append_node_code_lines(arena, node%procedure_indices, code, &
-                                        add_blank_lines=.true.)
-        end if
-
-        code = code // "end template " // node%name
+        call generate_code_named_block(arena, "template", node%name, &
+                                       parameter_names=node%parameter_names, &
+                                       declaration_indices=node%declaration_indices, &
+                                       procedure_indices=node%procedure_indices, &
+                                       has_contains=node%has_contains, &
+                                       code=code)
     end function generate_code_template_block
 
     function generate_code_instantiate_statement(node) result(code)
