@@ -26,6 +26,7 @@ program test_ast_uid_integration
     call test_node_uid_generation()
     call test_uid_uniqueness_across_nodes()
     call test_uid_preservation()
+    call test_parallel_arena_uid_generation()
 
     ! Clean up
     call destroy_ast_arena(arena)
@@ -130,6 +131,45 @@ contains
 
         print *, "  UID preservation tests passed"
     end subroutine test_uid_preservation
+
+    subroutine test_parallel_arena_uid_generation()
+        type(uid_t), allocatable :: uids(:)
+        type(ast_arena_t) :: local_arena
+        type(identifier_node) :: id_node
+        integer :: i, j
+        integer, parameter :: n_arenas = 128
+        logical :: all_unique
+
+        print *, "Testing UID generation across concurrent arenas..."
+
+        call reset_uid_generator()
+        allocate (uids(n_arenas))
+
+        !$omp parallel do default(shared) private(i, local_arena, id_node)
+        do i = 1, n_arenas
+            local_arena = create_ast_arena()
+            id_node = create_identifier("x", i, 1)
+            call local_arena%push(id_node, "identifier")
+            uids(i) = id_node%uid
+            call destroy_ast_arena(local_arena)
+        end do
+        !$omp end parallel do
+
+        all_unique = .true.
+        outer: do i = 1, n_arenas - 1
+            do j = i + 1, n_arenas
+                if (uid_equal(uids(i), uids(j))) then
+                    all_unique = .false.
+                    exit outer
+                end if
+            end do
+        end do outer
+
+        call assert(all_unique, "Concurrent arena nodes should have unique UIDs")
+        print *, "  Concurrent arena UID tests passed"
+
+        if (allocated(uids)) deallocate (uids)
+    end subroutine test_parallel_arena_uid_generation
 
     ! Helper assertion subroutine
     subroutine assert(condition, message)

@@ -33,18 +33,25 @@ module uid_generator
         generic :: assignment(=) => assign
     end type uid_t
 
-    ! Module-level generator state (thread-local in parallel contexts)
+    ! Module-level generator state for the compatibility API. OpenMP critical
+    ! regions guard mutations when FortFront is built with OpenMP enabled.
     integer(int64), save :: current_uid_value = 0_int64
     integer, save :: current_generation = 1
     logical, save :: initialized = .false.
-
-    ! Thread safety mutex (placeholder for OpenMP/coarray implementation)
-    ! In production, would use: integer(omp_lock_kind) :: uid_lock
 
 contains
 
     ! Initialize the UID generator
     subroutine init_uid_generator(start_value, generation)
+        integer(int64), intent(in), optional :: start_value
+        integer, intent(in), optional :: generation
+
+        !$omp critical(uid_generator_state)
+        call init_uid_generator_unlocked(start_value, generation)
+        !$omp end critical
+    end subroutine init_uid_generator
+
+    subroutine init_uid_generator_unlocked(start_value, generation)
         integer(int64), intent(in), optional :: start_value
         integer, intent(in), optional :: generation
 
@@ -62,26 +69,23 @@ contains
         end if
 
         initialized = .true.
-
-        ! In production with OpenMP:
-        ! call omp_init_lock(uid_lock)
-    end subroutine init_uid_generator
+    end subroutine init_uid_generator_unlocked
 
     ! Generate a new UID
     function generate_uid() result(uid)
         type(uid_t) :: uid
 
+        !$omp critical(uid_generator_state)
         ! Auto-initialize if needed
         if (.not. initialized) then
-            call init_uid_generator()
+            call init_uid_generator_unlocked()
         end if
 
-        ! Thread-safe increment (would use omp_set_lock/omp_unset_lock in production)
-        ! For now, simple increment for single-threaded operation
         current_uid_value = current_uid_value + 1_int64
 
         uid%value = current_uid_value
         uid%generation = current_generation
+        !$omp end critical
     end function generate_uid
 
     ! Reset the UID generator (for new compilation or arena reset)
@@ -89,6 +93,7 @@ contains
         integer(int64), intent(in), optional :: start_value
         integer, intent(in), optional :: generation
 
+        !$omp critical(uid_generator_state)
         if (present(start_value)) then
             current_uid_value = start_value - 1_int64
         else
@@ -101,6 +106,8 @@ contains
             ! Increment generation if not specified
             current_generation = current_generation + 1
         end if
+        initialized = .true.
+        !$omp end critical
     end subroutine reset_uid_generator
 
     ! Check if two UIDs are equal
@@ -122,10 +129,12 @@ contains
     end function uid_to_string
 
     ! Get current generation
-    pure function get_current_generation() result(generation)
+    function get_current_generation() result(generation)
         integer :: generation
 
+        !$omp critical(uid_generator_state)
         generation = current_generation
+        !$omp end critical
     end function get_current_generation
 
     ! Check if UID is valid (non-zero)

@@ -19,6 +19,7 @@ program test_uid_generator
     call test_uid_reset()
     call test_uid_range()
     call test_uid_stability()
+    call test_uid_concurrent_generation()
 
     ! Print summary
     print *, "====================================="
@@ -196,6 +197,43 @@ contains
 
         print *, "  UID stability tests passed"
     end subroutine test_uid_stability
+
+    subroutine test_uid_concurrent_generation()
+        type(uid_t), allocatable :: uids(:)
+        integer :: i, j
+        integer, parameter :: n_uids = 2000
+        logical :: all_unique
+
+        print *, "Testing UID concurrent generation safety..."
+
+        call reset_uid_generator()
+        allocate (uids(n_uids))
+
+        !$omp parallel do default(shared) private(i)
+        do i = 1, n_uids
+            uids(i) = generate_uid()
+        end do
+        !$omp end parallel do
+
+        all_unique = .true.
+        outer: do i = 1, n_uids - 1
+            do j = i + 1, n_uids
+                if (uid_equal(uids(i), uids(j))) then
+                    all_unique = .false.
+                    exit outer
+                end if
+            end do
+        end do outer
+
+        call assert(all_unique, &
+                    "Concurrent UID generation should not produce duplicates")
+        call assert(all([(uids(i)%generation == uids(1)%generation, &
+                         i=2, n_uids)]), &
+                    "Concurrent UID generation should keep one generation")
+
+        print *, "  UID concurrent generation tests passed"
+        if (allocated(uids)) deallocate (uids)
+    end subroutine test_uid_concurrent_generation
 
     ! Helper assertion subroutine
     subroutine assert(condition, message)
