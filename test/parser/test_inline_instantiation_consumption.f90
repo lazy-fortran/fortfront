@@ -1,9 +1,8 @@
 program test_inline_instantiation_consumption
-    use lexer_core, only: tokenize_core
+    use lexer_core, only: tokenize_core, token_t
     use parser_inline_instantiation_module, only: consume_inline_instantiation
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_token_views_module, only: token_view_t, build_token_view
-    use fortfront, only: token_t
     implicit none
 
     logical :: all_passed
