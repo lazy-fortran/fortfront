@@ -1,5 +1,4 @@
 module ast_error_nodes
-    use json_module
     use ast_base, only: ast_node, ast_visitor_base_t
     implicit none
     private
@@ -12,7 +11,6 @@ module ast_error_nodes
         character(len=:), allocatable :: original_data
         integer :: error_code = -1
     contains
-        procedure :: to_json => error_node_to_json
         procedure :: accept => error_node_accept
         procedure :: cleanup => error_node_cleanup
     end type
@@ -38,23 +36,6 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function
-
-    ! JSON representation for error nodes
-    subroutine error_node_to_json(this, json, parent)
-        class(error_node_t), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-
-        ! Add type field
-        call json%add(parent, 'type', 'error_node')
-
-        ! Add error-specific fields
-        call json%add(parent, 'error', this%error_message)
-        call json%add(parent, 'data', this%original_data)
-        call json%add(parent, 'error_code', this%error_code)
-        call json%add(parent, 'line', this%line)
-        call json%add(parent, 'column', this%column)
-    end subroutine
 
     ! Visitor pattern support for error nodes
     subroutine error_node_accept(this, visitor)

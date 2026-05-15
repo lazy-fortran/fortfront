@@ -1,7 +1,6 @@
 module ast_nodes_data
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_visitor_base_t
     use string_types, only: string_t
     implicit none
@@ -75,7 +74,6 @@ module ast_nodes_data
         logical :: disable_grouping = .false.  ! Skip declaration grouping
     contains
         procedure :: accept => declaration_accept
-        procedure :: to_json => declaration_to_json
         procedure :: assign => declaration_assign
         generic :: assignment(=) => assign
     end type declaration_node
@@ -101,7 +99,6 @@ module ast_nodes_data
         integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
     contains
         procedure :: accept => parameter_declaration_accept
-        procedure :: to_json => parameter_declaration_to_json
         procedure :: assign => parameter_declaration_assign
         generic :: assignment(=) => assign
     end type parameter_declaration_node
@@ -117,7 +114,6 @@ module ast_nodes_data
         ! a contains section
     contains
         procedure :: accept => module_accept
-        procedure :: to_json => module_to_json
         procedure :: assign => module_assign
         generic :: assignment(=) => assign
     end type module_node
@@ -135,7 +131,6 @@ module ast_nodes_data
         ! a contains section
     contains
         procedure :: accept => submodule_accept
-        procedure :: to_json => submodule_to_json
         procedure :: assign => submodule_assign
         generic :: assignment(=) => assign
     end type submodule_node
@@ -148,7 +143,6 @@ module ast_nodes_data
         integer, allocatable :: statement_indices(:)  ! Statement indices
     contains
         procedure :: accept => block_data_accept
-        procedure :: to_json => block_data_to_json
         procedure :: assign => block_data_assign
         generic :: assignment(=) => assign
     end type block_data_node
@@ -166,7 +160,6 @@ module ast_nodes_data
         character(len=:), allocatable :: accessibility  ! PUBLIC/PRIVATE
     contains
         procedure :: accept => type_binding_accept
-        procedure :: to_json => type_binding_to_json
         procedure :: assign => type_binding_assign
         generic :: assignment(=) => assign
     end type type_binding_node
@@ -184,7 +177,6 @@ module ast_nodes_data
         integer, allocatable :: binding_indices(:)  ! Type-bound procedure indices
     contains
         procedure :: accept => derived_type_accept
-        procedure :: to_json => derived_type_to_json
         procedure :: assign => derived_type_assign
         generic :: assignment(=) => assign
     end type derived_type_node
@@ -197,7 +189,6 @@ module ast_nodes_data
         integer, allocatable :: explicit_program_indices(:)  ! Explicit program units
     contains
         procedure :: accept => mixed_construct_container_accept
-        procedure :: to_json => mixed_construct_container_to_json
         procedure :: assign => mixed_construct_container_assign
         generic :: assignment(=) => assign
     end type mixed_construct_container_node
@@ -210,13 +201,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine declaration_accept
-
-    subroutine declaration_to_json(this, json, parent)
-        class(declaration_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine declaration_to_json
 
     subroutine declaration_assign(lhs, rhs)
         class(declaration_node), intent(inout) :: lhs
@@ -272,44 +256,6 @@ contains
         ! Stub implementation
     end subroutine parameter_declaration_accept
 
-    subroutine parameter_declaration_to_json(this, json, parent)
-        class(parameter_declaration_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: node, intent_str
-        character(len=:), allocatable :: intent_name
-
-        call json%create_object(node, '')
-        call json%add(parent, node)
-
-        call json%add(node, 'type', 'parameter_declaration')
-        call json%add(node, 'name', this%name)
-        call json%add(node, 'type_name', this%type_name)
-        call json%add(node, 'kind_value', this%kind_value)
-        call json%add(node, 'has_kind', this%has_kind)
-        call json%add(node, 'is_optional', this%is_optional)
-        call json%add(node, 'is_unsigned', this%is_unsigned)
-        call json%add(node, 'is_array', this%is_array)
-
-        ! Add intent as a readable string (single field for clarity)
-        select case (this%intent_type)
-        case (INTENT_NONE)
-            intent_name = ''
-        case (INTENT_IN)
-            intent_name = 'in'
-        case (INTENT_OUT)
-            intent_name = 'out'
-        case (INTENT_INOUT)
-            intent_name = 'inout'
-        case default
-            intent_name = 'unknown'
-        end select
-        call json%add(node, 'intent', intent_name)
-
-        call json%add(node, 'line', this%line)
-        call json%add(node, 'column', this%column)
-    end subroutine parameter_declaration_to_json
-
     subroutine parameter_declaration_assign(lhs, rhs)
         class(parameter_declaration_node), intent(inout) :: lhs
         class(parameter_declaration_node), intent(in) :: rhs
@@ -349,13 +295,6 @@ contains
         ! Stub implementation
     end subroutine module_accept
 
-    subroutine module_to_json(this, json, parent)
-        class(module_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine module_to_json
-
     subroutine module_assign(lhs, rhs)
         class(module_node), intent(inout) :: lhs
         class(module_node), intent(in) :: rhs
@@ -391,47 +330,6 @@ contains
         error stop "submodule_accept is not supported for ast_visitor_base_t"
     end subroutine submodule_accept
 
-    subroutine submodule_to_json(this, json, parent)
-        class(submodule_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: node
-        character(len=:), allocatable :: parent_id
-
-        call json%create_object(node, "")
-        call json%add(parent, node)
-
-        call json%add(node, "type", "submodule")
-
-        if (allocated(this%name)) then
-            call json%add(node, "name", this%name)
-        else
-            call json%add(node, "name", "")
-        end if
-
-        if (allocated(this%parent_identifier)) then
-            parent_id = this%parent_identifier
-        else
-            parent_id = ""
-        end if
-        call json%add(node, "parent_identifier", parent_id)
-
-        call json%add(node, "has_contains", this%has_contains)
-
-        if (allocated(this%declaration_indices)) then
-            call json%add(node, "declaration_indices", &
-                          this%declaration_indices)
-        end if
-
-        if (allocated(this%procedure_indices)) then
-            call json%add(node, "procedure_indices", &
-                          this%procedure_indices)
-        end if
-
-        call json%add(node, "line", this%line)
-        call json%add(node, "column", this%column)
-    end subroutine submodule_to_json
-
     subroutine submodule_assign(lhs, rhs)
         class(submodule_node), intent(inout) :: lhs
         class(submodule_node), intent(in) :: rhs
@@ -462,12 +360,6 @@ contains
         class(block_data_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine block_data_accept
-
-    subroutine block_data_to_json(this, json, parent)
-        class(block_data_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-    end subroutine block_data_to_json
 
     subroutine block_data_assign(lhs, rhs)
         class(block_data_node), intent(inout) :: lhs
@@ -512,12 +404,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine type_binding_accept
 
-    subroutine type_binding_to_json(this, json, parent)
-        class(type_binding_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-    end subroutine type_binding_to_json
-
     subroutine type_binding_assign(lhs, rhs)
         class(type_binding_node), intent(inout) :: lhs
         class(type_binding_node), intent(in) :: rhs
@@ -558,13 +444,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine derived_type_accept
-
-    subroutine derived_type_to_json(this, json, parent)
-        class(derived_type_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine derived_type_to_json
 
     subroutine derived_type_assign(lhs, rhs)
         class(derived_type_node), intent(inout) :: lhs
@@ -840,13 +719,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine mixed_construct_container_accept
-
-    subroutine mixed_construct_container_to_json(this, json, parent)
-        class(mixed_construct_container_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine mixed_construct_container_to_json
 
     subroutine mixed_construct_container_assign(lhs, rhs)
         class(mixed_construct_container_node), intent(inout) :: lhs

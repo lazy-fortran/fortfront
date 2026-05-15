@@ -1,7 +1,6 @@
 module ast_nodes_associate
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -24,7 +23,6 @@ module ast_nodes_associate
         integer, allocatable :: body_indices(:)  ! Body statement indices
     contains
         procedure :: accept => associate_accept
-        procedure :: to_json => associate_to_json
         procedure :: assign => associate_assign
         generic :: assignment(=) => assign
     end type associate_node
@@ -34,7 +32,6 @@ module ast_nodes_associate
         integer, allocatable :: body_indices(:)  ! Body statement indices
     contains
         procedure :: accept => block_construct_accept
-        procedure :: to_json => block_construct_to_json
         procedure :: assign => block_construct_assign
         generic :: assignment(=) => assign
     end type block_construct_node
@@ -46,42 +43,6 @@ contains
         class(associate_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine associate_accept
-
-    subroutine associate_to_json(this, json, parent)
-        class(associate_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj, assoc_array, assoc_obj, body_array
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'associate')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-
-        ! Add associations array
-        if (allocated(this%associations)) then
-            call json%create_array(assoc_array, 'associations')
-            do i = 1, size(this%associations)
-                call json%create_object(assoc_obj, '')
-                call json%add(assoc_obj, 'name', this%associations(i)%name)
-                call json%add(assoc_obj, 'expr_index', this%associations(i)%expr_index)
-                call json%add(assoc_array, assoc_obj)
-            end do
-            call json%add(obj, assoc_array)
-        end if
-
-        ! Add body indices
-        if (allocated(this%body_indices)) then
-            call json%create_array(body_array, 'body_indices')
-            do i = 1, size(this%body_indices)
-                call json%add(body_array, '', this%body_indices(i))
-            end do
-            call json%add(obj, body_array)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine associate_to_json
 
     subroutine associate_assign(lhs, rhs)
         class(associate_node), intent(inout) :: lhs
@@ -141,29 +102,6 @@ contains
         class(block_construct_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine block_construct_accept
-
-    subroutine block_construct_to_json(this, json, parent)
-        class(block_construct_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj, body_array
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'block_construct')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-
-        if (allocated(this%body_indices)) then
-            call json%create_array(body_array, 'body_indices')
-            do i = 1, size(this%body_indices)
-                call json%add(body_array, '', this%body_indices(i))
-            end do
-            call json%add(obj, body_array)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine block_construct_to_json
 
     subroutine block_construct_assign(lhs, rhs)
         class(block_construct_node), intent(inout) :: lhs

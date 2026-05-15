@@ -1,7 +1,6 @@
 module ast_nodes_conditional
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -40,7 +39,6 @@ module ast_nodes_conditional
         ! (optional)
     contains
         procedure :: accept => if_accept
-        procedure :: to_json => if_to_json
         procedure :: assign => if_assign
         generic :: assignment(=) => assign
     end type if_node
@@ -53,7 +51,6 @@ module ast_nodes_conditional
         ! (optional)
     contains
         procedure :: accept => select_case_accept
-        procedure :: to_json => select_case_to_json
         procedure :: assign => select_case_assign
         generic :: assignment(=) => assign
     end type select_case_node
@@ -64,7 +61,6 @@ module ast_nodes_conditional
         integer, allocatable :: body_indices(:)  ! Case body arena indices
     contains
         procedure :: accept => case_block_accept
-        procedure :: to_json => case_block_to_json
         procedure :: assign => case_block_assign
         generic :: assignment(=) => assign
     end type case_block_node
@@ -75,7 +71,6 @@ module ast_nodes_conditional
         integer :: end_value = 0  ! End value
     contains
         procedure :: accept => case_range_accept
-        procedure :: to_json => case_range_to_json
         procedure :: assign => case_range_assign
         generic :: assignment(=) => assign
     end type case_range_node
@@ -85,7 +80,6 @@ module ast_nodes_conditional
         integer, allocatable :: body_indices(:)  ! Default case body arena indices
     contains
         procedure :: accept => case_default_accept
-        procedure :: to_json => case_default_to_json
         procedure :: assign => case_default_assign
         generic :: assignment(=) => assign
     end type case_default_node
@@ -97,7 +91,6 @@ module ast_nodes_conditional
         integer :: default_index = 0  ! Default guard arena index (optional)
     contains
         procedure :: accept => select_type_accept
-        procedure :: to_json => select_type_to_json
         procedure :: assign => select_type_assign
         generic :: assignment(=) => assign
     end type select_type_node
@@ -109,7 +102,6 @@ module ast_nodes_conditional
         integer, allocatable :: body_indices(:)  ! Guard body arena indices
     contains
         procedure :: accept => type_guard_block_accept
-        procedure :: to_json => type_guard_block_to_json
         procedure :: assign => type_guard_block_assign
         generic :: assignment(=) => assign
     end type type_guard_block_node
@@ -121,7 +113,6 @@ module ast_nodes_conditional
         integer :: default_index = 0  ! Default rank arena index (optional)
     contains
         procedure :: accept => select_rank_accept
-        procedure :: to_json => select_rank_to_json
         procedure :: assign => select_rank_assign
         generic :: assignment(=) => assign
     end type select_rank_node
@@ -132,7 +123,6 @@ module ast_nodes_conditional
         integer, allocatable :: body_indices(:)  ! Rank body arena indices
     contains
         procedure :: accept => rank_block_accept
-        procedure :: to_json => rank_block_to_json
         procedure :: assign => rank_block_assign
         generic :: assignment(=) => assign
     end type rank_block_node
@@ -145,13 +135,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine if_accept
-
-    subroutine if_to_json(this, json, parent)
-        class(if_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine if_to_json
 
     subroutine if_assign(lhs, rhs)
         class(if_node), intent(inout) :: lhs
@@ -193,22 +176,6 @@ contains
         ! Visitor pattern implementation
     end subroutine select_case_accept
 
-    subroutine select_case_to_json(this, json, parent)
-        class(select_case_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'select_case')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'selector_index', this%selector_index)
-        if (this%default_index > 0) call json%add(obj, 'default_index', &
-                                                  this%default_index)
-        call json%add(parent, obj)
-    end subroutine select_case_to_json
-
     subroutine select_case_assign(lhs, rhs)
         class(select_case_node), intent(inout) :: lhs
         class(select_case_node), intent(in) :: rhs
@@ -238,19 +205,6 @@ contains
         class(case_block_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_block_accept
-
-    subroutine case_block_to_json(this, json, parent)
-        class(case_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'case_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine case_block_to_json
 
     subroutine case_block_assign(lhs, rhs)
         class(case_block_node), intent(inout) :: lhs
@@ -284,21 +238,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_range_accept
 
-    subroutine case_range_to_json(this, json, parent)
-        class(case_range_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'case_range')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'start_value', this%start_value)
-        call json%add(obj, 'end_value', this%end_value)
-        call json%add(parent, obj)
-    end subroutine case_range_to_json
-
     subroutine case_range_assign(lhs, rhs)
         class(case_range_node), intent(inout) :: lhs
         class(case_range_node), intent(in) :: rhs
@@ -322,19 +261,6 @@ contains
         class(case_default_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_default_accept
-
-    subroutine case_default_to_json(this, json, parent)
-        class(case_default_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'case_default')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine case_default_to_json
 
     subroutine case_default_assign(lhs, rhs)
         class(case_default_node), intent(inout) :: lhs
@@ -362,22 +288,6 @@ contains
         class(select_type_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine select_type_accept
-
-    subroutine select_type_to_json(this, json, parent)
-        class(select_type_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'select_type')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'selector_index', this%selector_index)
-        if (this%default_index > 0) call json%add(obj, 'default_index', &
-                                                  this%default_index)
-        call json%add(parent, obj)
-    end subroutine select_type_to_json
 
     subroutine select_type_assign(lhs, rhs)
         class(select_type_node), intent(inout) :: lhs
@@ -409,21 +319,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine type_guard_block_accept
 
-    subroutine type_guard_block_to_json(this, json, parent)
-        class(type_guard_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'type_guard_block')
-        call json%add(obj, 'guard_type', trim(this%guard_type))
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'type_name_index', this%type_name_index)
-        call json%add(parent, obj)
-    end subroutine type_guard_block_to_json
-
     subroutine type_guard_block_assign(lhs, rhs)
         class(type_guard_block_node), intent(inout) :: lhs
         class(type_guard_block_node), intent(in) :: rhs
@@ -454,22 +349,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine select_rank_accept
 
-    subroutine select_rank_to_json(this, json, parent)
-        class(select_rank_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'select_rank')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'selector_index', this%selector_index)
-        if (this%default_index > 0) call json%add(obj, 'default_index', &
-                                                  this%default_index)
-        call json%add(parent, obj)
-    end subroutine select_rank_to_json
-
     subroutine select_rank_assign(lhs, rhs)
         class(select_rank_node), intent(inout) :: lhs
         class(select_rank_node), intent(in) :: rhs
@@ -499,20 +378,6 @@ contains
         class(rank_block_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine rank_block_accept
-
-    subroutine rank_block_to_json(this, json, parent)
-        class(rank_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'rank_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'rank_value', this%rank_value)
-        call json%add(parent, obj)
-    end subroutine rank_block_to_json
 
     subroutine rank_block_assign(lhs, rhs)
         class(rank_block_node), intent(inout) :: lhs

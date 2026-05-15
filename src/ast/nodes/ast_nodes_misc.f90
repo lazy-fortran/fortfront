@@ -1,6 +1,5 @@
 module ast_nodes_misc
-    use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
+    use ast_base, only: ast_node, visit_interface, string_t, &
                         ast_visitor_base_t
     use string_utils_mod, only: int_to_string
     implicit none

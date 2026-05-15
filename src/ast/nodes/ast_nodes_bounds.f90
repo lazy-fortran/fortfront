@@ -1,7 +1,6 @@
 module ast_nodes_bounds
     use ast_base
     use ast_arena_modern, only: ast_arena_t
-    use json_module
     implicit none
     private
 
@@ -60,7 +59,6 @@ module ast_nodes_bounds
         logical :: is_assumed_rank = .false.  ! True for (..) assumed-rank arrays
     contains
         procedure :: accept => array_bounds_accept
-        procedure :: to_json => array_bounds_to_json
     end type array_bounds_node
 
     ! Represents array slice operation arr(bounds1, bounds2, ...)
@@ -76,7 +74,6 @@ module ast_nodes_bounds
         logical :: is_character_substring = .false.  ! true if substring
     contains
         procedure :: accept => array_slice_accept
-        procedure :: to_json => array_slice_to_json
     end type array_slice_node
 
     ! Represents range expression start:end or start:end:stride
@@ -87,7 +84,6 @@ module ast_nodes_bounds
         integer :: stride_index = -1  ! Index to stride expression (-1 if no stride)
     contains
         procedure :: accept => range_expression_accept
-        procedure :: to_json => range_expression_to_json
     end type range_expression_node
 
     ! Represents array operations (assignment, arithmetic, etc.) with bounds info
@@ -102,7 +98,6 @@ module ast_nodes_bounds
         logical :: shape_conformant = .false.  ! Whether operands are conformant
     contains
         procedure :: accept => array_operation_accept
-        procedure :: to_json => array_operation_to_json
     end type array_operation_node
 
 contains
@@ -270,81 +265,5 @@ contains
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine array_operation_accept
-
-    ! JSON serialization implementations
-    subroutine array_bounds_to_json(this, json, parent)
-        class(array_bounds_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-
-        call json%create_object(parent, "array_bounds")
-        call json%add(parent, "node_type", "array_bounds")
-        call json%add(parent, "lower_bound_index", this%lower_bound_index)
-        call json%add(parent, "upper_bound_index", this%upper_bound_index)
-        call json%add(parent, "stride_index", this%stride_index)
-        call json%add(parent, "is_assumed_shape", this%is_assumed_shape)
-        call json%add(parent, "is_deferred_shape", this%is_deferred_shape)
-        call json%add(parent, "is_assumed_size", this%is_assumed_size)
-        call json%add(parent, "is_assumed_rank", this%is_assumed_rank)
-    end subroutine array_bounds_to_json
-
-    subroutine array_slice_to_json(this, json, parent)
-        class(array_slice_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: bounds_array, bounds_item
-        integer :: i
-
-        if (.not. associated(parent)) then
-            call json%create_object(parent, "array_slice")
-        end if
-        call json%add(parent, "node_type", "array_slice")
-        call json%add(parent, "array_index", this%array_index)
-        call json%add(parent, "num_dimensions", this%num_dimensions)
-        call json%add(parent, "is_character_substring", this%is_character_substring)
-
-        call json%create_array(bounds_array, "bounds_indices")
-        do i = 1, this%num_dimensions
-            call json%add(bounds_array, "", this%bounds_indices(i))
-        end do
-        call json%add(parent, bounds_array)
-    end subroutine array_slice_to_json
-
-    subroutine range_expression_to_json(this, json, parent)
-        class(range_expression_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-
-        call json%create_object(parent, "range_expression")
-        call json%add(parent, "node_type", "range_expression")
-        call json%add(parent, "start_index", this%start_index)
-        call json%add(parent, "end_index", this%end_index)
-        call json%add(parent, "stride_index", this%stride_index)
-    end subroutine range_expression_to_json
-
-    subroutine array_operation_to_json(this, json, parent)
-        class(array_operation_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-
-        call json%create_object(parent, "array_operation")
-        call json%add(parent, "node_type", "array_operation")
-        call json%add(parent, "operation", trim(this%operation))
-        call json%add(parent, "left_operand_index", this%left_operand_index)
-        call json%add(parent, "right_operand_index", this%right_operand_index)
-        call json%add(parent, "bounds_checked", this%bounds_checked)
-        call json%add(parent, "shape_conformant", this%shape_conformant)
-
-        ! Add array_spec information if available
-        if (this%array_spec%rank > 0) then
-            call json%add(parent, "array_rank", this%array_spec%rank)
-            call json%add(parent, "is_allocatable", this%array_spec%is_allocatable)
-            call json%add(parent, "is_pointer", this%array_spec%is_pointer)
-        end if
-
-        if (this%result_spec%rank > 0) then
-            call json%add(parent, "result_rank", this%result_spec%rank)
-        end if
-    end subroutine array_operation_to_json
 
 end module ast_nodes_bounds

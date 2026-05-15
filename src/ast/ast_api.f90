@@ -6,7 +6,6 @@ module ast_api
         ast_node_wrapper, &
         ast_visitor_base_t, &
         visit_interface, &
-        to_json_interface, &
         string_t, &
         LITERAL_INTEGER, &
         LITERAL_REAL, &
@@ -59,7 +58,6 @@ module ast_api
     public :: ast_node_wrapper
     public :: ast_visitor_base_t
     public :: visit_interface
-    public :: to_json_interface
     public :: string_t
 
     ! Literal type constants
