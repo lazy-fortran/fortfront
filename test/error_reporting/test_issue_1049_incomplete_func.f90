@@ -7,8 +7,10 @@ program test_issue_1049_incomplete_func
     print *, '=== Issue #1049: Incomplete func definition ==='
 
     ! Reproduction: Lazy Fortran-style function header without proper body
+    ! Trailing newline avoids a gfortran 16 bug where a 64-character literal
+    ! concat assigned to a deferred-length allocatable yields all-zero bytes.
     source = 'func incomplete_function(x: int)' // new_line('a') // &
-             'result = incomplete_function(5)'
+             'result = incomplete_function(5)' // new_line('a')
 
     call transform_lazy_fortran_string(source, output, error_msg)
 

@@ -58,8 +58,11 @@ contains
         test_complex_semicolons = .true.
         print *, "Testing complex semicolon-separated statements..."
 
+        ! Trailing newline avoids a gfortran 16 bug where a 64-character
+        ! literal concat assigned to a deferred-length allocatable yields
+        ! all-zero bytes.
         source = "integer :: i; real :: x; i = 42; x = 3.14" // new_line('a') // &
-                 "print *, i; print *, x"
+                 "print *, i; print *, x" // new_line('a')
 
         call transform_lazy_fortran_string(source, output, error_msg)
 
