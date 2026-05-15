@@ -9,7 +9,7 @@ This directory provides shared utilities used throughout the fortfront compiler 
 | File | Description |
 |------|-------------|
 | identifier_table.f90 | String interning for identifiers, case-insensitive lookup, memory-efficient storage |
-| uid_generator.f90 | Unique ID generation for AST nodes, deterministic ID assignment |
+| uid_generator.f90 | Unique ID generation for AST nodes, deterministic ID assignment with OpenMP-guarded global state |
 | declaration_attribute_utils.f90 | Parse and manipulate Fortran declaration attributes (intent, allocatable, etc.) |
 
 ## Key Concepts
@@ -40,6 +40,8 @@ id2 = identifier_table_add("myvar")
 - Deterministic assignment (same input → same IDs)
 - Used for node identity and comparison
 - Separate ID spaces for different entity types
+- The compatibility generator uses module state guarded by OpenMP critical
+  regions when FortFront is built with OpenMP.
 
 **Declaration Attributes**
 - Parse attribute strings: `intent(in)`, `allocatable`, `pointer`, etc.
