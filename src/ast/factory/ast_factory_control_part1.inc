@@ -518,11 +518,6 @@
             end if
         end if
 
-        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
-        ! function returns to prevent buggy GCC-generated finalizer from crashing
-        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
-        if (allocated(select_node%case_indices)) deallocate (select_node%case_indices)
-        if (allocated(select_node%stmt_label)) deallocate (select_node%stmt_label)
     end function push_select_case
 
     ! Create select case node with default case and add to stack
@@ -576,11 +571,6 @@
             call link_children_to_parent(arena, select_index, [default_index])
         end if
 
-        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
-        ! function returns to prevent buggy GCC-generated finalizer from crashing
-        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
-        if (allocated(select_node%case_indices)) deallocate (select_node%case_indices)
-        if (allocated(select_node%stmt_label)) deallocate (select_node%stmt_label)
     end function push_select_case_with_default
 
     ! Create case block node and add to stack
@@ -623,12 +613,6 @@
             end if
         end if
 
-        ! GCC 14 WORKAROUND: Explicitly deallocate local node components before
-        ! function returns to prevent buggy GCC-generated finalizer from crashing
-        ! See issue #2617 for details on GCC 14 finalizer bugs with extended types
-        if (allocated(case_node%value_indices)) deallocate (case_node%value_indices)
-        if (allocated(case_node%body_indices)) deallocate (case_node%body_indices)
-        if (allocated(case_node%stmt_label)) deallocate (case_node%stmt_label)
     end function push_case_block
 
     ! Create case range node and add to stack
