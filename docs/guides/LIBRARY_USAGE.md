@@ -187,7 +187,8 @@ The intended compiler boundary is:
 1. Parse source into an arena and root index.
 2. Run semantic analysis and collect diagnostics.
 3. Return the typed AST plus semantic data to the compiler driver.
-4. Let the compiler driver lower to its backend IR.
+4. Let the compiler driver lower to LIRIC or another backend IR outside
+   FortFront.
 
 Today, step 3 is incomplete as a stable public contract. Existing APIs are
 usable for experiments, but `ffc` should avoid depending on private AST layout

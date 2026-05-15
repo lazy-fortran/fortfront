@@ -5,9 +5,9 @@
 A Fortran frontend that transforms Lazy Fortran to standard-conforming
 Fortran and exposes AST/tooling APIs for downstream tools.
 
-FortFront is not a complete compiler backend. It does not emit LLVM IR,
+FortFront is not a complete compiler backend. It does not emit backend IR,
 objects, or executables. Compiler work belongs in downstream drivers such as
-`ffc`.
+`ffc`, whose current direction is LIRIC.
 
 ## Features
 
