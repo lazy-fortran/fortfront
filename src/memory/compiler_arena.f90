@@ -1,8 +1,6 @@
 module compiler_arena
-    ! Unified arena management for the entire compiler
-    ! Provides single, consistent memory pattern for maximum performance and KISS
-    ! All compiler components (AST, types, symbols, literals) use arena allocation
-    ! Delivers 10-100x performance gains with unified lifecycle management
+    ! Unified arena management for the compiler. Currently bundles the type
+    ! arena and the AST arena; new arenas can be added when the need arises.
 
     use arena_memory
     use type_system_arena
@@ -15,24 +13,9 @@ module compiler_arena
     public :: compiler_arena_t, compiler_arena_stats_t, create_compiler_arena, &
               destroy_compiler_arena
 
-    ! Future arena types - placeholders for unified architecture
-
-    type :: symbol_arena_placeholder_t
-        integer :: placeholder = 0
-    end type symbol_arena_placeholder_t
-
-    type :: literal_arena_placeholder_t
-        integer :: placeholder = 0
-    end type literal_arena_placeholder_t
-
-    ! Unified compiler arena managing all memory allocation
     type :: compiler_arena_t
-        ! Core arenas for different data types
-        type(type_arena_t) :: types  ! Type system (already implemented)
-        type(ast_arena_t) :: ast  ! AST nodes (modern implementation)
-        type(symbol_arena_placeholder_t) :: symbols  ! Symbol tables (placeholder)
-        type(literal_arena_placeholder_t) :: literals
-        ! String/number literals (placeholder)
+        type(type_arena_t) :: types
+        type(ast_arena_t) :: ast
 
         ! Unified management state
         integer :: generation = 1  ! Global generation counter
@@ -63,17 +46,14 @@ module compiler_arena
         generic :: assignment(=) => assign_compiler_arena
     end type compiler_arena_t
 
-    ! Unified statistics for all arenas
     type :: compiler_arena_stats_t
-        integer(int64) :: total_memory  ! Total bytes across all arenas
-        integer(int64) :: total_allocations  ! Total allocations
-        integer(int64) :: types_memory  ! Type arena memory
-        integer(int64) :: ast_memory  ! AST arena memory
-        integer(int64) :: symbols_memory  ! Symbol arena memory
-        integer(int64) :: literals_memory  ! Literal arena memory
-        real(dp) :: average_utilization  ! Average utilization across arenas
-        real(dp) :: allocation_rate  ! Allocations per second
-        integer :: active_generations  ! Number of active generations
+        integer(int64) :: total_memory
+        integer(int64) :: total_allocations
+        integer(int64) :: types_memory
+        integer(int64) :: ast_memory
+        real(dp) :: average_utilization
+        real(dp) :: allocation_rate
+        integer :: active_generations
     end type compiler_arena_stats_t
 
 contains
@@ -116,12 +96,6 @@ contains
         ! Initialize AST arena directly (avoid assignment operator deep copy)
         this%ast = create_ast_arena(16)  ! Start small, will grow as needed
 
-        ! Symbol arena - placeholder (future implementation)
-        ! this%symbols = create_symbol_arena(size / 2)
-
-        ! Literal arena - placeholder (future implementation)
-        ! this%literals = create_literal_arena(size / 4)
-
         ! Initialize unified state
         this%generation = 1
         this%is_initialized = .true.
@@ -145,10 +119,6 @@ contains
         call destroy_type_arena(this%types)
         call destroy_ast_arena(this%ast)
 
-        ! Future: destroy other arenas
-        ! call destroy_symbol_arena(this%symbols)
-        ! call destroy_literal_arena(this%literals)
-
         ! Reset unified state
         this%generation = 0
         this%is_initialized = .false.
@@ -169,10 +139,6 @@ contains
         call this%types%reset()
         call this%ast%reset()
 
-        ! Future: reset other arenas
-        ! call this%symbols%reset()
-        ! call this%literals%reset()
-
         ! Update unified state
         this%generation = this%generation + 1
         this%total_deallocations = this%total_deallocations + this%total_allocations
@@ -188,12 +154,6 @@ contains
         if (.not. this%is_initialized) return
 
         this%checkpoint_generation = this%generation
-
-        ! Future: checkpoint other arenas when implemented
-        ! call this%types%checkpoint()
-        ! call this%ast%checkpoint()
-        ! call this%symbols%checkpoint()
-        ! call this%literals%checkpoint()
     end subroutine compiler_arena_checkpoint
 
     ! Rollback to last checkpoint
@@ -202,8 +162,8 @@ contains
 
         if (.not. this%is_initialized) return
 
-        ! For now, reset is equivalent to rollback
-        ! Future: implement partial rollback when arenas support it
+        ! Reset is currently the only rollback strategy the sub-arenas
+        ! expose; this restores the saved generation count below.
         call this%reset()
 
         this%generation = this%checkpoint_generation
@@ -220,8 +180,6 @@ contains
         stats%total_allocations = this%total_allocations
         stats%types_memory = 0
         stats%ast_memory = 0
-        stats%symbols_memory = 0
-        stats%literals_memory = 0
         stats%average_utilization = 0.0_dp
         stats%allocation_rate = 0.0_dp
         stats%active_generations = 1
@@ -245,8 +203,6 @@ contains
             stats%average_utilization = (type_stats%utilization + &
                                          ast_stats%utilization) / 2.0_dp
         end block
-
-        ! Future: aggregate statistics from other arenas
 
         ! Calculate allocation rate (allocations per second)
         if (this%total_allocation_time > 0.0_dp) then
@@ -281,12 +237,6 @@ contains
 
         ! All arenas are structurally valid if initialized
         all_valid = .true.
-
-        ! Future: validate handles across all arenas
-        ! all_valid = this%types%validate_all() .and. &
-        !             this%ast%validate_all() .and. &
-        !             this%symbols%validate_all() .and. &
-        !             this%literals%validate_all()
     end function compiler_arena_validate_all
 
     ! Advance to next compilation phase with generation increment
@@ -296,27 +246,8 @@ contains
 
         if (.not. this%is_initialized) return
 
-        ! Increment generation for all arenas
         this%generation = this%generation + 1
-
-        ! Update generation for sub-arenas that support it
-        ! Type arena generation update (if needed for future implementations)
-        ! this%types%generation = this%generation
-
-        ! AST arena generation update (if needed for future implementations)
-        ! this%ast%generation = this%generation
-
-        ! Future: update generation for symbol and literal arenas
-        ! this%symbols%generation = this%generation
-        ! this%literals%generation = this%generation
-
-        ! Update memory statistics after phase transition
         call compiler_arena_update_total_memory(this)
-
-        ! Optional: Log phase transition for debugging
-        ! if (debug_enabled) then
-   !     print *, "Compiler Phase: ", trim(phase_name), " Generation: ", this%generation
-        ! end if
     end subroutine compiler_arena_next_phase
 
     ! Update total memory from all sub-arenas
@@ -338,8 +269,6 @@ contains
             ast_stats = this%ast%get_stats()
             this%total_bytes = this%total_bytes + ast_stats%total_memory
         end block
-
-        ! Future: add memory from other arenas
     end subroutine compiler_arena_update_total_memory
 
     ! Cleanup procedure for module finalization
@@ -357,8 +286,6 @@ contains
         ! Copy sub-arenas (using their assignment operators)
         lhs%types = rhs%types  ! Uses type_arena_t assignment
         lhs%ast = rhs%ast  ! Uses ast_arena_t assignment
-        lhs%symbols = rhs%symbols  ! Placeholder - simple copy
-        lhs%literals = rhs%literals  ! Placeholder - simple copy
 
         ! Copy scalar members
         lhs%generation = rhs%generation
