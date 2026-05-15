@@ -90,46 +90,38 @@ contains
 
         quoted = quote_for_shell('path with spaces/example.lf', is_windows)
         if (len_trim(quoted) == 0) then
-            print *, 'ERROR: quote_for_shell rejected safe path'
-            stop 1
+            error stop 'verify_shell_helpers: quote_for_shell rejected safe path'
         end if
         trimmed_len = len_trim(quoted)
         if (quoted(1:1) /= '"' .or. quoted(trimmed_len:trimmed_len) /= '"') then
-            print *, 'ERROR: quote_for_shell missing quotes'
-            stop 1
+            error stop 'verify_shell_helpers: quote_for_shell missing quotes'
         end if
 
         command = build_compile_command('output file.f90', 'modules dir', 'temp dir', &
                                         is_windows)
         if (len_trim(command) == 0) then
-            print *, 'ERROR: build_compile_command returned empty command'
-            stop 1
+            error stop 'verify_shell_helpers: build_compile_command returned empty command'
         end if
         if (is_windows) then
             if (index(command, '"modules dir"') == 0) then
-                print *, 'ERROR: module directory not quoted for cmd'
-                stop 1
+                error stop 'verify_shell_helpers: module directory not quoted for cmd'
             end if
             if (index(command, '"output file.f90"') == 0) then
-                print *, 'ERROR: output path not quoted for cmd'
-                stop 1
+                error stop 'verify_shell_helpers: output path not quoted for cmd'
             end if
         else
             if (index(command, '"modules dir"') == 0) then
-                print *, 'ERROR: module directory not quoted'
-                stop 1
+                error stop 'verify_shell_helpers: module directory not quoted'
             end if
             if (index(command, '"output file.f90"') == 0) then
-                print *, 'ERROR: output path not quoted'
-                stop 1
+                error stop 'verify_shell_helpers: output path not quoted'
             end if
         end if
         if (is_windows) then
             if (index(quote_for_shell('pipe path', is_windows, &
                                       escape_for_cmd=.true.), &
                       '"pipe path"') == 0) then
-                print *, 'ERROR: Windows cmd escaping missing'
-                stop 1
+                error stop 'verify_shell_helpers: Windows cmd escaping missing'
             end if
         end if
     end subroutine verify_shell_helpers
