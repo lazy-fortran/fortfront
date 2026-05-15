@@ -132,7 +132,8 @@ frontend → parser → lexer → common → utilities
 ## Public API
 
 **Stable Entry Points**:
-- `fortfront.f90` - Main library facade
+- `fortfront.f90` - Broad compatibility facade
+- `fortfront_*.f90` - Layered public facade modules
 - `transformation_api.f90` - High-level transformation API
 - `frontend/` modules - Pipeline components
 

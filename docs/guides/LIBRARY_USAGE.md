@@ -2,17 +2,18 @@
 
 ## Quick Start
 
-FortFront has two practical integration levels:
+FortFront has three practical integration levels:
 
 - Transformation APIs: Lazy Fortran or standard Fortran input to emitted
   standard Fortran text.
 - Tooling APIs: parse source to an arena/root index, optionally running
   semantic analysis.
+- Compiler APIs: parse and analyze source into an owned frontend result without
+  running standardization or Fortran code generation.
 
-It does not yet expose a stable compiler IR, durable semantic-result object, or
+It does not expose backend IR, object emission, executable emission, or a
 complete C ABI for AST traversal. Downstream compiler work should use the
-Fortran tooling APIs for now and track the compiler-facing API work before
-building a large backend directly on FortFront internals.
+Fortran compiler API and lower to LIRIC or another backend outside FortFront.
 
 ### Project Setup with fpm
 
@@ -60,7 +61,7 @@ Retrieve whitespace/comments/newlines adjacent to an AST node (for whitespace-aw
 linting and formatting tools):
 
 ```fortran
-use fortfront, only: tooling_load_ast_from_string, ast_arena_t, &
+use fortfront_tooling, only: tooling_load_ast_from_string, ast_arena_t, &
     get_trivia_for_ast_node, trivia_t
 
 type(ast_arena_t) :: arena
@@ -78,7 +79,8 @@ call get_trivia_for_ast_node(source, arena, root_index, leading, trailing, found
 For repeated queries over the same source, tokenize once and reuse:
 
 ```fortran
-use fortfront, only: tokenize_core_with_trivia, token_t, get_trivia_for_ast_node_tokens
+use fortfront_tooling, only: tokenize_core_with_trivia, token_t, &
+    get_trivia_for_ast_node_tokens
 
 type(token_t), allocatable :: tokens(:)
 
@@ -186,13 +188,13 @@ The intended compiler boundary is:
 
 1. Parse source into an arena and root index.
 2. Run semantic analysis and collect diagnostics.
-3. Return the typed AST plus semantic data to the compiler driver.
+3. Return the typed AST plus semantic data to the compiler driver through
+   `fortfront_compiler`.
 4. Let the compiler driver lower to LIRIC or another backend IR outside
    FortFront.
 
-Today, step 3 is incomplete as a stable public contract. Existing APIs are
-usable for experiments, but `ffc` should avoid depending on private AST layout
-until that contract is formalized.
+The compiler API is Fortran-only today. A full C ABI for typed AST traversal is
+not implemented.
 
 ## See Also
 
