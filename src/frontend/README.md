@@ -11,6 +11,7 @@ The frontend provides the primary API entry point for transforming lazy Fortran 
 | File | Description |
 |------|-------------|
 | frontend_compiler_api.f90 | Public compiler-facing API returning AST, semantic context, tokens, and diagnostics without codegen |
+| frontend_compiler_queries.f90 | Safe compiler-facing AST queries for backend consumers |
 | frontend_tooling_api.f90 | Public API for tool integration (linters, language servers) |
 | frontend_transformation_pipeline.f90 | Main transformation orchestration: lex → parse → semantic → codegen |
 | frontend_pass_manager.f90 | Configurable pass manager for transformation phases |
@@ -144,6 +145,10 @@ end subroutine
   context, token stream, diagnostics, and source text. The compiler API stops
   after parsing and semantic analysis by default; it does not run standardization
   or Fortran code generation unless a separate caller invokes those APIs.
+- **Compiler queries**: `is_subroutine_call_statement`,
+  `get_subroutine_call_name`, and `get_subroutine_call_arg_indices` expose
+  explicit `CALL` statements without requiring backend consumers to inspect
+  concrete AST node storage.
 
 ## Dependencies
 

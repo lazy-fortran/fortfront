@@ -42,6 +42,9 @@ module fortfront
                                      compiler_frontend_result_t, &
                                      compile_frontend_from_string, &
                                      compile_frontend_from_file
+    use frontend_compiler_queries, only: is_subroutine_call_statement, &
+                                         get_subroutine_call_name, &
+                                         get_subroutine_call_arg_indices
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
