@@ -12,7 +12,8 @@ module variable_usage_dispatcher_module
         process_where_stmt_node_children, process_case_block_node_children, &
         process_do_loop_node_children, process_forall_node_children, &
         process_select_rank_node_children, process_rank_block_node_children, &
-        process_select_type_node_children, process_type_guard_block_node_children
+        process_select_type_node_children, process_type_guard_block_node_children, &
+        process_block_construct_node_children
 
     ! Import statement handlers
     use variable_usage_stmt_handlers_module, only: &
@@ -44,6 +45,7 @@ module variable_usage_dispatcher_module
     public :: process_do_loop_node_children, process_forall_node_children
     public :: process_select_rank_node_children, process_rank_block_node_children
     public :: process_select_type_node_children, process_type_guard_block_node_children
+    public :: process_block_construct_node_children
 
     ! Re-export statement handlers
     public :: process_multi_declaration_node_children
@@ -183,6 +185,8 @@ contains
             call process_deallocate_statement_children(arena, node_index, info, ctx)
         case ("associate")
             call process_associate_construct_children(arena, node_index, info, ctx)
+        case ("block_construct")
+            call process_block_construct_node_children(arena, node_index, info, ctx)
         case ("subroutine_def")
             call process_subroutine_def_children(arena, node_index, info, ctx)
         case ("function_def")
