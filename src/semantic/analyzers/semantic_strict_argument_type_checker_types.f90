@@ -182,7 +182,7 @@ contains
         case (TREAL)
             name = "real"
         case (TDOUBLE)
-            name = "real(8)"
+            name = "real(dp)"
         case (TLOGICAL)
             name = "logical"
         case (TCHAR)

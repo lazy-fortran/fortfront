@@ -35,7 +35,7 @@
                 type_str = "integer"
             case (LITERAL_REAL)
                 if (standardizer_type_standardization_enabled) then
-                    type_str = "real(8)"
+                    type_str = "real(dp)"
                 else
                     type_str = "real"
                 end if

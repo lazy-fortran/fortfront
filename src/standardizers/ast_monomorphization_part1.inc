@@ -396,14 +396,16 @@
         character(len=*), intent(in) :: proc_name
         integer, intent(in) :: variant_indices(:)
         integer :: mod_idx
-        integer :: mod_proc_idx, interface_idx, j
+        integer :: mod_proc_idx, interface_idx, iso_use_idx, j
 
         mod_proc_idx = create_module_procedure_node(arena, proc_name, &
                                                     variant_indices)
         interface_idx = create_interface_node(arena, proc_name, mod_proc_idx)
-        mod_idx = create_module_for_function(arena, proc_name, interface_idx, &
-                                             variant_indices)
+        iso_use_idx = create_dp_kind_use_statement_node(arena)
+        mod_idx = create_module_for_function(arena, proc_name, iso_use_idx, &
+                                             interface_idx, variant_indices)
 
+        call set_parent_if_valid(arena, iso_use_idx, mod_idx)
         call set_parent_if_valid(arena, mod_proc_idx, mod_idx)
         call set_parent_if_valid(arena, interface_idx, mod_idx)
         do j = 1, size(variant_indices)

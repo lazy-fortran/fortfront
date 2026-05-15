@@ -78,7 +78,7 @@ contains
             if (standardize_types_enabled) then
                 lowered = to_lower(trim(type_str))
                 if (lowered == 'real' .and. .not. node%has_kind) then
-                    type_str = "real(8)"
+                    type_str = "real(dp)"
                 end if
             end if
             return
@@ -101,7 +101,7 @@ contains
             type_str = "integer"
         case (TREAL)
             if (standardize_types_enabled) then
-                type_str = "real(8)"
+                type_str = "real(dp)"
             else
                 type_str = "real"
             end if

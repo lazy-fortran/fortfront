@@ -120,7 +120,7 @@
         if (standardize_types_enabled) then
             lowered = to_lower(trim(type_str))
             if (lowered == 'real') then
-                type_str = "real(8)"
+                type_str = "real(dp)"
             end if
         end if
 
@@ -211,7 +211,7 @@
         call get_type_standardization(standardize_types_enabled)
         if (standardize_types_enabled) then
             lowered = to_lower(trim(type_str))
-            if (lowered == 'real') type_str = "real(8)"
+            if (lowered == 'real') type_str = "real(dp)"
         end if
 
         decl_code = "    " // trim(type_str) // " :: " // &
@@ -241,7 +241,7 @@
             if (standardize_types_enabled) then
                 lowered = to_lower(trim(full_type))
                 if (lowered == 'real') then
-                    full_type = "real(8)"
+                    full_type = "real(dp)"
                 end if
             end if
         end if

@@ -195,6 +195,7 @@ contains
         end if
 
         if (index(code, 'real :: subset') /= 0 .or. &
+            index(code, 'real(dp) :: subset') /= 0 .or. &
             index(code, 'real(8) :: subset') /= 0) then
             print *, '  FAIL: subset slice still inferred as real'
             test_slice_type_inference = .false.

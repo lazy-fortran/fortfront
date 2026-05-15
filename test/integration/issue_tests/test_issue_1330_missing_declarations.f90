@@ -34,7 +34,7 @@ contains
         integer :: use_comment_pos
         integer :: implicit_pos
         character(len=:), allocatable :: existing_decl_line
-        character(len=32) :: real_decl_variants(2)
+        character(len=32) :: real_decl_variants(3)
 
         call read_example('examples/lf/issue_1330_missing_declarations.lf', &
                           input)
@@ -96,6 +96,7 @@ contains
 
         real_decl_variants = [character(len=32) :: &
                               'real(kind=8) :: x, y', &
+                              'real(dp) :: x, y      ', &
                               'real(8) :: x, y']
         call assert_contains_any(output, real_decl_variants, &
                                  'missing explicit real declaration for x,y')
@@ -103,11 +104,18 @@ contains
         real_decl_pos = index(output, 'real(kind=8) :: x, y')
         existing_decl_line = 'real(kind=8) :: x, y'
         if (real_decl_pos == 0) then
+            real_decl_pos = index(output, 'real(dp) :: x, y')
+            existing_decl_line = 'real(dp) :: x, y'
+        end if
+        if (real_decl_pos == 0) then
             real_decl_pos = index(output, 'real(8) :: x, y')
             existing_decl_line = 'real(8) :: x, y'
         end if
 
         has_real_kind = index(output, 'real :: pi_estimate') > 0
+        if (.not. has_real_kind) then
+            has_real_kind = index(output, 'real(dp) :: pi_estimate') > 0
+        end if
         if (.not. has_real_kind) then
             has_real_kind = index(output, 'real(8) :: pi_estimate') > 0
         end if
@@ -137,6 +145,9 @@ contains
         first_new_pos = index(output, 'integer :: n')
         if (first_new_pos == 0) first_new_pos = index(output, 'integer ::')
         last_new_pos = index(output, 'real :: pi_estimate')
+        if (last_new_pos == 0) then
+            last_new_pos = index(output, 'real(dp) :: pi_estimate')
+        end if
         if (last_new_pos == 0) then
             last_new_pos = index(output, 'real(8) :: pi_estimate')
         end if

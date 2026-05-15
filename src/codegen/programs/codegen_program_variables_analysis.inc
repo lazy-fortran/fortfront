@@ -521,7 +521,8 @@
                 state%func_types(existing_idx) = normalized_type
             else if (current_lower == 'real' .and. new_lower /= 'real') then
                 state%func_types(existing_idx) = normalized_type
-            else if (current_lower /= new_lower .and. new_lower == 'real(8)' &
+            else if (current_lower /= new_lower .and. &
+                     (new_lower == 'real(8)' .or. new_lower == 'real(dp)') &
                      .and. current_lower == 'real') then
                 state%func_types(existing_idx) = normalized_type
             end if

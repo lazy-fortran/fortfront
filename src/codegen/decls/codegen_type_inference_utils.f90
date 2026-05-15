@@ -80,7 +80,7 @@ contains
 
         select case (lowered)
         case ('double precision')
-            canon = 'real(8)'
+            canon = 'real(dp)'
         case default
             canon = trim(type_str)
         end select
@@ -133,7 +133,7 @@ contains
                 has_complex = .true.
             else if (lowered == 'logical') then
                 has_logical = .true.
-            else if (lowered == 'real(8)') then
+            else if (lowered == 'real(8)' .or. lowered == 'real(dp)') then
                 has_double = .true.
             else if (index(lowered, 'real(') == 1) then
                 has_double = .true.
@@ -149,7 +149,7 @@ contains
         else if (has_complex) then
             type_str = 'complex'
         else if (has_double) then
-            type_str = 'real(8)'
+            type_str = 'real(dp)'
         else if (has_real) then
             type_str = 'real'
         else if (has_logical) then

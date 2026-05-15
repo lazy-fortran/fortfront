@@ -37,10 +37,11 @@ contains
                                         'integer function square', &
                                         'integer, intent(in) :: x', &
                                         'integer :: val, squared']
-        character(len=32), parameter :: forbidden_fragments(4) = [ &
+        character(len=32), parameter :: forbidden_fragments(5) = [ &
                                         character(len=32) :: &
                                         'real function square', &
                                         'real :: square', &
+                                        'real(dp) function square', &
                                         'real(8) function square', &
                                         'real, external :: square']
 
@@ -59,11 +60,12 @@ contains
                                         'integer, external :: square', &
                                         'integer function square', &
                                         'integer, intent(in) :: x']
-        character(len=40), parameter :: forbidden_fragments(4) = [ &
+        character(len=40), parameter :: forbidden_fragments(5) = [ &
                                         character(len=40) :: &
                                         'real :: squared', &
                                         'real, external :: square', &
                                         'real function square', &
+                                        'real(dp) function square', &
                                         'real(8) function square']
 
         call read_example('examples/lf/function_inference_reordered.lf', source)

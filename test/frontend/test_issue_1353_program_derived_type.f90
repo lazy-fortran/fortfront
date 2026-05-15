@@ -22,6 +22,7 @@ contains
         character(len=*), intent(in) :: name
 
         found = index(segment, "real :: "//name) > 0 .or. &
+                index(segment, "real(dp) :: "//name) > 0 .or. &
                 index(segment, "real(8) :: "//name) > 0
     end function has_real_decl
 
@@ -342,7 +343,8 @@ contains
             error stop 1
         end if
 
-        if (index(output_code, "real(8) :: p") > 0 .or. &
+        if (index(output_code, "real(dp) :: p") > 0 .or. &
+            index(output_code, "real(8) :: p") > 0 .or. &
             index(output_code, "real :: p") > 0) then
             print *, "FAIL: class declaration downgraded to real"
             error stop 1

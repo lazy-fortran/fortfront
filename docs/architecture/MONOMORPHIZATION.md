@@ -27,8 +27,8 @@ contains
         add__i32_i32 = a + b
     end function
 
-    real(8) function add__r64_r64(a, b)
-        real(8), intent(in) :: a, b
+    real(dp) function add__r64_r64(a, b)
+        real(dp), intent(in) :: a, b
         add__r64_r64 = a + b
     end function
 end module auto_add
@@ -37,7 +37,7 @@ program main
     use auto_add
     implicit none
     integer :: x
-    real(8) :: y
+    real(dp) :: y
     x = add(5, 3)
     y = add(2.5, 1.5)
 end program
@@ -58,7 +58,7 @@ Format: `<name>__<kind1>_<kind2>_...`
 
 Examples:
 - `add__i32_i32` - integer(4) + integer(4)
-- `add__r64_r64` - real(8) + real(8)
+- `add__r64_r64` - real(dp) + real(dp)
 - `matmul__i32rank2_i32rank2` - integer(4),dimension(:,:) matmul
 
 ## Scope and Limitations

@@ -94,6 +94,8 @@ program test_monomorphization
 
     test_passed = .false.
     if (index(output, "real function square__r32") > 0 .or. &
+        index(output, "real(dp) function square__r32") > 0 .or. &
+        index(output, "real(dp) function square__r64") > 0 .or. &
         index(output, "real(8) function square__r64") > 0) then
         if (index(output, "integer function square__r32") == 0 .and. &
             index(output, "integer function square__r64") == 0) then
@@ -113,6 +115,7 @@ program test_monomorphization
     if (index(output, "integer :: y") > 0 .or. &
         index(output, "integer :: y,") > 0) then
         if (index(output, "real :: y") == 0 .and. &
+            index(output, "real(dp) :: y") == 0 .and. &
             index(output, "real(8) :: y") == 0) then
             test_passed = .true.
         end if
@@ -128,9 +131,12 @@ program test_monomorphization
 
     test_passed = .false.
     if (index(output, "real :: z") > 0 .or. &
+        index(output, "real(dp) :: z") > 0 .or. &
         index(output, "real(8) :: z") > 0 .or. &
         index(output, "real :: y, z") > 0 .or. &
         index(output, "real :: y,z") > 0 .or. &
+        index(output, "real(dp) :: y, z") > 0 .or. &
+        index(output, "real(dp) :: y,z") > 0 .or. &
         index(output, "real(8) :: y, z") > 0 .or. &
         index(output, "real(8) :: y,z") > 0) then
         if (index(output, "integer :: z") == 0) then

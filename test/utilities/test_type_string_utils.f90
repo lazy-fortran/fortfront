@@ -50,7 +50,7 @@ contains
                                  "mono_type_to_string real default")
 
         type_str = mono_type_to_string(real_type, standardize_real=.true.)
-        call expect_string_equal(type_str, "real(8)", &
+        call expect_string_equal(type_str, "real(dp)", &
                                  "mono_type_to_string real standardize")
 
         char_type = create_mono_type(TCHAR, char_size=4)

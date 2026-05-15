@@ -30,6 +30,7 @@ program test_array_slice_type_inference
     end if
 
     if (index(output, 'real :: slice') > 0 .or. &
+        index(output, 'real(dp) :: slice') > 0 .or. &
         index(output, 'real(8) :: slice') > 0) then
         print *, 'FAIL: Found incorrect real type for slice'
         print *, 'Output:'

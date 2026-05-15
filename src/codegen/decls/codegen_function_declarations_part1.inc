@@ -100,7 +100,7 @@
             if (standardize_types_enabled) then
                 lowered = to_lower(trim(return_type_code))
                 if (lowered == 'real') then
-                    return_type_code = "real(8)"
+                    return_type_code = "real(dp)"
                 end if
             end if
         end if
