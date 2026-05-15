@@ -38,6 +38,10 @@ module fortfront
     use frontend_tooling_api, only: tooling_parse_options_t, &
                                     tooling_load_ast_from_string, &
                                     tooling_load_ast_from_file
+    use frontend_compiler_api, only: compiler_frontend_options_t, &
+                                     compiler_frontend_result_t, &
+                                     compile_frontend_from_string, &
+                                     compile_frontend_from_file
 
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
@@ -95,6 +99,8 @@ module fortfront
 
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use semantic_input_mode, only: INPUT_MODE_LAZY, INPUT_MODE_STANDARD
+    use semantic_operating_mode, only: OPERATING_MODE_INFER, OPERATING_MODE_STRICT
 
     ! Re-export lexer token type
     use lexer_core, only: token_t, trivia_token_t, tokenize_core, &
