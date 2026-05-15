@@ -22,6 +22,7 @@ module variable_usage_control_handlers_module
     public :: process_do_loop_node_children, process_forall_node_children
     public :: process_select_rank_node_children, process_rank_block_node_children
     public :: process_select_type_node_children, process_type_guard_block_node_children
+    public :: process_block_construct_node_children
 
     ! Internal utilities
     public :: push_node, validate_node_index
@@ -305,6 +306,27 @@ contains
             end if
         end select
     end subroutine process_case_block_node_children
+
+    subroutine process_block_construct_node_children(arena, node_index, info, ctx)
+        use ast_nodes_control, only: block_construct_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        type(traversal_context_t), intent(inout) :: ctx
+
+        integer :: i
+
+        if (.not. validate_node_index(arena, node_index)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (block_construct_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call push_node(ctx, node%body_indices(i))
+                end do
+            end if
+        end select
+    end subroutine process_block_construct_node_children
 
     subroutine process_do_loop_node_children(arena, node_index, info, ctx)
         use ast_nodes_control, only: do_loop_node
