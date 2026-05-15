@@ -1,7 +1,6 @@
 module ast_nodes_procedure
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_visitor_base_t
     implicit none
     private
@@ -30,7 +29,6 @@ module ast_nodes_procedure
         character(len=:), allocatable :: bind_c_clause
     contains
         procedure :: accept => function_def_accept
-        procedure :: to_json => function_def_to_json
         procedure :: assign => function_def_assign
         generic :: assignment(=) => assign
     end type function_def_node
@@ -46,7 +44,6 @@ module ast_nodes_procedure
         character(len=:), allocatable :: bind_c_clause
     contains
         procedure :: accept => subroutine_def_accept
-        procedure :: to_json => subroutine_def_to_json
         procedure :: assign => subroutine_def_assign
         generic :: assignment(=) => assign
     end type subroutine_def_node
@@ -57,7 +54,6 @@ module ast_nodes_procedure
         integer, allocatable :: arg_indices(:)
     contains
         procedure :: accept => subroutine_call_accept
-        procedure :: to_json => subroutine_call_to_json
         procedure :: assign => subroutine_call_assign
         generic :: assignment(=) => assign
     end type subroutine_call_node
@@ -70,33 +66,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Implementation is in ast_visitor.f90
     end subroutine function_def_accept
-
-    subroutine function_def_to_json(this, json, parent)
-        class(function_def_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'function_def')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'name', this%name)
-        if (allocated(this%return_type)) then
-            call json%add(obj, 'return_type', this%return_type)
-        end if
-        if (allocated(this%result_variable)) then
-            call json%add(obj, 'result_variable', this%result_variable)
-        end if
-        call json%add(obj, 'is_recursive', this%is_recursive)
-        if (allocated(this%param_indices)) then
-            call json%add(obj, 'param_indices', this%param_indices)
-        end if
-        if (allocated(this%body_indices)) then
-            call json%add(obj, 'body_indices', this%body_indices)
-        end if
-        call json%add(parent, obj)
-    end subroutine function_def_to_json
 
     subroutine function_def_assign(lhs, rhs)
         class(function_def_node), intent(inout) :: lhs
@@ -131,27 +100,6 @@ contains
         ! Implementation is in ast_visitor.f90
     end subroutine subroutine_def_accept
 
-    subroutine subroutine_def_to_json(this, json, parent)
-        class(subroutine_def_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'subroutine_def')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'name', this%name)
-        if (allocated(this%param_indices)) then
-            call json%add(obj, 'param_indices', this%param_indices)
-        end if
-        if (allocated(this%body_indices)) then
-            call json%add(obj, 'body_indices', this%body_indices)
-        end if
-        call json%add(obj, 'is_recursive', this%is_recursive)
-        call json%add(parent, obj)
-    end subroutine subroutine_def_to_json
-
     subroutine subroutine_def_assign(lhs, rhs)
         class(subroutine_def_node), intent(inout) :: lhs
         class(subroutine_def_node), intent(in) :: rhs
@@ -181,23 +129,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Implementation is in ast_visitor.f90
     end subroutine subroutine_call_accept
-
-    subroutine subroutine_call_to_json(this, json, parent)
-        class(subroutine_call_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'subroutine_call')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'name', this%name)
-        if (allocated(this%arg_indices)) then
-            call json%add(obj, 'arg_indices', this%arg_indices)
-        end if
-        call json%add(parent, obj)
-    end subroutine subroutine_call_to_json
 
     subroutine subroutine_call_assign(lhs, rhs)
         class(subroutine_call_node), intent(inout) :: lhs

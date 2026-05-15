@@ -1,6 +1,5 @@
 module ast_nodes_generics
-    use json_module
-    use ast_base, only: ast_node, ast_visitor_base_t, to_json_interface
+    use ast_base, only: ast_node, ast_visitor_base_t
     implicit none
     private
 
@@ -23,7 +22,6 @@ module ast_nodes_generics
         logical :: has_contains = .false.
     contains
         procedure :: accept => template_block_accept
-        procedure :: to_json => template_block_to_json
         procedure :: assign => template_block_assign
         generic :: assignment(=) => assign
     end type template_block_node
@@ -33,7 +31,6 @@ module ast_nodes_generics
         character(len=:), allocatable :: spec_text
     contains
         procedure :: accept => instantiate_statement_accept
-        procedure :: to_json => instantiate_statement_to_json
         procedure :: assign => instantiate_statement_assign
         generic :: assignment(=) => assign
     end type instantiate_statement_node
@@ -46,7 +43,6 @@ module ast_nodes_generics
         logical :: has_contains = .false.
     contains
         procedure :: accept => trait_block_accept
-        procedure :: to_json => trait_block_to_json
         procedure :: assign => trait_block_assign
         generic :: assignment(=) => assign
     end type trait_block_node
@@ -59,7 +55,6 @@ module ast_nodes_generics
         logical :: has_contains = .false.
     contains
         procedure :: accept => requirement_block_accept
-        procedure :: to_json => requirement_block_to_json
         procedure :: assign => requirement_block_assign
         generic :: assignment(=) => assign
     end type requirement_block_node
@@ -72,7 +67,6 @@ module ast_nodes_generics
         logical :: has_contains = .false.
     contains
         procedure :: accept => implements_block_accept
-        procedure :: to_json => implements_block_to_json
         procedure :: assign => implements_block_assign
         generic :: assignment(=) => assign
     end type implements_block_node
@@ -224,190 +218,6 @@ contains
         class(implements_block_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine implements_block_accept
-
-    subroutine template_block_to_json(this, json, parent)
-        class(template_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        type(json_value), pointer :: arr
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'template_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        call json%add(obj, 'has_contains', this%has_contains)
-
-        if (allocated(this%parameter_names)) then
-            call json%create_array(arr, 'parameter_names')
-            do i = 1, size(this%parameter_names)
-                call json%add(arr, '', this%parameter_names(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%declaration_indices)) then
-            call json%create_array(arr, 'declaration_indices')
-            do i = 1, size(this%declaration_indices)
-                call json%add(arr, '', this%declaration_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%procedure_indices)) then
-            call json%create_array(arr, 'procedure_indices')
-            do i = 1, size(this%procedure_indices)
-                call json%add(arr, '', this%procedure_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine template_block_to_json
-
-    subroutine instantiate_statement_to_json(this, json, parent)
-        class(instantiate_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'instantiate_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%template_name)) call json%add(obj, 'template_name', &
-                                                         this%template_name)
-        if (allocated(this%spec_text)) call json%add(obj, 'spec_text', this%spec_text)
-        call json%add(parent, obj)
-    end subroutine instantiate_statement_to_json
-
-    subroutine trait_block_to_json(this, json, parent)
-        class(trait_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        type(json_value), pointer :: arr
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'trait_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        call json%add(obj, 'has_contains', this%has_contains)
-
-        if (allocated(this%parameter_names)) then
-            call json%create_array(arr, 'parameter_names')
-            do i = 1, size(this%parameter_names)
-                call json%add(arr, '', this%parameter_names(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%declaration_indices)) then
-            call json%create_array(arr, 'declaration_indices')
-            do i = 1, size(this%declaration_indices)
-                call json%add(arr, '', this%declaration_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%procedure_indices)) then
-            call json%create_array(arr, 'procedure_indices')
-            do i = 1, size(this%procedure_indices)
-                call json%add(arr, '', this%procedure_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine trait_block_to_json
-
-    subroutine requirement_block_to_json(this, json, parent)
-        class(requirement_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        type(json_value), pointer :: arr
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'requirement_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        call json%add(obj, 'has_contains', this%has_contains)
-
-        if (allocated(this%parameter_names)) then
-            call json%create_array(arr, 'parameter_names')
-            do i = 1, size(this%parameter_names)
-                call json%add(arr, '', this%parameter_names(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%declaration_indices)) then
-            call json%create_array(arr, 'declaration_indices')
-            do i = 1, size(this%declaration_indices)
-                call json%add(arr, '', this%declaration_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%procedure_indices)) then
-            call json%create_array(arr, 'procedure_indices')
-            do i = 1, size(this%procedure_indices)
-                call json%add(arr, '', this%procedure_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine requirement_block_to_json
-
-    subroutine implements_block_to_json(this, json, parent)
-        class(implements_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        type(json_value), pointer :: arr
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'implements_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        call json%add(obj, 'has_contains', this%has_contains)
-
-        if (allocated(this%parameter_names)) then
-            call json%create_array(arr, 'parameter_names')
-            do i = 1, size(this%parameter_names)
-                call json%add(arr, '', this%parameter_names(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%declaration_indices)) then
-            call json%create_array(arr, 'declaration_indices')
-            do i = 1, size(this%declaration_indices)
-                call json%add(arr, '', this%declaration_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        if (allocated(this%procedure_indices)) then
-            call json%create_array(arr, 'procedure_indices')
-            do i = 1, size(this%procedure_indices)
-                call json%add(arr, '', this%procedure_indices(i))
-            end do
-            call json%add(obj, arr)
-        end if
-
-        call json%add(parent, obj)
-    end subroutine implements_block_to_json
 
     subroutine template_block_assign(lhs, rhs)
         class(template_block_node), intent(inout) :: lhs

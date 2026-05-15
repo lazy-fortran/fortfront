@@ -26,19 +26,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine data_statement_accept
 
-    subroutine data_statement_to_json(this, json, parent)
-        class(data_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'data_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine data_statement_to_json
-
     subroutine data_statement_assign(lhs, rhs)
         class(data_statement_node), intent(inout) :: lhs
         class(data_statement_node), intent(in) :: rhs
@@ -78,20 +65,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine include_statement_accept
 
-    subroutine include_statement_to_json(this, json, parent)
-        class(include_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'include_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%filename)) call json%add(obj, 'filename', this%filename)
-        call json%add(parent, obj)
-    end subroutine include_statement_to_json
-
     subroutine include_statement_assign(lhs, rhs)
         class(include_statement_node), intent(inout) :: lhs
         class(include_statement_node), intent(in) :: rhs
@@ -114,32 +87,6 @@
         class(import_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine import_statement_accept
-
-    subroutine import_statement_to_json(this, json, parent)
-        class(import_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'import_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'has_double_colon', this%has_double_colon)
-        call json%add(obj, 'has_list', this%has_list)
-        call json%add(obj, 'is_all', this%is_all)
-        call json%add(obj, 'is_none', this%is_none)
-        if (allocated(this%import_list)) then
-            do i = 1, size(this%import_list)
-                if (allocated(this%import_list(i)%s)) then
-                    call json%add(obj, 'name_'//trim(adjustl(int_to_string(i))), &
-                                  this%import_list(i)%s)
-                end if
-            end do
-        end if
-        call json%add(parent, obj)
-    end subroutine import_statement_to_json
 
     subroutine import_statement_assign(lhs, rhs)
         class(import_statement_node), intent(inout) :: lhs
@@ -170,28 +117,6 @@
         ! Implementation handled by visitor dispatchers
     end subroutine statement_function_accept
 
-    subroutine statement_function_to_json(this, json, parent)
-        class(statement_function_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'statement_function')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'name', this%name)
-        if (allocated(this%arg_names)) then
-            do i = 1, size(this%arg_names)
-                call json%add(obj, 'arg_'//trim(adjustl(int_to_string(i))), &
-                              this%arg_names(i))
-            end do
-        end if
-        call json%add(obj, 'body_expr_index', this%body_expr_index)
-        call json%add(parent, obj)
-    end subroutine statement_function_to_json
-
     subroutine statement_function_assign(lhs, rhs)
         class(statement_function_node), intent(inout) :: lhs
         class(statement_function_node), intent(in) :: rhs
@@ -217,19 +142,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine contains_accept
 
-    subroutine contains_to_json(this, json, parent)
-        class(contains_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'contains')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine contains_to_json
-
     subroutine contains_assign(lhs, rhs)
         class(contains_node), intent(inout) :: lhs
         class(contains_node), intent(in) :: rhs
@@ -251,19 +163,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine end_statement_accept
 
-    subroutine end_statement_to_json(this, json, parent)
-        class(end_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'end_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine end_statement_to_json
-
     subroutine end_statement_assign(lhs, rhs)
         class(end_statement_node), intent(inout) :: lhs
         class(end_statement_node), intent(in) :: rhs
@@ -284,23 +183,6 @@
         class(interface_block_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine interface_block_accept
-
-    subroutine interface_block_to_json(this, json, parent)
-        class(interface_block_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'interface_block')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        if (allocated(this%kind)) call json%add(obj, 'kind', this%kind)
-        if (allocated(this%operator)) call json%add(obj, 'operator', this%operator)
-        call json%add(obj, 'is_abstract', this%is_abstract)
-        call json%add(parent, obj)
-    end subroutine interface_block_to_json
 
     subroutine interface_block_assign(lhs, rhs)
         class(interface_block_node), intent(inout) :: lhs
@@ -330,34 +212,6 @@
         class(module_procedure_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine module_procedure_accept
-
-    subroutine module_procedure_to_json(this, json, parent)
-        class(module_procedure_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        type(json_value), pointer :: arr
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'module_procedure')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%procedure_names)) then
-            call json%create_array(arr, 'procedure_names')
-            do i = 1, size(this%procedure_names)
-                if (allocated(this%procedure_names(i)%s)) then
-                    call json%add(arr, '', trim(this%procedure_names(i)%s))
-                else
-                    call json%add(arr, '', '')
-                end if
-            end do
-            call json%add(obj, arr)
-        end if
-        call json%add(obj, 'has_module_prefix', this%has_module_prefix)
-        call json%add(obj, 'has_double_colon', this%has_double_colon)
-        call json%add(parent, obj)
-    end subroutine module_procedure_to_json
 
     subroutine module_procedure_assign(lhs, rhs)
         class(module_procedure_node), intent(inout) :: lhs
@@ -396,20 +250,6 @@
         ! For now, do nothing since we don't have a visitor framework in place
     end subroutine comment_accept
 
-    subroutine comment_to_json(this, json, parent)
-        class(comment_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'comment')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%text)) call json%add(obj, 'text', this%text)
-        call json%add(parent, obj)
-    end subroutine comment_to_json
-
     subroutine comment_assign(lhs, rhs)
         class(comment_node), intent(inout) :: lhs
         class(comment_node), intent(in) :: rhs
@@ -433,22 +273,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! No-op placeholder for future visitor hooks
     end subroutine directive_accept
-
-    subroutine directive_to_json(this, json, parent)
-        class(directive_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'directive')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%text)) call json%add(obj, 'text', this%text)
-        call json%add(obj, 'is_openmp', this%is_openmp)
-        call json%add(obj, 'is_openacc', this%is_openacc)
-        call json%add(parent, obj)
-    end subroutine directive_to_json
 
     subroutine directive_assign(lhs, rhs)
         class(directive_node), intent(inout) :: lhs
@@ -476,20 +300,6 @@
         ! For now, do nothing since we don't have a visitor framework in place
     end subroutine blank_line_accept
 
-    subroutine blank_line_to_json(this, json, parent)
-        class(blank_line_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'blank_line')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'count', this%count)
-        call json%add(parent, obj)
-    end subroutine blank_line_to_json
-
     subroutine blank_line_assign(lhs, rhs)
         class(blank_line_node), intent(inout) :: lhs
         class(blank_line_node), intent(in) :: rhs
@@ -513,44 +323,6 @@
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! For now, do nothing since we don't have a visitor framework in place
     end subroutine implicit_statement_accept
-
-    subroutine implicit_statement_to_json(this, json, parent)
-        class(implicit_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'implicit_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'is_none', this%is_none)
-
-        if (.not. this%is_none) then
-            ! Add type specification as simple fields
-            if (allocated(this%type_spec%type_name)) then
-                call json%add(obj, 'type_name', this%type_spec%type_name)
-            end if
-            call json%add(obj, 'has_kind', this%type_spec%has_kind)
-            if (this%type_spec%has_kind) then
-                call json%add(obj, 'kind_value', this%type_spec%kind_value)
-            end if
-            call json%add(obj, 'has_length', this%type_spec%has_length)
-            if (this%type_spec%has_length) then
-                call json%add(obj, 'length_value', this%type_spec%length_value)
-            end if
-
-            ! For now, just add letter count
-            ! Full letter spec serialization can be added later
-            if (allocated(this%letter_specs)) then
-                call json%add(obj, 'letter_specs_count', size(this%letter_specs))
-            else
-                call json%add(obj, 'letter_specs_count', 0)
-            end if
-        end if
-
-        call json%add(parent, obj)
-    end subroutine implicit_statement_to_json
 
     subroutine implicit_statement_assign(lhs, rhs)
         class(implicit_statement_node), intent(inout) :: lhs

@@ -1,5 +1,4 @@
         procedure :: accept => comment_accept
-        procedure :: to_json => comment_to_json
         procedure :: assign => comment_assign
         generic :: assignment(=) => assign
     end type comment_node
@@ -11,7 +10,6 @@
         logical :: is_openacc = .false.
     contains
         procedure :: accept => directive_accept
-        procedure :: to_json => directive_to_json
         procedure :: assign => directive_assign
         generic :: assignment(=) => assign
     end type directive_node
@@ -21,7 +19,6 @@
         integer :: count = 1  ! Number of consecutive blank lines
     contains
         procedure :: accept => blank_line_accept
-        procedure :: to_json => blank_line_to_json
         procedure :: assign => blank_line_assign
         generic :: assignment(=) => assign
     end type blank_line_node
@@ -32,7 +29,6 @@
         integer :: imag_index = 0  ! Index to imaginary part expression in arena
     contains
         procedure :: accept => complex_literal_accept
-        procedure :: to_json => complex_literal_to_json
         procedure :: assign => complex_literal_assign
         generic :: assignment(=) => assign
     end type complex_literal_node
@@ -50,7 +46,6 @@
         integer :: mold_expr_index = 0  ! Optional mold expression index
     contains
         procedure :: accept => allocate_statement_accept
-        procedure :: to_json => allocate_statement_to_json
         procedure :: assign => allocate_statement_assign
         generic :: assignment(=) => assign
     end type allocate_statement_node
@@ -62,7 +57,6 @@
         integer :: errmsg_var_index = 0  ! Optional errmsg variable index
     contains
         procedure :: accept => deallocate_statement_accept
-        procedure :: to_json => deallocate_statement_to_json
         procedure :: assign => deallocate_statement_assign
         generic :: assignment(=) => assign
     end type deallocate_statement_node
@@ -82,7 +76,6 @@
         logical :: is_non_intrinsic = .false.
     contains
         procedure :: accept => use_statement_accept
-        procedure :: to_json => use_statement_to_json
         procedure :: assign => use_statement_assign
         generic :: assignment(=) => assign
     end type use_statement_node
@@ -93,7 +86,6 @@
         logical :: has_double_colon = .false.
     contains
         procedure :: accept => intrinsic_statement_accept
-        procedure :: to_json => intrinsic_statement_to_json
         procedure :: assign => intrinsic_statement_assign
         generic :: assignment(=) => assign
     end type intrinsic_statement_node
@@ -105,7 +97,6 @@
         logical :: has_double_colon = .false.
     contains
         procedure :: accept => visibility_statement_accept
-        procedure :: to_json => visibility_statement_to_json
         procedure :: assign => visibility_statement_assign
         generic :: assignment(=) => assign
     end type visibility_statement_node
@@ -115,7 +106,6 @@
         type(string_t), allocatable :: variable_names(:)
     contains
         procedure :: accept => namelist_statement_accept
-        procedure :: to_json => namelist_statement_to_json
         procedure :: assign => namelist_statement_assign
         generic :: assignment(=) => assign
     end type namelist_statement_node
@@ -126,7 +116,6 @@
         integer, allocatable :: value_indices(:)
     contains
         procedure :: accept => data_statement_accept
-        procedure :: to_json => data_statement_to_json
         procedure :: assign => data_statement_assign
         generic :: assignment(=) => assign
     end type data_statement_node
@@ -136,7 +125,6 @@
         character(len=:), allocatable :: filename
     contains
         procedure :: accept => include_statement_accept
-        procedure :: to_json => include_statement_to_json
         procedure :: assign => include_statement_assign
         generic :: assignment(=) => assign
     end type include_statement_node
@@ -150,7 +138,6 @@
         logical :: is_none = .false.
     contains
         procedure :: accept => import_statement_accept
-        procedure :: to_json => import_statement_to_json
         procedure :: assign => import_statement_assign
         generic :: assignment(=) => assign
     end type import_statement_node
@@ -162,7 +149,6 @@
         integer :: body_expr_index = 0
     contains
         procedure :: accept => statement_function_accept
-        procedure :: to_json => statement_function_to_json
         procedure :: assign => statement_function_assign
         generic :: assignment(=) => assign
     end type statement_function_node
@@ -171,7 +157,6 @@
     type, extends(ast_node), public :: contains_node
     contains
         procedure :: accept => contains_accept
-        procedure :: to_json => contains_to_json
         procedure :: assign => contains_assign
         generic :: assignment(=) => assign
     end type contains_node
@@ -180,7 +165,6 @@
     type, extends(ast_node), public :: end_statement_node
     contains
         procedure :: accept => end_statement_accept
-        procedure :: to_json => end_statement_to_json
         procedure :: assign => end_statement_assign
         generic :: assignment(=) => assign
     end type end_statement_node
@@ -197,7 +181,6 @@
         ! arena indices
     contains
         procedure :: accept => interface_block_accept
-        procedure :: to_json => interface_block_to_json
         procedure :: assign => interface_block_assign
         generic :: assignment(=) => assign
     end type interface_block_node
@@ -208,7 +191,6 @@
         logical :: has_double_colon = .false.
     contains
         procedure :: accept => module_procedure_accept
-        procedure :: to_json => module_procedure_to_json
         procedure :: assign => module_procedure_assign
         generic :: assignment(=) => assign
     end type module_procedure_node
@@ -240,7 +222,6 @@
         ! Letter ranges/singles
     contains
         procedure :: accept => implicit_statement_accept
-        procedure :: to_json => implicit_statement_to_json
         procedure :: assign => implicit_statement_assign
         generic :: assignment(=) => assign
     end type implicit_statement_node
@@ -569,21 +550,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine complex_literal_accept
 
-    subroutine complex_literal_to_json(this, json, parent)
-        class(complex_literal_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'complex_literal')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'real_index', this%real_index)
-        call json%add(obj, 'imag_index', this%imag_index)
-        call json%add(parent, obj)
-    end subroutine complex_literal_to_json
-
     subroutine complex_literal_assign(lhs, rhs)
         class(complex_literal_node), intent(inout) :: lhs
         class(complex_literal_node), intent(in) :: rhs
@@ -607,28 +573,6 @@ contains
         class(allocate_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine allocate_statement_accept
-
-    subroutine allocate_statement_to_json(this, json, parent)
-        class(allocate_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'allocate_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%type_spec)) call json%add(obj, 'type_spec', this%type_spec)
-        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
-                                                   this%stat_var_index)
-        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
-                                                     this%errmsg_var_index)
-        if (this%source_expr_index > 0) call json%add(obj, 'source_expr_index', &
-                                                      this%source_expr_index)
-        if (this%mold_expr_index > 0) call json%add(obj, 'mold_expr_index', &
-                                                    this%mold_expr_index)
-        call json%add(parent, obj)
-    end subroutine allocate_statement_to_json
 
     subroutine allocate_statement_assign(lhs, rhs)
         class(allocate_statement_node), intent(inout) :: lhs
@@ -657,23 +601,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine deallocate_statement_accept
 
-    subroutine deallocate_statement_to_json(this, json, parent)
-        class(deallocate_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'deallocate_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
-                                                   this%stat_var_index)
-        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
-                                                     this%errmsg_var_index)
-        call json%add(parent, obj)
-    end subroutine deallocate_statement_to_json
-
     subroutine deallocate_statement_assign(lhs, rhs)
         class(deallocate_statement_node), intent(inout) :: lhs
         class(deallocate_statement_node), intent(in) :: rhs
@@ -692,27 +619,6 @@ contains
         class(use_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine use_statement_accept
-
-    subroutine use_statement_to_json(this, json, parent)
-        class(use_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'use_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%module_name)) call json%add(obj, 'module_name', &
-                                                       this%module_name)
-        if (allocated(this%url_spec)) call json%add(obj, 'url_spec', &
-                                                    this%url_spec)
-        call json%add(obj, 'has_only', this%has_only)
-        call json%add(obj, 'has_double_colon', this%has_double_colon)
-        call json%add(obj, 'is_intrinsic', this%is_intrinsic)
-        call json%add(obj, 'is_non_intrinsic', this%is_non_intrinsic)
-        call json%add(parent, obj)
-    end subroutine use_statement_to_json
 
     subroutine use_statement_assign(lhs, rhs)
         class(use_statement_node), intent(inout) :: lhs
@@ -748,29 +654,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine intrinsic_statement_accept
 
-    subroutine intrinsic_statement_to_json(this, json, parent)
-        class(intrinsic_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'intrinsic_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'has_double_colon', this%has_double_colon)
-        if (allocated(this%procedure_names)) then
-            do i = 1, size(this%procedure_names)
-                if (allocated(this%procedure_names(i)%s)) then
-                    call json%add(obj, 'procedure_'//trim(adjustl(int_to_string(i))), &
-                                  this%procedure_names(i)%s)
-                end if
-            end do
-        end if
-        call json%add(parent, obj)
-    end subroutine intrinsic_statement_to_json
-
     subroutine intrinsic_statement_assign(lhs, rhs)
         class(intrinsic_statement_node), intent(inout) :: lhs
         class(intrinsic_statement_node), intent(in) :: rhs
@@ -796,38 +679,6 @@ contains
         class(visibility_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine visibility_statement_accept
-
-    subroutine visibility_statement_to_json(this, json, parent)
-        class(visibility_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'visibility_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'is_private', this%is_private)
-        call json%add(obj, 'has_list', this%has_list)
-        call json%add(obj, 'has_double_colon', this%has_double_colon)
-        if (allocated(this%names)) then
-            do i = 1, size(this%names)
-                if (allocated(this%names(i)%s)) then
-                    call json%add(obj, 'name_'//trim(adjustl(to_string(i))), &
-                                  this%names(i)%s)
-                end if
-            end do
-        end if
-        call json%add(parent, obj)
-    contains
-        pure function to_string(val) result(str)
-            integer, intent(in) :: val
-            character(len=:), allocatable :: str
-
-            str = int_to_string(val)
-        end function to_string
-    end subroutine visibility_statement_to_json
 
     subroutine visibility_statement_assign(lhs, rhs)
         class(visibility_statement_node), intent(inout) :: lhs
@@ -855,33 +706,3 @@ contains
         class(namelist_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine namelist_statement_accept
-
-    subroutine namelist_statement_to_json(this, json, parent)
-        class(namelist_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-        integer :: i
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'namelist_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%group_name)) call json%add(obj, 'group', this%group_name)
-        if (allocated(this%variable_names)) then
-            do i = 1, size(this%variable_names)
-                if (allocated(this%variable_names(i)%s)) then
-                    call json%add(obj, 'name_'//trim(adjustl(to_string(i))), &
-                                  this%variable_names(i)%s)
-                end if
-            end do
-        end if
-        call json%add(parent, obj)
-    contains
-        pure function to_string(val) result(str)
-            integer, intent(in) :: val
-            character(len=:), allocatable :: str
-
-            str = int_to_string(val)
-        end function to_string
-    end subroutine namelist_statement_to_json

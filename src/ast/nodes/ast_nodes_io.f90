@@ -1,7 +1,6 @@
 module ast_nodes_io
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_visitor_base_t
     implicit none
     private
@@ -24,7 +23,6 @@ module ast_nodes_io
         character(len=:), allocatable :: format_spec  ! Optional format specifier
     contains
         procedure :: accept => print_statement_accept
-        procedure :: to_json => print_statement_to_json
         procedure :: assign => print_statement_assign
         generic :: assignment(=) => assign
     end type print_statement_node
@@ -39,7 +37,6 @@ module ast_nodes_io
         integer :: step_expr_index = 0
     contains
         procedure :: accept => io_implied_do_accept
-        procedure :: to_json => io_implied_do_to_json
         procedure :: assign => io_implied_do_assign
         generic :: assignment(=) => assign
     end type io_implied_do_node
@@ -60,7 +57,6 @@ module ast_nodes_io
         logical :: is_formatted = .false.  ! True if formatted I/O
     contains
         procedure :: accept => write_statement_accept
-        procedure :: to_json => write_statement_to_json
         procedure :: assign => write_statement_assign
         generic :: assignment(=) => assign
     end type write_statement_node
@@ -81,7 +77,6 @@ module ast_nodes_io
         logical :: is_formatted = .false.  ! True if formatted I/O
     contains
         procedure :: accept => read_statement_accept
-        procedure :: to_json => read_statement_to_json
         procedure :: assign => read_statement_assign
         generic :: assignment(=) => assign
     end type read_statement_node
@@ -97,7 +92,6 @@ module ast_nodes_io
         character(len=:), allocatable :: literal_text  ! For literal format strings
     contains
         procedure :: accept => format_descriptor_accept
-        procedure :: to_json => format_descriptor_to_json
         procedure :: assign => format_descriptor_assign
         generic :: assignment(=) => assign
     end type format_descriptor_node
@@ -107,7 +101,6 @@ module ast_nodes_io
         character(len=:), allocatable :: format_spec
     contains
         procedure :: accept => format_statement_accept
-        procedure :: to_json => format_statement_to_json
         procedure :: assign => format_statement_assign
         generic :: assignment(=) => assign
     end type format_statement_node
@@ -129,7 +122,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => open_statement_accept
-        procedure :: to_json => open_statement_to_json
         procedure :: assign => open_statement_assign
         generic :: assignment(=) => assign
     end type open_statement_node
@@ -142,7 +134,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => close_statement_accept
-        procedure :: to_json => close_statement_to_json
         procedure :: assign => close_statement_assign
         generic :: assignment(=) => assign
     end type close_statement_node
@@ -154,7 +145,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => inquire_statement_accept
-        procedure :: to_json => inquire_statement_to_json
         procedure :: assign => inquire_statement_assign
         generic :: assignment(=) => assign
     end type inquire_statement_node
@@ -166,7 +156,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => backspace_statement_accept
-        procedure :: to_json => backspace_statement_to_json
         procedure :: assign => backspace_statement_assign
         generic :: assignment(=) => assign
     end type backspace_statement_node
@@ -178,7 +167,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => rewind_statement_accept
-        procedure :: to_json => rewind_statement_to_json
         procedure :: assign => rewind_statement_assign
         generic :: assignment(=) => assign
     end type rewind_statement_node
@@ -190,7 +178,6 @@ module ast_nodes_io
         integer :: err_label_index = 0
     contains
         procedure :: accept => endfile_statement_accept
-        procedure :: to_json => endfile_statement_to_json
         procedure :: assign => endfile_statement_assign
         generic :: assignment(=) => assign
     end type endfile_statement_node
@@ -203,13 +190,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine print_statement_accept
-
-    subroutine print_statement_to_json(this, json, parent)
-        class(print_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine print_statement_to_json
 
     subroutine print_statement_assign(lhs, rhs)
         class(print_statement_node), intent(inout) :: lhs
@@ -239,13 +219,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine io_implied_do_accept
-
-    subroutine io_implied_do_to_json(this, json, parent)
-        class(io_implied_do_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine io_implied_do_to_json
 
     subroutine io_implied_do_assign(lhs, rhs)
         class(io_implied_do_node), intent(inout) :: lhs
@@ -278,38 +251,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine write_statement_accept
-
-    subroutine write_statement_to_json(this, json, parent)
-        class(write_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'write_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', &
-                                                     this%unit_spec)
-        if (allocated(this%format_spec)) call json%add(obj, 'format_spec', &
-                                                       this%format_spec)
-        if (allocated(this%namelist_group)) call json%add(obj, &
-                                                          'namelist_group', &
-                                                          this%namelist_group)
-        if (allocated(this%io_control_list)) call json%add(obj, &
-                                                          'io_control_list', &
-                                                          this%io_control_list)
-        if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
-                                                     this%iostat_var_index)
-        if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
-                                                    this%err_label_index)
-        if (this%end_label_index > 0) call json%add(obj, 'end_label_index', &
-                                                    this%end_label_index)
-        if (this%format_expr_index > 0) call json%add(obj, 'format_expr_index', &
-                                                      this%format_expr_index)
-        call json%add(obj, 'is_formatted', this%is_formatted)
-        call json%add(parent, obj)
-    end subroutine write_statement_to_json
 
     subroutine write_statement_assign(lhs, rhs)
         class(write_statement_node), intent(inout) :: lhs
@@ -347,35 +288,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine read_statement_accept
 
-    subroutine read_statement_to_json(this, json, parent)
-        class(read_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'read_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        if (allocated(this%format_spec)) call json%add(obj, 'format_spec', &
-                                                       this%format_spec)
-        if (allocated(this%namelist_group)) call json%add(obj, 'namelist_group', &
-                                                          this%namelist_group)
-        if (allocated(this%io_control_list)) call json%add(obj, 'io_control_list', &
-                                                           this%io_control_list)
-        if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
-                                                     this%iostat_var_index)
-        if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
-                                                    this%err_label_index)
-        if (this%end_label_index > 0) call json%add(obj, 'end_label_index', &
-                                                    this%end_label_index)
-        if (this%format_expr_index > 0) call json%add(obj, 'format_expr_index', &
-                                                      this%format_expr_index)
-        call json%add(obj, 'is_formatted', this%is_formatted)
-        call json%add(parent, obj)
-    end subroutine read_statement_to_json
-
     subroutine read_statement_assign(lhs, rhs)
         class(read_statement_node), intent(inout) :: lhs
         class(read_statement_node), intent(in) :: rhs
@@ -412,29 +324,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine format_descriptor_accept
 
-    subroutine format_descriptor_to_json(this, json, parent)
-        class(format_descriptor_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'format_descriptor')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%descriptor_type)) call json%add(obj, &
-                                                           'descriptor_type', &
-                                                           this%descriptor_type)
-        call json%add(obj, 'width', this%width)
-        call json%add(obj, 'decimal_places', this%decimal_places)
-        call json%add(obj, 'exponent_width', this%exponent_width)
-        call json%add(obj, 'repeat_count', this%repeat_count)
-        call json%add(obj, 'is_literal', this%is_literal)
-        if (allocated(this%literal_text)) call json%add(obj, 'literal_text', &
-                                                        this%literal_text)
-        call json%add(parent, obj)
-    end subroutine format_descriptor_to_json
-
     subroutine format_descriptor_assign(lhs, rhs)
         class(format_descriptor_node), intent(inout) :: lhs
         class(format_descriptor_node), intent(in) :: rhs
@@ -464,22 +353,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine format_statement_accept
 
-    subroutine format_statement_to_json(this, json, parent)
-        class(format_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'format_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%format_spec)) then
-            call json%add(obj, 'format_spec', this%format_spec)
-        end if
-        call json%add(parent, obj)
-    end subroutine format_statement_to_json
-
     subroutine format_statement_assign(lhs, rhs)
         class(format_statement_node), intent(inout) :: lhs
         class(format_statement_node), intent(in) :: rhs
@@ -500,23 +373,6 @@ contains
         class(open_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine open_statement_accept
-
-    subroutine open_statement_to_json(this, json, parent)
-        class(open_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'open_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        if (allocated(this%file_spec)) call json%add(obj, 'file_spec', this%file_spec)
-        if (allocated(this%status_spec)) call json%add(obj, 'status_spec', &
-                                                       this%status_spec)
-        call json%add(parent, obj)
-    end subroutine open_statement_to_json
 
     subroutine open_statement_assign(lhs, rhs)
         class(open_statement_node), intent(inout) :: lhs
@@ -551,22 +407,6 @@ contains
         class(close_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine close_statement_accept
-
-    subroutine close_statement_to_json(this, json, parent)
-        class(close_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'close_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        if (allocated(this%status_spec)) call json%add(obj, 'status_spec', &
-                                                       this%status_spec)
-        call json%add(parent, obj)
-    end subroutine close_statement_to_json
 
     subroutine close_statement_assign(lhs, rhs)
         class(close_statement_node), intent(inout) :: lhs
@@ -653,21 +493,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine inquire_statement_accept
 
-    subroutine inquire_statement_to_json(this, json, parent)
-        class(inquire_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'inquire_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%spec_list)) call json%add(obj, 'spec_list', &
-                                                      this%spec_list)
-        call json%add(parent, obj)
-    end subroutine inquire_statement_to_json
-
     subroutine inquire_statement_assign(lhs, rhs)
         class(inquire_statement_node), intent(inout) :: lhs
         class(inquire_statement_node), intent(in) :: rhs
@@ -696,20 +521,6 @@ contains
         class(backspace_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine backspace_statement_accept
-
-    subroutine backspace_statement_to_json(this, json, parent)
-        class(backspace_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'backspace_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        call json%add(parent, obj)
-    end subroutine backspace_statement_to_json
 
     subroutine backspace_statement_assign(lhs, rhs)
         class(backspace_statement_node), intent(inout) :: lhs
@@ -740,20 +551,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine rewind_statement_accept
 
-    subroutine rewind_statement_to_json(this, json, parent)
-        class(rewind_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'rewind_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        call json%add(parent, obj)
-    end subroutine rewind_statement_to_json
-
     subroutine rewind_statement_assign(lhs, rhs)
         class(rewind_statement_node), intent(inout) :: lhs
         class(rewind_statement_node), intent(in) :: rhs
@@ -782,20 +579,6 @@ contains
         class(endfile_statement_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine endfile_statement_accept
-
-    subroutine endfile_statement_to_json(this, json, parent)
-        class(endfile_statement_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'endfile_statement')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        call json%add(parent, obj)
-    end subroutine endfile_statement_to_json
 
     subroutine endfile_statement_assign(lhs, rhs)
         class(endfile_statement_node), intent(inout) :: lhs
