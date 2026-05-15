@@ -238,32 +238,32 @@ contains
         class(array_bounds_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
 
-        ! Visitor pattern stub - would need full implementation
-        ! For now, just validate the visitor is not null
+        ! Bounds nodes do not have a visit hook on ast_visitor_t; the
+        ! deferred accept on ast_node is satisfied by this no-op.
     end subroutine array_bounds_accept
 
     subroutine array_slice_accept(this, visitor)
         class(array_slice_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
 
-        ! Visitor pattern stub - would need full implementation
-        ! For now, just validate the visitor is not null
+        ! Bounds nodes do not have a visit hook on ast_visitor_t; the
+        ! deferred accept on ast_node is satisfied by this no-op.
     end subroutine array_slice_accept
 
     subroutine range_expression_accept(this, visitor)
         class(range_expression_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
 
-        ! Visitor pattern stub - would need full implementation
-        ! For now, just validate the visitor is not null
+        ! Bounds nodes do not have a visit hook on ast_visitor_t; the
+        ! deferred accept on ast_node is satisfied by this no-op.
     end subroutine range_expression_accept
 
     subroutine array_operation_accept(this, visitor)
         class(array_operation_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
 
-        ! Visitor pattern stub - would need full implementation
-        ! For now, just validate the visitor is not null
+        ! Bounds nodes do not have a visit hook on ast_visitor_t; the
+        ! deferred accept on ast_node is satisfied by this no-op.
     end subroutine array_operation_accept
 
 end module ast_nodes_bounds
