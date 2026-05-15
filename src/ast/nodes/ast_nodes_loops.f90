@@ -1,7 +1,6 @@
 module ast_nodes_loops
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -27,7 +26,6 @@ module ast_nodes_loops
         logical :: is_concurrent = .false.  ! Is this a DO CONCURRENT loop?
     contains
         procedure :: accept => do_loop_accept
-        procedure :: to_json => do_loop_to_json
         procedure :: assign => do_loop_assign
         generic :: assignment(=) => assign
     end type do_loop_node
@@ -39,7 +37,6 @@ module ast_nodes_loops
         integer, allocatable :: body_indices(:)  ! Indices to body statements
     contains
         procedure :: accept => do_while_accept
-        procedure :: to_json => do_while_to_json
         procedure :: assign => do_while_assign
         generic :: assignment(=) => assign
     end type do_while_node
@@ -66,7 +63,6 @@ module ast_nodes_loops
         integer, allocatable :: dependency_pairs(:, :)  ! Pairs of dependent statements
     contains
         procedure :: accept => forall_accept
-        procedure :: to_json => forall_to_json
         procedure :: assign => forall_assign
         generic :: assignment(=) => assign
     end type forall_node
@@ -87,13 +83,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine do_loop_accept
-
-    subroutine do_loop_to_json(this, json, parent)
-        class(do_loop_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine do_loop_to_json
 
     subroutine do_loop_assign(lhs, rhs)
         class(do_loop_node), intent(inout) :: lhs
@@ -130,13 +119,6 @@ contains
         ! Stub implementation
     end subroutine do_while_accept
 
-    subroutine do_while_to_json(this, json, parent)
-        class(do_while_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine do_while_to_json
-
     subroutine do_while_assign(lhs, rhs)
         class(do_while_node), intent(inout) :: lhs
         class(do_while_node), intent(in) :: rhs
@@ -167,38 +149,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine forall_accept
-
-    subroutine forall_to_json(this, json, parent)
-        class(forall_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'forall')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'num_indices', this%num_indices)
-        if (allocated(this%lower_bound_indices)) then
-            call json%add(obj, 'lower_bound_indices', this%lower_bound_indices)
-        end if
-        if (allocated(this%upper_bound_indices)) then
-            call json%add(obj, 'upper_bound_indices', this%upper_bound_indices)
-        end if
-        if (allocated(this%stride_indices)) then
-            call json%add(obj, 'stride_indices', this%stride_indices)
-        end if
-        call json%add(obj, 'has_mask', this%has_mask)
-        if (this%has_mask) then
-            call json%add(obj, 'mask_expr_index', this%mask_expr_index)
-        end if
-        if (allocated(this%body_indices)) then
-            call json%add(obj, 'body_indices', this%body_indices)
-        end if
-        call json%add(obj, 'has_dependencies', this%has_dependencies)
-        call json%add(obj, 'is_parallel_safe', this%is_parallel_safe)
-        call json%add(parent, obj)
-    end subroutine forall_to_json
 
     subroutine forall_assign(lhs, rhs)
         class(forall_node), intent(inout) :: lhs

@@ -1,7 +1,6 @@
 module ast_nodes_array
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -31,7 +30,6 @@ module ast_nodes_array
         logical :: can_vectorize = .false.  ! True if all assignments vectorizable
     contains
         procedure :: accept => where_accept
-        procedure :: to_json => where_to_json
         procedure :: assign => where_assign
         generic :: assignment(=) => assign
     end type where_node
@@ -42,7 +40,6 @@ module ast_nodes_array
         integer :: assignment_index = 0
     contains
         procedure :: accept => where_stmt_accept
-        procedure :: to_json => where_stmt_to_json
         procedure :: assign => where_stmt_assign
         generic :: assignment(=) => assign
     end type where_stmt_node
@@ -54,30 +51,6 @@ contains
         class(where_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine where_accept
-
-    subroutine where_to_json(this, json, parent)
-        class(where_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'where')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'mask_expr_index', this%mask_expr_index)
-        if (allocated(this%where_body_indices)) then
-            call json%add(obj, 'where_body_indices', this%where_body_indices)
-        end if
-        if (allocated(this%elsewhere_clauses)) then
-            call json%add(obj, 'num_elsewhere_clauses', size(this%elsewhere_clauses))
-        else
-            call json%add(obj, 'num_elsewhere_clauses', 0)
-        end if
-        call json%add(obj, 'mask_is_simple', this%mask_is_simple)
-        call json%add(obj, 'can_vectorize', this%can_vectorize)
-        call json%add(parent, obj)
-    end subroutine where_to_json
 
     subroutine where_assign(lhs, rhs)
         class(where_node), intent(inout) :: lhs
@@ -122,21 +95,6 @@ contains
         class(where_stmt_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine where_stmt_accept
-
-    subroutine where_stmt_to_json(this, json, parent)
-        class(where_stmt_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'where_stmt')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(obj, 'mask_expr_index', this%mask_expr_index)
-        call json%add(obj, 'assignment_index', this%assignment_index)
-        call json%add(parent, obj)
-    end subroutine where_stmt_to_json
 
     subroutine where_stmt_assign(lhs, rhs)
         class(where_stmt_node), intent(inout) :: lhs

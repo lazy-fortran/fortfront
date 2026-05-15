@@ -1,5 +1,4 @@
 module ast_base
-    use json_module
     use type_system_unified, only: mono_type_t
     use string_types, only: string_t
     use uid_generator, only: uid_t
@@ -39,7 +38,6 @@ module ast_base
         integer :: constant_type = 0  ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
-        procedure(to_json_interface), deferred :: to_json
     end type ast_node
 
     ! Wrapper type for polymorphic arrays - BUT NOW BACKED BY STACK
@@ -55,25 +53,17 @@ module ast_base
     type, abstract :: ast_visitor_base_t
     end type ast_visitor_base_t
 
-    ! Abstract interfaces for visitor pattern and JSON serialization
+    ! Abstract interface for visitor pattern
     abstract interface
         subroutine visit_interface(this, visitor)
             import :: ast_node, ast_visitor_base_t
             class(ast_node), intent(in) :: this
             class(ast_visitor_base_t), intent(inout) :: visitor
         end subroutine visit_interface
-
-        subroutine to_json_interface(this, json, parent)
-            use json_module
-            import :: ast_node
-            class(ast_node), intent(in) :: this
-            type(json_core), intent(inout) :: json
-            type(json_value), pointer, intent(in) :: parent
-        end subroutine to_json_interface
     end interface
 
-    ! Make interfaces and visitor base public
-    public :: visit_interface, to_json_interface, ast_visitor_base_t
+    ! Make interface and visitor base public
+    public :: visit_interface, ast_visitor_base_t
 
 contains
 

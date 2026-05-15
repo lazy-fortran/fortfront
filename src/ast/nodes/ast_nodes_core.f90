@@ -1,6 +1,5 @@
 module ast_nodes_core
-    use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_visitor_base_t
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: subroutine_call_node
@@ -23,7 +22,6 @@ module ast_nodes_core
         integer, allocatable :: body_indices(:)  ! Indices to body nodes in stack
     contains
         procedure :: accept => program_accept
-        procedure :: to_json => program_to_json
         procedure :: assign => program_assign
         generic :: assignment(=) => assign
     end type program_node
@@ -40,7 +38,6 @@ module ast_nodes_core
         logical :: is_keyword_argument = .false.  ! keyword argument in a call
     contains
         procedure :: accept => assignment_accept
-        procedure :: to_json => assignment_to_json
         procedure :: assign => assignment_assign
         generic :: assignment(=) => assign
     end type assignment_node
@@ -51,7 +48,6 @@ module ast_nodes_core
         integer :: target_index  ! Index to target node in stack
     contains
         procedure :: accept => pointer_assignment_accept
-        procedure :: to_json => pointer_assignment_to_json
         procedure :: assign => pointer_assignment_assign
         generic :: assignment(=) => assign
     end type pointer_assignment_node
@@ -61,7 +57,6 @@ module ast_nodes_core
         character(len=:), allocatable :: name
     contains
         procedure :: accept => identifier_accept
-        procedure :: to_json => identifier_to_json
         procedure :: assign => identifier_assign
         generic :: assignment(=) => assign
     end type identifier_node
@@ -74,7 +69,6 @@ module ast_nodes_core
         integer :: literal_kind = 0  ! INTEGER_LITERAL, REAL_LITERAL, etc.
     contains
         procedure :: accept => literal_accept
-        procedure :: to_json => literal_to_json
         procedure :: assign => literal_assign
         generic :: assignment(=) => assign
     end type literal_node
@@ -86,7 +80,6 @@ module ast_nodes_core
         character(len=:), allocatable :: operator
     contains
         procedure :: accept => binary_op_accept
-        procedure :: to_json => binary_op_to_json
         procedure :: assign => binary_op_assign
         generic :: assignment(=) => assign
     end type binary_op_node
@@ -104,7 +97,6 @@ module ast_nodes_core
         ! false if function call
     contains
         procedure :: accept => call_or_subscript_accept
-        procedure :: to_json => call_or_subscript_to_json
         procedure :: assign => call_or_subscript_assign
         generic :: assignment(=) => assign
     end type call_or_subscript_node
@@ -117,7 +109,6 @@ module ast_nodes_core
         character(len=:), allocatable :: syntax_style  ! modern [...] or legacy (/ /)
     contains
         procedure :: accept => array_literal_accept
-        procedure :: to_json => array_literal_to_json
         procedure :: assign => array_literal_assign
         generic :: assignment(=) => assign
     end type array_literal_node
@@ -129,7 +120,6 @@ module ast_nodes_core
         ! For chained access (a%b%c), base_expr can be another component_access_node
     contains
         procedure :: accept => component_access_accept
-        procedure :: to_json => component_access_to_json
         procedure :: assign => component_access_assign
         generic :: assignment(=) => assign
     end type component_access_node
@@ -147,7 +137,6 @@ module ast_nodes_core
         logical :: is_character_substring = .false.  ! true if substring
     contains
         procedure :: accept => range_subscript_accept
-        procedure :: to_json => range_subscript_to_json
         procedure :: assign => range_subscript_assign
         generic :: assignment(=) => assign
     end type range_subscript_node
@@ -160,38 +149,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine program_accept
-
-    subroutine program_to_json(this, json, parent)
-        class(program_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: body_array, body_item
-        integer :: i
-
-        ! Add type field
-        call json%add(parent, 'type', 'program')
-
-        ! Add stack_index if available (we don't have it here, so add a placeholder)
-        call json%add(parent, 'stack_index', 1)
-
-        ! Add program name
-        if (allocated(this%name)) then
-            call json%add(parent, 'name', this%name)
-        else
-            call json%add(parent, 'name', '')
-        end if
-
-        ! Add body array
-        call json%create_array(body_array, 'body')
-        if (allocated(this%body_indices)) then
-            do i = 1, size(this%body_indices)
-                call json%create_object(body_item, '')
-                call json%add(body_item, 'index', this%body_indices(i))
-                call json%add(body_array, body_item)
-            end do
-        end if
-        call json%add(parent, body_array)
-    end subroutine program_to_json
 
     subroutine program_assign(lhs, rhs)
         class(program_node), intent(inout) :: lhs
@@ -221,13 +178,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine assignment_accept
-
-    subroutine assignment_to_json(this, json, parent)
-        class(assignment_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine assignment_to_json
 
     subroutine assignment_assign(lhs, rhs)
         class(assignment_node), intent(inout) :: lhs
@@ -263,13 +213,6 @@ contains
         ! Stub implementation
     end subroutine pointer_assignment_accept
 
-    subroutine pointer_assignment_to_json(this, json, parent)
-        class(pointer_assignment_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine pointer_assignment_to_json
-
     subroutine pointer_assignment_assign(lhs, rhs)
         class(pointer_assignment_node), intent(inout) :: lhs
         class(pointer_assignment_node), intent(in) :: rhs
@@ -294,13 +237,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine identifier_accept
-
-    subroutine identifier_to_json(this, json, parent)
-        class(identifier_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine identifier_to_json
 
     subroutine identifier_assign(lhs, rhs)
         class(identifier_node), intent(inout) :: lhs
@@ -329,13 +265,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine literal_accept
-
-    subroutine literal_to_json(this, json, parent)
-        class(literal_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine literal_to_json
 
     subroutine literal_assign(lhs, rhs)
         class(literal_node), intent(inout) :: lhs
@@ -369,13 +298,6 @@ contains
         ! Stub implementation
     end subroutine binary_op_accept
 
-    subroutine binary_op_to_json(this, json, parent)
-        class(binary_op_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine binary_op_to_json
-
     subroutine binary_op_assign(lhs, rhs)
         class(binary_op_node), intent(inout) :: lhs
         class(binary_op_node), intent(in) :: rhs
@@ -401,45 +323,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine call_or_subscript_accept
-
-    subroutine call_or_subscript_to_json(this, json, parent)
-        class(call_or_subscript_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: args_array, arg_item
-        integer :: i
-
-        ! Add type field
-        call json%add(parent, 'type', 'call_or_subscript')
-
-        ! Add function/subscript name
-        if (allocated(this%name)) then
-            call json%add(parent, 'name', this%name)
-        else
-            call json%add(parent, 'name', '')
-        end if
-
-        ! Add intrinsic information
-        call json%add(parent, 'is_intrinsic', this%is_intrinsic)
-        if (allocated(this%intrinsic_signature) .and. &
-            len_trim(this%intrinsic_signature) > 0) then
-            call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
-        end if
-
-        ! Add disambiguation information
-        call json%add(parent, 'is_array_access', this%is_array_access)
-
-        ! Add arguments array
-        call json%create_array(args_array, 'arguments')
-        if (allocated(this%arg_indices)) then
-            do i = 1, size(this%arg_indices)
-                call json%create_object(arg_item, '')
-                call json%add(arg_item, 'index', this%arg_indices(i))
-                call json%add(args_array, arg_item)
-            end do
-        end if
-        call json%add(parent, args_array)
-    end subroutine call_or_subscript_to_json
 
     subroutine call_or_subscript_assign(lhs, rhs)
         class(call_or_subscript_node), intent(inout) :: lhs
@@ -470,13 +353,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine array_literal_accept
-
-    subroutine array_literal_to_json(this, json, parent)
-        class(array_literal_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
-    end subroutine array_literal_to_json
 
     subroutine array_literal_assign(lhs, rhs)
         class(array_literal_node), intent(inout) :: lhs
@@ -541,26 +417,6 @@ contains
         ! Stub implementation
     end subroutine component_access_accept
 
-    subroutine component_access_to_json(this, json, parent)
-        class(component_access_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: base_expr
-
-        ! Add type field
-        call json%add(parent, 'type', 'component_access')
-
-        ! Add base expression index
-        call json%add(parent, 'base_expr_index', this%base_expr_index)
-
-        ! Add component name
-        if (allocated(this%component_name)) then
-            call json%add(parent, 'component_name', this%component_name)
-        else
-            call json%add(parent, 'component_name', '')
-        end if
-    end subroutine component_access_to_json
-
     subroutine component_access_assign(lhs, rhs)
         class(component_access_node), intent(inout) :: lhs
         class(component_access_node), intent(in) :: rhs
@@ -604,27 +460,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine range_subscript_accept
-
-    subroutine range_subscript_to_json(this, json, parent)
-        class(range_subscript_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-
-        ! Add type field
-        call json%add(parent, 'type', 'range_subscript')
-
-        ! Add base expression index
-        call json%add(parent, 'base_expr_index', this%base_expr_index)
-
-        ! Add start index
-        call json%add(parent, 'start_index', this%start_index)
-
-        ! Add end index
-        call json%add(parent, 'end_index', this%end_index)
-
-        ! Add resolution flag
-        call json%add(parent, 'is_character_substring', this%is_character_substring)
-    end subroutine range_subscript_to_json
 
     subroutine range_subscript_assign(lhs, rhs)
         class(range_subscript_node), intent(inout) :: lhs

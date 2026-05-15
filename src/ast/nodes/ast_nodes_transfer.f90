@@ -1,7 +1,6 @@
 module ast_nodes_transfer
-    use json_module
     use uid_generator, only: generate_uid
-    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+    use ast_base, only: ast_node, visit_interface, &
                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
@@ -19,7 +18,6 @@ module ast_nodes_transfer
         character(len=:), allocatable :: label  ! Optional label to cycle to
     contains
         procedure :: accept => cycle_accept
-        procedure :: to_json => cycle_to_json
         procedure :: assign => cycle_assign
         generic :: assignment(=) => assign
     end type cycle_node
@@ -29,7 +27,6 @@ module ast_nodes_transfer
         character(len=:), allocatable :: label  ! Optional label to exit from
     contains
         procedure :: accept => exit_accept
-        procedure :: to_json => exit_to_json
         procedure :: assign => exit_assign
         generic :: assignment(=) => assign
     end type exit_node
@@ -41,7 +38,6 @@ module ast_nodes_transfer
         character(len=:), allocatable :: stop_message  ! Optional stop message string
     contains
         procedure :: accept => stop_accept
-        procedure :: to_json => stop_to_json
         procedure :: assign => stop_assign
         generic :: assignment(=) => assign
     end type stop_node
@@ -51,7 +47,6 @@ module ast_nodes_transfer
         ! RETURN statement has no additional data
     contains
         procedure :: accept => return_accept
-        procedure :: to_json => return_to_json
         procedure :: assign => return_assign
         generic :: assignment(=) => assign
     end type return_node
@@ -63,7 +58,6 @@ module ast_nodes_transfer
         integer, allocatable :: param_indices(:)
     contains
         procedure :: accept => entry_accept
-        procedure :: to_json => entry_to_json
         procedure :: assign => entry_assign
         generic :: assignment(=) => assign
     end type entry_node
@@ -72,7 +66,6 @@ module ast_nodes_transfer
     type, extends(ast_node) :: continue_node
     contains
         procedure :: accept => continue_accept
-        procedure :: to_json => continue_to_json
         procedure :: assign => continue_assign
         generic :: assignment(=) => assign
     end type continue_node
@@ -84,7 +77,6 @@ module ast_nodes_transfer
         integer :: selector_index = 0  ! Expression index for computed goto selector
     contains
         procedure :: accept => goto_accept
-        procedure :: to_json => goto_to_json
         procedure :: assign => goto_assign
         generic :: assignment(=) => assign
     end type goto_node
@@ -95,7 +87,6 @@ module ast_nodes_transfer
         character(len=:), allocatable :: error_message  ! Optional error message string
     contains
         procedure :: accept => error_stop_accept
-        procedure :: to_json => error_stop_to_json
         procedure :: assign => error_stop_assign
         generic :: assignment(=) => assign
     end type error_stop_node
@@ -106,7 +97,6 @@ module ast_nodes_transfer
         character(len=:), allocatable :: pause_message  ! Optional pause message string
     contains
         procedure :: accept => pause_accept
-        procedure :: to_json => pause_to_json
         procedure :: assign => pause_assign
         generic :: assignment(=) => assign
     end type pause_node
@@ -116,7 +106,6 @@ module ast_nodes_transfer
         integer, allocatable :: pointer_indices(:)  ! Indices of pointers to nullify
     contains
         procedure :: accept => nullify_accept
-        procedure :: to_json => nullify_to_json
         procedure :: assign => nullify_assign
         generic :: assignment(=) => assign
     end type nullify_node
@@ -128,20 +117,6 @@ contains
         class(cycle_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine cycle_accept
-
-    subroutine cycle_to_json(this, json, parent)
-        class(cycle_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'cycle')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%label)) call json%add(obj, 'label', this%label)
-        call json%add(parent, obj)
-    end subroutine cycle_to_json
 
     subroutine cycle_assign(lhs, rhs)
         class(cycle_node), intent(inout) :: lhs
@@ -176,20 +151,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine exit_accept
 
-    subroutine exit_to_json(this, json, parent)
-        class(exit_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'exit')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%label)) call json%add(obj, 'label', this%label)
-        call json%add(parent, obj)
-    end subroutine exit_to_json
-
     subroutine exit_assign(lhs, rhs)
         class(exit_node), intent(inout) :: lhs
         class(exit_node), intent(in) :: rhs
@@ -221,23 +182,6 @@ contains
         class(stop_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine stop_accept
-
-    subroutine stop_to_json(this, json, parent)
-        class(stop_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'stop')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', &
-                                                    this%stop_code_index)
-        if (allocated(this%stop_message)) call json%add(obj, 'stop_message', &
-                                                        this%stop_message)
-        call json%add(parent, obj)
-    end subroutine stop_to_json
 
     subroutine stop_assign(lhs, rhs)
         class(stop_node), intent(inout) :: lhs
@@ -274,19 +218,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine return_accept
 
-    subroutine return_to_json(this, json, parent)
-        class(return_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'return')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine return_to_json
-
     subroutine return_assign(lhs, rhs)
         class(return_node), intent(inout) :: lhs
         class(return_node), intent(in) :: rhs
@@ -315,25 +246,6 @@ contains
         class(entry_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine entry_accept
-
-    subroutine entry_to_json(this, json, parent)
-        class(entry_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'entry')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%name)) call json%add(obj, 'name', this%name)
-        if (allocated(this%params_text)) call json%add(obj, 'params_text', &
-                                                       this%params_text)
-        if (allocated(this%param_indices)) then
-            call json%add(obj, 'param_indices', this%param_indices)
-        end if
-        call json%add(parent, obj)
-    end subroutine entry_to_json
 
     subroutine entry_assign(lhs, rhs)
         class(entry_node), intent(inout) :: lhs
@@ -370,19 +282,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine continue_accept
 
-    subroutine continue_to_json(this, json, parent)
-        class(continue_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'continue')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        call json%add(parent, obj)
-    end subroutine continue_to_json
-
     subroutine continue_assign(lhs, rhs)
         class(continue_node), intent(inout) :: lhs
         class(continue_node), intent(in) :: rhs
@@ -411,24 +310,6 @@ contains
         class(goto_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine goto_accept
-
-    subroutine goto_to_json(this, json, parent)
-        class(goto_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'goto')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%label)) call json%add(obj, 'label', this%label)
-        if (allocated(this%label_list)) call json%add(obj, 'label_list', &
-                                                     this%label_list)
-        if (this%selector_index > 0) call json%add(obj, 'selector_index', &
-                                                  this%selector_index)
-        call json%add(parent, obj)
-    end subroutine goto_to_json
 
     subroutine goto_assign(lhs, rhs)
         class(goto_node), intent(inout) :: lhs
@@ -463,23 +344,6 @@ contains
         class(error_stop_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine error_stop_accept
-
-    subroutine error_stop_to_json(this, json, parent)
-        class(error_stop_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'error_stop')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (this%error_code_index > 0) call json%add(obj, 'error_code_index', &
-                                                     this%error_code_index)
-        if (allocated(this%error_message)) call json%add(obj, 'error_message', &
-                                                         this%error_message)
-        call json%add(parent, obj)
-    end subroutine error_stop_to_json
 
     subroutine error_stop_assign(lhs, rhs)
         class(error_stop_node), intent(inout) :: lhs
@@ -517,23 +381,6 @@ contains
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine pause_accept
 
-    subroutine pause_to_json(this, json, parent)
-        class(pause_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'pause')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (this%pause_code_index > 0) call json%add(obj, 'pause_code_index', &
-                                                     this%pause_code_index)
-        if (allocated(this%pause_message)) call json%add(obj, 'pause_message', &
-                                                         this%pause_message)
-        call json%add(parent, obj)
-    end subroutine pause_to_json
-
     subroutine pause_assign(lhs, rhs)
         class(pause_node), intent(inout) :: lhs
         class(pause_node), intent(in) :: rhs
@@ -569,22 +416,6 @@ contains
         class(nullify_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine nullify_accept
-
-    subroutine nullify_to_json(this, json, parent)
-        class(nullify_node), intent(in) :: this
-        type(json_core), intent(inout) :: json
-        type(json_value), pointer, intent(in) :: parent
-        type(json_value), pointer :: obj
-
-        call json%create_object(obj, '')
-        call json%add(obj, 'type', 'nullify')
-        call json%add(obj, 'line', this%line)
-        call json%add(obj, 'column', this%column)
-        if (allocated(this%pointer_indices)) then
-            call json%add(obj, 'pointer_count', size(this%pointer_indices))
-        end if
-        call json%add(parent, obj)
-    end subroutine nullify_to_json
 
     subroutine nullify_assign(lhs, rhs)
         class(nullify_node), intent(inout) :: lhs
