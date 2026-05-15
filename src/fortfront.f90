@@ -145,6 +145,7 @@ module fortfront
     use call_graph_module, only: call_graph_t, create_call_graph, &
                                  procedure_info_t, call_edge_t, build_call_graph, &
                                  get_all_procedures, get_callers, get_callees, &
+                                 get_call_count, &
                                  cg_is_procedure_used => is_procedure_used
 
     ! Variable usage tracking for issue #16
